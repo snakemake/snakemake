@@ -3,6 +3,9 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import asyncio
+from collections import defaultdict
+import math
 import os, signal, sys
 import threading
 
@@ -13,6 +16,8 @@ from contextlib import ContextDecorator
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
+from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.logging import logger
@@ -63,7 +68,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.handle_job_success = True
         self.update_resources = True
         self.print_progress = not self.quiet and not self.dryrun
-        self.update_dynamic = not self.dryrun
+        self.update_checkpoint_dependencies = not self.dryrun
 
         nodes_unset = workflow.global_resources["_nodes"] is None
 
@@ -114,237 +119,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 )
             )
 
-        # elif slurm:
-        #     if ON_WINDOWS:
-        #         raise WorkflowError("SLURM execution is not supported on Windows.")
-        #     self._local_executor = CPUExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         local_cores,
-        #     )
-        #     # we need to adjust the maximum status checks per second
-        #     # on a SLURM cluster, to not overstrain the scheduler;
-        #     # timings for tested SLURM clusters, extracted from --verbose
-        #     # output with:
-        #     # ```
-        #     #   grep "sacct output" .snakemake/log/2023-02-13T210004.601290.snakemake.log | \
-        #     #   awk '{ counter += 1; sum += $6; sum_of_squares += ($6)^2 } \
-        #     #     END { print "average: ",sum/counter," sd: ",sqrt((sum_of_squares - sum^2/counter) / counter); }
-        #     # ````
-        #     #   * cluster 1:
-        #     #     * sacct:    average:  0.073896   sd:  0.0640178
-        #     #     * scontrol: average:  0.0193017  sd:  0.0358858
-        #     # Thus, 2 status checks per second should leave enough
-        #     # capacity for everybody.
-        #     # TODO: check timings on other slurm clusters, to:
-        #     #   * confirm that this cap is reasonable
-        #     #   * check if scontrol is the quicker option across the board
-        #     if max_status_checks_per_second > 2:
-        #         max_status_checks_per_second = 2
-
-        #     self._executor = SlurmExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         max_status_checks_per_second=max_status_checks_per_second,
-        #     )
-
-        # elif slurm_jobstep:
-        #     self._executor = SlurmJobstepExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #     )
-        #     self._local_executor = self._executor
-
-        # elif cluster or cluster_sync or (drmaa is not None):
-        #     if not workflow.remote_execution_settings.immediate_submit:
-        #         # No local jobs when using immediate submit!
-        #         # Otherwise, they will fail due to missing input
-        #         self._local_executor = CPUExecutor(
-        #             workflow,
-        #             dag,
-        #             self.stats,
-        #             logger,
-        #             local_cores,
-        #         )
-
-        #     if cluster or cluster_sync:
-        #         if cluster_sync:
-        #             constructor = SynchronousClusterExecutor
-        #         else:
-        #             constructor = partial(
-        #                 GenericClusterExecutor,
-        #                 statuscmd=cluster_status,
-        #                 cancelcmd=cluster_cancel,
-        #                 cancelnargs=cluster_cancel_nargs,
-        #                 sidecarcmd=cluster_sidecar,
-        #                 max_status_checks_per_second=max_status_checks_per_second,
-        #             )
-
-        #         self._executor = constructor(
-        #             workflow,
-        #             dag,
-        #             self.stats,
-        #             logger,
-        #             submitcmd=(cluster or cluster_sync),
-        #             jobname=jobname,
-        #         )
-        #         if workflow.remote_execution_settings.immediate_submit:
-        #             self._submit_callback = self._proceed
-        #             self.update_dynamic = False
-        #             self.print_progress = False
-        #             self.update_resources = False
-        #             self.handle_job_success = False
-        #     else:
-        #         self._executor = DRMAAExecutor(
-        #             workflow,
-        #             dag,
-        #             self.stats,
-        #             logger,
-        #             drmaa_args=drmaa,
-        #             drmaa_log_dir=drmaa_log_dir,
-        #             jobname=jobname,
-        #             max_status_checks_per_second=max_status_checks_per_second,
-        #         )
-        # elif kubernetes:
-        #     self._local_executor = CPUExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         local_cores,
-        #     )
-
-        #     self._executor = KubernetesExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         kubernetes,
-        #         container_image=container_image,
-        #         k8s_cpu_scalar=k8s_cpu_scalar,
-        #         k8s_service_account_name=k8s_service_account_name,
-        #     )
-        # elif tibanna:
-        #     self._local_executor = CPUExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         local_cores,
-        #         use_threads=use_threads,
-        #     )
-
-        #     self._executor = TibannaExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         cores,
-        #         tibanna_sfn,
-        #         precommand=precommand,
-        #         tibanna_config=tibanna_config,
-        #         container_image=container_image,
-        #     )
-
-        # elif flux:
-        #     self._local_executor = CPUExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         local_cores,
-        #     )
-
-        #     self._executor = FluxExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #     )
-
-        # elif az_batch:
-        #     try:
-        #         from snakemake.executors.azure_batch import AzBatchExecutor
-        #     except ImportError as e:
-        #         raise WorkflowError(
-        #             "Unable to load Azure Batch executor. You have to install "
-        #             "the msrest, azure-core, azure-batch, azure-mgmt-batch, and azure-identity packages.",
-        #             e,
-        #         )
-        #     self._local_executor = CPUExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         local_cores,
-        #     )
-        #     self._executor = AzBatchExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         container_image=container_image,
-        #         az_batch_account_url=az_batch_account_url,
-        #         az_batch_enable_autoscale=az_batch_enable_autoscale,
-        #     )
-
-        # elif google_lifesciences:
-        #     self._local_executor = CPUExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         local_cores,
-        #     )
-
-        #     self._executor = GoogleLifeSciencesExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         container_image=container_image,
-        #         regions=google_lifesciences_regions,
-        #         location=google_lifesciences_location,
-        #         cache=google_lifesciences_cache,
-        #         service_account_email=google_lifesciences_service_account_email,
-        #         network=google_lifesciences_network,
-        #         subnetwork=google_lifesciences_subnetwork,
-        #         preemption_default=preemption_default,
-        #         preemptible_rules=preemptible_rules,
-        #     )
-        # elif tes:
-        #     self._local_executor = CPUExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         local_cores,
-        #     )
-
-        #     self._executor = TaskExecutionServiceExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         tes_url=tes,
-        #         container_image=container_image,
-        #     )
-
-        # else:
-        #     self._executor = CPUExecutor(
-        #         workflow,
-        #         dag,
-        #         self.stats,
-        #         logger,
-        #         cores,
-        #         use_threads=use_threads,
-        #     )
         from throttler import Throttler
 
         if not self.dryrun:
@@ -392,14 +166,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
     @property
     def open_jobs(self):
         """Return open jobs."""
-        jobs = self.workflow.dag.ready_jobs
-
-        if not self.dryrun:
-            jobs = [
-                job
-                for job in jobs
-                if not job.dynamic_input and not self.workflow.dag.dynamic(job)
-            ]
+        jobs = list(self.workflow.dag.ready_jobs)
         return jobs
 
     @property
@@ -528,32 +295,60 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def _finish_jobs(self):
         # must be called from within lock
         # clear the global tofinish such that parallel calls do not interfere
-        for job in self._tofinish:
-            if self.handle_job_success:
-                try:
+        async def postprocess():
+            for job in self._tofinish:
+                if not self.workflow.dryrun:
+                    try:
+                        if self.workflow.exec_mode == ExecMode.DEFAULT:
+                            await job.postprocess(
+                                store_in_storage=True,
+                                handle_log=True,
+                                handle_touch=True,
+                                ignore_missing_output=self.touch,
+                            )
+                        elif self.workflow.exec_mode == ExecMode.SUBPROCESS:
+                            await job.postprocess(
+                                store_in_storage=False,
+                                handle_log=True,
+                                handle_touch=True,
+                            )
+                        else:
+                            await job.postprocess(
+                                store_in_storage=False,
+                                handle_log=True,
+                                handle_touch=True,
+                            )
+                    except (RuleException, WorkflowError) as e:
+                        # if an error occurs while processing job output,
+                        # we do the same as in case of errors during execution
+                        print_exception(e, self.workflow.linemaps)
+                        await job.postprocess(error=True)
+                        self._handle_error(job, postprocess_job=False)
+                        continue
+
+                if self.handle_job_success:
                     self.get_executor(job).handle_job_success(job)
-                except (RuleException, WorkflowError) as e:
-                    # if an error occurs while processing job output,
-                    # we do the same as in case of errors during execution
-                    print_exception(e, self.workflow.linemaps)
-                    self._handle_error(job)
-                    continue
 
-            if self.update_resources:
-                # normal jobs have len=1, group jobs have len>1
-                self.finished_jobs += len(job)
-                self.running.remove(job)
-                self._free_resources(job)
+                if self.update_resources:
+                    # normal jobs have len=1, group jobs have len>1
+                    self.finished_jobs += len(job)
+                    self.running.remove(job)
+                    self._free_resources(job)
 
-            if self.print_progress:
-                if job.is_group():
-                    for j in job:
-                        logger.job_finished(jobid=j.jobid)
-                else:
-                    logger.job_finished(jobid=job.jobid)
-                self.progress()
+                if self.print_progress:
+                    if job.is_group():
+                        for j in job:
+                            logger.job_finished(jobid=j.jobid)
+                    else:
+                        logger.job_finished(jobid=job.jobid)
+                    self.progress()
 
-            self.workflow.dag.finish(job, update_dynamic=self.update_dynamic)
+                await self.workflow.dag.finish(
+                    job,
+                    update_checkpoint_dependencies=self.update_checkpoint_dependencies,
+                )
+
+        async_run(postprocess())
         self._tofinish.clear()
 
     def _error_jobs(self):
@@ -602,13 +397,20 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._toerror.append(job)
             self._open_jobs.release()
 
-    def _handle_error(self, job):
+    def _handle_error(self, job, postprocess_job: bool = True):
         """Clear jobs and stop the workflow.
 
         If Snakemake is configured to restart jobs then the job might have
         "restart_times" left and we just decrement and let the scheduler
         try to run the job again.
         """
+        # must be called from within lock
+        if postprocess_job and not self.workflow.dryrun:
+            async_run(
+                job.postprocess(
+                    error=True,
+                )
+            )
         self.get_executor(job).handle_job_error(job)
         self.running.remove(job)
         self._free_resources(job)
@@ -654,20 +456,18 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 for idx, job in enumerate(jobs)
             }
 
-            def size_gb(f):
-                if self.touch:
-                    # In case of touch mode, there is no need to prioritize based on size.
-                    # We cannot access it anyway, because the files might be temporary and
-                    # not present.
-                    return 0
-                else:
-                    return f.size / 1e9
-
             temp_files = {
                 temp_file
                 for job in jobs
                 for temp_file in self.workflow.dag.temp_input(job)
             }
+
+            async def get_temp_sizes_gb():
+                return {f: (await f.size()) / 1e9 for f in temp_files}
+
+            temp_sizes_gb = (
+                defaultdict(int) if self.touch else async_run(get_temp_sizes_gb())
+            )
 
             temp_job_improvement = {
                 temp_file: pulp.LpVariable(
@@ -688,7 +488,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
 
             total_temp_size = max(
-                sum([size_gb(temp_file) for temp_file in temp_files]), 1
+                sum([temp_sizes_gb[temp_file] for temp_file in temp_files]), 1
             )
             total_core_requirement = sum(
                 [max(job.scheduler_resources.get("_cores", 1), 1) for job in jobs]
@@ -715,13 +515,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 + total_temp_size
                 * lpSum(
                     [
-                        temp_file_deletable[temp_file] * size_gb(temp_file)
+                        temp_file_deletable[temp_file] * temp_sizes_gb[temp_file]
                         for temp_file in temp_files
                     ]
                 )
                 + lpSum(
                     [
-                        temp_job_improvement[temp_file] * size_gb(temp_file)
+                        temp_job_improvement[temp_file] * temp_sizes_gb[temp_file]
                         for temp_file in temp_files
                     ]
                 )
@@ -772,7 +572,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
             return self.job_selector_greedy(jobs)
 
         selected_jobs = set(
-            job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
+            job
+            for job, variable in scheduled_jobs.items()
+            if math.isclose(variable.value(), 1.0)
         )
 
         if not selected_jobs:
@@ -830,7 +632,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
             E = set(range(n))  # jobs still free to select
             u = [1] * n
             a = list(map(self.job_weight, jobs))  # resource usage of jobs
-            c = list(map(self.job_reward, jobs))  # job rewards
+
+            async def rewards():
+                return [await self.job_reward(job) for job in jobs]
+
+            c = async_run(rewards())  # job rewards
 
             def calc_reward():
                 return [c_j * y_j for c_j, y_j in zip(c, y)]
@@ -907,7 +713,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]
 
-    def job_reward(self, job):
+    async def job_reward(self, job):
         if (
             self.touch
             or self.dryrun
@@ -917,8 +723,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             input_size = 0
         else:
             try:
-                temp_size = self.workflow.dag.temp_size(job)
-                input_size = job.inputsize
+                temp_size = await self.workflow.dag.temp_size(job)
+                input_size = await job.inputsize()
             except FileNotFoundError:
                 # If the file is not yet present, this shall not affect the
                 # job selection.

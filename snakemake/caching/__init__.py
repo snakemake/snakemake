@@ -29,15 +29,15 @@ class AbstractOutputFileCache:
         self.provenance_hash_map = ProvenanceHashMap()
 
     @abstractmethod
-    def store(self, job: Job, cache_mode):
+    async def store(self, job: Job, cache_mode):
         pass
 
     @abstractmethod
-    def fetch(self, job: Job, cache_mode):
+    async def fetch(self, job: Job, cache_mode):
         pass
 
     @abstractmethod
-    def exists(self, job: Job):
+    async def exists(self, job: Job):
         pass
 
     def get_outputfiles(self, job: Job):

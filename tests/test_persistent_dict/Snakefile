@@ -1,9 +1,9 @@
 from pytools.persistent_dict import PersistentDict
 
 
-storage = PersistentDict("mystorage")
+persdict = PersistentDict("mystorage")
 
-storage.store("var1", 100)
+persdict.store("var1", 100)
 
 rule all:
 	input: expand("test.{i}.out", i=range(3))
@@ -13,9 +13,9 @@ rule:
 	input: "test.in"
 	output: "test.{i}.out"
 	run:
-		assert storage.fetch("var1") == 100
+		assert persdict.fetch("var1") == 100
 		with open(output[0], "w") as out:
-			v = storage.fetch("var2")
+			v = persdict.fetch("var2")
 			assert v == 1
 			print(v, file=out)
 
@@ -23,5 +23,5 @@ rule:
 rule:
 	output: temp("test.in")  # mark output as temp, since var1 has to be stored in each run
 	run:
-		storage.store("var2", 1)
+		persdict.store("var2", 1)
 		shell("touch {output}")

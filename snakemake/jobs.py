@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import asyncio
 import os
 import sys
 import base64
@@ -14,10 +15,11 @@ from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
+from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings import DeploymentMethod
 
-from snakemake_interface_executor_plugins.utils import lazy_property
+from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
     GroupJobExecutorInterface,
@@ -25,6 +27,7 @@ from snakemake_interface_executor_plugins.jobs import (
 )
 
 from snakemake.io import (
+    _IOFile,
     IOFile,
     Wildcards,
     Resources,
@@ -39,7 +42,6 @@ from snakemake.exceptions import RuleException, ProtectedOutputException, Workfl
 
 from snakemake.logging import logger
 from snakemake.common import (
-    DYNAMIC_FILL,
     is_local_file,
     get_uuid,
     IO_PROP_LIMIT,
@@ -47,11 +49,9 @@ from snakemake.common import (
 from snakemake.common.tbdstring import TBDString
 
 
-def format_files(job, io, dynamicio):
+def format_files(io, is_input: bool):
     for f in io:
-        if f in dynamicio:
-            yield f"{f.format_dynamic()} (dynamic)"
-        elif is_flagged(f, "pipe"):
+        if is_flagged(f, "pipe"):
             yield f"{f} (pipe)"
         elif is_flagged(f, "service"):
             yield f"{f} (service)"
@@ -60,6 +60,9 @@ def format_files(job, io, dynamicio):
         elif is_flagged(f, "sourcecache_entry"):
             orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
             yield f"{orig_path_or_uri} (cached)"
+        elif f.is_storage:
+            phrase = "retrieve from" if is_input else "send to"
+            yield f"{f.storage_object.query} ({phrase} storage)"
         else:
             yield f
 
@@ -82,7 +85,7 @@ class AbstractJob(JobExecutorInterface):
         ...
 
     def has_products(self, include_logfiles=True):
-        for o in self.products(include_logfiles=include_logfiles):
+        for _ in self.products(include_logfiles=include_logfiles):
             return True
         return False
 
@@ -118,16 +121,7 @@ class JobFactory:
         update=False,
         groupid=None,
     ):
-        if rule.is_branched:
-            # for distinguishing branched rules, we need input and output in addition
-            key = (
-                rule.name,
-                *rule.output,
-                *rule.input,
-                *sorted(wildcards_dict.items()),
-            )
-        else:
-            key = (rule.name, *sorted(wildcards_dict.items()))
+        key = (rule.name, *sorted(wildcards_dict.items()))
         if update:
             # cache entry has to be replaced because job shall be constructed from scratch
             obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile, groupid)
@@ -162,8 +156,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         "_conda_env",
         "_shadow_dir",
         "_inputsize",
-        "dynamic_output",
-        "dynamic_input",
         "temp_output",
         "protected_output",
         "touch_output",
@@ -230,13 +222,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         self._attempt = self.dag.workflow.attempt
 
         # TODO get rid of these
-        self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
         for f in self.output:
             f_ = output_mapping[f]
-            if f_ in self.rule.dynamic_output:
-                self.dynamic_output.add(f)
             if f_ in self.rule.temp_output:
                 self.temp_output.add(f)
             if f_ in self.rule.protected_output:
@@ -245,8 +234,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 self.touch_output.add(f)
         for f in self.input:
             f_ = input_mapping[f]
-            if f_ in self.rule.dynamic_input:
-                self.dynamic_input.add(f)
 
     @property
     def is_updated(self):
@@ -329,7 +316,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         self.rule.expand_benchmark(self.wildcards_dict)
         self.rule.expand_log(self.wildcards_dict)
 
-    def outputs_older_than_script_or_notebook(self):
+    async def outputs_older_than_script_or_notebook(self):
         """return output that's older than script, i.e. script has changed"""
         path = self.rule.script or self.rule.notebook
         if not path:
@@ -339,10 +326,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             path = self.rule.basedir.join(path).get_path_or_uri()
         if is_local_file(path) and os.path.exists(path):
             script_mtime = os.lstat(path).st_mtime
-            for f in self.expanded_output:
-                if f.exists:
-                    if not f.is_newer(script_mtime):
-                        yield f
+            for f in self.output:
+                if await f.exists() and not await f.is_newer(script_mtime):
+                    yield f
         # TODO also handle remote file case here.
 
     def get_target_spec(self):
@@ -497,14 +483,13 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             (self.rule.name + "".join(self.output)).encode("utf-8")
         ).decode("utf-8")
 
-    @property
-    def inputsize(self):
+    async def inputsize(self):
         """
         Return the size of the input files.
         Input files need to be present.
         """
         if self._inputsize is None:
-            self._inputsize = sum(f.size for f in self.input)
+            self._inputsize = sum([await f.size() for f in self.input])
         return self._inputsize
 
     @property
@@ -586,21 +571,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     def is_service(self):
         return any(is_flagged(o, "service") for o in self.output)
 
-    @property
-    def expanded_output(self):
-        """Iterate over output files while dynamic output is expanded."""
-        for f, f_ in zip(self.output, self.rule.output):
-            if f in self.dynamic_output:
-                expansion = self.expand_dynamic(f_)
-                if not expansion:
-                    yield f_
-                for f, _ in expansion:
-                    file_to_yield = IOFile(f, self.rule)
-                    file_to_yield.clone_flags(f_)
-                    yield file_to_yield
-            else:
-                yield f
-
     def shadowed_path(self, f):
         """Get the shadowed path of IOFile f."""
         if not self.shadow_dir:
@@ -610,64 +580,26 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         return f_
 
     @property
-    def dynamic_wildcards(self):
-        """Return all wildcard values determined from dynamic output."""
-        combinations = set()
-        for f, f_ in zip(self.output, self.rule.output):
-            if f in self.dynamic_output:
-                for f, w in self.expand_dynamic(f_):
-                    combinations.add(tuple(w.items()))
-        wildcards = defaultdict(list)
-        for combination in combinations:
-            for name, value in combination:
-                wildcards[name].append(value)
-        return wildcards
-
-    @property
-    def missing_input(self):
-        """Return missing input files."""
-        return set(f for f in self.input if not f.exists)
-
-    @property
-    def existing_remote_input(self):
-        files = set()
-
-        for f in self.input:
-            if f.is_remote:
-                if f.exists_remote:
-                    files.add(f)
-        return files
-
-    @property
-    def existing_remote_output(self):
-        files = set()
-
-        for f in self.remote_output:
-            if f.exists_remote:
-                files.add(f)
-        return files
-
-    @property
-    def missing_remote_input(self):
-        return self.remote_input - self.existing_remote_input
-
-    @property
-    def missing_remote_output(self):
-        return self.remote_output - self.existing_remote_output
-
-    @property
-    def output_mintime(self):
+    async def output_mintime(self):
         """Return oldest output file."""
-        try:
-            mintime = min(
-                f.mtime.local_or_remote() for f in self.expanded_output if f.exists
-            )
-        except ValueError:
-            # no existing output
-            mintime = None
 
-        if self.benchmark and self.benchmark.exists:
-            mintime_benchmark = self.benchmark.mtime.local_or_remote()
+        async def get_mtime(f):
+            if await f.exists():
+                mtime = await f.mtime()
+                return mtime.local_or_storage()
+            else:
+                return None
+
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(get_mtime(f)) for f in self.output]
+        mintimes = list(
+            filter(lambda res: res is not None, (task.result() for task in tasks))
+        )
+
+        mintime = min(mintimes) if mintimes else None
+
+        if self.benchmark and await self.benchmark.exists():
+            mintime_benchmark = (await self.benchmark.mtime()).local_or_storage()
             if mintime is not None:
                 return min(mintime, mintime_benchmark)
             else:
@@ -675,29 +607,25 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
         return mintime
 
-    def missing_output(self, requested):
-        def handle_file(f):
+    async def missing_output(self, requested):
+        async def handle_file(f):
             # pipe or service output is always declared as missing
             # (even if it might be present on disk for some reason)
-            if is_flagged(f, "pipe") or is_flagged(f, "service") or not f.exists:
+            if (
+                is_flagged(f, "pipe")
+                or is_flagged(f, "service")
+                or not await f.exists()
+            ):
                 yield f
 
-        if self.dynamic_output:
-            for f, f_ in zip(self.output, self.rule.output):
-                if f in requested:
-                    if f in self.dynamic_output:
-                        if not self.expand_dynamic(f_):
-                            yield f"{f_} (dynamic)"
-                    else:
-                        yield from handle_file(f)
-        else:
-            for f in requested:
-                yield from handle_file(f)
+        for f in requested:
+            async for f in handle_file(f):
+                yield f
 
     @property
     def local_input(self):
         for f in self.input:
-            if not f.is_remote:
+            if not f.is_storage:
                 yield f
 
     @property
@@ -711,122 +639,59 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def local_output(self):
         for f in self.output:
-            if not f.is_remote:
+            if not f.is_storage:
                 yield f
 
     @property
-    def remote_input(self):
+    def storage_input(self):
         for f in self.input:
-            if f.is_remote:
+            if f.is_storage:
                 yield f
 
     @property
-    def remote_output(self):
+    def storage_output(self):
         for f in self.output:
-            if f.is_remote:
+            if f.is_storage:
                 yield f
 
-    @property
-    def remote_input_newer_than_local(self):
-        files = set()
-        for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (
-                f.mtime.remote() > f.mtime.local(follow_symlinks=True)
-            ):
-                files.add(f)
-        return files
+    async def existing_output(self) -> AsyncGenerator[_IOFile, None]:
+        for f in self.output:
+            if await f.exists():
+                yield f
 
-    @property
-    def remote_input_older_than_local(self):
-        files = set()
-        for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (
-                f.mtime.remote() < f.mtime.local(follow_symlinks=True)
-            ):
-                files.add(f)
-        return files
-
-    @property
-    def remote_output_newer_than_local(self):
-        files = set()
-        for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (
-                f.mtime.remote() > f.mtime.local(follow_symlinks=True)
-            ):
-                files.add(f)
-        return files
-
-    @property
-    def remote_output_older_than_local(self):
-        files = set()
-        for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (
-                f.mtime.remote() < f.mtime.local(follow_symlinks=True)
-            ):
-                files.add(f)
-        return files
-
-    @property
-    def files_to_download(self):
-        toDownload = set()
-
-        for f in self.input:
-            if f.is_remote:
-                if (not f.exists_local and f.exists_remote) and (
-                    not self.rule.norun or f.remote_object.keep_local
-                ):
-                    toDownload.add(f)
-
-        toDownload = toDownload | self.remote_input_newer_than_local
-        return toDownload
-
-    @property
-    def files_to_upload(self):
-        return self.missing_remote_input & self.remote_input_older_than_local
-
-    @property
-    def existing_output(self):
-        return filter(lambda f: f.exists, self.expanded_output)
-
-    def check_protected_output(self):
-        protected = list(filter(lambda f: f.protected, self.expanded_output))
+    async def check_protected_output(self):
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(f.protected()) for f in self.output]
+        protected = [f for f, task in zip(self.output, tasks) if task.result()]
         if protected:
             raise ProtectedOutputException(self, protected)
 
-    def remove_existing_output(self):
-        """Clean up both dynamic and regular output before rules actually run"""
-        if self.dynamic_output:
-            for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
-                os.remove(f)
-
+    async def remove_existing_output(self):
+        """Clean up output before rules actually run"""
         for f, f_ in zip(self.output, self.rule.output):
             try:
                 # remove_non_empty_dir only applies to directories which aren't
                 # flagged with directory().
-                f.remove(remove_non_empty_dir=False)
+                await f.remove(remove_non_empty_dir=False)
             except FileNotFoundError:
                 # No file == no problem
                 pass
 
         for f in self.log:
-            f.remove(remove_non_empty_dir=False)
+            await f.remove(remove_non_empty_dir=False)
 
-    def download_remote_input(self):
-        for f in self.files_to_download:
-            f.download_from_remote()
-
-    def prepare(self):
+    async def prepare(self):
         """
         Prepare execution of job.
         This includes creation of directories and deletion of previously
-        created dynamic files.
+        created files.
         Creates a shadow directory for the job if specified.
         """
 
-        self.check_protected_output()
+        await self.check_protected_output()
 
         unexpected_output = self.dag.reason(self).missing_output.intersection(
-            self.existing_output
+            [f async for f in self.existing_output()]
         )
         if unexpected_output:
             logger.warning(
@@ -836,7 +701,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 )
             )
 
-        self.remove_existing_output()
+        await self.remove_existing_output()
 
         # Create tmpdir if necessary
         if self.resources.get("tmpdir"):
@@ -845,18 +710,16 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
-        self.download_remote_input()
-
         for f in self.log:
             f.prepare()
         if self.benchmark:
             self.benchmark.prepare()
 
-        # wait for input files, respecting keep_remote_local
-        force_stay_on_remote = not self.dag.workflow.storage_settings.keep_remote_local
-        wait_for_files(
+        # wait for input files, respecting keep_storage_local
+        wait_for_local = self.dag.workflow.storage_settings.keep_storage_local
+        await wait_for_files(
             self.input,
-            force_stay_on_remote=force_stay_on_remote,
+            wait_for_local=wait_for_local,
             latency_wait=self.dag.workflow.execution_settings.latency_wait,
         )
 
@@ -887,7 +750,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 if d and not os.path.isabs(d):
                     rel_path = os.path.relpath(d)
                     # Only create subdirectories
-                    if not rel_path.split(os.path.sep)[0] == "..":
+                    if rel_path.split(os.path.sep)[0] != "..":
                         os.makedirs(
                             os.path.join(self.shadow_dir, rel_path), exist_ok=True
                         )
@@ -940,23 +803,18 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
 
-    def close_remote(self):
-        for f in self.input + self.output:
-            if f.is_remote:
-                f.remote_object.close()
-
-    def cleanup(self):
+    async def cleanup(self):
         """Cleanup output files."""
-        to_remove = [f for f in self.expanded_output if f.exists]
+        to_remove = [f for f in self.output if await f.exists()]
 
         to_remove.extend(
             [
                 f
-                for f in self.remote_output
+                for f in self.storage_output
                 if (
-                    f.exists_remote
-                    if (f.is_remote and f.should_stay_on_remote)
-                    else f.exists_local
+                    await f.exists_in_storage()
+                    if (f.is_storage and f.should_not_be_retrieved_from_storage)
+                    else await f.exists_local()
                 )
             ]
         )
@@ -966,7 +824,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 " since they might be corrupted:\n{}".format(self, ", ".join(to_remove))
             )
             for f in to_remove:
-                f.remove()
+                await f.remove()
 
     def format_wildcards(self, string, **variables):
         """Format a string with variables from the job."""
@@ -1039,28 +897,18 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     def __gt__(self, other):
         return self.rule.__gt__(other.rule)
 
-    def expand_dynamic(self, pattern):
-        """Expand dynamic files."""
-        return list(
-            listfiles(pattern, restriction=self.wildcards, omit_value=DYNAMIC_FILL)
-        )
-
     def is_group(self):
         return False
 
-    def log_info(self, skip_dynamic=False, indent=False, printshellcmd=True):
-        # skip dynamic jobs that will be "executed" only in dryrun mode
-        if skip_dynamic and self.dag.dynamic(self):
-            return
-
+    def log_info(self, indent=False, printshellcmd=True):
         priority = self.priority
         logger.job_info(
             jobid=self.dag.jobid(self),
             msg=self.message,
             name=self.rule.name,
             local=self.dag.workflow.is_local(self.rule),
-            input=list(format_files(self, self.input, self.dynamic_input)),
-            output=list(format_files(self, self.output, self.dynamic_output)),
+            input=list(format_files(self.input, is_input=True)),
+            output=list(format_files(self.output, is_input=False)),
             log=list(self.log),
             benchmark=self.benchmark,
             wildcards=self.wildcards_dict,
@@ -1077,13 +925,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         )
         logger.shellcmd(self.shellcmd, indent=indent)
 
-        if self.dynamic_output:
-            logger.info(
-                "Subsequent jobs will be added dynamically "
-                "depending on the output of this job",
-                indent=True,
-            )
-
     def get_log_error_info(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
     ):
@@ -1092,8 +933,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             name=self.rule.name,
             msg=msg,
             jobid=self.dag.jobid(self),
-            input=list(format_files(self, self.input, self.dynamic_output)),
-            output=list(format_files(self, self.output, self.dynamic_output)),
+            input=list(format_files(self.input, is_input=True)),
+            output=list(format_files(self.output, is_input=False)),
             log=list(self.log) + aux_logs,
             conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
@@ -1113,7 +954,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         wait_for_files = []
         wait_for_files.extend(self.local_input)
         wait_for_files.extend(
-            f for f in self.remote_input if not f.should_stay_on_remote
+            f for f in self.storage_input if not f.should_not_be_retrieved_from_storage
         )
 
         if self.shadow_dir:
@@ -1141,9 +982,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             )
         )
 
-    def postprocess(
+    async def postprocess(
         self,
-        upload_remote=True,
+        store_in_storage=True,
         handle_log=True,
         handle_touch=True,
         error=False,
@@ -1153,39 +994,43 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             # No postprocessing necessary, we have just created the skeleton notebook and
             # execution will anyway stop afterwards.
             return
-        if self.dag.workflow.storage_settings.assume_shared_fs:
+        if self.dag.workflow.global_or_node_local_shared_fs:
             if not error and handle_touch:
                 self.dag.handle_touch(self)
             if handle_log:
-                self.dag.handle_log(self)
+                await self.dag.handle_log(self)
             if not error:
-                self.dag.check_and_touch_output(
+                await self.dag.check_and_touch_output(
                     self,
                     wait=self.dag.workflow.execution_settings.latency_wait,
                     ignore_missing_output=ignore_missing_output,
+                    wait_for_local=True,
                 )
             self.dag.unshadow_output(self, only_log=error)
             if not error:
-                self.dag.handle_remote(self, upload=upload_remote)
+                await self.dag.handle_storage(self, store_in_storage=store_in_storage)
                 self.dag.handle_protected(self)
-            self.close_remote()
         else:
             if not error:
-                self.dag.check_and_touch_output(
+                await self.dag.check_and_touch_output(
                     self,
                     wait=self.dag.workflow.execution_settings.latency_wait,
                     no_touch=True,
-                    force_stay_on_remote=True,
+                    wait_for_local=False,
                 )
         if not error:
             try:
-                self.dag.workflow.persistence.finished(self)
+                await self.dag.workflow.persistence.finished(self)
             except IOError as e:
                 raise WorkflowError(
                     "Error recording metadata for finished job "
                     "({}). Please ensure write permissions for the "
                     "directory {}".format(e, self.dag.workflow.persistence.path)
                 )
+
+        if error and not self.dag.workflow.execution_settings.keep_incomplete:
+            await self.cleanup()
+            self.dag.workflow.persistence.cleanup(self)
 
     @property
     def name(self):
@@ -1202,10 +1047,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         if include_logfiles:
             products.extend(self.log)
         return products
-
-    @property
-    def is_branched(self):
-        return self.rule.is_branched
 
     @property
     def rules(self):
@@ -1306,6 +1147,10 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     def dag(self):
         return next(iter(self.jobs)).dag
 
+    async def retrieve_storage_input(self):
+        for job in self.jobs:
+            await job.retrieve_storage_input()
+
     def merge(self, other):
         assert other.groupid == self.groupid
         self.jobs = self.jobs | other.jobs
@@ -1347,10 +1192,10 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     def is_updated(self):
         return any(job.is_updated for job in self.jobs)
 
-    def log_info(self, skip_dynamic=False):
+    def log_info(self):
         logger.group_info(groupid=self.groupid)
         for job in sorted(self.jobs, key=lambda j: j.rule.name):
-            job.log_info(skip_dynamic, indent=True)
+            job.log_info(indent=True)
 
     def log_error(self, msg=None, aux_logs: Optional[list] = None, **kwargs):
         job_error_info = [
@@ -1369,17 +1214,13 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         for job in self.jobs:
             job.register(external_jobid=external_jobid)
 
-    def remove_existing_output(self):
+    async def remove_existing_output(self):
         for job in self.jobs:
-            job.remove_existing_output()
+            await job.remove_existing_output()
 
     def reset_params_and_resources(self):
         for job in self.jobs:
             job.reset_params_and_resources()
-
-    def download_remote_input(self):
-        for job in self.jobs:
-            job.download_remote_input()
 
     def get_wait_for_files(self):
         local_input = [
@@ -1391,13 +1232,15 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         remote_input = [
             f
             for job in self.jobs
-            for f in job.remote_input
+            for f in job.storage_input
             if f not in self.all_products
         ]
 
         wait_for_files = []
         wait_for_files.extend(local_input)
-        wait_for_files.extend(f for f in remote_input if not f.should_stay_on_remote)
+        wait_for_files.extend(
+            f for f in remote_input if not f.should_not_be_retrieved_from_storage
+        )
 
         for job in self.jobs:
             if job.shadow_dir:
@@ -1496,25 +1339,26 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             self._jobid = last_job.uuid()
         return self._jobid
 
-    def cleanup(self):
+    async def cleanup(self):
         for job in self.jobs:
-            job.cleanup()
+            await job.cleanup()
 
-    def postprocess(self, error=False, **kwargs):
+    async def postprocess(self, error=False, **kwargs):
         # Iterate over jobs in toposorted order (see self.__iter__) to
         # ensure that outputs are touched in correct order.
-        for level in self.toposorted:
-            for job in level:
-                # postprocessing involves touching output files (to ensure that
-                # modification times are always correct. This has to happen in
-                # topological order, such that they are not mixed up.
-                job.postprocess(error=error, **kwargs)
+        async with asyncio.TaskGroup() as tg:
+            for level in self.toposorted:
+                for job in level:
+                    # postprocessing involves touching output files (to ensure that
+                    # modification times are always correct. This has to happen in
+                    # topological order, such that they are not mixed up.
+                    tg.create_task(job.postprocess(error=error, **kwargs))
         # remove all pipe and service outputs since all jobs of this group are done and the
         # outputs are no longer needed
         for job in self.jobs:
             for f in job.output:
                 if is_flagged(f, "pipe") or is_flagged(f, "service"):
-                    f.remove()
+                    await f.remove()
 
     @property
     def name(self):
@@ -1524,19 +1368,9 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         for job in self.jobs:
             job.check_protected_output()
 
-    @property
-    def dynamic_input(self):
-        return [
-            f
-            for job in self.jobs
-            for f in job.dynamic_input
-            if f not in self.all_products
-        ]
-
-    @property
-    def inputsize(self):
+    async def inputsize(self):
         if self._inputsize is None:
-            self._inputsize = sum(f.size for f in self.input)
+            self._inputsize = sum([await f.size() for f in self.input])
         return self._inputsize
 
     @property
@@ -1607,10 +1441,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         self._attempt = attempt
 
     @property
-    def is_branched(self):
-        return any(job.is_branched for job in self.jobs)
-
-    @property
     def needs_singularity(self):
         return any(job.needs_singularity for job in self.jobs)
 
@@ -1622,7 +1452,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     def expanded_output(self):
         """Yields the entire expanded output of all jobs"""
         for job in self.jobs:
-            yield from job.expanded_output
+            yield from job.output
 
     @property
     def restart_times(self):
@@ -1685,7 +1515,7 @@ class Reason:
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
             "To ignore these changes, run snakemake "
-            f"--cleanup-metadata {' '.join(job.expanded_output)}"
+            f"--cleanup-metadata {' '.join(job.output)}"
         )
 
     def is_provenance_triggered(self):

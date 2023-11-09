@@ -47,7 +47,7 @@ class OutputFileCache(AbstractOutputFileCache):
         if not os.access(cachefile, os.R_OK):
             self.raise_read_error(cachefile)
 
-    def store(self, job: Job, cache_mode: str):
+    async def store(self, job: Job, cache_mode: str):
         """
         Store generated job output in the cache.
         """
@@ -87,7 +87,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 # now restore the outputfile via a symlink
                 self.symlink(cachefile, outputfile, utime=False)
 
-    def fetch(self, job: Job, cache_mode: str):
+    async def fetch(self, job: Job, cache_mode: str):
         """
         Retrieve cached output file and symlink to the place where the job expects it's output.
         """
@@ -114,7 +114,7 @@ class OutputFileCache(AbstractOutputFileCache):
             else:
                 self.symlink(cachefile, outputfile)
 
-    def exists(self, job: Job, cache_mode: str):
+    async def exists(self, job: Job, cache_mode: str):
         """
         Return True if job is already cached
         """

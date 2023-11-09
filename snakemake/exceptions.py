@@ -237,15 +237,21 @@ class ChildIOException(WorkflowError):
 class IOException(RuleException):
     def __init__(self, prefix, job, files, include=None, lineno=None, snakefile=None):
         from snakemake.logging import format_wildcards
+        from snakemake.io import pretty_print_iofile
 
         msg = ""
         if files:
             msg = f"{prefix} for rule {job.rule}:"
             if job.output:
-                msg += "\n" + f"    output: {', '.join(job.output)}"
+                msg += (
+                    "\n"
+                    + f"    output: {', '.join(map(pretty_print_iofile, job.output))}"
+                )
             if job.wildcards:
                 msg += "\n" + f"    wildcards: {format_wildcards(job.wildcards)}"
-            msg += "\n    affected files:\n        " + "\n        ".join(files)
+            msg += "\n    affected files:\n        " + "\n        ".join(
+                map(pretty_print_iofile, files)
+            )
         super().__init__(
             message=msg,
             include=include,

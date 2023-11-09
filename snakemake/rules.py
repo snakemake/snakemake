@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import copy
 import os
 import types
 import typing
@@ -40,7 +41,6 @@ from snakemake.io import (
     is_flagged,
     flag,
     is_callable,
-    DYNAMIC_FILL,
     ReportObject,
 )
 from snakemake.exceptions import (
@@ -60,212 +60,61 @@ from snakemake.common import (
 )
 from snakemake.common.tbdstring import TBDString
 from snakemake.resources import infer_resources
-from snakemake_interface_executor_plugins.utils import not_iterable, lazy_property
+from snakemake_interface_common.utils import not_iterable, lazy_property
 from snakemake_interface_common.rules import RuleInterface
 
 
 class Rule(RuleInterface):
-    def __init__(self, *args, lineno=None, snakefile=None):
+    def __init__(self, name, workflow, lineno=None, snakefile=None):
         """
         Create a rule
 
         Arguments
         name -- the name of the rule
         """
-        if len(args) == 2:
-            name, workflow = args
-            self._name = name
-            self.workflow = workflow
-            self.docstring = None
-            self.message = None
-            self._input = InputFiles()
-            self._output = OutputFiles()
-            self._params = Params()
-            self._wildcard_constraints = dict()
-            self.dependencies = dict()
-            self.dynamic_output = set()
-            self.dynamic_input = set()
-            self.temp_output = set()
-            self.protected_output = set()
-            self.touch_output = set()
-            self.shadow_depth = None
-            self.resources = None
-            self.priority = 0
-            self._log = Log()
-            self._benchmark = None
-            self._conda_env = None
-            self._container_img = None
-            self.is_containerized = False
-            self.env_modules = None
-            self._group = None
-            self._wildcard_names = None
-            self._lineno = lineno
-            self._snakefile = snakefile
-            self.run_func = None
-            self.shellcmd = None
-            self.script = None
-            self.notebook = None
-            self.wrapper = None
-            self.template_engine = None
-            self.cwl = None
-            self.norun = False
-            self.is_handover = False
-            self.is_branched = False
-            self.is_checkpoint = False
-            self._restart_times = 0
-            self.basedir = None
-            self.input_modifier = None
-            self.output_modifier = None
-            self.log_modifier = None
-            self.benchmark_modifier = None
-            self.ruleinfo = None
-            self.module_globals = None
-        elif len(args) == 1:
-            other = args[0]
-            self._name = other.name
-            self.workflow = other.workflow
-            self.docstring = other.docstring
-            self.message = other.message
-            self._input = InputFiles(other._input)
-            self._output = OutputFiles(other._output)
-            self._params = Params(other._params)
-            self._wildcard_constraints = dict(other._wildcard_constraints)
-            self.dependencies = dict(other.dependencies)
-            self.dynamic_output = set(other.dynamic_output)
-            self.dynamic_input = set(other.dynamic_input)
-            self.temp_output = set(other.temp_output)
-            self.protected_output = set(other.protected_output)
-            self.touch_output = set(other.touch_output)
-            self.shadow_depth = other.shadow_depth
-            self.resources = other.resources
-            self.priority = other.priority
-            self._log = other._log
-            self._benchmark = other._benchmark
-            self._conda_env = other._conda_env
-            self._container_img = other._container_img
-            self.is_containerized = other.is_containerized
-            self.env_modules = other.env_modules
-            self._group = other.group
-            self._wildcard_names = (
-                set(other._wildcard_names)
-                if other._wildcard_names is not None
-                else None
-            )
-            self._lineno = other.lineno
-            self._snakefile = other.snakefile
-            self.run_func = other.run_func
-            self.shellcmd = other.shellcmd
-            self.script = other.script
-            self.notebook = other.notebook
-            self.wrapper = other.wrapper
-            self.template_engine = other.template_engine
-            self.cwl = other.cwl
-            self.norun = other.norun
-            self.is_handover = other.is_handover
-            self.is_branched = True
-            self.is_checkpoint = other.is_checkpoint
-            self._restart_times = other.restart_times
-            self.basedir = other.basedir
-            self.input_modifier = other.input_modifier
-            self.output_modifier = other.output_modifier
-            self.log_modifier = other.log_modifier
-            self.benchmark_modifier = other.benchmark_modifier
-            self.ruleinfo = other.ruleinfo
-            self.module_globals = other.module_globals
-
-    def dynamic_branch(self, wildcards, input=True):
-        def get_io(rule):
-            return (
-                (rule.input, rule.dynamic_input)
-                if input
-                else (rule.output, rule.dynamic_output)
-            )
-
-        def partially_expand(f, wildcards):
-            """Expand the wildcards in f from the ones present in wildcards
-
-            This is done by replacing all wildcard delimiters by `{{` or `}}`
-            that are not in `wildcards.keys()`.
-            """
-            # perform the partial expansion from f's string representation
-            s = str(f).replace("{", "{{").replace("}", "}}")
-            for key in wildcards.keys():
-                s = s.replace(f"{{{{{key}}}}}", f"{{{key}}}")
-            # build result
-            anno_s = AnnotatedString(s)
-            anno_s.flags = f.flags
-            return IOFile(anno_s, f.rule)
-
-        io, dynamic_io = get_io(self)
-
-        branch = Rule(self)
-        io_, dynamic_io_ = get_io(branch)
-
-        expansion = collections.defaultdict(list)
-        for i, f in enumerate(io):
-            if f in dynamic_io:
-                f = partially_expand(f, wildcards)
-                try:
-                    for e in reversed(expand(str(f), zip, **wildcards)):
-                        # need to clone the flags so intermediate
-                        # dynamic remote file paths are expanded and
-                        # removed appropriately
-                        ioFile = IOFile(e, rule=branch)
-                        ioFile.clone_flags(f)
-                        expansion[i].append(ioFile)
-                except KeyError:
-                    return None
-
-        # replace the dynamic files with the expanded files
-        replacements = [(i, io[i], e) for i, e in reversed(list(expansion.items()))]
-        for i, old, exp in replacements:
-            dynamic_io_.remove(old)
-            io_._insert_items(i, exp)
-
-        if not input:
-            for i, old, exp in replacements:
-                if old in branch.temp_output:
-                    branch.temp_output.discard(old)
-                    branch.temp_output.update(exp)
-                if old in branch.protected_output:
-                    branch.protected_output.discard(old)
-                    branch.protected_output.update(exp)
-                if old in branch.touch_output:
-                    branch.touch_output.discard(old)
-                    branch.touch_output.update(exp)
-
-            branch.wildcard_names.clear()
-            non_dynamic_wildcards = dict(
-                (name, values[0])
-                for name, values in wildcards.items()
-                if len(set(values)) == 1
-            )
-            # TODO have a look into how to concretize dependencies here
-            branch._input, _, branch.dependencies, incomplete = branch.expand_input(
-                non_dynamic_wildcards
-            )
-            assert not incomplete, (
-                "bug: dynamic branching resulted in incomplete input files, "
-                "please file an issue on https://github.com/snakemake/snakemake"
-            )
-
-            branch._output, _ = branch.expand_output(non_dynamic_wildcards)
-
-            resources = branch.expand_resources(non_dynamic_wildcards, branch._input, 1)
-            branch._params = branch.expand_params(
-                non_dynamic_wildcards,
-                branch._input,
-                branch._output,
-                resources,
-                omit_callable=True,
-            )
-            branch.resources = dict(resources.items())
-
-            branch._log = branch.expand_log(non_dynamic_wildcards)
-            branch._benchmark = branch.expand_benchmark(non_dynamic_wildcards)
-            branch._conda_env = branch.expand_conda_env(non_dynamic_wildcards)
-            return branch, non_dynamic_wildcards
-        return branch
+        self._name = name
+        self.workflow = workflow
+        self.docstring = None
+        self.message = None
+        self._input = InputFiles()
+        self._output = OutputFiles()
+        self._params = Params()
+        self._wildcard_constraints = dict()
+        self.dependencies = dict()
+        self.temp_output = set()
+        self.protected_output = set()
+        self.touch_output = set()
+        self.shadow_depth = None
+        self.resources = None
+        self.priority = 0
+        self._log = Log()
+        self._benchmark = None
+        self._conda_env = None
+        self._container_img = None
+        self.is_containerized = False
+        self.env_modules = None
+        self._group = None
+        self._wildcard_names = None
+        self._lineno = lineno
+        self._snakefile = snakefile
+        self.run_func = None
+        self.shellcmd = None
+        self.script = None
+        self.notebook = None
+        self.wrapper = None
+        self.template_engine = None
+        self.cwl = None
+        self.norun = False
+        self.is_handover = False
+        self.is_checkpoint = False
+        self._restart_times = 0
+        self.basedir = None
+        self.input_modifier = None
+        self.output_modifier = None
+        self.log_modifier = None
+        self.benchmark_modifier = None
+        self.ruleinfo = None
+        self.module_globals = None
 
     @property
     def name(self):
@@ -364,10 +213,6 @@ class Rule(RuleInterface):
                         "if they can be distinguished by a fixed set of extensions (i.e. mime types).",
                         rule=self,
                     )
-            if self.dynamic_output:
-                raise RuleException(
-                    "Rules with dynamic output files may not be cached.", rule=self
-                )
 
     def has_wildcards(self):
         """
@@ -478,11 +323,6 @@ class Rule(RuleInterface):
             self._set_inoutput_item(item, output=True, name=name)
 
         for item in self.output:
-            if self.dynamic_output and item not in self.dynamic_output:
-                raise SyntaxError(
-                    "A rule with dynamic output may not define any "
-                    "non-dynamic output files."
-                )
             self.register_wildcards(item.get_wildcard_names())
         # Check output file name list for duplicates
         self.check_output_duplicates()
@@ -524,11 +364,21 @@ class Rule(RuleInterface):
     def update_wildcard_constraints(self):
         for i in range(len(self.output)):
             item = self.output[i]
-            newitem = IOFile(
-                self._update_item_wildcard_constraints(self.output[i]), rule=self
-            )
-            # the updated item has to have the same flags
-            newitem.clone_flags(item)
+
+            newitem = None
+            if item.is_storage:
+                storage_object = copy.copy(item.storage_object.clone())
+                storage_object.query = self._update_item_wildcard_constraints(
+                    storage_object.query
+                )
+                newitem = IOFile(storage_object.local_path(), rule=self)
+                newitem.clone_flags(item, skip_storage_object=True)
+                newitem.flags["storage_object"] = storage_object
+            else:
+                newitem = IOFile(
+                    self._update_item_wildcard_constraints(self.output[i]), rule=self
+                )
+                newitem.clone_flags(item)
             self.output[i] = newitem
 
     def _update_item_wildcard_constraints(self, item):
@@ -539,7 +389,7 @@ class Rule(RuleInterface):
                 item, self.wildcard_constraints, self.workflow.wildcard_constraints
             )
         except ValueError as e:
-            raise IOFileException(str(e), snakefile=self.snakefile, lineno=self.lineno)
+            raise WorkflowError(e, snakefile=self.snakefile, lineno=self.lineno)
 
     def _set_inoutput_item(self, item, output=False, name=None):
         """
@@ -577,7 +427,7 @@ class Rule(RuleInterface):
             item = self.apply_path_modifier(item, path_modifier, property=property)
 
             # Check to see that all flags are valid
-            # Note that "remote", "dynamic", and "expand" are valid for both inputs and outputs.
+            # Note that "storage", and "expand" are valid for both inputs and outputs.
             if isinstance(item, AnnotatedString):
                 for item_flag in item.flags:
                     if not output and item_flag in [
@@ -610,7 +460,7 @@ class Rule(RuleInterface):
             else:
                 if (
                     contains_wildcard_constraints(item)
-                    and self.workflow.execution_settings.mode != ExecMode.SUBPROCESS
+                    and self.workflow.exec_mode != ExecMode.SUBPROCESS
                 ):
                     logger.warning(
                         "Wildcard constraints in inputs are ignored. (rule: {})".format(
@@ -634,11 +484,6 @@ class Rule(RuleInterface):
             if is_flagged(item, "touch"):
                 if output:
                     self.touch_output.add(_item)
-            if is_flagged(item, "dynamic"):
-                if output:
-                    self.dynamic_output.add(_item)
-                else:
-                    self.dynamic_input.add(_item)
             if is_flagged(item, "report"):
                 report_obj = item.flags["report"]
                 if report_obj.caption is not None:
@@ -901,17 +746,9 @@ class Rule(RuleInterface):
             if is_from_callable:
                 if isinstance(f, Path):
                     f = str(f)
-                return IOFile(f, rule=self).apply_wildcards(
-                    wildcards,
-                    fill_missing=f in self.dynamic_input,
-                    fail_dynamic=self.dynamic_output,
-                )
+                return IOFile(f, rule=self).apply_wildcards(wildcards)
             else:
-                return f.apply_wildcards(
-                    wildcards,
-                    fill_missing=f in self.dynamic_input,
-                    fail_dynamic=self.dynamic_output,
-                )
+                return f.apply_wildcards(wildcards)
 
         def handle_incomplete_checkpoint(exception):
             """If checkpoint is incomplete, target it such that it is completed
@@ -1038,9 +875,7 @@ class Rule(RuleInterface):
             if is_from_callable:
                 return IOFile(f, rule=self)
             else:
-                return f.apply_wildcards(
-                    wildcards, fill_missing=False, fail_dynamic=self.dynamic_output
-                )
+                return f.apply_wildcards(wildcards)
 
         log = Log()
 
@@ -1177,7 +1012,7 @@ class Rule(RuleInterface):
             item, _ = self.apply_input_function(self.group, wildcards)
             return item
         elif isinstance(self.group, str):
-            return apply_wildcards(self.group, wildcards, dynamic_fill=DYNAMIC_FILL)
+            return apply_wildcards(self.group, wildcards)
         else:
             return self.group
 
@@ -1336,8 +1171,6 @@ class Ruleorder:
         """
         Return whether rule2 has a higher priority than rule1.
         """
-        # if rules have the same name, they have been specialized by dynamic output
-        # in that case, clauses are irrelevant and have to be skipped
         if rule1.name != rule2.name:
             # try the last clause first,
             # i.e. clauses added later overwrite those before.
@@ -1408,14 +1241,14 @@ class RuleProxy:
 
     def _to_iofile(self, files):
         def cleanup(f):
-            prefix = self.rule.workflow.storage_settings.default_remote_prefix
+            prefix = self.rule.workflow.storage_settings.default_storage_prefix
             # remove constraints and turn this into a plain string
             cleaned = strip_wildcard_constraints(f)
 
             modified_by = get_flag_value(f, PATH_MODIFIER_FLAG)
 
             if (
-                self.rule.workflow.storage_settings.default_remote_provider is not None
+                self.rule.workflow.storage_settings.default_storage_provider is not None
                 and f.startswith(prefix)
                 and not is_flagged(f, "local")
             ):
@@ -1423,7 +1256,7 @@ class RuleProxy:
                 cleaned = IOFile(cleaned, rule=self.rule)
             else:
                 cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
-                cleaned.clone_remote_object(f)
+                cleaned.clone_storage_object(f)
 
             if modified_by is not None:
                 cleaned.flags[PATH_MODIFIER_FLAG] = modified_by
