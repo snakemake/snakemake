@@ -73,7 +73,9 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
-    def _infer_stdout_and_stderr(log: Optional[PathLike]) -> tuple[str|None, str|None]:
+    def _infer_stdout_and_stderr(
+        log: Optional[PathLike],
+    ) -> tuple[str | None, str | None]:
         """
         If multiple log files are provided, try to infer which one is for stderr.
 
@@ -91,11 +93,9 @@ class Snakemake:
 
         stderr_file, stdout_file = None, None
 
-
-
         if len(log) == 1:
-            stderr_file= log[0]
-        elif len(log)>1:
+            stderr_file = log[0]
+        elif len(log) > 1:
             # infer stdout and stderr file from log keys
             for key in ["stderr", "err"]:
                 if hasattr(log, key):
@@ -112,7 +112,6 @@ class Snakemake:
                 )
                 return None, log[0]
 
-            
         return stdout_file, stderr_file
 
     def log_fmt_shell(self, stdout=True, stderr=True, append=False):
