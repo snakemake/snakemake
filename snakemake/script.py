@@ -91,11 +91,12 @@ class Snakemake:
         """
         import warnings
 
-        stderr_file, stdout_file = None, None
-
-        if len(log) == 1:
-            stderr_file = log[0]
+        if (log is None) or (len(log) == 0):
+            return None, None
+        elif len(log) == 1:
+            return None, log[0]
         elif len(log) > 1:
+            stdout_file, stderr_file = None, None
             # infer stdout and stderr file from log keys
             for key in ["stderr", "err"]:
                 if hasattr(log, key):
@@ -105,14 +106,15 @@ class Snakemake:
                 if hasattr(log, key):
                     stdout_file = log[key]
 
-            if (stderr_file is None) or (stdout_file is None):
+            if (stdout_file is None) or (stderr_file is None):
                 warnings.warn(
                     "You have more than one log file, but I cannot infer which logfile is stderr and which is stdout,"
                     f"Logging stderr and stdout to the same file {stderr_file}"
                 )
                 return None, log[0]
 
-        return stdout_file, stderr_file
+            else:
+                return stdout_file, stderr_file
 
     def log_fmt_shell(self, stdout=True, stderr=True, append=False):
         """
