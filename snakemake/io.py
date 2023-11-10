@@ -1543,6 +1543,21 @@ class Namedlist(list):
             elif i == index:
                 self._set_name(name, i, end=i + len(items))
 
+    def _get_unnamed_arguments(self):
+        """
+        Get unnamed arguments and return them as a list.
+        """
+
+        keys_with_positions = self._names
+        if len(keys_with_positions) == 0:
+            # all arguments are unnamed
+            return list(self)
+
+        first_key = next(iter(keys_with_positions.items()))
+        n_unnamed_arguments = first_key[1][0]
+
+        return [self[i] for i in range(n_unnamed_arguments)]
+
     def keys(self):
         return self._names.keys()
 
