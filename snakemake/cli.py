@@ -1849,6 +1849,7 @@ def args_to_api(args, parser):
                     storage_provider_settings=storage_provider_settings,
                     workflow_settings=WorkflowSettings(
                         wrapper_prefix=args.wrapper_prefix,
+                        exec_mode=args.mode,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
@@ -1968,7 +1969,6 @@ def args_to_api(args, parser):
                                 attempt=args.attempt,
                                 use_threads=args.force_use_threads,
                                 shadow_prefix=args.shadow_prefix,
-                                mode=args.mode,
                                 keep_incomplete=args.keep_incomplete,
                                 keep_metadata=not args.drop_metadata,
                                 edit_notebook=edit_notebook,

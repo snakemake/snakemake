@@ -41,6 +41,7 @@ class Persistence(PersistenceExecutorInterface):
         singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
+        path: Path = None,
     ):
         import importlib.util
 
@@ -52,7 +53,10 @@ class Persistence(PersistenceExecutorInterface):
 
         self._max_len = None
 
-        self._path = Path(os.path.abspath(".snakemake"))
+        if path is None:
+            self._path = Path(os.path.abspath(".snakemake"))
+        else:
+            self._path = path
         os.makedirs(self.path, exist_ok=True)
 
         self._lockdir = os.path.join(self.path, "locks")
