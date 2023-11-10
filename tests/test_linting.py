@@ -23,9 +23,9 @@ def test_lint(lint, case):
                     "snakemake",
                     "--lint",
                     "--directory",
-                    lint,
+                    str(lint),
                     "--snakefile",
-                    lint.joinpath(case).with_suffix(".smk"),
+                    str(lint.joinpath(case).with_suffix(".smk")),
                 ],
                 stderr=sp.STDOUT,
             )
