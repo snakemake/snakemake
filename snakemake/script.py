@@ -73,52 +73,51 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
-
     def log_fmt_shell(self, stdout=True, stderr=True, append=False):
         """
-          Return a shell redirection string to be used in `shell()` calls
+        Return a shell redirection string to be used in `shell()` calls
 
-          This function allows scripts and wrappers to support optional `log` files
-          specified in the calling rule.  If no `log` was specified, then an
-          empty string "" is returned, regardless of the values of `stdout`,
-          `stderr`, and `append`.
+        This function allows scripts and wrappers to support optional `log` files
+        specified in the calling rule.  If no `log` was specified, then an
+        empty string "" is returned, regardless of the values of `stdout`,
+        `stderr`, and `append`.
 
-          Parameters
-          ---------
+        Parameters
+        ---------
 
-          stdout : bool
-              Send stdout to log
+        stdout : bool
+            Send stdout to log
 
-          stderr : bool
-              Send stderr to log
+        stderr : bool
+            Send stderr to log
 
-          append : bool
-              Do not overwrite the log file. Useful for sending an output of
-              multiple commands to the same log. Note however that the log will
-              not be truncated at the start.
+        append : bool
+            Do not overwrite the log file. Useful for sending an output of
+            multiple commands to the same log. Note however that the log will
+            not be truncated at the start.
 
-          The following table describes the output:
+        The following table describes the output:
 
-          -------- -------- -------- ----- -------------
-          stdout   stderr   append   log   return value
-          -------- -------- -------- ----- ------------
-          True     True     True     fn    >> fn 2>&1
-          True     False    True     fn    >> fn
-          False    True     True     fn    2>> fn
-          True     True     False    fn    > fn 2>&1
-          True     False    False    fn    > fn
-          False    True     False    fn    2> fn
-          any      any      any      None  ""
-          -------- -------- -------- ----- -----------
+        -------- -------- -------- ----- -------------
+        stdout   stderr   append   log   return value
+        -------- -------- -------- ----- ------------
+        True     True     True     fn    >> fn 2>&1
+        True     False    True     fn    >> fn
+        False    True     True     fn    2>> fn
+        True     True     False    fn    > fn 2>&1
+        True     False    False    fn    > fn
+        False    True     False    fn    2> fn
+        any      any      any      None  ""
+        -------- -------- -------- ----- -----------
 
-          If you provide two log files name them err/out or sterr/stout.
-          The function returns:
+        If you provide two log files name them err/out or sterr/stout.
+        The function returns:
 
-              2>> sterr > stout
-              or with append=True
-              2>> sterr >> stoud
+            2>> sterr > stout
+            or with append=True
+            2>> sterr >> stoud
 
-          Appending to sterr is required as error messages from the wrapper will be overwritten otherwise.
+        Appending to sterr is required as error messages from the wrapper will be overwritten otherwise.
         """
 
         if stdout and stderr:
@@ -181,12 +180,14 @@ def _infer_stdout_and_stderr(log: Optional[PathLike]):
 
         else:
             return stdout_file, stderr_file
-        
+
+
 def _log_shell_redirect(
     log: Optional[PathLike],
     stdout: bool = True,
     stderr: bool = True,
-    append: bool = False) -> str:
+    append: bool = False,
+) -> str:
     """
     Return a shell redirection string to be used in `shell()` calls
 
