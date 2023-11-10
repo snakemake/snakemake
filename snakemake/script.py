@@ -73,48 +73,6 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
-    def _infer_stdout_and_stderr(
-        log: Optional[PathLike],
-    ) -> tuple[str | None, str | None]:
-        """
-        If multiple log files are provided, try to infer which one is for stderr.
-
-        If only one log file is provided, or inference fails, return None for stdout_file
-
-
-        Returns
-        -------
-        tuple
-            stdout_file, stderr_file
-
-
-        """
-        import warnings
-
-        if (log is None) or (len(log) == 0):
-            return None, None
-        elif len(log) == 1:
-            return None, log[0]
-        elif len(log) > 1:
-            stdout_file, stderr_file = None, None
-            # infer stdout and stderr file from log keys
-            for key in ["stderr", "err"]:
-                if hasattr(log, key):
-                    stderr_file = log[key]
-
-            for key in ["stdout", "out"]:
-                if hasattr(log, key):
-                    stdout_file = log[key]
-
-            if (stdout_file is None) or (stderr_file is None):
-                warnings.warn(
-                    "You have more than one log file, but I cannot infer which logfile is stderr and which is stdout,"
-                    f"Logging stderr and stdout to the same file {stderr_file}"
-                )
-                return None, log[0]
-
-            else:
-                return stdout_file, stderr_file
 
     def log_fmt_shell(self, stdout=True, stderr=True, append=False):
         """
@@ -153,14 +111,14 @@ class Snakemake:
           any      any      any      None  ""
           -------- -------- -------- ----- -----------
 
-        If you provide two log files name them err/out or sterr/stout.
-        The function returns:
+          If you provide two log files name them err/out or sterr/stout.
+          The function returns:
 
-            2>> sterr > stout
-            or with append=True
-            2>> sterr >> stoud
+              2>> sterr > stout
+              or with append=True
+              2>> sterr >> stoud
 
-        Appending to sterr is required as error messages from the wrapper will be overwritten otherwise.
+          Appending to sterr is required as error messages from the wrapper will be overwritten otherwise.
         """
 
         if stdout and stderr:
@@ -183,12 +141,52 @@ class Snakemake:
         return _log_shell_redirect(self.log, stdout, stderr, append)
 
 
+def _infer_stdout_and_stderr(log: Optional[PathLike]):
+    """
+    If multiple log files are provided, try to infer which one is for stderr.
+
+    If only one log file is provided, or inference fails, return None for stdout_file
+
+
+    Returns
+    -------
+    tuple
+        stdout_file, stderr_file
+
+
+    """
+    import warnings
+
+    if (log is None) or (len(log) == 0):
+        return None, None
+    elif len(log) == 1:
+        return None, log[0]
+    elif len(log) > 1:
+        stdout_file, stderr_file = None, None
+        # infer stdout and stderr file from log keys
+        for key in ["stderr", "err"]:
+            if hasattr(log, key):
+                stderr_file = log[key]
+
+        for key in ["stdout", "out"]:
+            if hasattr(log, key):
+                stdout_file = log[key]
+
+        if (stdout_file is None) or (stderr_file is None):
+            warnings.warn(
+                "You have more than one log file, but I cannot infer which logfile is stderr and which is stdout,"
+                f"Logging stderr and stdout to the same file {stderr_file}"
+            )
+            return None, log[0]
+
+        else:
+            return stdout_file, stderr_file
+        
 def _log_shell_redirect(
     log: Optional[PathLike],
     stdout: bool = True,
     stderr: bool = True,
-    append: bool = False,
-) -> str:
+    append: bool = False) -> str:
     """
     Return a shell redirection string to be used in `shell()` calls
 
