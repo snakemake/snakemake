@@ -1,8 +1,12 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
+import hashlib
 import os
 import sys
-from typing import TypeVar, TYPE_CHECKING, Any
+from typing import Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
+from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
+
+from snakemake import common
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -16,25 +20,64 @@ else:
 class SpawnedJobArgsFactory:
     workflow: TWorkflow
 
-    def get_default_remote_provider_args(self):
-        has_default_remote_provider = (
-            self.workflow.storage_settings.default_remote_provider is not None
+    def get_default_storage_provider_args(self) -> str:
+        has_default_storage_provider = (
+            self.workflow.storage_registry.default_storage_provider is not None
         )
-        if has_default_remote_provider:
+        if has_default_storage_provider:
             return join_cli_args(
                 [
                     format_cli_arg(
-                        "--default-remote-prefix",
-                        self.workflow.storage_settings.default_remote_prefix,
+                        "--default-storage-prefix",
+                        self.workflow.storage_settings.default_storage_prefix,
                     ),
                     format_cli_arg(
-                        "--default-remote-provider",
-                        self.workflow.storage_settings.default_remote_provider.name,
+                        "--default-storage-provider",
+                        self.workflow.storage_settings.default_storage_provider,
                     ),
                 ]
             )
         else:
             return ""
+
+    def _get_storage_provider_setting_items(self):
+        for (
+            plugin_name,
+            tagged_settings,
+        ) in self.workflow.storage_provider_settings.items():
+            plugin = StoragePluginRegistry().get_plugin(plugin_name)
+            for field in fields(plugin.settings_cls):
+                unparse = field.metadata.get("unparse", lambda value: value)
+
+                def fmt_value(tag, value):
+                    value = unparse(value)
+                    if tag is not None:
+                        return f"{tag}:{value}"
+                    else:
+                        return value
+
+                field_settings = [
+                    fmt_value(tag, value)
+                    for tag, value in tagged_settings.get_field_settings(
+                        field.name
+                    ).items()
+                    if value is not None
+                ]
+                if field_settings:
+                    yield plugin, field, field_settings
+
+    def get_storage_provider_args(self):
+        for plugin, field, field_settings in self._get_storage_provider_setting_items():
+            if not field.metadata.get("env_var", False):
+                cli_arg = plugin.get_cli_arg(field.name)
+                yield format_cli_arg(cli_arg, field_settings)
+
+    def get_storage_provider_envvars(self):
+        return {
+            plugin.get_envvar(field.name): " ".join(map(str, field_settings))
+            for plugin, field, field_settings in self._get_storage_provider_setting_items()
+            if "env_var" in field.metadata
+        }
 
     def get_set_resources_args(self):
         return format_cli_arg(
@@ -78,11 +121,50 @@ class SpawnedJobArgsFactory:
 
         return format_cli_arg(flag, value, quote=quote)
 
+    def envvars(self) -> Mapping[str, str]:
+        envvars = {
+            var: os.environ[var]
+            for var in self.workflow.remote_execution_settings.envvars
+        }
+        envvars.update(self.get_storage_provider_envvars())
+        return envvars
+
+    def precommand(
+        self,
+        auto_deploy_default_storage_provider: bool = False,
+        python_executable: str = "python",
+    ) -> str:
+        precommand = []
+        if self.workflow.remote_execution_settings.precommand:
+            precommand.append(self.workflow.remote_execution_settings.precommand)
+        if (
+            auto_deploy_default_storage_provider
+            and self.workflow.storage_settings.default_storage_provider is not None
+        ):
+            package_name = StoragePluginRegistry().get_plugin_package_name(
+                self.workflow.storage_settings.default_storage_provider
+            )
+            precommand.append(
+                f"pip install --target '{common.PIP_DEPLOYMENTS_PATH}' {package_name}"
+            )
+
+        if not self.workflow.storage_settings.assume_shared_fs:
+            archive = self.workflow.source_archive
+            default_storage_provider_args = self.get_default_storage_provider_args()
+            storage_provider_args = " ".join(self.get_storage_provider_args())
+            precommand.append(
+                f"{python_executable} -m snakemake --deploy-sources "
+                f"{archive.query} {archive.checksum} {default_storage_provider_args} "
+                f"{storage_provider_args}"
+            )
+
+        return " && ".join(precommand)
+
     def general_args(
         self,
-        pass_default_remote_provider_args: bool = True,
+        pass_default_storage_provider_args: bool = True,
         pass_default_resources_args: bool = False,
-    ):
+    ) -> str:
         """Return a string to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
         ClusterExecutor and CPUExecutor, as both were using the same
@@ -93,7 +175,7 @@ class SpawnedJobArgsFactory:
         args = [
             "--force",
             "--target-files-omit-workdir-adjustment",
-            "--keep-remote",
+            "--keep-storage-local-copies",
             "--max-inventory-time 0",
             "--nocolor",
             "--notemp",
@@ -101,6 +183,7 @@ class SpawnedJobArgsFactory:
             "--nolock",
             "--ignore-incomplete",
             w2a("execution_settings.keep_incomplete"),
+            w2a("output_settings.verbose"),
             w2a("rerun_triggers"),
             w2a(
                 "execution_settings.cleanup_scripts",
@@ -118,6 +201,9 @@ class SpawnedJobArgsFactory:
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
             w2a("resource_settings.max_threads"),
+            w2a(
+                "storage_settings.assume_shared_fs", flag="--no-shared-fs", invert=True
+            ),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
@@ -143,8 +229,9 @@ class SpawnedJobArgsFactory:
             self.get_set_resources_args(),
             self.get_resource_scopes_args(),
         ]
-        if pass_default_remote_provider_args:
-            args.append(self.get_default_remote_provider_args())
+        args.extend(self.get_storage_provider_args())
+        if pass_default_storage_provider_args:
+            args.append(self.get_default_storage_provider_args())
         if pass_default_resources_args:
             args.append(w2a("resource_settings.default_resources", attr="args"))
 

@@ -15,8 +15,6 @@ from functools import partial
 import inspect
 import textwrap
 
-from snakemake.common import DYNAMIC_FILL
-
 
 def get_default_exec_mode():
     from snakemake_interface_executor_plugins.settings import ExecMode
@@ -306,7 +304,6 @@ class Logger:
         self.show_failed_logs = False
         self.logfile_handler = None
         self.dryrun = False
-        latency_wait = 5
 
     def setup_logfile(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
@@ -485,9 +482,6 @@ class Logger:
                 yield f"    resources: {resources}"
 
         def show_logs(logs):
-            from snakemake.io import wait_for_files
-
-            wait_for_files(logs, latency_wait=self.latency_wait)
             for f in logs:
                 try:
                     content = open(f, "r").read()
@@ -601,7 +595,7 @@ class Logger:
             timestamp()
             self.logger.error("\n".join(group_error()))
         else:
-            if level == "info":
+            if level == "info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
             if level == "warning":
                 self.logger.critical(msg["msg"])
@@ -609,9 +603,9 @@ class Logger:
                 self.logger.error(msg["msg"])
             elif level == "debug":
                 self.logger.debug(msg["msg"])
-            elif level == "resources_info":
+            elif level == "resources_info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
-            elif level == "run_info":
+            elif level == "run_info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
             elif level == "progress" and not self.is_quiet_about("progress"):
                 done = msg["done"]
@@ -681,7 +675,7 @@ def format_dict(dict_like, omit_keys=None, omit_values=None):
 
 
 format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
-format_wildcards = partial(format_dict, omit_values={DYNAMIC_FILL})
+format_wildcards = format_dict
 
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
@@ -718,8 +712,9 @@ def setup_logger(
     mode=None,
     show_failed_logs=False,
     dryrun=False,
-    latency_wait=5,
 ):
+    from snakemake.settings import Quietness
+
     if mode is None:
         mode = get_default_exec_mode()
 
@@ -728,12 +723,10 @@ def setup_logger(
         quiet = set()
     elif isinstance(quiet, bool):
         if quiet:
-            quiet = set(["progress", "rules"])
+            quiet = {Quietness.PROGRESS, Quietness.RULES}
         else:
             quiet = set()
-    elif isinstance(quiet, list):
-        quiet = set(quiet)
-    else:
+    elif not isinstance(quiet, set):
         raise ValueError(
             "Unsupported value provided for quiet mode (either bool, None or list allowed)."
         )
@@ -755,4 +748,3 @@ def setup_logger(
     logger.mode = mode
     logger.dryrun = dryrun
     logger.show_failed_logs = show_failed_logs
-    logger.latency_wait = latency_wait
