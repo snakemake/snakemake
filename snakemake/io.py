@@ -1517,9 +1517,9 @@ class Namedlist(list):
             elif i == index:
                 self._set_name(name, i, end=i + len(items))
 
-    def _get_unnamed_arguments(self):
+    def get_positional_items(self) -> Sequence[str]:
         """
-        Get unnamed arguments and return them as a list.
+        Get arguments without name and return them as a list.
         """
 
         keys_with_positions = self._names
