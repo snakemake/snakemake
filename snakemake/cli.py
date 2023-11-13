@@ -268,17 +268,18 @@ def get_profile_dir(profile: str) -> (Path, Path):
     else:
         search_dirs = [os.getcwd(), dirs.user_config_dir, dirs.site_config_dir]
     for d in search_dirs:
-        d = Path(d)
-        files = os.listdir(d / profile)
-        curr_major = int(__version__.split(".")[0])
-        config_files = {
-            f: min_major
-            for f, min_major in zip(files, map(get_config_min_major, files))
-            if min_major is not None and curr_major >= min_major
-        }
-        if config_files:
-            config_file = max(config_files, key=config_files.get)
-            return d / profile, d / profile / config_file
+        profile_candidate = Path(d) / profile
+        if profile_candidate.exists():
+            files = os.listdir(profile_candidate)
+            curr_major = int(__version__.split(".")[0])
+            config_files = {
+                f: min_major
+                for f, min_major in zip(files, map(get_config_min_major, files))
+                if min_major is not None and curr_major >= min_major
+            }
+            if config_files:
+                config_file = max(config_files, key=config_files.get)
+                return profile_candidate, profile_candidate / config_file
 
 
 def get_profile_file(profile_dir: Path, file, return_default=False):
