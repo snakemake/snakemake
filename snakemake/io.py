@@ -22,7 +22,7 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, Set, Union
+from typing import Any, Callable, Dict, Set, Union, Sequence
 
 from snakemake_interface_common.utils import not_iterable
 from snakemake_interface_storage_plugins.io import (
