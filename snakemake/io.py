@@ -200,8 +200,6 @@ class IOCache(IOCacheStorageInterface):
 
 def IOFile(file, rule=None):
     assert rule is not None
-    if ON_WINDOWS and hasattr(file, "replace"):
-        file = file.replace("\\", "/")
     f = _IOFile(file)
     f.rule = rule
     return f
@@ -736,6 +734,8 @@ class _IOFile(str, AnnotatedStringInterface):
                     rule=self.rule,
                 )
             local_path_str = str(storage_object.local_path())
+            if ON_WINDOWS:
+                local_path_str = local_path_str.replace("\\", "/")
             file_with_wildcards_applied = IOFile(local_path_str, rule=self.rule)
             file_with_wildcards_applied.clone_flags(self, skip_storage_object=True)
             file_with_wildcards_applied.flags["storage_object"] = storage_object
