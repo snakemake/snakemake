@@ -32,6 +32,7 @@ def cwl(
     use_singularity,
     bench_record,
     jobid,
+    sourcecache_path,
     runtime_sourcecache_path,
 ):
     """

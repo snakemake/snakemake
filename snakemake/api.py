@@ -135,7 +135,7 @@ class SnakemakeApi(ApiBase):
 
         self._check_is_in_context()
 
-        self._setup_logger()
+        self._setup_logger(mode=workflow_settings.exec_mode)
 
         snakefile = resolve_snakefile(snakefile)
 
@@ -159,10 +159,7 @@ class SnakemakeApi(ApiBase):
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
             if self._workflow_api._workflow_store is not None:
-                for conda_env in self._workflow_api._workflow_store.injected_conda_envs:
-                    conda_env.remove()
-                if self._workflow_api._workflow._workdir_handler is not None:
-                    self._workflow_api._workflow._workdir_handler.change_back()
+                self._workflow_api._workflow_store.tear_down()
 
     def deploy_sources(
         self,
@@ -442,7 +439,7 @@ class DAGApi(ApiBase):
             self.workflow_api.storage_settings.assume_shared_fs = False
 
         if (
-            execution_settings.mode == ExecMode.DEFAULT
+            self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT
             and not self.workflow_api.storage_settings.assume_shared_fs
             and not self.workflow_api.storage_settings.default_storage_provider
         ):
@@ -453,7 +450,7 @@ class DAGApi(ApiBase):
 
         self.snakemake_api._setup_logger(
             stdout=executor_plugin.common_settings.dryrun_exec,
-            mode=execution_settings.mode,
+            mode=self.workflow_api.workflow_settings.exec_mode,
             dryrun=executor_plugin.common_settings.dryrun_exec,
         )
 

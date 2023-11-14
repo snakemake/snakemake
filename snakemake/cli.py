@@ -268,17 +268,18 @@ def get_profile_dir(profile: str) -> (Path, Path):
     else:
         search_dirs = [os.getcwd(), dirs.user_config_dir, dirs.site_config_dir]
     for d in search_dirs:
-        d = Path(d)
-        files = os.listdir(d / profile)
-        curr_major = int(__version__.split(".")[0])
-        config_files = {
-            f: min_major
-            for f, min_major in zip(files, map(get_config_min_major, files))
-            if min_major is not None and curr_major >= min_major
-        }
-        if config_files:
-            config_file = max(config_files, key=config_files.get)
-            return d / profile, d / profile / config_file
+        profile_candidate = Path(d) / profile
+        if profile_candidate.exists():
+            files = os.listdir(profile_candidate)
+            curr_major = int(__version__.split(".")[0])
+            config_files = {
+                f: min_major
+                for f, min_major in zip(files, map(get_config_min_major, files))
+                if min_major is not None and curr_major >= min_major
+            }
+            if config_files:
+                config_file = max(config_files, key=config_files.get)
+                return profile_candidate, profile_candidate / config_file
 
 
 def get_profile_file(profile_dir: Path, file, return_default=False):
@@ -556,7 +557,7 @@ def get_argument_parser(profiles=None):
             "The inputsize is the sum of the sizes of all input files of a rule. "
             "By default, Snakemake assumes a default for mem_mb, disk_mb, and tmpdir (see below). "
             "This option allows to add further defaults (e.g. account and partition for slurm) or to overwrite these default values. "
-            "The defaults are 'mem_mb=max(2*input.size_mb, 1000)', "
+            "The defaults are 'mem_mb=min(max(2*input.size_mb, 1000), 8000)', "
             "'disk_mb=max(2*input.size_mb, 1000)' "
             "(i.e., default disk and mem usage is twice the input file size but at least 1GB), and "
             "the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
@@ -1849,6 +1850,7 @@ def args_to_api(args, parser):
                     storage_provider_settings=storage_provider_settings,
                     workflow_settings=WorkflowSettings(
                         wrapper_prefix=args.wrapper_prefix,
+                        exec_mode=args.mode,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
@@ -1968,7 +1970,6 @@ def args_to_api(args, parser):
                                 attempt=args.attempt,
                                 use_threads=args.force_use_threads,
                                 shadow_prefix=args.shadow_prefix,
-                                mode=args.mode,
                                 keep_incomplete=args.keep_incomplete,
                                 keep_metadata=not args.drop_metadata,
                                 edit_notebook=edit_notebook,

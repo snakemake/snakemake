@@ -6,6 +6,8 @@ from typing import Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
+from snakemake import common
+
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
 
@@ -142,7 +144,9 @@ class SpawnedJobArgsFactory:
             package_name = StoragePluginRegistry().get_plugin_package_name(
                 self.workflow.storage_settings.default_storage_provider
             )
-            precommand.append(f"pip install {package_name}")
+            precommand.append(
+                f"pip install --target '{common.PIP_DEPLOYMENTS_PATH}' {package_name}"
+            )
 
         if not self.workflow.storage_settings.assume_shared_fs:
             archive = self.workflow.source_archive
