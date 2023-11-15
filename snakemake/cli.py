@@ -1256,6 +1256,14 @@ def get_argument_parser(profiles=None):
         "in order to save space.",
     )
     group_behavior.add_argument(
+        "--unneeded-temp-files",
+        parse_func=set,
+        metavar="FILE",
+        nargs="+",
+        help="Given files will not be uploaded to storage and immediately deleted "
+        "after job or group job completion."
+    )
+    group_behavior.add_argument(
         "--keep-storage-local-copies",
         action="store_true",
         help="Keep local copies of remote input files.",
@@ -1817,6 +1825,7 @@ def args_to_api(args, parser):
                 keep_storage_local=args.keep_storage_local_copies,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
+                unneeded_temp_files=args.unneeded_temp_files,
             )
 
             if args.deploy_sources:

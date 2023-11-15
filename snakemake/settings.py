@@ -185,6 +185,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     local_storage_prefix: Path = Path(".snakemake/storage")
     notemp: bool = False
     all_temp: bool = False
+    unneeded_temp_files: Set[str] = frozenset()
 
 
 class CondaCleanupPkgs(SettingsEnumBase):
