@@ -1263,7 +1263,7 @@ def get_argument_parser(profiles=None):
         metavar="FILE",
         nargs="+",
         help="Given files will not be uploaded to storage and immediately deleted "
-        "after job or group job completion."
+        "after job or group job completion.",
     )
     group_behavior.add_argument(
         "--keep-storage-local-copies",

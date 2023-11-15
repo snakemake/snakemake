@@ -55,7 +55,14 @@ from snakemake.io import (
     is_flagged,
     wait_for_files,
 )
-from snakemake.jobs import AbstractJob, GroupJob, GroupJobFactory, Job, JobFactory, Reason
+from snakemake.jobs import (
+    AbstractJob,
+    GroupJob,
+    GroupJobFactory,
+    Job,
+    JobFactory,
+    Reason,
+)
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
@@ -71,7 +78,7 @@ class DAG(DAGExecutorInterface):
         self,
         workflow,
         rules=None,
-        targetfiles: Set[str]=None,
+        targetfiles: Set[str] = None,
         targetrules=None,
         forceall=False,
         forcerules=None,
@@ -326,8 +333,9 @@ class DAG(DAGExecutorInterface):
                 for job in self.jobs:
                     for f in job.output:
                         if (
-                            f.is_storage and 
-                            f not in self.workflow.storage_settings.unneeded_temp_files
+                            f.is_storage
+                            and f
+                            not in self.workflow.storage_settings.unneeded_temp_files
                         ):
                             tg.create_task(f.store_in_storage())
 
@@ -669,7 +677,7 @@ class DAG(DAGExecutorInterface):
         If none, return 0.
         """
         return sum([await f.size() for f in self.temp_input(job)])
-    
+
     def is_needed_tempfile(self, job, tempfile):
         return any(
             tempfile in files
@@ -693,7 +701,9 @@ class DAG(DAGExecutorInterface):
             # temp input
             for job_, files in self.dependencies[job].items():
                 tempfiles = set(f for f in job_.output if is_temp(f))
-                yield from filterfalse(partial(self.is_needed_tempfile, job_), tempfiles & files)
+                yield from filterfalse(
+                    partial(self.is_needed_tempfile, job_), tempfiles & files
+                )
 
             # temp output
             if not job.is_checkpoint and (

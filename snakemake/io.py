@@ -174,7 +174,11 @@ class IOCache(IOCacheStorageInterface):
             for f in chain(job.input, job.output):
                 if not f.is_storage and await f.exists():
                     queue.put_nowait(f)
-            if job.benchmark and not job.benchmark.is_storage and await job.benchmark.exists():
+            if (
+                job.benchmark
+                and not job.benchmark.is_storage
+                and await job.benchmark.exists()
+            ):
                 queue.put_nowait(job.benchmark)
 
         # Send a stop item to each worker.
