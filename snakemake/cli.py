@@ -283,6 +283,7 @@ def get_profile_dir(profile: str) -> (Path, Path):
 
 
 def get_profile_file(profile_dir: Path, file, return_default=False):
+    file = os.path.expandvars(file)
     p = profile_dir / file
     # "file" can actually be a full command. If so, `p` won't exist as the
     # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
