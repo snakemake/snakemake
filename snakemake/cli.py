@@ -1851,6 +1851,7 @@ def args_to_api(args, parser):
                     workflow_settings=WorkflowSettings(
                         wrapper_prefix=args.wrapper_prefix,
                         exec_mode=args.mode,
+                        cache=args.cache,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
@@ -1893,7 +1894,6 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
-                            cache=args.cache,
                         ),
                     )
 

@@ -343,6 +343,7 @@ def run(
                     storage_provider_settings=storage_provider_settings,
                     workflow_settings=settings.WorkflowSettings(
                         wrapper_prefix=wrapper_prefix,
+                        cache=cache,
                     ),
                     deployment_settings=settings.DeploymentSettings(
                         conda_frontend=conda_frontend,
@@ -361,7 +362,6 @@ def run(
                         forcerun=forcerun,
                         batch=batch,
                         force_incomplete=force_incomplete,
-                        cache=cache,
                         forceall=forceall,
                         rerun_triggers=rerun_triggers,
                     ),
