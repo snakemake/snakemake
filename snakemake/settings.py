@@ -98,6 +98,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
 class WorkflowSettings(SettingsBase):
     wrapper_prefix: Optional[str] = None
     exec_mode: ExecMode = ExecMode.DEFAULT
+    cache: Optional[Sequence[str]] = None
 
 
 class Batch:
@@ -166,7 +167,6 @@ class DAGSettings(SettingsBase):
     allowed_rules: Set[str] = frozenset()
     rerun_triggers: Set[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
-    cache: Optional[Sequence[str]] = None
 
     def _check(self):
         if self.batch is not None and self.forceall:
@@ -185,6 +185,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     local_storage_prefix: Path = Path(".snakemake/storage")
     notemp: bool = False
     all_temp: bool = False
+    unneeded_temp_files: Set[str] = frozenset()
 
 
 class CondaCleanupPkgs(SettingsEnumBase):

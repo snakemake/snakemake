@@ -268,20 +268,22 @@ def get_profile_dir(profile: str) -> (Path, Path):
     else:
         search_dirs = [os.getcwd(), dirs.user_config_dir, dirs.site_config_dir]
     for d in search_dirs:
-        d = Path(d)
-        files = os.listdir(d / profile)
-        curr_major = int(__version__.split(".")[0])
-        config_files = {
-            f: min_major
-            for f, min_major in zip(files, map(get_config_min_major, files))
-            if min_major is not None and curr_major >= min_major
-        }
-        if config_files:
-            config_file = max(config_files, key=config_files.get)
-            return d / profile, d / profile / config_file
+        profile_candidate = Path(d) / profile
+        if profile_candidate.exists():
+            files = os.listdir(profile_candidate)
+            curr_major = int(__version__.split(".")[0])
+            config_files = {
+                f: min_major
+                for f, min_major in zip(files, map(get_config_min_major, files))
+                if min_major is not None and curr_major >= min_major
+            }
+            if config_files:
+                config_file = max(config_files, key=config_files.get)
+                return profile_candidate, profile_candidate / config_file
 
 
 def get_profile_file(profile_dir: Path, file, return_default=False):
+    file = os.path.expandvars(file)
     p = profile_dir / file
     # "file" can actually be a full command. If so, `p` won't exist as the
     # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
@@ -1256,6 +1258,14 @@ def get_argument_parser(profiles=None):
         "in order to save space.",
     )
     group_behavior.add_argument(
+        "--unneeded-temp-files",
+        parse_func=set,
+        metavar="FILE",
+        nargs="+",
+        help="Given files will not be uploaded to storage and immediately deleted "
+        "after job or group job completion.",
+    )
+    group_behavior.add_argument(
         "--keep-storage-local-copies",
         action="store_true",
         help="Keep local copies of remote input files.",
@@ -1817,6 +1827,7 @@ def args_to_api(args, parser):
                 keep_storage_local=args.keep_storage_local_copies,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
+                unneeded_temp_files=args.unneeded_temp_files,
             )
 
             if args.deploy_sources:
@@ -1850,6 +1861,7 @@ def args_to_api(args, parser):
                     workflow_settings=WorkflowSettings(
                         wrapper_prefix=args.wrapper_prefix,
                         exec_mode=args.mode,
+                        cache=args.cache,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
@@ -1892,7 +1904,6 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
-                            cache=args.cache,
                         ),
                     )
 
