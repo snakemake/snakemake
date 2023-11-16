@@ -122,7 +122,7 @@ class Snakemake:
 
         if stdout and stderr:
             # Check if two files are provided
-            stdout_file, stderr_file = _infer_stdout_and_stderr(self.log)
+            stdout_file, stderr_file = infer_stdout_and_stderr(self.log)
 
             if stdout_file is not None:
                 # We have a stderr and a stdout file
@@ -140,7 +140,7 @@ class Snakemake:
         return _log_shell_redirect(self.log, stdout, stderr, append)
 
 
-def _infer_stdout_and_stderr(log: Optional[PathLike]):
+def infer_stdout_and_stderr(log: Optional[PathLike]):
     """
     If multiple log files are provided, try to infer which one is for stderr.
 
