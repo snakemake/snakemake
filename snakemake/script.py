@@ -140,7 +140,11 @@ class Snakemake:
         return _log_shell_redirect(self.log, stdout, stderr, append)
 
 
-def _infer_stdout_and_stderr(log: Optional[PathLike]):
+def _infer_stdout_and_stderr(
+    log: Optional[PathLike],
+    sdout_keys: List[str] = ["stdout", "out"],
+    stderr_keys: List[str] = ["stderr", "err"],
+):
     """
     If multiple log files are provided, try to infer which one is for stderr.
 
@@ -163,23 +167,52 @@ def _infer_stdout_and_stderr(log: Optional[PathLike]):
     elif len(log) > 1:
         stdout_file, stderr_file = None, None
         # infer stdout and stderr file from log keys
-        for key in ["stderr", "err"]:
+        for key in stderr_keys:
             if hasattr(log, key):
                 stderr_file = log[key]
 
-        for key in ["stdout", "out"]:
+        for key in sdout_keys:
             if hasattr(log, key):
                 stdout_file = log[key]
 
         if (stdout_file is None) or (stderr_file is None):
             warnings.warn(
                 "You have more than one log file, but I cannot infer which logfile is stderr and which is stdout,"
-                f"Logging stderr and stdout to the same file {stderr_file}"
+                f"I use {stderr_file} file for logging."
             )
             return None, log[0]
 
         else:
             return stdout_file, stderr_file
+
+
+def get_stderr_logfile(self):
+    """
+    Return the stderr-log file.
+    If multiple log files are specified, try to infer which is stdout and which is stderr.
+    If this fails return the first log file.
+    If none is specified, return None
+    """
+
+    _, stderr_file = self.infer_stdout_and_stderr(self.log)
+
+    return stderr_file
+
+
+def get_stdout_logfile(self):
+    """
+    Return the stdout-log file.
+    If multiple log files are specified, try to infer which is stdout and which is stderr.
+    If this fails return the first log file.
+    If none is specified, return None
+    """
+
+    stdout_file, stderr_file = self.infer_stdout_and_stderr(self.log)
+
+    if stdout_file is not None:
+        return stdout_file
+    else:
+        return stderr_file
 
 
 def _log_shell_redirect(
