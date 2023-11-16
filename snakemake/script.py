@@ -22,6 +22,7 @@ import pickle
 import collections
 import re
 import json
+import warnings
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Tuple, Pattern, Union, Optional, List
@@ -73,7 +74,7 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
-    def log_fmt_shell(self, stdout=True, stderr=True, append=False):
+    def log_fmt_shell(self, stdout=True, stderr=True, append=False) -> str:
         """
         Return a shell redirection string to be used in `shell()` calls
 
@@ -139,12 +140,39 @@ class Snakemake:
 
         return _log_shell_redirect(self.log, stdout, stderr, append)
 
+    def get_stderr_logfile(self) -> Optional[PathLike]:
+        """
+        Return the stderr-log file.
+        If multiple log files are specified, try to infer which is stdout and which is stderr.
+        If this fails return the first log file.
+        If none is specified, return None
+        """
+
+        _, stderr_file = _infer_stdout_and_stderr(self.log)
+
+        return stderr_file
+
+    def get_stdout_logfile(self) -> Optional[PathLike]:
+        """
+        Return the stdout-log file.
+        If multiple log files are specified, try to infer which is stdout and which is stderr.
+        If this fails return the first log file.
+        If none is specified, return None
+        """
+
+        stdout_file, stderr_file = _infer_stdout_and_stderr(self.log)
+
+        if stdout_file is not None:
+            return stdout_file
+        else:
+            return stderr_file
+
 
 def _infer_stdout_and_stderr(
     log: Optional[PathLike],
     sdout_keys: List[str] = ["stdout", "out"],
     stderr_keys: List[str] = ["stderr", "err"],
-):
+) -> Tuple[Optional[PathLike], Optional[PathLike]]:
     """
     If multiple log files are provided, try to infer which one is for stderr.
 
@@ -158,7 +186,6 @@ def _infer_stdout_and_stderr(
 
 
     """
-    import warnings
 
     if (log is None) or (len(log) == 0):
         return None, None
@@ -184,35 +211,6 @@ def _infer_stdout_and_stderr(
 
         else:
             return stdout_file, stderr_file
-
-
-def get_stderr_logfile(self):
-    """
-    Return the stderr-log file.
-    If multiple log files are specified, try to infer which is stdout and which is stderr.
-    If this fails return the first log file.
-    If none is specified, return None
-    """
-
-    _, stderr_file = self.infer_stdout_and_stderr(self.log)
-
-    return stderr_file
-
-
-def get_stdout_logfile(self):
-    """
-    Return the stdout-log file.
-    If multiple log files are specified, try to infer which is stdout and which is stderr.
-    If this fails return the first log file.
-    If none is specified, return None
-    """
-
-    stdout_file, stderr_file = self.infer_stdout_and_stderr(self.log)
-
-    if stdout_file is not None:
-        return stdout_file
-    else:
-        return stderr_file
 
 
 def _log_shell_redirect(
