@@ -251,7 +251,9 @@ class Workflow(WorkflowExecutorInterface):
                 checksum = hashlib.file_digest(f, "sha256").hexdigest()
 
             prefix = self.storage_settings.default_storage_prefix
-            query = f"{prefix}/snakemake-workflow-sources.{checksum}.tar.xz"
+            if prefix:
+                prefix = f"{prefix}/"
+            query = f"{prefix}snakemake-workflow-sources.{checksum}.tar.xz"
 
             self._source_archive = SourceArchiveInfo(query, checksum)
 
@@ -1094,6 +1096,7 @@ class Workflow(WorkflowExecutorInterface):
             if (
                 not self.storage_settings.assume_shared_fs
                 and self.exec_mode == ExecMode.DEFAULT
+                and self.remote_execution_settings.job_deploy_sources
             ):
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()

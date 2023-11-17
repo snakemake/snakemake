@@ -282,30 +282,12 @@ def get_profile_dir(profile: str) -> (Path, Path):
                 return profile_candidate, profile_candidate / config_file
 
 
-def get_profile_file(profile_dir: Path, file, return_default=False):
-    file = os.path.expandvars(file)
-    p = profile_dir / file
-    # "file" can actually be a full command. If so, `p` won't exist as the
-    # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
-    # exists. To fix this, we use shlex.split() to get the path to the
-    # script. We check for both, in case the path contains spaces or some
-    # other thing that would cause shlex.split() to mangle the path
-    # inaccurately.
-    if p.exists() or os.path.exists(shlex.split(str(p))[0]):
-        return p
-
-    if return_default:
-        return file
-    return None
-
-
 def get_argument_parser(profiles=None):
     """Generate and return argument parser."""
     from snakemake.profiles import ProfileConfigFileParser
 
     dirs = get_appdirs()
     config_files = []
-    profile_dir = None
     if profiles:
         for profile in profiles:
             if profile == "":
@@ -314,7 +296,7 @@ def get_argument_parser(profiles=None):
 
             profile_entry = get_profile_dir(profile)
             if profile_entry is not None:
-                profile_dir, config_file = profile_entry
+                _profile_dir, config_file = profile_entry
                 config_files.append(config_file)
             else:
                 print(
@@ -1260,6 +1242,7 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--unneeded-temp-files",
         parse_func=set,
+        default=frozenset(),
         metavar="FILE",
         nargs="+",
         help="Given files will not be uploaded to storage and immediately deleted "
@@ -1350,6 +1333,14 @@ def get_argument_parser(profiles=None):
         help="Specify prefix for default storage provider. E.g. a bucket name.",
     )
     group_behavior.add_argument(
+        "--local-storage-prefix",
+        default=".snakemake/storage",
+        type=Path,
+        help="Specify prefix for storing local copies of storage files and folders. "
+        "By default, this is a hidden subfolder in the workdir. It can however be "
+        "freely chosen, e.g. in order to store those files on a local scratch disk.",
+    )
+    group_behavior.add_argument(
         "--no-shared-fs",
         action="store_true",
         help="Do not assume that jobs share a common file "
@@ -1418,6 +1409,13 @@ def get_argument_parser(profiles=None):
         help="Set a specific messaging service for logging output."
         "Snakemake will notify the service on errors and completed execution."
         "Currently slack and workflow management system (wms) are supported.",
+    )
+    group_behavior.add_argument(
+        "--job-deploy-sources",
+        action="store_true",
+        help="Whether the workflow sources shall be deployed before a remote job is "
+        "started. Only applies if --no-shared-fs is set or executors are used that "
+        "imply no shared FS (e.g. the kubernetes executor)."
     )
 
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
@@ -1599,7 +1597,7 @@ def get_argument_parser(profiles=None):
     # Add namespaced arguments to parser for each plugin
     _get_executor_plugin_registry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
-    return parser, profile_dir
+    return parser
 
 
 def generate_parser_metadata(parser, args):
@@ -1615,7 +1613,7 @@ def generate_parser_metadata(parser, args):
 
 
 def parse_args(argv):
-    parser, profile_dir = get_argument_parser()
+    parser = get_argument_parser()
     args = parser.parse_args(argv)
 
     snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
@@ -1656,25 +1654,8 @@ def parse_args(argv):
             file=sys.stderr,
         )
 
-        parser, profile_dir = get_argument_parser(profiles=profiles)
+        parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
-
-        def adjust_path(path_or_value):
-            if isinstance(path_or_value, str):
-                adjusted = get_profile_file(
-                    profile_dir, path_or_value, return_default=False
-                )
-                if adjusted is None or os.path.exists(path_or_value):
-                    return path_or_value
-                else:
-                    return adjusted
-            else:
-                return path_or_value
-
-        # Update file paths to be relative to the profile if profile
-        # contains them and they don't exist without prepending it.
-        for key, _ in list(args._get_kwargs()):
-            setattr(args, key, adjust_path(getattr(args, key)))
 
     return parser, args
 
@@ -1823,6 +1804,7 @@ def args_to_api(args, parser):
             storage_settings = StorageSettings(
                 default_storage_provider=args.default_storage_provider,
                 default_storage_prefix=args.default_storage_prefix,
+                local_storage_prefix=args.local_storage_prefix,
                 assume_shared_fs=not args.no_shared_fs,
                 keep_storage_local=args.keep_storage_local_copies,
                 notemp=args.notemp,
@@ -1995,6 +1977,7 @@ def args_to_api(args, parser):
                                 preemptible_rules=preemptible_rules,
                                 envvars=args.envvars,
                                 immediate_submit=args.immediate_submit,
+                                job_deploy_sources=args.job_deploy_sources,
                             ),
                             scheduling_settings=SchedulingSettings(
                                 prioritytargets=args.prioritize,

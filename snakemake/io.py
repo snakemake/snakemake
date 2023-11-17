@@ -114,8 +114,11 @@ class ExistsDict(dict):
 
     def __contains__(self, path):
         # if already in inventory, always return True.
-        parent = path.get_inventory_parent()
-        return parent in self.has_inventory or super().__contains__(path)
+        if isinstance(path, _IOFile):
+            parent = path.get_inventory_parent()
+            return parent in self.has_inventory or super().__contains__(path)
+        else:
+            return super().__contains__(path)
 
 
 class IOCache(IOCacheStorageInterface):
