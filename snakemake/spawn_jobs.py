@@ -149,7 +149,10 @@ class SpawnedJobArgsFactory:
                 f"pip install --target '{common.PIP_DEPLOYMENTS_PATH}' {package_name}"
             )
 
-        if not self.workflow.storage_settings.assume_shared_fs and self.workflow.remote_execution_settings.job_deploy_sources:
+        if (
+            not self.workflow.storage_settings.assume_shared_fs
+            and self.workflow.remote_execution_settings.job_deploy_sources
+        ):
             archive = self.workflow.source_archive
             default_storage_provider_args = self.get_default_storage_provider_args()
             storage_provider_args = " ".join(self.get_storage_provider_args())

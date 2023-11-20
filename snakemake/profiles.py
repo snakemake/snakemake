@@ -63,7 +63,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                     # Otherwise value is not a file or not existing in the profile dir.
                     if (profile_dir / value).exists():
                         value = str(profile_dir / value)
-                    
+
                     print(value)
 
                     result[key] = value

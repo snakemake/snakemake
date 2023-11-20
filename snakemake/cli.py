@@ -1415,7 +1415,7 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Whether the workflow sources shall be deployed before a remote job is "
         "started. Only applies if --no-shared-fs is set or executors are used that "
-        "imply no shared FS (e.g. the kubernetes executor)."
+        "imply no shared FS (e.g. the kubernetes executor).",
     )
 
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
