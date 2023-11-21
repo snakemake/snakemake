@@ -833,6 +833,7 @@ def get_argument_parser(profiles=None):
         "--groups",
         nargs="+",
         parse_func=parse_groups,
+        default=dict(),
         help="Assign rules to groups (this overwrites any "
         "group definitions from the workflow).",
     )
@@ -840,6 +841,7 @@ def get_argument_parser(profiles=None):
         "--group-components",
         nargs="+",
         parse_func=parse_group_components,
+        default=dict(),
         help="Set the number of connected components a group is "
         "allowed to span. By default, this is 1, but this flag "
         "allows to extend this. This can be used to run e.g. 3 "
