@@ -3,6 +3,7 @@ channels:
   - bioconda
 dependencies:
   - python >=3.11
+  - mamba
   - yte
   - packaging
   - stopit
