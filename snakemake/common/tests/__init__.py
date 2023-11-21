@@ -85,7 +85,7 @@ class TestWorkflowsBase(ABC):
         """
         pass
 
-    def _run_workflow(self, test_name, tmp_path, deployment_method=frozenset()):
+    def run_workflow(self, test_name, tmp_path, deployment_method=frozenset()):
         test_path = Path(__file__).parent / "testcases" / test_name
         if self.omit_tmp:
             tmp_path = test_path
@@ -123,6 +123,7 @@ class TestWorkflowsBase(ABC):
             )
 
             dag_api = workflow_api.dag()
+
             dag_api.execute_workflow(
                 executor=self.get_executor(),
                 executor_settings=self.get_executor_settings(),
@@ -134,11 +135,11 @@ class TestWorkflowsBase(ABC):
 
     @handle_testcase
     def test_simple_workflow(self, tmp_path):
-        self._run_workflow("simple", tmp_path)
+        self.run_workflow("simple", tmp_path)
 
     @handle_testcase
     def test_group_workflow(self, tmp_path):
-        self._run_workflow("groups", tmp_path)
+        self.run_workflow("groups", tmp_path)
 
     def _copy_test_files(self, test_path, tmp_path):
         shutil.copytree(test_path, tmp_path)
