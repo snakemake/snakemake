@@ -1,9 +1,12 @@
 from dataclasses import dataclass, fields
+import hashlib
 import os
 import sys
 from typing import Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
+
+from snakemake import common
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -17,7 +20,7 @@ else:
 class SpawnedJobArgsFactory:
     workflow: TWorkflow
 
-    def get_default_storage_provider_args(self):
+    def get_default_storage_provider_args(self) -> str:
         has_default_storage_provider = (
             self.workflow.storage_registry.default_storage_provider is not None
         )
@@ -43,34 +46,36 @@ class SpawnedJobArgsFactory:
             tagged_settings,
         ) in self.workflow.storage_provider_settings.items():
             plugin = StoragePluginRegistry().get_plugin(plugin_name)
-            for field in fields(plugin.settings_cls):
-                unparse = field.metadata.get("unparse", lambda value: value)
+            if plugin.settings_cls:
+                for field in fields(plugin.settings_cls):
+                    unparse = field.metadata.get("unparse", lambda value: value)
 
-                def fmt_value(tag, value):
-                    value = unparse(value)
-                    if tag is not None:
-                        return f"{tag}:{value}"
-                    else:
-                        return value
+                    def fmt_value(tag, value):
+                        value = unparse(value)
+                        if tag is not None:
+                            return f"{tag}:{value}"
+                        else:
+                            return value
 
-                field_settings = [
-                    fmt_value(tag, value)
-                    for tag, value in tagged_settings.get_field_settings(
-                        field.name
-                    ).items()
-                    if value is not None
-                ]
-                if field_settings:
-                    yield plugin, field, field_settings
+                    field_settings = [
+                        fmt_value(tag, value)
+                        for tag, value in tagged_settings.get_field_settings(
+                            field.name
+                        ).items()
+                        if value is not None
+                    ]
+                    if field_settings:
+                        yield plugin, field, field_settings
 
     def get_storage_provider_args(self):
         for plugin, field, field_settings in self._get_storage_provider_setting_items():
-            cli_arg = plugin.get_cli_arg(field.name)
-            yield format_cli_arg(cli_arg, field_settings)
+            if not field.metadata.get("env_var", False):
+                cli_arg = plugin.get_cli_arg(field.name)
+                yield format_cli_arg(cli_arg, field_settings)
 
     def get_storage_provider_envvars(self):
         return {
-            plugin.get_envvar(field.name): field_settings
+            plugin.get_envvar(field.name): " ".join(map(str, field_settings))
             for plugin, field, field_settings in self._get_storage_provider_setting_items()
             if "env_var" in field.metadata
         }
@@ -125,8 +130,14 @@ class SpawnedJobArgsFactory:
         envvars.update(self.get_storage_provider_envvars())
         return envvars
 
-    def precommand(self, auto_deploy_default_storage_provider: bool) -> str:
-        precommand = self.workflow.remote_execution_settings.precommand or ""
+    def precommand(
+        self,
+        auto_deploy_default_storage_provider: bool = False,
+        python_executable: str = "python",
+    ) -> str:
+        precommand = []
+        if self.workflow.remote_execution_settings.precommand:
+            precommand.append(self.workflow.remote_execution_settings.precommand)
         if (
             auto_deploy_default_storage_provider
             and self.workflow.storage_settings.default_storage_provider is not None
@@ -134,10 +145,24 @@ class SpawnedJobArgsFactory:
             package_name = StoragePluginRegistry().get_plugin_package_name(
                 self.workflow.storage_settings.default_storage_provider
             )
-            if precommand:
-                precommand += " && "
-            precommand += f"pip install {package_name}"
-        return precommand
+            precommand.append(
+                f"pip install --target '{common.PIP_DEPLOYMENTS_PATH}' {package_name}"
+            )
+
+        if (
+            not self.workflow.storage_settings.assume_shared_fs
+            and self.workflow.remote_execution_settings.job_deploy_sources
+        ):
+            archive = self.workflow.source_archive
+            default_storage_provider_args = self.get_default_storage_provider_args()
+            storage_provider_args = " ".join(self.get_storage_provider_args())
+            precommand.append(
+                f"{python_executable} -m snakemake --deploy-sources "
+                f"{archive.query} {archive.checksum} {default_storage_provider_args} "
+                f"{storage_provider_args}"
+            )
+
+        return " && ".join(precommand)
 
     def general_args(
         self,

@@ -114,8 +114,11 @@ class ExistsDict(dict):
 
     def __contains__(self, path):
         # if already in inventory, always return True.
-        parent = path.get_inventory_parent()
-        return parent in self.has_inventory or super().__contains__(path)
+        if isinstance(path, _IOFile):
+            parent = path.get_inventory_parent()
+            return parent in self.has_inventory or super().__contains__(path)
+        else:
+            return super().__contains__(path)
 
 
 class IOCache(IOCacheStorageInterface):
@@ -172,9 +175,13 @@ class IOCache(IOCacheStorageInterface):
 
         for job in jobs:
             for f in chain(job.input, job.output):
-                if await f.exists():
+                if not f.is_storage and await f.exists():
                     queue.put_nowait(f)
-            if job.benchmark and await job.benchmark.exists():
+            if (
+                job.benchmark
+                and not job.benchmark.is_storage
+                and await job.benchmark.exists()
+            ):
                 queue.put_nowait(job.benchmark)
 
         # Send a stop item to each worker.

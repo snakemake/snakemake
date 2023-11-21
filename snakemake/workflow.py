@@ -4,16 +4,19 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from dataclasses import dataclass, field
+import hashlib
 import re
 import os
 import subprocess
 import sys
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from collections.abc import Mapping
 from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
+import tarfile
+import tempfile
 from typing import Dict, List, Optional, Set
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings import (
@@ -93,6 +96,7 @@ import snakemake.wrapper
 from snakemake.common import (
     ON_WINDOWS,
     async_run,
+    get_appdirs,
     is_local_file,
     Rules,
     Scatter,
@@ -115,6 +119,9 @@ from snakemake.sourcecache import (
 )
 from snakemake.deployment.conda import Conda
 from snakemake import api, sourcecache
+
+
+SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
 
 
 @dataclass
@@ -174,11 +181,15 @@ class Workflow(WorkflowExecutorInterface):
         self._resource_scopes = ResourceScopes.defaults()
         self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
         self.modules = dict()
-        self._sourcecache = SourceCache()
+        self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
+
+        self._sourcecache = SourceCache(self.source_cache_path)
+
         self._scheduler = None
         self._spawned_job_general_args = None
         self._executor_plugin = None
         self._storage_registry = StorageRegistry(self)
+        self._source_archive = None
 
         _globals = globals()
         from snakemake.shell import shell
@@ -200,15 +211,92 @@ class Workflow(WorkflowExecutorInterface):
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
 
+    def tear_down(self):
+        for conda_env in self.injected_conda_envs:
+            conda_env.remove()
+        if self._workdir_handler is not None:
+            self._workdir_handler.change_back()
+        self._snakemake_tmp_dir.cleanup()
+
+    @property
+    def snakemake_tmp_dir(self) -> Path:
+        return Path(self._snakemake_tmp_dir.name)
+
+    @property
+    def source_cache_path(self) -> Path:
+        if self.remote_exec_no_shared_fs:
+            return self.snakemake_tmp_dir / "source-cache"
+        else:
+            return Path(
+                os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache")
+            )
+
     @property
     def storage_registry(self):
         return self._storage_registry
 
     @property
+    def source_archive(self):
+        assert self._source_archive is not None, (
+            "bug: source archive info accessed but source archive has not been "
+            "uploaded to default storage provider before"
+        )
+        return self._source_archive
+
+    def upload_sources(self):
+        with tempfile.NamedTemporaryFile(suffix="snakemake-sources.tar.xz") as f:
+            self.write_source_archive(Path(f.name))
+            f.flush()
+            with open(f.name, "rb") as f:
+                checksum = hashlib.file_digest(f, "sha256").hexdigest()
+
+            prefix = self.storage_settings.default_storage_prefix
+            if prefix:
+                prefix = f"{prefix}/"
+            query = f"{prefix}snakemake-workflow-sources.{checksum}.tar.xz"
+
+            self._source_archive = SourceArchiveInfo(query, checksum)
+
+            obj = self.storage_registry.default_storage_provider.object(query)
+            obj.set_local_path(Path(f.name))
+            logger.info("Uploading source archive to storage provider...")
+            async_run(obj.managed_store())
+
+    def write_source_archive(self, path: Path):
+        def get_files():
+            for f in self.dag.get_sources():
+                if f.startswith(".."):
+                    logger.warning(
+                        "Ignoring source file {}. Only files relative "
+                        "to the working directory are allowed.".format(f)
+                    )
+                    continue
+
+                # The kubernetes API can't create secret files larger than 1MB.
+                source_file_size = os.path.getsize(f)
+                max_file_size = 10000000
+                if source_file_size > max_file_size:
+                    logger.warning(
+                        "Skipping the source file for upload {f}. Its size "
+                        "{source_file_size} exceeds "
+                        "the maximum file size (10MB). Consider to provide the file as "
+                        "input file instead.".format(
+                            f=f, source_file_size=source_file_size
+                        )
+                    )
+                    continue
+                yield f
+
+        assert path.suffixes == [".tar", ".xz"]
+        with tarfile.open(path, "w:xz") as archive:
+            for f in get_files():
+                archive.add(f)
+
+    @property
     def enable_cache(self):
         return (
-            self.execution_settings is not None
-            and self.execution_settings.cache is not None
+            self.workflow_settings is not None
+            and self.workflow_settings.cache is not None
         )
 
     def check_cache_rules(self):
@@ -297,10 +385,7 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def exec_mode(self):
-        if self.execution_settings is not None:
-            return self.execution_settings.mode
-        else:
-            return ExecMode.DEFAULT
+        return self.workflow_settings.exec_mode
 
     @lazy_property
     def spawned_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
@@ -415,7 +500,7 @@ class Workflow(WorkflowExecutorInterface):
         return linted
 
     def get_cache_mode(self, rule: Rule):
-        if self.dag_settings.cache is None:
+        if self.workflow_settings.cache is None:
             return None
         else:
             return self.cache_rules.get(rule.name)
@@ -564,9 +649,9 @@ class Workflow(WorkflowExecutorInterface):
         nolock: bool = False,
         shadow_prefix: Optional[str] = None,
     ) -> DAG:
-        if self.dag_settings.cache is not None:
+        if self.workflow_settings.cache is not None:
             self.cache_rules.update(
-                {rulename: "all" for rulename in self.dag_settings.cache}
+                {rulename: "all" for rulename in self.workflow_settings.cache}
             )
             if self.storage_settings.default_storage_provider is not None:
                 self._output_file_cache = StorageOutputFileCache(
@@ -656,6 +741,12 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=ignore_incomplete,
         )
 
+        persistence_path = (
+            self.snakemake_tmp_dir / "persistence"
+            if self.remote_exec_no_shared_fs
+            else None
+        )
+
         self._persistence = Persistence(
             nolock=nolock,
             dag=self._dag,
@@ -663,6 +754,7 @@ class Workflow(WorkflowExecutorInterface):
             singularity_prefix=self.deployment_settings.apptainer_prefix,
             shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
+            path=persistence_path,
         )
 
     def generate_unit_tests(self, path: Path):
@@ -711,7 +803,7 @@ class Workflow(WorkflowExecutorInterface):
     def unlock(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -1000,6 +1092,14 @@ class Workflow(WorkflowExecutorInterface):
                 if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                     self.dag.create_conda_envs()
                 async_run(self.dag.retrieve_storage_inputs())
+
+            if (
+                not self.storage_settings.assume_shared_fs
+                and self.exec_mode == ExecMode.DEFAULT
+                and self.remote_execution_settings.job_deploy_sources
+            ):
+                # no shared FS, hence we have to upload the sources to the storage
+                self.upload_sources()
 
             self.scheduler = JobScheduler(self, executor_plugin)
 

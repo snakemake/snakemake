@@ -36,6 +36,7 @@ from snakemake.settings import (
     SchedulingSettings,
     StorageSettings,
     WorkflowSettings,
+    GroupSettings,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode
@@ -158,8 +159,8 @@ def parse_batch(args):
 def parse_groups(args):
     errmsg = "Invalid groups definition: entries have to be defined as RULE=GROUP pairs"
     overwrite_groups = dict()
-    if args.groups is not None:
-        for entry in args.groups:
+    if args is not None:
+        for entry in args:
             rule, group = parse_key_value_arg(entry, errmsg=errmsg)
             overwrite_groups[rule] = group
     return overwrite_groups
@@ -168,8 +169,8 @@ def parse_groups(args):
 def parse_group_components(args):
     errmsg = "Invalid group components definition: entries have to be defined as GROUP=COMPONENTS pairs (with COMPONENTS being a positive integer)"
     group_components = dict()
-    if args.group_components is not None:
-        for entry in args.group_components:
+    if args is not None:
+        for entry in args:
             group, count = parse_key_value_arg(entry, errmsg=errmsg)
             try:
                 count = int(count)
@@ -246,28 +247,40 @@ def parse_jobs(jobs):
         )
 
 
-def get_profile_file(profile, file, return_default=False):
+def get_profile_dir(profile: str) -> (Path, Path):
+    config_pattern = re.compile(r"config(.v(?P<min_major>\d+)\+)?.yaml")
+
+    def get_config_min_major(filename):
+        m = config_pattern.match(filename)
+        if m:
+            min_major = m.group("min_major")
+            if min_major is None:
+                return 0
+            min_major = int(min_major)
+
+            return min_major
+        return None
+
     dirs = get_appdirs()
     if os.path.exists(profile):
-        search_dirs = [os.path.dirname(profile)]
+        parent_dir = os.path.dirname(profile) or "."
+        search_dirs = [parent_dir]
         profile = os.path.basename(profile)
     else:
         search_dirs = [os.getcwd(), dirs.user_config_dir, dirs.site_config_dir]
-    get_path = lambda d: os.path.join(d, profile, file)
     for d in search_dirs:
-        p = get_path(d)
-        # "file" can actually be a full command. If so, `p` won't exist as the
-        # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
-        # exists. To fix this, we use shlex.split() to get the path to the
-        # script. We check for both, in case the path contains spaces or some
-        # other thing that would cause shlex.split() to mangle the path
-        # inaccurately.
-        if os.path.exists(p) or os.path.exists(shlex.split(p)[0]):
-            return p
-
-    if return_default:
-        return file
-    return None
+        profile_candidate = Path(d) / profile
+        if profile_candidate.exists():
+            files = os.listdir(profile_candidate)
+            curr_major = int(__version__.split(".")[0])
+            config_files = {
+                f: min_major
+                for f, min_major in zip(files, map(get_config_min_major, files))
+                if min_major is not None and curr_major >= min_major
+            }
+            if config_files:
+                config_file = max(config_files, key=config_files.get)
+                return profile_candidate, profile_candidate / config_file
 
 
 def get_argument_parser(profiles=None):
@@ -282,8 +295,11 @@ def get_argument_parser(profiles=None):
                 print("Error: invalid profile name.", file=sys.stderr)
                 exit(1)
 
-            config_file = get_profile_file(profile, "config.yaml")
-            if config_file is None:
+            profile_entry = get_profile_dir(profile)
+            if profile_entry is not None:
+                _profile_dir, config_file = profile_entry
+                config_files.append(config_file)
+            else:
                 print(
                     "Error: profile given but no config.yaml found. "
                     "Profile has to be given as either absolute path, relative "
@@ -294,7 +310,6 @@ def get_argument_parser(profiles=None):
                     file=sys.stderr,
                 )
                 exit(1)
-            config_files.append(config_file)
 
     parser = snakemake.common.argparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
@@ -526,7 +541,7 @@ def get_argument_parser(profiles=None):
             "The inputsize is the sum of the sizes of all input files of a rule. "
             "By default, Snakemake assumes a default for mem_mb, disk_mb, and tmpdir (see below). "
             "This option allows to add further defaults (e.g. account and partition for slurm) or to overwrite these default values. "
-            "The defaults are 'mem_mb=max(2*input.size_mb, 1000)', "
+            "The defaults are 'mem_mb=min(max(2*input.size_mb, 1000), 8000)', "
             "'disk_mb=max(2*input.size_mb, 1000)' "
             "(i.e., default disk and mem usage is twice the input file size but at least 1GB), and "
             "the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
@@ -818,6 +833,7 @@ def get_argument_parser(profiles=None):
         "--groups",
         nargs="+",
         parse_func=parse_groups,
+        default=dict(),
         help="Assign rules to groups (this overwrites any "
         "group definitions from the workflow).",
     )
@@ -825,6 +841,7 @@ def get_argument_parser(profiles=None):
         "--group-components",
         nargs="+",
         parse_func=parse_group_components,
+        default=dict(),
         help="Set the number of connected components a group is "
         "allowed to span. By default, this is 1, but this flag "
         "allows to extend this. This can be used to run e.g. 3 "
@@ -1086,14 +1103,6 @@ def get_argument_parser(profiles=None):
         "that this will not recurse into subworkflows.",
     )
     group_utils.add_argument(
-        "--bash-completion",
-        action="store_true",
-        help="Output code to register bash completion for snakemake. Put the "
-        "following in your .bashrc (including the accents): "
-        "`snakemake --bash-completion` or issue it in an open terminal "
-        "session.",
-    )
-    group_utils.add_argument(
         "--keep-incomplete",
         action="store_true",
         help="Do not remove incomplete output files by failed jobs.",
@@ -1104,6 +1113,14 @@ def get_argument_parser(profiles=None):
         help="Drop metadata file tracking information after job finishes. "
         "Provenance-information based reports (e.g. --report and the "
         "--list_x_changes functions) will be empty or incomplete.",
+    )
+    group_utils.add_argument(
+        "--deploy-sources",
+        nargs=2,
+        metavar=("QUERY", "CHECKSUM"),
+        help="Deploy sources archive from given storage provider query to the current "
+        "working sdirectory and control for archive checksum to proceed. Meant for "
+        "internal use only.",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
@@ -1226,6 +1243,15 @@ def get_argument_parser(profiles=None):
         "in order to save space.",
     )
     group_behavior.add_argument(
+        "--unneeded-temp-files",
+        parse_func=set,
+        default=frozenset(),
+        metavar="FILE",
+        nargs="+",
+        help="Given files will not be uploaded to storage and immediately deleted "
+        "after job or group job completion.",
+    )
+    group_behavior.add_argument(
         "--keep-storage-local-copies",
         action="store_true",
         help="Keep local copies of remote input files.",
@@ -1310,6 +1336,14 @@ def get_argument_parser(profiles=None):
         help="Specify prefix for default storage provider. E.g. a bucket name.",
     )
     group_behavior.add_argument(
+        "--local-storage-prefix",
+        default=".snakemake/storage",
+        type=Path,
+        help="Specify prefix for storing local copies of storage files and folders. "
+        "By default, this is a hidden subfolder in the workdir. It can however be "
+        "freely chosen, e.g. in order to store those files on a local scratch disk.",
+    )
+    group_behavior.add_argument(
         "--no-shared-fs",
         action="store_true",
         help="Do not assume that jobs share a common file "
@@ -1378,6 +1412,13 @@ def get_argument_parser(profiles=None):
         help="Set a specific messaging service for logging output."
         "Snakemake will notify the service on errors and completed execution."
         "Currently slack and workflow management system (wms) are supported.",
+    )
+    group_behavior.add_argument(
+        "--job-deploy-sources",
+        action="store_true",
+        help="Whether the workflow sources shall be deployed before a remote job is "
+        "started. Only applies if --no-shared-fs is set or executors are used that "
+        "imply no shared FS (e.g. the kubernetes executor).",
     )
 
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
@@ -1578,12 +1619,12 @@ def parse_args(argv):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    snakefile = resolve_snakefile(args.snakefile)
+    snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
     workflow_profile = None
     if args.workflow_profile != "none":
         if args.workflow_profile:
             workflow_profile = args.workflow_profile
-        else:
+        elif snakefile is not None:
             # checking for default profile
             default_path = Path("profiles/default")
             workflow_profile_candidates = [
@@ -1618,23 +1659,6 @@ def parse_args(argv):
 
         parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
-
-        def adjust_path(path_or_value):
-            if isinstance(path_or_value, str):
-                adjusted = get_profile_file(
-                    args.profile, path_or_value, return_default=False
-                )
-                if adjusted is None:
-                    return path_or_value
-                else:
-                    return adjusted
-            else:
-                return path_or_value
-
-        # Update file paths to be relative to the profile if profile
-        # contains them.
-        for key, _ in list(args._get_kwargs()):
-            setattr(args, key, adjust_path(getattr(args, key)))
 
     return parser, args
 
@@ -1724,11 +1748,6 @@ def parse_rerun_triggers(values):
 def args_to_api(args, parser):
     """Convert argparse args to API calls."""
 
-    if args.bash_completion:
-        cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
-        sys.stdout.buffer.write(cmd)
-        sys.exit(0)
-
     # handle legacy executor names
     if args.dryrun:
         args.executor = "dryrun"
@@ -1785,180 +1804,199 @@ def args_to_api(args, parser):
             deployment_method.add(DeploymentMethod.ENV_MODULES)
 
         try:
-            workflow_api = snakemake_api.workflow(
-                resource_settings=ResourceSettings(
-                    cores=args.cores,
-                    nodes=args.jobs,
-                    local_cores=args.local_cores,
-                    max_threads=args.max_threads,
-                    resources=args.resources,
-                    overwrite_threads=args.set_threads,
-                    overwrite_scatter=args.set_scatter,
-                    overwrite_resource_scopes=args.set_resource_scopes,
-                    overwrite_resources=args.set_resources,
-                    default_resources=args.default_resources,
-                ),
-                config_settings=ConfigSettings(
-                    config=args.config,
-                    configfiles=args.configfile,
-                ),
-                storage_settings=StorageSettings(
-                    default_storage_provider=args.default_storage_provider,
-                    default_storage_prefix=args.default_storage_prefix,
-                    assume_shared_fs=not args.no_shared_fs,
-                    keep_storage_local=args.keep_storage_local_copies,
-                    notemp=args.notemp,
-                    all_temp=args.all_temp,
-                ),
-                storage_provider_settings=storage_provider_settings,
-                workflow_settings=WorkflowSettings(
-                    wrapper_prefix=args.wrapper_prefix,
-                ),
-                deployment_settings=DeploymentSettings(
-                    deployment_method=deployment_method,
-                    conda_prefix=args.conda_prefix,
-                    conda_cleanup_pkgs=args.conda_cleanup_pkgs,
-                    conda_base_path=args.conda_base_path,
-                    conda_frontend=args.conda_frontend,
-                    conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
-                    apptainer_args=args.apptainer_args,
-                    apptainer_prefix=args.apptainer_prefix,
-                ),
-                snakefile=args.snakefile,
-                workdir=args.directory,
+            storage_settings = StorageSettings(
+                default_storage_provider=args.default_storage_provider,
+                default_storage_prefix=args.default_storage_prefix,
+                local_storage_prefix=args.local_storage_prefix,
+                assume_shared_fs=not args.no_shared_fs,
+                keep_storage_local=args.keep_storage_local_copies,
+                notemp=args.notemp,
+                all_temp=args.all_temp,
+                unneeded_temp_files=args.unneeded_temp_files,
             )
 
-            if args.lint:
-                any_lint = workflow_api.lint()
-                if any_lint:
-                    # trigger exit code 1
-                    return False
-            elif args.list_target_rules:
-                workflow_api.list_rules(only_targets=True)
-            elif args.list_rules:
-                workflow_api.list_rules(only_targets=False)
-            elif args.print_compilation:
-                workflow_api.print_compilation()
+            if args.deploy_sources:
+                query, checksum = args.deploy_sources
+                snakemake_api.deploy_sources(
+                    query,
+                    checksum,
+                    storage_settings=storage_settings,
+                    storage_provider_settings=storage_provider_settings,
+                )
             else:
-                dag_api = workflow_api.dag(
-                    dag_settings=DAGSettings(
-                        targets=args.targets,
-                        target_jobs=args.target_jobs,
-                        target_files_omit_workdir_adjustment=args.target_files_omit_workdir_adjustment,
-                        batch=args.batch,
-                        forcetargets=args.force,
-                        forceall=args.forceall,
-                        forcerun=args.forcerun,
-                        until=args.until,
-                        omit_from=args.omit_from,
-                        force_incomplete=args.rerun_incomplete,
-                        allowed_rules=args.allowed_rules,
-                        rerun_triggers=args.rerun_triggers,
-                        max_inventory_wait_time=args.max_inventory_time,
+                workflow_api = snakemake_api.workflow(
+                    resource_settings=ResourceSettings(
+                        cores=args.cores,
+                        nodes=args.jobs,
+                        local_cores=args.local_cores,
+                        max_threads=args.max_threads,
+                        resources=args.resources,
+                        overwrite_threads=args.set_threads,
+                        overwrite_scatter=args.set_scatter,
+                        overwrite_resource_scopes=args.set_resource_scopes,
+                        overwrite_resources=args.set_resources,
+                        default_resources=args.default_resources,
+                    ),
+                    config_settings=ConfigSettings(
+                        config=args.config,
+                        configfiles=args.configfile,
+                    ),
+                    storage_settings=storage_settings,
+                    storage_provider_settings=storage_provider_settings,
+                    workflow_settings=WorkflowSettings(
+                        wrapper_prefix=args.wrapper_prefix,
+                        exec_mode=args.mode,
                         cache=args.cache,
                     ),
+                    deployment_settings=DeploymentSettings(
+                        deployment_method=deployment_method,
+                        conda_prefix=args.conda_prefix,
+                        conda_cleanup_pkgs=args.conda_cleanup_pkgs,
+                        conda_base_path=args.conda_base_path,
+                        conda_frontend=args.conda_frontend,
+                        conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
+                        apptainer_args=args.apptainer_args,
+                        apptainer_prefix=args.apptainer_prefix,
+                    ),
+                    snakefile=args.snakefile,
+                    workdir=args.directory,
                 )
 
-                if args.preemptible_rules is not None:
-                    if not preemptible_rules:
-                        # no specific rule given, consider all to be made preemptible
-                        preemptible_rules = PreemptibleRules(all=True)
-                    else:
-                        preemptible_rules = PreemptibleRules(
-                            rules=args.preemptible_rules
-                        )
+                if args.lint:
+                    any_lint = workflow_api.lint()
+                    if any_lint:
+                        # trigger exit code 1
+                        return False
+                elif args.list_target_rules:
+                    workflow_api.list_rules(only_targets=True)
+                elif args.list_rules:
+                    workflow_api.list_rules(only_targets=False)
+                elif args.print_compilation:
+                    workflow_api.print_compilation()
                 else:
-                    preemptible_rules = PreemptibleRules()
+                    dag_api = workflow_api.dag(
+                        dag_settings=DAGSettings(
+                            targets=args.targets,
+                            target_jobs=args.target_jobs,
+                            target_files_omit_workdir_adjustment=args.target_files_omit_workdir_adjustment,
+                            batch=args.batch,
+                            forcetargets=args.force,
+                            forceall=args.forceall,
+                            forcerun=args.forcerun,
+                            until=args.until,
+                            omit_from=args.omit_from,
+                            force_incomplete=args.rerun_incomplete,
+                            allowed_rules=args.allowed_rules,
+                            rerun_triggers=args.rerun_triggers,
+                            max_inventory_wait_time=args.max_inventory_time,
+                        ),
+                    )
 
-                if args.containerize:
-                    dag_api.containerize()
-                elif args.report:
-                    dag_api.create_report(
-                        path=args.report,
-                        stylesheet=args.report_stylesheet,
-                    )
-                elif args.generate_unit_tests:
-                    dag_api.generate_unit_tests(args.generate_unit_tests)
-                elif args.dag:
-                    dag_api.printdag()
-                elif args.rulegraph:
-                    dag_api.printrulegraph()
-                elif args.filegraph:
-                    dag_api.printfilegraph()
-                elif args.d3dag:
-                    dag_api.printd3dag()
-                elif args.unlock:
-                    dag_api.unlock()
-                elif args.cleanup_metadata:
-                    dag_api.cleanup_metadata(args.cleanup_metadata)
-                elif args.conda_cleanup_envs:
-                    dag_api.conda_cleanup_envs()
-                elif args.conda_create_envs_only:
-                    dag_api.conda_create_envs()
-                elif args.list_conda_envs:
-                    dag_api.conda_list_envs()
-                elif args.cleanup_shadow:
-                    dag_api.cleanup_shadow()
-                elif args.container_cleanup_images:
-                    dag_api.container_cleanup_images()
-                elif args.list_changes:
-                    dag_api.list_changes(args.list_changes)
-                elif args.list_untracked:
-                    dag_api.list_untracked()
-                elif args.summary:
-                    dag_api.summary()
-                elif args.detailed_summary:
-                    dag_api.summary(detailed=True)
-                elif args.archive:
-                    dag_api.archive(args.archive)
-                elif args.delete_all_output:
-                    dag_api.delete_output()
-                elif args.delete_temp_output:
-                    dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
-                else:
-                    dag_api.execute_workflow(
-                        executor=args.executor,
-                        execution_settings=ExecutionSettings(
-                            keep_going=args.keep_going,
-                            debug=args.debug,
-                            standalone=True,
-                            ignore_ambiguity=args.allow_ambiguity,
-                            lock=not args.nolock,
-                            ignore_incomplete=args.ignore_incomplete,
-                            latency_wait=args.latency_wait,
-                            wait_for_files=wait_for_files,
-                            no_hooks=args.no_hooks,
-                            retries=args.retries,
-                            attempt=args.attempt,
-                            use_threads=args.force_use_threads,
-                            shadow_prefix=args.shadow_prefix,
-                            mode=args.mode,
-                            keep_incomplete=args.keep_incomplete,
-                            keep_metadata=not args.drop_metadata,
-                            edit_notebook=edit_notebook,
-                            cleanup_scripts=not args.skip_script_cleanup,
-                        ),
-                        remote_execution_settings=RemoteExecutionSettings(
-                            jobname=args.jobname,
-                            jobscript=args.jobscript,
-                            max_status_checks_per_second=args.max_status_checks_per_second,
-                            seconds_between_status_checks=args.seconds_between_status_checks,
-                            container_image=args.container_image,
-                            preemptible_retries=args.preemptible_retries,
-                            preemptible_rules=preemptible_rules,
-                            envvars=args.envvars,
-                            immediate_submit=args.immediate_submit,
-                        ),
-                        scheduling_settings=SchedulingSettings(
-                            prioritytargets=args.prioritize,
-                            scheduler=args.scheduler,
-                            ilp_solver=args.scheduler_ilp_solver,
-                            solver_path=args.scheduler_solver_path,
-                            greediness=args.scheduler_greediness,
-                            max_jobs_per_second=args.max_jobs_per_second,
-                        ),
-                        executor_settings=executor_settings,
-                    )
+                    if args.preemptible_rules is not None:
+                        if not preemptible_rules:
+                            # no specific rule given, consider all to be made preemptible
+                            preemptible_rules = PreemptibleRules(all=True)
+                        else:
+                            preemptible_rules = PreemptibleRules(
+                                rules=args.preemptible_rules
+                            )
+                    else:
+                        preemptible_rules = PreemptibleRules()
+
+                    if args.containerize:
+                        dag_api.containerize()
+                    elif args.report:
+                        dag_api.create_report(
+                            path=args.report,
+                            stylesheet=args.report_stylesheet,
+                        )
+                    elif args.generate_unit_tests:
+                        dag_api.generate_unit_tests(args.generate_unit_tests)
+                    elif args.dag:
+                        dag_api.printdag()
+                    elif args.rulegraph:
+                        dag_api.printrulegraph()
+                    elif args.filegraph:
+                        dag_api.printfilegraph()
+                    elif args.d3dag:
+                        dag_api.printd3dag()
+                    elif args.unlock:
+                        dag_api.unlock()
+                    elif args.cleanup_metadata:
+                        dag_api.cleanup_metadata(args.cleanup_metadata)
+                    elif args.conda_cleanup_envs:
+                        dag_api.conda_cleanup_envs()
+                    elif args.conda_create_envs_only:
+                        dag_api.conda_create_envs()
+                    elif args.list_conda_envs:
+                        dag_api.conda_list_envs()
+                    elif args.cleanup_shadow:
+                        dag_api.cleanup_shadow()
+                    elif args.container_cleanup_images:
+                        dag_api.container_cleanup_images()
+                    elif args.list_changes:
+                        dag_api.list_changes(args.list_changes)
+                    elif args.list_untracked:
+                        dag_api.list_untracked()
+                    elif args.summary:
+                        dag_api.summary()
+                    elif args.detailed_summary:
+                        dag_api.summary(detailed=True)
+                    elif args.archive:
+                        dag_api.archive(args.archive)
+                    elif args.delete_all_output:
+                        dag_api.delete_output()
+                    elif args.delete_temp_output:
+                        dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
+                    else:
+                        dag_api.execute_workflow(
+                            executor=args.executor,
+                            execution_settings=ExecutionSettings(
+                                keep_going=args.keep_going,
+                                debug=args.debug,
+                                standalone=True,
+                                ignore_ambiguity=args.allow_ambiguity,
+                                lock=not args.nolock,
+                                ignore_incomplete=args.ignore_incomplete,
+                                latency_wait=args.latency_wait,
+                                wait_for_files=wait_for_files,
+                                no_hooks=args.no_hooks,
+                                retries=args.retries,
+                                attempt=args.attempt,
+                                use_threads=args.force_use_threads,
+                                shadow_prefix=args.shadow_prefix,
+                                keep_incomplete=args.keep_incomplete,
+                                keep_metadata=not args.drop_metadata,
+                                edit_notebook=edit_notebook,
+                                cleanup_scripts=not args.skip_script_cleanup,
+                            ),
+                            remote_execution_settings=RemoteExecutionSettings(
+                                jobname=args.jobname,
+                                jobscript=args.jobscript,
+                                max_status_checks_per_second=args.max_status_checks_per_second,
+                                seconds_between_status_checks=args.seconds_between_status_checks,
+                                container_image=args.container_image,
+                                preemptible_retries=args.preemptible_retries,
+                                preemptible_rules=preemptible_rules,
+                                envvars=args.envvars,
+                                immediate_submit=args.immediate_submit,
+                                job_deploy_sources=args.job_deploy_sources,
+                            ),
+                            scheduling_settings=SchedulingSettings(
+                                prioritytargets=args.prioritize,
+                                scheduler=args.scheduler,
+                                ilp_solver=args.scheduler_ilp_solver,
+                                solver_path=args.scheduler_solver_path,
+                                greediness=args.scheduler_greediness,
+                                max_jobs_per_second=args.max_jobs_per_second,
+                            ),
+                            group_settings=GroupSettings(
+                                group_components=args.group_components,
+                                overwrite_groups=args.groups,
+                                local_groupid=args.local_groupid,
+                            ),
+                            executor_settings=executor_settings,
+                        )
 
         except Exception as e:
             snakemake_api.print_exception(e)
@@ -1992,43 +2030,3 @@ def main(argv=None):
         print_exception(e)
         sys.exit(1)
     sys.exit(0 if success else 1)
-
-
-def bash_completion(snakefile="Snakefile"):
-    """Entry point for bash completion."""
-    if len(sys.argv) < 2:
-        print(
-            "Calculate bash completion for snakemake. This tool shall not be invoked by hand."
-        )
-        sys.exit(1)
-
-    def print_candidates(candidates):
-        if candidates:
-            candidates = sorted(set(candidates))
-            ## Use bytes for avoiding '^M' under Windows.
-            sys.stdout.buffer.write(b"\n".join(s.encode() for s in candidates))
-
-    prefix = sys.argv[2]
-
-    if prefix.startswith("-"):
-        print_candidates(
-            action.option_strings[0]
-            for action in get_argument_parser()._actions
-            if action.option_strings and action.option_strings[0].startswith(prefix)
-        )
-    else:
-        candidates = []
-        files = glob.glob(f"{prefix}*")
-        if files:
-            candidates.extend(files)
-        if os.path.exists(snakefile):
-            workflow = Workflow(snakefile=snakefile)
-            workflow.include(snakefile)
-
-            candidates.extend(
-                [file for file in workflow.concrete_files if file.startswith(prefix)]
-                + [rule.name for rule in workflow.rules if rule.name.startswith(prefix)]
-            )
-        if len(candidates) > 0:
-            print_candidates(candidates)
-    sys.exit(0)

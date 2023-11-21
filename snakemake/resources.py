@@ -10,7 +10,7 @@ from snakemake.common.tbdstring import TBDString
 
 class DefaultResources:
     defaults = {
-        "mem_mb": "max(2*input.size_mb, 1000)",
+        "mem_mb": "min(max(2*input.size_mb, 1000), 8000)",
         "disk_mb": "max(2*input.size_mb, 1000)",
         "tmpdir": "system_tmpdir",
     }

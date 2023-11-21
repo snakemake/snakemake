@@ -5,34 +5,31 @@ on:
     branches:
       - main
   pull_request:
-    branches_ignore: []
+
+concurrency:
+  # Cancel concurrent flows on PRs
+  group: ci-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
-  cancel-previous:
-    runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/main'
-    steps:
-      - uses: khan/pull-request-workflow-cancel@1.0.1
-        with:
-          workflows: main.yml
-        env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
   formatting:
     permissions:
       contents: read # for actions/checkout to fetch code
       pull-requests: write # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup black environment
-        run: |
-          conda create -c conda-forge -y -q --name black black
+      - uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-name: black
+          create-args: black
+          cache-environment: true
+
       - name: Check formatting
-        run: >
-          export PATH="/usr/share/miniconda/bin:$PATH"
+        shell: bash -el {0}
+        run: black --check --diff .
 
-          source activate black
-
-          black --check --diff .
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
         uses: marocchino/sticky-pull-request-comment@v2.8.0
@@ -47,14 +44,6 @@ jobs:
         py_ver: ["3.11", "3.12"]
     runs-on: ubuntu-latest
     needs: formatting
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-        ports:
-          - "8888:3306"
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     env:
       AWS_AVAILABLE: "${{ secrets.AWS_ACCESS_KEY_ID }}"
       GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
@@ -63,23 +52,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup mamba
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          activate-environment: snakemake
-          channels: "conda-forge, bioconda"
-          miniforge-variant: Mambaforge
-          miniforge-version: latest
+      - name: Modify python version in test env
+        shell: bash -el {0}
+        run: |
+          cp test-environment.yml test-environment-${{ matrix.py_ver }}.yml
+          sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment-${{ matrix.py_ver }}.yml
 
-      - name: Setup Snakemake environment
+      - name: Setup snakemke environment
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: test-environment-${{ matrix.py_ver }}.yml
+          environment-name: snakemake
+          cache-environment: true
+
+      - name: Install snakemake from source
         shell: bash -el {0}
         run: |
           conda config --set channel_priority strict
-
-          # modify test env
-          sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment.yml
-
-          mamba env update -n snakemake --file test-environment.yml
 
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-common.git
@@ -90,12 +79,15 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
           pip install -e .
 
+      - name: Configure fast APT mirror
+        uses: vegardit/fast-apt-mirror.sh@1.0.0
+
       - name: Setup apt dependencies
         run: |
           sudo gem install apt-spy2
           sudo apt-spy2 fix --commit --launchpad --country=US
           sudo apt-get update
-          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
+          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev
 
       - name: Test local
         env:
@@ -104,18 +96,22 @@ jobs:
           #PYTHONTRACEMALLOC: 10
         shell: bash -el {0}
         run: |
-          # long tests
-          pytest --show-capture=stderr --splits 10 --group ${{ matrix.test_group }} -v -x tests/tests.py
-          # other tests
-          pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py
+          pytest -v -x --show-capture=stderr \
+            --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration \
+            tests/tests.py \
+            tests/test_expand.py \
+            tests/test_io.py \
+            tests/test_schema.py \
+            tests/test_linting.py \
+            tests/test_executor_test_suite.py \
+            tests/test_api.py
 
   build-container-image:
     runs-on: ubuntu-latest
     needs: testing
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
+
       - name: Build container image
         run: docker build .
 
@@ -135,20 +131,21 @@ jobs:
           import fileinput
           excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
           for line in fileinput.input("test-environment.yml", inplace=True):
+              if "  - pip:" in line:
+                  break
               if all(pkg not in line for pkg in excluded_on_win):
-                  print(line)
-      - name: Setup miniconda
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          activate-environment: snakemake
-          channels: "conda-forge, bioconda"
-          miniforge-variant: Mambaforge
-          miniforge-version: latest
-      - name: Setup Snakemake environment
-        run: |
-          conda config --set channel_priority strict
-          mamba env update -q --file test-environment.yml
+                  print(line, end="")
 
+      - name: Setup snakemke environment
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: test-environment.yml
+          environment-name: snakemake
+          init-shell: powershell
+          cache-environment: true
+
+      - name: Install snakemake from source
+        run: |
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-common.git
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
@@ -156,11 +153,12 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
-          
-          pip install -e .
+
+          pip install .
+
       - name: Run tests
         env:
           CI: true
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         run: |
-          python -m pytest --show-capture=stderr -v -x --splits 10 --group ${{ matrix.test_group }} tests/tests.py
+          python -m pytest --show-capture=stderr -v -x --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration tests/tests.py

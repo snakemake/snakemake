@@ -68,11 +68,14 @@ class StorageRegistry:
             final_settings = None
         else:
             final_settings = tagged_settings.get_settings(tag)
-        if final_settings is None:
+        if final_settings is None and plugin.settings_cls is not None:
             final_settings = plugin.settings_cls()
 
-        final_settings = copy.copy(final_settings)
-        final_settings.__dict__.update(**settings)
+        if final_settings is not None:
+            final_settings = copy.copy(final_settings)
+            final_settings.__dict__.update(**settings)
+
+            plugin.validate_settings(final_settings)
 
         name = tag if tag else plugin.name
 

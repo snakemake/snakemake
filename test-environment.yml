@@ -2,7 +2,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python >=3.7
+  - python >=3.11
   - yte
   - packaging
   - stopit
@@ -42,10 +42,6 @@ dependencies:
   - nbformat
   - toposort >=1.10
   - crc32c
-  - pip
-  - pip:
-    - cwltool
-    - cwl-utils
   - requests-mock
   - peppy
   - eido
@@ -61,3 +57,8 @@ dependencies:
   - apptainer
   - squashfuse # for apptainer
   - immutables
+  - conda
+  - pip
+  - pip:
+      - cwltool
+      - cwl-utils

@@ -42,7 +42,8 @@ from snakemake.exceptions import (
 common_settings = CommonSettings(
     non_local_exec=False,
     implies_no_shared_fs=False,
-    pass_envvar_declarations_to_cmd=False,
+    job_deploy_sources=False,
+    pass_envvar_declarations_to_cmd=True,
     auto_deploy_default_storage_provider=False,
 )
 
@@ -80,9 +81,6 @@ class Executor(RealExecutor):
 
     def get_python_executable(self):
         return sys.executable
-
-    def get_envvar_declarations(self):
-        return ""
 
     def additional_general_args(self):
         return "--quiet progress rules"
@@ -168,6 +166,7 @@ class Executor(RealExecutor):
             else None,
             self.workflow.conda_base_path,
             job.rule.basedir,
+            self.workflow.sourcecache.cache_path,
             self.workflow.sourcecache.runtime_cache_path,
         )
 
@@ -225,6 +224,7 @@ class Executor(RealExecutor):
 
     def spawn_job(self, job: SingleJobExecutorInterface):
         cmd = self.format_job_exec(job)
+        logger.debug(f"spawned job: {cmd}")
 
         try:
             subprocess.check_call(cmd, shell=True)
@@ -300,6 +300,7 @@ def run_wrapper(
     edit_notebook,
     conda_base_path,
     basedir,
+    sourcecache_path,
     runtime_sourcecache_path,
 ):
     """
@@ -379,6 +380,7 @@ def run_wrapper(
                             edit_notebook,
                             conda_base_path,
                             basedir,
+                            sourcecache_path,
                             runtime_sourcecache_path,
                         )
                     else:
@@ -409,6 +411,7 @@ def run_wrapper(
                                 edit_notebook,
                                 conda_base_path,
                                 basedir,
+                                sourcecache_path,
                                 runtime_sourcecache_path,
                             )
                     # Store benchmark record for this iteration
@@ -437,6 +440,7 @@ def run_wrapper(
                     edit_notebook,
                     conda_base_path,
                     basedir,
+                    sourcecache_path,
                     runtime_sourcecache_path,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
