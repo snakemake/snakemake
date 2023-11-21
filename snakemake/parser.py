@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from dataclasses import dataclass
+import sys
 import textwrap
 import tokenize
 from typing import Any, Dict, Generator, List, Optional
@@ -1256,6 +1257,48 @@ def format_tokens(tokens) -> Generator[str, None, None]:
         t_ = t
 
 
+if sys.version_info >= (3, 12):
+
+    def format_f_tokens(
+        tokens: list[tuple[str, tokenize.TokenInfo]]
+    ) -> Generator[str, None, None]:
+        s_ = ""
+        isin_fstring = False
+        for s, t in tokens:
+            if t.type == tokenize.FSTRING_MIDDLE:  # type: ignore [attr-defined]
+                # print(f"{s}|", t.string, "<left fstring middle>")
+                isin_fstring = True
+                s_ += s.replace("{", "{{").replace("}", "}}")
+            elif t.type == tokenize.FSTRING_START and s == t.string:  # type: ignore [attr-defined]
+                # print(f"{s}|", t.string, "<fstring start>")
+                isin_fstring = True
+                yield s_
+                s_ = s
+            elif isin_fstring:
+                if s != t.string:
+                    # print(f"{s}|", t.string, "<fake fstring space>")
+                    continue
+                isin_fstring = False
+                # print(f"{s}|", t.string, "<right fstring middle>")
+                s_ += s
+            elif t.type == tokenize.FSTRING_END:  # type: ignore [attr-defined]
+                # print(f"{s}|", t.string, "<fstring end>")
+                s_ += s
+            else:
+                # print(f"{s}|", t.string, "<code>")
+                yield s_
+                s_ = s
+        if tokens:
+            yield s_
+
+else:
+
+    def format_f_tokens(
+        tokens: list[tuple[str, tokenize.TokenInfo]]
+    ) -> Generator[str, None, None]:
+        return (s for s, _ in tokens)
+
+
 def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
     Shell.overwrite_cmd = overwrite_shellcmd
     with Snakefile(path, workflow, rulecount=rulecount) as snakefile:
@@ -1273,9 +1316,9 @@ def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
                 )
             )
             snakefile.lines += t.count("\n")
-            compilation.append(t)
-        compilation = "".join(format_tokens(compilation))
-        if linemap:
-            last = max(linemap)
-            linemap[last + 1] = linemap[last]
-        return compilation, linemap, snakefile.rulecount
+            compilation.append((t, orig_token))
+    compilation = "".join(format_tokens(format_f_tokens(compilation)))
+    if linemap:
+        last = max(linemap)
+        linemap[last + 1] = linemap[last]
+    return compilation, linemap, snakefile.rulecount
