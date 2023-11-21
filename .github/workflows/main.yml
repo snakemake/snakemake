@@ -92,6 +92,9 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
           pip install -e .
 
+      - name: Configure fast APT mirror
+        uses: vegardit/fast-apt-mirror.sh@1.0.0
+
       - name: Setup apt dependencies
         run: |
           sudo gem install apt-spy2
