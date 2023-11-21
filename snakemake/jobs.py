@@ -701,19 +701,20 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 )
             )
 
-        await self.remove_existing_output()
+        if not self.is_norun:
+            await self.remove_existing_output()
 
-        # Create tmpdir if necessary
-        if self.resources.get("tmpdir"):
-            os.makedirs(self.resources.tmpdir, exist_ok=True)
+            # Create tmpdir if necessary
+            if self.resources.get("tmpdir"):
+                os.makedirs(self.resources.tmpdir, exist_ok=True)
 
-        for f, f_ in zip(self.output, self.rule.output):
-            f.prepare()
+            for f, f_ in zip(self.output, self.rule.output):
+                f.prepare()
 
-        for f in self.log:
-            f.prepare()
-        if self.benchmark:
-            self.benchmark.prepare()
+            for f in self.log:
+                f.prepare()
+            if self.benchmark:
+                self.benchmark.prepare()
 
         # wait for input files, respecting keep_storage_local
         wait_for_local = self.dag.workflow.storage_settings.keep_storage_local
@@ -723,7 +724,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             latency_wait=self.dag.workflow.execution_settings.latency_wait,
         )
 
-        if not self.is_shadow:
+        if not self.is_shadow or self.is_norun:
             return
 
         # Create shadow directory structure

@@ -112,8 +112,7 @@ class Executor(RealExecutor):
         self.report_job_submission(job_info)
 
     def job_args_and_prepare(self, job: JobExecutorInterface):
-        if not job.is_norun:
-            async_run(job.prepare())
+        async_run(job.prepare())
 
         conda_env = (
             job.conda_env.address
