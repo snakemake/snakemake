@@ -36,6 +36,7 @@ from snakemake.settings import (
     SchedulingSettings,
     StorageSettings,
     WorkflowSettings,
+    GroupSettings,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode
@@ -158,8 +159,8 @@ def parse_batch(args):
 def parse_groups(args):
     errmsg = "Invalid groups definition: entries have to be defined as RULE=GROUP pairs"
     overwrite_groups = dict()
-    if args.groups is not None:
-        for entry in args.groups:
+    if args is not None:
+        for entry in args:
             rule, group = parse_key_value_arg(entry, errmsg=errmsg)
             overwrite_groups[rule] = group
     return overwrite_groups
@@ -168,8 +169,8 @@ def parse_groups(args):
 def parse_group_components(args):
     errmsg = "Invalid group components definition: entries have to be defined as GROUP=COMPONENTS pairs (with COMPONENTS being a positive integer)"
     group_components = dict()
-    if args.group_components is not None:
-        for entry in args.group_components:
+    if args is not None:
+        for entry in args:
             group, count = parse_key_value_arg(entry, errmsg=errmsg)
             try:
                 count = int(count)
@@ -1986,6 +1987,11 @@ def args_to_api(args, parser):
                                 solver_path=args.scheduler_solver_path,
                                 greediness=args.scheduler_greediness,
                                 max_jobs_per_second=args.max_jobs_per_second,
+                            ),
+                            group_settings=GroupSettings(
+                                group_components=args.group_components,
+                                overwrite_groups=args.groups,
+                                local_groupid=args.local_groupid,
                             ),
                             executor_settings=executor_settings,
                         )
