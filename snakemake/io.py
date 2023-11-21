@@ -865,6 +865,8 @@ def flag(value, flag_type, flag_value=True):
         value.flags[flag_type] = flag_value
         return value
     if not_iterable(value):
+        if isinstance(value, Path):
+            value = str(value.as_posix())
         value = AnnotatedString(value)
         value.flags[flag_type] = flag_value
         return value

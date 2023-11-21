@@ -631,8 +631,6 @@ def test_threads0():
     run(dpath("test_threads0"))
 
 
-# Fails on windows for probably the same reason as test_storage.
-@skip_on_windows
 def test_default_storage(s3_storage):
     prefix, settings = s3_storage
 
