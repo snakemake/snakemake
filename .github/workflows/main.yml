@@ -84,10 +84,9 @@ jobs:
 
       - name: Setup apt dependencies
         run: |
-          sudo gem install apt-spy2
-          sudo apt-spy2 fix --commit --launchpad --country=US
+          sudo add-apt-repository -y ppa:apptainer/ppa
           sudo apt-get update
-          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev
+          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev apptainer
 
       - name: Test local
         env:
