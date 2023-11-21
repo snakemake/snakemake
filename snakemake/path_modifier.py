@@ -108,7 +108,10 @@ class PathModifier:
 
         path = os.path.normpath(path)
         # This will convert any AnnotatedString to str
-        query = f"{self.workflow.storage_settings.default_storage_prefix}/{path}"
+        prefix = self.workflow.storage_settings.default_storage_prefix
+        if prefix:
+            prefix = f"{prefix}/"
+        query = f"{prefix}{path}"
         storage_object = self.workflow.storage_registry.default_storage_provider.object(
             query
         )

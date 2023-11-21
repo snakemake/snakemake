@@ -437,6 +437,8 @@ class DAGApi(ApiBase):
 
         if executor_plugin.common_settings.implies_no_shared_fs:
             self.workflow_api.storage_settings.assume_shared_fs = False
+        if executor_plugin.common_settings.job_deploy_sources:
+            remote_execution_settings.job_deploy_sources = True
 
         if (
             self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT

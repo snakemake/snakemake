@@ -351,6 +351,7 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     envvars: Sequence[str] = tuple()
     immediate_submit: bool = False
     precommand: Optional[str] = None
+    job_deploy_sources: bool = True
 
 
 @dataclass
