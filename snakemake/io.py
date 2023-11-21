@@ -744,7 +744,7 @@ class _IOFile(str, AnnotatedStringInterface):
                 )
 
             file_with_wildcards_applied = IOFile(
-                str(storage_object.local_path()), rule=self.rule
+                storage_object.local_path(), rule=self.rule
             )
             file_with_wildcards_applied.clone_flags(self, skip_storage_object=True)
             file_with_wildcards_applied.flags["storage_object"] = storage_object
