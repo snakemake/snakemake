@@ -405,7 +405,7 @@ class Rule(RuleInterface):
 
         # Check to see if the item is a path, if so, just make it a string
         if isinstance(item, Path):
-            item = str(item)
+            item = str(item.as_posix())
         if isinstance(item, str):
             if ON_WINDOWS:
                 if isinstance(item, (_IOFile, AnnotatedString)):
