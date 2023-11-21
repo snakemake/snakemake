@@ -56,8 +56,6 @@ dependencies:
   - humanfriendly
   - throttler
   - nodejs # for cwltool
-  - apptainer
-  - squashfuse # for apptainer
   - immutables
   - conda
   - pip
