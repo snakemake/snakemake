@@ -241,6 +241,8 @@ class _IOFile(str, AnnotatedStringInterface):
         is_callable = (
             isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
         )
+        if isinstance(file, Path):
+            file = str(file.as_posix())
         if not is_callable and file.endswith("/"):
             # remove trailing slashes
             stripped = file.rstrip("/")
