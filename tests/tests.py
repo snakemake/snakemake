@@ -631,8 +631,6 @@ def test_threads0():
     run(dpath("test_threads0"))
 
 
-# Fails on windows for probably the same reason as test_storage.
-@skip_on_windows
 def test_default_storage(s3_storage):
     prefix, settings = s3_storage
 
@@ -645,13 +643,6 @@ def test_default_storage(s3_storage):
     )
 
 
-# Fails with
-# snakemake.exceptions.MissingInputException: Missing input files for rule all:
-# affected files:
-#   s3://snakemake-ec6c5e4c267d4a1e890976b57c99ee55/test2.out (storage)
-#
-# I have no clue why as it works fine on linux. Any help appreciated.
-@skip_on_windows
 def test_storage(s3_storage):
     prefix, settings = s3_storage
 
