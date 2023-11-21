@@ -1335,6 +1335,7 @@ class Workflow(WorkflowExecutorInterface):
             snakefile,
             self,
             rulecount=self._rulecount,
+            print_compilation=print_compilation,
         )
         self._rulecount = rulecount
 
