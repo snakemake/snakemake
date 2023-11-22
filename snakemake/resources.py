@@ -47,41 +47,10 @@ class DefaultResources:
                 {name: value for name, value in map(self.decode_arg, args)}
             )
 
-            def fallback(val):
-                def callable(wildcards, input, attempt, threads, rulename):
-                    try:
-                        value = eval(
-                            val,
-                            {
-                                "input": input,
-                                "attempt": attempt,
-                                "threads": threads,
-                                "system_tmpdir": tempfile.gettempdir(),
-                            },
-                        )
-                    # Triggers for string arguments like n1-standard-4
-                    except NameError:
-                        return val
-                    except Exception as e:
-                        if not (
-                            isinstance(e, FileNotFoundError) and e.filename in input
-                        ):
-                            # Missing input files are handled by the caller
-                            raise WorkflowError(
-                                "Failed to evaluate default resources value "
-                                "'{}'.\n"
-                                "    String arguments may need additional "
-                                "quoting. Ex: --default-resources "
-                                "\"tmpdir='/home/user/tmp'\".".format(val),
-                                e,
-                            )
-                        raise e
-                    return value
-
-                return callable
-
             self.parsed = dict(_cores=1, _nodes=1)
-            self.parsed.update(parse_resources(self._args, fallback=fallback))
+            self.parsed.update(
+                parse_resources(self._args, fallback=eval_resource_expression)
+            )
 
     def set_resource(self, name, value):
         self._args[name] = f"{value}"
@@ -536,6 +505,38 @@ class GroupResources:
         # there's an empty row)
         rows.pop()
         return rows
+
+
+def eval_resource_expression(val):
+    def callable(wildcards, input, attempt, threads, rulename):
+        try:
+            value = eval(
+                val,
+                {
+                    "input": input,
+                    "attempt": attempt,
+                    "threads": threads,
+                    "system_tmpdir": tempfile.gettempdir(),
+                },
+            )
+        # Triggers for string arguments like n1-standard-4
+        except NameError:
+            return val
+        except Exception as e:
+            if not (isinstance(e, FileNotFoundError) and e.filename in input):
+                # Missing input files are handled by the caller
+                raise WorkflowError(
+                    "Failed to evaluate default resources value "
+                    "'{}'.\n"
+                    "    String arguments may need additional "
+                    "quoting. Ex: --default-resources "
+                    "\"tmpdir='/home/user/tmp'\".".format(val),
+                    e,
+                )
+            raise e
+        return value
+
+    return callable
 
 
 def parse_resources(resources_args, fallback=None):

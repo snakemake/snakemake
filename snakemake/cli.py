@@ -59,7 +59,12 @@ from snakemake.common import (
     get_container_image,
     parse_key_value_arg,
 )
-from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
+from snakemake.resources import (
+    ResourceScopes,
+    eval_resource_expression,
+    parse_resources,
+    DefaultResources,
+)
 from snakemake.settings import RerunTrigger
 
 
@@ -74,7 +79,7 @@ def parse_set_threads(args):
 def parse_set_resources(args):
     errmsg = (
         "Invalid resource definition: entries have to be defined as RULE:RESOURCE=VALUE, with "
-        "VALUE being a positive integer or a string."
+        "VALUE being a positive integer a quoted string, or a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
     )
 
     from collections import defaultdict
@@ -90,9 +95,8 @@ def parse_set_resources(args):
             try:
                 value = int(value)
             except ValueError:
-                assignments[rule][resource] = value
-                continue
-            if value < 0:
+                value = eval_resource_expression(value)
+            if isinstance(value, int) and value < 0:
                 raise ValueError(errmsg)
             assignments[rule][resource] = value
     return assignments
