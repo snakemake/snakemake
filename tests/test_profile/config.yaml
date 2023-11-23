@@ -1,7 +1,7 @@
 configfile: "workflow-config.yaml"
 cores: all
 set-threads:
-  - a=2
+  - a=max(1024*24*input.size_mb, 2)
   - b=4
 default-resources:
   - mem_mb=max(1024*32*input.size_mb, 5)
