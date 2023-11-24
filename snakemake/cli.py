@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import argparse
+from functools import partial
 import sys
 from typing import Set
 
@@ -73,6 +74,7 @@ def parse_set_threads(args):
         args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
+        fallback=partial(eval_resource_expression, threads_arg=False),
     )
 
 
@@ -129,7 +131,7 @@ def parse_set_resource_scope(args):
     return ResourceScopes()
 
 
-def parse_set_ints(arg, errmsg):
+def parse_set_ints(arg, errmsg, fallback=None):
     assignments = dict()
     if arg is not None:
         for entry in arg:
@@ -137,8 +139,14 @@ def parse_set_ints(arg, errmsg):
             try:
                 value = int(value)
             except ValueError:
-                raise ValueError(errmsg)
-            if value < 0:
+                if fallback is not None:
+                    try:
+                        value = fallback(value)
+                    except Exception as e:
+                        raise ValueError(errmsg)
+                else:
+                    raise ValueError(errmsg)
+            if isinstance(value, int) and value < 0:
                 raise ValueError(errmsg)
             assignments[key] = value
     return assignments

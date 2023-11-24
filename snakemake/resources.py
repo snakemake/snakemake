@@ -507,17 +507,19 @@ class GroupResources:
         return rows
 
 
-def eval_resource_expression(val):
-    def callable(wildcards, input, attempt, threads, rulename):
+def eval_resource_expression(val, threads_arg=True):
+    def generic_callable(**kwargs):
+        args = {
+            "input": kwargs["input"],
+            "attempt": kwargs["attempt"],
+            "system_tmpdir": tempfile.gettempdir(),
+        }
+        if threads_arg:
+            args["threads"] = kwargs["threads"]
         try:
             value = eval(
                 val,
-                {
-                    "input": input,
-                    "attempt": attempt,
-                    "threads": threads,
-                    "system_tmpdir": tempfile.gettempdir(),
-                },
+                args,
             )
         # Triggers for string arguments like n1-standard-4
         except NameError:
@@ -535,6 +537,24 @@ def eval_resource_expression(val):
                 )
             raise e
         return value
+
+    if threads_arg:
+
+        def callable(wildcards, input, attempt, threads, rulename):
+            return generic_callable(
+                wildcards=wildcards,
+                input=input,
+                attempt=attempt,
+                threads=threads,
+                rulename=rulename,
+            )
+
+    else:
+
+        def callable(wildcards, input, attempt, rulename):
+            return generic_callable(
+                wildcards=wildcards, input=input, attempt=attempt, rulename=rulename
+            )
 
     return callable
 
