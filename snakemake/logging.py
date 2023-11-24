@@ -15,9 +15,11 @@ from functools import partial
 import inspect
 import textwrap
 
-from snakemake_interface_executor_plugins.settings import ExecMode
 
-from snakemake.common import DYNAMIC_FILL
+def get_default_exec_mode():
+    from snakemake_interface_executor_plugins.settings import ExecMode
+
+    return ExecMode.DEFAULT
 
 
 class ColorizingStreamHandler(_logging.StreamHandler):
@@ -34,14 +36,19 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         "ERROR": RED,
     }
 
-    def __init__(self, nocolor=False, stream=sys.stderr, mode=ExecMode.DEFAULT):
+    def __init__(self, nocolor=False, stream=sys.stderr, mode=None):
         super().__init__(stream=stream)
+
+        if mode is None:
+            mode = get_default_exec_mode()
 
         self._output_lock = threading.Lock()
 
         self.nocolor = nocolor or not self.can_color_tty(mode)
 
     def can_color_tty(self, mode):
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
         if "TERM" in os.environ and os.environ["TERM"] == "dumb":
             return False
         if mode == ExecMode.SUBPROCESS:
@@ -300,6 +307,8 @@ class WMSLogger:
 
 class Logger:
     def __init__(self):
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
         self.logger = _logging.getLogger(__name__)
         self.log_handler = [self.text_handler]
         self.stream_handler = None
@@ -315,6 +324,8 @@ class Logger:
         self.dryrun = False
 
     def setup_logfile(self):
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
         if self.mode == ExecMode.DEFAULT and not self.dryrun:
             os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
             self.logfile = os.path.abspath(
@@ -330,6 +341,8 @@ class Logger:
             self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
         if self.mode == ExecMode.DEFAULT and self.logfile_handler is not None:
             self.logger.removeHandler(self.logfile_handler)
             self.logfile_handler.close()
@@ -355,6 +368,8 @@ class Logger:
         self.logger.setLevel(level)
 
     def logfile_hint(self):
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
         if self.mode == ExecMode.DEFAULT and not self.dryrun:
             logfile = self.get_logfile()
             self.info(f"Complete log: {os.path.relpath(logfile)}")
@@ -598,7 +613,7 @@ class Logger:
             timestamp()
             self.logger.error("\n".join(group_error()))
         else:
-            if level == "info":
+            if level == "info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
             if level == "warning":
                 self.logger.critical(msg["msg"])
@@ -606,9 +621,9 @@ class Logger:
                 self.logger.error(msg["msg"])
             elif level == "debug":
                 self.logger.debug(msg["msg"])
-            elif level == "resources_info":
+            elif level == "resources_info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
-            elif level == "run_info":
+            elif level == "run_info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
             elif level == "progress" and not self.is_quiet_about("progress"):
                 done = msg["done"]
@@ -678,7 +693,7 @@ def format_dict(dict_like, omit_keys=None, omit_values=None):
 
 
 format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
-format_wildcards = partial(format_dict, omit_values={DYNAMIC_FILL})
+format_wildcards = format_dict
 
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
@@ -712,21 +727,24 @@ def setup_logger(
     nocolor=False,
     stdout=False,
     debug=False,
-    mode=ExecMode.DEFAULT,
+    mode=None,
     show_failed_logs=False,
     dryrun=False,
 ):
+    from snakemake.settings import Quietness
+
+    if mode is None:
+        mode = get_default_exec_mode()
+
     if quiet is None:
         # not quiet at all
         quiet = set()
     elif isinstance(quiet, bool):
         if quiet:
-            quiet = set(["progress", "rules"])
+            quiet = {Quietness.PROGRESS, Quietness.RULES}
         else:
             quiet = set()
-    elif isinstance(quiet, list):
-        quiet = set(quiet)
-    else:
+    elif not isinstance(quiet, set):
         raise ValueError(
             "Unsupported value provided for quiet mode (either bool, None or list allowed)."
         )

@@ -3,7 +3,7 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
-from enum import Enum
+import contextlib
 import itertools
 import math
 import operator
@@ -11,7 +11,6 @@ import platform
 import hashlib
 import inspect
 import sys
-import threading
 import uuid
 import os
 import asyncio
@@ -19,14 +18,14 @@ import collections
 from pathlib import Path
 
 from snakemake._version import get_versions
-from snakemake.common.tbdstring import TBDString
+
+from snakemake_interface_common.exceptions import WorkflowError
 
 __version__ = get_versions()["version"]
 del get_versions
 
 
 MIN_PY_VERSION = (3, 7)
-DYNAMIC_FILL = "__snakemake_dynamic__"
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
     "Nothing to be done (all requested files are present and up to date)."
@@ -47,6 +46,7 @@ SNAKEFILE_CHOICES = list(
         ),
     )
 )
+PIP_DEPLOYMENTS_PATH = ".snakemake/pip-deployments"
 
 
 def get_snakemake_searchpaths():
@@ -85,11 +85,16 @@ def async_run(coroutine):
          https://stackoverflow.com/a/65696398
     """
     try:
-        _ = asyncio.get_running_loop()
-    except RuntimeError:
-        asyncio.run(coroutine)
-    else:
-        asyncio.create_task(coroutine)
+        return asyncio.run(coroutine)
+    except RuntimeError as e:
+        coroutine.close()
+        raise WorkflowError(
+            "Error running coroutine in event loop. Snakemake currently does not "
+            "support being executed from an already running event loop. "
+            "If you run Snakemake e.g. from a Jupyter notebook, make sure to spawn a "
+            "separate process for Snakemake.",
+            e,
+        )
 
 
 APPDIRS = None
@@ -286,3 +291,29 @@ def unique_justseen(iterable, key=None):
     # unique_justseen('AAAABBBCCDAABBB') --> A B C D A B
     # unique_justseen('ABBcCAD', str.lower) --> A B c A D
     return map(next, map(operator.itemgetter(1), itertools.groupby(iterable, key)))
+
+
+# Taken from https://stackoverflow.com/a/34333710/7070491.
+# Thanks to Laurent Laporte.
+@contextlib.contextmanager
+def set_env(**environ):
+    """
+    Temporarily set the process environment variables.
+
+    >>> with set_env(PLUGINS_DIR='test/plugins'):
+    ...   "PLUGINS_DIR" in os.environ
+    True
+
+    >>> "PLUGINS_DIR" in os.environ
+    False
+
+    :type environ: dict[str, unicode]
+    :param environ: Environment variables to set
+    """
+    old_environ = dict(os.environ)
+    os.environ.update(environ)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(old_environ)

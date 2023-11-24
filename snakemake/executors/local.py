@@ -12,6 +12,7 @@ import shlex
 import concurrent.futures
 import subprocess
 from functools import partial
+from snakemake.common import async_run
 from snakemake.executors import change_working_directory
 from snakemake.settings import DeploymentMethod
 
@@ -25,8 +26,7 @@ from snakemake_interface_executor_plugins.jobs import (
     SingleJobExecutorInterface,
     GroupJobExecutorInterface,
 )
-from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_executor_plugins import CommonSettings
+from snakemake_interface_executor_plugins.settings import ExecMode, CommonSettings
 
 from snakemake.shell import shell
 from snakemake.logging import logger
@@ -42,6 +42,9 @@ from snakemake.exceptions import (
 common_settings = CommonSettings(
     non_local_exec=False,
     implies_no_shared_fs=False,
+    job_deploy_sources=False,
+    pass_envvar_declarations_to_cmd=True,
+    auto_deploy_default_storage_provider=False,
 )
 
 
@@ -55,17 +58,7 @@ except ImportError:
 
 
 class Executor(RealExecutor):
-    def __init__(
-        self,
-        workflow: WorkflowExecutorInterface,
-        logger: LoggerExecutorInterface,
-    ):
-        super().__init__(
-            workflow,
-            logger,
-            pass_envvar_declarations_to_cmd=False,
-        )
-
+    def __post_init__(self):
         self.use_threads = self.workflow.execution_settings.use_threads
         self.keepincomplete = self.workflow.execution_settings.keep_incomplete
         cores = self.workflow.resource_settings.cores
@@ -89,11 +82,11 @@ class Executor(RealExecutor):
     def get_python_executable(self):
         return sys.executable
 
-    def get_envvar_declarations(self):
-        return ""
+    def additional_general_args(self):
+        return "--quiet progress rules"
 
     def get_job_args(self, job: JobExecutorInterface, **kwargs):
-        return f"{super().get_job_args(job, **kwargs)} --quiet"
+        return f"{super().get_job_args(job, **kwargs)}"
 
     def run_job(
         self,
@@ -119,7 +112,7 @@ class Executor(RealExecutor):
         self.report_job_submission(job_info)
 
     def job_args_and_prepare(self, job: JobExecutorInterface):
-        job.prepare()
+        async_run(job.prepare())
 
         conda_env = (
             job.conda_env.address
@@ -145,6 +138,7 @@ class Executor(RealExecutor):
         benchmark_repeats = job.benchmark_repeats or 1
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
+
         return (
             job.rule,
             job.input._plainstrings(),
@@ -172,6 +166,7 @@ class Executor(RealExecutor):
             else None,
             self.workflow.conda_base_path,
             job.rule.basedir,
+            self.workflow.sourcecache.cache_path,
             self.workflow.sourcecache.runtime_cache_path,
         )
 
@@ -229,6 +224,7 @@ class Executor(RealExecutor):
 
     def spawn_job(self, job: SingleJobExecutorInterface):
         cmd = self.format_job_exec(job)
+        logger.debug(f"spawned job: {cmd}")
 
         try:
             subprocess.check_call(cmd, shell=True)
@@ -242,13 +238,13 @@ class Executor(RealExecutor):
         cache_mode = self.workflow.get_cache_mode(job.rule)
         try:
             if cache_mode:
-                self.workflow.output_file_cache.fetch(job, cache_mode)
+                async_run(self.workflow.output_file_cache.fetch(job, cache_mode))
                 return
         except CacheMissException:
             pass
         run_func(*args)
         if cache_mode:
-            self.workflow.output_file_cache.store(job, cache_mode)
+            async_run(self.workflow.output_file_cache.store(job, cache_mode))
 
     def shutdown(self):
         self.pool.shutdown()
@@ -268,18 +264,12 @@ class Executor(RealExecutor):
         except SpawnedJobError:
             # don't print error message, this is done by the spawned subprocess
             self.report_job_error(job_info)
-        except BaseException as ex:
+        except Exception as ex:
             if self.workflow.output_settings.verbose or (
                 not job_info.job.is_group() and not job_info.job.is_shell
             ):
                 print_exception(ex, self.workflow.linemaps)
             self.report_job_error(job_info)
-
-    def handle_job_error(self, job: JobExecutorInterface):
-        super().handle_job_error(job)
-        if not self.keepincomplete:
-            job.cleanup()
-            self.workflow.persistence.cleanup(job)
 
     @property
     def cores(self):
@@ -310,6 +300,7 @@ def run_wrapper(
     edit_notebook,
     conda_base_path,
     basedir,
+    sourcecache_path,
     runtime_sourcecache_path,
 ):
     """
@@ -389,6 +380,7 @@ def run_wrapper(
                             edit_notebook,
                             conda_base_path,
                             basedir,
+                            sourcecache_path,
                             runtime_sourcecache_path,
                         )
                     else:
@@ -419,6 +411,7 @@ def run_wrapper(
                                 edit_notebook,
                                 conda_base_path,
                                 basedir,
+                                sourcecache_path,
                                 runtime_sourcecache_path,
                             )
                     # Store benchmark record for this iteration
@@ -447,6 +440,7 @@ def run_wrapper(
                     edit_notebook,
                     conda_base_path,
                     basedir,
+                    sourcecache_path,
                     runtime_sourcecache_path,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
@@ -471,5 +465,5 @@ def run_wrapper(
     if benchmark is not None:
         try:
             write_benchmark_records(bench_records, benchmark)
-        except BaseException as ex:
+        except Exception as ex:
             raise WorkflowError(ex)

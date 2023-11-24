@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import asyncio
 import os
 import shutil
 import pickle
@@ -40,6 +41,7 @@ class Persistence(PersistenceExecutorInterface):
         singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
+        path: Path = None,
     ):
         import importlib.util
 
@@ -51,7 +53,10 @@ class Persistence(PersistenceExecutorInterface):
 
         self._max_len = None
 
-        self._path = Path(os.path.abspath(".snakemake"))
+        if path is None:
+            self._path = Path(os.path.abspath(".snakemake"))
+        else:
+            self._path = path
         os.makedirs(self.path, exist_ok=True)
 
         self._lockdir = os.path.join(self.path, "locks")
@@ -269,9 +274,9 @@ class Persistence(PersistenceExecutorInterface):
         for f in job.output:
             self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
-    def finished(self, job):
+    async def finished(self, job):
         if not self.dag.workflow.execution_settings.keep_metadata:
-            for f in job.expanded_output:
+            for f in job.output:
                 self._delete_record(self._incomplete_path, f)
             return
 
@@ -282,7 +287,7 @@ class Persistence(PersistenceExecutorInterface):
         shellcmd = job.shellcmd
         conda_env = self._conda_env(job)
         fallback_time = time.time()
-        for f in job.expanded_output:
+        for f in job.output:
             rec_path = self._record_path(self._incomplete_path, f)
             starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
             # Sometimes finished is called twice, if so, lookup the previous starttime
@@ -290,9 +295,14 @@ class Persistence(PersistenceExecutorInterface):
                 starttime = self._read_record(self._metadata_path, f).get(
                     "starttime", None
                 )
-            endtime = f.mtime.local_or_remote() if f.exists else fallback_time
 
-            checksums = ((infile, infile.checksum()) for infile in job.input)
+            endtime = (
+                (await f.mtime()).local_or_storage()
+                if await f.exists()
+                else fallback_time
+            )
+
+            checksums = ((infile, await infile.checksum()) for infile in job.input)
 
             self._record(
                 self._metadata_path,
@@ -311,7 +321,7 @@ class Persistence(PersistenceExecutorInterface):
                     "container_img_url": job.container_img_url,
                     "input_checksums": {
                         infile: checksum
-                        for infile, checksum in checksums
+                        async for infile, checksum in checksums
                         if checksum is not None
                     },
                 },
@@ -320,11 +330,11 @@ class Persistence(PersistenceExecutorInterface):
             self._delete_record(self._incomplete_path, f)
 
     def cleanup(self, job):
-        for f in job.expanded_output:
+        for f in job.output:
             self._delete_record(self._incomplete_path, f)
             self._delete_record(self._metadata_path, f)
 
-    def incomplete(self, job):
+    async def incomplete(self, job):
         if self._incomplete_cache is None:
             self._cache_incomplete_folder()
 
@@ -339,7 +349,15 @@ class Persistence(PersistenceExecutorInterface):
                 rec_path = self._record_path(self._incomplete_path, f)
                 return rec_path in self._incomplete_cache
 
-        return any(map(lambda f: f.exists and marked_incomplete(f), job.output))
+        async def is_incomplete(f):
+            exists = await f.exists()
+            marked = marked_incomplete(f)
+            return exists and marked
+
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(is_incomplete(f)) for f in job.output]
+
+        return any(task.result() for task in tasks)
 
     def _cache_incomplete_folder(self):
         self._incomplete_cache = {
@@ -625,7 +643,7 @@ class Persistence(PersistenceExecutorInterface):
 
 def _bool_or_gen(func, job, file=None):
     if file is None:
-        return (f for f in job.expanded_output if func(job, file=f))
+        return (f for f in job.output if func(job, file=f))
     else:
         return func(job, file=file)
 

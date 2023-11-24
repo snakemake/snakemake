@@ -250,6 +250,7 @@ def notebook(
     cleanup_scripts,
     shadow_dir,
     edit,
+    sourcecache_path,
     runtime_sourcecache_path,
 ):
     """
@@ -285,7 +286,11 @@ def notebook(
 
     if not draft:
         path, source, language, is_local, cache_path = get_source(
-            path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
+            path,
+            SourceCache(sourcecache_path, runtime_sourcecache_path),
+            basedir,
+            wildcards,
+            params,
         )
     else:
         source = None
