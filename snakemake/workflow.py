@@ -1538,16 +1538,17 @@ class Workflow(WorkflowExecutorInterface):
                         "Threads value has to be an integer, float, or a callable.",
                         rule=rule,
                     )
-                if name in self.resource_settings.overwrite_threads:
-                    rule.resources["_cores"] = self.resource_settings.overwrite_threads[
-                        name
-                    ]
-                else:
+                if name not in self.resource_settings.overwrite_threads:
                     if isinstance(ruleinfo.threads, float):
                         ruleinfo.threads = int(ruleinfo.threads)
                     rule.resources["_cores"] = ruleinfo.threads
             else:
                 rule.resources["_cores"] = 1
+
+            if name in self.resource_settings.overwrite_threads:
+                rule.resources["_cores"] = self.resource_settings.overwrite_threads[
+                    name
+                ]
 
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (

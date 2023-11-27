@@ -115,8 +115,8 @@ Therefore, since Snakemake 4.1, it is possible to specify configuration profiles
 to be used to obtain default options.
 Since Snakemake 7.29, two kinds of profiles are supported:
 
-* A global profile that is defined in a system-wide or user-specific configuration directory (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
-* A workflow specific profile (introduced in Snakemake 7.29) that is defined via a flag (``--workflow-profile``) or searched in a default location (``profile/default``) in the working directory or next to the Snakefile.
+* A **global profile** that is defined in a system-wide or user-specific configuration directory (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
+* A **workflow specific profile** (introduced in Snakemake 7.29) that is defined via a flag (``--workflow-profile``) or searched in a default location (``profile/default``) in the working directory or next to the Snakefile.
 
 The workflow specific profile is meant to be used to define default options for a particular workflow, like providing constraints for certain custom resources the workflow uses (e.g. ``api_calls``) or overwriting the threads and resource definitions of individual rules without modifying the workflow code itself.
 In contrast, the global profile is meant to be used to define default options for a particular environment, like the default cluster submission command or the default number of jobs to run in parallel.
@@ -148,22 +148,40 @@ The profile can be used to set a default for each option of the Snakemake comman
 For this, option ``--someoption`` becomes ``someoption:`` in the profile.
 The profile folder can additionally contain auxilliary files, e.g., jobscripts, or any kind of wrappers. See https://github.com/snakemake-profiles/doc for examples.
 If options accept multiple arguments these must be given as YAML list in the profile.
-If options expect structured arguments (like ``--set-threads RULE=VALUE`` or ``--set-resources RULE:RESOURCE=VALUE``), those can be given as strings in the expected forms, i.e.
+If options expect structured arguments (like ``--default-resources RESOURCE=VALUE``, ``--set-threads RULE=VALUE``, or ``--set-resources RULE:RESOURCE=VALUE``), those can be given as strings in the expected forms, i.e.
 
 .. code-block:: yaml
 
+    default-resources: mem_mb=200
     set-threads: myrule=5
     set-resources: myrule:mem=500MB
 
-or alternatively (which is preferable) as YAML maps, e.g.:
+or as YAML maps, which is easier to read:
 
 .. code-block:: yaml
 
+    default-resources:
+        mem_mb: 200
     set-threads:
         myrule: 5
     set-resources:
         myrule:
             mem: 500MB
+
+All of these resource specifications can also be made dynamic, by using expressions and certain variables that are available.
+For details of the variables you can use, refer to the callable signatures given in the documentation sections on the specification of :ref:`threads <snakefiles-threads>`` and :ref:`dynamic resources <snakefiles-dynamic-resources>``.
+These enable ``config.yaml`` entries like:
+
+.. code-block:: yaml
+
+    default-resources:
+        mem_mb: max(1.5 * input.size_mb, 100)
+    set-threads:
+        myrule: max(input.size_mb / 5, 2)
+    set-resources:
+        myrule:
+            mem_mb: attempt * 200
+
 
 Setting resources or threads via the profile is of course rather a job for the workflow profile instead of the global profile (as such settings are likely workflow specific).
 
