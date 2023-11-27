@@ -786,7 +786,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 os.symlink(os.path.abspath(source), link)
         elif self.rule.shadow_depth == "full":
             snakemake_dir = os.path.join(cwd, ".snakemake")
-            for dirpath, dirnames, filenames in os.walk(cwd):
+            for dirpath, dirnames, filenames in os.walk(cwd, followlinks=True):
+                # a link should not point to a parent directory of itself, else can cause infinite recursion
                 # Must exclude .snakemake and its children to avoid infinite
                 # loop of symlinks.
                 if os.path.commonprefix([snakemake_dir, dirpath]) == snakemake_dir:
