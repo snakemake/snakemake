@@ -341,11 +341,11 @@ In addition to threads, a rule can use arbitrary user-defined resources by speci
         shell:
             "..."
 
-If limits for the resources are given via the command line, e.g.
+If workflow-wide limits for the resources are given via the command line, e.g.
 
 .. code-block:: console
 
-    $ snakemake --resources mem_mb=100
+    $ snakemake --resources mem_mb=200
 
 
 the scheduler will ensure that the given resources are not exceeded by running jobs.
@@ -361,11 +361,29 @@ If no limits are given, the resources are ignored in local execution.
 Resources can have any arbitrary name, and must be assigned ``int`` or ``str`` values.
 In case of ``None``, the resource is considered to be unset (i.e. ignored) in the rule.
 
-Resources can also be callables (e.g. functions or lambda expressions) that return ``int``, ``str`` or ``None`` values.
+.. _snakefiles-dynamic-resources:
+
+Dynamic Resources
+~~~~~~~~~~~~~~~~~
+
+It is often useful to determine resource specifications dynamically during workflow execution.
+A common example is determining the amount of memory that a job needs, based on the input file size of that particular rule instance.
+To enable this, resource specifications can also be callables (for example functions or lambda expressions) that return ``int``, ``str`` or ``None`` values.
 The signature of the callable must be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
 Such callables are evaluated immediately before the job is executed (or printed during a dry-run).
 
-Since the callables can take e.g. ``input`` as an argument, they can for example be used to obtain the size of an input file and infer the amount of memory needed for the job.
+The above described example of using input size to determined memory requirements could for example be realized via a lambda expression (here also providing a minimum value of 300 MB memory):
+
+.. code-block:: python
+
+    rule:
+        input:    ...
+        output:   ...
+        resources:
+            mem_mb=lambda wc, input: max(2.5 * input.size_mb, 300)
+        shell:
+            "..."
+
 In order to make this work with a dry-run, where the input files are not yet present, Snakemake automatically converts a ``FileNotFoundError`` that is raised by the callable into a placeholder called ``<TBD>`` that will be displayed during dry-run in such a case.
 
 The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--retries``).
@@ -406,19 +424,22 @@ Another application of callables as resources is when memory usage depends on th
         shell:
             "..."
 
-Here, the value the function ``get_mem_mb`` returns grows linearly with the number of threads.
+Here, the value that the function ``get_mem_mb`` returns, grows linearly with the number of threads.
 Of course, any other arithmetic could be performed in that function.
 
-Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options` and via workflow profiles, see :ref:`profiles`.
-To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
+Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options`.
+Or they can be defined via workflow :ref:`profiles`, with the variables listed above in the signature for usable callables.
+You could, for example, provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
 
 .. code-block:: yaml
 
+    set-threads:
+        b: 3
     set-resources:
         b:
             mem_mb: 1000
 
-to set the memory requirement of rule ``b`` to 1000 MB.
+to set the requirements for rule ``b`` to 3 threads and 1000 MB.
 
 .. _snakefiles-standard-resources:
 
@@ -453,13 +474,11 @@ Because of these special meanings, the above names should always be used instead
 Default Resources
 ~~~~~~~~~~~~~~~~~~
 
-Since it could be cumbersome to define these standard resources for every rule, you can set default values at
-the terminal or in a :ref:`profile <profiles>`.
-This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
+Since it could be cumbersome to define these standard resources for every rule, you can set default values via the command line flag ``--default-resources`` or in a :ref:`profile <profiles>`.
+As with ``--set-resources``, this can be done dynamically, using the variables specified for the callables in the section on :ref:`snakefile-dynamic-resources`.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
-If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``,
-``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
+If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
 If ``--default-resources`` is specified with some definitions, but any of the above defaults (e.g. ``mem_mb``) is omitted, these are still used.
 In order to explicitly unset these defaults, assign them a value of ``None``, e.g. ``--default-resources mem_mb=None``.
