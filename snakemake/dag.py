@@ -11,7 +11,7 @@ import subprocess
 import tarfile
 import textwrap
 import time
-from typing import Optional, Union
+from typing import Iterable, Optional, Set, Union
 import uuid
 import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
@@ -55,7 +55,14 @@ from snakemake.io import (
     is_flagged,
     wait_for_files,
 )
-from snakemake.jobs import GroupJob, GroupJobFactory, Job, JobFactory, Reason
+from snakemake.jobs import (
+    AbstractJob,
+    GroupJob,
+    GroupJobFactory,
+    Job,
+    JobFactory,
+    Reason,
+)
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
@@ -71,7 +78,7 @@ class DAG(DAGExecutorInterface):
         self,
         workflow,
         rules=None,
-        targetfiles=None,
+        targetfiles: Set[str] = None,
         targetrules=None,
         forceall=False,
         forcerules=None,
@@ -202,6 +209,15 @@ class DAG(DAGExecutorInterface):
         for i, job in enumerate(self.jobs):
             job.is_valid()
 
+    def get_unneeded_temp_files(self, job: AbstractJob) -> Iterable[str]:
+        if isinstance(job, GroupJob):
+            for j in job:
+                yield from self.get_unneeded_temp_files(j)
+        else:
+            for f in job.output:
+                if is_flagged(f, "temp") and not self.is_needed_tempfile(job, f):
+                    yield f
+
     def check_directory_outputs(self):
         """Check that no output file is contained in a directory output of the same or another rule."""
         outputs = sorted(
@@ -316,7 +332,11 @@ class DAG(DAGExecutorInterface):
             async with asyncio.TaskGroup() as tg:
                 for job in self.jobs:
                     for f in job.output:
-                        if f.is_storage:
+                        if (
+                            f.is_storage
+                            and f
+                            not in self.workflow.storage_settings.unneeded_temp_files
+                        ):
                             tg.create_task(f.store_in_storage())
 
     def cleanup_storage_objects(self):
@@ -658,6 +678,13 @@ class DAG(DAGExecutorInterface):
         """
         return sum([await f.size() for f in self.temp_input(job)])
 
+    def is_needed_tempfile(self, job, tempfile):
+        return any(
+            tempfile in files
+            for j, files in self.depending[job].items()
+            if not self.finished(j) and self.needrun(j) and j != job
+        )
+
     async def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
         if self.workflow.storage_settings.notemp:
@@ -670,18 +697,13 @@ class DAG(DAGExecutorInterface):
 
         is_temp = lambda f: is_flagged(f, "temp")
 
-        # handle temp input
-        needed = lambda job_, f: any(
-            f in files
-            for j, files in self.depending[job_].items()
-            if not self.finished(j) and self.needrun(j) and j != job
-        )
-
         def unneeded_files():
             # temp input
             for job_, files in self.dependencies[job].items():
                 tempfiles = set(f for f in job_.output if is_temp(f))
-                yield from filterfalse(partial(needed, job_), tempfiles & files)
+                yield from filterfalse(
+                    partial(self.is_needed_tempfile, job_), tempfiles & files
+                )
 
             # temp output
             if not job.is_checkpoint and (
@@ -691,7 +713,7 @@ class DAG(DAGExecutorInterface):
                 tempfiles = (
                     f for f in job.output if is_temp(f) and f not in self.targetfiles
                 )
-                yield from filterfalse(partial(needed, job), tempfiles)
+                yield from filterfalse(partial(self.is_needed_tempfile, job), tempfiles)
 
         for f in unneeded_files():
             if self.workflow.dryrun:

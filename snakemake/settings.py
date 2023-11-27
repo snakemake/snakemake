@@ -185,6 +185,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     local_storage_prefix: Path = Path(".snakemake/storage")
     notemp: bool = False
     all_temp: bool = False
+    unneeded_temp_files: Set[str] = frozenset()
 
 
 class CondaCleanupPkgs(SettingsEnumBase):
@@ -350,6 +351,7 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     envvars: Sequence[str] = tuple()
     immediate_submit: bool = False
     precommand: Optional[str] = None
+    job_deploy_sources: bool = True
 
 
 @dataclass

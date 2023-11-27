@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import argparse
+from functools import partial
 import sys
 from typing import Set
 
@@ -36,6 +37,7 @@ from snakemake.settings import (
     SchedulingSettings,
     StorageSettings,
     WorkflowSettings,
+    GroupSettings,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode
@@ -58,7 +60,12 @@ from snakemake.common import (
     get_container_image,
     parse_key_value_arg,
 )
-from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
+from snakemake.resources import (
+    ResourceScopes,
+    eval_resource_expression,
+    parse_resources,
+    DefaultResources,
+)
 from snakemake.settings import RerunTrigger
 
 
@@ -67,13 +74,14 @@ def parse_set_threads(args):
         args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
+        fallback=partial(eval_resource_expression, threads_arg=False),
     )
 
 
 def parse_set_resources(args):
     errmsg = (
         "Invalid resource definition: entries have to be defined as RULE:RESOURCE=VALUE, with "
-        "VALUE being a positive integer or a string."
+        "VALUE being a positive integer a quoted string, or a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
     )
 
     from collections import defaultdict
@@ -89,9 +97,8 @@ def parse_set_resources(args):
             try:
                 value = int(value)
             except ValueError:
-                assignments[rule][resource] = value
-                continue
-            if value < 0:
+                value = eval_resource_expression(value)
+            if isinstance(value, int) and value < 0:
                 raise ValueError(errmsg)
             assignments[rule][resource] = value
     return assignments
@@ -124,7 +131,7 @@ def parse_set_resource_scope(args):
     return ResourceScopes()
 
 
-def parse_set_ints(arg, errmsg):
+def parse_set_ints(arg, errmsg, fallback=None):
     assignments = dict()
     if arg is not None:
         for entry in arg:
@@ -132,8 +139,14 @@ def parse_set_ints(arg, errmsg):
             try:
                 value = int(value)
             except ValueError:
-                raise ValueError(errmsg)
-            if value < 0:
+                if fallback is not None:
+                    try:
+                        value = fallback(value)
+                    except Exception as e:
+                        raise ValueError(errmsg)
+                else:
+                    raise ValueError(errmsg)
+            if isinstance(value, int) and value < 0:
                 raise ValueError(errmsg)
             assignments[key] = value
     return assignments
@@ -158,8 +171,8 @@ def parse_batch(args):
 def parse_groups(args):
     errmsg = "Invalid groups definition: entries have to be defined as RULE=GROUP pairs"
     overwrite_groups = dict()
-    if args.groups is not None:
-        for entry in args.groups:
+    if args is not None:
+        for entry in args:
             rule, group = parse_key_value_arg(entry, errmsg=errmsg)
             overwrite_groups[rule] = group
     return overwrite_groups
@@ -168,8 +181,8 @@ def parse_groups(args):
 def parse_group_components(args):
     errmsg = "Invalid group components definition: entries have to be defined as GROUP=COMPONENTS pairs (with COMPONENTS being a positive integer)"
     group_components = dict()
-    if args.group_components is not None:
-        for entry in args.group_components:
+    if args is not None:
+        for entry in args:
             group, count = parse_key_value_arg(entry, errmsg=errmsg)
             try:
                 count = int(count)
@@ -282,29 +295,12 @@ def get_profile_dir(profile: str) -> (Path, Path):
                 return profile_candidate, profile_candidate / config_file
 
 
-def get_profile_file(profile_dir: Path, file, return_default=False):
-    p = profile_dir / file
-    # "file" can actually be a full command. If so, `p` won't exist as the
-    # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
-    # exists. To fix this, we use shlex.split() to get the path to the
-    # script. We check for both, in case the path contains spaces or some
-    # other thing that would cause shlex.split() to mangle the path
-    # inaccurately.
-    if p.exists() or os.path.exists(shlex.split(str(p))[0]):
-        return p
-
-    if return_default:
-        return file
-    return None
-
-
 def get_argument_parser(profiles=None):
     """Generate and return argument parser."""
     from snakemake.profiles import ProfileConfigFileParser
 
     dirs = get_appdirs()
     config_files = []
-    profile_dir = None
     if profiles:
         for profile in profiles:
             if profile == "":
@@ -313,7 +309,7 @@ def get_argument_parser(profiles=None):
 
             profile_entry = get_profile_dir(profile)
             if profile_entry is not None:
-                profile_dir, config_file = profile_entry
+                _profile_dir, config_file = profile_entry
                 config_files.append(config_file)
             else:
                 print(
@@ -849,6 +845,7 @@ def get_argument_parser(profiles=None):
         "--groups",
         nargs="+",
         parse_func=parse_groups,
+        default=dict(),
         help="Assign rules to groups (this overwrites any "
         "group definitions from the workflow).",
     )
@@ -856,6 +853,7 @@ def get_argument_parser(profiles=None):
         "--group-components",
         nargs="+",
         parse_func=parse_group_components,
+        default=dict(),
         help="Set the number of connected components a group is "
         "allowed to span. By default, this is 1, but this flag "
         "allows to extend this. This can be used to run e.g. 3 "
@@ -1257,6 +1255,15 @@ def get_argument_parser(profiles=None):
         "in order to save space.",
     )
     group_behavior.add_argument(
+        "--unneeded-temp-files",
+        parse_func=set,
+        default=frozenset(),
+        metavar="FILE",
+        nargs="+",
+        help="Given files will not be uploaded to storage and immediately deleted "
+        "after job or group job completion.",
+    )
+    group_behavior.add_argument(
         "--keep-storage-local-copies",
         action="store_true",
         help="Keep local copies of remote input files.",
@@ -1341,6 +1348,14 @@ def get_argument_parser(profiles=None):
         help="Specify prefix for default storage provider. E.g. a bucket name.",
     )
     group_behavior.add_argument(
+        "--local-storage-prefix",
+        default=".snakemake/storage",
+        type=Path,
+        help="Specify prefix for storing local copies of storage files and folders. "
+        "By default, this is a hidden subfolder in the workdir. It can however be "
+        "freely chosen, e.g. in order to store those files on a local scratch disk.",
+    )
+    group_behavior.add_argument(
         "--no-shared-fs",
         action="store_true",
         help="Do not assume that jobs share a common file "
@@ -1409,6 +1424,13 @@ def get_argument_parser(profiles=None):
         help="Set a specific messaging service for logging output."
         "Snakemake will notify the service on errors and completed execution."
         "Currently slack and workflow management system (wms) are supported.",
+    )
+    group_behavior.add_argument(
+        "--job-deploy-sources",
+        action="store_true",
+        help="Whether the workflow sources shall be deployed before a remote job is "
+        "started. Only applies if --no-shared-fs is set or executors are used that "
+        "imply no shared FS (e.g. the kubernetes executor).",
     )
 
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
@@ -1590,7 +1612,7 @@ def get_argument_parser(profiles=None):
     # Add namespaced arguments to parser for each plugin
     _get_executor_plugin_registry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
-    return parser, profile_dir
+    return parser
 
 
 def generate_parser_metadata(parser, args):
@@ -1606,7 +1628,7 @@ def generate_parser_metadata(parser, args):
 
 
 def parse_args(argv):
-    parser, profile_dir = get_argument_parser()
+    parser = get_argument_parser()
     args = parser.parse_args(argv)
 
     snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
@@ -1647,25 +1669,8 @@ def parse_args(argv):
             file=sys.stderr,
         )
 
-        parser, profile_dir = get_argument_parser(profiles=profiles)
+        parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
-
-        def adjust_path(path_or_value):
-            if isinstance(path_or_value, str):
-                adjusted = get_profile_file(
-                    profile_dir, path_or_value, return_default=False
-                )
-                if adjusted is None or os.path.exists(path_or_value):
-                    return path_or_value
-                else:
-                    return adjusted
-            else:
-                return path_or_value
-
-        # Update file paths to be relative to the profile if profile
-        # contains them and they don't exist without prepending it.
-        for key, _ in list(args._get_kwargs()):
-            setattr(args, key, adjust_path(getattr(args, key)))
 
     return parser, args
 
@@ -1814,10 +1819,12 @@ def args_to_api(args, parser):
             storage_settings = StorageSettings(
                 default_storage_provider=args.default_storage_provider,
                 default_storage_prefix=args.default_storage_prefix,
+                local_storage_prefix=args.local_storage_prefix,
                 assume_shared_fs=not args.no_shared_fs,
                 keep_storage_local=args.keep_storage_local_copies,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
+                unneeded_temp_files=args.unneeded_temp_files,
             )
 
             if args.deploy_sources:
@@ -1985,6 +1992,7 @@ def args_to_api(args, parser):
                                 preemptible_rules=preemptible_rules,
                                 envvars=args.envvars,
                                 immediate_submit=args.immediate_submit,
+                                job_deploy_sources=args.job_deploy_sources,
                             ),
                             scheduling_settings=SchedulingSettings(
                                 prioritytargets=args.prioritize,
@@ -1993,6 +2001,11 @@ def args_to_api(args, parser):
                                 solver_path=args.scheduler_solver_path,
                                 greediness=args.scheduler_greediness,
                                 max_jobs_per_second=args.max_jobs_per_second,
+                            ),
+                            group_settings=GroupSettings(
+                                group_components=args.group_components,
+                                overwrite_groups=args.groups,
+                                local_groupid=args.local_groupid,
                             ),
                             executor_settings=executor_settings,
                         )

@@ -367,7 +367,7 @@ class Rule(RuleInterface):
 
             newitem = None
             if item.is_storage:
-                storage_object = copy.copy(item.storage_object.clone())
+                storage_object = copy.copy(item.storage_object)
                 storage_object.query = self._update_item_wildcard_constraints(
                     storage_object.query
                 )
@@ -405,7 +405,7 @@ class Rule(RuleInterface):
 
         # Check to see if the item is a path, if so, just make it a string
         if isinstance(item, Path):
-            item = str(item)
+            item = str(item.as_posix())
         if isinstance(item, str):
             if ON_WINDOWS:
                 if isinstance(item, (_IOFile, AnnotatedString)):
