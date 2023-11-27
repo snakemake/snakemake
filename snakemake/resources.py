@@ -529,10 +529,10 @@ def eval_resource_expression(val, threads_arg=True):
                 # Missing input files are handled by the caller
                 raise WorkflowError(
                     "Failed to evaluate default resources value "
-                    "'{}'.\n"
+                    f"'{val}'.\n"
                     "    String arguments may need additional "
                     "quoting. Ex: --default-resources "
-                    "\"tmpdir='/home/user/tmp'\".".format(val),
+                    "\"tmpdir='/home/user/tmp'\".",
                     e,
                 )
             raise e
