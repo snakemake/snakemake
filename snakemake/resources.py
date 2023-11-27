@@ -508,7 +508,7 @@ class GroupResources:
 
 
 def eval_resource_expression(val, threads_arg=True):
-    def generic_callable(**kwargs):
+    def generic_callable(val, threads_arg, **kwargs):
         args = {
             "input": kwargs["input"],
             "attempt": kwargs["attempt"],
@@ -542,6 +542,8 @@ def eval_resource_expression(val, threads_arg=True):
 
         def callable(wildcards, input, attempt, threads, rulename):
             return generic_callable(
+                val,
+                threads_arg=threads_arg,
                 wildcards=wildcards,
                 input=input,
                 attempt=attempt,
@@ -553,7 +555,12 @@ def eval_resource_expression(val, threads_arg=True):
 
         def callable(wildcards, input, attempt, rulename):
             return generic_callable(
-                wildcards=wildcards, input=input, attempt=attempt, rulename=rulename
+                val,
+                threads_arg=threads_arg,
+                wildcards=wildcards,
+                input=input,
+                attempt=attempt,
+                rulename=rulename,
             )
 
     return callable
