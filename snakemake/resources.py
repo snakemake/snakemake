@@ -525,7 +525,7 @@ def eval_resource_expression(val, threads_arg=True):
         except NameError:
             return val
         except Exception as e:
-            if not (isinstance(e, FileNotFoundError) and e.filename in input):
+            if not (isinstance(e, FileNotFoundError) and e.filename in kwargs["input"]):
                 # Missing input files are handled by the caller
                 raise WorkflowError(
                     "Failed to evaluate default resources value "
