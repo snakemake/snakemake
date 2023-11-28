@@ -5,13 +5,11 @@ __license__ = "MIT"
 
 import asyncio
 import os
-import sys
 import base64
 import tempfile
 import json
 import shutil
 
-from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
@@ -29,6 +27,7 @@ from snakemake_interface_executor_plugins.jobs import (
 from snakemake.io import (
     _IOFile,
     IOFile,
+    is_callable,
     Wildcards,
     Resources,
     is_flagged,
@@ -37,7 +36,7 @@ from snakemake.io import (
 )
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
-from snakemake.utils import format, listfiles
+from snakemake.utils import format
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 
 from snakemake.logging import logger
@@ -387,10 +386,18 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     def resources(self):
         if self._resources is None:
             if self.dag.workflow.local_exec or self.is_local:
-                skip_evaluation = None
+                skip_evaluation = set()
             else:
                 # tmpdir should be evaluated in the context of the actual execution
                 skip_evaluation = {"tmpdir"}
+            if not self._params_and_resources_resetted:
+                # initial evaluation, input files of job are probably not yet present.
+                # Therefore skip all functions
+                skip_evaluation.update(
+                    name
+                    for name, val in self.rule.resources.items()
+                    if is_callable(val)
+                )
             self._resources = self.rule.expand_resources(
                 self.wildcards_dict,
                 self.input,

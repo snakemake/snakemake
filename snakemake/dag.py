@@ -296,7 +296,12 @@ class DAG(DAGExecutorInterface):
             (job.conda_env_spec, job.container_img_url)
             for job in self.jobs
             if job.conda_env_spec
-            and (job.is_local or self.workflow.global_or_node_local_shared_fs)
+            and (
+                job.is_local
+                or self.workflow.deployment_settings.assume_shared_fs
+                or self.workflow.remote_exec
+                and not self.workflow.deployment_settings.assume_shared_fs
+            )
         }
 
         # Then based on md5sum values

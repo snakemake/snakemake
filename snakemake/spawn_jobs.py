@@ -200,7 +200,7 @@ class SpawnedJobArgsFactory:
             w2a("deployment_settings.conda_prefix"),
             w2a(
                 "conda_base_path",
-                skip=not self.workflow.storage_settings.assume_shared_fs,
+                skip=not self.workflow.deployment_settings.assume_shared_fs,
             ),
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
@@ -208,6 +208,7 @@ class SpawnedJobArgsFactory:
             w2a(
                 "storage_settings.assume_shared_fs", flag="--no-shared-fs", invert=True
             ),
+            w2a("deployment_settings.fs_mode", flag="--software-deployment-fs-mode"),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
@@ -223,7 +224,7 @@ class SpawnedJobArgsFactory:
             format_cli_arg(
                 "--scheduler-solver-path",
                 os.path.dirname(sys.executable),
-                skip=not self.workflow.storage_settings.assume_shared_fs,
+                skip=not self.workflow.deployment_settings.assume_shared_fs,
             ),
             w2a(
                 "overwrite_workdir",

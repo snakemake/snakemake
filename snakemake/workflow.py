@@ -959,7 +959,7 @@ class Workflow(WorkflowExecutorInterface):
 
         if (
             DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
-            and self.storage_settings.assume_shared_fs
+            and self.deployment_settings.assume_shared_fs
         ):
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs(
@@ -987,7 +987,7 @@ class Workflow(WorkflowExecutorInterface):
 
         if (
             DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
-            and self.storage_settings.assume_shared_fs
+            and self.deployment_settings.assume_shared_fs
         ):
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs()
@@ -1083,7 +1083,9 @@ class Workflow(WorkflowExecutorInterface):
                     f for job in self.dag.needrun_jobs() for f in job.output
                 )
 
-            if self.global_or_node_local_shared_fs:
+            if self.deployment_settings.assume_shared_fs or (
+                self.remote_exec and not self.deployment_settings.assume_shared_fs
+            ):
                 if (
                     DeploymentMethod.APPTAINER
                     in self.deployment_settings.deployment_method
@@ -1091,6 +1093,8 @@ class Workflow(WorkflowExecutorInterface):
                     self.dag.pull_container_imgs()
                 if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                     self.dag.create_conda_envs()
+
+            if self.global_or_node_local_shared_fs:
                 async_run(self.dag.retrieve_storage_inputs())
 
             if (
@@ -1518,6 +1522,7 @@ class Workflow(WorkflowExecutorInterface):
                 rule.set_output(*ruleinfo.output.paths, **ruleinfo.output.kwpaths)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
+
             # handle default resources
             if self.resource_settings.default_resources is not None:
                 rule.resources = copy.deepcopy(
@@ -1572,6 +1577,7 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth
+
             if ruleinfo.resources:
                 args, resources = ruleinfo.resources
                 if args:

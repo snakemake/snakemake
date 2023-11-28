@@ -38,6 +38,7 @@ from snakemake.settings import (
     StorageSettings,
     WorkflowSettings,
     GroupSettings,
+    DeploymentFSMode,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode
@@ -1499,6 +1500,12 @@ def get_argument_parser(profiles=None):
         help="Specify software environment deployment method.",
     )
     group_deployment.add_argument(
+        "--software-deployment-fs-mode",
+        choices=DeploymentFSMode.choices(),
+        parse_func=DeploymentFSMode.parse_choice,
+        help="Whether or not to assume a shared filesystem for software deployment.",
+    )
+    group_deployment.add_argument(
         "--container-cleanup-images",
         action="store_true",
         help="Remove unused containers",
@@ -1862,6 +1869,7 @@ def args_to_api(args, parser):
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
+                        fs_mode=args.software_deployment_fs_mode,
                         conda_prefix=args.conda_prefix,
                         conda_cleanup_pkgs=args.conda_cleanup_pkgs,
                         conda_base_path=args.conda_base_path,
