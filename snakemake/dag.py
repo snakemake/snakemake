@@ -1320,6 +1320,8 @@ class DAG(DAGExecutorInterface):
 
         self._update_group_components()
 
+        self._check_groups()
+
     def _update_group_components(self):
         # span connected components if requested
         groups_by_id = defaultdict(set)
@@ -1338,6 +1340,55 @@ class DAG(DAGExecutorInterface):
 
         for group in self._group.values():
             group.finalize()
+
+    def _check_groups(self):
+        """Check whether all groups are valid."""
+
+        # find paths of jobs that leave a group and then enter it again
+        # this is not allowed since then the group depends on itself
+        def dfs(job, group, visited, outside_jobs, outside_jobs_all, skip_this):
+            """Inner function for DFS traversal."""
+            if job in group:
+                if not skip_this and outside_jobs:
+                    outside_jobs_all[job] = outside_jobs
+                    return
+            else:
+                outside_jobs.append(job)
+            for job_ in self.dependencies[job]:
+                if job_ not in visited:
+                    visited.add(job_)
+                    dfs(
+                        job_,
+                        group,
+                        visited,
+                        list(outside_jobs),
+                        outside_jobs_all,
+                        False,
+                    )
+
+        for group in self._group.values():
+            for job in group:
+                outside_jobs_all = dict()
+                dfs(job, group, set(), [], outside_jobs_all, True)
+                if outside_jobs_all:
+                    fmt_outside = lambda jobs: ",".join(
+                        sorted(set(j.rule.name for j in jobs))
+                    )
+                    bullet = "* " if len(outside_jobs_all) > 1 else ""
+                    fixes = "\n".join(
+                        f"{bullet}Remove {job.rule.name} from the group or add {fmt_outside(outside)} to the group."
+                        for job, outside in outside_jobs_all.items()
+                    )
+                    raise WorkflowError(
+                        f"Group {group.groupid} depends on itself. "
+                        "This is not allowed, because it would lead to an "
+                        "the group can never be ready for execution. "
+                        "Ensure that there is no path of jobs in the DAG that "
+                        "starts in a group, leaves it (i.e. at least one job in "
+                        "the path is not in the group), and then enters it again. "
+                        f"Possible fixes are:\n{fixes}",
+                        rule=job.rule,
+                    )
 
     async def update_incomplete_input_expand_jobs(self):
         """Update (re-evaluate) all jobs which have incomplete input file expansions.
@@ -1852,7 +1903,7 @@ class DAG(DAGExecutorInterface):
             if not post:
                 yield job
             for job_ in direction[job]:
-                if not job_ in visited:
+                if job_ not in visited:
                     visited.add(job_)
                     for j in _dfs(job_):
                         yield j
@@ -1860,7 +1911,7 @@ class DAG(DAGExecutorInterface):
                 yield job
 
         for job in jobs:
-            for job_ in self._dfs(direction, job, visited, stop=stop, post=post):
+            for job_ in _dfs(job):
                 yield job_
 
     def new_wildcards(self, job):
