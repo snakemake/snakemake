@@ -1541,7 +1541,7 @@ def get_argument_parser(profile=None):
     group_utils.add_argument(
         "--provenance",
         action="store_true",
-        help="Track workflow provenance based on the PROV W3C standard "
+        help="Track workflow provenance based on the W3C PROV standard "
         "and store provenance.trig and provenance.json files.",
     )
     group_utils.add_argument(

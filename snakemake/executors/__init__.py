@@ -289,6 +289,7 @@ class RealExecutor(AbstractExecutor):
         handle_touch=True,
         ignore_missing_output=False,
     ):
+        super().handle_job_success(job)
         job.postprocess(
             upload_remote=upload_remote,
             handle_log=handle_log,
