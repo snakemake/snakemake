@@ -684,10 +684,10 @@ To activate this autocompletion permanently, put this line in ``~/.zshrc``.
 
 `Here <https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org>`_ is some further reading.
 
-How can I avoid system /tmp to be used when combining singularity and conda?
-------------------------------------------------------
+How can I avoid system /tmp to be used when combining apptainer and conda?
+--------------------------------------------------------------------------
 
-When using both singularity and conda the idea is that inside the singularity container the conda environment is being installed.
-Some singularity instances are set to share the system /tmp with the containers.
+When using both apptainer and conda the idea is that inside the apptainer container the conda environment is being installed.
+Some apptainer instances are set to share the system /tmp with the containers.
 This can lead to unexpected behaviour where the system /tmp gets full.
-To stop this behaviour you'd have to run singularity with the ``--contain`` option. 
+To stop this behaviour you'd have to run apptainer with the ``--contain`` option. 

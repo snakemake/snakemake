@@ -120,7 +120,19 @@ pygments_style = "sphinx"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "sphinx_rtd_theme"
+html_theme = "lutra"
+html_theme_options = {
+    "primary_color": "emerald",
+    "secondary_color": "emerald",
+    "dark_logo": "logo-snake.svg",
+    "light_logo": "logo-snake.svg",
+    "navigation_style": "plain",
+    "sidebar_links": [
+        {"text": "Snakemake plugin catalog", "alt": "Snakemake plugin catalog", "href": "https://snakemake.github.io/snakemake-plugin-catalog"},
+        {"text": "Snakemake workflow catalog", "alt": "Snakemake workflow catalog", "href": "https://snakemake.github.io/snakemake-workflow-catalog"},
+        {"text": "Snakemake wrappers", "alt": "Snakemake wrappers", "href": "https://snakemake-wrappers.readthedocs.io"},
+    ]
+}
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

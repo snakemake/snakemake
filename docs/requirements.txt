@@ -1,8 +1,8 @@
 sphinx >=3
 sphinxcontrib-napoleon
 sphinx-argparse
-sphinx_rtd_theme
 docutils
 myst-parser
 configargparse
 appdirs
+lutra @ git+http://github.com/pradyunsg/lutra@8f61563

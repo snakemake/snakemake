@@ -40,12 +40,6 @@ By issuing
 
 a dry-run can be performed.
 This is useful to test if the workflow is defined properly and to estimate the amount of needed computation.
-Further, the reason for each rule execution can be printed via
-
-
-.. code-block:: console
-
-    $ snakemake -n -r
 
 Importantly, Snakemake can automatically determine which parts of the workflow can be run in parallel.
 By specifying more than one available core, i.e.
@@ -71,7 +65,14 @@ Similarly, it is possible to overwrite other resource definitions in rules, via
 
     $ snakemake --cores 4 --set-resources myrule:partition="foo"
 
-Both mechanisms can be particularly handy when used in combination with :ref:`cluster execution <cluster>`.
+Both mechanisms can be particularly handy when used in combination with :ref:`non-local execution <non-local-exec>`.
+
+.. _non-local-exec:
+Non-local execution
+^^^^^^^^^^^^^^^^^^^
+
+Non-local execution on cluster or cloud infrastructure is implemented via plugins.
+The `Snakemake plugin catalog <https://snakemake.github.com/snakemake-plugin-catalog>`_ lists available plugins and their documentation.
 
 Dealing with very large workflows
 ---------------------------------
@@ -140,10 +141,10 @@ For example, the file
 
 .. code-block:: yaml
 
-    cluster: qsub
+    executor: slurm
     jobs: 100
 
-would setup Snakemake to always submit to the cluster via the ``qsub`` command, and never use more than 100 parallel jobs in total.
+would setup Snakemake to always submit to the SLURM cluster middleware and never use more than 100 parallel jobs in total.
 The profile can be used to set a default for each option of the Snakemake command line interface.
 For this, option ``--someoption`` becomes ``someoption:`` in the profile.
 The profile folder can additionally contain auxilliary files, e.g., jobscripts, or any kind of wrappers. See https://github.com/snakemake-profiles/doc for examples.
@@ -169,7 +170,9 @@ or as YAML maps, which is easier to read:
             mem: 500MB
 
 All of these resource specifications can also be made dynamic, by using expressions and certain variables that are available.
-For details of the variables you can use, refer to the callable signatures given in the documentation sections on the specification of :ref:`threads <snakefiles-threads>`` and :ref:`dynamic resources <snakefiles-dynamic-resources>``.
+For details of the variables you can use, refer to the callable signatures given in the
+documentation sections on the specification of :ref:`threads <snakefiles-threads>`
+and :ref:`dynamic resources <snakefiles-dynamic-resources>`.
 These enable ``config.yaml`` entries like:
 
 .. code-block:: yaml
@@ -184,6 +187,15 @@ These enable ``config.yaml`` entries like:
 
 
 Setting resources or threads via the profile is of course rather a job for the workflow profile instead of the global profile (as such settings are likely workflow specific).
+
+Values in profiles can make use of globally available environment variables, e.g. the ``$USER`` variable.
+For example, the following would set the default prefix for storing local copies of remote storage files to a user specific directory
+
+.. code-block:: yaml
+
+    local-storage-prefix: /local/work/$USER/snakemake-scratch
+
+Any such environment variables are automatically expanded when evaluating the profile.
 
 Under https://github.com/snakemake-profiles/doc, you can find publicly available global profiles (e.g. for cluster systems).
 Feel free to contribute your own.

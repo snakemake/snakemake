@@ -25,7 +25,7 @@ Consider the following example:
   rule c:
       output:
           "test.{i}.out"
-      singularity:
+      container:
           "docker://continuumio/miniconda3:4.4.10"
       conda:
           "envs/test.yaml"

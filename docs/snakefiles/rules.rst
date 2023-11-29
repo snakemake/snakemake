@@ -313,7 +313,7 @@ Snakemake will always round the calculated value down (while enforcing a minimum
 
 Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards[, input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
 
-Both threads can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` see :ref:`user_manual-snakemake_options` and via workflow profiles, see :ref:`profiles`.
+Both threads can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` see :ref:`all_options` and via workflow profiles, see :ref:`profiles`.
 To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
 
 .. code-block:: yaml
@@ -427,7 +427,7 @@ Another application of callables as resources is when memory usage depends on th
 Here, the value that the function ``get_mem_mb`` returns, grows linearly with the number of threads.
 Of course, any other arithmetic could be performed in that function.
 
-Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options`.
+Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`all_options`.
 Or they can be defined via workflow :ref:`profiles`, with the variables listed above in the signature for usable callables.
 You could, for example, provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
 
@@ -457,14 +457,14 @@ All of these resources have specific meanings understood by snakemake and are tr
   (``ms``, ``s``, ``m``, ``h``, ``d``, ``w``, ``y`` for seconds, minutes, hours, days, and years, respectively).
   The interpretation happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_timespan>`_.
   Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
-  See :ref:`the section below <resources_remote_execution>` for more information.
+  See :ref:`the section below <resources-remote-execution>` for more information.
 
 * ``disk`` and ``mem`` define the amount of memory and disk space needed by the job.
   They are given as strings with a number followed by a unit (``B``, ``KB``, ``MB``, ``GB``, ``TB``, ``PB``, ``KiB``, ``MiB``, ``GiB``, ``TiB``, ``PiB``).
   The interpretation of the definition happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_size>`_.
   Alternatively, the two can be directly defined as integers via the resources ``mem_mb`` and ``disk_mb`` (to which ``disk`` and ``mem`` are also automatically translated internally).
   They are both locally scoped by default, a fact important for cluster and compute execution.
-  :ref:`See below <resources_remote_execution>` for more info.
+  :ref:`See below <resources-remote-execution>` for more info.
   They are usually passed to execution backends, e.g. to allow the selection of appropriate compute nodes for the job execution.
 
 Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``time``, ``temp``, etc).
@@ -475,7 +475,7 @@ Default Resources
 ~~~~~~~~~~~~~~~~~~
 
 Since it could be cumbersome to define these standard resources for every rule, you can set default values via the command line flag ``--default-resources`` or in a :ref:`profile <profiles>`.
-As with ``--set-resources``, this can be done dynamically, using the variables specified for the callables in the section on :ref:`snakefile-dynamic-resources`.
+As with ``--set-resources``, this can be done dynamically, using the variables specified for the callables in the section on :ref:`snakefiles-dynamic-resources`.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
 If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
@@ -1125,7 +1125,7 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
     The benefit will be maximal when integrating many small notebooks that each do a particular job, hence allowing to get away from large monolithic, and therefore unreadable notebooks.
 
 It is recommended to prefix the ``.ipynb`` suffix with either ``.py`` or ``.r`` to indicate the notebook language.
-In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles_external-scripts>`.
+In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles-external_scripts>`.
 In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
 Optionally it is possible to automatically store the processed notebook.
 This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
@@ -1199,7 +1199,7 @@ For example, running
 
 .. code-block:: console
 
-    snakemake --cores 1 --draft-notebook test.txt --use-conda
+    snakemake --cores 1 --draft-notebook test.txt --software-deployment-method conda
 
 will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
 
@@ -1278,7 +1278,7 @@ The timestamp of such files is ignored and always assumed to be older than any o
 Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
 Note that any flag that forces re-creation of files still also applies to files marked as ``ancient``.
 
-.. _snakefiles_ensure::
+.. _snakefiles_ensure:
 
 Ensuring output file properties like non-emptyness or checksum compliance
 -------------------------------------------------------------------------
@@ -1312,7 +1312,7 @@ A sha256 checksum can be compared as follows:
         shell:
             "somecommand {output}"
 
-In addition to providing the checksum as plain string, it is possible to provide a pointer to a function (similar to :ref:`input functions <snakefiles_input-functions>`).
+In addition to providing the checksum as plain string, it is possible to provide a pointer to a function (similar to :ref:`input functions <snakefiles-input_functions>`).
 The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files:
 
 .. code-block:: python
@@ -1973,8 +1973,8 @@ Once all consumer jobs are finished, the service job will be terminated automati
 Group-local service jobs
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Since Snakemake supports arbitrary partitioning of the DAG into so-called :ref:`job groups <job-grouping>`, one should consider what this implies for service jobs when running a workflow in a cluster of cloud context:
-since each group job spans at least one connected component (see :ref:`job groups <job-grouping>` and `the Snakemake paper <https://doi.org/10.12688/f1000research.29032.2>`), this means that the service job will automatically connect all consumers into one big group.
+Since Snakemake supports arbitrary partitioning of the DAG into so-called :ref:`job groups <job_grouping>`, one should consider what this implies for service jobs when running a workflow in a cluster of cloud context:
+since each group job spans at least one connected component (see :ref:`job groups <job_grouping>` and `the Snakemake paper <https://doi.org/10.12688/f1000research.29032.2>`), this means that the service job will automatically connect all consumers into one big group.
 This can be undesired, because depending on the number of consumers that group job can become too big for efficient execution on the underlying architecture.
 In case of local execution, this is not a problem because here DAG partitioning has no effect.
 
@@ -2434,9 +2434,7 @@ The template itself has access to ``input``, ``params``, ``wildcards``, and ``co
 which are the same objects you can use for example in the ``shell`` or ``run`` directive,
 and the same objects as can be accessed from ``script`` or ``notebook`` directives (but in the latter two cases they are stored behind the ``snakemake`` object which serves as a dedicated namespace to avoid name clashes).
 
-An example Jinja2 template could look like this:
-
-.. code-block:: jinja2
+An example Jinja2 template could look like this::
 
     This is some text and now we access {{ params.foo }}.
 
@@ -2514,4 +2512,4 @@ As any other resource, the `mpi`-resource can be overwritten via the command lin
   $ snakemake --set-resources calc_pi:mpi="srun --hint nomultithread" ...
 
 Note that in case of distributed, remote execution (cluster, cloud), MPI support might not be available.
-So far, explicit MPI support is implemented in the :ref:`SLURM backend <cluster-slurm>`.
+So far, explicit MPI support is implemented in the `slurm plugin <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html>`_.

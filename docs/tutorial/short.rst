@@ -119,13 +119,13 @@ Now, test your workflow by simulating the creation of the file
 
 ::
 
-   snakemake --use-conda -n results/mapped/A.bam
+   snakemake --software-deployment-method conda -n results/mapped/A.bam
 
 to perform a dry-run and
 
 ::
 
-   snakemake --use-conda results/mapped/A.bam --cores 1
+   snakemake --software-deployment-method conda results/mapped/A.bam --cores 1
 
 to perform the actual execution.
  
@@ -164,13 +164,13 @@ Test your workflow with
 
 ::
 
-   snakemake --use-conda -n results/mapped/A.sorted.bam
+   snakemake --software-deployment-method conda -n results/mapped/A.sorted.bam
 
 and
 
 ::
 
-   snakemake --use-conda results/mapped/A.sorted.bam --cores 1
+   snakemake --software-deployment-method conda results/mapped/A.sorted.bam --cores 1
 
 Step 5
 ------
@@ -260,7 +260,7 @@ Then, we let Snakemake generate a skeleton notebook for us with
 
 .. code:: console
 
-    snakemake --draft-notebook results/plots/quals.svg --cores 1 --use-conda
+    snakemake --draft-notebook results/plots/quals.svg --cores 1 --software-deployment-method conda
 
 Snakemake will print instructions on how to open, edit and execute the notebook.
 
@@ -290,7 +290,7 @@ Make sure to test your workflow with
 
 ::
 
-   snakemake --use-conda --force results/plots/quals.svg --cores 1
+   snakemake --software-deployment-method conda --force results/plots/quals.svg --cores 1
 
 Here, the force ensures that the readily drafted notebook is re-executed even if you had already generated the output plot in the interactive mode.
  
