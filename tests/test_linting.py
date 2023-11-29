@@ -44,6 +44,7 @@ def test_lint(lint, case):
         if case == "negative":
             assert e.output.decode().strip()
         else:
+            print(e.output.decode().strip(), file=sys.stderr)
             raise e
 
     else:
