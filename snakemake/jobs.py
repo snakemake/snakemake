@@ -89,21 +89,28 @@ class AbstractJob(JobExecutorInterface):
         return False
 
 
-def _get_scheduler_resources(job):
-    if job._scheduler_resources is None:
-        if job.dag.workflow.local_exec or job.is_local:
-            job._scheduler_resources = job.resources
-        else:
-            job._scheduler_resources = Resources(
-                fromdict={
-                    k: job.resources[k]
-                    for k in (
-                        set(job.resources.keys())
-                        - job.dag.workflow.resource_scopes.locals
-                    )
-                }
-            )
-    return job._scheduler_resources
+    def _get_scheduler_resources(self):
+        if self._scheduler_resources is None:
+            if self.dag.workflow.local_exec or self.is_local:
+                self._scheduler_resources = Resources(
+                    fromdict={
+                        k: v
+                        for k, v in self.resources.items()
+                        if not isinstance(self.resources[k], TBDString)
+                    }
+                )
+            else:
+                self._scheduler_resources = Resources(
+                    fromdict={
+                        k: self.resources[k]
+                        for k in (
+                            set(self.resources.keys())
+                            - self.dag.workflow.resource_scopes.locals
+                        )
+                        if not isinstance(self.resources[k], TBDString)
+                    }
+                )
+        return self._scheduler_resources
 
 
 class JobFactory:
@@ -408,7 +415,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     @property
     def scheduler_resources(self):
-        return _get_scheduler_resources(self)
+        return self._get_scheduler_resources()
 
     def reset_params_and_resources(self):
         if not self._params_and_resources_resetted:
@@ -1282,7 +1289,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
     @property
     def scheduler_resources(self):
-        return _get_scheduler_resources(self)
+        return self._get_scheduler_resources()
 
     @property
     def input(self):
