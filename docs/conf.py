@@ -128,10 +128,22 @@ html_theme_options = {
     "light_logo": "logo-snake.svg",
     "navigation_style": "plain",
     "sidebar_links": [
-        {"text": "Snakemake plugin catalog", "alt": "Snakemake plugin catalog", "href": "https://snakemake.github.io/snakemake-plugin-catalog"},
-        {"text": "Snakemake workflow catalog", "alt": "Snakemake workflow catalog", "href": "https://snakemake.github.io/snakemake-workflow-catalog"},
-        {"text": "Snakemake wrappers", "alt": "Snakemake wrappers", "href": "https://snakemake-wrappers.readthedocs.io"},
-    ]
+        {
+            "text": "Snakemake plugin catalog",
+            "alt": "Snakemake plugin catalog",
+            "href": "https://snakemake.github.io/snakemake-plugin-catalog",
+        },
+        {
+            "text": "Snakemake workflow catalog",
+            "alt": "Snakemake workflow catalog",
+            "href": "https://snakemake.github.io/snakemake-workflow-catalog",
+        },
+        {
+            "text": "Snakemake wrappers",
+            "alt": "Snakemake wrappers",
+            "href": "https://snakemake-wrappers.readthedocs.io",
+        },
+    ],
 }
 
 # Theme options are theme-specific and customize the look and feel of a theme
