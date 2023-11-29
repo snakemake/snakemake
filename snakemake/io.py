@@ -1419,7 +1419,7 @@ class Namedlist(list):
             elif plainstr:
                 self.extend(
                     # use original query if storage is not retrieved by snakemake
-                    (x if x.storage_object.retrieve else x.storage_object.query)
+                    (str(x) if x.storage_object.retrieve else x.storage_object.query)
                     if isinstance(x, _IOFile) and x.storage_object is not None
                     else str(x)
                     for x in toclone

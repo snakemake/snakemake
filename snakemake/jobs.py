@@ -5,13 +5,11 @@ __license__ = "MIT"
 
 import asyncio
 import os
-import sys
 import base64
 import tempfile
 import json
 import shutil
 
-from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
@@ -29,6 +27,7 @@ from snakemake_interface_executor_plugins.jobs import (
 from snakemake.io import (
     _IOFile,
     IOFile,
+    is_callable,
     Wildcards,
     Resources,
     is_flagged,
@@ -37,7 +36,7 @@ from snakemake.io import (
 )
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
-from snakemake.utils import format, listfiles
+from snakemake.utils import format
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 
 from snakemake.logging import logger
@@ -89,22 +88,28 @@ class AbstractJob(JobExecutorInterface):
             return True
         return False
 
-
-def _get_scheduler_resources(job):
-    if job._scheduler_resources is None:
-        if job.dag.workflow.local_exec or job.is_local:
-            job._scheduler_resources = job.resources
-        else:
-            job._scheduler_resources = Resources(
-                fromdict={
-                    k: job.resources[k]
-                    for k in (
-                        set(job.resources.keys())
-                        - job.dag.workflow.resource_scopes.locals
-                    )
-                }
-            )
-    return job._scheduler_resources
+    def _get_scheduler_resources(self):
+        if self._scheduler_resources is None:
+            if self.dag.workflow.local_exec or self.is_local:
+                self._scheduler_resources = Resources(
+                    fromdict={
+                        k: v
+                        for k, v in self.resources.items()
+                        if not isinstance(self.resources[k], TBDString)
+                    }
+                )
+            else:
+                self._scheduler_resources = Resources(
+                    fromdict={
+                        k: self.resources[k]
+                        for k in (
+                            set(self.resources.keys())
+                            - self.dag.workflow.resource_scopes.locals
+                        )
+                        if not isinstance(self.resources[k], TBDString)
+                    }
+                )
+        return self._scheduler_resources
 
 
 class JobFactory:
@@ -387,10 +392,18 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     def resources(self):
         if self._resources is None:
             if self.dag.workflow.local_exec or self.is_local:
-                skip_evaluation = None
+                skip_evaluation = set()
             else:
                 # tmpdir should be evaluated in the context of the actual execution
                 skip_evaluation = {"tmpdir"}
+            if not self._params_and_resources_resetted:
+                # initial evaluation, input files of job are probably not yet present.
+                # Therefore skip all functions
+                skip_evaluation.update(
+                    name
+                    for name, val in self.rule.resources.items()
+                    if is_callable(val)
+                )
             self._resources = self.rule.expand_resources(
                 self.wildcards_dict,
                 self.input,
@@ -401,7 +414,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     @property
     def scheduler_resources(self):
-        return _get_scheduler_resources(self)
+        return self._get_scheduler_resources()
 
     def reset_params_and_resources(self):
         if not self._params_and_resources_resetted:
@@ -1275,7 +1288,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
     @property
     def scheduler_resources(self):
-        return _get_scheduler_resources(self)
+        return self._get_scheduler_resources()
 
     @property
     def input(self):

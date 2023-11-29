@@ -36,6 +36,7 @@ from snakemake.settings import (
     RemoteExecutionSettings,
     ResourceSettings,
     StorageSettings,
+    DeploymentFSMode,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
@@ -132,6 +133,13 @@ class SnakemakeApi(ApiBase):
             deployment_settings = DeploymentSettings()
         if storage_provider_settings is None:
             storage_provider_settings = dict()
+
+        if deployment_settings.fs_mode is None:
+            deployment_settings.fs_mode = (
+                DeploymentFSMode.SHARED
+                if storage_settings.assume_shared_fs
+                else DeploymentFSMode.NOT_SHARED
+            )
 
         self._check_is_in_context()
 
