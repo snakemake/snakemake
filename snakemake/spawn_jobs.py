@@ -46,25 +46,26 @@ class SpawnedJobArgsFactory:
             tagged_settings,
         ) in self.workflow.storage_provider_settings.items():
             plugin = StoragePluginRegistry().get_plugin(plugin_name)
-            for field in fields(plugin.settings_cls):
-                unparse = field.metadata.get("unparse", lambda value: value)
+            if plugin.settings_cls:
+                for field in fields(plugin.settings_cls):
+                    unparse = field.metadata.get("unparse", lambda value: value)
 
-                def fmt_value(tag, value):
-                    value = unparse(value)
-                    if tag is not None:
-                        return f"{tag}:{value}"
-                    else:
-                        return value
+                    def fmt_value(tag, value):
+                        value = unparse(value)
+                        if tag is not None:
+                            return f"{tag}:{value}"
+                        else:
+                            return value
 
-                field_settings = [
-                    fmt_value(tag, value)
-                    for tag, value in tagged_settings.get_field_settings(
-                        field.name
-                    ).items()
-                    if value is not None
-                ]
-                if field_settings:
-                    yield plugin, field, field_settings
+                    field_settings = [
+                        fmt_value(tag, value)
+                        for tag, value in tagged_settings.get_field_settings(
+                            field.name
+                        ).items()
+                        if value is not None
+                    ]
+                    if field_settings:
+                        yield plugin, field, field_settings
 
     def get_storage_provider_args(self):
         for plugin, field, field_settings in self._get_storage_provider_setting_items():
@@ -148,7 +149,10 @@ class SpawnedJobArgsFactory:
                 f"pip install --target '{common.PIP_DEPLOYMENTS_PATH}' {package_name}"
             )
 
-        if not self.workflow.storage_settings.assume_shared_fs:
+        if (
+            not self.workflow.storage_settings.assume_shared_fs
+            and self.workflow.remote_execution_settings.job_deploy_sources
+        ):
             archive = self.workflow.source_archive
             default_storage_provider_args = self.get_default_storage_provider_args()
             storage_provider_args = " ".join(self.get_storage_provider_args())
@@ -196,7 +200,7 @@ class SpawnedJobArgsFactory:
             w2a("deployment_settings.conda_prefix"),
             w2a(
                 "conda_base_path",
-                skip=not self.workflow.storage_settings.assume_shared_fs,
+                skip=not self.workflow.deployment_settings.assume_shared_fs,
             ),
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
@@ -204,6 +208,7 @@ class SpawnedJobArgsFactory:
             w2a(
                 "storage_settings.assume_shared_fs", flag="--no-shared-fs", invert=True
             ),
+            w2a("deployment_settings.fs_mode", flag="--software-deployment-fs-mode"),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
@@ -219,7 +224,7 @@ class SpawnedJobArgsFactory:
             format_cli_arg(
                 "--scheduler-solver-path",
                 os.path.dirname(sys.executable),
-                skip=not self.workflow.storage_settings.assume_shared_fs,
+                skip=not self.workflow.deployment_settings.assume_shared_fs,
             ),
             w2a(
                 "overwrite_workdir",

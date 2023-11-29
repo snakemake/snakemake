@@ -45,16 +45,21 @@ def get_exception_origin(ex, linemaps):
 
 
 def cut_traceback(ex):
+    lines = []
     snakemake_path = os.path.dirname(__file__)
-    for line in traceback.extract_tb(ex.__traceback__):
+    not_seen_snakemake = True
+    for line in traceback.extract_tb(ex.__traceback__)[::-1]:
         dir = os.path.dirname(line[0])
         if not dir:
             dir = "."
         is_snakemake_dir = lambda path: os.path.realpath(path).startswith(
             os.path.realpath(snakemake_path)
         )
-        if not os.path.isdir(dir) or not is_snakemake_dir(dir):
-            yield line
+        if is_snakemake_dir(dir):
+            not_seen_snakemake = False
+        if not os.path.isdir(dir) or not_seen_snakemake:
+            lines.append(line)
+    return lines[::-1]
 
 
 def format_traceback(tb, linemaps):

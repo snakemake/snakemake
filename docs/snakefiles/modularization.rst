@@ -1,6 +1,6 @@
-.. snakefiles-modularization:
-
 .. _Snakemake Wrapper Repository: https://snakemake-wrappers.readthedocs.io
+
+.. _snakefiles-modularization:
 
 ==============
 Modularization
@@ -11,7 +11,6 @@ Modularization in Snakemake comes at four different levels.
 1. The most fine-grained level are wrappers. They are available and can be published at the `Snakemake Wrapper Repository`_. These wrappers can then be composed and customized according to your needs, by copying skeleton rules into your workflow. In combination with conda integration, wrappers also automatically deploy the needed software dependencies into isolated environments.
 2. For larger, reusable parts that shall be integrated into a common workflow, it is recommended to write small Snakefiles and include them into a main Snakefile via the include statement. In such a setup, all rules share a common config file.
 3. The third level is provided via the :ref:`module statement <snakefiles-modules>`, which enables arbitrary combination and reuse of rules.
-4. Finally, Snakemake provides a syntax for defining :ref:`subworkflows <snakefiles-sub_workflows>`, which is however deprecated in favor of the module statement.
 
 
 .. _snakefiles-wrappers:
@@ -87,7 +86,7 @@ A CWL tool definition can be used as follows.
 
 It is advisable to use a github URL that includes the commit as above instead of a branch name, in order to ensure reproducible results.
 Snakemake will execute the rule by invoking `cwltool`, which has to be available via your `$PATH` variable, and can be, e.g., installed via `conda` or `pip`.
-When using in combination with :ref:`--use-singularity <singularity>`, Snakemake will instruct `cwltool` to execute the command via Singularity in user space.
+When using in combination with :ref:`--software-deployment-method apptainer <apptainer>`, Snakemake will instruct `cwltool` to execute the command via Singularity in user space.
 Otherwise, `cwltool` will in most cases use a Docker container, which requires Docker to be set up properly.
 
 The advantage is that predefined tools available via any `repository of CWL tool definitions <https://www.commonwl.org/#Repositories_of_CWL_Tools_and_Workflows>`_ can be used in any supporting workflow management system.
@@ -235,48 +234,6 @@ The module statement also allows to easily use meta-wrappers, for example:
 First, we define the meta-wrapper as a module.
 Next, we declare all rules from the module to be used.
 And finally, we overwrite the input directive of the rule ``bwa_mem`` such that the raw data is taken from the place where our workflow configures it via it's config file.
-
-.. _snakefiles-sub_workflows:
-
--------------
-Sub-Workflows
--------------
-
-Snakemake allows to depend on the output of other workflows as sub-workflows.
-However, note that sub-workflows are deprecated in favor of :ref:`modules <snakefiles-modules>`.
-A sub-workflow is executed independently before the current workflow is executed.
-Thereby, Snakemake ensures that all files the current workflow depends on are created or updated if necessary.
-This allows to create links between otherwise separate data analyses.
-
-.. code-block:: python
-
-    subworkflow otherworkflow:
-        workdir:
-            "../path/to/otherworkflow"
-        snakefile:
-            "../path/to/otherworkflow/Snakefile"
-        configfile:
-            "path/to/custom_configfile.yaml"
-
-    rule a:
-        input:
-            otherworkflow("test.txt")
-        output: ...
-        shell:  ...
-
-Here, the subworkflow is named "otherworkflow" and it is located in the working directory ``../path/to/otherworkflow``.
-The snakefile is in the same directory and called ``Snakefile``.
-If ``snakefile`` is not defined for the subworkflow, it is assumed be located in the workdir location and called ``Snakefile``, hence, above we could have left the ``snakefile`` keyword out as well.
-If ``workdir`` is not specified, it is assumed to be the same as the current one.
-The (optional) definition of a ``configfile`` allows to parameterize the subworkflow as needed.
-Files that are output from the subworkflow that we depend on are marked with the ``otherworkflow`` function (see the input of rule a).
-This function automatically determines the absolute path to the file (here ``../path/to/otherworkflow/test.txt``).
-
-When executing, snakemake first tries to create (or update, if necessary) ``test.txt`` (and all other possibly mentioned dependencies) by executing the subworkflow.
-Then the current workflow is executed.
-This can also happen recursively, since the subworkflow may have its own subworkflows as well.
-
-Note that subworkflow rules will not be displayed in a :ref:`Snakemake report <snakefiles-reports>` generated from the surrounding workflow.
 
 
 .. _snakefile-code-hosting-providers:

@@ -251,7 +251,9 @@ class Workflow(WorkflowExecutorInterface):
                 checksum = hashlib.file_digest(f, "sha256").hexdigest()
 
             prefix = self.storage_settings.default_storage_prefix
-            query = f"{prefix}/snakemake-workflow-sources.{checksum}.tar.xz"
+            if prefix:
+                prefix = f"{prefix}/"
+            query = f"{prefix}snakemake-workflow-sources.{checksum}.tar.xz"
 
             self._source_archive = SourceArchiveInfo(query, checksum)
 
@@ -293,8 +295,8 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def enable_cache(self):
         return (
-            self.execution_settings is not None
-            and self.execution_settings.cache is not None
+            self.workflow_settings is not None
+            and self.workflow_settings.cache is not None
         )
 
     def check_cache_rules(self):
@@ -383,10 +385,7 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def exec_mode(self):
-        if self.execution_settings is not None:
-            return self.execution_settings.mode
-        else:
-            return ExecMode.DEFAULT
+        return self.workflow_settings.exec_mode
 
     @lazy_property
     def spawned_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
@@ -501,7 +500,7 @@ class Workflow(WorkflowExecutorInterface):
         return linted
 
     def get_cache_mode(self, rule: Rule):
-        if self.dag_settings.cache is None:
+        if self.workflow_settings.cache is None:
             return None
         else:
             return self.cache_rules.get(rule.name)
@@ -650,9 +649,9 @@ class Workflow(WorkflowExecutorInterface):
         nolock: bool = False,
         shadow_prefix: Optional[str] = None,
     ) -> DAG:
-        if self.dag_settings.cache is not None:
+        if self.workflow_settings.cache is not None:
             self.cache_rules.update(
-                {rulename: "all" for rulename in self.dag_settings.cache}
+                {rulename: "all" for rulename in self.workflow_settings.cache}
             )
             if self.storage_settings.default_storage_provider is not None:
                 self._output_file_cache = StorageOutputFileCache(
@@ -804,7 +803,7 @@ class Workflow(WorkflowExecutorInterface):
     def unlock(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -960,7 +959,7 @@ class Workflow(WorkflowExecutorInterface):
 
         if (
             DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
-            and self.storage_settings.assume_shared_fs
+            and self.deployment_settings.assume_shared_fs
         ):
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs(
@@ -988,7 +987,7 @@ class Workflow(WorkflowExecutorInterface):
 
         if (
             DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
-            and self.storage_settings.assume_shared_fs
+            and self.deployment_settings.assume_shared_fs
         ):
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs()
@@ -1084,7 +1083,9 @@ class Workflow(WorkflowExecutorInterface):
                     f for job in self.dag.needrun_jobs() for f in job.output
                 )
 
-            if self.global_or_node_local_shared_fs:
+            if self.deployment_settings.assume_shared_fs or (
+                self.remote_exec and not self.deployment_settings.assume_shared_fs
+            ):
                 if (
                     DeploymentMethod.APPTAINER
                     in self.deployment_settings.deployment_method
@@ -1092,11 +1093,14 @@ class Workflow(WorkflowExecutorInterface):
                     self.dag.pull_container_imgs()
                 if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                     self.dag.create_conda_envs()
+
+            if self.global_or_node_local_shared_fs:
                 async_run(self.dag.retrieve_storage_inputs())
 
             if (
                 not self.storage_settings.assume_shared_fs
                 and self.exec_mode == ExecMode.DEFAULT
+                and self.remote_execution_settings.job_deploy_sources
             ):
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
@@ -1518,6 +1522,7 @@ class Workflow(WorkflowExecutorInterface):
                 rule.set_output(*ruleinfo.output.paths, **ruleinfo.output.kwpaths)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
+
             # handle default resources
             if self.resource_settings.default_resources is not None:
                 rule.resources = copy.deepcopy(
@@ -1538,16 +1543,17 @@ class Workflow(WorkflowExecutorInterface):
                         "Threads value has to be an integer, float, or a callable.",
                         rule=rule,
                     )
-                if name in self.resource_settings.overwrite_threads:
-                    rule.resources["_cores"] = self.resource_settings.overwrite_threads[
-                        name
-                    ]
-                else:
+                if name not in self.resource_settings.overwrite_threads:
                     if isinstance(ruleinfo.threads, float):
                         ruleinfo.threads = int(ruleinfo.threads)
                     rule.resources["_cores"] = ruleinfo.threads
             else:
                 rule.resources["_cores"] = 1
+
+            if name in self.resource_settings.overwrite_threads:
+                rule.resources["_cores"] = self.resource_settings.overwrite_threads[
+                    name
+                ]
 
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (
@@ -1571,6 +1577,7 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth
+
             if ruleinfo.resources:
                 args, resources = ruleinfo.resources
                 if args:

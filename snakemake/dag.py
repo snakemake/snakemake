@@ -11,7 +11,7 @@ import subprocess
 import tarfile
 import textwrap
 import time
-from typing import Optional, Union
+from typing import Iterable, Optional, Set, Union
 import uuid
 import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
@@ -55,7 +55,14 @@ from snakemake.io import (
     is_flagged,
     wait_for_files,
 )
-from snakemake.jobs import GroupJob, GroupJobFactory, Job, JobFactory, Reason
+from snakemake.jobs import (
+    AbstractJob,
+    GroupJob,
+    GroupJobFactory,
+    Job,
+    JobFactory,
+    Reason,
+)
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
@@ -71,7 +78,7 @@ class DAG(DAGExecutorInterface):
         self,
         workflow,
         rules=None,
-        targetfiles=None,
+        targetfiles: Set[str] = None,
         targetrules=None,
         forceall=False,
         forcerules=None,
@@ -202,6 +209,15 @@ class DAG(DAGExecutorInterface):
         for i, job in enumerate(self.jobs):
             job.is_valid()
 
+    def get_unneeded_temp_files(self, job: AbstractJob) -> Iterable[str]:
+        if isinstance(job, GroupJob):
+            for j in job:
+                yield from self.get_unneeded_temp_files(j)
+        else:
+            for f in job.output:
+                if is_flagged(f, "temp") and not self.is_needed_tempfile(job, f):
+                    yield f
+
     def check_directory_outputs(self):
         """Check that no output file is contained in a directory output of the same or another rule."""
         outputs = sorted(
@@ -280,7 +296,12 @@ class DAG(DAGExecutorInterface):
             (job.conda_env_spec, job.container_img_url)
             for job in self.jobs
             if job.conda_env_spec
-            and (job.is_local or self.workflow.global_or_node_local_shared_fs)
+            and (
+                job.is_local
+                or self.workflow.deployment_settings.assume_shared_fs
+                or self.workflow.remote_exec
+                and not self.workflow.deployment_settings.assume_shared_fs
+            )
         }
 
         # Then based on md5sum values
@@ -316,7 +337,11 @@ class DAG(DAGExecutorInterface):
             async with asyncio.TaskGroup() as tg:
                 for job in self.jobs:
                     for f in job.output:
-                        if f.is_storage:
+                        if (
+                            f.is_storage
+                            and f
+                            not in self.workflow.storage_settings.unneeded_temp_files
+                        ):
                             tg.create_task(f.store_in_storage())
 
     def cleanup_storage_objects(self):
@@ -658,6 +683,13 @@ class DAG(DAGExecutorInterface):
         """
         return sum([await f.size() for f in self.temp_input(job)])
 
+    def is_needed_tempfile(self, job, tempfile):
+        return any(
+            tempfile in files
+            for j, files in self.depending[job].items()
+            if not self.finished(j) and self.needrun(j) and j != job
+        )
+
     async def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
         if self.workflow.storage_settings.notemp:
@@ -670,18 +702,13 @@ class DAG(DAGExecutorInterface):
 
         is_temp = lambda f: is_flagged(f, "temp")
 
-        # handle temp input
-        needed = lambda job_, f: any(
-            f in files
-            for j, files in self.depending[job_].items()
-            if not self.finished(j) and self.needrun(j) and j != job
-        )
-
         def unneeded_files():
             # temp input
             for job_, files in self.dependencies[job].items():
                 tempfiles = set(f for f in job_.output if is_temp(f))
-                yield from filterfalse(partial(needed, job_), tempfiles & files)
+                yield from filterfalse(
+                    partial(self.is_needed_tempfile, job_), tempfiles & files
+                )
 
             # temp output
             if not job.is_checkpoint and (
@@ -691,7 +718,7 @@ class DAG(DAGExecutorInterface):
                 tempfiles = (
                     f for f in job.output if is_temp(f) and f not in self.targetfiles
                 )
-                yield from filterfalse(partial(needed, job), tempfiles)
+                yield from filterfalse(partial(self.is_needed_tempfile, job), tempfiles)
 
         for f in unneeded_files():
             if self.workflow.dryrun:
@@ -1293,6 +1320,8 @@ class DAG(DAGExecutorInterface):
 
         self._update_group_components()
 
+        self._check_groups()
+
     def _update_group_components(self):
         # span connected components if requested
         groups_by_id = defaultdict(set)
@@ -1311,6 +1340,55 @@ class DAG(DAGExecutorInterface):
 
         for group in self._group.values():
             group.finalize()
+
+    def _check_groups(self):
+        """Check whether all groups are valid."""
+
+        # find paths of jobs that leave a group and then enter it again
+        # this is not allowed since then the group depends on itself
+        def dfs(job, group, visited, outside_jobs, outside_jobs_all, skip_this):
+            """Inner function for DFS traversal."""
+            if job in group:
+                if not skip_this and outside_jobs:
+                    outside_jobs_all[job] = outside_jobs
+                    return
+            else:
+                outside_jobs.append(job)
+            for job_ in self.dependencies[job]:
+                if job_ not in visited:
+                    visited.add(job_)
+                    dfs(
+                        job_,
+                        group,
+                        visited,
+                        list(outside_jobs),
+                        outside_jobs_all,
+                        False,
+                    )
+
+        for group in self._group.values():
+            for job in group:
+                outside_jobs_all = dict()
+                dfs(job, group, set(), [], outside_jobs_all, True)
+                if outside_jobs_all:
+                    fmt_outside = lambda jobs: ",".join(
+                        sorted(set(j.rule.name for j in jobs))
+                    )
+                    bullet = "* " if len(outside_jobs_all) > 1 else ""
+                    fixes = "\n".join(
+                        f"{bullet}Remove {job.rule.name} from the group or add {fmt_outside(outside)} to the group."
+                        for job, outside in outside_jobs_all.items()
+                    )
+                    raise WorkflowError(
+                        f"Group {group.groupid} depends on itself. "
+                        "This is not allowed, because it would lead to an "
+                        "the group can never be ready for execution. "
+                        "Ensure that there is no path of jobs in the DAG that "
+                        "starts in a group, leaves it (i.e. at least one job in "
+                        "the path is not in the group), and then enters it again. "
+                        f"Possible fixes are:\n{fixes}",
+                        rule=job.rule,
+                    )
 
     async def update_incomplete_input_expand_jobs(self):
         """Update (re-evaluate) all jobs which have incomplete input file expansions.
@@ -1825,7 +1903,7 @@ class DAG(DAGExecutorInterface):
             if not post:
                 yield job
             for job_ in direction[job]:
-                if not job_ in visited:
+                if job_ not in visited:
                     visited.add(job_)
                     for j in _dfs(job_):
                         yield j
@@ -1833,7 +1911,7 @@ class DAG(DAGExecutorInterface):
                 yield job
 
         for job in jobs:
-            for job_ in self._dfs(direction, job, visited, stop=stop, post=post):
+            for job_ in _dfs(job):
                 yield job_
 
     def new_wildcards(self, job):

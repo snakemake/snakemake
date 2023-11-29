@@ -114,8 +114,11 @@ class ExistsDict(dict):
 
     def __contains__(self, path):
         # if already in inventory, always return True.
-        parent = path.get_inventory_parent()
-        return parent in self.has_inventory or super().__contains__(path)
+        if isinstance(path, _IOFile):
+            parent = path.get_inventory_parent()
+            return parent in self.has_inventory or super().__contains__(path)
+        else:
+            return super().__contains__(path)
 
 
 class IOCache(IOCacheStorageInterface):
@@ -172,9 +175,13 @@ class IOCache(IOCacheStorageInterface):
 
         for job in jobs:
             for f in chain(job.input, job.output):
-                if await f.exists():
+                if not f.is_storage and await f.exists():
                     queue.put_nowait(f)
-            if job.benchmark and await job.benchmark.exists():
+            if (
+                job.benchmark
+                and not job.benchmark.is_storage
+                and await job.benchmark.exists()
+            ):
                 queue.put_nowait(job.benchmark)
 
         # Send a stop item to each worker.
@@ -234,6 +241,8 @@ class _IOFile(str, AnnotatedStringInterface):
         is_callable = (
             isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
         )
+        if isinstance(file, Path):
+            file = str(file.as_posix())
         if not is_callable and file.endswith("/"):
             # remove trailing slashes
             stripped = file.rstrip("/")
@@ -735,7 +744,7 @@ class _IOFile(str, AnnotatedStringInterface):
                 )
 
             file_with_wildcards_applied = IOFile(
-                str(storage_object.local_path()), rule=self.rule
+                storage_object.local_path(), rule=self.rule
             )
             file_with_wildcards_applied.clone_flags(self, skip_storage_object=True)
             file_with_wildcards_applied.flags["storage_object"] = storage_object
@@ -856,6 +865,8 @@ def flag(value, flag_type, flag_value=True):
         value.flags[flag_type] = flag_value
         return value
     if not_iterable(value):
+        if isinstance(value, Path):
+            value = str(value.as_posix())
         value = AnnotatedString(value)
         value.flags[flag_type] = flag_value
         return value
@@ -1408,7 +1419,7 @@ class Namedlist(list):
             elif plainstr:
                 self.extend(
                     # use original query if storage is not retrieved by snakemake
-                    (x if x.storage_object.retrieve else x.storage_object.query)
+                    (str(x) if x.storage_object.retrieve else x.storage_object.query)
                     if isinstance(x, _IOFile) and x.storage_object is not None
                     else str(x)
                     for x in toclone

@@ -134,7 +134,9 @@ class WMSLogger:
         from snakemake.resources import DefaultResources
 
         self.address = address or "http:127.0.0.1:5000"
-        self.args = map(DefaultResources.decode_arg, args) if args else []
+        self.args = list(map(DefaultResources.decode_arg, args)) if args else []
+        self.args = {item[0]: item[1] for item in list(self.args)}
+
         self.metadata = metadata or {}
 
         # A token is suggested but not required, depends on server
@@ -190,14 +192,33 @@ class WMSLogger:
             f"{self.address}/create_workflow",
             headers=self._headers,
             params=self.args,
-            data=json.dumps(metadata),
+            data=metadata,
         )
+
+        # Extract the id from the response
+        id = response.json()["id"]
 
         # Check the response, will exit on any error
         self.check_response(response, "/create_workflow")
 
         # Provide server parameters to the logger
-        self.server = {"url": self.address, "id": response.json()["id"]}
+        headers = (
+            {"Content-Type": "application/json"}
+            if self._headers is None
+            else {**self._headers, **{"Content-Type": "application/json"}}
+        )
+
+        # Send the workflow name to the server
+        response_change_workflow_name = requests.put(
+            f"{self.address }/api/workflow/{id}",
+            headers=headers,
+            data=json.dumps(self.args),
+        )
+        # Check the response, will exit on any error
+        self.check_response(response_change_workflow_name, f"/api/workflow/{id}")
+
+        # Provide server parameters to the logger
+        self.server = {"url": self.address, "id": id}
 
     def check_response(self, response, endpoint="wms monitor request"):
         """A helper function to take a response and check for an expected set of
@@ -205,7 +226,6 @@ class WMSLogger:
         denied), 500 (server error) and 200 (success).
         """
         status_code = response.status_code
-
         # Cut out early on success
         if status_code == 200:
             return
@@ -281,9 +301,7 @@ class WMSLogger:
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
-        response = requests.post(
-            url, data=json.dumps(server_info), headers=self._headers
-        )
+        response = requests.post(url, data=server_info, headers=self._headers)
         self.check_response(response, "/update_workflow_status")
 
 

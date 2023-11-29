@@ -16,10 +16,10 @@ Snakemake
 .. image:: https://img.shields.io/pypi/v/snakemake.svg
     :target: https://pypi.python.org/pypi/snakemake
 
-.. image:: https://img.shields.io/github/workflow/status/snakemake/snakemake/Publish%20to%20Docker%20Hub?color=blue&label=docker%20container&branch=main
+.. image:: https://img.shields.io/github/actions/workflow/status/snakemake/snakemake/docker-publish.yml?color=blue&label=docker%20container&branch=main
     :target: https://hub.docker.com/r/snakemake/snakemake
 
-.. image:: https://github.com/snakemake/snakemake/workflows/CI/badge.svg?branch=main&label=tests
+.. image:: https://img.shields.io/github/actions/workflow/status/snakemake/snakemake/main.yml?label=tests
     :target: https://github.com/snakemake/snakemake/actions?query=branch%3Amain+workflow%3ACI
 
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
@@ -44,7 +44,7 @@ Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
-Snakemake is **highly popular**, with `>7 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
+Snakemake is **highly popular**, with `>10 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
 For an introduction, please visit https://snakemake.github.io.
 
 
@@ -59,7 +59,6 @@ Getting started
 * News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
 * To learn Snakemake, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
 * **Best practices** for writing Snakemake workflows can be found :ref:`here <snakefiles-best_practices>`.
-* For more advanced usage on various platforms, see the :ref:`executor_tutorial`.
 
 .. _main-support:
 
@@ -83,6 +82,9 @@ When using Snakemake, please cite our "rolling" paper
 
 This paper will also be regularly updated when Snakemake receives new features.
 See :doc:`Citations <project_info/citations>` for more information.
+
+
+.. _main-resources:
 
 ---------
 Resources
@@ -120,10 +122,10 @@ Resources
    :maxdepth: 1
 
    getting_started/installation
+   getting_started/migration
+   snakefiles/best_practices
    tutorial/tutorial
    tutorial/short
-   executor_tutorial/tutorial
-   snakefiles/best_practices
 
 .. toctree::
   :caption: Executing workflows
@@ -132,8 +134,6 @@ Resources
   :maxdepth: 1
 
   executing/cli
-  executing/cluster
-  executing/cloud
   executing/grouping
   executing/caching
   executing/interoperability
@@ -149,7 +149,7 @@ Resources
     snakefiles/rules
     snakefiles/configuration
     snakefiles/modularization
-    snakefiles/remote_files
+    snakefiles/storage
     snakefiles/utils
     snakefiles/deployment
     snakefiles/reporting

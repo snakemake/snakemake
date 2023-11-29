@@ -42,6 +42,7 @@ from snakemake.exceptions import (
 common_settings = CommonSettings(
     non_local_exec=False,
     implies_no_shared_fs=False,
+    job_deploy_sources=False,
     pass_envvar_declarations_to_cmd=True,
     auto_deploy_default_storage_provider=False,
 )

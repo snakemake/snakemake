@@ -88,7 +88,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     attempt: int = 1
     use_threads: bool = False
     shadow_prefix: Optional[Path] = None
-    mode: ExecMode = ExecMode.DEFAULT
     keep_incomplete: bool = False
     keep_metadata: bool = True
     edit_notebook: Optional[NotebookEditMode] = None
@@ -98,6 +97,8 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
 @dataclass
 class WorkflowSettings(SettingsBase):
     wrapper_prefix: Optional[str] = None
+    exec_mode: ExecMode = ExecMode.DEFAULT
+    cache: Optional[Sequence[str]] = None
 
 
 class Batch:
@@ -166,7 +167,6 @@ class DAGSettings(SettingsBase):
     allowed_rules: Set[str] = frozenset()
     rerun_triggers: Set[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
-    cache: Optional[Sequence[str]] = None
 
     def _check(self):
         if self.batch is not None and self.forceall:
@@ -185,11 +185,17 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     local_storage_prefix: Path = Path(".snakemake/storage")
     notemp: bool = False
     all_temp: bool = False
+    unneeded_temp_files: Set[str] = frozenset()
 
 
 class CondaCleanupPkgs(SettingsEnumBase):
     TARBALLS = 0
     CACHE = 1
+
+
+class DeploymentFSMode(SettingsEnumBase):
+    SHARED = 0
+    NOT_SHARED = 1
 
 
 @dataclass
@@ -213,6 +219,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     """
 
     deployment_method: Set[DeploymentMethod] = frozenset()
+    fs_mode: Optional[DeploymentFSMode] = None
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
     conda_base_path: Optional[Path] = None
@@ -224,6 +231,13 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     def imply_deployment_method(self, method: DeploymentMethod):
         self.deployment_method = set(self.deployment_method)
         self.deployment_method.add(method)
+
+    @property
+    def assume_shared_fs(self):
+        assert (
+            self.fs_mode is not None
+        ), "bug: called DeploymentSettings.assume_shared_fs before fs_mode has been inferred from StorageSettings"
+        return True if self.fs_mode == DeploymentFSMode.SHARED else False
 
 
 @dataclass
@@ -350,6 +364,7 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     envvars: Sequence[str] = tuple()
     immediate_submit: bool = False
     precommand: Optional[str] = None
+    job_deploy_sources: bool = True
 
 
 @dataclass
