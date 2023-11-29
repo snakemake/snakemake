@@ -790,6 +790,15 @@ def assert_resources(resources: dict, **expected_resources):
 
 
 @skip_on_windows
+def test_groups_out_of_jobs():
+    run(
+        dpath("test_groups_out_of_jobs"),
+        cluster="./qsub",
+        shouldfail=True,
+    )
+
+
+@skip_on_windows
 def test_group_jobs_resources(mocker):
     spy = mocker.spy(GroupResources, "basic_layered")
     run(
