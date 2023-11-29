@@ -88,7 +88,6 @@ class AbstractJob(JobExecutorInterface):
             return True
         return False
 
-
     def _get_scheduler_resources(self):
         if self._scheduler_resources is None:
             if self.dag.workflow.local_exec or self.is_local:
