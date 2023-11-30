@@ -38,7 +38,6 @@ from snakemake.settings import (
     StorageSettings,
     WorkflowSettings,
     GroupSettings,
-    DeploymentFSMode,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode

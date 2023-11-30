@@ -36,7 +36,6 @@ from snakemake.settings import (
     RemoteExecutionSettings,
     ResourceSettings,
     StorageSettings,
-    DeploymentFSMode,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
