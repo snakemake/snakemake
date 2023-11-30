@@ -50,6 +50,8 @@ from snakemake.common.tbdstring import TBDString
 
 
 def format_files(io, is_input: bool):
+    if io is None:
+        return
     if isinstance(io, str):
         io = [io]
     for f in io:
