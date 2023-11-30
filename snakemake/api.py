@@ -36,7 +36,7 @@ from snakemake.settings import (
     RemoteExecutionSettings,
     ResourceSettings,
     StorageSettings,
-    DeploymentFSMode,
+    SharedFSUsage,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
@@ -133,13 +133,6 @@ class SnakemakeApi(ApiBase):
             deployment_settings = DeploymentSettings()
         if storage_provider_settings is None:
             storage_provider_settings = dict()
-
-        if deployment_settings.fs_mode is None:
-            deployment_settings.fs_mode = (
-                DeploymentFSMode.SHARED
-                if storage_settings.assume_shared_fs
-                else DeploymentFSMode.NOT_SHARED
-            )
 
         self._check_is_in_context()
 
@@ -444,18 +437,30 @@ class DAGApi(ApiBase):
             executor_plugin.validate_settings(executor_settings)
 
         if executor_plugin.common_settings.implies_no_shared_fs:
-            self.workflow_api.storage_settings.assume_shared_fs = False
+            # no shard FS at all
+            self.workflow_api.storage_settings.shared_fs_usage = frozenset()
         if executor_plugin.common_settings.job_deploy_sources:
             remote_execution_settings.job_deploy_sources = True
 
         if (
             self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT
-            and not self.workflow_api.storage_settings.assume_shared_fs
+            and SharedFSUsage.INPUT_OUTPUT
+            not in self.workflow_api.storage_settings.shared_fs_usage
             and not self.workflow_api.storage_settings.default_storage_provider
         ):
             raise ApiError(
-                "If no shared filesystem is assumed, a default storage provider "
-                "has to be set."
+                "If no shared filesystem is assumed for input and output files, a "
+                "default storage provider has to be set."
+            )
+        if (
+            executor_plugin.common_settings.local_exec
+            and not executor_plugin.common_settings.dryrun_exec
+            and self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT
+            and self.workflow_api.storage_settings.shared_fs_usage
+            != SharedFSUsage.all()
+        ):
+            raise ApiError(
+                "For local execution, --shared-fs-usage has to be unrestricted."
             )
 
         self.snakemake_api._setup_logger(

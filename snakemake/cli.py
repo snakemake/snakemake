@@ -38,7 +38,7 @@ from snakemake.settings import (
     StorageSettings,
     WorkflowSettings,
     GroupSettings,
-    DeploymentFSMode,
+    SharedFSUsage,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode
@@ -1357,19 +1357,20 @@ def get_argument_parser(profiles=None):
         "freely chosen, e.g. in order to store those files on a local scratch disk.",
     )
     group_behavior.add_argument(
-        "--no-shared-fs",
-        action="store_true",
-        help="Do not assume that jobs share a common file "
-        "system. When this flag is activated, Snakemake will "
-        "assume that the filesystem on a cluster node is not "
-        "shared with other nodes. For example, this will lead "
-        "to downloading remote files on each cluster node "
-        "separately. Further, it won't take special measures "
-        "to deal with filesystem latency issues. This option "
-        "will in most cases only make sense in combination with "
-        "--default-storage-provider. "
-        "Only activate this if you "
-        "know what you are doing.",
+        "--shared-fs-usage",
+        nargs="*",
+        default=SharedFSUsage.all(),
+        choices=SharedFSUsage.choices(),
+        parse_func=SharedFSUsage.parse_choices_set,
+        help="Set assumptions on shared filesystem for non-local "
+        "workflow execution. Usually, the executor plugin sets this to a correct "
+        "default. However, sometimes it is worth tuning this setting, e.g. for "
+        "optimizing cluster performance. For example, when using "
+        "'--default-storage-provider fs' together with a cluster executor like "
+        "slurm, you might want to set '--shared-fs-usage persistence deployment', "
+        "such that software deployment and data provenance will be handled by NFS "
+        "but input and output files will be handled exclusively by the storage "
+        "provider.",
     )
     group_behavior.add_argument(
         "--scheduler-greediness",
@@ -1498,12 +1499,6 @@ def get_argument_parser(profiles=None):
         parse_func=DeploymentMethod.parse_choices_set,
         default=set(),
         help="Specify software environment deployment method.",
-    )
-    group_deployment.add_argument(
-        "--software-deployment-fs-mode",
-        choices=DeploymentFSMode.choices(),
-        parse_func=DeploymentFSMode.parse_choice,
-        help="Whether or not to assume a shared filesystem for software deployment.",
     )
     group_deployment.add_argument(
         "--container-cleanup-images",
@@ -1827,7 +1822,7 @@ def args_to_api(args, parser):
                 default_storage_provider=args.default_storage_provider,
                 default_storage_prefix=args.default_storage_prefix,
                 local_storage_prefix=args.local_storage_prefix,
-                assume_shared_fs=not args.no_shared_fs,
+                shared_fs_usage=args.shared_fs_usage,
                 keep_storage_local=args.keep_storage_local_copies,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
@@ -1869,7 +1864,6 @@ def args_to_api(args, parser):
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
-                        fs_mode=args.software_deployment_fs_mode,
                         conda_prefix=args.conda_prefix,
                         conda_cleanup_pkgs=args.conda_cleanup_pkgs,
                         conda_base_path=args.conda_base_path,

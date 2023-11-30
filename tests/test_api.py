@@ -22,7 +22,7 @@ def test_deploy_sources(s3_storage):
             storage_settings=settings.StorageSettings(
                 default_storage_prefix=s3_prefix,
                 default_storage_provider="s3",
-                assume_shared_fs=False,
+                shared_fs_usage=frozenset(),
             ),
             resource_settings=settings.ResourceSettings(
                 cores=1,

@@ -23,6 +23,7 @@ from snakemake_interface_executor_plugins.jobs import (
     GroupJobExecutorInterface,
     SingleJobExecutorInterface,
 )
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 from snakemake.io import (
     _IOFile,
@@ -34,6 +35,7 @@ from snakemake.io import (
     get_flag_value,
     wait_for_files,
 )
+from snakemake.settings import SharedFSUsage
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
 from snakemake.utils import format
@@ -48,22 +50,25 @@ from snakemake.common import (
 from snakemake.common.tbdstring import TBDString
 
 
+def format_file(f, is_input: bool):
+    if is_flagged(f, "pipe"):
+        return f"{f} (pipe)"
+    elif is_flagged(f, "service"):
+        return f"{f} (service)"
+    elif is_flagged(f, "checkpoint_target"):
+        return TBDString()
+    elif is_flagged(f, "sourcecache_entry"):
+        orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
+        return f"{orig_path_or_uri} (cached)"
+    elif f.is_storage:
+        phrase = "retrieve from" if is_input else "send to"
+        return f"{f.storage_object.query} ({phrase} storage)"
+    else:
+        return f
+
+
 def format_files(io, is_input: bool):
-    for f in io:
-        if is_flagged(f, "pipe"):
-            yield f"{f} (pipe)"
-        elif is_flagged(f, "service"):
-            yield f"{f} (service)"
-        elif is_flagged(f, "checkpoint_target"):
-            yield TBDString()
-        elif is_flagged(f, "sourcecache_entry"):
-            orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
-            yield f"{orig_path_or_uri} (cached)"
-        elif f.is_storage:
-            phrase = "retrieve from" if is_input else "send to"
-            yield f"{f.storage_object.query} ({phrase} storage)"
-        else:
-            yield f
+    return [format_file(f, is_input=is_input) for f in io]
 
 
 def jobfiles(jobs, type):
@@ -917,15 +922,21 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     def log_info(self, indent=False, printshellcmd=True):
         priority = self.priority
+
+        benchmark = (
+            format_file(self.benchmark, is_input=False)
+            if self.benchmark is not None
+            else None
+        )
         logger.job_info(
             jobid=self.dag.jobid(self),
             msg=self.message,
             name=self.rule.name,
             local=self.dag.workflow.is_local(self.rule),
-            input=list(format_files(self.input, is_input=True)),
-            output=list(format_files(self.output, is_input=False)),
-            log=list(self.log),
-            benchmark=self.benchmark,
+            input=format_files(self.input, is_input=True),
+            output=format_files(self.output, is_input=False),
+            log=format_files(self.log, is_input=False),
+            benchmark=benchmark,
             wildcards=self.wildcards_dict,
             reason=str(self.dag.reason(self)),
             resources=self.resources,
@@ -948,9 +959,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             name=self.rule.name,
             msg=msg,
             jobid=self.dag.jobid(self),
-            input=list(format_files(self.input, is_input=True)),
-            output=list(format_files(self.output, is_input=False)),
-            log=list(self.log) + aux_logs,
+            input=format_files(self.input, is_input=True),
+            output=format_files(self.output, is_input=False),
+            log=format_files(self.log, is_input=False) + aux_logs,
             conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
             indent=indent,
@@ -1009,7 +1020,16 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             # No postprocessing necessary, we have just created the skeleton notebook and
             # execution will anyway stop afterwards.
             return
-        if self.dag.workflow.global_or_node_local_shared_fs:
+
+        shared_input_output = (
+            SharedFSUsage.INPUT_OUTPUT
+            in self.dag.workflow.storage_settings.shared_fs_usage
+        )
+        if (
+            self.dag.workflow.exec_mode == ExecMode.SUBPROCESS
+            or shared_input_output
+            or (self.dag.workflow.remote_exec and not shared_input_output)
+        ):
             if not error and handle_touch:
                 self.dag.handle_touch(self)
             if handle_log:
@@ -1591,14 +1611,8 @@ class Reason:
             yield "software environment definition has changed since last execution"
 
     def __str__(self):
-        def format_file(f):
-            if is_flagged(f, "sourcecache_entry"):
-                return f"{get_flag_value(f, 'sourcecache_entry')} (cached)"
-            else:
-                return f
-
-        def format_files(files):
-            return ", ".join(map(format_file, files))
+        def concat_files(files, is_input: bool):
+            return ", ".join(format_files(files, is_input=is_input))
 
         s = list()
         if self.forced:
@@ -1616,18 +1630,20 @@ class Reason:
             else:
                 if self._missing_output:
                     s.append(
-                        f"Missing output files: {format_files(self.missing_output)}"
+                        f"Missing output files: {concat_files(self.missing_output, is_input=False)}"
                     )
                 if self._incomplete_output:
                     s.append(
-                        f"Incomplete output files: {format_files(self.incomplete_output)}"
+                        f"Incomplete output files: {concat_files(self.incomplete_output, is_input=False)}"
                     )
                 if self._updated_input:
                     updated_input = self.updated_input - self.updated_input_run
-                    s.append(f"Updated input files: {format_files(updated_input)}")
+                    s.append(
+                        f"Updated input files: {concat_files(updated_input, is_input=True)}"
+                    )
                 if self._updated_input_run:
                     s.append(
-                        f"Input files updated by another job: {format_files(self.updated_input_run)}"
+                        f"Input files updated by another job: {concat_files(self.updated_input_run, is_input=True)}"
                     )
                 if self.pipe:
                     s.append(
