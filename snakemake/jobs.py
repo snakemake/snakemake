@@ -921,9 +921,11 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     def log_info(self, indent=False, printshellcmd=True):
         priority = self.priority
-        
+
         benchmark = (
-            format_file(self.benchmark, is_input=False) if self.benchmark is not None else None
+            format_file(self.benchmark, is_input=False)
+            if self.benchmark is not None
+            else None
         )
         logger.job_info(
             jobid=self.dag.jobid(self),
@@ -1633,7 +1635,9 @@ class Reason:
                     )
                 if self._updated_input:
                     updated_input = self.updated_input - self.updated_input_run
-                    s.append(f"Updated input files: {concat_files(updated_input, is_input=True)}")
+                    s.append(
+                        f"Updated input files: {concat_files(updated_input, is_input=True)}"
+                    )
                 if self._updated_input_run:
                     s.append(
                         f"Input files updated by another job: {concat_files(self.updated_input_run, is_input=True)}"
