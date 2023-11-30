@@ -91,7 +91,6 @@ class DAG(DAGExecutorInterface):
         omitrules=None,
         ignore_incomplete=False,
     ):
-        self.is_main_process = workflow.exec_mode == ExecMode.DEFAULT
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
@@ -298,9 +297,11 @@ class DAG(DAGExecutorInterface):
             if job.conda_env_spec
             and (
                 job.is_local
-                or self.workflow.deployment_settings.assume_shared_fs
-                or self.workflow.remote_exec
-                and not self.workflow.deployment_settings.assume_shared_fs
+                or SharedFSUsage.DEPLOYMENT in self.workflow.storage_settings.shared_fs_usage
+                or (
+                    self.workflow.remote_exec and
+                    SharedFSUsage.DEPLOYMENT not in self.workflow.storage_settings.shared_fs_usage
+                )
             )
         }
 
@@ -325,7 +326,12 @@ class DAG(DAGExecutorInterface):
                 self.conda_envs[key] = env
 
     async def retrieve_storage_inputs(self):
-        if self.is_main_process or self.workflow.remote_exec_no_shared_fs:
+        shared_local_copies = SharedFSUsage.STORAGE_LOCAL_COPIES in self.workflow.storage_settings.shared_fs_usage
+        if (
+            self.workflow.is_main_process and shared_local_copies
+        ) or (
+            self.workflow.remote_exec and not shared_local_copies
+        ):
             async with asyncio.TaskGroup() as tg:
                 for job in self.jobs:
                     for f in job.input:
@@ -333,9 +339,13 @@ class DAG(DAGExecutorInterface):
                             tg.create_task(f.retrieve_from_storage())
 
     async def store_storage_outputs(self):
-        if self.workflow.remote_exec_no_shared_fs:
-            async with asyncio.TaskGroup() as tg:
-                for job in self.jobs:
+        async with asyncio.TaskGroup() as tg:
+            for job in self.jobs:
+                if (
+                    self.workflow.is_main_process and job.is_local
+                ) or (
+                    self.workflow.remote_exec
+                ):
                     for f in job.output:
                         if (
                             f.is_storage
@@ -345,9 +355,12 @@ class DAG(DAGExecutorInterface):
                             tg.create_task(f.store_in_storage())
 
     def cleanup_storage_objects(self):
-        if self.is_main_process or self.workflow.remote_exec_no_shared_fs:
-            cleaned = set()
-            for job in self.jobs:
+        shared_local_copies = SharedFSUsage.STORAGE_LOCAL_COPIES in self.workflow.storage_settings.shared_fs_usage
+        cleaned = set()
+        for job in self.jobs:
+            if (self.workflow.is_main_process and (job.is_local or shared_local_copies)) or (
+                self.workflow.remote_exec and not shared_local_copies
+            ):
                 for f in chain(job.input, job.output):
                     if (
                         f.is_storage
@@ -736,8 +749,7 @@ class DAG(DAGExecutorInterface):
 
     async def handle_storage(self, job, store_in_storage=True):
         """Remove local files if they are no longer needed and upload."""
-        mode = self.workflow.exec_mode
-        if store_in_storage and (mode == ExecMode.REMOTE or mode == ExecMode.DEFAULT):
+        if store_in_storage and (self.workflow.remote_exec or self.workflow.is_main_process):
             # handle output files
             files = job.output
             if job.benchmark:
@@ -949,7 +961,7 @@ class DAG(DAGExecutorInterface):
 
             if not res.jobs:
                 # no producing job found
-                if self.is_main_process and not await res.file.exists():
+                if self.workflow.is_main_process and not await res.file.exists():
                     # file not found, hence missing input
                     missing_input.add(res.file)
                 known_producers[res.file] = None
@@ -1009,7 +1021,7 @@ class DAG(DAGExecutorInterface):
     async def update_needrun(self, create_inventory=False):
         """Update the information whether a job needs to be executed."""
 
-        if create_inventory and self.is_main_process:
+        if create_inventory and self.workflow.is_main_process:
             # Concurrently collect mtimes of all existing files.
             await self.workflow.iocache.mtime_inventory(self.jobs)
 
@@ -1623,7 +1635,10 @@ class DAG(DAGExecutorInterface):
                     updated = True
         if updated:
             await self.postprocess()
-            if self.workflow.global_or_node_local_shared_fs:
+            shared_input_output = SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
+            if (
+                self.workflow.is_main_process and shared_input_output
+            ) or self.workflow.remote_exec:
                 await self.retrieve_storage_inputs()
         return updated
 

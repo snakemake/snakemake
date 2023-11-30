@@ -176,11 +176,20 @@ class DAGSettings(SettingsBase):
             )
 
 
+class SharedFSUsage(SettingsEnumBase):
+    PERSISTENCE = 0
+    INPUT_OUTPUT = 1
+    SOFTWARE_DEPLOYMENT = 2
+    SOURCES = 3
+    STORAGE_LOCAL_COPIES = 4
+    SOURCE_CACHE = 5
+
+
 @dataclass
 class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_storage_provider: Optional[str] = None
     default_storage_prefix: Optional[str] = None
-    assume_shared_fs: bool = True
+    shared_fs_usage: Set[SharedFSUsage] = SharedFSUsage.all()
     keep_storage_local: bool = False
     local_storage_prefix: Path = Path(".snakemake/storage")
     notemp: bool = False
@@ -191,11 +200,6 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
 class CondaCleanupPkgs(SettingsEnumBase):
     TARBALLS = 0
     CACHE = 1
-
-
-class DeploymentFSMode(SettingsEnumBase):
-    SHARED = 0
-    NOT_SHARED = 1
 
 
 @dataclass
@@ -219,7 +223,6 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     """
 
     deployment_method: Set[DeploymentMethod] = frozenset()
-    fs_mode: Optional[DeploymentFSMode] = None
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
     conda_base_path: Optional[Path] = None
@@ -231,13 +234,6 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     def imply_deployment_method(self, method: DeploymentMethod):
         self.deployment_method = set(self.deployment_method)
         self.deployment_method.add(method)
-
-    @property
-    def assume_shared_fs(self):
-        assert (
-            self.fs_mode is not None
-        ), "bug: called DeploymentSettings.assume_shared_fs before fs_mode has been inferred from StorageSettings"
-        return True if self.fs_mode == DeploymentFSMode.SHARED else False
 
 
 @dataclass

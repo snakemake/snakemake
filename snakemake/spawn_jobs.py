@@ -150,7 +150,7 @@ class SpawnedJobArgsFactory:
             )
 
         if (
-            not self.workflow.storage_settings.assume_shared_fs
+            SharedFSUsage.SOURCES not in self.workflow.storage_settings.shared_fs_usage
             and self.workflow.remote_execution_settings.job_deploy_sources
         ):
             archive = self.workflow.source_archive
@@ -176,6 +176,8 @@ class SpawnedJobArgsFactory:
         """
         w2a = self.workflow_property_to_arg
 
+        shared_deployment = SharedFSUsage.DEPLOYMENT in self.workflow.storage_settings.shared_fs_usage
+
         args = [
             "--force",
             "--target-files-omit-workdir-adjustment",
@@ -200,15 +202,12 @@ class SpawnedJobArgsFactory:
             w2a("deployment_settings.conda_prefix"),
             w2a(
                 "conda_base_path",
-                skip=not self.workflow.deployment_settings.assume_shared_fs,
+                skip=not shared_deployment,
             ),
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
             w2a("resource_settings.max_threads"),
-            w2a(
-                "storage_settings.assume_shared_fs", flag="--no-shared-fs", invert=True
-            ),
-            w2a("deployment_settings.fs_mode", flag="--software-deployment-fs-mode"),
+            w2a("storage_settings.shared_fs_usage"),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
@@ -224,12 +223,12 @@ class SpawnedJobArgsFactory:
             format_cli_arg(
                 "--scheduler-solver-path",
                 os.path.dirname(sys.executable),
-                skip=not self.workflow.deployment_settings.assume_shared_fs,
+                skip=not shared_deployment,
             ),
             w2a(
                 "overwrite_workdir",
                 flag="--directory",
-                skip=self.workflow.storage_settings.assume_shared_fs,
+                skip=self.workflow.storage_settings.shared_fs_usage == SharedFSUsage.all(),
             ),
             self.get_set_resources_args(),
             self.get_resource_scopes_args(),

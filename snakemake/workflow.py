@@ -219,12 +219,16 @@ class Workflow(WorkflowExecutorInterface):
         self._snakemake_tmp_dir.cleanup()
 
     @property
+    def is_main_process(self):
+        return self.exec_mode == ExecMode.DEFAULT
+
+    @property
     def snakemake_tmp_dir(self) -> Path:
         return Path(self._snakemake_tmp_dir.name)
 
     @property
     def source_cache_path(self) -> Path:
-        if self.remote_exec_no_shared_fs:
+        if SharedFSUsage.SOURCE_CACHE not in self.storage_settings.shared_fs_usage:
             return self.snakemake_tmp_dir / "source-cache"
         else:
             return Path(
@@ -374,14 +378,6 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def remote_exec(self):
         return self.exec_mode == ExecMode.REMOTE
-
-    @property
-    def global_or_node_local_shared_fs(self):
-        return self.storage_settings.assume_shared_fs or self.remote_exec_no_shared_fs
-
-    @property
-    def remote_exec_no_shared_fs(self):
-        return self.remote_exec and not self.storage_settings.assume_shared_fs
 
     @property
     def exec_mode(self):
@@ -614,9 +610,9 @@ class Workflow(WorkflowExecutorInterface):
                 logger.info(resource)
 
     def is_local(self, rule):
-        return rule.group is None and (
+        return self.local_exec or (rule.group is None and (
             rule.name in self._localrules or rule.norun or rule.is_template_engine
-        )
+        ))
 
     def check_localrules(self):
         undefined = self._localrules - set(rule.name for rule in self.rules)
@@ -743,7 +739,7 @@ class Workflow(WorkflowExecutorInterface):
 
         persistence_path = (
             self.snakemake_tmp_dir / "persistence"
-            if self.remote_exec_no_shared_fs
+            if SharedFSUsage.PERSISTENCE not in self.storage_settings.shared_fs_usage
             else None
         )
 
@@ -956,12 +952,6 @@ class Workflow(WorkflowExecutorInterface):
             lock_warn_only=False,
         )
         self._build_dag()
-
-        if (
-            DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
-            and self.deployment_settings.assume_shared_fs
-        ):
-            self.dag.pull_container_imgs()
         self.dag.create_conda_envs(
             dryrun=True,
             quiet=True,
@@ -987,7 +977,6 @@ class Workflow(WorkflowExecutorInterface):
 
         if (
             DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
-            and self.deployment_settings.assume_shared_fs
         ):
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs()
@@ -1083,8 +1072,10 @@ class Workflow(WorkflowExecutorInterface):
                     f for job in self.dag.needrun_jobs() for f in job.output
                 )
 
-            if self.deployment_settings.assume_shared_fs or (
-                self.remote_exec and not self.deployment_settings.assume_shared_fs
+            shared_deployment = SharedFSUsage.DEPLOYMENT in self.workflow.storage_settings.shared_fs_usage
+
+            if shared_deployment or (
+                self.remote_exec and not shared_deployment
             ):
                 if (
                     DeploymentMethod.APPTAINER
@@ -1094,11 +1085,16 @@ class Workflow(WorkflowExecutorInterface):
                 if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                     self.dag.create_conda_envs()
 
-            if self.global_or_node_local_shared_fs:
+            shared_storage_local_copies = (
+                SharedFSUsage.STORAGE_LOCAL_COPIES in self.storage_settings.shared_fs_usage
+            )
+            if (self.exec_mode == ExecMode.DEFAULT and shared_storage_local_copies) or (
+                self.remote_exec and not shared_storage_local_copies
+            ):
                 async_run(self.dag.retrieve_storage_inputs())
 
             if (
-                not self.storage_settings.assume_shared_fs
+                SharedFSUsage.SOURCES not in self.storage_settings.shared_fs_usage
                 and self.exec_mode == ExecMode.DEFAULT
                 and self.remote_execution_settings.job_deploy_sources
             ):
