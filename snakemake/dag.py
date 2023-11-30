@@ -343,11 +343,9 @@ class DAG(DAGExecutorInterface):
                             tg.create_task(f.retrieve_from_storage())
 
     async def store_storage_outputs(self):
-        async with asyncio.TaskGroup() as tg:
-            for job in self.needrun_jobs(exclude_finished=False):
-                if (self.workflow.is_main_process and job.is_local) or (
-                    self.workflow.remote_exec
-                ):
+        if self.workflow.remote_exec:
+            async with asyncio.TaskGroup() as tg:
+                for job in self.needrun_jobs(exclude_finished=False):
                     for f in job.output:
                         if (
                             f.is_storage
