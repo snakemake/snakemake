@@ -1027,7 +1027,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         )
         if (
             self.dag.workflow.exec_mode == ExecMode.SUBPROCESS
-            or (self.dag.workflow.is_main_process and shared_input_output)
+            or shared_input_output
             or (self.dag.workflow.remote_exec and not shared_input_output)
         ):
             if not error and handle_touch:
