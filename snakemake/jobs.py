@@ -50,6 +50,8 @@ from snakemake.common.tbdstring import TBDString
 
 
 def format_files(io, is_input: bool):
+    if isinstance(io, str):
+        io = [io]
     for f in io:
         if is_flagged(f, "pipe"):
             yield f"{f} (pipe)"
@@ -925,8 +927,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             local=self.dag.workflow.is_local(self.rule),
             input=list(format_files(self.input, is_input=True)),
             output=list(format_files(self.output, is_input=False)),
-            log=list(self.log),
-            benchmark=self.benchmark,
+            log=list(format_files(self.log, is_input=False)),
+            benchmark=list(format_files(self.benchmark, is_input=False))[0],
             wildcards=self.wildcards_dict,
             reason=str(self.dag.reason(self)),
             resources=self.resources,
@@ -951,7 +953,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             jobid=self.dag.jobid(self),
             input=list(format_files(self.input, is_input=True)),
             output=list(format_files(self.output, is_input=False)),
-            log=list(self.log) + aux_logs,
+            log=list(format_files(self.log, is_input=False)) + aux_logs,
             conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
             indent=indent,
