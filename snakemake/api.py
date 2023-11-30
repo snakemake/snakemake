@@ -36,6 +36,7 @@ from snakemake.settings import (
     RemoteExecutionSettings,
     ResourceSettings,
     StorageSettings,
+    SharedFSUsage,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
@@ -454,6 +455,7 @@ class DAGApi(ApiBase):
         if (
             executor_plugin.common_settings.local_exec
             and not executor_plugin.common_settings.dryrun_exec
+            and self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT
             and self.workflow_api.storage_settings.shared_fs_usage
             != SharedFSUsage.all()
         ):

@@ -7,6 +7,7 @@ from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import common
+from snakemake.settings import SharedFSUsage
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -177,7 +178,8 @@ class SpawnedJobArgsFactory:
         w2a = self.workflow_property_to_arg
 
         shared_deployment = (
-            SharedFSUsage.DEPLOYMENT in self.workflow.storage_settings.shared_fs_usage
+            SharedFSUsage.SOFTWARE_DEPLOYMENT
+            in self.workflow.storage_settings.shared_fs_usage
         )
 
         args = [

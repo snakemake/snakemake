@@ -34,6 +34,7 @@ from snakemake.io import (
     get_flag_value,
     wait_for_files,
 )
+from snakemake.settings import SharedFSUsage
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
 from snakemake.utils import format
@@ -1011,10 +1012,11 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             return
 
         shared_input_output = (
-            SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
+            SharedFSUsage.INPUT_OUTPUT
+            in self.dag.workflow.storage_settings.shared_fs_usage
         )
-        if (self.workflow.exec_mode == ExecMode.DEFAULT and shared_input_output) or (
-            self.workflow.remote_exec and not shared_input_output
+        if (self.dag.workflow.is_main_process and shared_input_output) or (
+            self.dag.workflow.remote_exec and not shared_input_output
         ):
             if not error and handle_touch:
                 self.dag.handle_touch(self)

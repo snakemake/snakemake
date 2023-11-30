@@ -276,6 +276,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     # remove from ready_jobs
                     self.workflow.dag.register_running(run)
 
+                logger.info(f"Execute {len(run)} jobs...")
+
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
                 runjobs = [job for job in run if not job.is_local]

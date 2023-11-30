@@ -16,6 +16,7 @@ from snakemake_interface_executor_plugins.settings import (
     StorageSettingsExecutorInterface,
     DeploymentMethod,
     ExecMode,
+    SharedFSUsage,
 )
 from snakemake_interface_common.settings import SettingsEnumBase
 
@@ -174,15 +175,6 @@ class DAGSettings(SettingsBase):
                 "--batch may not be combined with --forceall, because recomputed upstream "
                 "jobs in subsequent batches may render already obtained results outdated."
             )
-
-
-class SharedFSUsage(SettingsEnumBase):
-    PERSISTENCE = 0
-    INPUT_OUTPUT = 1
-    SOFTWARE_DEPLOYMENT = 2
-    SOURCES = 3
-    STORAGE_LOCAL_COPIES = 4
-    SOURCE_CACHE = 5
 
 
 @dataclass

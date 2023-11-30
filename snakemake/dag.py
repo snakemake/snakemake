@@ -63,6 +63,7 @@ from snakemake.jobs import (
     JobFactory,
     Reason,
 )
+from snakemake.settings import SharedFSUsage
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
@@ -297,11 +298,11 @@ class DAG(DAGExecutorInterface):
             if job.conda_env_spec
             and (
                 job.is_local
-                or SharedFSUsage.DEPLOYMENT
+                or SharedFSUsage.SOFTWARE_DEPLOYMENT
                 in self.workflow.storage_settings.shared_fs_usage
                 or (
                     self.workflow.remote_exec
-                    and SharedFSUsage.DEPLOYMENT
+                    and SharedFSUsage.SOFTWARE_DEPLOYMENT
                     not in self.workflow.storage_settings.shared_fs_usage
                 )
             )
@@ -336,14 +337,14 @@ class DAG(DAGExecutorInterface):
             self.workflow.remote_exec and not shared_local_copies
         ):
             async with asyncio.TaskGroup() as tg:
-                for job in self.jobs:
+                for job in self.needrun_jobs():
                     for f in job.input:
                         if f.is_storage and self.is_external_input(f, job):
                             tg.create_task(f.retrieve_from_storage())
 
     async def store_storage_outputs(self):
         async with asyncio.TaskGroup() as tg:
-            for job in self.jobs:
+            for job in self.needrun_jobs(exclude_finished=False):
                 if (self.workflow.is_main_process and job.is_local) or (
                     self.workflow.remote_exec
                 ):

@@ -114,7 +114,7 @@ class TestWorkflowsBase(ABC):
                 storage_settings=settings.StorageSettings(
                     default_storage_provider=self.get_default_storage_provider(),
                     default_storage_prefix=self.get_default_storage_prefix(),
-                    shared_fs_usage=SharedFSUsage.all()
+                    shared_fs_usage=settings.SharedFSUsage.all()
                     if self.get_assume_shared_fs()
                     else frozenset(),
                 ),

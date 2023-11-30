@@ -33,6 +33,7 @@ from snakemake.settings import (
     SchedulingSettings,
     StorageSettings,
     WorkflowSettings,
+    SharedFSUsage,
 )
 
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
@@ -1072,8 +1073,8 @@ class Workflow(WorkflowExecutorInterface):
                 )
 
             shared_deployment = (
-                SharedFSUsage.DEPLOYMENT
-                in self.workflow.storage_settings.shared_fs_usage
+                SharedFSUsage.SOFTWARE_DEPLOYMENT
+                in self.storage_settings.shared_fs_usage
             )
 
             if shared_deployment or (self.remote_exec and not shared_deployment):
@@ -1089,8 +1090,9 @@ class Workflow(WorkflowExecutorInterface):
                 SharedFSUsage.STORAGE_LOCAL_COPIES
                 in self.storage_settings.shared_fs_usage
             )
-            if (self.exec_mode == ExecMode.DEFAULT and shared_storage_local_copies) or (
-                self.remote_exec and not shared_storage_local_copies
+            if not self.dryrun and (
+                (self.exec_mode == ExecMode.DEFAULT and shared_storage_local_copies)
+                or (self.remote_exec and not shared_storage_local_copies)
             ):
                 async_run(self.dag.retrieve_storage_inputs())
 
@@ -1213,8 +1215,9 @@ class Workflow(WorkflowExecutorInterface):
             ):
                 self.dag.cleanup_workdir()
 
-            async_run(self.dag.store_storage_outputs())
-            self.dag.cleanup_storage_objects()
+            if not self.dryrun:
+                async_run(self.dag.store_storage_outputs())
+                self.dag.cleanup_storage_objects()
 
             if success:
                 if self.dryrun:

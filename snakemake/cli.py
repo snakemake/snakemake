@@ -38,6 +38,7 @@ from snakemake.settings import (
     StorageSettings,
     WorkflowSettings,
     GroupSettings,
+    SharedFSUsage,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode
@@ -1357,6 +1358,7 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--shared-fs-usage",
+        nargs="*",
         default=SharedFSUsage.all(),
         choices=SharedFSUsage.choices(),
         parse_func=SharedFSUsage.parse_choices_set,
