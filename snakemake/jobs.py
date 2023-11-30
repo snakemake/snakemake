@@ -23,6 +23,7 @@ from snakemake_interface_executor_plugins.jobs import (
     GroupJobExecutorInterface,
     SingleJobExecutorInterface,
 )
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 from snakemake.io import (
     _IOFile,
@@ -1024,8 +1025,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             SharedFSUsage.INPUT_OUTPUT
             in self.dag.workflow.storage_settings.shared_fs_usage
         )
-        if (self.dag.workflow.is_main_process and shared_input_output) or (
-            self.dag.workflow.remote_exec and not shared_input_output
+        if (
+            self.dag.workflow.exec_mode == ExecMode.SUBPROCESS
+            or (self.dag.workflow.is_main_process and shared_input_output)
+            or (self.dag.workflow.remote_exec and not shared_input_output)
         ):
             if not error and handle_touch:
                 self.dag.handle_touch(self)
