@@ -232,8 +232,7 @@ class SpawnedJobArgsFactory:
             w2a(
                 "overwrite_workdir",
                 flag="--directory",
-                skip=self.workflow.storage_settings.shared_fs_usage
-                == SharedFSUsage.all(),
+                skip=self.workflow.storage_settings.assume_common_workdir,
             ),
             self.get_set_resources_args(),
             self.get_resource_scopes_args(),
