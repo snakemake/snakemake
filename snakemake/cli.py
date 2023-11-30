@@ -1369,7 +1369,7 @@ def get_argument_parser(profiles=None):
         "slurm, you might want to set '--shared-fs-usage persistence deployment', "
         "such that software deployment and data provenance will be handled by NFS "
         "but input and output files will be handled exclusively by the storage "
-        "provider."
+        "provider.",
     )
     group_behavior.add_argument(
         "--scheduler-greediness",

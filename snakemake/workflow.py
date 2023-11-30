@@ -610,9 +610,10 @@ class Workflow(WorkflowExecutorInterface):
                 logger.info(resource)
 
     def is_local(self, rule):
-        return self.local_exec or (rule.group is None and (
-            rule.name in self._localrules or rule.norun or rule.is_template_engine
-        ))
+        return self.local_exec or (
+            rule.group is None
+            and (rule.name in self._localrules or rule.norun or rule.is_template_engine)
+        )
 
     def check_localrules(self):
         undefined = self._localrules - set(rule.name for rule in self.rules)
@@ -975,9 +976,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        if (
-            DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
-        ):
+        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs()
 
@@ -1072,11 +1071,12 @@ class Workflow(WorkflowExecutorInterface):
                     f for job in self.dag.needrun_jobs() for f in job.output
                 )
 
-            shared_deployment = SharedFSUsage.DEPLOYMENT in self.workflow.storage_settings.shared_fs_usage
+            shared_deployment = (
+                SharedFSUsage.DEPLOYMENT
+                in self.workflow.storage_settings.shared_fs_usage
+            )
 
-            if shared_deployment or (
-                self.remote_exec and not shared_deployment
-            ):
+            if shared_deployment or (self.remote_exec and not shared_deployment):
                 if (
                     DeploymentMethod.APPTAINER
                     in self.deployment_settings.deployment_method
@@ -1086,7 +1086,8 @@ class Workflow(WorkflowExecutorInterface):
                     self.dag.create_conda_envs()
 
             shared_storage_local_copies = (
-                SharedFSUsage.STORAGE_LOCAL_COPIES in self.storage_settings.shared_fs_usage
+                SharedFSUsage.STORAGE_LOCAL_COPIES
+                in self.storage_settings.shared_fs_usage
             )
             if (self.exec_mode == ExecMode.DEFAULT and shared_storage_local_copies) or (
                 self.remote_exec and not shared_storage_local_copies

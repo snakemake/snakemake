@@ -1010,11 +1010,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             # execution will anyway stop afterwards.
             return
 
-        shared_input_output = SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
-        if (
-            self.workflow.exec_mode == ExecMode.DEFAULT and
-            shared_input_output
-        ) or (
+        shared_input_output = (
+            SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
+        )
+        if (self.workflow.exec_mode == ExecMode.DEFAULT and shared_input_output) or (
             self.workflow.remote_exec and not shared_input_output
         ):
             if not error and handle_touch:

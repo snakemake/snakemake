@@ -444,12 +444,22 @@ class DAGApi(ApiBase):
 
         if (
             self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT
-            and SharedFSUsage.INPUT_OUTPUT not in self.workflow_api.storage_settings.shared_fs_usage
+            and SharedFSUsage.INPUT_OUTPUT
+            not in self.workflow_api.storage_settings.shared_fs_usage
             and not self.workflow_api.storage_settings.default_storage_provider
         ):
             raise ApiError(
-                "If no shared filesystem is assumed for input and output files, a 
+                "If no shared filesystem is assumed for input and output files, a "
                 "default storage provider has to be set."
+            )
+        if (
+            executor_plugin.common_settings.local_exec
+            and not executor_plugin.common_settings.dryrun_exec
+            and self.workflow_api.storage_settings.shared_fs_usage
+            != SharedFSUsage.all()
+        ):
+            raise ApiError(
+                "For local execution, --shared-fs-usage has to be unrestricted."
             )
 
         self.snakemake_api._setup_logger(

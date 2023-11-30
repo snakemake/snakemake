@@ -176,7 +176,9 @@ class SpawnedJobArgsFactory:
         """
         w2a = self.workflow_property_to_arg
 
-        shared_deployment = SharedFSUsage.DEPLOYMENT in self.workflow.storage_settings.shared_fs_usage
+        shared_deployment = (
+            SharedFSUsage.DEPLOYMENT in self.workflow.storage_settings.shared_fs_usage
+        )
 
         args = [
             "--force",
@@ -228,7 +230,8 @@ class SpawnedJobArgsFactory:
             w2a(
                 "overwrite_workdir",
                 flag="--directory",
-                skip=self.workflow.storage_settings.shared_fs_usage == SharedFSUsage.all(),
+                skip=self.workflow.storage_settings.shared_fs_usage
+                == SharedFSUsage.all(),
             ),
             self.get_set_resources_args(),
             self.get_resource_scopes_args(),

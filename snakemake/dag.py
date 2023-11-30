@@ -297,10 +297,12 @@ class DAG(DAGExecutorInterface):
             if job.conda_env_spec
             and (
                 job.is_local
-                or SharedFSUsage.DEPLOYMENT in self.workflow.storage_settings.shared_fs_usage
+                or SharedFSUsage.DEPLOYMENT
+                in self.workflow.storage_settings.shared_fs_usage
                 or (
-                    self.workflow.remote_exec and
-                    SharedFSUsage.DEPLOYMENT not in self.workflow.storage_settings.shared_fs_usage
+                    self.workflow.remote_exec
+                    and SharedFSUsage.DEPLOYMENT
+                    not in self.workflow.storage_settings.shared_fs_usage
                 )
             )
         }
@@ -326,10 +328,11 @@ class DAG(DAGExecutorInterface):
                 self.conda_envs[key] = env
 
     async def retrieve_storage_inputs(self):
-        shared_local_copies = SharedFSUsage.STORAGE_LOCAL_COPIES in self.workflow.storage_settings.shared_fs_usage
-        if (
-            self.workflow.is_main_process and shared_local_copies
-        ) or (
+        shared_local_copies = (
+            SharedFSUsage.STORAGE_LOCAL_COPIES
+            in self.workflow.storage_settings.shared_fs_usage
+        )
+        if (self.workflow.is_main_process and shared_local_copies) or (
             self.workflow.remote_exec and not shared_local_copies
         ):
             async with asyncio.TaskGroup() as tg:
@@ -341,9 +344,7 @@ class DAG(DAGExecutorInterface):
     async def store_storage_outputs(self):
         async with asyncio.TaskGroup() as tg:
             for job in self.jobs:
-                if (
-                    self.workflow.is_main_process and job.is_local
-                ) or (
+                if (self.workflow.is_main_process and job.is_local) or (
                     self.workflow.remote_exec
                 ):
                     for f in job.output:
@@ -355,12 +356,15 @@ class DAG(DAGExecutorInterface):
                             tg.create_task(f.store_in_storage())
 
     def cleanup_storage_objects(self):
-        shared_local_copies = SharedFSUsage.STORAGE_LOCAL_COPIES in self.workflow.storage_settings.shared_fs_usage
+        shared_local_copies = (
+            SharedFSUsage.STORAGE_LOCAL_COPIES
+            in self.workflow.storage_settings.shared_fs_usage
+        )
         cleaned = set()
         for job in self.jobs:
-            if (self.workflow.is_main_process and (job.is_local or shared_local_copies)) or (
-                self.workflow.remote_exec and not shared_local_copies
-            ):
+            if (
+                self.workflow.is_main_process and (job.is_local or shared_local_copies)
+            ) or (self.workflow.remote_exec and not shared_local_copies):
                 for f in chain(job.input, job.output):
                     if (
                         f.is_storage
@@ -749,7 +753,9 @@ class DAG(DAGExecutorInterface):
 
     async def handle_storage(self, job, store_in_storage=True):
         """Remove local files if they are no longer needed and upload."""
-        if store_in_storage and (self.workflow.remote_exec or self.workflow.is_main_process):
+        if store_in_storage and (
+            self.workflow.remote_exec or self.workflow.is_main_process
+        ):
             # handle output files
             files = job.output
             if job.benchmark:
@@ -1635,7 +1641,10 @@ class DAG(DAGExecutorInterface):
                     updated = True
         if updated:
             await self.postprocess()
-            shared_input_output = SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
+            shared_input_output = (
+                SharedFSUsage.INPUT_OUTPUT
+                in self.workflow.storage_settings.shared_fs_usage
+            )
             if (
                 self.workflow.is_main_process and shared_input_output
             ) or self.workflow.remote_exec:
