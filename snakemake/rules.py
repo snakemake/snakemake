@@ -1252,7 +1252,8 @@ class RuleProxy:
                 and f.startswith(prefix)
                 and not is_flagged(f, "local")
             ):
-                cleaned = f[len(prefix) + 1 :]
+                start = len(prefix) + 1 if prefix else 0
+                cleaned = f.storage_object.query[start:]
                 cleaned = IOFile(cleaned, rule=self.rule)
             else:
                 cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
