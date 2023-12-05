@@ -1341,7 +1341,8 @@ def get_argument_parser(profiles=None):
         "--default-storage-provider",
         help="Specify default storage provider to be used for "
         "all input and output files that don't yet specify "
-        "one (e.g. 's3').",
+        "one (e.g. 's3'). See https://snakemake.github.io/snakemake-plugin-catalog "
+        "for available storage provider plugins.",
     )
     group_behavior.add_argument(
         "--default-storage-prefix",

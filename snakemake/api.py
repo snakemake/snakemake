@@ -138,6 +138,8 @@ class SnakemakeApi(ApiBase):
 
         self._setup_logger(mode=workflow_settings.exec_mode)
 
+        self._check_default_storage_provider(storage_settings=storage_settings)
+
         snakefile = resolve_snakefile(snakefile)
 
         self._workflow_api = WorkflowApi(
@@ -174,11 +176,20 @@ class SnakemakeApi(ApiBase):
             or storage_settings.default_storage_prefix is None
         ):
             raise ApiError(
-                "A default storage provider and prefix has to be set for deployment of sources."
+                "A default storage provider and prefix has to be set for deployment of "
+                "sources."
             )
+
+        self._check_default_storage_provider(storage_settings=storage_settings)
+
         plugin = StoragePluginRegistry().get_plugin(
             storage_settings.default_storage_provider
         )
+        if not plugin.is_read_write():
+            raise ApiError(
+                f"Default storage provider {storage_settings.default_storage_provider} "
+                "is not a read-write storage provider."
+            )
 
         plugin_settings = storage_provider_settings.get(
             storage_settings.default_storage_provider
@@ -253,6 +264,17 @@ class SnakemakeApi(ApiBase):
                 "This method can only be called when SnakemakeApi is used within a with "
                 "statement."
             )
+
+    def _check_default_storage_provider(self, storage_settings: StorageSettings):
+        if storage_settings.default_storage_provider is not None:
+            plugin = StoragePluginRegistry().get_plugin(
+                storage_settings.default_storage_provider
+            )
+            if not plugin.is_read_write():
+                raise ApiError(
+                    f"Default storage provider {storage_settings.default_storage_provider} "
+                    "is not a read-write storage provider."
+                )
 
     def __enter__(self):
         self._is_in_context = True
