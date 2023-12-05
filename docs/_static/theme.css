@@ -2,6 +2,6 @@
     display: inline;
 }
 
-.image-reference > img {
+.image-reference {
     border-bottom: none !important;
 }

@@ -40,7 +40,6 @@ extensions = [
     "myst_parser",
 ]
 
-# Snakemake theme (made by SciAni).
 html_css_files = ["theme.css"]
 
 # Add any paths that contain templates here, relative to this directory.
