@@ -158,6 +158,12 @@ class StorageRegistry:
         if provider is None:
             provider = self.register_storage(provider_name)
 
+        query_validity = provider.is_valid_query(query)
+        if not query_validity:
+            raise WorkflowError(
+                f"Error applying storage provider {provider_name}. {query_validity}"
+            )
+
         storage_object = provider.object(
             query, retrieve=retrieve, keep_local=keep_local
         )
