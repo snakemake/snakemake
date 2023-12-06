@@ -161,7 +161,9 @@ class StorageRegistry:
         query_validity = provider.is_valid_query(query)
         if not query_validity:
             raise WorkflowError(
-                f"Error applying storage provider {provider_name}. {query_validity}"
+                f"Error applying storage provider {provider_name} "
+                "(see https://snakemake.github.io/snakemake-plugin-catalog/plugins/"
+                "storage/{provider}.html). {query_validity}"
             )
 
         storage_object = provider.object(

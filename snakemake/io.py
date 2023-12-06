@@ -739,7 +739,7 @@ class _IOFile(str, AnnotatedStringInterface):
             validation_res = storage_object.is_valid_query()
             if not validation_res:
                 raise WorkflowError(
-                    validation_res,
+                    str(validation_res),
                     rule=self.rule,
                 )
 

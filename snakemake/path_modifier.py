@@ -97,8 +97,10 @@ class PathModifier:
             if isinstance(value, AnnotatedString):
                 return bool(value.callable)
 
+        provider = self.workflow.storage_settings.default_storage_provider
+
         if (
-            self.workflow.storage_registry.default_storage_provider is None
+            provider is None
             or is_flagged(path, "storage_object")
             or is_flagged(path, "local")
             or is_annotated_callable(path)
@@ -117,7 +119,10 @@ class PathModifier:
         validation_res = storage_object.is_valid_query()
         if not validation_res:
             raise WorkflowError(
-                validation_res,
+                f"Error applying default storage provider {provider}. "
+                "Make sure to provide a valid --default-storage-prefix "
+                "(see https://snakemake.github.io/snakemake-plugin-catalog/plugins/"
+                "storage/{provider}.html). {validation_res}",
             )
         return flag_with_storage_object(path, storage_object)
 
