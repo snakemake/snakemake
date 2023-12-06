@@ -477,7 +477,7 @@ class DAGApi(ApiBase):
             not in self.workflow_api.storage_settings.shared_fs_usage
             and (
                 not self.workflow_api.storage_settings.default_storage_provider
-                or not self.workflow_api.storage_settings.default_storage_prefix
+                or self.workflow_api.storage_settings.default_storage_prefix is None
             )
         ):
             raise ApiError(
