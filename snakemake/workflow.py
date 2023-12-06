@@ -664,7 +664,10 @@ class Workflow(WorkflowExecutorInterface):
         if self.dag_settings.target_files_omit_workdir_adjustment:
 
             def files(items):
-                return filterfalse(self.is_rule, items)
+                return map(
+                    self.modifier.path_modifier.apply_default_storage,
+                    filterfalse(self.is_rule, items),
+                )
 
         else:
 
@@ -674,7 +677,10 @@ class Workflow(WorkflowExecutorInterface):
                     if os.path.isabs(f) or f.startswith("root://")
                     else os.path.relpath(f)
                 )
-                return map(relpath, filterfalse(self.is_rule, items))
+                return map(
+                    self.modifier.path_modifier.apply_default_storage,
+                    map(relpath, filterfalse(self.is_rule, items)),
+                )
 
         self.iocache = snakemake.io.IOCache(self.dag_settings.max_inventory_wait_time)
 
