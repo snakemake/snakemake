@@ -334,6 +334,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 if self.update_resources:
                     # normal jobs have len=1, group jobs have len>1
                     self.finished_jobs += len(job)
+                    logger.debug(
+                        f"jobs registered as running before removal {self.running}"
+                    )
                     self.running.remove(job)
                     self._free_resources(job)
 
