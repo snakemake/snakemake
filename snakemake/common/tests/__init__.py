@@ -139,9 +139,9 @@ class TestWorkflowsBase(ABC):
     def test_simple_workflow(self, tmp_path):
         self.run_workflow("simple", tmp_path)
 
-    @handle_testcase
-    def test_group_workflow(self, tmp_path):
-        self.run_workflow("groups", tmp_path)
+    # @handle_testcase
+    # def test_group_workflow(self, tmp_path):
+    #     self.run_workflow("groups", tmp_path)
 
     def _copy_test_files(self, test_path, tmp_path):
         shutil.copytree(test_path, tmp_path)

@@ -198,6 +198,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     errors = self._errors
                     executor_error = self._executor_error
                     user_kill = self._user_kill
+                logger.debug(f"running jobs: {running}")
+                logger.debug(f"needrun jobs: {needrun}")
 
                 # handle errors
                 if user_kill or (not self.keepgoing and errors) or executor_error:
