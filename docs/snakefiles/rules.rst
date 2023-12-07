@@ -16,6 +16,16 @@ Most commonly, rules consist of a name, input files, output files, and a shell c
 
 The name is optional and can be left out, creating an anonymous rule. It can also be overridden by setting a rule's ``name`` attribute.
 
+.. code-block:: python
+
+    for tool in ["bcftools", "freebayes"]:
+        rule:
+            name: f"call_variants_{tool}"
+            input: f"path/to/{tool}/inputfile"
+            output: f"path/to/{tool}/outputfile"
+            shell: f"{tool} {{input}} > {{output}}"
+
+
 .. sidebar:: Note
 
     Note that any placeholders in the shell command (like ``{input}``) are always evaluated and replaced
