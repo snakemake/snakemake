@@ -118,9 +118,7 @@ class SlackLogger:
 
         if msg["level"] == "progress" and msg["done"] == msg["total"]:
             # workflow finished
-            self.slack.chat_postMessage(
-                channel=self.own_id, text="Workflow complete."
-            )
+            self.slack.chat_postMessage(channel=self.own_id, text="Workflow complete.")
 
 
 class WMSLogger:
