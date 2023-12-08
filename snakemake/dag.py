@@ -336,6 +336,7 @@ class DAG(DAGExecutorInterface):
         if (self.workflow.is_main_process and shared_local_copies) or (
             self.workflow.remote_exec and not shared_local_copies
         ):
+            logger.info("Retrieving input from storage.")
             async with asyncio.TaskGroup() as tg:
                 for job in self.needrun_jobs():
                     for f in job.input:
@@ -344,6 +345,7 @@ class DAG(DAGExecutorInterface):
 
     async def store_storage_outputs(self):
         if self.workflow.remote_exec:
+            logger.info("Storing output in storage.")
             async with asyncio.TaskGroup() as tg:
                 for job in self.needrun_jobs(exclude_finished=False):
                     for f in job.output:
@@ -352,7 +354,6 @@ class DAG(DAGExecutorInterface):
                             and f
                             not in self.workflow.storage_settings.unneeded_temp_files
                         ):
-                            logger.info(f"Storing output file {f.storage_object.query}")
                             tg.create_task(f.store_in_storage())
 
     def cleanup_storage_objects(self):
@@ -592,6 +593,7 @@ class DAG(DAGExecutorInterface):
                     ignore_pipe_or_service=True,
                 )
             except IOError as e:
+                import pdb; pdb.set_trace()
                 raise MissingOutputException(
                     str(e), rule=job.rule, jobid=self.jobid(job)
                 )
