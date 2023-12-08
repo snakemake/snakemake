@@ -103,6 +103,7 @@ class PathModifier:
             provider is None
             or is_flagged(path, "storage_object")
             or is_flagged(path, "local")
+            or is_flagged(path, "sourcecache_entry")
             or is_annotated_callable(path)
         ):
             # no default remote needed

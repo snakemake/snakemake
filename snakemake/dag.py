@@ -336,14 +336,17 @@ class DAG(DAGExecutorInterface):
         if (self.workflow.is_main_process and shared_local_copies) or (
             self.workflow.remote_exec and not shared_local_copies
         ):
+            logger.info("Retrieving input from storage.")
             async with asyncio.TaskGroup() as tg:
                 for job in self.needrun_jobs():
                     for f in job.input:
                         if f.is_storage and self.is_external_input(f, job):
+                            logger.info(f"Retrieving {f} from storage.")
                             tg.create_task(f.retrieve_from_storage())
 
     async def store_storage_outputs(self):
         if self.workflow.remote_exec:
+            logger.info("Storing output in storage.")
             async with asyncio.TaskGroup() as tg:
                 for job in self.needrun_jobs(exclude_finished=False):
                     for f in job.output:

@@ -1096,6 +1096,8 @@ class Workflow(WorkflowExecutorInterface):
                 SharedFSUsage.STORAGE_LOCAL_COPIES
                 in self.storage_settings.shared_fs_usage
             )
+            logger.debug(f"shared_storage_local_copies: {shared_storage_local_copies}")
+            logger.debug(f"remote_exec: {self.remote_exec}")
             if not self.dryrun and (
                 (self.exec_mode == ExecMode.DEFAULT and shared_storage_local_copies)
                 or (self.remote_exec and not shared_storage_local_copies)
