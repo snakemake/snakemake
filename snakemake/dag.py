@@ -341,6 +341,7 @@ class DAG(DAGExecutorInterface):
                 for job in self.needrun_jobs():
                     for f in job.input:
                         if f.is_storage and self.is_external_input(f, job):
+                            logger.info(f"Retrieving {f} from storage.")
                             tg.create_task(f.retrieve_from_storage())
 
     async def store_storage_outputs(self):
