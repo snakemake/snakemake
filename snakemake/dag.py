@@ -352,6 +352,7 @@ class DAG(DAGExecutorInterface):
                             and f
                             not in self.workflow.storage_settings.unneeded_temp_files
                         ):
+                            logger.info(f"Storing output file {f.storage_object.query}")
                             tg.create_task(f.store_in_storage())
 
     def cleanup_storage_objects(self):
