@@ -594,9 +594,6 @@ class DAG(DAGExecutorInterface):
                     ignore_pipe_or_service=True,
                 )
             except IOError as e:
-                import pdb
-
-                pdb.set_trace()
                 raise MissingOutputException(
                     str(e), rule=job.rule, jobid=self.jobid(job)
                 )

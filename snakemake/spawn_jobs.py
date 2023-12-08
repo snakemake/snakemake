@@ -250,8 +250,4 @@ class SpawnedJobArgsFactory:
         if pass_default_resources_args:
             args.append(w2a("resource_settings.default_resources", attr="args"))
 
-        import pdb
-
-        pdb.set_trace()
-
         return join_cli_args(args)
