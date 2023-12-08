@@ -1359,16 +1359,19 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--shared-fs-usage",
-        nargs="*",
+        nargs="+",
         default=SharedFSUsage.all(),
         choices=SharedFSUsage.choices(),
         parse_func=SharedFSUsage.parse_choices_set,
         help="Set assumptions on shared filesystem for non-local "
-        "workflow execution. Usually, the executor plugin sets this to a correct "
+        "workflow execution. To disable any sharing via the filesystem, "
+        "specify 'none'. "
+        "Usually, the executor plugin sets this to a correct "
         "default. However, sometimes it is worth tuning this setting, e.g. for "
         "optimizing cluster performance. For example, when using "
         "'--default-storage-provider fs' together with a cluster executor like "
-        "slurm, you might want to set '--shared-fs-usage persistence deployment', "
+        "slurm, you might want to set "
+        "'--shared-fs-usage persistence software-deployment sources source-cache', "
         "such that software deployment and data provenance will be handled by NFS "
         "but input and output files will be handled exclusively by the storage "
         "provider.",

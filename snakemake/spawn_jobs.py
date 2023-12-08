@@ -98,6 +98,13 @@ class SpawnedJobArgsFactory:
             self.workflow.resource_settings.overwrite_resource_scopes,
         )
 
+    def get_shared_fs_usage_arg(self):
+        usage = self.workflow.storage_settings.shared_fs_usage
+        return format_cli_arg(
+            "--shared-fs-usage",
+            usage if usage else "none",
+        )
+
     def workflow_property_to_arg(
         self, property, flag=None, quote=True, skip=False, invert=False, attr=None
     ):
@@ -211,7 +218,7 @@ class SpawnedJobArgsFactory:
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
             w2a("resource_settings.max_threads"),
-            w2a("storage_settings.shared_fs_usage"),
+            self.get_shared_fs_usage_arg(),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
@@ -242,5 +249,9 @@ class SpawnedJobArgsFactory:
             args.append(self.get_default_storage_provider_args())
         if pass_default_resources_args:
             args.append(w2a("resource_settings.default_resources", attr="args"))
+
+        import pdb
+
+        pdb.set_trace()
 
         return join_cli_args(args)
