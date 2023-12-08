@@ -1045,14 +1045,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             if not error:
                 await self.dag.handle_storage(self, store_in_storage=store_in_storage)
                 self.dag.handle_protected(self)
-        else:
-            if not error:
-                await self.dag.check_and_touch_output(
-                    self,
-                    wait=self.dag.workflow.execution_settings.latency_wait,
-                    no_touch=True,
-                    wait_for_local=False,
-                )
         if not error:
             try:
                 await self.dag.workflow.persistence.finished(self)
