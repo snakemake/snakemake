@@ -49,12 +49,34 @@ If you want all your input and output (which is not explicitly marked to come fr
 another storage) to be written to and read from this storage, you can use it as a 
 default provider via::
 
-    snakemake --default-storage-provider s3 --default-storage-prefix mybucket/
+    snakemake --default-storage-provider s3 --default-storage-prefix s3://mybucket/
 
 Custom settings can be passed as well::
 
-    snakemake --default-storage-provider s3 --default-storage-prefix mybucket/ \
+    snakemake --default-storage-provider s3 --default-storage-prefix s3://mybucket/ \
         --storage-s3-max-requests-per-second 10
+
+Local input/output files
+""""""""""""""""""""""""
+
+Despite using a default storage provider, you might have certain files in your workflow
+that still come from the local filesystem. In this case, you can use the ``local``
+flag::
+
+    rule example:
+        input:
+            local("resources/example-input.txt")
+        output:
+            "example-output.txt"
+        shell:
+            "..."
+
+Here, ``resources/example-input.txt`` will be interpreted as a local file, while
+``example-output.txt`` will be written to the default storage provider that you
+have specified (with the prefix prepended).
+
+Note that source paths (see :ref:`snakefiles-aux_source_files`) are also not mapped to the default storage provider.
+There is no need to additionally mark them as local.
 
 Within the workflow
 ^^^^^^^^^^^^^^^^^^^
