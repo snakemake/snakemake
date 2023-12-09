@@ -22,6 +22,7 @@ import pickle
 import collections
 import re
 import json
+import warnings
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Tuple, Pattern, Union, Optional, List
@@ -73,7 +74,7 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
-    def log_fmt_shell(self, stdout=True, stderr=True, append=False):
+    def log_fmt_shell(self, stdout=True, stderr=True, append=False) -> str:
         """
         Return a shell redirection string to be used in `shell()` calls
 
@@ -109,8 +110,107 @@ class Snakemake:
         False    True     False    fn    2> fn
         any      any      any      None  ""
         -------- -------- -------- ----- -----------
+
+        If you provide two log files name them err/out or sterr/stout.
+        The function returns:
+
+            2>> sterr > stout
+            or with append=True
+            2>> sterr >> stoud
+
+        Appending to sterr is required as error messages from the wrapper will be overwritten otherwise.
         """
+
+        if stdout and stderr:
+            # Check if two files are provided
+            stdout_file, stderr_file = _infer_stdout_and_stderr(self.log)
+
+            if stdout_file is not None:
+                # We have a stderr and a stdout file
+
+                return (
+                    _log_shell_redirect(
+                        stderr_file, stdout=False, stderr=True, append=True
+                    )
+                    + " "
+                    + _log_shell_redirect(
+                        stdout_file, stdout=True, stderr=False, append=append
+                    )
+                )
+
         return _log_shell_redirect(self.log, stdout, stderr, append)
+
+    def get_stderr_logfile(self) -> Optional[PathLike]:
+        """
+        Return the stderr-log file.
+        If multiple log files are specified, try to infer which is stdout and which is stderr.
+        If this fails return the first log file.
+        If none is specified, return None
+        """
+
+        _, stderr_file = _infer_stdout_and_stderr(self.log)
+
+        return stderr_file
+
+    def get_stdout_logfile(self) -> Optional[PathLike]:
+        """
+        Return the stdout-log file.
+        If multiple log files are specified, try to infer which is stdout and which is stderr.
+        If this fails return the first log file.
+        If none is specified, return None
+        """
+
+        stdout_file, stderr_file = _infer_stdout_and_stderr(self.log)
+
+        if stdout_file is not None:
+            return stdout_file
+        else:
+            return stderr_file
+
+
+def _infer_stdout_and_stderr(
+    log: Optional[PathLike],
+    sdout_keys: List[str] = ["stdout", "out"],
+    stderr_keys: List[str] = ["stderr", "err"],
+) -> Tuple[Optional[PathLike], Optional[PathLike]]:
+    """
+    If multiple log files are provided, try to infer which one is for stderr.
+
+    If only one log file is provided, or inference fails, return None for stdout_file
+
+
+    Returns
+    -------
+    tuple
+        stdout_file, stderr_file
+
+
+    """
+
+    if (log is None) or (len(log) == 0):
+        return None, None
+    elif len(log) == 1:
+        return None, log[0]
+    elif len(log) > 1:
+        stdout_file, stderr_file = None, None
+        # infer stdout and stderr file from log keys
+        for key in stderr_keys:
+            if hasattr(log, key):
+                stderr_file = log[key]
+
+        for key in sdout_keys:
+            if hasattr(log, key):
+                stdout_file = log[key]
+
+        if (stdout_file is None) or (stderr_file is None):
+            warnings.warn(
+                "You have more than one log file, but I cannot infer which logfile is stderr and which is stdout,"
+                f"I use {stderr_file} file for logging."
+            )
+            return None, log[0]
+
+        else:
+            return stdout_file, stderr_file
 
 
 def _log_shell_redirect(
@@ -122,7 +222,7 @@ def _log_shell_redirect(
     """
     Return a shell redirection string to be used in `shell()` calls
 
-    This function allows scripts and wrappers support optional `log` files
+    This function allows scripts and wrappers to support optional `log` files
     specified in the calling rule.  If no `log` was specified, then an
     empty string "" is returned, regardless of the values of `stdout`,
     `stderr`, and `append`.

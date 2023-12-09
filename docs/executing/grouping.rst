@@ -36,5 +36,7 @@ This makes it possible to define batches of jobs of the same kind that shall be 
 
     snakemake --groups somerule=group0 --group-components group0=5
 
+
 means that given ``n`` jobs spawned from rule ``somerule``, Snakemake will create ``n / 5`` groups which each execute 5 jobs of ``somerule`` together.
+
 For example, with 10 jobs from ``somerule`` you would end up with 2 groups of 5 jobs that are submitted as one piece each.
