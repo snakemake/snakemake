@@ -906,7 +906,14 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     @property
     def is_local(self):
-        return self.dag.workflow.is_local(self.rule)
+        no_shared_fs = (
+            SharedFSUsage.INPUT_OUTPUT
+            not in self.dag.workflow.storage_settings.shared_fs_usage
+        )
+        return self.dag.workflow.is_local(self.rule) or (
+            no_shared_fs
+            and any(is_flagged(f, "local") for f in chain(self.input, self.output))
+        )
 
     def __repr__(self):
         return self.rule.name
@@ -1406,7 +1413,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
     @property
     def is_local(self):
-        return all(job.is_local for job in self.jobs)
+        return any(job.is_local for job in self.jobs)
 
     def merged_wildcards(self):
         jobs = iter(self.jobs)
