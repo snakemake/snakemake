@@ -643,6 +643,7 @@ def test_default_storage(s3_storage):
     )
 
 
+@skip_on_windows  # OS-independent
 def test_default_storage_local_job(s3_storage):
     prefix, settings = s3_storage
 
