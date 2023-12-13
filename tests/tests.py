@@ -643,6 +643,21 @@ def test_default_storage(s3_storage):
     )
 
 
+@skip_on_windows  # OS-independent
+def test_default_storage_local_job(s3_storage):
+    prefix, settings = s3_storage
+
+    run(
+        dpath("test_default_storage_local_job"),
+        cores=1,
+        default_storage_provider="s3",
+        default_storage_prefix=prefix,
+        storage_provider_settings=settings,
+        cluster="./qsub",
+        shared_fs_usage=set(SharedFSUsage.all()) - {SharedFSUsage.INPUT_OUTPUT},
+    )
+
+
 def test_storage(s3_storage):
     prefix, settings = s3_storage
 

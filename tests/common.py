@@ -19,6 +19,7 @@ import glob
 import subprocess
 import tarfile
 
+from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 from snakemake import api, settings
@@ -220,6 +221,7 @@ def run(
     cleanup_metadata=None,
     rerun_triggers=settings.RerunTrigger.all(),
     storage_provider_settings=None,
+    shared_fs_usage=None,
 ):
     """
     Test the Snakefile in the path.
@@ -306,6 +308,9 @@ def run(
             )
             nodes = 3
 
+        if shared_fs_usage is None:
+            shared_fs_usage = SharedFSUsage.all()
+
         success = True
 
         with api.SnakemakeApi(
@@ -339,6 +344,7 @@ def run(
                         default_storage_provider=default_storage_provider,
                         default_storage_prefix=default_storage_prefix,
                         all_temp=all_temp,
+                        shared_fs_usage=shared_fs_usage,
                     ),
                     storage_provider_settings=storage_provider_settings,
                     workflow_settings=settings.WorkflowSettings(

@@ -72,7 +72,7 @@ Non-local execution
 ^^^^^^^^^^^^^^^^^^^
 
 Non-local execution on cluster or cloud infrastructure is implemented via plugins.
-The `Snakemake plugin catalog <https://snakemake.github.com/snakemake-plugin-catalog>`_ lists available plugins and their documentation.
+The `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_ lists available plugins and their documentation.
 
 Dealing with very large workflows
 ---------------------------------
