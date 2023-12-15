@@ -349,11 +349,13 @@ class DAG(DAGExecutorInterface):
             logger.info("Storing output in storage.")
             async with asyncio.TaskGroup() as tg:
                 for job in self.needrun_jobs(exclude_finished=False):
-                    for f in job.output:
+                    benchmark = [job.benchmark] if job.benchmark else []
+                    for f in chain(job.output, job.log, benchmark):
                         if (
                             f.is_storage
                             and f
                             not in self.workflow.storage_settings.unneeded_temp_files
+                            and f.exists_local()
                         ):
                             tg.create_task(f.store_in_storage())
 

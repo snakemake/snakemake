@@ -22,7 +22,14 @@ Snakemake 8 removes the support for four syntactical elements, which are all off
 * Support for marking output files as ``dynamic`` has been removed. You should instead use :ref:`checkpoints <snakefiles-checkpoints>`.
 * Support for the ``version`` directive has been removed. You should use the :ref:`conda <integrated_package_management>` or :ref:`container <apptainer>` integration instead.
 * Support for the ``subworkflow`` directive has been removed. You should use the :ref:`module directive <snakefiles-modules>` instead, which provides the same functionality in a more general way.
-* Support for remote providers has been removed. You should use :ref:`storage plugins <storage-support>` instead.
+* Support for remote providers has been removed. You should use :ref:`storage plugins <storage-support>` instead. 
+  Most of the old remote providers have been migrated into the new storage plugins
+  (see the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_.).
+  Two former remote providers have been migrated into Snakemake wrappers instead, namely 
+  the NCBI and ENA remote providers, which are now replaced by the 
+  `entrez/efetch <https://snakemake-wrappers.readthedocs.io/en/stable/wrappers/entrez/efetch.html>`_ and 
+  the `ena <https://snakemake-wrappers.readthedocs.io/en/stable/wrappers/ena.html>`_ wrappers.
+
 
 Command line interface
 ^^^^^^^^^^^^^^^^^^^^^^
