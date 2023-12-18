@@ -370,10 +370,12 @@ class DAG(DAGExecutorInterface):
                             )
 
                         if self.finished(job):
-                            for f in filter(tostore, chain(job.output, benchmark)):
+                            for f in chain(job.output, benchmark):
+                                if await tostore(f):
+                                    tg.create_task(f.store_in_storage())
+                        for f in job.log:
+                            if await tostore(f):
                                 tg.create_task(f.store_in_storage())
-                        for f in filter(tostore, job.log):
-                            tg.create_task(f.store_in_storage())
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to store output in storage.", e)
 
