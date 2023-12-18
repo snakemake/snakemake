@@ -239,9 +239,18 @@ class DAG(DAGExecutorInterface):
             if job.is_checkpoint:
                 yield job
 
+    @property
+    def finished_checkpoint_jobs(self):
+        for job in self.finished_jobs:
+            if job.is_checkpoint:
+                yield job
+
     def update_checkpoint_outputs(self):
         workflow.checkpoints.future_output = set(
             f for job in self.checkpoint_jobs for f in job.output
+        )
+        workflow.checkpoints.created_output = set(
+            f for job in self.finished_checkpoint_jobs for f in job.output
         )
 
     def update_jobids(self):

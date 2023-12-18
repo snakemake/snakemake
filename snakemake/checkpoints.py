@@ -8,6 +8,7 @@ class Checkpoints:
 
     def __init__(self):
         self.future_output = None
+        self.created_output = None
 
     def register(self, rule, fallback_name=None):
         checkpoint = Checkpoint(rule, self)
@@ -34,8 +35,6 @@ class Checkpoint:
         if self.checkpoints.future_output is not None:
             for iofile in output:
                 if iofile in self.checkpoints.future_output:
-                    break
-                if not async_run(iofile.exists()) and not iofile.is_temp:
                     break
             else:
                 return CheckpointJob(self.rule, output)
