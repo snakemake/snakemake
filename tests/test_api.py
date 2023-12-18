@@ -28,7 +28,7 @@ def test_deploy_sources(s3_storage):
                 cores=1,
             ),
             storage_provider_settings=s3_settings,
-            snakefile=Path(dpath("test01/Snakefile")),
+            snakefile=Path(dpath("test_deploy_sources/Snakefile")),
         )
         dag_api = workflow_api.dag()
 
