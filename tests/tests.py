@@ -1917,3 +1917,7 @@ def test_conda_global():
         deployment_method={DeploymentMethod.CONDA},
         executor="dryrun",
     )
+
+
+def test_missing_file_dryrun():
+    run(dpath("test_missing_file_dryrun"), executor="dryrun", shouldfail=True)

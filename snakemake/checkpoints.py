@@ -1,3 +1,4 @@
+from snakemake.common import async_run
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
 from snakemake.io import checkpoint_target
 
@@ -34,7 +35,7 @@ class Checkpoint:
             for iofile in output:
                 if iofile in self.checkpoints.future_output:
                     break
-                if not iofile.exists and not iofile.is_temp:
+                if not async_run(iofile.exists()) and not iofile.is_temp:
                     break
             else:
                 return CheckpointJob(self.rule, output)

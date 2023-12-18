@@ -347,17 +347,26 @@ class DAG(DAGExecutorInterface):
     async def store_storage_outputs(self):
         if self.workflow.remote_exec:
             logger.info("Storing output in storage.")
-            async with asyncio.TaskGroup() as tg:
-                for job in self.needrun_jobs(exclude_finished=False):
-                    benchmark = [job.benchmark] if job.benchmark else []
-                    for f in chain(job.output, job.log, benchmark):
-                        if (
-                            f.is_storage
-                            and f
-                            not in self.workflow.storage_settings.unneeded_temp_files
-                            and f.exists_local()
-                        ):
+            try:
+                async with asyncio.TaskGroup() as tg:
+                    for job in self.needrun_jobs(exclude_finished=False):
+                        benchmark = [job.benchmark] if job.benchmark else []
+
+                        async def tostore(f):
+                            return (
+                                f.is_storage
+                                and f
+                                not in self.workflow.storage_settings.unneeded_temp_files
+                                and await f.exists_local()
+                            )
+
+                        if self.finished(job):
+                            for f in filter(tostore, chain(job.output, benchmark)):
+                                tg.create_task(f.store_in_storage())
+                        for f in filter(tostore, job.log):
                             tg.create_task(f.store_in_storage())
+            except ExceptionGroup as e:
+                raise WorkflowError("Failed to store output in storage.", e)
 
     def cleanup_storage_objects(self):
         shared_local_copies = (
@@ -996,7 +1005,8 @@ class DAG(DAGExecutorInterface):
                     PeriodicWildcardError,
                     WorkflowError,
                 ) as ex:
-                    if not res.file.exists:
+                    file_exists = await res.file.exists()
+                    if not file_exists:
                         self.delete_job(job, recursive=False)  # delete job from tree
                         raise ex
                     else:
