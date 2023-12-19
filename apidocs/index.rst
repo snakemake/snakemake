@@ -4,33 +4,33 @@
 Snakemake
 =========
 
-.. image:: https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod
+.. image:: https://img.shields.io/badge/Gitpod-ready--to--code-blue?color=%23022c22
     :target: https://gitpod.io/#https://github.com/snakemake/snakemake
 
-.. image:: https://img.shields.io/conda/dn/bioconda/snakemake.svg?label=Bioconda
+.. image:: https://img.shields.io/conda/dn/bioconda/snakemake.svg?label=Bioconda&color=%23064e3b
     :target: https://bioconda.github.io/recipes/snakemake/README.html
 
-.. image:: https://img.shields.io/pypi/pyversions/snakemake.svg
+.. image:: https://img.shields.io/pypi/pyversions/snakemake.svg?color=%23065f46
     :target: https://www.python.org
 
-.. image:: https://img.shields.io/pypi/v/snakemake.svg
+.. image:: https://img.shields.io/pypi/v/snakemake.svg?color=%23047857
     :target: https://pypi.python.org/pypi/snakemake
 
-.. image:: https://img.shields.io/github/workflow/status/snakemake/snakemake/Publish%20to%20Docker%20Hub?color=blue&label=docker%20container&branch=main
+.. image:: https://img.shields.io/github/actions/workflow/status/snakemake/snakemake/docker-publish.yml?label=docker%20container&branch=main&color=%23059669
     :target: https://hub.docker.com/r/snakemake/snakemake
 
-.. image:: https://github.com/snakemake/snakemake/workflows/CI/badge.svg?branch=main&label=tests
+.. image:: https://img.shields.io/github/actions/workflow/status/snakemake/snakemake/main.yml?label=tests&color=%2310b981
     :target: https://github.com/snakemake/snakemake/actions?query=branch%3Amain+workflow%3ACI
 
-.. image:: https://img.shields.io/badge/stack-overflow-orange.svg
+.. image:: https://img.shields.io/badge/stack-overflow-orange.svg?color=%2334d399
     :target: https://stackoverflow.com/questions/tagged/snakemake
 
-.. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow
-    :target: https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester
-
-.. image:: https://img.shields.io/discord/753690260830945390?label=discord%20chat   
+.. image:: https://img.shields.io/discord/753690260830945390?label=discord%20chat&color=%23a7f3d0
     :alt: Discord
     :target: https://discord.gg/NUdMtmr
+
+.. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow&color=%236ee7b7
+    :target: https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester
 
 .. image:: https://img.shields.io/github/stars/snakemake/snakemake?style=social
     :alt: GitHub stars
