@@ -33,6 +33,8 @@ sys.path.insert(0, os.path.abspath("../"))
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx_autodoc_typehints",
+    "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
@@ -40,6 +42,7 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "myst_parser",
 ]
+autosummary_generate = True
 
 # skip internal class that Sphinx can't process (#296)
 autodoc_default_options = {"exclude-members": "lazy_property"}
@@ -48,7 +51,7 @@ autodoc_default_options = {"exclude-members": "lazy_property"}
 html_css_files = ["theme.css"]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ["../_templates"]
+templates_path = ["_templates"]
 
 # The suffix of source filenames.
 source_suffix = [".rst", ".md"]
