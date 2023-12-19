@@ -1,10 +1,8 @@
 from abc import ABC
 from dataclasses import dataclass, field
-from enum import Enum
-import importlib
 from pathlib import Path
 from typing import Optional
-from collections.abc import Mapping, Sequence, Set
+from typing import Mapping, Sequence, Set
 
 import immutables
 
