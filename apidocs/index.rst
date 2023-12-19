@@ -58,6 +58,6 @@ If you are looking for the Snakemake user documentation, please visit https://sn
     :hidden:
     :maxdepth: 1
 
-    api_reference/snakemake
+    api_reference/snakemake_api
     api_reference/snakemake_utils
     api_reference/internal/modules
