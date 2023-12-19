@@ -29,6 +29,7 @@ Snakemake 8 removes the support for four syntactical elements, which are all off
   the NCBI and ENA remote providers, which are now replaced by the 
   `entrez/efetch <https://snakemake-wrappers.readthedocs.io/en/stable/wrappers/entrez/efetch.html>`_ and 
   the `ena <https://snakemake-wrappers.readthedocs.io/en/stable/wrappers/ena.html>`_ wrappers.
+  As of writing, the Snakemake storage plugin for xrootd (see `here <https://github.com/snakemake/snakemake-storage-plugin-xrootd>`_) does not yet pass the CI tests. Any help would be greatly appreciated.
 
 
 Command line interface
