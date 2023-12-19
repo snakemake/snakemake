@@ -3,8 +3,8 @@
 The Snakemake API
 =================
 
-.. toctree::
-   :maxdepth: 4
+.. automodule:: snakemake.api
+    :members:
 
-   snakemake/api
-   snakemake/settings
+.. automodule:: snakemake.settings
+    :members:
