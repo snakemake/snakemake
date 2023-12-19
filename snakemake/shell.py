@@ -151,7 +151,7 @@ class shell:
         context.update(kwargs)
 
         jobid = context.get("jobid")
-        if not context.get("is_shell"):
+        if not context.get("is_shell") and jobid is not None:
             logger.shellcmd(cmd)
 
         conda_env = context.get("conda_env", None)
