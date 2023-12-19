@@ -1447,7 +1447,7 @@ class Workflow(WorkflowExecutorInterface):
         except ImportError:
             raise WorkflowError("For PEP support, please install peppy.")
 
-        self.pepfile = path
+        self.pepfile = str(path)
         self.globals["pep"] = peppy.Project(self.pepfile)
 
     def pepschema(self, schema):
@@ -1455,6 +1455,8 @@ class Workflow(WorkflowExecutorInterface):
             import eido
         except ImportError:
             raise WorkflowError("For PEP schema support, please install eido.")
+
+        schema = str(schema)
 
         if is_local_file(schema) and not os.path.isabs(schema):
             # schema is relative to current Snakefile
