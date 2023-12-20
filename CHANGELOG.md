@@ -4,9 +4,27 @@
 ## [8.0.0](https://github.com/snakemake/snakemake/compare/v7.32.2...v8.0.0) (2023-12-20)
 
 
+
 ### ⚠ BREAKING CHANGES
 
-* redesigned Snakemake API. It now uses a modern, dataclass based approach ([#2403](https://github.com/snakemake/snakemake/issues/2403))
+Snakemake 8 marks the beginning of decomposing Snakemake into a framework of plugins. This enables the democratization of method development within the Snakemake ecosystem.
+We start with plugins for storage and execution backends. In the future, there will be plugins for the scheduling, metadata, software deployment, reporting, and many more.
+This way, it will be possible to easily launch and explore new developments in workflow management and reproducible data analysis without the need to get your work merged into the main codebase of Snakemake and also without the need to develop a new workflow management system as a proof of concept.
+
+In detail, Snakemake 8 introduces the following changes. Unfortunately it was unavoidable to break some usages (we apologize).
+Nevertheless, we tried to ensure that every removed or modified feature has been replaced with an equivalent reimplementation, as outlined in our [migration docs](https://snakemake.readthedocs.io/en/latest/getting_started/migration.html#migrating-to-snakemake-8).
+While Snakemake 8 has an even more thorough testing framework than any release before, and while it has been quite heavily tested in practice by us, you might initially experience bugs and glitches for which we want to apologize beforehand.
+We think that the massive codebase improvements are worth it in the long run, and hope that everything goes well.
+As always, any pull requests with test cases and pointers to bugs are more than welcome.
+
+#### Detailed breaking changes
+
+* removed the long time ago deprecated support for dynamic, version, and subworkflow (see [the migration docs](https://snakemake.readthedocs.io/en/latest/getting_started/migration.html#migrating-to-snakemake-8))
+* migrated old remote providers into storage plugins (see [the migration docs](https://snakemake.readthedocs.io/en/latest/getting_started/migration.html#migrating-to-snakemake-8))
+* migrated execution backends into plugins, including a change in the respective command line interfaces (see [the migration docs](https://snakemake.readthedocs.io/en/latest/getting_started/migration.html#migrating-to-snakemake-8))
+* deprecates `--use-conda` and `--use-singularity` in favor of `--software-deployment-method conda` or `--software-deployment-method apptainer` and `--software-deployment-method conda apptainer` (see [the migration docs](https://snakemake.readthedocs.io/en/latest/getting_started/migration.html#migrating-to-snakemake-8))
+* profile support is now versioned, such that different profiles can be written for different minimum Snakemake versions (see [the migration docs](https://snakemake.readthedocs.io/en/latest/getting_started/migration.html#migrating-to-snakemake-8))
+* redesigned Snakemake API. It now uses a modern, dataclass based approach (see [the migration docs](https://snakemake.readthedocs.io/en/latest/getting_started/migration.html#migrating-to-snakemake-8))
 
 ### Features
 
@@ -20,11 +38,9 @@
 * automatically upload workflow sources to default storage provider if no shared FS is used ([a450c49](https://github.com/snakemake/snakemake/commit/a450c4998de3ab7deb0fb2bc19dc59fdc484309d))
 * Faster ci test setup  ([#2489](https://github.com/snakemake/snakemake/issues/2489)) ([4798e8a](https://github.com/snakemake/snakemake/commit/4798e8ac226bded585e9fe31d43ae9e93a598780))
 * implement precommand ([#2482](https://github.com/snakemake/snakemake/issues/2482)) ([ff0f979](https://github.com/snakemake/snakemake/commit/ff0f979b68b1e12be8151c7f5547c6a13ad3ee9a))
-* prepare for storage plugins ([#2454](https://github.com/snakemake/snakemake/issues/2454)) ([353a71c](https://github.com/snakemake/snakemake/commit/353a71cba1d3dfcc48136b2d6cb744cc1252623b))
 * redesigned Snakemake API. It now uses a modern, dataclass based approach ([#2403](https://github.com/snakemake/snakemake/issues/2403)) ([2be3bfa](https://github.com/snakemake/snakemake/commit/2be3bfa4841967928069a2a024554b8a86b699f1))
 * support for external executor plugins ([#2305](https://github.com/snakemake/snakemake/issues/2305)) ([c9eaa4e](https://github.com/snakemake/snakemake/commit/c9eaa4e12e4a348f93e5ea5793faaec1fd547fac))
 * version specific profile config files (profile/config.v8+.yaml with profile/config.yaml as fallback that matches any version) ([#2498](https://github.com/snakemake/snakemake/issues/2498)) ([47e5811](https://github.com/snakemake/snakemake/commit/47e581181f952884577f0237a1aa9457ee9554dd))
-
 
 ### Bug Fixes
 
