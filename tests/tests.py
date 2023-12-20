@@ -1685,6 +1685,11 @@ def test_peppy():
     run(dpath("test_peppy"))
 
 
+@skip_on_windows
+def test_pep_pathlib():
+    run(dpath("test_pep_pathlib"))
+
+
 def test_template_engine():
     run(dpath("test_template_engine"))
 
