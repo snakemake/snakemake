@@ -71,12 +71,9 @@ jobs:
           conda config --set channel_priority strict
 
           # TODO remove and add as regular dependency once released
-          pip install git+https://github.com/snakemake/snakemake-interface-common.git
-          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
-          pip install git+https://github.com/snakemake/snakemake-executor-plugin-cluster-generic.git
-          pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
-          pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
-          pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
+          pip install snakemake-executor-plugin-cluster-generic
+          pip install snakemake-storage-plugin-http
+          pip install snakemake-storage-plugin-s3
           pip install -e .
 
       - name: Configure fast APT mirror
@@ -146,12 +143,9 @@ jobs:
       - name: Install snakemake from source
         run: |
           # TODO remove and add as regular dependency once released
-          pip install git+https://github.com/snakemake/snakemake-interface-common.git
-          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
-          pip install git+https://github.com/snakemake/snakemake-executor-plugin-cluster-generic.git
-          pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
-          pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
-          pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
+          pip install snakemake-executor-plugin-cluster-generic
+          pip install snakemake-storage-plugin-http
+          pip install snakemake-storage-plugin-s3
 
           pip install .
 
