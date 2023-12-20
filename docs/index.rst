@@ -125,7 +125,6 @@ Resources
    getting_started/migration
    snakefiles/best_practices
    tutorial/tutorial
-   tutorial/short
 
 .. toctree::
   :caption: Executing workflows
