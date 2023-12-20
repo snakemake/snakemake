@@ -1,6 +1,75 @@
 # Changelog
 
 
+## [8.0.0](https://github.com/snakemake/snakemake/compare/v7.32.2...v8.0.0) (2023-12-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* redesigned Snakemake API. It now uses a modern, dataclass based approach ([#2403](https://github.com/snakemake/snakemake/issues/2403))
+
+### Features
+
+* add ability to inject conda environments into running Snakefile ([#2479](https://github.com/snakemake/snakemake/issues/2479)) ([6140e29](https://github.com/snakemake/snakemake/commit/6140e29864cf0fcdd83194f218408867c54b730d))
+* add functionality for deploying sources if no shared FS is assumed ([#2486](https://github.com/snakemake/snakemake/issues/2486)) ([76eac3c](https://github.com/snakemake/snakemake/commit/76eac3c570624f818ff43f4759a27a3e284bf03c))
+* add option to control software deployment mode (shared or non shared FS) ([#2525](https://github.com/snakemake/snakemake/issues/2525)) ([04ec2c0](https://github.com/snakemake/snakemake/commit/04ec2c0262b2cb96cbcd7edbbb2596979c1703ae))
+* allow detailed configuration of shared FS usage ([#2528](https://github.com/snakemake/snakemake/issues/2528)) ([0d34be9](https://github.com/snakemake/snakemake/commit/0d34be90040f937021eb25becb4ef5d5aae66473))
+* allow environment variables in string values of profile (e.g. paths may now contain elements like $USER). ([58dc70c](https://github.com/snakemake/snakemake/commit/58dc70c513d08cb217647ec591df93b40517b650))
+* allow python expressions in --set-resources ([#2521](https://github.com/snakemake/snakemake/issues/2521)) ([022a31e](https://github.com/snakemake/snakemake/commit/022a31e0e75416904589c62b58e54c952d930c69))
+* allow to set latency_wait in executor test suite ([c0bca0b](https://github.com/snakemake/snakemake/commit/c0bca0bb8bf66fb34def7459f757140ce3825a25))
+* automatically upload workflow sources to default storage provider if no shared FS is used ([a450c49](https://github.com/snakemake/snakemake/commit/a450c4998de3ab7deb0fb2bc19dc59fdc484309d))
+* Faster ci test setup  ([#2489](https://github.com/snakemake/snakemake/issues/2489)) ([4798e8a](https://github.com/snakemake/snakemake/commit/4798e8ac226bded585e9fe31d43ae9e93a598780))
+* implement precommand ([#2482](https://github.com/snakemake/snakemake/issues/2482)) ([ff0f979](https://github.com/snakemake/snakemake/commit/ff0f979b68b1e12be8151c7f5547c6a13ad3ee9a))
+* prepare for storage plugins ([#2454](https://github.com/snakemake/snakemake/issues/2454)) ([353a71c](https://github.com/snakemake/snakemake/commit/353a71cba1d3dfcc48136b2d6cb744cc1252623b))
+* redesigned Snakemake API. It now uses a modern, dataclass based approach ([#2403](https://github.com/snakemake/snakemake/issues/2403)) ([2be3bfa](https://github.com/snakemake/snakemake/commit/2be3bfa4841967928069a2a024554b8a86b699f1))
+* support for external executor plugins ([#2305](https://github.com/snakemake/snakemake/issues/2305)) ([c9eaa4e](https://github.com/snakemake/snakemake/commit/c9eaa4e12e4a348f93e5ea5793faaec1fd547fac))
+* version specific profile config files (profile/config.v8+.yaml with profile/config.yaml as fallback that matches any version) ([#2498](https://github.com/snakemake/snakemake/issues/2498)) ([47e5811](https://github.com/snakemake/snakemake/commit/47e581181f952884577f0237a1aa9457ee9554dd))
+
+
+### Bug Fixes
+
+* adapt to changes in snakemake-interface-executor-plugins ([635c68a](https://github.com/snakemake/snakemake/commit/635c68abe3c6e01a70803f2423718a99ea056a00))
+* add storage provider args to deploy sources command ([67178e3](https://github.com/snakemake/snakemake/commit/67178e31e68dc165c503d49eaf40340a9ad65e90))
+* add testcase for script directive to work with Python 3.7 and corresponding fix. ([0b4ae2e](https://github.com/snakemake/snakemake/commit/0b4ae2e1155378a78e0786ad4dfd5d44fa41c9ae))
+* allow pepfile and pepschema to take pathlib ([#2546](https://github.com/snakemake/snakemake/issues/2546)) ([ca91661](https://github.com/snakemake/snakemake/commit/ca91661bf2ff215f005e8d9351fa3320d5cf5498))
+* also inherit rule proxies if there is no rulename modifier specified in a use rule statement ([#2440](https://github.com/snakemake/snakemake/issues/2440)) ([1570289](https://github.com/snakemake/snakemake/commit/15702891b31635a79f31e857d09f3e285f71717b))
+* assume at most 8GB memory for default resources. This way, we avoid exploding memory requirements for large input files that are very unlikely to be put entirely into memory by any tool. ([11c2ecc](https://github.com/snakemake/snakemake/commit/11c2eccfa72a2732d20a66bbf57995ee9dfd14ae))
+* comparison to float in scheduler ([ef44d84](https://github.com/snakemake/snakemake/commit/ef44d844b81d671604a1ce285a43ca1d5ea59d96))
+* detect job paths that leave and then enter a group. Such paths are invalid because then the group depends on itself. ([#2527](https://github.com/snakemake/snakemake/issues/2527)) ([5383a4d](https://github.com/snakemake/snakemake/commit/5383a4d85f8b7a3fb61fd0b457fcd1d008c2255f))
+* ensure that auto deployment of default storage provider works in containers with read-only root home. ([1a347ff](https://github.com/snakemake/snakemake/commit/1a347ffd8b2144aee5c35ea17fec2262c5cc9c40))
+* ensure that log and benchmark files are uploaded to storage as well ([#2545](https://github.com/snakemake/snakemake/issues/2545)) ([6aabb5d](https://github.com/snakemake/snakemake/commit/6aabb5db16634c077ba808dbd000a3ed67d6a3c0))
+* ensure that targetjob is always forced. This fixes a bug causing run-directive rules to not being executed even when enforced via e.g. -R. ([#2448](https://github.com/snakemake/snakemake/issues/2448)) ([b2a60d5](https://github.com/snakemake/snakemake/commit/b2a60d5674c84f58c6e48af5d675ce4690a1d625))
+* fix cache handling and unlock handling ([2f4d5e1](https://github.com/snakemake/snakemake/commit/2f4d5e11b36f199d3335839e9b5dc5d2094d11f8))
+* fix nargs definition for --deploy-sources ([fc252c8](https://github.com/snakemake/snakemake/commit/fc252c80227e75a4fcf869f828d3c7d5d066f794))
+* fix path handling when detective profiles ([fe63881](https://github.com/snakemake/snakemake/commit/fe63881371036fc6d55e6a113cb3ed5029b31d2d))
+* fix storage handling on windows by converting all paths to posix paths ([#2519](https://github.com/snakemake/snakemake/issues/2519)) ([7864a76](https://github.com/snakemake/snakemake/commit/7864a76c41ad7839fb3b9aeb1c4468215ba0cb21))
+* handle different f-string tokens in py3.12 ([#2485](https://github.com/snakemake/snakemake/issues/2485)) ([f2c7613](https://github.com/snakemake/snakemake/commit/f2c761320a5a73d6027ae3649843e6bf6a24f324))
+* handle storage for local jobs; add test case ([6d978ef](https://github.com/snakemake/snakemake/commit/6d978ef31060393bd3a69b7973170e3c79473705))
+* handling of group jobs when obtaining temp input files ([71be1de](https://github.com/snakemake/snakemake/commit/71be1de734032ae8c9e8b07fad57e36b321be421))
+* import ([#2402](https://github.com/snakemake/snakemake/issues/2402)) ([2c831f1](https://github.com/snakemake/snakemake/commit/2c831f1fa98813cf5f69ecb046aad1364f514238))
+* improved error handling for storage upload; fixed bugs caused by outdated calls to IOFile.exists(). ([720bb84](https://github.com/snakemake/snakemake/commit/720bb8400ecf8e6c3caf3ca6b47d7dda4f1f7ba9))
+* improved error messages in case of invalid storage queries ([9671fd0](https://github.com/snakemake/snakemake/commit/9671fd0770fbe2d79d3546ca5f19c8fc39ffc25a))
+* in addition to localrules statement,  infer that job is local if it has any input or output file that is marked as local ([#2541](https://github.com/snakemake/snakemake/issues/2541)) ([e8b682b](https://github.com/snakemake/snakemake/commit/e8b682be0bd52a01ec3ebdbbcb1ec018950819b2))
+* only deactivate conda inject envs upon workflow tear down ([#2503](https://github.com/snakemake/snakemake/issues/2503)) ([e6dfdd4](https://github.com/snakemake/snakemake/commit/e6dfdd49cbaad228827f62a48cfe6419e4c1715e))
+* Panoptes --wms-monitor-arg ([#2444](https://github.com/snakemake/snakemake/issues/2444)) ([98d2bdf](https://github.com/snakemake/snakemake/commit/98d2bdfd1e3aeddf189b272d3e4042632248c10f))
+* proper reuse of rule proxies when importing several times from the same module ([#2404](https://github.com/snakemake/snakemake/issues/2404)) ([e867dda](https://github.com/snakemake/snakemake/commit/e867dda24dff306f42939ad0d4d93d32ec94f6e5))
+* Restore backward compatibility for Google Life Sciences executor ([#2461](https://github.com/snakemake/snakemake/issues/2461)) ([5e3a464](https://github.com/snakemake/snakemake/commit/5e3a46476d78d5d52340a9ffa327d18a5e7e9828))
+* shadow "full" mode ignore symlinks ([#2516](https://github.com/snakemake/snakemake/issues/2516)) ([1d58120](https://github.com/snakemake/snakemake/commit/1d5812027e5d1a8d5f2e45175fa38d28ca32763e))
+* show failed logs in executor testcases ([92f7bf4](https://github.com/snakemake/snakemake/commit/92f7bf4b86f491073898b2385c3ed45a557a3b4d))
+* Slack log service ([#2537](https://github.com/snakemake/snakemake/issues/2537)) ([26eb4ba](https://github.com/snakemake/snakemake/commit/26eb4babc28464a24c33d75703e7bf4f15c0e33f))
+* sort report (sub-)categories in lexicographical order ([#2449](https://github.com/snakemake/snakemake/issues/2449)) ([d0705ad](https://github.com/snakemake/snakemake/commit/d0705adb4702ead9db0c26809859c7b769d800e1))
+* update minimum snakemake-interface-storage-plugins version ([0ef7226](https://github.com/snakemake/snakemake/commit/0ef72262e29a5b22cdf016a4ab6aba4b8dbc686d))
+* use temporary directory (faster, more likely local, always writable) for persistence and source cache in case of remote execution without shared fs ([#2502](https://github.com/snakemake/snakemake/issues/2502)) ([c8fa7ba](https://github.com/snakemake/snakemake/commit/c8fa7ba3ee70c9c62011a3839758a5eb8fde16f8))
+* wait for logs before showing them on error ([a4ff328](https://github.com/snakemake/snakemake/commit/a4ff3280db0beb4f1a077ee880433f767c4ad142))
+
+
+### Documentation
+
+* document name directive with example ([#2534](https://github.com/snakemake/snakemake/issues/2534)) ([cce5551](https://github.com/snakemake/snakemake/commit/cce555142814f5bd1d73e68b9a17b772454817d4))
+* fix syntax in cluster example ([#2460](https://github.com/snakemake/snakemake/issues/2460)) ([64e9645](https://github.com/snakemake/snakemake/commit/64e964554748bdee93bad1c7e6cd2924595c414f))
+* notes on arm based machines in tutorial docs ([0586f04](https://github.com/snakemake/snakemake/commit/0586f04d2b03443a25deddd017f303156acdcd9c))
+* **rust:** Fix typo on rust-script version ([#2488](https://github.com/snakemake/snakemake/issues/2488)) ([a79dd94](https://github.com/snakemake/snakemake/commit/a79dd94f330f1d5c1fba7d16cb5b08bd780d950d))
+
 ## [7.32.4](https://github.com/snakemake/snakemake/compare/v7.32.3...v7.32.4) (2023-08-18)
 
 
