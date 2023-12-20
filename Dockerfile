@@ -14,11 +14,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt /var/lib/dpkg /var/lib/cache /var/lib/log
 
 RUN micromamba create -q -y -c bioconda -c conda-forge -n snakemake \
-    snakemake snakemake-minimal --only-deps && \
+    snakemake-minimal --only-deps && \
     eval "$(micromamba shell hook --shell bash)" && \
     micromamba activate /opt/conda/envs/snakemake && \
-    micromamba install -c conda-forge singularity && \
+    micromamba install -c conda-forge apptainer && \
     micromamba clean --all -y 
 
 ENV PATH /opt/conda/envs/snakemake/bin:${PATH}
-RUN pip install .[reports,messaging,google-cloud,azure]
+RUN pip install .[reports,messaging,pep]
