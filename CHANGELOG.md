@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [8.0.1](https://github.com/snakemake/snakemake/compare/v8.0.0...v8.0.1) (2023-12-21)
+
+
+### Bug Fixes
+
+* remove bash completion entrypoint (no longer supported, was too slow to be usable anyway) ([922b53a](https://github.com/snakemake/snakemake/commit/922b53aa0cba05da067cc67fccc6852bbc161edb))
+
+
+### Documentation
+
+* fix cli options rendering ([264c1a9](https://github.com/snakemake/snakemake/commit/264c1a92e824323b3060192d7a22aeb0c07678e0))
+* fixes in migration guide ([f8adefa](https://github.com/snakemake/snakemake/commit/f8adefaa605bd87df40440a211276a6825d138ed))
+
 ## [8.0.0](https://github.com/snakemake/snakemake/compare/v7.32.2...v8.0.0) (2023-12-20)
 
 
