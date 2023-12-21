@@ -1211,7 +1211,7 @@ For example, running
 
     snakemake --cores 1 --draft-notebook test.txt --software-deployment-method conda
     # or the short form
-    snakemake -c 1 --draft-notebook test.txt -m conda
+    snakemake -c 1 --draft-notebook test.txt --sdm conda
 
 will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
 

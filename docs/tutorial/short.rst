@@ -131,7 +131,7 @@ to perform the actual execution.
 
 .. sidebar:: Note
 
-    The ``--software-deployment-method`` option has a shorthand alias ``-m``, which we will use for brevity in the rest of this tutorial. There are two other long-form aliases ``--deployment-method`` and ``--deployment``.
+    The ``--software-deployment-method`` option has a shorthand alias ``--sdm``, which we will use for brevity in the rest of this tutorial. There are two other long-form aliases ``--deployment-method`` and ``--deployment``.
 
  
 Step 3
@@ -169,13 +169,13 @@ Test your workflow with
 
 ::
 
-   snakemake -m conda -n results/mapped/A.sorted.bam
+   snakemake --sdm conda -n results/mapped/A.sorted.bam
 
 and
 
 ::
 
-   snakemake -m conda results/mapped/A.sorted.bam --cores 1
+   snakemake --sdm conda results/mapped/A.sorted.bam --cores 1
 
 Step 5
 ------
@@ -265,7 +265,7 @@ Then, we let Snakemake generate a skeleton notebook for us with
 
 .. code:: console
 
-    snakemake --draft-notebook results/plots/quals.svg --cores 1 -m conda
+    snakemake --draft-notebook results/plots/quals.svg --cores 1 --sdm conda
 
 Snakemake will print instructions on how to open, edit and execute the notebook.
 
@@ -295,7 +295,7 @@ Make sure to test your workflow with
 
 ::
 
-   snakemake -m conda --force results/plots/quals.svg --cores 1
+   snakemake --sdm conda --force results/plots/quals.svg --cores 1
 
 Here, the force ensures that the readily drafted notebook is re-executed even if you had already generated the output plot in the interactive mode.
  

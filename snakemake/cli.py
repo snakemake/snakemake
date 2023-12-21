@@ -1495,7 +1495,7 @@ def get_argument_parser(profiles=None):
 
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
     group_deployment.add_argument(
-        "-m",
+        "--sdm",
         "--software-deployment-method",
         "--deployment-method",
         "--deployment",
