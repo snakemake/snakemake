@@ -257,7 +257,7 @@ All Options
 -----------
 
 .. argparse::
-   :module: snakemake
+   :module: snakemake.cli
    :func: get_argument_parser
    :prog: snakemake
 
