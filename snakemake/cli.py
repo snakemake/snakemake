@@ -3,24 +3,40 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import argparse
-from functools import partial
+import os
+import re
 import sys
+from argparse import ArgumentDefaultsHelpFormatter
+from functools import partial
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
 from typing import Set
 
-import configargparse
+from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
-from snakemake import logging
 import snakemake.common.argparse
+from snakemake import logging
 from snakemake.api import SnakemakeApi, _get_executor_plugin_registry, resolve_snakefile
-
-import os
-import glob
-from argparse import ArgumentDefaultsHelpFormatter
-from pathlib import Path
-import re
-import shlex
-from importlib.machinery import SourceFileLoader
+from snakemake.common import (
+    SNAKEFILE_CHOICES,
+    __version__,
+    async_run,
+    get_appdirs,
+    parse_key_value_arg,
+)
+from snakemake.dag import Batch
+from snakemake.exceptions import (
+    CliException,
+    ResourceScopesException,
+    print_exception,
+)
+from snakemake.resources import (
+    DefaultResources,
+    ResourceScopes,
+    eval_resource_expression,
+    parse_resources,
+)
 from snakemake.settings import (
     ChangeType,
     ConfigSettings,
@@ -28,46 +44,21 @@ from snakemake.settings import (
     DeploymentMethod,
     DeploymentSettings,
     ExecutionSettings,
+    GroupSettings,
     NotebookEditMode,
     OutputSettings,
     PreemptibleRules,
     Quietness,
     RemoteExecutionSettings,
+    RerunTrigger,
     ResourceSettings,
     SchedulingSettings,
+    SharedFSUsage,
     StorageSettings,
     WorkflowSettings,
-    GroupSettings,
-    SharedFSUsage,
 )
-
-from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake.target_jobs import parse_target_jobs_cli_args
-
-from snakemake.workflow import Workflow
-from snakemake.dag import Batch
-from snakemake.exceptions import (
-    CliException,
-    ResourceScopesException,
-    print_exception,
-)
-from snakemake.utils import update_config, available_cpu_count
-from snakemake.common import (
-    SNAKEFILE_CHOICES,
-    __version__,
-    async_run,
-    get_appdirs,
-    get_container_image,
-    parse_key_value_arg,
-)
-from snakemake.resources import (
-    ResourceScopes,
-    eval_resource_expression,
-    parse_resources,
-    DefaultResources,
-)
-from snakemake.settings import RerunTrigger
+from snakemake.utils import available_cpu_count, update_config
 
 
 def parse_set_threads(args):
@@ -143,7 +134,7 @@ def parse_set_ints(arg, errmsg, fallback=None):
                 if fallback is not None:
                     try:
                         value = fallback(value)
-                    except Exception as e:
+                    except Exception:
                         raise ValueError(errmsg)
                 else:
                     raise ValueError(errmsg)
@@ -1495,10 +1486,10 @@ def get_argument_parser(profiles=None):
 
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
     group_deployment.add_argument(
-        "--sdm",
         "--software-deployment-method",
         "--deployment-method",
         "--deployment",
+        "--sdm",
         nargs="+",
         choices=DeploymentMethod.choices(),
         parse_func=DeploymentMethod.parse_choices_set,
