@@ -57,6 +57,7 @@ from snakemake.exceptions import (
     UnknownRuleException,
     NoRulesException,
     WorkflowError,
+    update_lineno,
 )
 from snakemake.dag import DAG, ChangeType
 from snakemake.scheduler import JobScheduler
@@ -118,7 +119,6 @@ from snakemake.sourcecache import (
     SourceFile,
     infer_source_file,
 )
-from snakemake.exceptions import print_exception
 from snakemake.deployment.conda import Conda
 from snakemake import api, sourcecache
 
@@ -1368,11 +1368,8 @@ class Workflow(WorkflowExecutorInterface):
         try:
             exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
         except SyntaxError as e:
-            print_exception(e, self.linemaps)
-            if print_compilation:
-                raise e
-            else:
-                sys.exit(1)
+            e = update_lineno(e, self.linemaps)
+            raise
 
         if not overwrite_default_target:
             self.default_target = default_target
