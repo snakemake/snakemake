@@ -160,7 +160,7 @@ def print_exception(ex, linemaps=None):
         traceback.print_exception(type(ex), ex, ex.__traceback__)
 
 
-def update_lineno(ex: SyntaxError, linemaps: dict[str, dict[int, int]]):
+def update_lineno(ex: SyntaxError, linemaps):
     if ex.filename and ex.lineno:
         ex.lineno = linemaps[ex.filename][ex.lineno]
         return ex
