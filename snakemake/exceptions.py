@@ -188,18 +188,18 @@ class RuleException(Exception):
         snakefile -- the file the exception originates
         """
         super(RuleException, self).__init__(message)
-        self._include = set()
+        _include = set()
         if include:
             for ex in include:
-                self._include.add(ex)
-                self._include.update(ex._include)
+                _include.add(ex)
+                _include.update(ex._include)
         if rule is not None:
             if lineno is None:
                 lineno = rule.lineno
             if snakefile is None:
                 snakefile = rule.snakefile
 
-        self._include = list(self._include)
+        self._include = list(_include)
         self.rule = rule
         self.lineno = lineno
         self.filename = snakefile
