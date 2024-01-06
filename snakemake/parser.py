@@ -536,7 +536,7 @@ class AbstractCmd(Run):
         super().__init__(
             snakefile, rulename, base_indent=base_indent, dedent=dedent, root=root
         )
-        self.cmd = list()
+        self.cmd: list[tuple[str, tokenize.TokenInfo]] = []
         self.token = None
         if self.overwrite_cmd is not None:
             self.block_content = self.overwrite_block_content
@@ -564,7 +564,7 @@ class AbstractCmd(Run):
         yield INDENT * (self.effective_indent + 1)
         yield self.end_func
         yield "("
-        yield "\n".join(self.cmd)
+        yield from self.cmd
         yield from self.args()
         yield "\n"
         yield ")"
@@ -577,19 +577,18 @@ class AbstractCmd(Run):
             self.error(
                 "Command must be given as string after the shell keyword.", token
             )
-        for t in self.end():
-            yield t, self.token
+        yield from super().decorate_end(self.token)
 
     def block_content(self, token):
         self.token = token
-        self.cmd.append(token.string)
+        self.cmd.append((token.string, token))
         yield token.string, token
 
     def overwrite_block_content(self, token):
         if self.token is None:
             self.token = token
             cmd = repr(self.overwrite_cmd)
-            self.cmd.append(cmd)
+            self.cmd.append((cmd, token))
             yield cmd, token
 
 
@@ -1315,6 +1314,7 @@ def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
                     )
                 )
             )
+            print(f">{t}<", orig_token)
             snakefile.lines += t.count("\n")
             compilation.append((t, orig_token))
     compilation = "".join(format_tokens(format_f_tokens(compilation)))
