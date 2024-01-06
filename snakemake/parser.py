@@ -1314,7 +1314,6 @@ def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
                     )
                 )
             )
-            print(f">{t}<", orig_token)
             snakefile.lines += t.count("\n")
             compilation.append((t, orig_token))
     compilation = "".join(format_tokens(format_f_tokens(compilation)))
