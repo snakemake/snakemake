@@ -244,8 +244,8 @@ Integrated Package Management
 
 It is possible (and highly encouraged, see :ref:`snakefiles-best_practices`) to define isolated software environments per rule.
 Upon execution of a workflow, the `Conda package manager <https://conda.pydata.org>`_ is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root priviledges.
-Given that conda is available on your system (see `Miniconda <https://conda.pydata.org/miniconda.html>`_), to use the Conda integration, add the ``--software-deployment-method conda`` flag to your workflow execution command, e.g. ``snakemake --cores 8 --software-deployment-method conda``.
-When ``--software-deployment-method conda`` is activated, Snakemake will automatically create software environments for any used wrapper (see :ref:`snakefiles-wrappers`).
+Given that conda is available on your system (see `Miniconda <https://conda.pydata.org/miniconda.html>`_), to use the Conda integration, add the ``--software-deployment-method conda`` option (``--sdm`` for short) to your workflow execution command, e.g. ``snakemake --cores 8 --sdm conda``.
+When ``--software-deployment-method conda`` (``--sdm`` for short) is activated, Snakemake will automatically create software environments for any used wrapper (see :ref:`snakefiles-wrappers`).
 Further, you can manually define environments via the ``conda`` directive, e.g.:
 
 .. code-block:: python
@@ -295,7 +295,7 @@ At the moment, only a single, random conda environment is shown.
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
-Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --software-deployment-method conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--software-deployment-method conda`` will make use of the local environments without requiring internet access.
+Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --sdm conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--sdm conda`` will make use of the local environments without requiring internet access.
 
 Freezing environments to exactly pinned packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -425,6 +425,8 @@ When executing Snakemake with
 .. code-block:: bash
 
     snakemake --software-deployment-method apptainer
+    # or the shorthand version
+    snakemake --sdm apptainer
 
 it will execute the job within a container that is spawned from the given image.
 Allowed image urls entail everything supported by apptainer (e.g., ``shub://`` and ``docker://``).
@@ -522,6 +524,8 @@ Then, upon invocation with
 .. code-block:: bash
 
     snakemake --software-deployment-method conda apptainer
+    # or the shorthand version
+    snakemake --sdm conda apptainer
 
 Snakemake will first pull the defined container image, and then create the requested conda environment from within the container.
 The conda environments will still be stored in your working environment, such that they don't have to be recreated unless they have changed.
@@ -635,3 +639,5 @@ has been installed.
 This mechanism requires that you use Mamba_ or Conda and activate conda-based software deployment via::
 
     --software-deployment-method conda
+    # or the shorthand version
+    --sdm conda
