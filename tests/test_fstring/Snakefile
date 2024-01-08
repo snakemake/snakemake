@@ -10,6 +10,10 @@ rule unit1:
         "echo '>'{output}'<'; touch {output}; sleep 1"
 
 
+rule unit2:
+    shell:
+        f"ls"
+
 assert (
     f"""
 {

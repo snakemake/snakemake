@@ -160,6 +160,12 @@ def print_exception(ex, linemaps=None):
         traceback.print_exception(type(ex), ex, ex.__traceback__)
 
 
+def update_lineno(ex: SyntaxError, linemaps):
+    if ex.filename and ex.lineno:
+        ex.lineno = linemaps[ex.filename][ex.lineno]
+        return ex
+
+
 class SourceFileError(WorkflowError):
     def __init__(self, msg):
         super().__init__(f"Error in source file definition: {msg}")
@@ -188,18 +194,18 @@ class RuleException(Exception):
         snakefile -- the file the exception originates
         """
         super(RuleException, self).__init__(message)
-        self._include = set()
+        _include = set()
         if include:
             for ex in include:
-                self._include.add(ex)
-                self._include.update(ex._include)
+                _include.add(ex)
+                _include.update(ex._include)
         if rule is not None:
             if lineno is None:
                 lineno = rule.lineno
             if snakefile is None:
                 snakefile = rule.snakefile
 
-        self._include = list(self._include)
+        self._include = list(_include)
         self.rule = rule
         self.lineno = lineno
         self.filename = snakefile

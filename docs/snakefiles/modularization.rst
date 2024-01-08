@@ -86,7 +86,7 @@ A CWL tool definition can be used as follows.
 
 It is advisable to use a github URL that includes the commit as above instead of a branch name, in order to ensure reproducible results.
 Snakemake will execute the rule by invoking `cwltool`, which has to be available via your `$PATH` variable, and can be, e.g., installed via `conda` or `pip`.
-When using in combination with :ref:`--software-deployment-method apptainer <apptainer>`, Snakemake will instruct `cwltool` to execute the command via Singularity in user space.
+When using in combination with :ref:`--software-deployment-method apptainer <apptainer>` (``--sdm`` for short), Snakemake will instruct `cwltool` to execute the command via Singularity in user space.
 Otherwise, `cwltool` will in most cases use a Docker container, which requires Docker to be set up properly.
 
 The advantage is that predefined tools available via any `repository of CWL tool definitions <https://www.commonwl.org/#Repositories_of_CWL_Tools_and_Workflows>`_ can be used in any supporting workflow management system.
