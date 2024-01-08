@@ -44,6 +44,13 @@ Morever, some options have been renamed:
 
 * All the execution backends have been moved into plugins. When you used e.g. ``--kubernetes`` and corresponding options before, you should now use ``--executor kubeternes`` and check the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/kubernetes.html>`_ for the new options. The same holds for all other execution backends, see `here <https://snakemake.github.io/snakemake-plugin-catalog/index.html>`_.
 * The ``--use-conda`` and ``--use-singularity`` options are deprecated. Instead you should now use ``--software-deployment-method conda`` or ``--software-deployment-method apptainer`` or ``--software-deployment-method conda apptainer`` if you need both.
+* There is a new executor plugin for `Google Cloud Batch <https://cloud.google.com/batch/docs/get-started>`_.
+  This is meant as a replacement for the old Google Life Sciences executor. 
+  The new executor is called ``googlebatch`` and can be used with ``--executor googlebatch``. 
+  Please check out the documentation of the plugin in the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/googlebatch.html>`_. 
+  Note that in principle it is fine to re-add google-lifesciences support as a plugin as well. 
+  We even have skeleton code for this `here <https://github.com/snakemake/snakemake-executor-plugin-google-lifesciences>`_. 
+  Any help with getting this tested and released despite the fact that google lifesciences will be shut down this year would still be valued.
 
 .. list-table:: Interface comparison
    :widths: 15 30 15 30 10
