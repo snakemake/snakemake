@@ -1934,8 +1934,12 @@ def test_script_pre_py39():
 
 def test_issue1256():
     snakefile = os.path.join(dpath("test_issue1256"), "Snakefile")
-    p = subprocess.Popen(f"snakemake -s {snakefile}", 
-        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(
+        f"snakemake -s {snakefile}",
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     stdout, stderr = p.communicate()
     stderr = stderr.decode()
     assert p.returncode == 1
