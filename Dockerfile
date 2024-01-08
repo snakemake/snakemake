@@ -17,8 +17,8 @@ RUN micromamba create -q -y -c bioconda -c conda-forge -n snakemake \
     snakemake-minimal --only-deps && \
     eval "$(micromamba shell hook --shell bash)" && \
     micromamba activate /opt/conda/envs/snakemake && \
-    micromamba install -c conda-forge apptainer && \
-    micromamba clean --all -y 
+    micromamba install -c conda-forge apptainer mamba && \
+    micromamba clean --all -y
 
 ENV PATH /opt/conda/envs/snakemake/bin:${PATH}
 RUN pip install .[reports,messaging,pep]
