@@ -2531,8 +2531,8 @@ So far, explicit MPI support is implemented in the `slurm plugin <https://snakem
 
 .. _snakefiles_continuous_input:
 
-Continuous input
-----------------
+Continuously updated input
+--------------------------
 
 Form Snakemake 8.2 on, it is possible to define rules that continuously accept input.
 This is useful for example for streaming data analysis.
