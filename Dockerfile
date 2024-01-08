@@ -13,12 +13,14 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt /var/lib/dpkg /var/lib/cache /var/lib/log
 
+RUN micromamba create -q -y -c conda-forge -n apptainer apptainer
+
 RUN micromamba create -q -y -c bioconda -c conda-forge -n snakemake \
     snakemake-minimal --only-deps && \
     eval "$(micromamba shell hook --shell bash)" && \
     micromamba activate /opt/conda/envs/snakemake && \
-    micromamba install -c conda-forge apptainer mamba && \
+    micromamba install -c conda-forge mamba && \
     micromamba clean --all -y
 
-ENV PATH /opt/conda/envs/snakemake/bin:${PATH}
+ENV PATH /opt/conda/envs/snakemake/bin:/opt/conda/envs/apptainer/bin:${PATH}
 RUN pip install .[reports,messaging,pep]
