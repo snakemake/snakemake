@@ -143,6 +143,8 @@ When Snakemake is executed with
 .. code:: console
 
   snakemake --software-deployment-method conda --cores 1
+  # or the short form
+    snakemake --sdm conda -c 1
 
 it will automatically create required environments and
 activate them before a job is executed.
