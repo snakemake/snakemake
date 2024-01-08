@@ -57,6 +57,7 @@ from snakemake.exceptions import (
     UnknownRuleException,
     NoRulesException,
     WorkflowError,
+    update_lineno,
 )
 from snakemake.dag import DAG, ChangeType
 from snakemake.scheduler import JobScheduler
@@ -164,7 +165,7 @@ class Workflow(WorkflowExecutorInterface):
         self._linemaps = dict()
         self.rule_count = 0
         self.included = []
-        self.included_stack = []
+        self.included_stack: list[SourceFile] = []
         self._persistence: Optional[Persistence] = None
         self._dag: Optional[DAG] = None
         self._onsuccess = lambda log: None
@@ -1353,14 +1354,22 @@ class Workflow(WorkflowExecutorInterface):
         if print_compilation:
             print(code)
 
-        if isinstance(snakefile, LocalSourceFile):
+        snakefile_path_or_uri = snakefile.get_basedir().get_path_or_uri()
+        if (
+            isinstance(snakefile, LocalSourceFile)
+            and snakefile_path_or_uri not in sys.path
+        ):
             # insert the current directory into sys.path
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
 
         self.linemaps[snakefile.get_path_or_uri()] = linemap
 
-        exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
+        try:
+            exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
+        except SyntaxError as e:
+            e = update_lineno(e, self.linemaps)
+            raise
 
         if not overwrite_default_target:
             self.default_target = default_target
