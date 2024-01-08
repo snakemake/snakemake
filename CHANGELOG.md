@@ -1,6 +1,27 @@
 # Changelog
 
 
+## [8.1.0](https://github.com/snakemake/snakemake/compare/v8.0.1...v8.1.0) (2024-01-08)
+
+
+### Features
+
+* add --sdm short opt for --deployment ([#2551](https://github.com/snakemake/snakemake/issues/2551)) ([fd8b4b0](https://github.com/snakemake/snakemake/commit/fd8b4b08da778097071ea8c32c95e21e610c6614))
+
+
+### Bug Fixes
+
+* add mamba to docker image ([eb0c884](https://github.com/snakemake/snakemake/commit/eb0c88495b506300fdf7c1afc4c02d6b91c6a582))
+* correctly report lineno ([#2584](https://github.com/snakemake/snakemake/issues/2584)) ([967a0d7](https://github.com/snakemake/snakemake/commit/967a0d7cb90c63c7be00b49fd535cf1029f63b5b))
+* move apptainer into separate env in docker image ([94e9e2c](https://github.com/snakemake/snakemake/commit/94e9e2c33ee63551aa3630c7106344ee2fa11f4d))
+* single line f-string format error in py3.12 ([#2588](https://github.com/snakemake/snakemake/issues/2588)) ([87c06c0](https://github.com/snakemake/snakemake/commit/87c06c0f5745f577c12db39852c6f763a2d41954))
+
+
+### Documentation
+
+* add note on google executor backends ([ff8683c](https://github.com/snakemake/snakemake/commit/ff8683c80511a78103c14442a3d3fb81bcbef2cc))
+* diff 7 and 8 ([#2561](https://github.com/snakemake/snakemake/issues/2561)) ([ba22e07](https://github.com/snakemake/snakemake/commit/ba22e07af2ab8248888cb57f4bcb8a9eb2623977))
+
 ## [8.0.1](https://github.com/snakemake/snakemake/compare/v8.0.0...v8.0.1) (2023-12-21)
 
 
