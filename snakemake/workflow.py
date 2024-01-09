@@ -84,6 +84,7 @@ from snakemake.io import (
     IOFile,
     sourcecache_entry,
 )
+from snakemake.access_patterns import access_pattern
 
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
@@ -205,6 +206,7 @@ class Workflow(WorkflowExecutorInterface):
         _globals["gitlab"] = sourcecache.GitlabFile
         _globals["gitfile"] = sourcecache.LocalGitFile
         _globals["storage"] = self._storage_registry
+        _globals["access_pattern"] = access_pattern
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
