@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+from builtins import ExceptionGroup
 import html
 import os
 import shutil
@@ -346,12 +347,17 @@ class DAG(DAGExecutorInterface):
             self.workflow.remote_exec and not shared_local_copies
         ):
             logger.info("Retrieving input from storage.")
+            to_retrieve = {
+                f
+                for job in self.needrun_jobs()
+                for f in job.input
+                if f.is_storage and self.is_external_input(f, job)
+            }
+
             async with asyncio.TaskGroup() as tg:
-                for job in self.needrun_jobs():
-                    for f in job.input:
-                        if f.is_storage and self.is_external_input(f, job):
-                            logger.info(f"Retrieving {f} from storage.")
-                            tg.create_task(f.retrieve_from_storage())
+                for f in to_retrieve:
+                    logger.info(f"Retrieving {f} from storage.")
+                    tg.create_task(f.retrieve_from_storage())
 
     async def store_storage_outputs(self):
         if self.workflow.remote_exec:
