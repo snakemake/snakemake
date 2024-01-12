@@ -606,11 +606,19 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 os.environ["PATH"],
             )
         try:
-            solver = (
-                pulp.getSolver(self.workflow.scheduling_settings.ilp_solver)
-                if self.workflow.scheduling_settings.ilp_solver
-                else pulp.apis.LpSolverDefault
-            )
+            # Check if pulp version is 2.7.0 or above
+            if pulp.__version__ >= '2.7.0':
+                solver = (
+                    pulp.getSolver(self.workflow.scheduling_settings.ilp_solver)
+                    if self.workflow.scheduling_settings.ilp_solver
+                    else pulp.apis.LpSolverDefault
+                )
+            else:
+               solver = (
+                    pulp.get_solver(self.workflow.scheduling_settings.ilp_solver)
+                    if self.workflow.scheduling_settings.ilp_solver
+                    else pulp.apis.LpSolverDefault
+                )
         finally:
             os.environ["PATH"] = old_path
         solver.msg = self.workflow.output_settings.verbose

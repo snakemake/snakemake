@@ -767,7 +767,12 @@ def get_argument_parser(profiles=None):
     try:
         import pulp
 
-        lp_solvers = pulp.listSolvers(onlyAvailable=True)
+        # Check if pulp version is 2.7.0 or above
+        if pulp.__version__ >= '2.7.0':
+            lp_solvers = pulp.listSolvers(onlyAvailable=True)
+        else:
+            # Use the deprecated attribute for older versions
+            lp_solvers = pulp.list_solvers(onlyAvailable=True)
     except ImportError:
         # Dummy list for the case that pulp is not available
         # This only happened when building docs.
