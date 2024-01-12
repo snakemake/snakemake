@@ -479,7 +479,7 @@ class _IOFile(str, AnnotatedStringInterface):
                     mtime._local_target = mtime_local._local_target
                     mtime._local = mtime_local._local
             else:
-                cache[self] = mtime = await self.mtime_uncached()
+                cache.mtime[self] = mtime = await self.mtime_uncached()
             return mtime
         else:
             return await self.mtime_uncached()
