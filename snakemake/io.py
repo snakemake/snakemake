@@ -467,11 +467,23 @@ class _IOFile(str, AnnotatedStringInterface):
             and not os.path.islink(self.file)
         )
 
-    @iocache
     async def mtime(self):
-        return await self.mtime_uncached()
+        if self.rule.workflow.iocache.active:
+            cache = self.rule.workflow.iocache
+            try:
+                mtime = cache.mtime[self]
+            except KeyError:
+                cache[self] = mtime = await self.mtime_uncached()
+            # if inventory is filled by storage plugin, mtime.local() will be none and
+            # needs update
+            if mtime.local() is None and await self.exists_local():
+                mtime_local = await self.mtime_uncached(skip_storage=True)
+                mtime._local_target = mtime_local._local_target
+                mtime._local = mtime_local._local
+        else:
+            return await self.mtime_uncached()
 
-    async def mtime_uncached(self):
+    async def mtime_uncached(self, skip_storage: bool = False):
         """Obtain mtime.
 
         Usually, this will be one stat call only. For symlinks and directories
@@ -480,7 +492,9 @@ class _IOFile(str, AnnotatedStringInterface):
         location.
         """
         mtime_in_storage = (
-            (await self.storage_object.managed_mtime()) if self.is_storage else None
+            (await self.storage_object.managed_mtime())
+            if self.is_storage and not skip_storage
+            else None
         )
 
         # We first do a normal stat.
@@ -627,7 +641,7 @@ class _IOFile(str, AnnotatedStringInterface):
         if self.is_storage:
             if not self.should_not_be_retrieved_from_storage:
                 mtime = await self.mtime()
-                if not await self.exists_local() or mtime.local() < mtime.storage():
+                if not await self.exists_local() or mtime_local < mtime.storage():
                     logger.info(f"Retrieving from storage: {self.storage_object.query}")
                     await self.storage_object.managed_retrieve()
                     logger.info("Finished retrieval.")
