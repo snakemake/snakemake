@@ -470,16 +470,17 @@ class _IOFile(str, AnnotatedStringInterface):
     async def mtime(self):
         if self.rule.workflow.iocache.active:
             cache = self.rule.workflow.iocache
-            try:
+            if self in cache.mtime:
                 mtime = cache.mtime[self]
-            except KeyError:
+                # if inventory is filled by storage plugin, mtime.local() will be None and
+                # needs update
+                if mtime.local() is None and await self.exists_local():
+                    mtime_local = await self.mtime_uncached(skip_storage=True)
+                    mtime._local_target = mtime_local._local_target
+                    mtime._local = mtime_local._local
+            else:
                 cache[self] = mtime = await self.mtime_uncached()
-            # if inventory is filled by storage plugin, mtime.local() will be none and
-            # needs update
-            if mtime.local() is None and await self.exists_local():
-                mtime_local = await self.mtime_uncached(skip_storage=True)
-                mtime._local_target = mtime_local._local_target
-                mtime._local = mtime_local._local
+            return mtime
         else:
             return await self.mtime_uncached()
 
