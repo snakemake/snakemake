@@ -172,6 +172,7 @@ class Workflow(WorkflowExecutorInterface):
         self._onerror = lambda log: None
         self._onstart = lambda log: None
         self._rulecount = 0
+        self._parent_groupids = dict()
         self.global_container_img = None
         self.global_is_containerized = False
         self.configfiles = list(self.config_settings.configfiles)
@@ -212,6 +213,10 @@ class Workflow(WorkflowExecutorInterface):
         self.cache_rules = dict()
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
+
+    @property
+    def parent_groupids(self):
+        return self._parent_groupids
 
     def tear_down(self):
         for conda_env in self.injected_conda_envs:
