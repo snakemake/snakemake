@@ -138,7 +138,7 @@ class Workflow(WorkflowExecutorInterface):
     scheduling_settings: Optional[SchedulingSettings] = None
     output_settings: Optional[OutputSettings] = None
     remote_execution_settings: Optional[RemoteExecutionSettings] = None
-    group_settings: Optional[GroupSettings] = None
+    group_settings: GroupSettings = field(default_factory=GroupSettings)
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     check_envvars: bool = True
