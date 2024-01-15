@@ -1380,7 +1380,7 @@ class DAG(DAGExecutorInterface):
         for group in self._group.values():
             groups_by_id[group.groupid].add(group)
         for groupid, conn_components in groups_by_id.items():
-            lookup_id = self.workflow.parent_groups.get(groupid, groupid)
+            lookup_id = self.workflow.parent_groupids.get(groupid, groupid)
             n_components = self.workflow.group_settings.group_components.get(
                 lookup_id, 1
             )
