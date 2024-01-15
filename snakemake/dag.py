@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+from builtins import ExceptionGroup
 import html
 import os
 import shutil
@@ -348,12 +349,20 @@ class DAG(DAGExecutorInterface):
         if (self.workflow.is_main_process and shared_local_copies) or (
             self.workflow.remote_exec and not shared_local_copies
         ):
-            async with asyncio.TaskGroup() as tg:
-                for job in self.needrun_jobs():
-                    for f in job.input:
-                        if f.is_storage and self.is_external_input(f, job):
-                            logger.info(f"Retrieving {f} from storage.")
-                            tg.create_task(f.retrieve_from_storage())
+            to_retrieve = {
+                f
+                for job in self.needrun_jobs()
+                for f in job.input
+                if f.is_storage and self.is_external_input(f, job)
+            }
+
+            try:
+                async with asyncio.TaskGroup() as tg:
+                    for f in to_retrieve:
+                        logger.info(f"Retrieving {f} from storage.")
+                        tg.create_task(f.retrieve_from_storage())
+            except ExceptionGroup as e:
+                raise WorkflowError("Failed to retrieve input from storage.", e)
 
     async def store_storage_outputs(self):
         if self.workflow.remote_exec:
@@ -1706,10 +1715,13 @@ class DAG(DAGExecutorInterface):
                 depending = list(self.depending[job])
                 # re-evaluate depending jobs, replace and update DAG
                 if depending:
-                    async with asyncio.TaskGroup() as tg:
-                        for f in job.output:
-                            if f.is_storage:
-                                tg.create_task(f.retrieve_from_storage())
+                    try:
+                        async with asyncio.TaskGroup() as tg:
+                            for f in job.output:
+                                if f.is_storage:
+                                    tg.create_task(f.retrieve_from_storage())
+                    except ExceptionGroup as e:
+                        raise WorkflowError("Failed to retrieve checkpoint output.", e)
                 for j in depending:
                     logger.debug(f"Updating job {j}.")
                     newjob = j.updated()

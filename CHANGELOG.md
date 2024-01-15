@@ -1,6 +1,21 @@
 # Changelog
 
 
+## [8.1.2](https://github.com/snakemake/snakemake/compare/v8.1.1...v8.1.2) (2024-01-12)
+
+
+### Bug Fixes
+
+* local mtime handling in case of storage plugins and cleaner error message for parallel storage retrieval ([#2611](https://github.com/snakemake/snakemake/issues/2611)) ([880b264](https://github.com/snakemake/snakemake/commit/880b2645c961a98c0eb33b9cdab75d7804860c0a))
+* Migrate away from deprecated pulp API ([#2610](https://github.com/snakemake/snakemake/issues/2610)) ([fb26640](https://github.com/snakemake/snakemake/commit/fb2664008d6cffd09c52ec9fd9c994bd198ed69c))
+
+## [8.1.1](https://github.com/snakemake/snakemake/compare/v8.1.0...v8.1.1) (2024-01-11)
+
+
+### Bug Fixes
+
+* deduplicate input files before retrieval from storage ([#2600](https://github.com/snakemake/snakemake/issues/2600)) ([37cf475](https://github.com/snakemake/snakemake/commit/37cf475a4205d306a3969ab0e3249f0c9f7d4e19))
+
 ## [8.1.0](https://github.com/snakemake/snakemake/compare/v8.0.1...v8.1.0) (2024-01-08)
 
 

@@ -563,7 +563,6 @@ def get_argument_parser(profiles=None):
             "Define which rules shall use a preemptible machine which can be prematurely killed by e.g. a cloud provider (also called spot instances). "
             "This is currently only supported by the Google Life Sciences executor and ignored by all other executors. "
             "If no rule names are provided, all rules are considered to be preemptible. "
-            "The "
         ),
     )
 
@@ -767,7 +766,7 @@ def get_argument_parser(profiles=None):
     try:
         import pulp
 
-        lp_solvers = pulp.list_solvers(onlyAvailable=True)
+        lp_solvers = pulp.listSolvers(onlyAvailable=True)
     except ImportError:
         # Dummy list for the case that pulp is not available
         # This only happened when building docs.
@@ -1909,9 +1908,11 @@ def args_to_api(args, parser):
                         ),
                     )
 
+                    # None indicates that the flag is not being used, a set indicates used
                     if args.preemptible_rules is not None:
-                        if not preemptible_rules:
-                            # no specific rule given, consider all to be made preemptible
+                        # If no explicit rules provided (empty set) we assume all preemptible
+                        # Checking for "not" evaluates for an empty set
+                        if not args.preemptible_rules:
                             preemptible_rules = PreemptibleRules(all=True)
                         else:
                             preemptible_rules = PreemptibleRules(

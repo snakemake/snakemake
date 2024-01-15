@@ -39,7 +39,7 @@ dependencies:
   - jsonschema
   - pandas
   - gitpython
-  - pulp >=2.0
+  - pulp >=2.3.1
   - environment-modules
   - nbformat
   - toposort >=1.10
