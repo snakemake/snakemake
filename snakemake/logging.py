@@ -184,7 +184,6 @@ class WMSLogger:
 
         # Prepare a request that has metadata about the job
         metadata = {
-            "snakefile": os.path.join(workdir, self.metadata.get("snakefile")),
             "command": self.metadata.get("command"),
             "workdir": workdir,
         }
