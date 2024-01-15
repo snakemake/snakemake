@@ -1380,7 +1380,10 @@ class DAG(DAGExecutorInterface):
         for group in self._group.values():
             groups_by_id[group.groupid].add(group)
         for groupid, conn_components in groups_by_id.items():
-            n_components = self.workflow.group_settings.group_components.get(groupid, 1)
+            lookup_id = self.workflow.parent_groups.get(groupid, groupid)
+            n_components = self.workflow.group_settings.group_components.get(
+                lookup_id, 1
+            )
             if n_components > 1:
                 for chunk in group_into_chunks(n_components, conn_components):
                     if len(chunk) > 1:
