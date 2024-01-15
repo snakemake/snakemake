@@ -152,7 +152,6 @@ class SnakemakeApi(ApiBase):
             workflow_settings=workflow_settings,
             deployment_settings=deployment_settings,
             storage_provider_settings=storage_provider_settings,
-            group_settings=GroupSettings(),  # just init with defaults, can be overwritten later
         )
         return self._workflow_api
 
@@ -379,6 +378,10 @@ class WorkflowApi(ApiBase):
 
     def _get_workflow(self, **kwargs):
         from snakemake.workflow import Workflow
+
+        if "group_settings" not in kwargs:
+            # just init with defaults, can be overwritten later
+            kwargs["group_settings"] = GroupSettings()
 
         return Workflow(
             config_settings=self.config_settings,
