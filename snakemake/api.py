@@ -152,6 +152,7 @@ class SnakemakeApi(ApiBase):
             workflow_settings=workflow_settings,
             deployment_settings=deployment_settings,
             storage_provider_settings=storage_provider_settings,
+            group_settings=GroupSettings(),  # just init with defaults, can be overwritten later
         )
         return self._workflow_api
 
