@@ -642,7 +642,7 @@ class _IOFile(str, AnnotatedStringInterface):
         if self.is_storage:
             if not self.should_not_be_retrieved_from_storage:
                 mtime = await self.mtime()
-                if not await self.exists_local() or mtime_local < mtime.storage():
+                if not await self.exists_local() or mtime.local() < mtime.storage():
                     logger.info(f"Retrieving from storage: {self.storage_object.query}")
                     await self.storage_object.managed_retrieve()
                     logger.info("Finished retrieval.")

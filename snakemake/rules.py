@@ -1012,7 +1012,10 @@ class Rule(RuleInterface):
             item, _ = self.apply_input_function(self.group, wildcards)
             return item
         elif isinstance(self.group, str):
-            return apply_wildcards(self.group, wildcards)
+            resolved = apply_wildcards(self.group, wildcards)
+            if resolved != self.group:
+                self.workflow.parent_groupids[resolved] = self.group
+            return resolved
         else:
             return self.group
 
