@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [8.1.3](https://github.com/snakemake/snakemake/compare/v8.1.2...v8.1.3) (2024-01-15)
+
+
+### Bug Fixes
+
+* bug with preemptible rules ([#2616](https://github.com/snakemake/snakemake/issues/2616)) ([c6d7141](https://github.com/snakemake/snakemake/commit/c6d71410a042f2c0075a75fc024bd1e05fe0af15))
+* do not pass snakefile as metadata when wms monitor flag is used ([#2573](https://github.com/snakemake/snakemake/issues/2573)) ([13b3205](https://github.com/snakemake/snakemake/commit/13b3205a6e808dc48fd7a3be9652b9f0c8887648))
+* use default group settings if not execution workflow (fixes attribute error occurring with --report) ([#2617](https://github.com/snakemake/snakemake/issues/2617)) ([21e9964](https://github.com/snakemake/snakemake/commit/21e996421abd72122a1403a10eb74c111bde28be))
+
 ## [8.1.2](https://github.com/snakemake/snakemake/compare/v8.1.1...v8.1.2) (2024-01-12)
 
 
