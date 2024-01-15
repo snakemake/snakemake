@@ -1481,7 +1481,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
     @property
     def rules(self):
-        return [job.rule.name for job in self.jobs]
+        return set(job.rule.name for job in self.jobs)
 
     @property
     def expanded_output(self):
