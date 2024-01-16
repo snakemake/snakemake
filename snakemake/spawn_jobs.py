@@ -105,6 +105,23 @@ class SpawnedJobArgsFactory:
             usage if usage else "none",
         )
 
+    def get_group_args(self):
+        group_settings = self.workflow.group_settings
+        groups = format_cli_arg(
+            "--groups",
+            [
+                f"{rule}={group}"
+                for rule, group in group_settings.overwrite_groups.items()
+            ],
+            skip=not group_settings.overwrite_groups,
+        )
+        group_components = format_cli_arg(
+            "--group-components",
+            [f"{group}={n}" for group, n in group_settings.group_components.items()],
+            skip=not group_settings.group_components,
+        )
+        return join_cli_args([groups, group_components])
+
     def workflow_property_to_arg(
         self, property, flag=None, quote=True, skip=False, invert=False, attr=None
     ):
@@ -176,6 +193,7 @@ class SpawnedJobArgsFactory:
         self,
         pass_default_storage_provider_args: bool = True,
         pass_default_resources_args: bool = False,
+        pass_group_args: bool = False,
     ) -> str:
         """Return a string to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
@@ -249,5 +267,7 @@ class SpawnedJobArgsFactory:
             args.append(self.get_default_storage_provider_args())
         if pass_default_resources_args:
             args.append(w2a("resource_settings.default_resources", attr="args"))
+        if pass_group_args:
+            args.append(self.get_group_args())
 
         return join_cli_args(args)
