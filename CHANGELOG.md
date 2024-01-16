@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [8.2.0](https://github.com/snakemake/snakemake/compare/v8.1.3...v8.2.0) (2024-01-16)
+
+
+### Features
+
+* add method to obtain group args for spawned jobs ([bd1b450](https://github.com/snakemake/snakemake/commit/bd1b450950c5b6e510778ca09fe11beffd9a6ff3))
+
+
+### Bug Fixes
+
+* properly resolve wildcards in group components ([#2620](https://github.com/snakemake/snakemake/issues/2620)) ([c788a46](https://github.com/snakemake/snakemake/commit/c788a465f25dc700103df6475d566d81e2c88bef))
+* return set of rules when obtaining allowed rules for remote job ([2c44cf6](https://github.com/snakemake/snakemake/commit/2c44cf641335812ca0877e3987726403c8919415))
+
 ## [8.1.3](https://github.com/snakemake/snakemake/compare/v8.1.2...v8.1.3) (2024-01-15)
 
 
