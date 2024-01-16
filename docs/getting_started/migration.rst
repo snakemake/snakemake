@@ -42,7 +42,7 @@ The command line interface of Snakemake 8 has a lot of new options which are bes
 
 Morever, some options have been renamed:
 
-* All the execution backends have been moved into plugins. When you used e.g. ``--kubernetes`` and corresponding options before, you should now use ``--executor kubeternes`` and check the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/kubernetes.html>`_ for the new options. The same holds for all other execution backends, see `here <https://snakemake.github.io/snakemake-plugin-catalog/index.html>`_.
+* All the execution backends have been moved into plugins. When you used e.g. ``--kubernetes`` and corresponding options before, you should now use ``--executor kubernetes`` and check the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/kubernetes.html>`_ for the new options. The same holds for all other execution backends, see `here <https://snakemake.github.io/snakemake-plugin-catalog/index.html>`_.
 * The ``--use-conda`` and ``--use-singularity`` options are deprecated. Instead you should now use ``--software-deployment-method conda`` or ``--software-deployment-method apptainer`` or ``--software-deployment-method conda apptainer`` if you need both.
 * There is a new executor plugin for `Google Cloud Batch <https://cloud.google.com/batch/docs/get-started>`_.
   This is meant as a replacement for the old Google Life Sciences executor. 
@@ -566,7 +566,7 @@ Profiles
 ^^^^^^^^
 
 Profiles can now be versioned.
-If your profile makes use of settings that are available in version 8 or later, use the filename ``config.v8+.yaml`` for the profile configuration (see :ref:`profiles`).
+If your profile makes use of settings that are available in version 8 or later, use the filename ``config.v8+.yaml`` for the profile configuration (see :ref:`profiles <profiles>`).
 
 API
 ^^^
