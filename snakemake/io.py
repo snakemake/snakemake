@@ -38,10 +38,10 @@ from snakemake_interface_storage_plugins.io import (
 )
 
 from snakemake.common import (
-  ON_WINDOWS,
-  async_run,
-  get_function_params,
-  get_input_function_aux_params,
+    ON_WINDOWS,
+    async_run,
+    get_function_params,
+    get_input_function_aux_params,
 )
 from snakemake.exceptions import (
     MissingOutputException,
