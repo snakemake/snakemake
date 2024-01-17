@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [8.2.1](https://github.com/snakemake/snakemake/compare/v8.2.0...v8.2.1) (2024-01-17)
+
+
+### Bug Fixes
+
+* do not require cores to be set for rule-level methods of the workflow API or the corresponding CLI commands (e.g. --lint). ([#2629](https://github.com/snakemake/snakemake/issues/2629)) ([2040468](https://github.com/snakemake/snakemake/commit/20404688e91beadd8790e3c6cdcb727bc47d597e))
+* fix false complaints about rules with multiple output files ([#2628](https://github.com/snakemake/snakemake/issues/2628)) ([b1b4f5b](https://github.com/snakemake/snakemake/commit/b1b4f5b0adcd8066b7a6376e9b56778014f9921b))
+* migration guide typo and wrong link ([#2625](https://github.com/snakemake/snakemake/issues/2625)) ([645f3d1](https://github.com/snakemake/snakemake/commit/645f3d1426c1dcd41adf813bdb833060775ffda5))
+
 ## [8.2.0](https://github.com/snakemake/snakemake/compare/v8.1.3...v8.2.0) (2024-01-16)
 
 
