@@ -31,7 +31,6 @@ from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import (
     is_local_file,
-    lazy_property,
     parse_uri,
     ON_WINDOWS,
 )
@@ -42,6 +41,7 @@ from snakemake.io import (
     contains_wildcard,
     _IOFile,
 )
+from snakemake_interface_common.utils import lazy_property
 
 
 class CondaCleanupMode(Enum):
@@ -72,7 +72,7 @@ class Env:
         if env_name is not None:
             assert env_file is None, "bug: both env_file and env_name specified"
 
-        self.frontend = workflow.conda_frontend
+        self.frontend = workflow.deployment_settings.conda_frontend
         self.workflow = workflow
 
         self._container_img = container_img
@@ -89,7 +89,7 @@ class Env:
         self._path = None
         self._archive_file = None
         self._cleanup = cleanup
-        self._singularity_args = workflow.singularity_args
+        self._singularity_args = workflow.deployment_settings.apptainer_args
 
     @lazy_property
     def conda(self):
@@ -318,7 +318,7 @@ class Env:
         ) as e:
             shutil.rmtree(env_archive)
             raise WorkflowError(f"Error downloading conda package {pkg_url}.")
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             shutil.rmtree(env_archive)
             raise e
         return env_archive
@@ -747,7 +747,7 @@ class Conda:
         version = shell.check_output(
             self._get_cmd("conda --version"), stderr=subprocess.PIPE, text=True
         )
-        version_matches = re.findall("\d+.\d+.\d+", version)
+        version_matches = re.findall(r"\d+.\d+.\d+", version)
         if len(version_matches) != 1:
             raise WorkflowError(
                 f"Unable to determine conda version. 'conda --version' returned {version}"

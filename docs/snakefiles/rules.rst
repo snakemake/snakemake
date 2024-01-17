@@ -16,6 +16,16 @@ Most commonly, rules consist of a name, input files, output files, and a shell c
 
 The name is optional and can be left out, creating an anonymous rule. It can also be overridden by setting a rule's ``name`` attribute.
 
+.. code-block:: python
+
+    for tool in ["bcftools", "freebayes"]:
+        rule:
+            name: f"call_variants_{tool}"
+            input: f"path/to/{tool}/inputfile"
+            output: f"path/to/{tool}/outputfile"
+            shell: f"{tool} {{input}} > {{output}}"
+
+
 .. sidebar:: Note
 
     Note that any placeholders in the shell command (like ``{input}``) are always evaluated and replaced
@@ -552,7 +562,7 @@ Snakemake will always round the calculated value down (while enforcing a minimum
 
 Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards[, input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
 
-Both threads can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` see :ref:`user_manual-snakemake_options` and via workflow profiles, see :ref:`profiles`.
+Both threads can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` see :ref:`all_options` and via workflow profiles, see :ref:`profiles`.
 To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
 
 .. code-block:: yaml
@@ -560,7 +570,7 @@ To quickly exemplify the latter, you could provide the following workflow profil
     set-threads:
         b: 16
 
-to set the memory requirement of rule ``b`` to 1000 MB.
+to set the (maximum) number of threads rule ``b`` uses to 16.
 
 
 .. _snakefiles-resources:
@@ -580,11 +590,11 @@ In addition to threads, a rule can use arbitrary user-defined resources by speci
         shell:
             "..."
 
-If limits for the resources are given via the command line, e.g.
+If workflow-wide limits for the resources are given via the command line, e.g.
 
 .. code-block:: console
 
-    $ snakemake --resources mem_mb=100
+    $ snakemake --resources mem_mb=200
 
 
 the scheduler will ensure that the given resources are not exceeded by running jobs.
@@ -598,9 +608,32 @@ Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a
 If no limits are given, the resources are ignored in local execution.
 
 Resources can have any arbitrary name, and must be assigned ``int`` or ``str`` values.
-They can also be callables that return ``int``, ``str`` or ``None`` values.
 In case of ``None``, the resource is considered to be unset (i.e. ignored) in the rule.
+
+.. _snakefiles-dynamic-resources:
+
+Dynamic Resources
+~~~~~~~~~~~~~~~~~
+
+It is often useful to determine resource specifications dynamically during workflow execution.
+A common example is determining the amount of memory that a job needs, based on the input file size of that particular rule instance.
+To enable this, resource specifications can also be callables (for example functions or lambda expressions) that return ``int``, ``str`` or ``None`` values.
 The signature of the callable must be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
+Such callables are evaluated immediately before the job is executed (or printed during a dry-run).
+
+The above described example of using input size to determined memory requirements could for example be realized via a lambda expression (here also providing a minimum value of 300 MB memory):
+
+.. code-block:: python
+
+    rule:
+        input:    ...
+        output:   ...
+        resources:
+            mem_mb=lambda wc, input: max(2.5 * input.size_mb, 300)
+        shell:
+            "..."
+
+In order to make this work with a dry-run, where the input files are not yet present, Snakemake automatically converts a ``FileNotFoundError`` that is raised by the callable into a placeholder called ``<TBD>`` that will be displayed during dry-run in such a case.
 
 The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--retries``).
 This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
@@ -640,19 +673,22 @@ Another application of callables as resources is when memory usage depends on th
         shell:
             "..."
 
-Here, the value the function ``get_mem_mb`` returns grows linearly with the number of threads.
+Here, the value that the function ``get_mem_mb`` returns, grows linearly with the number of threads.
 Of course, any other arithmetic could be performed in that function.
 
-Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options` and via workflow profiles, see :ref:`profiles`.
-To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
+Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`all_options`.
+Or they can be defined via workflow :ref:`profiles`, with the variables listed above in the signature for usable callables.
+You could, for example, provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
 
 .. code-block:: yaml
 
+    set-threads:
+        b: 3
     set-resources:
         b:
             mem_mb: 1000
 
-to set the memory requirement of rule ``b`` to 1000 MB.
+to set the requirements for rule ``b`` to 3 threads and 1000 MB.
 
 .. _snakefiles-standard-resources:
 
@@ -670,14 +706,14 @@ All of these resources have specific meanings understood by snakemake and are tr
   (``ms``, ``s``, ``m``, ``h``, ``d``, ``w``, ``y`` for seconds, minutes, hours, days, and years, respectively).
   The interpretation happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_timespan>`_.
   Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
-  See :ref:`the section below <resources_remote_execution>` for more information.
+  See :ref:`the section below <resources-remote-execution>` for more information.
 
 * ``disk`` and ``mem`` define the amount of memory and disk space needed by the job.
   They are given as strings with a number followed by a unit (``B``, ``KB``, ``MB``, ``GB``, ``TB``, ``PB``, ``KiB``, ``MiB``, ``GiB``, ``TiB``, ``PiB``).
   The interpretation of the definition happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_size>`_.
   Alternatively, the two can be directly defined as integers via the resources ``mem_mb`` and ``disk_mb`` (to which ``disk`` and ``mem`` are also automatically translated internally).
   They are both locally scoped by default, a fact important for cluster and compute execution.
-  :ref:`See below <resources_remote_execution>` for more info.
+  :ref:`See below <resources-remote-execution>` for more info.
   They are usually passed to execution backends, e.g. to allow the selection of appropriate compute nodes for the job execution.
 
 Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``time``, ``temp``, etc).
@@ -687,13 +723,11 @@ Because of these special meanings, the above names should always be used instead
 Default Resources
 ~~~~~~~~~~~~~~~~~~
 
-Since it could be cumbersome to define these standard resources for every rule, you can set default values at
-the terminal or in a :ref:`profile <profiles>`.
-This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
+Since it could be cumbersome to define these standard resources for every rule, you can set default values via the command line flag ``--default-resources`` or in a :ref:`profile <profiles>`.
+As with ``--set-resources``, this can be done dynamically, using the variables specified for the callables in the section on :ref:`snakefiles-dynamic-resources`.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
-If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``,
-``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
+If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
 If ``--default-resources`` is specified with some definitions, but any of the above defaults (e.g. ``mem_mb``) is omitted, these are still used.
 In order to explicitly unset these defaults, assign them a value of ``None``, e.g. ``--default-resources mem_mb=None``.
@@ -1093,7 +1127,7 @@ The ability to execute Rust scripts is facilitated by |rust-script|_.
 As such, the script must be a valid ``rust-script`` script and ``rust-script``
 (plus OpenSSL and a C compiler toolchain, provided by Conda packages ``openssl``, ``c-compiler``, ``pkg-config``)
 must be available in the environment the rule is run in.
-The minimum required ``rust-script`` version is 1.15.0, so in the example above, the contents of ``rust.yaml`` might look like this:
+The minimum required ``rust-script`` version is 0.15.0, so in the example above, the contents of ``rust.yaml`` might look like this:
 
 .. code-block:: yaml
 
@@ -1340,7 +1374,7 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
     The benefit will be maximal when integrating many small notebooks that each do a particular job, hence allowing to get away from large monolithic, and therefore unreadable notebooks.
 
 It is recommended to prefix the ``.ipynb`` suffix with either ``.py`` or ``.r`` to indicate the notebook language.
-In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles_external-scripts>`.
+In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles-external_scripts>`.
 In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
 Optionally it is possible to automatically store the processed notebook.
 This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
@@ -1414,7 +1448,9 @@ For example, running
 
 .. code-block:: console
 
-    snakemake --cores 1 --draft-notebook test.txt --use-conda
+    snakemake --cores 1 --draft-notebook test.txt --software-deployment-method conda
+    # or the short form
+    snakemake -c 1 --draft-notebook test.txt --sdm conda
 
 will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
 
@@ -1493,7 +1529,7 @@ The timestamp of such files is ignored and always assumed to be older than any o
 Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
 Note that any flag that forces re-creation of files still also applies to files marked as ``ancient``.
 
-.. _snakefiles_ensure::
+.. _snakefiles_ensure:
 
 Ensuring output file properties like non-emptyness or checksum compliance
 -------------------------------------------------------------------------
@@ -1527,7 +1563,7 @@ A sha256 checksum can be compared as follows:
         shell:
             "somecommand {output}"
 
-In addition to providing the checksum as plain string, it is possible to provide a pointer to a function (similar to :ref:`input functions <snakefiles_input-functions>`).
+In addition to providing the checksum as plain string, it is possible to provide a pointer to a function (similar to :ref:`input functions <snakefiles-input_functions>`).
 The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files:
 
 .. code-block:: python
@@ -2110,8 +2146,8 @@ Once all consumer jobs are finished, the service job will be terminated automati
 Group-local service jobs
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Since Snakemake supports arbitrary partitioning of the DAG into so-called :ref:`job groups <job-grouping>`, one should consider what this implies for service jobs when running a workflow in a cluster of cloud context:
-since each group job spans at least one connected component (see :ref:`job groups <job-grouping>` and `the Snakemake paper <https://doi.org/10.12688/f1000research.29032.2>`), this means that the service job will automatically connect all consumers into one big group.
+Since Snakemake supports arbitrary partitioning of the DAG into so-called :ref:`job groups <job_grouping>`, one should consider what this implies for service jobs when running a workflow in a cluster of cloud context:
+since each group job spans at least one connected component (see :ref:`job groups <job_grouping>` and `the Snakemake paper <https://doi.org/10.12688/f1000research.29032.2>`), this means that the service job will automatically connect all consumers into one big group.
 This can be undesired, because depending on the number of consumers that group job can become too big for efficient execution on the underlying architecture.
 In case of local execution, this is not a problem because here DAG partitioning has no effect.
 
@@ -2352,6 +2388,14 @@ To illustrate the possibilities of this mechanism, consider the following comple
           "touch {output}"
 
 As can be seen, the rule aggregate uses an input function.
+
+.. sidebar:: Note
+
+    You don't need to use the checkpoint mechanism to determine parameter or resource values of downstream rules that would be based on the output of previous rules.
+    In fact, it won't even work because the checkpoint mechanism is only considered for input functions.
+    Instead, you can simply use normal parameter or resource functions that just assume that those output files are there. Snakemake will evaluate them immediately before
+    the job is scheduled, when the required files from upstream rules are already present.
+
 Inside the function, we first retrieve the output files of the checkpoint ``somestep`` with the wildcards, passing through the value of the wildcard sample.
 Upon execution, if the checkpoint is not yet complete, Snakemake will record ``somestep`` as a direct dependency of the rule ``aggregate``.
 Once ``somestep`` has finished for a given sample, the input function will automatically be re-evaluated and the method ``get`` will no longer return an exception.
@@ -2519,6 +2563,9 @@ This can be achieved by accessing their path via the ``workflow.source_path``, w
         shell:
             "somecommand {params.json} > {output}"
 
+Note that if such source paths are specified as input files, they are automatically considered to be non-storage files.
+This means that Snakemake will not try to map them to an eventually specified default storage provider (see :ref:`storage-support`).
+
 
 .. _snakefiles-template-integration:
 
@@ -2563,9 +2610,7 @@ The template itself has access to ``input``, ``params``, ``wildcards``, and ``co
 which are the same objects you can use for example in the ``shell`` or ``run`` directive,
 and the same objects as can be accessed from ``script`` or ``notebook`` directives (but in the latter two cases they are stored behind the ``snakemake`` object which serves as a dedicated namespace to avoid name clashes).
 
-An example Jinja2 template could look like this:
-
-.. code-block:: jinja2
+An example Jinja2 template could look like this::
 
     This is some text and now we access {{ params.foo }}.
 
@@ -2643,4 +2688,4 @@ As any other resource, the `mpi`-resource can be overwritten via the command lin
   $ snakemake --set-resources calc_pi:mpi="srun --hint nomultithread" ...
 
 Note that in case of distributed, remote execution (cluster, cloud), MPI support might not be available.
-So far, explicit MPI support is implemented in the :ref:`SLURM backend <cluster-slurm>`.
+So far, explicit MPI support is implemented in the `slurm plugin <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html>`_.

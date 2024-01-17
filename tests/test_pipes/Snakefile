@@ -9,7 +9,7 @@ rule a:
     output:
         pipe("test.{i}.txt")
     shell:
-        "for i in {{0..2}}; do echo {wildcards.i} >> {output}; done"
+        r"echo -e '{wildcards.i}\n{wildcards.i}\n{wildcards.i}' > {output}"
 
 
 rule b:

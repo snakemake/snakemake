@@ -151,7 +151,7 @@ class shell:
         context.update(kwargs)
 
         jobid = context.get("jobid")
-        if not context.get("is_shell"):
+        if not context.get("is_shell") and jobid is not None:
             logger.shellcmd(cmd)
 
         conda_env = context.get("conda_env", None)
@@ -288,7 +288,10 @@ class shell:
 
         if jobid is not None:
             with cls._lock:
-                del cls._processes[jobid]
+                try:
+                    del cls._processes[jobid]
+                except KeyError:
+                    pass
 
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)

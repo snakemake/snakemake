@@ -1,0 +1,28 @@
+import os
+
+rule all:
+    input:
+        "results/bar.txt",
+
+rule foo:
+    output:
+        "results/foo.txt"
+    shell:
+        "touch {output}"
+
+def get_resources(wc):
+    # usually, anything that raises a FileNotFoundError if the file is not present is fine here, even in dryrun.
+    # However, since this test case shall ensure that the function is evaluated just before the actual execution
+    # of the job, we additionally assert that the file is present.
+    assert os.path.isfile("results/foo.txt"), "bug: resource function is not evaluated in a lazy way, just before job execution"
+    return os.path.getsize("results/foo.txt")
+
+rule bar:
+    input:
+        "results/foo.txt"
+    output:
+        "results/bar.txt"
+    resources:
+        test=get_resources
+    shell:
+        "touch {output}"

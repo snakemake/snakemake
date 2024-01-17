@@ -10,6 +10,7 @@ import base64
 import textwrap
 import datetime
 import io
+from typing import Optional
 import uuid
 import json
 import time
@@ -42,11 +43,12 @@ from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.script import Snakemake
 from snakemake.common import (
     get_input_function_aux_params,
-    lazy_property,
 )
 from snakemake import logging
 from snakemake.report import data
 from snakemake.report.rulegraph_spec import rulegraph_spec
+
+from snakemake_interface_common.utils import lazy_property
 
 
 class EmbeddedMixin(object):
@@ -296,7 +298,7 @@ class RuleRecord:
                 wrapper.get_script(
                     self._rule.wrapper,
                     self._rule.workflow.sourcecache,
-                    prefix=self._rule.workflow.wrapper_prefix,
+                    prefix=self._rule.workflow.workflow_settings.wrapper_prefix,
                 ),
                 self._rule.workflow.sourcecache,
             )
@@ -553,7 +555,7 @@ def expand_labels(labels, wildcards, job):
     }
 
 
-def auto_report(dag, path, stylesheet=None):
+async def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
     try:
         from jinja2 import Environment, PackageLoader, UndefinedError
     except ImportError as e:
@@ -562,9 +564,9 @@ def auto_report(dag, path, stylesheet=None):
         )
 
     mode_embedded = True
-    if path.endswith(".zip"):
+    if path.suffix == ".zip":
         mode_embedded = False
-    elif not path.endswith(".html"):
+    elif path.suffix != ".html":
         raise WorkflowError("Report file does not end with .html or .zip")
 
     custom_stylesheet = None
@@ -572,7 +574,7 @@ def auto_report(dag, path, stylesheet=None):
         try:
             with open(stylesheet) as s:
                 custom_stylesheet = s.read()
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             raise WorkflowError("Unable to read custom report stylesheet.", e)
 
     logger.info("Creating report...")
@@ -589,9 +591,9 @@ def auto_report(dag, path, stylesheet=None):
     records = defaultdict(JobRecord)
     recorded_files = set()
     for job in dag.jobs:
-        for f in itertools.chain(job.expanded_output, job.input):
+        for f in itertools.chain(job.output, job.input):
             if is_flagged(f, "report") and f not in recorded_files:
-                if not f.exists:
+                if not await f.exists():
                     raise WorkflowError(
                         "File {} marked for report but does not exist.".format(f)
                     )
@@ -684,7 +686,7 @@ def auto_report(dag, path, stylesheet=None):
                             rule=job.rule,
                         )
 
-        for f in job.expanded_output:
+        for f in job.output:
             meta = persistence.metadata(f)
             if not meta:
                 logger.warning(

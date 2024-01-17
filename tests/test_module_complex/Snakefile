@@ -4,7 +4,7 @@ min_version("6.1.1")
 
 configfile: "config.yaml"
 
-remote_snakefile = "https://raw.githubusercontent.com/snakemake-workflows/dna-seq-varlociraptor/v1.0.0/workflow/Snakefile"
+remote_snakefile = "https://raw.githubusercontent.com/snakemake-workflows/dna-seq-varlociraptor/v5.0.2/workflow/Snakefile"
 
 
 # import 1

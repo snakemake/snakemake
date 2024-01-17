@@ -77,8 +77,9 @@ For this, Snakemake provides the ``include`` directive to include another Snakef
 
 .. code:: python
 
-    include: "path/to/other.snakefile"
+    include: "path/to/other.smk"
 
+As can be seen, the default file extensions for snakefiles other than the main snakefile is ``.smk``.
 Alternatively, Snakemake allows to **define sub-workflows**.
 A sub-workflow refers to a working directory with a complete Snakemake workflow.
 Output files of that sub-workflow can be used in the current Snakefile.
@@ -141,7 +142,9 @@ When Snakemake is executed with
 
 .. code:: console
 
-  snakemake --use-conda --cores 1
+  snakemake --software-deployment-method conda --cores 1
+  # or the short form
+    snakemake --sdm conda -c 1
 
 it will automatically create required environments and
 activate them before a job is executed.
@@ -191,7 +194,7 @@ The wrapper directive expects a (partial) URL that points to a wrapper in the re
 These can be looked up in the corresponding `database <https://snakemake-wrappers.readthedocs.io>`_.
 The first part of the URL is a Git version tag. Upon invocation, Snakemake
 will automatically download the requested version of the wrapper.
-Furthermore, in combination with ``--use-conda`` (see :ref:`tutorial-conda`),
+Furthermore, in combination with ``--software-deployment-method conda`` (see :ref:`tutorial-conda`),
 the required software will be automatically deployed before execution.
 
 Cluster execution
@@ -235,7 +238,7 @@ The **DRMAA support** can be activated by invoking Snakemake as follows:
     $ snakemake --drmaa --jobs 100
 
 If available, **DRMAA is preferable over the generic cluster modes** because it provides better control and error handling.
-To support additional cluster specific parametrization, a Snakefile can be complemented by a :ref:`snakefiles-cluster_configuration` file.
+To support additional cluster specific parametrization, a Snakefile can be complemented by a workflow specific profile (see :ref:`profiles`).
 
 Using --cluster-status
 ::::::::::::::::::::::

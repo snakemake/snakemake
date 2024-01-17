@@ -1,0 +1,12 @@
+sphinx >=3
+sphinxcontrib-napoleon
+sphinx-argparse
+sphinx-autodoc-typehints
+docutils
+myst-parser
+configargparse
+appdirs
+lutra @ git+http://github.com/pradyunsg/lutra@8f61563
+snakemake-interface-common
+snakemake-interface-executor-plugins
+snakemake-interface-storage-plugins

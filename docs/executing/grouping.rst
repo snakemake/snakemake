@@ -38,3 +38,10 @@ This makes it possible to define batches of jobs of the same kind that shall be 
 
 means that given ``n`` jobs spawned from rule ``somerule``, Snakemake will create ``n / 5`` groups which each execute 5 jobs of ``somerule`` together.
 For example, with 10 jobs from ``somerule`` you would end up with 2 groups of 5 jobs that are submitted as one piece each.
+
+Furthermore, it is possible to use wildcards in group names.
+This way, you can e.g. have a group per sample, e.g.:
+
+.. code-block:: bash
+
+    snakemake --groups somerule=group_{sample} --group-components group_{sample}=5
