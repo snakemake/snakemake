@@ -1099,6 +1099,7 @@ class QueueInfo:
                 return self.items
             self.queue.task_done()
             if item is self.finish_sentinel:
+                logger.debug("finish sentinel found, stopping queue consumption")
                 self.finished = True
                 self.update_last_checked()
                 return self.items

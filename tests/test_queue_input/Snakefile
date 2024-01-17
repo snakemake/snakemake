@@ -7,7 +7,7 @@ all_results = queue.Queue()
 
 def update_results():
     try:
-        for i in range(10):
+        for i in range(20):
             all_results.put(f"test{i}.txt")
             time.sleep(1)
         all_results.put(finish_sentinel)

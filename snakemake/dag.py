@@ -94,6 +94,7 @@ class DAG(DAGExecutorInterface):
         omitrules=None,
         ignore_incomplete=False,
     ):
+        self._queue_input_jobs = None
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
@@ -1691,15 +1692,19 @@ class DAG(DAGExecutorInterface):
                         self._jobs_with_finished_queue_input.add(job)
             if updated:
                 await self.postprocess_after_update()
+                # reset queue_input_jobs such that it is recomputed next time
+                self._queue_input_jobs = None
         return updated
 
-    @lazy_property
+    @property
     def queue_input_jobs(self):
-        return set(
-            job
-            for job in self.needrun_jobs(exclude_finished=False)
-            if job.has_queue_input()
-        )
+        if self._queue_input_jobs is None:
+            self._queue_input_jobs = set(
+                job
+                for job in self.needrun_jobs(exclude_finished=False)
+                if job.has_queue_input()
+            )
+        return self._queue_input_jobs
 
     def has_unfinished_queue_input_jobs(self):
         return any(job.has_unfinished_queue_input() for job in self.queue_input_jobs)
