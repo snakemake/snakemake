@@ -2,8 +2,8 @@
 # $ snakemake --executor slurm -j2 --workflow-profile ./profiles/ --default-resources slurm_account=m2_zdvhpc
 
 rule all:
-     input: "results/a.out"
+     input: "a.out"
 
 rule test1:
-     output: "results/a.out"
+     output: "a.out"
      shell: "touch {output}"
