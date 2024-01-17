@@ -329,6 +329,14 @@ class WorkflowApi(ApiBase):
             dag_settings=dag_settings,
         )
 
+    def _no_dag(method):
+        def _handle_no_dag(self, *args, **kwargs):
+            self.resource_settings.cores = 1
+            return method(self, *args, **kwargs)
+
+        return _handle_no_dag
+
+    @_no_dag
     def lint(self, json: bool = False):
         """Lint the workflow.
 
@@ -347,6 +355,7 @@ class WorkflowApi(ApiBase):
         workflow.check()
         return workflow.lint(json=json)
 
+    @_no_dag
     def list_rules(self, only_targets: bool = False):
         """List the rules of the workflow.
 
@@ -356,10 +365,12 @@ class WorkflowApi(ApiBase):
         """
         self._workflow.list_rules(only_targets=only_targets)
 
+    @_no_dag
     def list_resources(self):
         """List the resources of the workflow."""
         self._workflow.list_resources()
 
+    @_no_dag
     def print_compilation(self):
         """Print the pure python compilation of the workflow."""
         workflow = self._get_workflow()
