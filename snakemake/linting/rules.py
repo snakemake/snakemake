@@ -115,7 +115,7 @@ class RuleLinter(Linter):
                     body="While environment modules allow to document and deploy the required software on a certain "
                     "platform, they lock your workflow in there, disabling easy reproducibility on other machines "
                     "that don't have exactly the same environment modules. Hence env modules (which might be beneficial "
-                    "in certain cluster environments), should allways be complemented with equivalent conda "
+                    "in certain cluster environments), should always be complemented with equivalent conda "
                     "environments.",
                     links=[links.package_management, links.containers],
                 )
