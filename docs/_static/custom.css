@@ -11,3 +11,7 @@
     --color-links: #047857;
     --color-brand: #047857;
 }
+
+#content {
+    overflow-x: auto;
+}
