@@ -361,6 +361,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 for f in job.input
                 if f.is_storage
                 and self.is_external_input(f, job, not_needrun_is_external=True)
+                and not is_flagged(f, "passthrough")
             }
 
             try:
@@ -949,16 +950,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             except RecursionError as e:
                 raise WorkflowError(
                     e,
-                    "If building the DAG exceeds the recursion limit, "
-                    "this is likely due to a cyclic dependency."
-                    "E.g. you might have a sequence of rules that "
-                    "can generate their own input. Try to make "
-                    "the output files more specific. "
-                    "A common pattern is to have different prefixes "
-                    "in the output files of different rules."
-                    + f"\nProblematic file pattern: {file}"
-                    if file
-                    else "",
+                    (
+                        "If building the DAG exceeds the recursion limit, "
+                        "this is likely due to a cyclic dependency."
+                        "E.g. you might have a sequence of rules that "
+                        "can generate their own input. Try to make "
+                        "the output files more specific. "
+                        "A common pattern is to have different prefixes "
+                        "in the output files of different rules."
+                        + f"\nProblematic file pattern: {file}"
+                        if file
+                        else ""
+                    ),
                 )
         if not producers:
             if cycles:
@@ -1017,6 +1020,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         producer = dict()
         exceptions = dict()
         for res in potential_dependencies:
+            if is_flagged(res.file, "passthrough"):
+                # passthrough files are not considered for dependency resolution
+                continue
+
             if create_inventory:
                 # If possible, obtain inventory information starting from
                 # given file and store it in the IOCache.

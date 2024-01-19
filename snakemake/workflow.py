@@ -66,6 +66,7 @@ from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
 from snakemake.io import (
+    passthrough,
     protected,
     temp,
     temporary,

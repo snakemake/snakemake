@@ -24,7 +24,7 @@ import string
 import collections
 import asyncio
 from typing import Callable
-from hashlib import sha256
+from hashlib import md5, sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
@@ -66,12 +66,10 @@ def lutime(file, times):
 class AnnotatedStringInterface(ABC):
     @property
     @abstractmethod
-    def flags(self) -> Dict[str, Any]:
-        ...
+    def flags(self) -> Dict[str, Any]: ...
 
     @abstractmethod
-    def is_callable(self) -> bool:
-        ...
+    def is_callable(self) -> bool: ...
 
     def is_flagged(self, flag: str) -> bool:
         return flag in self.flags and bool(self.flags[flag])
@@ -334,6 +332,14 @@ class _IOFile(str, AnnotatedStringInterface):
 
     def contains_wildcard(self):
         return contains_wildcard(self.file)
+
+    @property
+    def is_passthrough(self):
+        return is_flagged(self._file, "passthrough")
+
+    @property
+    def passthrough_path(self):
+        return get_flag_value(self._file, "passthrough")
 
     @property
     def is_storage(self):
@@ -890,8 +896,9 @@ async def wait_for_files(
     async def get_missing(list_parent=False):
         async def eval_file(f):
             if (
-                is_flagged(f, "pipe") or is_flagged(f, "service")
-            ) and ignore_pipe_or_service:
+                (is_flagged(f, "pipe") or is_flagged(f, "service"))
+                and ignore_pipe_or_service
+            ) or is_flagged(f, "passthrough"):
                 return None
             if (
                 isinstance(f, _IOFile)
@@ -1035,6 +1042,15 @@ def get_flag_value(value, flag_type):
             return value.flags[flag_type]
         else:
             return None
+
+
+def passthrough(value, path=None):
+    if hasattr(value, "flags"):
+        raise SyntaxError("Passthrough flag can't be combined with any other flags.")
+
+    if path is None:
+        path = md5(value.encode()).hexdigest()
+    return flag(path, "passthrough", value)
 
 
 def ancient(value):
@@ -1503,9 +1519,15 @@ class Namedlist(list):
             elif plainstr:
                 self.extend(
                     # use original query if storage is not retrieved by snakemake
-                    (str(x) if x.storage_object.retrieve else x.storage_object.query)
-                    if isinstance(x, _IOFile) and x.storage_object is not None
-                    else str(x)
+                    (
+                        (
+                            str(x)
+                            if x.storage_object.retrieve
+                            else x.storage_object.query
+                        )
+                        if isinstance(x, _IOFile) and x.storage_object is not None
+                        else str(x)
+                    )
                     for x in toclone
                 )
             elif strip_constraints:
