@@ -6,7 +6,7 @@ myst-parser
 configargparse
 appdirs
 immutables
-lutra @ git+http://github.com/pradyunsg/lutra@8f61563
+sphinxawesome-theme
 snakemake-interface-common
 snakemake-interface-executor-plugins
 snakemake-interface-storage-plugins

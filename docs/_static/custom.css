@@ -1,7 +1,14 @@
 .image-reference img {
     display: inline;
+    background: none !important;
 }
 
 .image-reference {
     border-bottom: none !important;
 }
+
+:root {
+    --primary: #047857;
+    --color-brand: #047857;
+ }
+ 
