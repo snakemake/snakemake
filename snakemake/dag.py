@@ -351,7 +351,7 @@ class DAG(DAGExecutorInterface):
                 f
                 for job in self.needrun_jobs()
                 for f in job.input
-                if f.is_storage and self.is_external_input(f, job)
+                if f.is_storage and self.is_external_input(f, job) and not is_flagged(f, "passthrough")
             }
 
             try:
@@ -990,6 +990,10 @@ class DAG(DAGExecutorInterface):
         producer = dict()
         exceptions = dict()
         for res in potential_dependencies:
+            if is_flagged(res.file, "passthrough"):
+                # passthrough files are not considered for dependency resolution
+                continue
+
             if create_inventory:
                 # If possible, obtain inventory information starting from
                 # given file and store it in the IOCache.
