@@ -22,7 +22,7 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, Set, Union
+from typing import Any, Callable, Dict, Set, Union, Sequence
 
 from snakemake_interface_common.utils import not_iterable
 from snakemake_interface_storage_plugins.io import (
@@ -1542,6 +1542,21 @@ class Namedlist(list):
                 self._names[name] = (i + add, None if j is None else j + add)
             elif i == index:
                 self._set_name(name, i, end=i + len(items))
+
+    def get_positional_items(self) -> Sequence[str]:
+        """
+        Get arguments without name and return them as a list.
+        """
+
+        keys_with_positions = self._names
+        if len(keys_with_positions) == 0:
+            # all arguments are unnamed
+            return list(self)
+
+        first_key = next(iter(keys_with_positions.items()))
+        n_unnamed_arguments = first_key[1][0]
+
+        return [self[i] for i in range(n_unnamed_arguments)]
 
     def keys(self):
         return self._names.keys()
