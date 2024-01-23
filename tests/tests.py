@@ -1945,3 +1945,7 @@ def test_issue1256():
     assert p.returncode == 1
     assert "SyntaxError" in stderr
     assert "line 9" in stderr
+
+
+def test_micromamba():
+    run(dpath("test_wrapper"), use_conda=True, conda_frontend="micromamba")
