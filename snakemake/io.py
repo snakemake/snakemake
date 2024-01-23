@@ -18,7 +18,7 @@ import string
 import subprocess as sp
 import time
 from contextlib import contextmanager
-from hashlib import sha256
+from hashlib import md5, sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
@@ -356,6 +356,14 @@ class _IOFile(str, AnnotatedStringInterface):
 
     def contains_wildcard(self):
         return contains_wildcard(self.file)
+
+    @property
+    def is_passthrough(self):
+        return is_flagged(self._file, "passthrough")
+
+    @property
+    def passthrough_path(self):
+        return get_flag_value(self._file, "passthrough")
 
     @property
     def is_storage(self):
@@ -918,8 +926,8 @@ async def wait_for_files(
                 )
                 else os.path.exists(f)
                 if not (
-                    (is_flagged(f, "pipe") or is_flagged(f, "service"))
-                    and ignore_pipe_or_service
+                    ((is_flagged(f, "pipe") or is_flagged(f, "service"))
+                    and ignore_pipe_or_service) or is_flagged(f, "passthrough")
                 )
                 else True
             )
@@ -1043,6 +1051,13 @@ def get_flag_value(value, flag_type):
         else:
             return None
 
+def passthrough(value, path=None):
+    if hasattr(value, "flags"):
+        raise SyntaxError("Passthrough flag can't be combined with any other flags.")
+
+    if path is None:
+        path = md5(value.encode()).hexdigest()
+    return flag(path, "passthrough", value)
 
 def ancient(value):
     """
