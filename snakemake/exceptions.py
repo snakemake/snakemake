@@ -162,7 +162,13 @@ def print_exception(ex, linemaps=None):
 
 def update_lineno(ex: SyntaxError, linemaps):
     if ex.filename and ex.lineno:
-        ex.lineno = linemaps[ex.filename][ex.lineno]
+        linemap = linemaps[ex.filename]
+        try:
+            ex.lineno = linemap[ex.lineno]
+        except KeyError:
+            # linemap does not yet contain the line, it must happen during parsing
+            # such that no update is needed.
+            pass
         return ex
 
 
