@@ -253,7 +253,7 @@ Afterwards, we will further show a set of semantic helper functions should incre
 .. _snakefiles_expand:
 
 The expand function
-^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~
 
 Instead of specifying input files via a Python list comprehension, Snakemake offers a helper function ``expand()``.
 
@@ -319,7 +319,7 @@ will create strings with all values for ext but starting with the wildcard ``"{d
 .. _snakefiles-multiext:
 
 The multiext function
-^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~
 
 ``multiext`` provides a simplified variant of ``expand`` that allows us to define a set of output or input files that just differ by their extension:
 
@@ -340,7 +340,7 @@ Moreover, defining output with ``multiext`` is the only way to use :ref:`between
 .. _snakefiles-semantic-helpers:
 
 Semantic helper functions
-^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The collect function
 """"""""""""""""""""
