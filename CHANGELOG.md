@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.3.0](https://github.com/snakemake/snakemake/compare/v8.2.4...v8.3.0) (2024-01-23)
+
+
+### Features
+
+* implement semantic helper functions for input and param function handling ([#2344](https://github.com/snakemake/snakemake/issues/2344)) ([b4b5e51](https://github.com/snakemake/snakemake/commit/b4b5e51ee8601b81a7ac900b2d175603c5af90a9))
+* support for continuously updated input (using Python queues) ([#2594](https://github.com/snakemake/snakemake/issues/2594)) ([db1c0ed](https://github.com/snakemake/snakemake/commit/db1c0edcadca499d51223d5cc72cbdfca1ff5d21))
+
 ## [8.2.4](https://github.com/snakemake/snakemake/compare/v8.2.3...v8.2.4) (2024-01-23)
 
 
