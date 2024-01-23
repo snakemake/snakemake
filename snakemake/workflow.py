@@ -81,6 +81,7 @@ from snakemake.io import (
     report,
     multiext,
     ensure,
+    from_queue,
     IOFile,
     sourcecache_entry,
 )
@@ -208,6 +209,7 @@ class Workflow(WorkflowExecutorInterface):
         _globals["gitfile"] = sourcecache.LocalGitFile
         _globals["storage"] = self._storage_registry
         snakemake.ioutils.register_in_globals(_globals)
+        _globals["from_queue"] = from_queue
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]

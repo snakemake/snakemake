@@ -12,6 +12,7 @@ import threading
 from functools import partial
 from itertools import chain, accumulate
 from contextlib import ContextDecorator
+import time
 
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -91,6 +92,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._finished = False
         self._job_queue = None
         self._last_job_selection_empty = False
+        self._last_update_queue_input_jobs = 0
         self.submit_callback = self._noop
         self.finish_callback = self._proceed
 
@@ -184,6 +186,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """Schedule jobs that are ready, maximizing cpu usage."""
         try:
             while True:
+                if self.workflow.dag.queue_input_jobs:
+                    self.update_queue_input_jobs()
                 # work around so that the wait does not prevent keyboard interrupts
                 # while not self._open_jobs.acquire(False):
                 #    time.sleep(1)
@@ -218,9 +222,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     continue
 
                 # all runnable jobs have finished, normal shutdown
-                if not needrun and (
-                    not running
-                    or self.workflow.remote_execution_settings.immediate_submit
+                if (
+                    not needrun
+                    and (
+                        not running
+                        or self.workflow.remote_execution_settings.immediate_submit
+                    )
+                    and not self.workflow.dag.has_unfinished_queue_input_jobs()
                 ):
                     self._executor.shutdown()
                     if errors:
@@ -241,6 +249,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                 # continue if no new job needs to be executed
                 if not needrun:
+                    if self.workflow.dag.has_unfinished_queue_input_jobs():
+                        logger.info("Waiting for queue input...")
+                        # schedule a reevaluation in 10 seconds
+                        threading.Timer(
+                            self.workflow.execution_settings.queue_input_wait_time,
+                            lambda: self._open_jobs.release(),
+                        ).start()
                     continue
 
                 # select jobs by solving knapsack problem (omit with dryrun)
@@ -355,6 +370,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
         async_run(postprocess())
         self._tofinish.clear()
+
+    def update_queue_input_jobs(self):
+        currtime = time.time()
+        if currtime - self._last_update_queue_input_jobs >= 10:
+            self._last_update_queue_input_jobs = currtime
+            async_run(self.workflow.dag.update_queue_input_jobs())
 
     def _error_jobs(self):
         # must be called from within lock

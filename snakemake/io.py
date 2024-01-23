@@ -7,10 +7,12 @@ from abc import ABC, abstractmethod
 import asyncio
 import collections
 import copy
+from dataclasses import dataclass, field
 import datetime
 import functools
 import json
 import os
+import queue
 import re
 import shutil
 import stat
@@ -26,8 +28,7 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, Set, Union
-from inspect import isfunction, ismethod
+from typing import Any, Callable, Dict, List, Optional, Set, Union
 
 from snakemake_interface_common.utils import not_iterable
 from snakemake_interface_storage_plugins.io import (
@@ -1081,6 +1082,51 @@ def temp(value):
     if is_flagged(value, "storage_object"):
         raise SyntaxError("Storage and temporary flags are mutually exclusive.")
     return flag(value, "temp")
+
+
+@dataclass
+class QueueInfo:
+    queue: queue.Queue
+    finish_sentinel: Any
+    last_checked: Optional[float] = None
+    finished: bool = False
+    items: List[Any] = field(default_factory=list, init=False)
+
+    def consume(self, wildcards):
+        assert (
+            self.finished is False
+        ), "bug: queue marked as finished but consume method called again"
+
+        if wildcards:
+            raise WorkflowError("from_queue() may not be used in rules with wildcards.")
+
+        while True:
+            try:
+                item = self.queue.get_nowait()
+            except queue.Empty:
+                self.update_last_checked()
+                return self.items
+            self.queue.task_done()
+            if item is self.finish_sentinel:
+                logger.debug("finish sentinel found, stopping queue consumption")
+                self.finished = True
+                self.update_last_checked()
+                return self.items
+            self.items.append(item)
+
+    def update_last_checked(self):
+        self.last_checked = time.time()
+
+    def __hash__(self):
+        return hash(self.queue)
+
+
+def from_queue(queue, finish_sentinel=None):
+    if finish_sentinel is None:
+        raise WorkflowError("Please provide a finish sentinel to from_queue.")
+
+    queue_info = QueueInfo(queue, finish_sentinel)
+    return flag(queue_info.consume, "from_queue", queue_info)
 
 
 def pipe(value):

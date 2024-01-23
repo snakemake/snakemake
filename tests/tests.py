@@ -1949,3 +1949,15 @@ def test_issue1256():
     assert p.returncode == 1
     assert "SyntaxError" in stderr
     assert "line 9" in stderr
+
+
+def test_queue_input():
+    run(dpath("test_queue_input"))
+
+
+def test_queue_input_dryrun():
+    run(dpath("test_queue_input"), executor="dryrun", check_results=False)
+
+
+def test_queue_input_forceall():
+    run(dpath("test_queue_input"), forceall=True)

@@ -1232,6 +1232,13 @@ def get_argument_parser(profiles=None):
         "passed on the commandline.",
     )
     group_behavior.add_argument(
+        "--queue-input-wait-time",
+        metavar="SECONDS",
+        type=int,
+        default=10,
+        help="Set the interval in seconds to check for new input in rules that use from_queue to obtain input files.",
+    )
+    group_behavior.add_argument(
         "--notemp",
         "--nt",
         action="store_true",
@@ -1980,6 +1987,7 @@ def args_to_api(args, parser):
                                 keep_metadata=not args.drop_metadata,
                                 edit_notebook=edit_notebook,
                                 cleanup_scripts=not args.skip_script_cleanup,
+                                queue_input_wait_time=args.queue_input_wait_time,
                             ),
                             remote_execution_settings=RemoteExecutionSettings(
                                 jobname=args.jobname,

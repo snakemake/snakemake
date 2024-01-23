@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.2.4](https://github.com/snakemake/snakemake/compare/v8.2.3...v8.2.4) (2024-01-23)
+
+
+### Bug Fixes
+
+* fix exception when handling syntax error during parsing ([d5a7a56](https://github.com/snakemake/snakemake/commit/d5a7a564beea9850d1dac9f91429d8434a3aac46))
+
 ## [8.2.3](https://github.com/snakemake/snakemake/compare/v8.2.2...v8.2.3) (2024-01-19)
 
 
