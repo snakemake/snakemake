@@ -122,6 +122,7 @@ from snakemake.sourcecache import (
 )
 from snakemake.deployment.conda import Conda
 from snakemake import api, sourcecache
+import snakemake.ioutils
 
 
 SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
@@ -207,6 +208,7 @@ class Workflow(WorkflowExecutorInterface):
         _globals["gitlab"] = sourcecache.GitlabFile
         _globals["gitfile"] = sourcecache.LocalGitFile
         _globals["storage"] = self._storage_registry
+        snakemake.ioutils.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
 
         self.vanilla_globals = dict(_globals)

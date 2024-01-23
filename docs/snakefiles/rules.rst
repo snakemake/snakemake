@@ -159,12 +159,103 @@ Input files can be Python lists, allowing to easily aggregate over parameters or
         shell:
             ...
 
-The above expression can be simplified in two ways.
+While the above expression can be very powerful as arbitrary Python code can be used, Snakemake offers
+various helper functions to simplify aggregations (see :ref:`snakefiles-input_helpers`).
+
+.. _snakefiles-input_functions:
+
+Input functions
+---------------
+
+Instead of specifying strings or lists of strings as input files, snakemake can also make use of functions that return single **or** lists of input files:
+
+.. code-block:: python
+
+    def myfunc(wildcards):
+        return [... a list of input files depending on given wildcards ...]
+
+    rule:
+        input:
+            myfunc
+        output:
+            "someoutput.{somewildcard}.txt"
+        shell:
+            "..."
+
+The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files.
+Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
+By this, rules can have entirely different input files (both in form and number) depending on the inferred wildcards. E.g. you can assign input files that appear in entirely different parts of your filesystem based on some wildcard value and a dictionary that maps the wildcard value to file paths.
+
+In additon to a single wildcards argument, input functions can optionally take a ``groupid`` (with exactly that name) as second argument, see :ref:`snakefiles_group-local` for details.
+
+Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.
+In particular, input files should not be combined with very general rules that can be applied to create almost any file: Snakemake will try to apply the rule, and will report the exceptions of your input function as errors.
+
+For a practical example, see the :ref:`tutorial` (:ref:`tutorial-input_functions`).
+
+.. _snakefiles-unpack:
+
+Input Functions and ``unpack()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In some cases, you might want to have your input functions return named input files.
+This can be done by having them return ``dict()`` objects with the names as the dict keys and the file names as the dict values and using the ``unpack()`` keyword.
+
+.. code-block:: python
+
+    def myfunc(wildcards):
+        return {'foo': '{wildcards.token}.txt'.format(wildcards=wildcards)}
+
+    rule:
+        input:
+            unpack(myfunc)
+        output:
+            "someoutput.{token}.txt"
+        shell:
+            "..."
+
+Note that ``unpack()`` is only necessary for input functions returning ``dict``.
+While it also works for ``list``, remember that lists (and nested lists) of strings are automatically flattened.
+
+Also note that if you do not pass in a *function* into the input list but you directly *call a function* then you shouldn't use ``unpack()``.
+Here, you can simply use Python's double-star (``**``) operator for unpacking the parameters.
+
+Note that as Snakefiles are translated into Python for execution, the same rules as for using the `star and double-star unpacking Python operators <https://docs.python.org/3/tutorial/controlflow.html#unpacking-argument-lists>`_ apply.
+These restrictions do not apply when using ``unpack()``.
+
+.. code-block:: python
+
+    def myfunc1():
+        return ['foo.txt']
+
+    def myfunc2():
+        return {'foo': 'nowildcards.txt'}
+
+    rule:
+        input:
+            *myfunc1(),
+            **myfunc2(),
+        output:
+            "..."
+        shell:
+            "..."
+
+.. _snakefiles-input_helpers:
+
+Helper functions for defining input and output files
+----------------------------------------------------
+
+Snakemake provides a number of helper functions that can be used to determine input files and drastically simplify over using 
+:ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`_.
+Below, we will first start with describing two basic helper functions for specifying aggregations and multiple output files.
+Afterwards, we will further show a set of semantic helper functions should increase readability and simplify code (see :ref:`snakefiles-semantic-helpers`).
 
 .. _snakefiles_expand:
 
 The expand function
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
+
+Instead of specifying input files via a Python list comprehension, Snakemake offers a helper function ``expand()``.
 
 .. code-block:: python
 
@@ -228,7 +319,7 @@ will create strings with all values for ext but starting with the wildcard ``"{d
 .. _snakefiles-multiext:
 
 The multiext function
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 ``multiext`` provides a simplified variant of ``expand`` that allows us to define a set of output or input files that just differ by their extension:
 
@@ -246,19 +337,167 @@ The multiext function
 The effect is the same as if you would write ``expand("some/plot{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
 Moreover, defining output with ``multiext`` is the only way to use :ref:`between workflow caching <caching>` for rules with multiple output files.
 
+.. _snakefiles-semantic-helpers:
+
+Semantic helper functions
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The collect function
+""""""""""""""""""""
+
+The ``collect`` function is an alias for the ``expand`` function with exactly the same behavior.
+It can be used to express more explicitly that a rule collects a set of files from upstream jobs.
+
+The lookup function
+"""""""""""""""""""
+
+The ``lookup`` function can be used to look up a value in a python mapping (e.g. a ``dict``) or a `pandas dataframe or series <https://pandas.pydata.org>`_.
+It is especially useful for looking up information based on wildcard values.
+The ``lookup`` function has the signature ``lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None)``.
+The ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
+For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
+
+In case of a pandas dataframe,
+the query parameter is passed to `DataFrame.query() <https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.query.html>`_.
+If the query results in multiple rows, the result is returned as a list of
+named tuples with the column names as attributes.
+If the query results in a single row, the result is returned as a single
+named tuple with the column names as attributes.
+In both cases, the result can be used by the ``expand`` or ``collect`` function,
+e.g. 
+
+.. code-block:: python
+
+    collect("results/{item.sample}.txt", sample=lookup(query="someval > 2", within=samples))
+
+Here, we take the file ``"results/{item.sample}.txt"`` with ``{item.sample}`` being replaced by the
+sample names that occur in all rows of the dataframe ``samples`` where the value of the ``someval`` column is greater than 2.
+
+Since the result, in any case, also evaluates to True if it is not empty
+when interpreted as a boolean by Python, it can also be used as a condition
+for the :ref:`branch function <snakefiles-branch-function>`, e.g.
+
+.. code-block:: python
+
+    branch(lookup(query="sample == {sample} & someval > 2", within=samples), then="foo", otherwise="bar")
+
+In case your dataframe has an index, you can also access the index within the
+query, e.g. for faster, constant time lookups:
+
+.. code-block:: python
+    
+    lookup(query="index.loc[{sample}]", within=samples)
+
+In case of a **pandas series**, the series is converted into a dataframe via
+Series.to_frame() and the same logic as for a dataframe is applied.
+
+In case of a **python mapping**, the dpath parameter is passed to dpath.values()
+(see https://github.com/dpath-maintainers/dpath-python).
+
+Both ``query`` and ``dpath`` may contain wildcards (e.g. ``{sample}``).
+In that case, this function returns an :ref:`input function <snakefiles-input_functions>` which takes
+wildcards as its only argument and will be evaluated by Snakemake
+once the wildcard values are known if the lookup is used within an input file statement.
+.. _snakefiles-branch-function:
+
+The branch function
+"""""""""""""""""""
+
+The ``branch`` function allows to choose different input files based on a given conditional.
+It has the signature 
+
+.. code-bloc:: python
+
+    branch(
+        condition: Union[Callable, bool],
+        then: Optional[Union[str, list[str], Callable]] = None,
+        otherwise: Optional[Union[str, list[str], Callable]] = None,
+        cases: Optional[Mapping] = None
+    )
+
+The ``condition`` argument has to be either a function or an expression that can be evaluated as a ``bool`` (which is virtually everything in Python).
+If it is a function, it has to take wildcards as its only parameter.
+Similarly, ``then``, ``otherwise`` and the values of the ``cases`` mapping (e.g. a python ``dict``) can be such functions.
+
+If any such function is given to any of those arguments, this function returns a derived 
+input function that will be evaluated once the wildcards are known (e.g. when used in the context of an input definition) (see :ref:`snakefiles-input_functions`).
+
+If ``then`` and optionally ``otherwise`` are specified, it does the following:
+If the ``condition`` is (or evaluates to) ``True``, return the value
+of the ``then`` parameter. Otherwise, return the value of the ``otherwise`` parameter.
+
+If ``cases`` is specified, it does the following:
+Retrieve the value of the cases mapping using the return value of the condition
+(if it is a function), or the condition value itself as a key.
+
+An example of using ``branch`` in combination with ``lookup`` from a ``config`` dictionary can look as follows:
+
+.. code-block:: python
+
+    branch(
+        use_sometool(),
+        then="results/sometool/{dataset}.txt",
+        otherwise="results/someresult/{dataset}.txt"
+    )
+
+Here, the semantic is as follows:
+If ``use_sometool()`` returns ``True``, the input is ``results/sometool/{dataset}.txt``, otherwise it is ``results/someresult/{dataset}.txt``.
+
+Given that ``condition`` can be a function, if this is used in the context of a rule definition and the usage of the tool ``sometool`` depends on some wildcard values,
+one can also pass the function itself instead of its output to the branch function (using it as an input function).
+
+.. code-block:: python
+
+    def use_sometool(wildcards):
+        # determine whether the tool shall be used based on the wildcard values.
+        ...
+
+    rule a:
+        input:
+            branch(
+                use_sometool,
+                then="results/sometool/{dataset}.txt",
+                otherwise="results/someresult/{dataset}.txt"
+            )
+
+Above, the semantic is as follows:
+If ``use_sometool`` returns ``True`` for the given wildcard values, the input is ``results/sometool/{dataset}.txt``, otherwise it is ``results/someresult/{dataset}.txt``.
+
+The evaluate function
+"""""""""""""""""""""
+
+The ``evaluate`` function allows to quickly evaluate a Python expression that contains wildcard values.
+It has the signature ``evaluate(expr: str)``.
+Within the expression one can specify wildcards via the usual syntax, e.g. ``{sample}``.
+Upon evaluation, the wildcards are replaced by their values as strings and the expression is evaluated as Python code with access to any global variables defined in the workflow.
+Consider the following example:
+
+.. code-block:: python
+
+    rule a:
+    input:
+        branch(evaluate("{sample} == '100'"), then="a/{sample}.txt", otherwise="b/{sample}.txt"),
+    output:
+        "c/{sample}.txt",
+    shell:
+        ...
+
+The semantic is as follows:
+If the sample wildcard is ``100``, the input is ``a/100.txt``, otherwise it is ``b/100.txt``.
 
 .. _snakefiles-targets:
 
-Targets and aggregation
------------------------
+Target rules
+-------------
 
-By default snakemake executes the first rule in the snakefile. This gives rise to pseudo-rules at the beginning of the file that can be used to define build-targets similar to GNU Make:
+By default, Snakemake always wants to execute the first rule in the snakefile.
+This gives rise to pseudo-rules at the beginning of the file that can be used to define build-targets similar to GNU Make:
 
 .. code-block:: python
 
     rule all:
-      input:
-        expand("{dataset}/file.A.txt", dataset=DATASETS)
+        input:
+            expand("{dataset}/file.A.txt", dataset=DATASETS)
 
 
 Here, for each dataset in a python list ``DATASETS`` defined before, the file ``{dataset}/file.A.txt`` is requested.
@@ -1455,84 +1694,6 @@ The following shows an example job submission wrapper:
     job_properties["cluster"]["time"]
 
     os.system("qsub -t {threads} {script}".format(threads=threads, script=jobscript))
-
-.. _snakefiles-input_functions:
-
-Input functions
----------------
-
-Instead of specifying strings or lists of strings as input files, snakemake can also make use of functions that return single **or** lists of input files:
-
-.. code-block:: python
-
-    def myfunc(wildcards):
-        return [... a list of input files depending on given wildcards ...]
-
-    rule:
-        input:
-            myfunc
-        output:
-            "someoutput.{somewildcard}.txt"
-        shell:
-            "..."
-
-The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files.
-Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
-By this, rules can have entirely different input files (both in form and number) depending on the inferred wildcards. E.g. you can assign input files that appear in entirely different parts of your filesystem based on some wildcard value and a dictionary that maps the wildcard value to file paths.
-
-In additon to a single wildcards argument, input functions can optionally take a ``groupid`` (with exactly that name) as second argument, see :ref:`snakefiles_group-local` for details.
-
-Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.
-In particular, input files should not be combined with very general rules that can be applied to create almost any file: Snakemake will try to apply the rule, and will report the exceptions of your input function as errors.
-
-For a practical example, see the :ref:`tutorial` (:ref:`tutorial-input_functions`).
-
-.. _snakefiles-unpack:
-
-Input Functions and ``unpack()``
---------------------------------
-
-In some cases, you might want to have your input functions return named input files.
-This can be done by having them return ``dict()`` objects with the names as the dict keys and the file names as the dict values and using the ``unpack()`` keyword.
-
-.. code-block:: python
-
-    def myfunc(wildcards):
-        return {'foo': '{wildcards.token}.txt'.format(wildcards=wildcards)}
-
-    rule:
-        input:
-            unpack(myfunc)
-        output:
-            "someoutput.{token}.txt"
-        shell:
-            "..."
-
-Note that ``unpack()`` is only necessary for input functions returning ``dict``.
-While it also works for ``list``, remember that lists (and nested lists) of strings are automatically flattened.
-
-Also note that if you do not pass in a *function* into the input list but you directly *call a function* then you shouldn't use ``unpack()``.
-Here, you can simply use Python's double-star (``**``) operator for unpacking the parameters.
-
-Note that as Snakefiles are translated into Python for execution, the same rules as for using the `star and double-star unpacking Python operators <https://docs.python.org/3/tutorial/controlflow.html#unpacking-argument-lists>`_ apply.
-These restrictions do not apply when using ``unpack()``.
-
-.. code-block:: python
-
-    def myfunc1():
-        return ['foo.txt']
-
-    def myfunc2():
-        return {'foo': 'nowildcards.txt'}
-
-    rule:
-        input:
-            *myfunc1(),
-            **myfunc2(),
-        output:
-            "..."
-        shell:
-            "..."
 
 .. _snakefiles-code_tracking:
 

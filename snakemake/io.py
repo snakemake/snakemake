@@ -20,6 +20,10 @@ import string
 import subprocess as sp
 import time
 from contextlib import contextmanager
+import string
+import collections
+import asyncio
+from typing import Callable
 from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
@@ -34,7 +38,12 @@ from snakemake_interface_storage_plugins.io import (
     get_constant_prefix,
 )
 
-from snakemake.common import ON_WINDOWS, async_run
+from snakemake.common import (
+    ON_WINDOWS,
+    async_run,
+    get_function_params,
+    get_input_function_aux_params,
+)
 from snakemake.exceptions import (
     MissingOutputException,
     WildcardError,
@@ -1227,7 +1236,7 @@ def local(value):
     return flag(value, "local")
 
 
-def expand(*args, **wildcards):
+def expand(*args, **wildcard_values):
     """
     Expand wildcards in given filepatterns.
 
@@ -1235,7 +1244,7 @@ def expand(*args, **wildcards):
     *args -- first arg: filepatterns as list or one single filepattern,
         second arg (optional): a function to combine wildcard values
         (itertools.product per default)
-    **wildcards -- the wildcards as keyword arguments
+    **wildcard_values -- the wildcards as keyword arguments
         with their values as lists. If allow_missing=True is included
         wildcards in filepattern without values will stay unformatted.
     """
@@ -1263,7 +1272,7 @@ def expand(*args, **wildcards):
 
     # check if remove missing is provided
     format_dict = dict
-    if "allow_missing" in wildcards and wildcards["allow_missing"] is True:
+    if "allow_missing" in wildcard_values and wildcard_values["allow_missing"] is True:
 
         class FormatDict(dict):
             def __missing__(self, key):
@@ -1276,43 +1285,58 @@ def expand(*args, **wildcards):
                 format_dict = dict
                 break
 
-    # raise error if function is passed as value for any wildcard
-    for key, value in wildcards.items():
-        if callable(value):
-            raise WorkflowError(
-                f"Callable/function {value} is passed as value for {key} in 'expand' statement. "
-                "This is most likely not what you want, as expand takes iterables of values or single values for "
-                "its arguments. If you want to use a function to generate the values, you can wrap the entire "
-                "expand in another function that does the computation."
-            )
+    callables = {
+        key: value
+        for key, value in wildcard_values.items()
+        if isinstance(value, Callable)
+    }
 
     # remove unused wildcards to avoid duplicate filepatterns
-    wildcards = {
+    wildcard_values = {
         filepattern: {
             k: v
-            for k, v in wildcards.items()
+            for k, v in wildcard_values.items()
             if k in re.findall(r"{([^}\.[!:]+)", filepattern)
         }
         for filepattern in filepatterns
     }
 
-    def flatten(wildcards):
-        for wildcard, values in wildcards.items():
-            if isinstance(values, str) or not isinstance(
-                values, collections.abc.Iterable
-            ):
-                values = [values]
-            yield [(wildcard, value) for value in values]
+    def do_expand(wildcard_values):
+        def flatten(wildcard_values):
+            for wildcard, values in wildcard_values.items():
+                if isinstance(values, str) or not isinstance(
+                    values, collections.abc.Iterable
+                ):
+                    values = [values]
+                yield [(wildcard, value) for value in values]
 
-    formatter = string.Formatter()
-    try:
-        return [
-            formatter.vformat(filepattern, (), comb)
-            for filepattern in filepatterns
-            for comb in map(format_dict, combinator(*flatten(wildcards[filepattern])))
-        ]
-    except KeyError as e:
-        raise WildcardError(f"No values given for wildcard {e}.")
+        formatter = string.Formatter()
+        try:
+            return [
+                formatter.vformat(filepattern, (), comb)
+                for filepattern in filepatterns
+                for comb in map(
+                    format_dict, combinator(*flatten(wildcard_values[filepattern]))
+                )
+            ]
+        except KeyError as e:
+            raise WildcardError(f"No values given for wildcard {e}.")
+
+    if callables:
+        # defer expansion and return a function that does the expansion once it is called with
+        # the usual arguments (wildcards, [input, ])
+        def inner(wildcards, **aux_params):
+            for wildcard, func in callables.items():
+                func_aux_params = get_input_function_aux_params(func, aux_params)
+                ret = func(wildcards, **func_aux_params)
+                # store result for all filepatterns that need it
+                for pattern_values in wildcard_values.values():
+                    pattern_values[wildcard] = ret
+            return do_expand(wildcard_values)
+
+        return inner
+    else:
+        return do_expand(wildcard_values)
 
 
 def multiext(prefix, *extensions):
