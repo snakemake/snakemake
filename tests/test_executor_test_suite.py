@@ -1,5 +1,7 @@
 from pathlib import Path
-from typing import Optional
+from typing import Mapping, Optional
+
+from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 import snakemake.common.tests
 
 from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
@@ -18,8 +20,13 @@ class TestWorkflows(snakemake.common.tests.TestWorkflowsBase):
     def get_executor_settings(self) -> Optional[ExecutorSettingsBase]:
         return ExecutorSettings(submit_cmd=self._get_cmd())
 
-    def get_default_remote_provider(self) -> Optional[str]:
+    def get_default_storage_provider(self) -> Optional[str]:
         return None
 
-    def get_default_remote_prefix(self) -> Optional[str]:
+    def get_default_storage_prefix(self) -> Optional[str]:
+        return None
+
+    def get_default_storage_provider_settings(
+        self,
+    ) -> Optional[Mapping[str, TaggedSettings]]:
         return None

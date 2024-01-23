@@ -45,16 +45,21 @@ def get_exception_origin(ex, linemaps):
 
 
 def cut_traceback(ex):
+    lines = []
     snakemake_path = os.path.dirname(__file__)
-    for line in traceback.extract_tb(ex.__traceback__):
+    not_seen_snakemake = True
+    for line in traceback.extract_tb(ex.__traceback__)[::-1]:
         dir = os.path.dirname(line[0])
         if not dir:
             dir = "."
         is_snakemake_dir = lambda path: os.path.realpath(path).startswith(
             os.path.realpath(snakemake_path)
         )
-        if not os.path.isdir(dir) or not is_snakemake_dir(dir):
-            yield line
+        if is_snakemake_dir(dir):
+            not_seen_snakemake = False
+        if not os.path.isdir(dir) or not_seen_snakemake:
+            lines.append(line)
+    return lines[::-1]
 
 
 def format_traceback(tb, linemaps):
@@ -155,6 +160,12 @@ def print_exception(ex, linemaps=None):
         traceback.print_exception(type(ex), ex, ex.__traceback__)
 
 
+def update_lineno(ex: SyntaxError, linemaps):
+    if ex.filename and ex.lineno:
+        ex.lineno = linemaps[ex.filename][ex.lineno]
+        return ex
+
+
 class SourceFileError(WorkflowError):
     def __init__(self, msg):
         super().__init__(f"Error in source file definition: {msg}")
@@ -183,18 +194,18 @@ class RuleException(Exception):
         snakefile -- the file the exception originates
         """
         super(RuleException, self).__init__(message)
-        self._include = set()
+        _include = set()
         if include:
             for ex in include:
-                self._include.add(ex)
-                self._include.update(ex._include)
+                _include.add(ex)
+                _include.update(ex._include)
         if rule is not None:
             if lineno is None:
                 lineno = rule.lineno
             if snakefile is None:
                 snakefile = rule.snakefile
 
-        self._include = list(self._include)
+        self._include = list(_include)
         self.rule = rule
         self.lineno = lineno
         self.filename = snakefile
@@ -237,15 +248,21 @@ class ChildIOException(WorkflowError):
 class IOException(RuleException):
     def __init__(self, prefix, job, files, include=None, lineno=None, snakefile=None):
         from snakemake.logging import format_wildcards
+        from snakemake.io import pretty_print_iofile
 
         msg = ""
         if files:
             msg = f"{prefix} for rule {job.rule}:"
             if job.output:
-                msg += "\n" + f"    output: {', '.join(job.output)}"
+                msg += (
+                    "\n"
+                    + f"    output: {', '.join(map(pretty_print_iofile, job.output))}"
+                )
             if job.wildcards:
                 msg += "\n" + f"    wildcards: {format_wildcards(job.wildcards)}"
-            msg += "\n    affected files:\n        " + "\n        ".join(files)
+            msg += "\n    affected files:\n        " + "\n        ".join(
+                map(pretty_print_iofile, files)
+            )
         super().__init__(
             message=msg,
             include=include,

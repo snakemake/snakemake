@@ -3,6 +3,8 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from dataclasses import dataclass
+import sys
 import textwrap
 import tokenize
 from typing import Any, Dict, Generator, List, Optional
@@ -17,6 +19,11 @@ INDENT = "\t"
 
 def is_newline(token, newline_tokens=set((tokenize.NEWLINE, tokenize.NL))):
     return token.type in newline_tokens
+
+
+def is_line_start(token):
+    prefix = token.line[: token.start[1]]
+    return not prefix or prefix.isspace()
 
 
 def is_indent(token):
@@ -110,7 +117,13 @@ class TokenAutomaton:
                     str(e).split(",")[0].strip("()''"), token
                 )  # TODO the inferred line number seems to be wrong sometimes
 
-    def error(self, msg, token):
+    def error(self, msg, token, naming_hint=None):
+        if naming_hint is not None:
+            msg += (
+                f" The keyword {naming_hint} has a special meaning in Snakemake. "
+                "If you named a variable or function like this, please rename it to "
+                "avoid the conflict."
+            )
         raise SyntaxError(msg, (self.snakefile.path, lineno(token), None, None))
 
     def subautomaton(self, automaton, *args, token=None, **kwargs):
@@ -271,6 +284,30 @@ class Scattergather(GlobalKeywordState):
     pass
 
 
+class Storage(GlobalKeywordState):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tag = None
+        self.state = self.register_tag
+
+    def start(self):
+        yield f"workflow.storage_registry.register_storage(tag={self.tag!r}, "
+
+    def register_tag(self, token):
+        if is_name(token):
+            self.tag = token.string
+        elif is_colon(token):
+            self.state = self.block
+            for t in self.start():
+                yield t, token
+        else:
+            self.error(
+                "Expected name or colon after storage keyword.",
+                token,
+                naming_hint="storage",
+            )
+
+
 class ResourceScope(GlobalKeywordState):
     err_msg = (
         "Invalid scope: {resource}={scope}. Scope must be set to either 'local' or "
@@ -328,6 +365,12 @@ class GlobalContainerized(GlobalKeywordState):
     @property
     def keyword(self):
         return "global_containerized"
+
+
+class GlobalConda(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_conda"
 
 
 class Localrules(GlobalKeywordState):
@@ -465,7 +508,7 @@ class Run(RuleKeywordState):
             "resources, log, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
-            "conda_base_path, basedir, runtime_sourcecache_path, {rule_func_marker}=True):".format(
+            "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, {rule_func_marker}=True):".format(
                 rulename=self.rulename
                 if self.rulename is not None
                 else self.snakefile.rulecount,
@@ -493,7 +536,7 @@ class AbstractCmd(Run):
         super().__init__(
             snakefile, rulename, base_indent=base_indent, dedent=dedent, root=root
         )
-        self.cmd = list()
+        self.cmd: list[tuple[str, tokenize.TokenInfo]] = []
         self.token = None
         if self.overwrite_cmd is not None:
             self.block_content = self.overwrite_block_content
@@ -521,7 +564,7 @@ class AbstractCmd(Run):
         yield INDENT * (self.effective_indent + 1)
         yield self.end_func
         yield "("
-        yield "\n".join(self.cmd)
+        yield from self.cmd
         yield from self.args()
         yield "\n"
         yield ")"
@@ -534,19 +577,18 @@ class AbstractCmd(Run):
             self.error(
                 "Command must be given as string after the shell keyword.", token
             )
-        for t in self.end():
-            yield t, self.token
+        yield from super().decorate_end(self.token)
 
     def block_content(self, token):
         self.token = token
-        self.cmd.append(token.string)
+        self.cmd.append((token.string, token))
         yield token.string, token
 
     def overwrite_block_content(self, token):
         if self.token is None:
             self.token = token
             cmd = repr(self.overwrite_cmd)
-            self.cmd.append(cmd)
+            self.cmd.append((cmd, token))
             yield cmd, token
 
 
@@ -566,7 +608,8 @@ class Script(AbstractCmd):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, runtime_sourcecache_path"
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, sourcecache_path, "
+            "runtime_sourcecache_path"
         )
 
 
@@ -579,7 +622,7 @@ class Notebook(Script):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook, runtime_sourcecache_path"
+            "edit_notebook, sourcecache_path, runtime_sourcecache_path"
         )
 
 
@@ -592,7 +635,7 @@ class Wrapper(Script):
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, workflow.workflow_settings.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir, runtime_sourcecache_path"
+            "cleanup_scripts, shadow_dir, sourcecache_path, runtime_sourcecache_path"
         )
 
 
@@ -611,7 +654,8 @@ class CWL(Script):
     def args(self):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, use_singularity, bench_record, jobid, runtime_sourcecache_path"
+            "config, rule, use_singularity, bench_record, jobid, sourcecache_path, "
+            "runtime_sourcecache_path"
         )
 
 
@@ -695,7 +739,9 @@ class Rule(GlobalKeywordState):
                 yield t, token
         else:
             self.error(
-                "Expected name or colon after rule or checkpoint keyword.", token
+                "Expected name or colon after rule or checkpoint keyword.",
+                token,
+                naming_hint="rule",
             )
 
     def block_content(self, token):
@@ -846,7 +892,9 @@ class Module(GlobalKeywordState):
             self.primary_token = token
             self.state = self.block
         else:
-            self.error("Expected name after module keyword.", token)
+            self.error(
+                "Expected name after module keyword.", token, naming_hint="module"
+            )
 
     def block_content(self, token):
         if is_name(token):
@@ -1140,7 +1188,9 @@ class Python(TokenAutomaton):
         singularity=GlobalSingularity,
         container=GlobalContainer,
         containerized=GlobalContainerized,
+        conda=GlobalConda,
         scattergather=Scattergather,
+        storage=Storage,
         resource_scopes=ResourceScope,
         module=Module,
         use=UseRule,
@@ -1153,7 +1203,11 @@ class Python(TokenAutomaton):
 
     def python(self, token: tokenize.TokenInfo):
         if not (is_indent(token) or is_dedent(token)):
-            if self.lasttoken is None or self.lasttoken.isspace():
+            if (
+                self.lasttoken is None
+                or self.lasttoken.isspace()
+                and is_line_start(token)
+            ):
                 try:
                     for t in self.subautomaton(token.string, token=token).consume():
                         yield t
@@ -1202,6 +1256,48 @@ def format_tokens(tokens) -> Generator[str, None, None]:
         t_ = t
 
 
+if sys.version_info >= (3, 12):
+
+    def format_f_tokens(
+        tokens: list[tuple[str, tokenize.TokenInfo]]
+    ) -> Generator[str, None, None]:
+        s_ = ""
+        isin_fstring = False
+        for s, t in tokens:
+            if t.type == tokenize.FSTRING_MIDDLE:  # type: ignore [attr-defined]
+                # print(f"{s}|", t.string, "<left fstring middle>")
+                isin_fstring = True
+                s_ += s.replace("{", "{{").replace("}", "}}")
+            elif t.type == tokenize.FSTRING_START and s == t.string:  # type: ignore [attr-defined]
+                # print(f"{s}|", t.string, "<fstring start>")
+                isin_fstring = True
+                yield s_
+                s_ = s
+            elif isin_fstring:
+                if s != t.string:
+                    # print(f"{s}|", t.string, "<fake fstring space>")
+                    continue
+                isin_fstring = False
+                # print(f"{s}|", t.string, "<right fstring middle>")
+                s_ += s
+            elif t.type == tokenize.FSTRING_END:  # type: ignore [attr-defined]
+                # print(f"{s}|", t.string, "<fstring end>")
+                s_ += s
+            else:
+                # print(f"{s}|", t.string, "<code>")
+                yield s_
+                s_ = s
+        if tokens:
+            yield s_
+
+else:
+
+    def format_f_tokens(
+        tokens: list[tuple[str, tokenize.TokenInfo]]
+    ) -> Generator[str, None, None]:
+        return (s for s, _ in tokens)
+
+
 def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
     Shell.overwrite_cmd = overwrite_shellcmd
     with Snakefile(path, workflow, rulecount=rulecount) as snakefile:
@@ -1219,9 +1315,9 @@ def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
                 )
             )
             snakefile.lines += t.count("\n")
-            compilation.append(t)
-        compilation = "".join(format_tokens(compilation))
-        if linemap:
-            last = max(linemap)
-            linemap[last + 1] = linemap[last]
-        return compilation, linemap, snakefile.rulecount
+            compilation.append((t, orig_token))
+    compilation = "".join(format_tokens(format_f_tokens(compilation)))
+    if linemap:
+        last = max(linemap)
+        linemap[last + 1] = linemap[last]
+    return compilation, linemap, snakefile.rulecount

@@ -226,10 +226,6 @@ def test_report_display_code():
     run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
 
-def test_dynamic():
-    run(dpath("test_dynamic"))
-
-
 def test_params():
     run(dpath("test_params"))
 
@@ -344,14 +340,6 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
-@skip_on_windows
-@pytest.mark.xfail(
-    reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""
-)
-def test_remote():
-    run(dpath("test_remote"), cores=1)
-
-
 @pytest.mark.skip(reason="This does not work reliably in CircleCI.")
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
@@ -443,16 +431,6 @@ def test_symlink_time_handling():
 @skip_on_windows
 def test_protected_symlink_output():
     run(dpath("test_protected_symlink_output"))
-
-
-def test_issue328():
-    try:
-        import pytools
-
-        run(dpath("test_issue328"), forcerun=["split"])
-    except ImportError:
-        # skip test if import fails
-        pass
 
 
 def test_conda():
@@ -554,49 +532,6 @@ def test_spaces_in_fnames():
     )
 
 
-# TODO deactivate because of problems with moto and boto3.
-# def test_static_remote():
-#     import importlib
-#     try:
-#         importlib.reload(boto3)
-#         importlib.reload(moto)
-#         # only run the remote file test if the dependencies
-#         # are installed, otherwise do nothing
-#         run(dpath("test_static_remote"), cores=1)
-#     except ImportError:
-#         pass
-
-
-@connected
-def test_remote_ncbi_simple():
-    try:
-        import Bio
-
-        # only run the remote file test if the dependencies
-        # are installed, otherwise do nothing
-        run(dpath("test_remote_ncbi_simple"))
-    except ImportError:
-        pass
-
-
-@connected
-def test_remote_ncbi():
-    try:
-        import Bio
-
-        # only run the remote file test if the dependencies
-        # are installed, otherwise do nothing
-        run(dpath("test_remote_ncbi"))
-    except ImportError:
-        pass
-
-
-@ci
-@skip_on_windows
-def test_remote_irods():
-    run(dpath("test_remote_irods"))
-
-
 def test_deferred_func_eval():
     run(dpath("test_deferred_func_eval"))
 
@@ -696,106 +631,56 @@ def test_threads0():
     run(dpath("test_threads0"))
 
 
-def test_dynamic_temp():
-    run(dpath("test_dynamic_temp"))
+def test_default_storage(s3_storage):
+    prefix, settings = s3_storage
 
-
-# TODO this currently hangs. Has to be investigated (issue #660).
-# def test_ftp_immediate_close():
-#    try:
-#        import ftputil
-#
-#        # only run the remote file test if the dependencies
-#        # are installed, otherwise do nothing
-#        run(dpath("test_ftp_immediate_close"))
-#    except ImportError:
-#        pass
-
-
-def test_issue260():
-    run(dpath("test_issue260"))
-
-
-@skip_on_windows
-@not_ci
-def test_default_remote():
     run(
         dpath("test_default_remote"),
         cores=1,
-        default_remote_provider="S3Mocked",
-        default_remote_prefix="test-remote-bucket",
+        default_storage_provider="s3",
+        default_storage_prefix=prefix,
+        storage_provider_settings=settings,
     )
+
+
+@skip_on_windows  # OS-independent
+def test_default_storage_local_job(s3_storage):
+    prefix, settings = s3_storage
+
+    run(
+        dpath("test_default_storage_local_job"),
+        cores=1,
+        default_storage_provider="s3",
+        default_storage_prefix=prefix,
+        storage_provider_settings=settings,
+        cluster="./qsub",
+        shared_fs_usage=set(SharedFSUsage.all()) - {SharedFSUsage.INPUT_OUTPUT},
+    )
+
+
+def test_storage(s3_storage):
+    prefix, settings = s3_storage
+
+    run(
+        dpath("test_storage"),
+        config={"s3_prefix": prefix},
+        storage_provider_settings=settings,
+    )
+
+
+# TODO enable once storage directive is implemented
+# def test_storage_directive(s3_storage):
+#     prefix, settings = s3_storage
+
+#     run(
+#         dpath("test_storage_directive"),
+#         config={"s3_prefix": prefix},
+#         storage_provider_settings=settings,
+#     )
 
 
 def test_run_namedlist():
     run(dpath("test_run_namedlist"))
-
-
-@connected
-@not_ci
-@skip_on_windows
-def test_remote_gs():
-    run(dpath("test_remote_gs"))
-
-
-@pytest.mark.skip(reason="Need to choose how to provide billable project")
-@connected
-@not_ci
-def test_gs_requester_pays(
-    requesting_project=None,
-    requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
-):
-    """Tests pull-request 79 / issue 96 for billable user projects on GS
-
-    If requesting_project None, behaves as test_remote_gs().
-
-    Parameters
-    ----------
-    requesting_project: Optional[str]
-        User project to bill for download. None will not provide the project for
-        requester-pays as is the usual default
-    requesting_url: str
-        URL of the bucket to download. The default will match the expected output but is a
-        bucket that doesn't require requester pays.
-    """
-    # create temporary config file
-    with tempfile.NamedTemporaryFile(suffix=".yaml") as handle:
-        # specify project and url for download
-        if requesting_project is None:
-            handle.write(b"project: null\n")
-        else:
-            handle.write('project: "{}"\n'.format(requesting_project).encode())
-        handle.write('url: "{}"\n'.format(requesting_url).encode())
-        # make sure we can read them
-        handle.flush()
-        # run the pipeline
-        run(dpath("test_gs_requester_pays"), configfiles=[handle.name], forceall=True)
-
-
-@pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
-@connected
-@ci
-@skip_on_windows
-def test_remote_azure():
-    run(dpath("test_remote_azure"))
-
-
-def test_remote_log():
-    run(dpath("test_remote_log"), shouldfail=True)
-
-
-@connected
-def test_remote_http():
-    run(dpath("test_remote_http"))
-
-
-@skip_on_windows
-@connected
-def test_remote_http_cluster():
-    run(
-        dpath("test_remote_http"),
-        cluster=os.path.abspath(dpath("test_group_job_fail/qsub")),
-    )
 
 
 def test_profile():
@@ -917,6 +802,15 @@ def test_group_jobs_attempts():
 
 def assert_resources(resources: dict, **expected_resources):
     assert {res: resources[res] for res in expected_resources} == expected_resources
+
+
+@skip_on_windows
+def test_groups_out_of_jobs():
+    run(
+        dpath("test_groups_out_of_jobs"),
+        cluster="./qsub",
+        shouldfail=True,
+    )
 
 
 @skip_on_windows
@@ -1459,25 +1353,17 @@ def test_output_file_cache():
 
 
 @skip_on_windows
-@pytest.mark.xfail(
-    reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""
-)
-def test_output_file_cache_remote():
-    test_path = dpath("test_output_file_cache_remote")
-    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+def test_output_file_cache_storage(s3_storage):
+    prefix, settings = s3_storage
+    test_path = dpath("test_output_file_cache_storage")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = f"{prefix}-cache"
     run(
         test_path,
         cache=["a", "b", "c"],
-        default_remote_provider="S3Mocked",
-        default_remote_prefix="test-remote-bucket",
+        default_storage_provider="s3",
+        default_storage_prefix=prefix,
+        storage_provider_settings=settings,
     )
-
-
-@connected
-@zenodo
-@pytest.mark.xfail(reason="zenodo currently returns an internal server error")
-def test_remote_zenodo():
-    run(dpath("test_remote_zenodo"))
 
 
 def test_multiext():
@@ -1799,6 +1685,11 @@ def test_peppy():
     run(dpath("test_peppy"))
 
 
+@skip_on_windows
+def test_pep_pathlib():
+    run(dpath("test_pep_pathlib"))
+
+
 def test_template_engine():
     run(dpath("test_template_engine"))
 
@@ -1888,6 +1779,10 @@ def test_ensure_success():
 
 def test_ensure_checksum_fail():
     run(dpath("test_ensure"), targets=["d"], shouldfail=True)
+
+
+def test_fstring():
+    run(dpath("test_fstring"), targets=["SID23454678.txt"])
 
 
 @skip_on_windows
@@ -2019,6 +1914,37 @@ def test_config_yte():
 def test_load_metawrapper():
     run(dpath("test_load_metawrapper"), executor="dryrun")
 
+
+@skip_on_windows
+def test_conda_global():
+    run(
+        dpath("test_conda_global"),
+        deployment_method={DeploymentMethod.CONDA},
+        executor="dryrun",
+    )
+
+
+def test_missing_file_dryrun():
+    run(dpath("test_missing_file_dryrun"), executor="dryrun", shouldfail=True)
+
+
+def test_script_pre_py39():
+    run(dpath("test_script_pre_py39"), deployment_method={DeploymentMethod.CONDA})
+
+
+def test_issue1256():
+    snakefile = os.path.join(dpath("test_issue1256"), "Snakefile")
+    p = subprocess.Popen(
+        f"snakemake -s {snakefile}",
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    stderr = stderr.decode()
+    assert p.returncode == 1
+    assert "SyntaxError" in stderr
+    assert "line 9" in stderr
 
 def test_micromamba():
     run(dpath("test_wrapper"), use_conda=True, conda_frontend="micromamba")

@@ -1,10 +1,8 @@
 from abc import ABC
 from dataclasses import dataclass, field
-from enum import Enum
-import importlib
 from pathlib import Path
 from typing import Optional
-from collections.abc import Mapping, Sequence, Set
+from typing import Mapping, Sequence, Set
 
 import immutables
 
@@ -16,6 +14,7 @@ from snakemake_interface_executor_plugins.settings import (
     StorageSettingsExecutorInterface,
     DeploymentMethod,
     ExecMode,
+    SharedFSUsage,
 )
 from snakemake_interface_common.settings import SettingsEnumBase
 
@@ -88,7 +87,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     attempt: int = 1
     use_threads: bool = False
     shadow_prefix: Optional[Path] = None
-    mode: ExecMode = ExecMode.DEFAULT
     keep_incomplete: bool = False
     keep_metadata: bool = True
     edit_notebook: Optional[NotebookEditMode] = None
@@ -98,6 +96,8 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
 @dataclass
 class WorkflowSettings(SettingsBase):
     wrapper_prefix: Optional[str] = None
+    exec_mode: ExecMode = ExecMode.DEFAULT
+    cache: Optional[Sequence[str]] = None
 
 
 class Batch:
@@ -166,7 +166,6 @@ class DAGSettings(SettingsBase):
     allowed_rules: Set[str] = frozenset()
     rerun_triggers: Set[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
-    cache: Optional[Sequence[str]] = None
 
     def _check(self):
         if self.batch is not None and self.forceall:
@@ -178,36 +177,14 @@ class DAGSettings(SettingsBase):
 
 @dataclass
 class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
-    default_remote_provider: Optional[str] = None
-    default_remote_prefix: Optional[str] = None
-    assume_shared_fs: bool = True
-    keep_remote_local: bool = False
+    default_storage_provider: Optional[str] = None
+    default_storage_prefix: Optional[str] = None
+    shared_fs_usage: Set[SharedFSUsage] = SharedFSUsage.all()
+    keep_storage_local: bool = False
+    local_storage_prefix: Path = Path(".snakemake/storage")
     notemp: bool = False
     all_temp: bool = False
-
-    def __post_init__(self):
-        self.default_remote_provider = self._get_default_remote_provider()
-        super().__post_init__()
-
-    def _get_default_remote_provider(self):
-        if self.default_remote_provider is not None:
-            try:
-                rmt = importlib.import_module(
-                    "snakemake.remote." + self.default_remote_provider
-                )
-            except ImportError:
-                raise ApiError(
-                    f"Unknown default remote provider {self.default_remote_provider}."
-                )
-            if rmt.RemoteProvider.supports_default:
-                return rmt.RemoteProvider(
-                    keep_local=self.keep_remote_local, is_default=True
-                )
-            else:
-                raise ApiError(
-                    "Remote provider {} does not (yet) support to "
-                    "be used as default provider."
-                )
+    unneeded_temp_files: Set[str] = frozenset()
 
 
 class CondaCleanupPkgs(SettingsEnumBase):
@@ -372,6 +349,8 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     preemptible_rules: PreemptibleRules = field(default_factory=PreemptibleRules)
     envvars: Sequence[str] = tuple()
     immediate_submit: bool = False
+    precommand: Optional[str] = None
+    job_deploy_sources: bool = True
 
 
 @dataclass

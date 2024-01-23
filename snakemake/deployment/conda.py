@@ -41,7 +41,7 @@ from snakemake.io import (
     contains_wildcard,
     _IOFile,
 )
-from snakemake_interface_executor_plugins.utils import lazy_property
+from snakemake_interface_common.utils import lazy_property
 
 
 class CondaCleanupMode(Enum):

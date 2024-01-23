@@ -1,8 +1,12 @@
 sphinx >=3
 sphinxcontrib-napoleon
 sphinx-argparse
-sphinx_rtd_theme
 docutils
 myst-parser
 configargparse
 appdirs
+immutables
+sphinxawesome-theme
+snakemake-interface-common
+snakemake-interface-executor-plugins
+snakemake-interface-storage-plugins

@@ -142,7 +142,9 @@ When Snakemake is executed with
 
 .. code:: console
 
-  snakemake --use-conda --cores 1
+  snakemake --software-deployment-method conda --cores 1
+  # or the short form
+    snakemake --sdm conda -c 1
 
 it will automatically create required environments and
 activate them before a job is executed.
@@ -192,7 +194,7 @@ The wrapper directive expects a (partial) URL that points to a wrapper in the re
 These can be looked up in the corresponding `database <https://snakemake-wrappers.readthedocs.io>`_.
 The first part of the URL is a Git version tag. Upon invocation, Snakemake
 will automatically download the requested version of the wrapper.
-Furthermore, in combination with ``--use-conda`` (see :ref:`tutorial-conda`),
+Furthermore, in combination with ``--software-deployment-method conda`` (see :ref:`tutorial-conda`),
 the required software will be automatically deployed before execution.
 
 Cluster execution

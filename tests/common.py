@@ -19,6 +19,7 @@ import glob
 import subprocess
 import tarfile
 
+from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 from snakemake import api, settings
@@ -124,6 +125,42 @@ def print_tree(path, exclude=None):
             print(f"{subindent}{f}")
 
 
+@pytest.fixture
+def s3_storage():
+    from snakemake_storage_plugin_s3 import StorageProviderSettings
+    from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+    import uuid
+    import boto3
+
+    endpoint_url = "https://play.minio.io:9000"
+    access_key = "Q3AM3UQ867SPQQA43P2F"
+    secret_key = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+    bucket = f"snakemake-{uuid.uuid4().hex}"
+
+    tagged_settings = TaggedSettings()
+    tagged_settings.register_settings(
+        StorageProviderSettings(
+            endpoint_url=endpoint_url,
+            access_key=access_key,
+            secret_key=secret_key,
+        )
+    )
+
+    yield f"s3://{bucket}", {"s3": tagged_settings}
+
+    # clean up using boto3
+    s3c = boto3.resource(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+    )
+    try:
+        s3c.Bucket(bucket).delete()
+    except Exception:
+        pass
+
+
 def run(
     path,
     shouldfail=False,
@@ -158,8 +195,8 @@ def run(
     conda_prefix=None,
     wrapper_prefix=None,
     printshellcmds=False,
-    default_remote_provider=None,
-    default_remote_prefix=None,
+    default_storage_provider=None,
+    default_storage_prefix=None,
     archive=None,
     cluster=None,
     cluster_status=None,
@@ -183,6 +220,8 @@ def run(
     all_temp=False,
     cleanup_metadata=None,
     rerun_triggers=settings.RerunTrigger.all(),
+    storage_provider_settings=None,
+    shared_fs_usage=None,
 ):
     """
     Test the Snakefile in the path.
@@ -269,6 +308,9 @@ def run(
             )
             nodes = 3
 
+        if shared_fs_usage is None:
+            shared_fs_usage = SharedFSUsage.all()
+
         success = True
 
         with api.SnakemakeApi(
@@ -299,12 +341,20 @@ def run(
                         configfiles=configfiles,
                     ),
                     storage_settings=settings.StorageSettings(
-                        default_remote_provider=default_remote_provider,
-                        default_remote_prefix=default_remote_prefix,
+                        default_storage_provider=default_storage_provider,
+                        default_storage_prefix=default_storage_prefix,
                         all_temp=all_temp,
+                        shared_fs_usage=shared_fs_usage,
                     ),
+                    storage_provider_settings=storage_provider_settings,
                     workflow_settings=settings.WorkflowSettings(
                         wrapper_prefix=wrapper_prefix,
+                        cache=cache,
+                    ),
+                    deployment_settings=settings.DeploymentSettings(
+                        conda_frontend=conda_frontend,
+                        conda_prefix=conda_prefix,
+                        deployment_method=deployment_method,
                     ),
                     snakefile=Path(original_snakefile if no_tmpdir else snakefile),
                     workdir=Path(path if no_tmpdir else tmpdir),
@@ -318,14 +368,8 @@ def run(
                         forcerun=forcerun,
                         batch=batch,
                         force_incomplete=force_incomplete,
-                        cache=cache,
                         forceall=forceall,
                         rerun_triggers=rerun_triggers,
-                    ),
-                    deployment_settings=settings.DeploymentSettings(
-                        conda_frontend=conda_frontend,
-                        conda_prefix=conda_prefix,
-                        deployment_method=deployment_method,
                     ),
                 )
 

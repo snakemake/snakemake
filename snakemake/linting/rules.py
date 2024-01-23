@@ -80,15 +80,6 @@ class RuleLinter(Linter):
                         links=[links.params],
                     )
 
-    def lint_dynamic(self, rule):
-        for file in chain(rule.output, rule.input):
-            if is_flagged(file, "dynamic"):
-                yield Lint(
-                    title="The dynamic flag is deprecated",
-                    body="Use checkpoints instead, which are more powerful and less error-prone.",
-                    links=[links.checkpoints],
-                )
-
     def lint_long_run(self, rule):
         func_code = rule.run_func.__code__.co_code
         max_len = 70 if sys.version_info < (3, 11) else 210
@@ -124,7 +115,7 @@ class RuleLinter(Linter):
                     body="While environment modules allow to document and deploy the required software on a certain "
                     "platform, they lock your workflow in there, disabling easy reproducibility on other machines "
                     "that don't have exactly the same environment modules. Hence env modules (which might be beneficial "
-                    "in certain cluster environments), should allways be complemented with equivalent conda "
+                    "in certain cluster environments), should always be complemented with equivalent conda "
                     "environments.",
                     links=[links.package_management, links.containers],
                 )

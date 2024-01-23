@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from abc import ABC, abstractmethod
 import asyncio
 import collections
 import copy
@@ -21,42 +22,23 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Callable, Dict, Set
+from typing import Any, Callable, Dict, Set, Union
 
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
+from snakemake_interface_common.utils import not_iterable
+from snakemake_interface_storage_plugins.io import (
+    WILDCARD_REGEX,
+    IOCacheStorageInterface,
+    Mtime,
+    get_constant_prefix,
+)
+
+from snakemake.common import ON_WINDOWS, async_run
 from snakemake.exceptions import (
     MissingOutputException,
-    RemoteFileException,
     WildcardError,
     WorkflowError,
 )
 from snakemake.logging import logger
-
-
-class Mtime:
-    __slots__ = ["_local", "_local_target", "_remote"]
-
-    def __init__(self, local=None, local_target=None, remote=None):
-        self._local = local
-        self._local_target = local_target
-        self._remote = remote
-
-    def local_or_remote(self, follow_symlinks=False):
-        if self._remote is not None:
-            return self._remote
-        if follow_symlinks and self._local_target is not None:
-            return self._local_target
-        return self._local
-
-    def remote(
-        self,
-    ):
-        return self._remote
-
-    def local(self, follow_symlinks=False):
-        if follow_symlinks and self._local_target is not None:
-            return self._local_target
-        return self._local
 
 
 def lutime(f, times):
@@ -103,6 +85,20 @@ else:
         os.chmod(f, mode)
 
 
+class AnnotatedStringInterface(ABC):
+    @property
+    @abstractmethod
+    def flags(self) -> Dict[str, Any]:
+        ...
+
+    @abstractmethod
+    def is_callable(self) -> bool:
+        ...
+
+    def is_flagged(self, flag: str) -> bool:
+        return flag in self.flags and bool(self.flags[flag])
+
+
 class ExistsDict(dict):
     def __init__(self, cache):
         super().__init__()
@@ -118,24 +114,40 @@ class ExistsDict(dict):
 
     def __contains__(self, path):
         # if already in inventory, always return True.
-        parent = path.get_inventory_parent()
-        return parent in self.has_inventory or super().__contains__(path)
+        if isinstance(path, _IOFile):
+            parent = path.get_inventory_parent()
+            return parent in self.has_inventory or super().__contains__(path)
+        else:
+            return super().__contains__(path)
 
 
-class IOCache:
+class IOCache(IOCacheStorageInterface):
     def __init__(self, max_wait_time):
-        self.mtime = dict()
-        self.exists_local = ExistsDict(self)
-        self.exists_remote = ExistsDict(self)
-        self.size = dict()
+        self._mtime = dict()
+        self._exists_local = ExistsDict(self)
+        self._exists_in_storage = ExistsDict(self)
+        self._size = dict()
         self.active = True
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
 
-    def mtime_inventory(self, jobs):
-        async_run(self._mtime_inventory(jobs))
+    @property
+    def mtime(self):
+        return self._mtime
 
-    async def _mtime_inventory(self, jobs, n_workers=8):
+    @property
+    def exists_local(self):
+        return self._exists_local
+
+    @property
+    def exists_in_storage(self):
+        return self._exists_in_storage
+
+    @property
+    def size(self):
+        return self._size
+
+    async def mtime_inventory(self, jobs, n_workers=8):
         queue = asyncio.Queue()
         stop_item = object()
 
@@ -162,10 +174,14 @@ class IOCache:
         ]
 
         for job in jobs:
-            for f in chain(job.input, job.expanded_output):
-                if f.exists:
+            for f in chain(job.input, job.output):
+                if not f.is_storage and await f.exists():
                     queue.put_nowait(f)
-            if job.benchmark and job.benchmark.exists:
+            if (
+                job.benchmark
+                and not job.benchmark.is_storage
+                and await job.benchmark.exists()
+            ):
                 queue.put_nowait(job.benchmark)
 
         # Send a stop item to each worker.
@@ -175,13 +191,13 @@ class IOCache:
         await asyncio.gather(*tasks)
 
     async def collect_mtime(self, path):
-        return path.mtime_uncached
+        return await path.mtime_uncached()
 
     def clear(self):
         self.mtime.clear()
         self.size.clear()
         self.exists_local.clear()
-        self.exists_remote.clear()
+        self.exists_in_storage.clear()
         self.remaining_wait_time = self.max_wait_time
 
     def deactivate(self):
@@ -196,40 +212,24 @@ def IOFile(file, rule=None):
     return f
 
 
-def _refer_to_remote(func: Callable):
-    """
-    A decorator so that if the file is remote and has a version
-    of the same file-related function, call that version instead.
-    """
-
-    @functools.wraps(func)
-    def wrapper(self: "_IOFile", *args, **kwargs):
-        if self.is_remote:
-            if hasattr(self.remote_object, func.__name__):
-                return getattr(self.remote_object, func.__name__)(*args, **kwargs)
-        return func(self, *args, **kwargs)
-
-    return wrapper
-
-
 def iocache(func: Callable):
     @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
+    async def wrapper(self, *args, **kwargs):
         # self: _IOFile
         if self.rule.workflow.iocache.active:
             cache = getattr(self.rule.workflow.iocache, func.__name__)
             if self in cache:
                 return cache[self]
-            v = func(self, *args, **kwargs)
+            v = await func(self, *args, **kwargs)
             cache[self] = v
             return v
         else:
-            return func(self, *args, **kwargs)
+            return await func(self, *args, **kwargs)
 
     return wrapper
 
 
-class _IOFile(str):
+class _IOFile(str, AnnotatedStringInterface):
     """
     A file that is either input or output of a rule.
     """
@@ -241,6 +241,8 @@ class _IOFile(str):
         is_callable = (
             isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
         )
+        if isinstance(file, Path):
+            file = str(file.as_posix())
         if not is_callable and file.endswith("/"):
             # remove trailing slashes
             stripped = file.rstrip("/")
@@ -255,8 +257,8 @@ class _IOFile(str):
         obj._regex = None
         obj._wildcard_constraints = None
 
-        if obj.is_remote:
-            obj.remote_object._iofile = obj
+        if obj.is_storage:
+            obj.storage_object._iofile = obj
 
         return obj
 
@@ -265,23 +267,20 @@ class _IOFile(str):
         new._is_function = self._is_function
         new._file = self._file
         new.rule = self.rule
-        if new.is_remote:
-            new.remote_object._iofile = new
+        if new.is_storage:
+            new.storage_object._iofile = new
         return new
 
-    def inventory(self):
-        async_run(self._inventory())
-
-    async def _inventory(self):
+    async def inventory(self):
         """Starting from the given file, try to cache as much existence and
         modification date information of this and other files as possible.
         """
         cache = self.rule.workflow.iocache
         if cache.active:
             tasks = []
-            if self.is_remote and self not in cache.exists_remote:
+            if self.is_storage and self not in cache.exists_in_storage:
                 # info not yet in inventory, let's discover as much as we can
-                tasks.append(self.remote_object.inventory(cache))
+                tasks.append(self.storage_object.inventory(cache))
             if not ON_WINDOWS and self not in cache.exists_local:
                 # we don't want to mess with different path representations on windows
                 tasks.append(self._local_inventory(cache))
@@ -330,30 +329,25 @@ class _IOFile(str):
 
         cache.remaining_wait_time -= time.time() - start_time
 
-    @_refer_to_remote
     def get_inventory_parent(self):
         """If eligible for inventory, get the parent of a given path.
 
         This code does not work on local Windows paths,
         but inventory is disabled on Windows.
         """
-        parent = os.path.dirname(self)
-        if parent and parent != "..":
-            return parent
+        if self.is_storage:
+            return self.storage_object.get_inventory_parent()
+        else:
+            parent = os.path.dirname(self)
+            if parent and parent != "..":
+                return parent
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
-        """Open this file. If necessary, download it from remote first.
+        """Open this file.
 
         This can (and should) be used in a `with`-statement.
         """
-        if not self.exists:
-            raise WorkflowError(
-                f"File {self} cannot be opened, since it does not exist."
-            )
-        if not self.exists_local and self.is_remote:
-            self.download_from_remote()
-
         f = open(self)
         try:
             yield f
@@ -364,8 +358,8 @@ class _IOFile(str):
         return contains_wildcard(self.file)
 
     @property
-    def is_remote(self):
-        return is_flagged(self._file, "remote_object")
+    def is_storage(self):
+        return is_flagged(self._file, "storage_object")
 
     @property
     def is_ancient(self):
@@ -387,27 +381,19 @@ class _IOFile(str):
     def multiext_prefix(self):
         return get_flag_value(self._file, "multiext")
 
-    def update_remote_filepath(self):
-        # if the file string is different in the iofile, update the remote object
-        # (as in the case of wildcard expansion)
-        remote_object = self.remote_object
-        if remote_object._file != self._file:
-            remote_object._iofile = self
-
     @property
     def should_keep_local(self):
-        return self.remote_object.keep_local
+        return self.storage_object.keep_local
 
     @property
-    def should_stay_on_remote(self):
-        return self.remote_object.stay_on_remote
+    def should_not_be_retrieved_from_storage(self):
+        return not self.storage_object.retrieve
 
     @property
-    def remote_object(self):
-        return get_flag_value(self._file, "remote_object")
+    def storage_object(self):
+        return get_flag_value(self._file, "storage_object")
 
     @property
-    @_refer_to_remote
     def file(self):
         if not self._is_function:
             return self._file
@@ -443,18 +429,17 @@ class _IOFile(str):
                 "File path '{}' contains line break. "
                 "This is likely unintended. {}".format(self._file, hint)
             )
-        if _double_slash_regex.search(self._file) is not None and not self.is_remote:
+        if _double_slash_regex.search(self._file) is not None and not self.is_storage:
             logger.warning(
                 "File path {} contains double '{}'. "
                 "This is likely unintended. {}".format(self._file, os.path.sep, hint)
             )
 
-    @property
-    def exists(self):
-        if self.is_remote:
-            return self.exists_remote
+    async def exists(self):
+        if self.is_storage:
+            return await self.exists_in_storage()
         else:
-            return self.exists_local
+            return await self.exists_local()
 
     def parents(self, omit=0):
         """Yield all parent paths, omitting the given number of ancestors."""
@@ -463,43 +448,55 @@ class _IOFile(str):
             p.clone_flags(self)
             yield p
 
-    @property
     @iocache
-    def exists_local(self):
+    async def exists_local(self):
         return os.path.exists(self.file)
 
-    @property
     @iocache
-    def exists_remote(self):
-        if not self.is_remote:
+    async def exists_in_storage(self):
+        if not self.is_storage:
             return False
-        return self.remote_object.exists()
+        return await self.storage_object.managed_exists()
 
-    @property
-    def protected(self):
+    async def protected(self):
         """Returns True if the file is protected. Always False for symlinks."""
         # symlinks are never regarded as protected
         return (
-            self.exists_local
+            await self.exists_local()
             and not os.access(self.file, os.W_OK)
             and not os.path.islink(self.file)
         )
 
-    @property
-    @iocache
-    def mtime(self):
-        return self.mtime_uncached
+    async def mtime(self):
+        if self.rule.workflow.iocache.active:
+            cache = self.rule.workflow.iocache
+            if self in cache.mtime:
+                mtime = cache.mtime[self]
+                # if inventory is filled by storage plugin, mtime.local() will be None and
+                # needs update
+                if mtime.local() is None and await self.exists_local():
+                    mtime_local = await self.mtime_uncached(skip_storage=True)
+                    mtime._local_target = mtime_local._local_target
+                    mtime._local = mtime_local._local
+            else:
+                cache.mtime[self] = mtime = await self.mtime_uncached()
+            return mtime
+        else:
+            return await self.mtime_uncached()
 
-    @property
-    def mtime_uncached(self):
+    async def mtime_uncached(self, skip_storage: bool = False):
         """Obtain mtime.
 
         Usually, this will be one stat call only. For symlinks and directories
         it will be two, for symlinked directories it will be three,
-        for remote files it will additionally query the remote
+        for storage files it will additionally query the storage
         location.
         """
-        mtime_remote = self.remote_object.mtime() if self.is_remote else None
+        mtime_in_storage = (
+            (await self.storage_object.managed_mtime())
+            if self.is_storage and not skip_storage
+            else None
+        )
 
         # We first do a normal stat.
         try:
@@ -526,7 +523,7 @@ class _IOFile(str):
 
                 # In the usual case, not a dir, not a symlink.
                 # We need just a single stat call.
-                return Mtime(local=mtime, remote=mtime_remote)
+                return Mtime(local=mtime, storage=mtime_in_storage)
 
             else:
                 # In case of a symlink, we need the stats for the target file/dir.
@@ -543,12 +540,12 @@ class _IOFile(str):
                         pass
 
                 return Mtime(
-                    local=mtime, local_target=mtime_target, remote=mtime_remote
+                    local=mtime, local_target=mtime_target, storage=mtime_in_storage
                 )
 
         except FileNotFoundError:
-            if self.is_remote:
-                return Mtime(remote=mtime_remote)
+            if self.is_storage:
+                return Mtime(storage=mtime_in_storage)
             raise WorkflowError(
                 "Unable to obtain modification time of file {} although it existed before. "
                 "It could be that a concurrent process has deleted it while Snakemake "
@@ -568,33 +565,39 @@ class _IOFile(str):
         """Return True if file is a FIFO according to the filesystem."""
         return stat.S_ISFIFO(os.stat(self).st_mode)
 
-    @property
     @iocache
-    @_refer_to_remote
-    def size(self):
-        return self.size_local
+    async def size(self):
+        if self.is_storage:
+            try:
+                return await self.storage_object.managed_size()
+            except WorkflowError as e:
+                try:
+                    return await self.size_local()
+                except IOError:
+                    raise e
+        else:
+            return await self.size_local()
 
-    @property
-    def size_local(self):
+    async def size_local(self):
         # follow symlinks but throw error if invalid
-        self.check_broken_symlink()
+        await self.check_broken_symlink()
         return os.path.getsize(self.file)
 
-    def is_checksum_eligible(self):
+    async def is_checksum_eligible(self):
         return (
-            self.exists_local
+            await self.exists_local()
             and not os.path.isdir(self.file)
-            and self.size < 100000
+            and await self.size() < 100000
             and not self.is_fifo()
         )
 
-    def checksum(self, force=False):
+    async def checksum(self, force=False):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist. If force is True,
         omit eligibility check."""
-        if force or self.is_checksum_eligible():  # less than 100000 bytes
+        if force or await self.is_checksum_eligible():  # less than 100000 bytes
             checksum = sha256()
-            if self.size > 0:
+            if await self.size() > 0:
                 # only read if file is bigger than zero
                 # otherwise the checksum is the same as taking hexdigest
                 # from the empty sha256 as initialized above
@@ -607,17 +610,17 @@ class _IOFile(str):
         else:
             return None
 
-    def is_same_checksum(self, other_checksum, force=False):
-        checksum = self.checksum(force=force)
+    async def is_same_checksum(self, other_checksum, force=False):
+        checksum = await self.checksum(force=force)
         if checksum is None or other_checksum is None:
             # if no checksum available or files too large, not the same
             return False
         else:
             return checksum == other_checksum
 
-    def check_broken_symlink(self):
+    async def check_broken_symlink(self):
         """Raise WorkflowError if file is a broken symlink."""
-        if not self.exists_local:
+        if not await self.exists_local():
             try:
                 if os.lstat(self.file):
                     raise WorkflowError(
@@ -627,38 +630,39 @@ class _IOFile(str):
                 # there is no broken symlink present, hence all fine
                 return
 
-    @_refer_to_remote
-    def is_newer(self, time):
+    async def is_newer(self, time):
         """Returns true of the file (which is an input file) is newer than time, or if it is
         a symlink that points to a file newer than time."""
         if self.is_ancient:
             return False
 
-        return self.mtime.local_or_remote(follow_symlinks=True) > time
+        return (await self.mtime()).local_or_storage(follow_symlinks=True) > time
 
-    def download_from_remote(self):
-        if self.is_remote and self.remote_object.exists():
-            if not self.should_stay_on_remote:
-                logger.info(f"Downloading from remote: {self.file}")
-                self.remote_object.download()
-                logger.info("Finished download.")
+    async def retrieve_from_storage(self):
+        if self.is_storage:
+            if not self.should_not_be_retrieved_from_storage:
+                mtime = await self.mtime()
+                if not await self.exists_local() or mtime.local() < mtime.storage():
+                    logger.info(f"Retrieving from storage: {self.storage_object.query}")
+                    await self.storage_object.managed_retrieve()
+                    logger.info("Finished retrieval.")
         else:
-            raise RemoteFileException(
-                "The file to be downloaded does not seem to exist remotely."
+            raise WorkflowError(
+                "The file to be retrieved does not seem to exist in the storage.",
+                rule=self.rule,
             )
 
-    def upload_to_remote(self):
-        if self.is_remote:
-            logger.info(f"Uploading to remote: {self.file}")
-            self.remote_object.upload()
+    async def store_in_storage(self):
+        if self.is_storage:
+            logger.info(f"Storing in storage: {self.storage_object.query}")
+            await self.storage_object.managed_store()
             logger.info("Finished upload.")
 
     def prepare(self):
-        path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
-        dir = os.path.dirname(path_until_wildcard)
-        if len(dir) > 0:
+        dirpath = os.path.dirname(self.file)
+        if len(dirpath) > 0:
             try:
-                os.makedirs(dir, exist_ok=True)
+                os.makedirs(dirpath, exist_ok=True)
             except OSError as e:
                 # ignore Errno 17 "File exists" (reason: multiprocessing)
                 if e.errno != 17:
@@ -681,11 +685,11 @@ class _IOFile(str):
         # protect explicit output itself
         lchmod(self.file, mode)
 
-    def remove(self, remove_non_empty_dir=False):
+    async def remove(self, remove_non_empty_dir=False):
         if self.is_directory:
-            remove(self, remove_non_empty_dir=True)
+            await remove(self, remove_non_empty_dir=True)
         else:
-            remove(self, remove_non_empty_dir=remove_non_empty_dir)
+            await remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
@@ -727,7 +731,7 @@ class _IOFile(str):
             with open(file, "w") as f:
                 pass
 
-    def apply_wildcards(self, wildcards, fill_missing=False, fail_dynamic=False):
+    def apply_wildcards(self, wildcards):
         f = self._file
 
         if self._is_function:
@@ -736,18 +740,35 @@ class _IOFile(str):
         # this bit ensures flags are transferred over to files after
         # wildcards are applied
 
-        file_with_wildcards_applied = IOFile(
-            apply_wildcards(
-                f,
-                wildcards,
-                fill_missing=fill_missing,
-                fail_dynamic=fail_dynamic,
-                dynamic_fill=DYNAMIC_FILL,
-            ),
-            rule=self.rule,
-        )
+        file_with_wildcards_applied = None
 
-        file_with_wildcards_applied.clone_flags(self)
+        if self.is_storage:
+            query = apply_wildcards(self.storage_object.query, wildcards)
+            storage_object = self.storage_object.__class__(
+                query=query,
+                provider=self.storage_object.provider,
+                keep_local=self.storage_object.keep_local,
+                retrieve=self.storage_object.retrieve,
+            )
+
+            validation_res = storage_object.is_valid_query()
+            if not validation_res:
+                raise WorkflowError(
+                    str(validation_res),
+                    rule=self.rule,
+                )
+
+            file_with_wildcards_applied = IOFile(
+                storage_object.local_path(), rule=self.rule
+            )
+            file_with_wildcards_applied.clone_flags(self, skip_storage_object=True)
+            file_with_wildcards_applied.flags["storage_object"] = storage_object
+        else:
+            file_with_wildcards_applied = IOFile(
+                apply_wildcards(f, wildcards),
+                rule=self.rule,
+            )
+            file_with_wildcards_applied.clone_flags(self)
 
         return file_with_wildcards_applied
 
@@ -757,7 +778,7 @@ class _IOFile(str):
     def regex(self):
         if self._regex is None:
             # compile a regular expression
-            self._regex = re.compile(regex(self.file))
+            self._regex = re.compile(regex_from_filepattern(self.file))
         return self._regex
 
     def wildcard_constraints(self):
@@ -766,14 +787,11 @@ class _IOFile(str):
         return self._wildcard_constraints
 
     def constant_prefix(self):
-        first_wildcard = _wildcard_regex.search(self.file)
-        if first_wildcard:
-            return self.file[: first_wildcard.start()]
-        return self.file
+        return get_constant_prefix(self.file)
 
     def constant_suffix(self):
         m = None
-        for m in _wildcard_regex.finditer(self.file):
+        for m in WILDCARD_REGEX.finditer(self.file):
             pass
         last_wildcard = m
         if last_wildcard:
@@ -783,29 +801,27 @@ class _IOFile(str):
     def match(self, target):
         return self.regex().match(target) or None
 
-    def format_dynamic(self):
-        return self.replace(DYNAMIC_FILL, "{*}")
-
-    def clone_flags(self, other):
+    def clone_flags(self, other, skip_storage_object=False):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
         if isinstance(other._file, AnnotatedString) or isinstance(other._file, _IOFile):
             self._file.flags = getattr(other._file, "flags", {}).copy()
-            if "remote_object" in self._file.flags:
-                self._file.flags["remote_object"] = copy.copy(
-                    self._file.flags["remote_object"]
+            if skip_storage_object and self.is_storage:
+                del self._file.flags["storage_object"]
+            else:
+                assert "storage_object" not in self._file.flags, (
+                    "bug: storage object cannot be safely cloned as the query might have "
+                    "to change"
                 )
-                self.update_remote_filepath()
 
-    def clone_remote_object(self, other):
+    def clone_storage_object(self, other):
         if (
             isinstance(other._file, AnnotatedString)
-            and "remote_object" in other._file.flags
+            and "storage_object" in other._file.flags
         ):
-            self._file.flags["remote_object"] = copy.copy(
-                other._file.flags["remote_object"]
+            self._file.flags["storage_object"] = copy.copy(
+                other._file.flags["storage_object"]
             )
-            self.update_remote_filepath()
 
     def set_flags(self, flags):
         if isinstance(self._file, str):
@@ -820,45 +836,85 @@ class _IOFile(str):
         return self._file.__hash__()
 
 
+def pretty_print_iofile(iofile: _IOFile):
+    if iofile.is_storage:
+        return f"{iofile.storage_object.query} (storage)"
+    else:
+        return iofile._file
+
+
+class AnnotatedString(str, AnnotatedStringInterface):
+    def __init__(self, value):
+        self._flags = dict()
+        self.callable = value if is_callable(value) else None
+
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new.flags = self.flags
+        new.callable = self.callable
+        return new
+
+    def is_callable(self) -> bool:
+        return self.callable is not None
+
+    @property
+    def flags(self) -> Dict[str, Any]:
+        return self._flags
+
+    @flags.setter
+    def flags(self, value):
+        self._flags = value
+
+
+MaybeAnnotated = Union[AnnotatedStringInterface, str]
+
+
+def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
+    if not isinstance(value, AnnotatedStringInterface):
+        return False
+    return value.is_flagged(flag)
+
+
+def flag(value, flag_type, flag_value=True):
+    if isinstance(value, AnnotatedString):
+        value.flags[flag_type] = flag_value
+        return value
+    if not_iterable(value):
+        if isinstance(value, Path):
+            value = str(value.as_posix())
+        value = AnnotatedString(value)
+        value.flags[flag_type] = flag_value
+        return value
+    return [flag(v, flag_type, flag_value=flag_value) for v in value]
+
+
+def is_callable(value: Any):
+    return callable(value) or (
+        isinstance(value, AnnotatedStringInterface) and value.is_callable()
+    )
+
+
 _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
 
 
-_wildcard_regex = re.compile(
-    r"""
-    \{
-        (?=(   # This lookahead assertion emulates an 'atomic group'
-               # which is required for performance
-            \s*(?P<name>\w+)                    # wildcard name
-            (\s*,\s*
-                (?P<constraint>                 # an optional constraint
-                    ([^{}]+ | \{\d+(,\d+)?\})*  # allow curly braces to nest one level
-                )                               # ...  as in '{w,a{3,5}}'
-            )?\s*
-        ))\1
-    \}
-    """,
-    re.VERBOSE,
-)
-
-
-def wait_for_files(
-    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe_or_service=False
+async def wait_for_files(
+    files, latency_wait=3, wait_for_local=False, ignore_pipe_or_service=False
 ):
     """Wait for given files to be present in the filesystem."""
     files = list(files)
 
-    def get_missing():
+    async def get_missing():
         return [
             f
             for f in files
             if not (
-                f.exists_remote
+                await f.exists_in_storage()
                 if (
                     isinstance(f, _IOFile)
-                    and f.is_remote
-                    and (force_stay_on_remote or f.should_stay_on_remote)
+                    and f.is_storage
+                    and (not wait_for_local or f.should_not_be_retrieved_from_storage)
                 )
                 else os.path.exists(f)
                 if not (
@@ -869,15 +925,15 @@ def wait_for_files(
             )
         ]
 
-    missing = get_missing()
+    missing = await get_missing()
     if missing:
         logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
         for _ in range(latency_wait):
-            missing = get_missing()
+            missing = await get_missing()
             if not missing:
                 return
             time.sleep(1)
-        missing = "\n".join(get_missing())
+        missing = "\n".join(await get_missing())
         raise IOError(
             f"Missing files after {latency_wait} seconds. This might be due to "
             "filesystem latency. If that is the case, consider to increase the "
@@ -887,21 +943,21 @@ def wait_for_files(
 
 
 def get_wildcard_names(pattern):
-    return set(match.group("name") for match in _wildcard_regex.finditer(pattern))
+    return set(match.group("name") for match in WILDCARD_REGEX.finditer(pattern))
 
 
 def contains_wildcard(path):
-    return _wildcard_regex.search(str(path)) is not None
+    return WILDCARD_REGEX.search(str(path)) is not None
 
 
 def contains_wildcard_constraints(pattern):
-    return any(match.group("constraint") for match in _wildcard_regex.finditer(pattern))
+    return any(match.group("constraint") for match in WILDCARD_REGEX.finditer(pattern))
 
 
-def remove(file, remove_non_empty_dir=False):
-    if file.is_remote and file.should_stay_on_remote:
-        if file.exists_remote:
-            file.remote_object.remove()
+async def remove(file, remove_non_empty_dir=False):
+    if file.is_storage and file.should_not_be_retrieved_from_storage:
+        if await file.exists_in_storage():
+            await file.storage_object.managed_remove()
     elif os.path.isdir(file) and not os.path.islink(file):
         if remove_non_empty_dir:
             shutil.rmtree(file)
@@ -926,17 +982,17 @@ def remove(file, remove_non_empty_dir=False):
 
 def get_wildcard_constraints(pattern):
     constraints = {}
-    for match in _wildcard_regex.finditer(pattern):
+    for match in WILDCARD_REGEX.finditer(pattern):
         if match.group("constraint"):
             constraints[match.group("name")] = re.compile(match.group("constraint"))
     return constraints
 
 
-def regex(filepattern):
+def regex_from_filepattern(filepattern):
     f = []
     last = 0
     wildcards = set()
-    for match in _wildcard_regex.finditer(filepattern):
+    for match in WILDCARD_REGEX.finditer(filepattern):
         f.append(re.escape(filepattern[last : match.start()]))
         wildcard = match.group("name")
         if wildcard in wildcards:
@@ -960,30 +1016,16 @@ def regex(filepattern):
     return "".join(f)
 
 
-def apply_wildcards(
-    pattern,
-    wildcards,
-    fill_missing=False,
-    fail_dynamic=False,
-    dynamic_fill=None,
-    keep_dynamic=False,
-):
+def apply_wildcards(pattern, wildcards):
     def format_match(match):
         name = match.group("name")
         try:
             value = wildcards[name]
-            if fail_dynamic and value == dynamic_fill:
-                raise WildcardError(name)
             return str(value)  # convert anything into a str
         except KeyError as ex:
-            if keep_dynamic:
-                return f"{{{name}}}"
-            elif fill_missing:
-                return dynamic_fill
-            else:
-                raise WildcardError(str(ex))
+            raise WildcardError(str(ex))
 
-    return _wildcard_regex.sub(format_match, pattern)
+    return WILDCARD_REGEX.sub(format_match, pattern)
 
 
 def is_callable(value):
@@ -992,39 +1034,6 @@ def is_callable(value):
         or (isinstance(value, _IOFile) and value._is_function)
         or (isinstance(value, AnnotatedString) and value.callable is not None)
     )
-
-
-class AnnotatedString(str):
-    def __init__(self, value):
-        self.flags = dict()
-        self.callable = value if is_callable(value) else None
-
-    def new_from(self, new_value):
-        new = str.__new__(self.__class__, new_value)
-        new.flags = self.flags
-        new.callable = self.callable
-        return new
-
-
-def flag(value, flag_type, flag_value=True):
-    from snakemake_interface_executor_plugins.utils import not_iterable
-
-    if isinstance(value, AnnotatedString):
-        value.flags[flag_type] = flag_value
-        return value
-    if not_iterable(value):
-        value = AnnotatedString(value)
-        value.flags[flag_type] = flag_value
-        return value
-    return [flag(v, flag_type, flag_value=flag_value) for v in value]
-
-
-def is_flagged(value, flag):
-    if isinstance(value, AnnotatedString):
-        return flag in value.flags and value.flags[flag]
-    if isinstance(value, _IOFile):
-        return flag in value.flags and value.flags[flag]
-    return False
 
 
 def get_flag_value(value, flag_type):
@@ -1048,10 +1057,8 @@ def directory(value):
     """
     if is_flagged(value, "pipe"):
         raise SyntaxError("Pipe and directory flags are mutually exclusive.")
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Remote and directory flags are mutually exclusive.")
-    if is_flagged(value, "dynamic"):
-        raise SyntaxError("Dynamic and directory flags are mutually exclusive.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Storage and directory flags are mutually exclusive.")
     return flag(value, "directory")
 
 
@@ -1061,16 +1068,16 @@ def temp(value):
     """
     if is_flagged(value, "protected"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Remote and temporary flags are mutually exclusive.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Storage and temporary flags are mutually exclusive.")
     return flag(value, "temp")
 
 
 def pipe(value):
     if is_flagged(value, "protected"):
         raise SyntaxError("Pipes may not be protected.")
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Pipes may not be remote files.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Pipes may not be in storage.")
     if ON_WINDOWS:
         logger.warning("Pipes are not yet supported on Windows.")
     return flag(value, "pipe", not ON_WINDOWS)
@@ -1078,9 +1085,9 @@ def pipe(value):
 
 def service(value):
     if is_flagged(value, "protected"):
-        raise SyntaxError("Pipes may not be protected.")
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Pipes may not be remote files.")
+        raise SyntaxError("Service may not be protected.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Service may not be storage files.")
     return flag(value, "service")
 
 
@@ -1093,30 +1100,9 @@ def protected(value):
     """A flag for a file that shall be write-protected after creation."""
     if is_flagged(value, "temp"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Remote and protected flags are mutually exclusive.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Storage and protected flags are mutually exclusive.")
     return flag(value, "protected")
-
-
-def dynamic(value):
-    """
-    A flag for a file that shall be dynamic, i.e. the multiplicity
-    (and wildcard values) will be expanded after a certain
-    rule has been run"""
-    from snakemake_interface_executor_plugins.utils import not_iterable
-
-    annotated = flag(value, "dynamic", True)
-    tocheck = [annotated] if not_iterable(annotated) else annotated
-    for file in tocheck:
-        matches = list(_wildcard_regex.finditer(file))
-        # if len(matches) != 1:
-        #    raise SyntaxError("Dynamic files need exactly one wildcard.")
-        for match in matches:
-            if match.group("constraint"):
-                raise SyntaxError(
-                    "The wildcards in dynamic files cannot be constrained."
-                )
-    return annotated
 
 
 def touch(value):
@@ -1186,11 +1172,11 @@ def report(
 
 
 def local(value):
-    """Mark a file as a local file. This disables the application of a default remote
+    """Mark a file as a local file. This disables the application of a default storage
     provider.
     """
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Remote and local flags are mutually exclusive.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Storage and local flags are mutually exclusive.")
     return flag(value, "local")
 
 
@@ -1312,7 +1298,20 @@ def glob_wildcards(pattern, files=None, followlinks=False):
     Glob the values of the wildcards by matching the given pattern to the filesystem.
     Returns a named tuple with a list of values for each wildcard.
     """
-    pattern = os.path.normpath(pattern)
+    if is_flagged(pattern, "storage_object"):
+        if files is not None:
+            raise WorkflowError(
+                "Error in glob_wildcards(): the files argument may not "
+                "be combined with a storage object as pattern."
+            )
+        # for storage object patterns, we obtain the list of files from
+        # the storage provider
+        storage_object = pattern.flags["storage_object"]
+        files = storage_object.list_candidate_matches()
+        pattern = storage_object.query
+    else:
+        pattern = os.path.normpath(pattern)
+
     first_wildcard = re.search("{[^{]", pattern)
     dirname = (
         os.path.dirname(pattern[: first_wildcard.start()])
@@ -1322,11 +1321,11 @@ def glob_wildcards(pattern, files=None, followlinks=False):
     if not dirname:
         dirname = "."
 
-    names = [match.group("name") for match in _wildcard_regex.finditer(pattern)]
+    names = [match.group("name") for match in WILDCARD_REGEX.finditer(pattern)]
     Wildcards = collections.namedtuple("Wildcards", names)
     wildcards = Wildcards(*[list() for name in names])
 
-    pattern = re.compile(regex(pattern))
+    pattern = re.compile(regex_from_filepattern(pattern))
 
     if files is None:
         files = (
@@ -1377,7 +1376,7 @@ def update_wildcard_constraints(
             return match.group(0)
 
     examined_names: Set[str] = set()
-    updated = _wildcard_regex.sub(replace_constraint, pattern)
+    updated = WILDCARD_REGEX.sub(replace_constraint, pattern)
 
     # inherit flags
     if isinstance(pattern, AnnotatedString):
@@ -1395,7 +1394,7 @@ def strip_wildcard_constraints(pattern):
     def strip_constraint(match):
         return "{{{}}}".format(match.group("name"))
 
-    return _wildcard_regex.sub(strip_constraint, pattern)
+    return WILDCARD_REGEX.sub(strip_constraint, pattern)
 
 
 class Namedlist(list):
@@ -1434,8 +1433,9 @@ class Namedlist(list):
                 self.extend(map(custom_map, toclone))
             elif plainstr:
                 self.extend(
-                    x.remote_object.to_plainstr()
-                    if isinstance(x, _IOFile) and x.remote_object is not None
+                    # use original query if storage is not retrieved by snakemake
+                    (str(x) if x.storage_object.retrieve else x.storage_object.query)
+                    if isinstance(x, _IOFile) and x.storage_object is not None
                     else str(x)
                     for x in toclone
                 )
@@ -1574,7 +1574,10 @@ class Namedlist(list):
 class InputFiles(Namedlist):
     @property
     def size(self):
-        return sum(f.size for f in self)
+        async def sizes():
+            return [await f.size() for f in self]
+
+        return sum(async_run(sizes()))
 
     @property
     def size_mb(self):
