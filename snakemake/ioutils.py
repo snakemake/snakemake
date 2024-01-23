@@ -4,6 +4,7 @@ from typing import Optional, Union
 
 import snakemake.io
 import snakemake.utils
+from snakemake_interface_common.exceptions import WorkflowError
 
 
 def lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None):
@@ -15,7 +16,7 @@ def lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None
     named tuples with the column names as attributes.
     If the query results in a single row, the result is returned as a single
     named tuple with the column names as attributes.
-    In both case, the result can be used by the expand or collect function,
+    In both cases, the result can be used by the expand or collect function,
     e.g. `collect("results/{item.sample}.txt", sample=lookup(query="someval > 2", within=samples))`.
     Since the result, in any case, also evaluates to True if it is not empty
     when interpreted as a boolean by Python, it can also be used as a condition
@@ -62,7 +63,10 @@ def lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None
             within = within.to_frame()
 
         def do_query(query):
-            res = within.query(query)
+            try:
+                res = within.query(query)
+            except Exception as e:
+                raise WorkflowError(f"Error in lookup function", e)
             if isinstance(res, pd.Series):
                 # convert series into named tuple with index as attribute
                 return namedtuple("Row", ["index"] + res.index.tolist())(**res)
@@ -83,7 +87,14 @@ def lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None
         import dpath as dp
 
         def do_dpath(dpath):
-            return dp.values(within, dpath)
+            try:
+                return dp.get(within, dpath)
+            except ValueError:
+                return dp.values(within, dpath)
+            except KeyError as e:
+                raise WorkflowError(
+                    f"Error in lookup function: dpath {dpath} not found."
+                )
 
         return handle_wildcards(dpath, do_dpath)
     else:
