@@ -266,6 +266,8 @@ def test_globwildcards():
     run(dpath("test_globwildcards"))
 
 
+# inpdependent of OS
+@skip_on_windows
 def test_ioutils():
     run(dpath("test_ioutils"))
 
