@@ -666,6 +666,7 @@ class Rule(RuleInterface):
         if aux_params is None:
             aux_params = dict()
         for name, item in olditems._allitems():
+            olditem = item
             start = len(newitems)
             is_unpack = is_flagged(item, "unpack")
             _is_callable = is_callable(item)
@@ -733,7 +734,7 @@ class Rule(RuleInterface):
                     concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
                     if mapping is not None:
-                        mapping[concrete] = item_
+                        mapping[concrete] = olditem
 
                 if name:
                     newitems._set_name(

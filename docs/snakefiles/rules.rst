@@ -2528,3 +2528,64 @@ As any other resource, the `mpi`-resource can be overwritten via the command lin
 
 Note that in case of distributed, remote execution (cluster, cloud), MPI support might not be available.
 So far, explicit MPI support is implemented in the `slurm plugin <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html>`_.
+
+.. _snakefiles_continuous_input:
+
+Continuously updated input
+--------------------------
+
+Form Snakemake 8.2 on, it is possible to define rules that continuously accept input.
+This is useful for example for streaming data analysis.
+The feature works by defining a synchronized Python queue for obtaining input files via the helper function ``from_queue``:
+
+.. code-block:: python
+
+    rule myrule:
+        input:
+            from_queue(all_results, finish_sentinel=...)
+        ...
+
+Rules with input marked as ``from_queue`` may not define any wildcards.
+The input files of the rule will be continuously updated with new items arriving in the queue.
+For any such item, the DAG ob jobs is updated, thereby potentially generating new dependencies for the rule.
+It is required to define a finish sentinel, which is a special value that signals the end of the queue.
+Once the finish sentinel is encountered, Snakemake will consider the input file list to be complete and allow the rule to be executed once all its dependency jobs have been finished.
+
+Consider the following complete toy example:
+
+.. code-block:: python
+
+    import threading, queue, time
+
+    # the finish sentinel
+    finish_sentinel = object()
+    # a synchronized queue for the input files
+    all_results = queue.Queue()
+
+    # a thread that fills the queue with input files to be considered
+    def update_results():
+        try:
+            for i in range(10):
+                all_results.put(f"test{i}.txt")
+                time.sleep(1)
+            all_results.put(finish_sentinel)
+            all_results.join()
+        except (KeyboardInterrupt, SystemExit):
+            return
+
+    update_thread = threading.Thread(target=update_results)
+    update_thread.start()
+
+
+    # target rule which will be continuously updated until the queue is finished
+    rule all:
+        input:
+            from_queue(all_results, finish_sentinel=finish_sentinel)
+
+
+    # job that generates the requested input files
+    rule generate:
+        output:
+            "test{i}.txt"
+        shell:
+            "echo {wildcards.i} > {output}"

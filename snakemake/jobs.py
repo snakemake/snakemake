@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+from collections import defaultdict
 import os
 import base64
 import tempfile
@@ -175,6 +176,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         "targetfile",
         "incomplete_input_expand",
         "_params_and_resources_resetted",
+        "_queue_input",
     ]
 
     def __init__(
@@ -234,6 +236,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         # TODO get rid of these
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
+        self._queue_input = defaultdict(list)
         for f in self.output:
             f_ = output_mapping[f]
             if f_ in self.rule.temp_output:
@@ -244,6 +247,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 self.touch_output.add(f)
         for f in self.input:
             f_ = input_mapping[f]
+            queue_info = get_flag_value(f_, "from_queue")
+            if queue_info:
+                self._queue_input[queue_info].append(f)
 
     @property
     def is_updated(self):
@@ -299,6 +305,15 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             )
             + ".log"
         )
+
+    def has_queue_input(self) -> bool:
+        return bool(self._queue_input)
+
+    def has_unfinished_queue_input(self) -> bool:
+        return any(not queue_info.finished for queue_info in self._queue_input)
+
+    def queue_input_last_checked(self) -> float:
+        return max(queue_info.last_checked or 0.0 for queue_info in self._queue_input)
 
     def updated(self):
         group = self.dag.get_job_group(self)
@@ -1521,6 +1536,7 @@ class Reason:
         "forced",
         "noio",
         "nooutput",
+        "unfinished_queue_input",
         "derived",
         "pipe",
         "service",
@@ -1546,6 +1562,7 @@ class Reason:
         self.pipe = False
         self.service = False
         self.cleanup_metadata_instructions = None
+        self.unfinished_queue_input = False
 
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
@@ -1603,6 +1620,8 @@ class Reason:
             yield "provides service for consuming job"
         if self.input_changed:
             yield "set of input files has changed since last execution"
+        if self.unfinished_queue_input:
+            yield "input is yielded by queue that has not been terminated yet"
         if self.code_changed:
             yield "code has changed since last execution"
         if self.params_changed:
@@ -1684,5 +1703,6 @@ class Reason:
             or self.params_changed
             or self.software_stack_changed
             or self.input_changed
+            or self.unfinished_queue_input
         )
         return v and not self.finished
