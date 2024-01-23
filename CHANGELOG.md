@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.3.1](https://github.com/snakemake/snakemake/compare/v8.3.0...v8.3.1) (2024-01-23)
+
+
+### Documentation
+
+* fix headings ([d947f85](https://github.com/snakemake/snakemake/commit/d947f85172f777ade0dc97bbe853c456517f28f6))
+
 ## [8.3.0](https://github.com/snakemake/snakemake/compare/v8.2.4...v8.3.0) (2024-01-23)
 
 
