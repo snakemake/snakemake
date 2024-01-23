@@ -1,6 +1,22 @@
 # Changelog
 
 
+## [8.2.3](https://github.com/snakemake/snakemake/compare/v8.2.2...v8.2.3) (2024-01-19)
+
+
+### Documentation
+
+* handle overflow of content div ([b23e277](https://github.com/snakemake/snakemake/commit/b23e2776ce810d64225e7675039a33ac0e920bb9))
+
+## [8.2.2](https://github.com/snakemake/snakemake/compare/v8.2.1...v8.2.2) (2024-01-19)
+
+
+### Documentation
+
+* add missing doc dependency ([7ba9c21](https://github.com/snakemake/snakemake/commit/7ba9c21ac949ae6952044944af68874c516791ff))
+* fix typo in `rules.py` ([#2636](https://github.com/snakemake/snakemake/issues/2636)) ([8bc2919](https://github.com/snakemake/snakemake/commit/8bc291933201e205717f3346b743153b57764a6a))
+* use sphinxawesome-theme instead of lutra ([4401e9c](https://github.com/snakemake/snakemake/commit/4401e9c2c53adb46609930b872b5da27b5af58fe))
+
 ## [8.2.1](https://github.com/snakemake/snakemake/compare/v8.2.0...v8.2.1) (2024-01-17)
 
 

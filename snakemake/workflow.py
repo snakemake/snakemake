@@ -1351,10 +1351,13 @@ class Workflow(WorkflowExecutorInterface):
         self.included_stack.append(snakefile)
 
         default_target = self.default_target
-        code, linemap, rulecount = parse(
+        linemap = dict()
+        self.linemaps[snakefile.get_path_or_uri()] = linemap
+        code, rulecount = parse(
             snakefile,
             self,
             rulecount=self._rulecount,
+            linemap=linemap,
         )
         self._rulecount = rulecount
 
@@ -1369,8 +1372,6 @@ class Workflow(WorkflowExecutorInterface):
             # insert the current directory into sys.path
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
-
-        self.linemaps[snakefile.get_path_or_uri()] = linemap
 
         try:
             exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)

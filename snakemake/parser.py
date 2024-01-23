@@ -1298,11 +1298,10 @@ else:
         return (s for s, _ in tokens)
 
 
-def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
+def parse(path, workflow, linemap, overwrite_shellcmd=None, rulecount=0):
     Shell.overwrite_cmd = overwrite_shellcmd
     with Snakefile(path, workflow, rulecount=rulecount) as snakefile:
         automaton = Python(snakefile)
-        linemap = dict()
         compilation = list()
         for t, orig_token in automaton.consume():
             l = lineno(orig_token)
@@ -1320,4 +1319,4 @@ def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
     if linemap:
         last = max(linemap)
         linemap[last + 1] = linemap[last]
-    return compilation, linemap, snakefile.rulecount
+    return compilation, snakefile.rulecount
