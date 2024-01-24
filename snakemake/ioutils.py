@@ -58,8 +58,8 @@ def lookup(
             def inner(wildcards):
                 resolved_expression = snakemake.utils.format(expression, **wildcards)
                 if cols is not None:
-                    cols = [snakemake.utils.format(col, **wildcards) for col in cols]
-                    return func(resolved_expression, cols=cols, is_nrows=is_nrows)
+                    resolved_cols = [snakemake.utils.format(col, **wildcards) for col in cols]
+                    return func(resolved_expression, cols=resolved_cols, is_nrows=is_nrows)
                 else:
                     return func(resolved_expression)
 
