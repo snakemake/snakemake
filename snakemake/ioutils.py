@@ -101,7 +101,7 @@ def lookup(
                     return res[0]
                 return res
 
-        return handle_wildcards(query, do_query, cols=cols, nrows=is_nrows)
+        return handle_wildcards(query, do_query, cols=cols, is_nrows=is_nrows)
 
     elif dpath is not None:
         if not isinstance(within, Mapping):
