@@ -723,7 +723,7 @@ class Rule(RuleInterface):
                         and not isinstance(item_, Path)
                     ):
                         raise WorkflowError(
-                            "Function did not return str or list of str.", rule=self
+                            f"Function did not return str or list of str. Encountered: {item_} ({type(item_)})", rule=self
                         )
 
                     if from_callable and path_modifier is not None and not incomplete:
