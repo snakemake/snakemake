@@ -11,6 +11,7 @@ def lookup(
     dpath: Optional[str] = None,
     query: Optional[str] = None,
     cols: Optional[List[str]] = None,
+    is_nrows: Optional[int] = None,
     within=None,
 ):
     """Lookup values in a pandas dataframe, series, or python mapping (e.g. dict).
@@ -48,20 +49,19 @@ def lookup(
             "Must provide a dataframe, series, or mapping to search within."
         )
 
-    def handle_wildcards(expression, func, cols=None):
+    def handle_wildcards(expression, func, cols=None, is_nrows=None):
         if snakemake.io.contains_wildcard(expression) or (
             cols is not None
             and any(snakemake.io.contains_wildcard(col) for col in cols)
         ):
 
             def inner(wildcards):
+                expression = snakemake.utils.format(expression, **wildcards)
                 if cols is not None:
-                    return func(
-                        snakemake.utils.format(expression, **wildcards),
-                        cols=[snakemake.utils.format(col, **wildcards) for col in cols],
-                    )
+                    cols = [snakemake.utils.format(col, **wildcards) for col in cols]
+                    return func(expression, cols=cols, is_nrows=is_nrows)
                 else:
-                    return func(snakemake.utils.format(expression, **wildcards))
+                    return func(expression)
 
             return inner
         else:
@@ -78,17 +78,21 @@ def lookup(
         if isinstance(within, pd.Series):
             within = within.to_frame()
 
-        def do_query(query, cols=None):
+        def do_query(query, cols=None, is_nrows=None):
             try:
                 res = within.query(query)
             except Exception as e:
                 raise WorkflowError(f"Error in lookup function", e)
             if isinstance(res, pd.Series):
+                if is_nrows is not None:
+                    return is_nrows == 1
                 if cols is not None:
                     res = res[cols]
                 # convert series into named tuple with index as attribute
                 return namedtuple("Row", ["index"] + res.index.tolist())(**res)
             else:
+                if is_nrows is not None:
+                    return is_nrows == len(res)
                 if cols is not None:
                     res = res[cols]
                 res = list(res.itertuples())
@@ -97,7 +101,7 @@ def lookup(
                     return res[0]
                 return res
 
-        return handle_wildcards(query, do_query)
+        return handle_wildcards(query, do_query, cols=cols, nrows=is_nrows)
 
     elif dpath is not None:
         if not isinstance(within, Mapping):
