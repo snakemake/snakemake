@@ -1,13 +1,18 @@
 from collections import namedtuple
 from collections.abc import Mapping, Callable
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import snakemake.io
 import snakemake.utils
 from snakemake_interface_common.exceptions import WorkflowError
 
 
-def lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None):
+def lookup(
+    dpath: Optional[str] = None,
+    query: Optional[str] = None,
+    cols: Optional[List[str]] = None,
+    within=None,
+):
     """Lookup values in a pandas dataframe, series, or python mapping (e.g. dict).
 
     In case of a pandas dataframe (see https://pandas.pydata.org),
@@ -41,11 +46,20 @@ def lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None
             "Must provide a dataframe, series, or mapping to search within."
         )
 
-    def handle_wildcards(expression, func):
-        if snakemake.io.contains_wildcard(expression):
+    def handle_wildcards(expression, func, cols=None):
+        if snakemake.io.contains_wildcard(expression) or (
+            cols is not None
+            and any(snakemake.io.contains_wildcard(col) for col in cols)
+        ):
 
             def inner(wildcards):
-                return func(snakemake.utils.format(expression, **wildcards))
+                if cols is not None:
+                    return func(
+                        snakemake.utils.format(expression, **wildcards),
+                        cols=[snakemake.utils.format(col, **wildcards) for col in cols],
+                    )
+                else:
+                    return func(snakemake.utils.format(expression, **wildcards))
 
             return inner
         else:
@@ -62,15 +76,19 @@ def lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None
         if isinstance(within, pd.Series):
             within = within.to_frame()
 
-        def do_query(query):
+        def do_query(query, cols=None):
             try:
                 res = within.query(query)
             except Exception as e:
                 raise WorkflowError(f"Error in lookup function", e)
             if isinstance(res, pd.Series):
+                if cols is not None:
+                    res = res[cols]
                 # convert series into named tuple with index as attribute
                 return namedtuple("Row", ["index"] + res.index.tolist())(**res)
             else:
+                if cols is not None:
+                    res = res[cols]
                 res = list(res.itertuples())
                 if len(res) == 1:
                     # just return the item if it is only one
