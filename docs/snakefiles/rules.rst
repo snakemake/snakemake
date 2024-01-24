@@ -353,7 +353,7 @@ The lookup function
 
 The ``lookup`` function can be used to look up a value in a python mapping (e.g. a ``dict``) or a `pandas dataframe or series <https://pandas.pydata.org>`_.
 It is especially useful for looking up information based on wildcard values.
-The ``lookup`` function has the signature ``lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None)``.
+The ``lookup`` function has the signature ``lookup(dpath: Optional[str] = None, query: Optional[str] = None, cols: Optional[List[str]] = None, within=None)``.
 The ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
 For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
 
@@ -388,13 +388,18 @@ query, e.g. for faster, constant time lookups:
     
     lookup(query="index.loc[{sample}]", within=samples)
 
+Further, it is possible to constrain the output to a list of columns, e.g.
+
+.. code-block:: python
+    lookup(query="index.loc[{sample}]", within=samples, cols=["somecolumn"]).
+
 In case of a **pandas series**, the series is converted into a dataframe via
 Series.to_frame() and the same logic as for a dataframe is applied.
 
 In case of a **python mapping**, the dpath parameter is passed to dpath.values()
 (see https://github.com/dpath-maintainers/dpath-python).
 
-Both ``query`` and ``dpath`` may contain wildcards (e.g. ``{sample}``).
+``query``, ``dpath``, and ``cols`` may contain wildcards (e.g. ``{sample}``).
 In that case, this function returns an :ref:`input function <snakefiles-input_functions>` which takes
 wildcards as its only argument and will be evaluated by Snakemake
 once the wildcard values are known if the lookup is used within an input file statement.

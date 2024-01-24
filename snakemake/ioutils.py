@@ -29,6 +29,8 @@ def lookup(
     `branch(lookup(query="sample == {sample} & someval > 2", within=samples), then="foo", otherwise="bar")`.
     In case your dataframe has an index, you can also access the index within the
     query, e.g. for faster, constant time lookups: `lookup(query="index.loc[{sample}]", within=samples)`.
+    Further, it is possible to constrain the output to a list of columns, e.g.
+    `lookup(query="index.loc[{sample}]", within=samples, cols=["somecolumn"])`.
 
     In case of a pandas series, the series is converted into a dataframe via
     Series.to_frame() and the same logic as for a dataframe is applied.
@@ -36,7 +38,7 @@ def lookup(
     In case of a python mapping, the dpath parameter is passed to dpath.values()
     (see https://github.com/dpath-maintainers/dpath-python).
 
-    Both query and dpath may contain wildcards (e.g. {sample}).
+    Query, dpath and cols may contain wildcards (e.g. {sample}).
     In that case, this function returns a Snakemake input function which takes
     wildcards as its only argument and will be evaluated by Snakemake
     once the wildcard values are known.
