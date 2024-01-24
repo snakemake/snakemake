@@ -89,7 +89,8 @@ def lookup(
                 if cols is not None:
                     res = res[cols]
                 # convert series into named tuple with index as attribute
-                return namedtuple("Row", ["index"] + res.index.tolist())(**res)
+                thetuple = namedtuple("Row", ["index"] + res.index.tolist())(**res)
+                return thetuple
             else:
                 if is_nrows is not None:
                     return is_nrows == len(res)
