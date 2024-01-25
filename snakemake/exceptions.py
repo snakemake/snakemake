@@ -568,3 +568,13 @@ class CliException(Exception):
     def __init__(self, msg):
         super().__init__(msg)
         self.msg = msg
+
+
+def is_file_not_found_error(exc, considered_files):
+    # TODO find a better way to detect whether the input files are not present
+    if isinstance(exc, FileNotFoundError) and exc.filename in considered_files:
+        return True
+    elif isinstance(exc, WorkflowError) and "FileNotFoundError" in str(exc):
+        return True
+    else:
+        return False

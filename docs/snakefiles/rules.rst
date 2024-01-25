@@ -391,7 +391,16 @@ query, e.g. for faster, constant time lookups:
 Further, it is possible to constrain the output to a list of columns, e.g.
 
 .. code-block:: python
-    lookup(query="index.loc[{sample}]", within=samples, cols=["somecolumn"]).
+
+    lookup(query="index.loc[{sample}]", within=samples, cols=["somecolumn"])
+
+or to a single column, e.g.
+
+.. code-block:: python
+    
+    lookup(query="index.loc[{sample}]", within=samples, cols="somecolumn")`.
+
+In the latter case, just a list of items in that column is returned (e.g. ``["a", "b", "c"]``).
 
 In case of a **pandas series**, the series is converted into a dataframe via
 Series.to_frame() and the same logic as for a dataframe is applied.

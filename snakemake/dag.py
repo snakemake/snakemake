@@ -724,11 +724,17 @@ class DAG(DAGExecutorInterface):
                 assert os.path.exists(f)
 
     def temp_input(self, job: Union[Job, GroupJob]):
-        jobs = [job] if not job.is_group() else job
+        if job.is_group():
+            skip = {f for j in job for f in j.output}
+            jobs = job
+        else:
+            skip = set()
+            jobs = [job]
         for job in jobs:
             for job_, files in self.dependencies[job].items():
-                for f in filter(job_.temp_output.__contains__, files):
-                    yield f
+                for f in files:
+                    if f in job_.temp_output and f not in skip:
+                        yield f
 
     async def temp_size(self, job):
         """Return the total size of temporary input files of the job.

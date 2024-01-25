@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from collections import namedtuple
 from collections.abc import Mapping, Callable
 from typing import List, Optional, Union
@@ -7,10 +8,60 @@ import snakemake.utils
 from snakemake_interface_common.exceptions import WorkflowError
 
 
+class WildcardHandlerBase(ABC):
+    def __init__(self, func):
+        self.func = func
+
+    def needs_wildcards(self, expression):
+        return snakemake.io.contains_wildcard(expression)
+
+    @abstractmethod
+    def apply_func(self, expression, wildcards=None):
+        ...
+
+    def handle(self, expression):
+        if self.needs_wildcards(expression):
+
+            def inner(wildcards):
+                resolved_expression = snakemake.utils.format(expression, **wildcards)
+                return self.apply_func(resolved_expression, wildcards)
+
+            return inner
+        else:
+            return self.apply_func(expression)
+
+
+class DpathWildcardHandler(WildcardHandlerBase):
+    def apply_func(self, expression, wildcards=None):
+        return self.func(expression)
+
+
+class QueryWildcardHandler(WildcardHandlerBase):
+    def __init__(self, func, cols=None, is_nrows=None):
+        super().__init__(func)
+        self.cols = cols
+        self.is_nrows = is_nrows
+
+    def needs_wildcards(self, expression):
+        return snakemake.io.contains_wildcard(expression) or (
+            self.cols is not None
+            and any(snakemake.io.contains_wildcard(col) for col in self.cols)
+        )
+
+    def apply_func(self, expression, wildcards=None):
+        cols = None
+        if self.cols is not None and wildcards is not None:
+            if isinstance(self.cols, list):
+                cols = [snakemake.utils.format(col, **wildcards) for col in self.cols]
+            else:
+                cols = snakemake.utils.format(self.cols, **wildcards)
+        return self.func(expression, cols=cols, is_nrows=self.is_nrows)
+
+
 def lookup(
     dpath: Optional[str] = None,
     query: Optional[str] = None,
-    cols: Optional[List[str]] = None,
+    cols: Optional[Union[List[str], str]] = None,
     is_nrows: Optional[int] = None,
     within=None,
 ):
@@ -31,7 +82,11 @@ def lookup(
     In case your dataframe has an index, you can also access the index within the
     query, e.g. for faster, constant time lookups: `lookup(query="index.loc[{sample}]", within=samples)`.
     Further, it is possible to constrain the output to a list of columns, e.g.
-    `lookup(query="index.loc[{sample}]", within=samples, cols=["somecolumn"])`.
+    `lookup(query="index.loc[{sample}]", within=samples, cols=["somecolumn"])` or to
+    a single column, e.g.
+    `lookup(query="index.loc[{sample}]", within=samples, cols="somecolumn")`.
+    In the latter case, just a list of items in that column is returned.
+
 
     In case of a pandas series, the series is converted into a dataframe via
     Series.to_frame() and the same logic as for a dataframe is applied.
@@ -49,24 +104,6 @@ def lookup(
             "Must provide a dataframe, series, or mapping to search within."
         )
 
-    def handle_wildcards(expression, func, cols=None, is_nrows=None):
-        if snakemake.io.contains_wildcard(expression) or (
-            cols is not None
-            and any(snakemake.io.contains_wildcard(col) for col in cols)
-        ):
-
-            def inner(wildcards):
-                resolved_expression = snakemake.utils.format(expression, **wildcards)
-                if cols is not None:
-                    resolved_cols = [snakemake.utils.format(col, **wildcards) for col in cols]
-                    return func(resolved_expression, cols=resolved_cols, is_nrows=is_nrows)
-                else:
-                    return func(resolved_expression)
-
-            return inner
-        else:
-            return func(expression)
-
     if query is not None:
         if isinstance(within, Mapping):
             raise ValueError(
@@ -83,26 +120,23 @@ def lookup(
                 res = within.query(query)
             except Exception as e:
                 raise WorkflowError(f"Error in lookup function", e)
-            if isinstance(res, pd.Series):
-                if is_nrows is not None:
-                    return is_nrows == 1
-                if cols is not None:
-                    res = res[cols]
-                # convert series into named tuple with index as attribute
-                thetuple = namedtuple("Row", ["index"] + res.index.tolist())(**res)
-                return thetuple
-            else:
-                if is_nrows is not None:
-                    return is_nrows == len(res)
-                if cols is not None:
-                    res = res[cols]
-                res = list(res.itertuples())
-                if len(res) == 1:
-                    # just return the item if it is only one
-                    return res[0]
-                return res
 
-        return handle_wildcards(query, do_query, cols=cols, is_nrows=is_nrows)
+            if is_nrows is not None:
+                return is_nrows == len(res)
+            if cols is not None:
+                res = res[cols]
+                if not isinstance(cols, list):
+                    # single column select, just return a list of values
+                    return res.to_list()
+            res = list(res.itertuples(index=cols is None))
+            if len(res) == 1:
+                # just return the item if it is only one
+                return res[0]
+            return res
+
+        return QueryWildcardHandler(do_query, cols=cols, is_nrows=is_nrows).handle(
+            query
+        )
 
     elif dpath is not None:
         if not isinstance(within, Mapping):
@@ -121,7 +155,7 @@ def lookup(
                     f"Error in lookup function: dpath {dpath} not found."
                 )
 
-        return handle_wildcards(dpath, do_dpath)
+        return DpathWildcardHandler(do_dpath).handle(dpath)
     else:
         raise ValueError("Must provide either a query or dpath parameter.")
 
