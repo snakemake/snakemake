@@ -62,6 +62,10 @@ def is_string(token):
     return token.type == tokenize.STRING
 
 
+def is_fstring(token):
+    if sys.version_info >= (3, 12):
+        return token.type == tokenize.FSTRING_START
+
 def is_eof(token):
     return token.type == tokenize.ENDMARKER
 
@@ -108,6 +112,25 @@ class TokenAutomaton:
             self.indentation(token)
             try:
                 for t, orig in self.state(token):
+                    if is_fstring(token):
+                        isin_fstring = 1
+                        t = token.string
+                        for t1 in self.snakefile:
+                            if t1.type == tokenize.FSTRING_START:
+                                isin_fstring += 1
+                                t += t1.string
+                            elif t1.type == tokenize.FSTRING_END:
+                                isin_fstring -= 1
+                                t += t1.string
+                            elif t1.type == tokenize.FSTRING_MIDDLE:
+                                t += t1.string.replace("{", "{{").replace("}", "}}")
+                            else:
+                                t += t1.string
+                            if isin_fstring == 0:
+                                break
+                        if hasattr(self, "cmd"):
+                            if self.cmd[-1][1] == orig:
+                                self.cmd[-1] = t, orig
                     if self.lasttoken == "\n" and not t.isspace():
                         yield INDENT * self.effective_indent, orig
                     yield t, orig
@@ -1256,48 +1279,6 @@ def format_tokens(tokens) -> Generator[str, None, None]:
         t_ = t
 
 
-if sys.version_info >= (3, 12):
-
-    def format_f_tokens(
-        tokens: list[tuple[str, tokenize.TokenInfo]]
-    ) -> Generator[str, None, None]:
-        s_ = ""
-        isin_fstring = False
-        for s, t in tokens:
-            if t.type == tokenize.FSTRING_MIDDLE:  # type: ignore [attr-defined]
-                # print(f"{s}|", t.string, "<left fstring middle>")
-                isin_fstring = True
-                s_ += s.replace("{", "{{").replace("}", "}}")
-            elif t.type == tokenize.FSTRING_START and s == t.string:  # type: ignore [attr-defined]
-                # print(f"{s}|", t.string, "<fstring start>")
-                isin_fstring = True
-                yield s_
-                s_ = s
-            elif isin_fstring:
-                if s != t.string:
-                    # print(f"{s}|", t.string, "<fake fstring space>")
-                    continue
-                isin_fstring = False
-                # print(f"{s}|", t.string, "<right fstring middle>")
-                s_ += s
-            elif t.type == tokenize.FSTRING_END:  # type: ignore [attr-defined]
-                # print(f"{s}|", t.string, "<fstring end>")
-                s_ += s
-            else:
-                # print(f"{s}|", t.string, "<code>")
-                yield s_
-                s_ = s
-        if tokens:
-            yield s_
-
-else:
-
-    def format_f_tokens(
-        tokens: list[tuple[str, tokenize.TokenInfo]]
-    ) -> Generator[str, None, None]:
-        return (s for s, _ in tokens)
-
-
 def parse(path, workflow, linemap, overwrite_shellcmd=None, rulecount=0):
     Shell.overwrite_cmd = overwrite_shellcmd
     with Snakefile(path, workflow, rulecount=rulecount) as snakefile:
@@ -1314,8 +1295,8 @@ def parse(path, workflow, linemap, overwrite_shellcmd=None, rulecount=0):
                 )
             )
             snakefile.lines += t.count("\n")
-            compilation.append((t, orig_token))
-    compilation = "".join(format_tokens(format_f_tokens(compilation)))
+            compilation.append(t)
+    compilation = "".join(format_tokens(compilation))
     if linemap:
         last = max(linemap)
         linemap[last + 1] = linemap[last]
