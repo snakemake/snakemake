@@ -152,7 +152,11 @@ class Batch:
         return f"{self.idx}/{self.batches} (rule {self.rulename})"
 
     def __eq__(self, other):
-        return self.rulename == other.rulename and self.idx == other.idx and self.batches == other.batches
+        return (
+            self.rulename == other.rulename
+            and self.idx == other.idx
+            and self.batches == other.batches
+        )
 
 
 @dataclass
