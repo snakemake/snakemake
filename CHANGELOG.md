@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.3.2](https://github.com/snakemake/snakemake/compare/v8.3.1...v8.3.2) (2024-01-25)
+
+
+### Bug Fixes
+
+* do not require cores to be set for non-executing modes ([#2646](https://github.com/snakemake/snakemake/issues/2646)) ([30cf026](https://github.com/snakemake/snakemake/commit/30cf0261004be7a4bdce5ade563271e52c97ad6a))
+
 ## [8.3.1](https://github.com/snakemake/snakemake/compare/v8.3.0...v8.3.1) (2024-01-23)
 
 
