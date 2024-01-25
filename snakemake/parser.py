@@ -65,6 +65,8 @@ def is_string(token):
 def is_fstring(token):
     if sys.version_info >= (3, 12):
         return token.type == tokenize.FSTRING_START
+    return False
+
 
 def is_eof(token):
     return token.type == tokenize.ENDMARKER
