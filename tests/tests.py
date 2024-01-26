@@ -447,6 +447,21 @@ def test_conda_list_envs():
     run(dpath("test_conda"), conda_list_envs=True, check_results=False)
 
 
+def test_conda_create_envs_only():
+    tmpdir = run(
+        dpath("test_conda"),
+        conda_create_envs=True,
+        check_results=False,
+        cleanup=False,
+        cleanup_scripts=False,
+    )
+    env_dir = next(
+        (p for p in Path(tmpdir, ".snakemake", "conda").iterdir() if p.is_dir()), None
+    )
+    assert env_dir is not None
+    shutil.rmtree(tmpdir)
+
+
 def test_upstream_conda():
     run(
         dpath("test_conda"),
