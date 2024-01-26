@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import sys
 import textwrap
 import tokenize
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Callable, Dict, Generator, List, Optional
 
 import snakemake
 from snakemake import common, sourcecache, workflow
@@ -63,9 +63,7 @@ def is_string(token):
 
 
 def is_fstring(token):
-    if sys.version_info >= (3, 12):
-        return token.type == tokenize.FSTRING_START
-    return False
+    return sys.version_info >= (3, 12) and token.type == tokenize.FSTRING_START
 
 
 def is_eof(token):
@@ -88,7 +86,7 @@ class TokenAutomaton:
     def __init__(self, snakefile: "Snakefile", base_indent=0, dedent=0, root=True):
         self.root = root
         self.snakefile = snakefile
-        self.state = None
+        self.state: Callable[[tokenize.TokenInfo], Generator] = None  # type: ignore
         self.base_indent = base_indent
         self.line = 0
         self.indent = 0
@@ -109,30 +107,33 @@ class TokenAutomaton:
             self.indent = token.end[1] - self.base_indent
             self.was_indented |= self.indent > 0
 
+    def parse_fstring(self, token: tokenize.TokenInfo):
+        isin_fstring = 1
+        t = token.string
+        for t1 in self.snakefile:
+            if t1.type == tokenize.FSTRING_START:
+                isin_fstring += 1
+                t += t1.string
+            elif t1.type == tokenize.FSTRING_END:
+                isin_fstring -= 1
+                t += t1.string
+            elif t1.type == tokenize.FSTRING_MIDDLE:
+                t += t1.string.replace("{", "{{").replace("}", "}}")
+            else:
+                t += t1.string
+            if isin_fstring == 0:
+                break
+        if hasattr(self, "cmd") and self.cmd[-1][1] == token:
+            self.cmd[-1] = t, token
+        return t
+
     def consume(self):
         for token in self.snakefile:
             self.indentation(token)
             try:
                 for t, orig in self.state(token):
                     if is_fstring(token):
-                        isin_fstring = 1
-                        t = token.string
-                        for t1 in self.snakefile:
-                            if t1.type == tokenize.FSTRING_START:
-                                isin_fstring += 1
-                                t += t1.string
-                            elif t1.type == tokenize.FSTRING_END:
-                                isin_fstring -= 1
-                                t += t1.string
-                            elif t1.type == tokenize.FSTRING_MIDDLE:
-                                t += t1.string.replace("{", "{{").replace("}", "}}")
-                            else:
-                                t += t1.string
-                            if isin_fstring == 0:
-                                break
-                        if hasattr(self, "cmd"):
-                            if self.cmd[-1][1] == orig:
-                                self.cmd[-1] = t, orig
+                        t = self.parse_fstring(token)
                     if self.lasttoken == "\n" and not t.isspace():
                         yield INDENT * self.effective_indent, orig
                     yield t, orig
@@ -172,6 +173,7 @@ class TokenAutomaton:
 
 class KeywordState(TokenAutomaton):
     prefix = ""
+    start: Callable[[], Generator[str, None, None]]
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -564,7 +566,7 @@ class AbstractCmd(Run):
         self.cmd: list[tuple[str, tokenize.TokenInfo]] = []
         self.token = None
         if self.overwrite_cmd is not None:
-            self.block_content = self.overwrite_block_content
+            self.block_content = self.overwrite_block_content  # type: ignore
 
     def is_block_end(self, token):
         return (self.line and self.indent <= 0) or is_eof(token)
@@ -1298,8 +1300,8 @@ def parse(path, workflow, linemap, overwrite_shellcmd=None, rulecount=0):
             )
             snakefile.lines += t.count("\n")
             compilation.append(t)
-    compilation = "".join(format_tokens(compilation))
+    join_compilation = "".join(format_tokens(compilation))
     if linemap:
         last = max(linemap)
         linemap[last + 1] = linemap[last]
-    return compilation, snakefile.rulecount
+    return join_compilation, snakefile.rulecount
