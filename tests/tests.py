@@ -459,6 +459,7 @@ def test_conda_create_envs_only():
         (p for p in Path(tmpdir, ".snakemake", "conda").iterdir() if p.is_dir()), None
     )
     assert env_dir is not None
+    assert Path(env_dir, "env_setup_done").exists()
     shutil.rmtree(tmpdir)
 
 
