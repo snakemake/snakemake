@@ -49,7 +49,7 @@ class QueryWildcardHandler(WildcardHandlerBase):
         )
 
     def apply_func(self, expression, wildcards=None):
-        cols = None
+        cols = self.cols
         if self.cols is not None and wildcards is not None:
             if isinstance(self.cols, list):
                 cols = [snakemake.utils.format(col, **wildcards) for col in self.cols]
