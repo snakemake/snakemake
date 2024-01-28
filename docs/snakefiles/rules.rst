@@ -379,7 +379,7 @@ for the :ref:`branch function <snakefiles-branch-function>`, e.g.
 
 .. code-block:: python
 
-    branch(lookup(query="sample == {sample} & someval > 2", within=samples), then="foo", otherwise="bar")
+    branch(lookup(query="sample == '{sample}' & someval > 2", within=samples), then="foo", otherwise="bar")
 
 In case your dataframe has an index, you can also access the index within the
 query, e.g. for faster, constant time lookups:
@@ -392,13 +392,13 @@ Further, it is possible to constrain the output to a list of columns, e.g.
 
 .. code-block:: python
 
-    lookup(query="index.loc[{sample}]", within=samples, cols=["somecolumn"])
+    lookup(query="sample == '{sample}'", within=samples, cols=["somecolumn"])
 
 or to a single column, e.g.
 
 .. code-block:: python
     
-    lookup(query="index.loc[{sample}]", within=samples, cols="somecolumn")`.
+    lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")`.
 
 In the latter case, just a list of items in that column is returned (e.g. ``["a", "b", "c"]``).
 
@@ -413,6 +413,19 @@ In that case, this function returns an :ref:`input function <snakefiles-input_fu
 wildcards as its only argument and will be evaluated by Snakemake
 once the wildcard values are known if the lookup is used within an input file statement.
 .. _snakefiles-branch-function:
+
+In addition to wildcard values, dpath, query and cols may refer via the same syntax
+to auxilliary namespace arguments given to the lookup function, e.g.
+
+.. code-block:: python
+
+    lookup(
+        query="cell_type == '{sample.cell_type}'",
+        within=samples,
+        sample=lookup("sample == '{sample}'", within=samples)
+    )
+
+This way, one can e.g. pass additional variables or chain lookups into more complex queries.
 
 The branch function
 """""""""""""""""""

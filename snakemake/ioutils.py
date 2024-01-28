@@ -9,22 +9,37 @@ from snakemake_interface_common.exceptions import WorkflowError
 
 
 class WildcardHandlerBase(ABC):
-    def __init__(self, func):
+    def __init__(self, func, **namespace):
         self.func = func
+        self.namespace = namespace
 
     def needs_wildcards(self, expression):
         return snakemake.io.contains_wildcard(expression)
 
     @abstractmethod
-    def apply_func(self, expression, wildcards=None):
+    def apply_func(self, expression, namespace=None):
         ...
 
     def handle(self, expression):
         if self.needs_wildcards(expression):
 
             def inner(wildcards):
-                resolved_expression = snakemake.utils.format(expression, **wildcards)
-                return self.apply_func(resolved_expression, wildcards)
+                if self.namespace:
+                    # add wildcard values to namespace
+                    # do not override namespace
+                    # (as it has been chosen explicitly by the dev)
+                    namespace = dict(self.namespace)
+                    for name, value in list(namespace.items()):
+                        # resolve callables given in namespace
+                        if callable(value):
+                            namespace[name] = value(wildcards)
+                    for name, value in wildcards.items():
+                        if name not in namespace:
+                            namespace[name] = value
+                else:
+                    namespace = wildcards
+                resolved_expression = snakemake.utils.format(expression, **namespace)
+                return self.apply_func(resolved_expression, namespace)
 
             return inner
         else:
@@ -32,13 +47,13 @@ class WildcardHandlerBase(ABC):
 
 
 class DpathWildcardHandler(WildcardHandlerBase):
-    def apply_func(self, expression, wildcards=None):
+    def apply_func(self, expression, namespace=None):
         return self.func(expression)
 
 
 class QueryWildcardHandler(WildcardHandlerBase):
-    def __init__(self, func, cols=None, is_nrows=None):
-        super().__init__(func)
+    def __init__(self, func, cols=None, is_nrows=None, **namespace):
+        super().__init__(func, **namespace)
         self.cols = cols
         self.is_nrows = is_nrows
 
@@ -48,13 +63,13 @@ class QueryWildcardHandler(WildcardHandlerBase):
             and any(snakemake.io.contains_wildcard(col) for col in self.cols)
         )
 
-    def apply_func(self, expression, wildcards=None):
+    def apply_func(self, expression, namespace=None):
         cols = self.cols
-        if self.cols is not None and wildcards is not None:
+        if self.cols is not None and namespace is not None:
             if isinstance(self.cols, list):
-                cols = [snakemake.utils.format(col, **wildcards) for col in self.cols]
+                cols = [snakemake.utils.format(col, **namespace) for col in self.cols]
             else:
-                cols = snakemake.utils.format(self.cols, **wildcards)
+                cols = snakemake.utils.format(self.cols, **namespace)
         return self.func(expression, cols=cols, is_nrows=self.is_nrows)
 
 
@@ -64,6 +79,7 @@ def lookup(
     cols: Optional[Union[List[str], str]] = None,
     is_nrows: Optional[int] = None,
     within=None,
+    **namespace,
 ):
     """Lookup values in a pandas dataframe, series, or python mapping (e.g. dict).
 
@@ -78,13 +94,13 @@ def lookup(
     Since the result, in any case, also evaluates to True if it is not empty
     when interpreted as a boolean by Python, it can also be used as a condition
     for the branch function, e.g.
-    `branch(lookup(query="sample == {sample} & someval > 2", within=samples), then="foo", otherwise="bar")`.
+    ``branch(lookup(query="sample == '{sample}' & someval > 2", within=samples), then="foo", otherwise="bar")``.
     In case your dataframe has an index, you can also access the index within the
-    query, e.g. for faster, constant time lookups: `lookup(query="index.loc[{sample}]", within=samples)`.
+    query, e.g. for faster, constant time lookups: ``lookup(query="index.loc[{sample}]", within=samples)``.
     Further, it is possible to constrain the output to a list of columns, e.g.
-    `lookup(query="index.loc[{sample}]", within=samples, cols=["somecolumn"])` or to
+    ``lookup(query="sample == '{sample}'", within=samples, cols=["somecolumn"])`` or to
     a single column, e.g.
-    `lookup(query="index.loc[{sample}]", within=samples, cols="somecolumn")`.
+    ``lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")``.
     In the latter case, just a list of items in that column is returned.
 
 
@@ -98,6 +114,11 @@ def lookup(
     In that case, this function returns a Snakemake input function which takes
     wildcards as its only argument and will be evaluated by Snakemake
     once the wildcard values are known.
+
+    In addition to wildcard values, dpath, query and cols may refer via the same syntax
+    to auxilliary namespace arguments given to the lookup function, e.g.
+    ``lookup(query="cell_type == '{sample.cell_type}'", within=samples, sample=lookup("sample == '{sample}'", within=samples))``
+    This way, one can e.g. pass additional variables or chain lookups into more complex queries.
     """
     if within is None:
         raise ValueError(
