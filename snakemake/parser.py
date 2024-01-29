@@ -62,7 +62,7 @@ def is_string(token):
     return token.type == tokenize.STRING
 
 
-def is_fstring(token):
+def is_fstring_start(token):
     return sys.version_info >= (3, 12) and token.type == tokenize.FSTRING_START
 
 
@@ -108,6 +108,9 @@ class TokenAutomaton:
             self.was_indented |= self.indent > 0
 
     def parse_fstring(self, token: tokenize.TokenInfo):
+        # only for python >= 3.12, since then python changed the
+        # parsing manner of f-string, see
+        # [pep-0701](https://peps.python.org/pep-0701)
         isin_fstring = 1
         t = token.string
         for t1 in self.snakefile:
@@ -132,7 +135,8 @@ class TokenAutomaton:
             self.indentation(token)
             try:
                 for t, orig in self.state(token):
-                    if is_fstring(token):
+                    # python >= 3.12 only
+                    if is_fstring_start(token):
                         t = self.parse_fstring(token)
                     if self.lasttoken == "\n" and not t.isspace():
                         yield INDENT * self.effective_indent, orig
