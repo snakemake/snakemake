@@ -192,6 +192,7 @@ def run(
     omit_from=frozenset(),
     forcerun=frozenset(),
     conda_list_envs=False,
+    conda_create_envs=False,
     conda_prefix=None,
     wrapper_prefix=None,
     printshellcmds=False,
@@ -379,6 +380,8 @@ def run(
                     dag_api.create_report(
                         path=Path(report), stylesheet=report_stylesheet
                     )
+                elif conda_create_envs:
+                    dag_api.conda_create_envs()
                 elif conda_list_envs:
                     dag_api.conda_list_envs()
                 elif archive is not None:
