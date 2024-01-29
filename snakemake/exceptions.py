@@ -570,6 +570,21 @@ class CliException(Exception):
         self.msg = msg
 
 
+class LookupError(WorkflowError):
+    def __init__(self, msg=None, exc=None, query=None, dpath=None):
+        msg = f" {msg}" if msg is not None else ""
+        expr = ""
+        if query is not None:
+            expr = f" with query: {repr(query)}"
+        if dpath is not None:
+            expr = f" with dpath: {repr(dpath)}"
+        annotated_msg = f"Error in lookup function{expr}.{msg}"
+        args = [annotated_msg]
+        if exc is not None:
+            args.append(exc)
+        super().__init__(*args)
+
+
 def is_file_not_found_error(exc, considered_files):
     # TODO find a better way to detect whether the input files are not present
     if isinstance(exc, FileNotFoundError) and exc.filename in considered_files:

@@ -1,27 +1,37 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from collections.abc import Mapping, Callable
+from functools import partial
+import re
 from typing import List, Optional, Union
 
 import snakemake.io
 import snakemake.utils
+from snakemake.exceptions import LookupError
 from snakemake_interface_common.exceptions import WorkflowError
 
 
 class WildcardHandlerBase(ABC):
+    fmt_regex = re.compile("\{(?P<stmt>[^\{][^\{\}]+)\}[^\}]")
+
     def __init__(self, func, **namespace):
         self.func = func
         self.namespace = namespace
 
     def needs_wildcards(self, expression):
-        return snakemake.io.contains_wildcard(expression)
+        return any(
+            name not in self.namespace
+            for name in snakemake.io.get_wildcard_names(expression)
+        )
 
     @abstractmethod
     def apply_func(self, expression, namespace=None):
         ...
 
     def handle(self, expression):
-        if self.needs_wildcards(expression):
+        if self.needs_wildcards(expression) or any(
+            callable(value) for value in self.namespace.values()
+        ):
 
             def inner(wildcards):
                 if self.namespace:
@@ -43,7 +53,13 @@ class WildcardHandlerBase(ABC):
 
             return inner
         else:
-            return self.apply_func(expression)
+            if self.namespace:
+                resolved_expression = snakemake.utils.format(
+                    expression, **self.namespace
+                )
+            else:
+                resolved_expression = expression
+            return self.apply_func(resolved_expression, self.namespace)
 
 
 class DpathWildcardHandler(WildcardHandlerBase):
@@ -58,10 +74,14 @@ class QueryWildcardHandler(WildcardHandlerBase):
         self.is_nrows = is_nrows
 
     def needs_wildcards(self, expression):
-        return snakemake.io.contains_wildcard(expression) or (
-            self.cols is not None
-            and any(snakemake.io.contains_wildcard(col) for col in self.cols)
-        )
+        if super().needs_wildcards(expression):
+            return True
+        if self.cols is None:
+            return False
+        if isinstance(self.cols, list):
+            return any(super().needs_wildcards(col) for col in self.cols)
+        else:
+            return super().needs_wildcards(self.cols)
 
     def apply_func(self, expression, namespace=None):
         cols = self.cols
@@ -120,15 +140,21 @@ def lookup(
     ``lookup(query="cell_type == '{sample.cell_type}'", within=samples, sample=lookup("sample == '{sample}'", within=samples))``
     This way, one can e.g. pass additional variables or chain lookups into more complex queries.
     """
+    error = partial(LookupError, query=query, dpath=dpath)
+
     if within is None:
-        raise ValueError(
-            "Must provide a dataframe, series, or mapping to search within."
+        raise error(
+            msg="Must provide a dataframe, series, or mapping to search within."
         )
+    if cols is not None and not isinstance(cols, (str, list)):
+        raise error(msg="The cols argument has to be either a str or a list of str.")
+    if is_nrows is not None and not isinstance(is_nrows, int):
+        raise error(msg="The is_nrows argument has to be an int.")
 
     if query is not None:
         if isinstance(within, Mapping):
-            raise ValueError(
-                "Query parameter can only be used with pandas DataFrame or Series objects."
+            raise error(
+                msg=f"Query parameter can only be used with pandas DataFrame or Series objects."
             )
 
         import pandas as pd
@@ -140,7 +166,7 @@ def lookup(
             try:
                 res = within.query(query)
             except Exception as e:
-                raise WorkflowError(f"Error in lookup function", e)
+                raise error(exc=e)
 
             if is_nrows is not None:
                 return is_nrows == len(res)
@@ -155,14 +181,14 @@ def lookup(
                 return res[0]
             return res
 
-        return QueryWildcardHandler(do_query, cols=cols, is_nrows=is_nrows).handle(
-            query
-        )
+        return QueryWildcardHandler(
+            do_query, cols=cols, is_nrows=is_nrows, **namespace
+        ).handle(query)
 
     elif dpath is not None:
         if not isinstance(within, Mapping):
-            raise ValueError(
-                "Dpath parameter can only be used with pandas DataFrame or Series objects."
+            raise error(
+                msg="Dpath parameter can only be used with python mapping (e.g. dict)."
             )
         import dpath as dp
 
@@ -172,13 +198,11 @@ def lookup(
             except ValueError:
                 return dp.values(within, dpath)
             except KeyError as e:
-                raise WorkflowError(
-                    f"Error in lookup function: dpath {dpath} not found."
-                )
+                raise error(msg="Dpath not found.")
 
-        return DpathWildcardHandler(do_dpath).handle(dpath)
+        return DpathWildcardHandler(do_dpath, **namespace).handle(dpath)
     else:
-        raise ValueError("Must provide either a query or dpath parameter.")
+        raise error("Must provide either a query or dpath parameter.")
 
 
 def evaluate(expr: str):
