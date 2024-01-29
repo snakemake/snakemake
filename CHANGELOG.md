@@ -1,6 +1,21 @@
 # Changelog
 
 
+## [8.4.0](https://github.com/snakemake/snakemake/compare/v8.3.2...v8.4.0) (2024-01-29)
+
+
+### Features
+
+* add cols argument to lookup function; fix various minor bugs on cluster systems ([#2651](https://github.com/snakemake/snakemake/issues/2651)) ([ca7a602](https://github.com/snakemake/snakemake/commit/ca7a6022bacae77be45068adbf4386c2c93fb481))
+
+
+### Bug Fixes
+
+* batch bug [#2643](https://github.com/snakemake/snakemake/issues/2643) ([#2650](https://github.com/snakemake/snakemake/issues/2650)) ([2ecb21b](https://github.com/snakemake/snakemake/commit/2ecb21ba04088b9e6850447760f713784cf8b775))
+* f-string in a more robust style? ([#2649](https://github.com/snakemake/snakemake/issues/2649)) ([2a50dc0](https://github.com/snakemake/snakemake/commit/2a50dc02bb709161d62d6f7dc5d6f2733e534c09))
+* set ignore_incomplete to False in create_conda_envs  ([#2653](https://github.com/snakemake/snakemake/issues/2653)) ([4834a42](https://github.com/snakemake/snakemake/commit/4834a42180fb513670b310fcbaadd07a34adf0b7))
+* Setting the value of ignore_incomplete Fixes [#2556](https://github.com/snakemake/snakemake/issues/2556) ([#2654](https://github.com/snakemake/snakemake/issues/2654)) ([05dac64](https://github.com/snakemake/snakemake/commit/05dac64666cca196e232beed4b6f1167dfbfc3bd))
+
 ## [8.3.2](https://github.com/snakemake/snakemake/compare/v8.3.1...v8.3.2) (2024-01-25)
 
 
