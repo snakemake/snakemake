@@ -886,7 +886,7 @@ class Workflow(WorkflowExecutorInterface):
     def printdag(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=True,
         )
         self._build_dag()
@@ -895,7 +895,7 @@ class Workflow(WorkflowExecutorInterface):
     def printrulegraph(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=True,
         )
         self._build_dag()
@@ -988,7 +988,7 @@ class Workflow(WorkflowExecutorInterface):
     def conda_create_envs(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=False,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -1000,7 +1000,7 @@ class Workflow(WorkflowExecutorInterface):
     def conda_cleanup_envs(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -1009,7 +1009,7 @@ class Workflow(WorkflowExecutorInterface):
     def container_cleanup_images(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
