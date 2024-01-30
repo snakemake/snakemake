@@ -4,9 +4,9 @@
 ## [8.4.1](https://github.com/snakemake/snakemake/compare/v8.4.0...v8.4.1) (2024-01-30)
 
 
-### Miscellaneous Chores
+### Fixes
 
-* release 8.4.1 ([f8b3bd7](https://github.com/snakemake/snakemake/commit/f8b3bd785e0751e7153346d9fed563f5e4acf6d8))
+* fixed resource handling in profiles
 
 ## [8.4.0](https://github.com/snakemake/snakemake/compare/v8.3.2...v8.4.0) (2024-01-29)
 
