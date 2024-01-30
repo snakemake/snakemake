@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.4.2](https://github.com/snakemake/snakemake/compare/v8.4.1...v8.4.2) (2024-01-30)
+
+
+### Bug Fixes
+
+* allow lookup dpath or query to be a callable ([33f1637](https://github.com/snakemake/snakemake/commit/33f16379a5fb7f210769b888ab34fe8a8df96daf))
+* fix error when passing callable as dpath or query of lookup function ([0e5b878](https://github.com/snakemake/snakemake/commit/0e5b8789c763201d00e5040f439436405d04b706))
+
 ## [8.4.1](https://github.com/snakemake/snakemake/compare/v8.4.0...v8.4.1) (2024-01-30)
 
 
