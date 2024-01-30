@@ -19,7 +19,7 @@ class WildcardHandlerBase(ABC):
         self.namespace = namespace
 
     def needs_wildcards(self, expression):
-        return any(
+        return callable(expression) or any(
             name not in self.namespace
             for name in snakemake.io.get_wildcard_names(expression)
         )
