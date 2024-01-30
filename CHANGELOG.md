@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.4.1](https://github.com/snakemake/snakemake/compare/v8.4.0...v8.4.1) (2024-01-30)
+
+
+### Fixes
+
+* fixed resource handling in profiles
+
 ## [8.4.0](https://github.com/snakemake/snakemake/compare/v8.3.2...v8.4.0) (2024-01-29)
 
 
