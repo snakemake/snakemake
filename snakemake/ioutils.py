@@ -48,7 +48,13 @@ class WildcardHandlerBase(ABC):
                             namespace[name] = value
                 else:
                     namespace = wildcards
-                resolved_expression = snakemake.utils.format(expression, **namespace)
+                if callable(expression):
+                    resolved_expression = expression(wildcards)
+                else:
+                    resolved_expression = expression
+                resolved_expression = snakemake.utils.format(
+                    resolved_expression, **namespace
+                )
                 return self.apply_func(resolved_expression, namespace)
 
             return inner
