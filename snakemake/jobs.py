@@ -1065,8 +1065,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                     wait_for_local=True,
                 )
             self.dag.unshadow_output(self, only_log=error)
+            await self.dag.handle_storage(
+                self, store_in_storage=store_in_storage, store_only_log=error
+            )
             if not error:
-                await self.dag.handle_storage(self, store_in_storage=store_in_storage)
                 self.dag.handle_protected(self)
         if not error:
             try:

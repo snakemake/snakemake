@@ -144,10 +144,10 @@ def parse_set_ints(arg, errmsg, fallback=None):
     return assignments
 
 
-def parse_batch(args):
+def parse_batch(arg):
     errmsg = "Invalid batch definition: batch entry has to be defined as RULE=BATCH/BATCHES (with integers BATCH <= BATCHES, BATCH >= 1)."
-    if args.batch is not None:
-        rule, batchdef = parse_key_value_arg(args.batch, errmsg=errmsg)
+    if arg is not None:
+        rule, batchdef = parse_key_value_arg(arg, errmsg=errmsg)
         try:
             batch, batches = batchdef.split("/")
             batch = int(batch)

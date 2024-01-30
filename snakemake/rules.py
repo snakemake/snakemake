@@ -50,6 +50,7 @@ from snakemake.exceptions import (
     InputFunctionException,
     WorkflowError,
     IncompleteCheckpointException,
+    is_file_not_found_error,
 )
 from snakemake.logging import logger
 from snakemake.common import (
@@ -630,16 +631,15 @@ class Rule(RuleInterface):
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
             incomplete = True
-        except FileNotFoundError as e:
-            # Function evaluation can depend on input files. Since expansion can happen during dryrun,
-            # where input files are not yet present, we need to skip such cases and
-            # mark them as <TBD>.
-            if "input" in aux_params and e.filename in aux_params["input"]:
+        except Exception as e:
+            if "input" in aux_params and is_file_not_found_error(
+                e, aux_params["input"]
+            ):
+                # Function evaluation can depend on input files. Since expansion can happen during dryrun,
+                # where input files are not yet present, we need to skip such cases and
+                # mark them as <TBD>.
                 value = TBDString()
-            else:
-                raise e
-        except BaseException as e:
-            if raw_exceptions:
+            elif raw_exceptions:
                 raise e
             else:
                 raise InputFunctionException(e, rule=self, wildcards=wildcards)
@@ -723,7 +723,8 @@ class Rule(RuleInterface):
                         and not isinstance(item_, Path)
                     ):
                         raise WorkflowError(
-                            "Function did not return str or list of str.", rule=self
+                            f"Function did not return str or iterable of str. Encountered: {item} ({type(item)})",
+                            rule=self,
                         )
 
                     if from_callable and path_modifier is not None and not incomplete:
