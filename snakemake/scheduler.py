@@ -291,17 +291,18 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     # remove from ready_jobs
                     self.workflow.dag.register_running(run)
 
-                logger.info(f"Execute {len(run)} jobs...")
+                if run:
+                    logger.info(f"Execute {len(run)} jobs...")
 
-                # actually run jobs
-                local_runjobs = [job for job in run if job.is_local]
-                runjobs = [job for job in run if not job.is_local]
-                if local_runjobs:
-                    self.run(
-                        local_runjobs, executor=self._local_executor or self._executor
-                    )
-                if runjobs:
-                    self.run(runjobs)
+                    # actually run jobs
+                    local_runjobs = [job for job in run if job.is_local]
+                    runjobs = [job for job in run if not job.is_local]
+                    if local_runjobs:
+                        self.run(
+                            local_runjobs, executor=self._local_executor or self._executor
+                        )
+                    if runjobs:
+                        self.run(runjobs)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
