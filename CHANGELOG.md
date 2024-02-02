@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [8.4.3](https://github.com/snakemake/snakemake/compare/v8.4.2...v8.4.3) (2024-02-02)
+
+
+### Bug Fixes
+
+* Do not scheduler execution message if no jobs are ready ([b1c4f47](https://github.com/snakemake/snakemake/commit/b1c4f47f894e344bd48b615f397c9ab03dc05f73))
+* fix string resource definition in CLI and profile ([#2627](https://github.com/snakemake/snakemake/issues/2627)) ([bbd76ae](https://github.com/snakemake/snakemake/commit/bbd76ae53101a28f86386d12b3bdb10a89df2251))
+* if report files are within storage, retrieve them from storage before loading into report ([60041bd](https://github.com/snakemake/snakemake/commit/60041bdbc3c6e941585f1876f3e5d598bfaa9caf))
+
 ## [8.4.2](https://github.com/snakemake/snakemake/compare/v8.4.1...v8.4.2) (2024-01-30)
 
 
