@@ -1976,7 +1976,7 @@ def test_resource_string_in_cli_or_profile():
     run(
         test_path,
         snakefile="Snakefile",
-        shellcmd=f"snakemake --workflow-profile {profile} -c1 --default-resources slurm_account=foo",
+        shellcmd=f"snakemake --workflow-profile {profile} -c1 --default-resources slurm_account=foo other_resource='--test'",
     )
 
 
