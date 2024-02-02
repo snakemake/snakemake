@@ -1,6 +1,90 @@
 # Changelog
 
 
+## [8.4.2](https://github.com/snakemake/snakemake/compare/v8.4.1...v8.4.2) (2024-01-30)
+
+
+### Bug Fixes
+
+* allow lookup dpath or query to be a callable ([33f1637](https://github.com/snakemake/snakemake/commit/33f16379a5fb7f210769b888ab34fe8a8df96daf))
+* fix error when passing callable as dpath or query of lookup function ([0e5b878](https://github.com/snakemake/snakemake/commit/0e5b8789c763201d00e5040f439436405d04b706))
+
+## [8.4.1](https://github.com/snakemake/snakemake/compare/v8.4.0...v8.4.1) (2024-01-30)
+
+
+### Fixes
+
+* fixed resource handling in profiles
+
+## [8.4.0](https://github.com/snakemake/snakemake/compare/v8.3.2...v8.4.0) (2024-01-29)
+
+
+### Features
+
+* add cols argument to lookup function; fix various minor bugs on cluster systems ([#2651](https://github.com/snakemake/snakemake/issues/2651)) ([ca7a602](https://github.com/snakemake/snakemake/commit/ca7a6022bacae77be45068adbf4386c2c93fb481))
+
+
+### Bug Fixes
+
+* batch bug [#2643](https://github.com/snakemake/snakemake/issues/2643) ([#2650](https://github.com/snakemake/snakemake/issues/2650)) ([2ecb21b](https://github.com/snakemake/snakemake/commit/2ecb21ba04088b9e6850447760f713784cf8b775))
+* f-string in a more robust style? ([#2649](https://github.com/snakemake/snakemake/issues/2649)) ([2a50dc0](https://github.com/snakemake/snakemake/commit/2a50dc02bb709161d62d6f7dc5d6f2733e534c09))
+* set ignore_incomplete to False in create_conda_envs  ([#2653](https://github.com/snakemake/snakemake/issues/2653)) ([4834a42](https://github.com/snakemake/snakemake/commit/4834a42180fb513670b310fcbaadd07a34adf0b7))
+* Setting the value of ignore_incomplete Fixes [#2556](https://github.com/snakemake/snakemake/issues/2556) ([#2654](https://github.com/snakemake/snakemake/issues/2654)) ([05dac64](https://github.com/snakemake/snakemake/commit/05dac64666cca196e232beed4b6f1167dfbfc3bd))
+
+## [8.3.2](https://github.com/snakemake/snakemake/compare/v8.3.1...v8.3.2) (2024-01-25)
+
+
+### Bug Fixes
+
+* do not require cores to be set for non-executing modes ([#2646](https://github.com/snakemake/snakemake/issues/2646)) ([30cf026](https://github.com/snakemake/snakemake/commit/30cf0261004be7a4bdce5ade563271e52c97ad6a))
+
+## [8.3.1](https://github.com/snakemake/snakemake/compare/v8.3.0...v8.3.1) (2024-01-23)
+
+
+### Documentation
+
+* fix headings ([d947f85](https://github.com/snakemake/snakemake/commit/d947f85172f777ade0dc97bbe853c456517f28f6))
+
+## [8.3.0](https://github.com/snakemake/snakemake/compare/v8.2.4...v8.3.0) (2024-01-23)
+
+
+### Features
+
+* implement semantic helper functions for input and param function handling ([#2344](https://github.com/snakemake/snakemake/issues/2344)) ([b4b5e51](https://github.com/snakemake/snakemake/commit/b4b5e51ee8601b81a7ac900b2d175603c5af90a9))
+* support for continuously updated input (using Python queues) ([#2594](https://github.com/snakemake/snakemake/issues/2594)) ([db1c0ed](https://github.com/snakemake/snakemake/commit/db1c0edcadca499d51223d5cc72cbdfca1ff5d21))
+
+## [8.2.4](https://github.com/snakemake/snakemake/compare/v8.2.3...v8.2.4) (2024-01-23)
+
+
+### Bug Fixes
+
+* fix exception when handling syntax error during parsing ([d5a7a56](https://github.com/snakemake/snakemake/commit/d5a7a564beea9850d1dac9f91429d8434a3aac46))
+
+## [8.2.3](https://github.com/snakemake/snakemake/compare/v8.2.2...v8.2.3) (2024-01-19)
+
+
+### Documentation
+
+* handle overflow of content div ([b23e277](https://github.com/snakemake/snakemake/commit/b23e2776ce810d64225e7675039a33ac0e920bb9))
+
+## [8.2.2](https://github.com/snakemake/snakemake/compare/v8.2.1...v8.2.2) (2024-01-19)
+
+
+### Documentation
+
+* add missing doc dependency ([7ba9c21](https://github.com/snakemake/snakemake/commit/7ba9c21ac949ae6952044944af68874c516791ff))
+* fix typo in `rules.py` ([#2636](https://github.com/snakemake/snakemake/issues/2636)) ([8bc2919](https://github.com/snakemake/snakemake/commit/8bc291933201e205717f3346b743153b57764a6a))
+* use sphinxawesome-theme instead of lutra ([4401e9c](https://github.com/snakemake/snakemake/commit/4401e9c2c53adb46609930b872b5da27b5af58fe))
+
+## [8.2.1](https://github.com/snakemake/snakemake/compare/v8.2.0...v8.2.1) (2024-01-17)
+
+
+### Bug Fixes
+
+* do not require cores to be set for rule-level methods of the workflow API or the corresponding CLI commands (e.g. --lint). ([#2629](https://github.com/snakemake/snakemake/issues/2629)) ([2040468](https://github.com/snakemake/snakemake/commit/20404688e91beadd8790e3c6cdcb727bc47d597e))
+* fix false complaints about rules with multiple output files ([#2628](https://github.com/snakemake/snakemake/issues/2628)) ([b1b4f5b](https://github.com/snakemake/snakemake/commit/b1b4f5b0adcd8066b7a6376e9b56778014f9921b))
+* migration guide typo and wrong link ([#2625](https://github.com/snakemake/snakemake/issues/2625)) ([645f3d1](https://github.com/snakemake/snakemake/commit/645f3d1426c1dcd41adf813bdb833060775ffda5))
+
 ## [8.2.0](https://github.com/snakemake/snakemake/compare/v8.1.3...v8.2.0) (2024-01-16)
 
 

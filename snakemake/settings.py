@@ -91,6 +91,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     keep_metadata: bool = True
     edit_notebook: Optional[NotebookEditMode] = None
     cleanup_scripts: bool = True
+    queue_input_wait_time: int = 10
 
 
 @dataclass
@@ -149,6 +150,13 @@ class Batch:
 
     def __str__(self):
         return f"{self.idx}/{self.batches} (rule {self.rulename})"
+
+    def __eq__(self, other):
+        return (
+            self.rulename == other.rulename
+            and self.idx == other.idx
+            and self.batches == other.batches
+        )
 
 
 @dataclass

@@ -628,6 +628,8 @@ async def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
                     )
                     recorded_files.add(f)
 
+                if f.is_storage:
+                    await f.retrieve_from_storage()
                 if os.path.isfile(f):
                     register_file(f)
                 elif os.path.isdir(f):

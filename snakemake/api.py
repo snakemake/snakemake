@@ -329,6 +329,14 @@ class WorkflowApi(ApiBase):
             dag_settings=dag_settings,
         )
 
+    def _no_dag(method):
+        def _handle_no_dag(self, *args, **kwargs):
+            self.resource_settings.cores = 1
+            return method(self, *args, **kwargs)
+
+        return _handle_no_dag
+
+    @_no_dag
     def lint(self, json: bool = False):
         """Lint the workflow.
 
@@ -347,6 +355,7 @@ class WorkflowApi(ApiBase):
         workflow.check()
         return workflow.lint(json=json)
 
+    @_no_dag
     def list_rules(self, only_targets: bool = False):
         """List the rules of the workflow.
 
@@ -356,10 +365,12 @@ class WorkflowApi(ApiBase):
         """
         self._workflow.list_rules(only_targets=only_targets)
 
+    @_no_dag
     def list_resources(self):
         """List the resources of the workflow."""
         self._workflow.list_resources()
 
+    @_no_dag
     def print_compilation(self):
         """Print the pure python compilation of the workflow."""
         workflow = self._get_workflow()
@@ -571,6 +582,14 @@ class DAGApi(ApiBase):
             updated_files=updated_files,
         )
 
+    def _no_exec(method):
+        def _handle_no_exec(self, *args, **kwargs):
+            self.workflow_api.resource_settings.cores = 1
+            return method(self, *args, **kwargs)
+
+        return _handle_no_exec
+
+    @_no_exec
     def generate_unit_tests(self, path: Path):
         """Generate unit tests for the workflow.
 
@@ -580,10 +599,12 @@ class DAGApi(ApiBase):
         """
         self.workflow_api._workflow.generate_unit_tests(path=path)
 
+    @_no_exec
     def containerize(self):
         """Containerize the workflow."""
         self.workflow_api._workflow.containerize()
 
+    @_no_exec
     def create_report(
         self,
         path: Path,
@@ -601,30 +622,37 @@ class DAGApi(ApiBase):
             stylesheet=stylesheet,
         )
 
+    @_no_exec
     def printdag(self):
         """Print the DAG of the workflow."""
         self.workflow_api._workflow.printdag()
 
+    @_no_exec
     def printrulegraph(self):
         """Print the rule graph of the workflow."""
         self.workflow_api._workflow.printrulegraph()
 
+    @_no_exec
     def printfilegraph(self):
         """Print the file graph of the workflow."""
         self.workflow_api._workflow.printfilegraph()
 
+    @_no_exec
     def printd3dag(self):
         """Print the DAG of the workflow in D3.js compatible JSON."""
         self.workflow_api._workflow.printd3dag()
 
+    @_no_exec
     def unlock(self):
         """Unlock the workflow."""
         self.workflow_api._workflow.unlock()
 
+    @_no_exec
     def cleanup_metadata(self, paths: List[Path]):
         """Cleanup the metadata of the workflow."""
         self.workflow_api._workflow.cleanup_metadata(paths)
 
+    @_no_exec
     def conda_cleanup_envs(self):
         """Cleanup the conda environments of the workflow."""
         self.workflow_api.deployment_settings.imply_deployment_method(
@@ -632,6 +660,7 @@ class DAGApi(ApiBase):
         )
         self.workflow_api._workflow.conda_cleanup_envs()
 
+    @_no_exec
     def conda_create_envs(self):
         """Only create the conda environments of the workflow."""
         self.workflow_api.deployment_settings.imply_deployment_method(
@@ -639,6 +668,7 @@ class DAGApi(ApiBase):
         )
         self.workflow_api._workflow.conda_create_envs()
 
+    @_no_exec
     def conda_list_envs(self):
         """List the conda environments of the workflow."""
         self.workflow_api.deployment_settings.imply_deployment_method(
@@ -646,10 +676,12 @@ class DAGApi(ApiBase):
         )
         self.workflow_api._workflow.conda_list_envs()
 
+    @_no_exec
     def cleanup_shadow(self):
         """Cleanup the shadow directories of the workflow."""
         self.workflow_api._workflow.cleanup_shadow()
 
+    @_no_exec
     def container_cleanup_images(self):
         """Cleanup the container images of the workflow."""
         self.workflow_api.deployment_settings.imply_deployment_method(
@@ -657,6 +689,7 @@ class DAGApi(ApiBase):
         )
         self.workflow_api._workflow.container_cleanup_images()
 
+    @_no_exec
     def list_changes(self, change_type: ChangeType):
         """List the changes of the workflow.
 
@@ -666,10 +699,12 @@ class DAGApi(ApiBase):
         """
         self.workflow_api._workflow.list_changes(change_type=change_type)
 
+    @_no_exec
     def list_untracked(self):
         """List the untracked files of the workflow."""
         self.workflow_api._workflow.list_untracked()
 
+    @_no_exec
     def summary(self, detailed: bool = False):
         """Summarize the workflow.
 
@@ -679,6 +714,7 @@ class DAGApi(ApiBase):
         """
         self.workflow_api._workflow.summary(detailed=detailed)
 
+    @_no_exec
     def archive(self, path: Path):
         """Archive the workflow.
 
@@ -688,6 +724,7 @@ class DAGApi(ApiBase):
         """
         self.workflow_api._workflow.archive(path=path)
 
+    @_no_exec
     def delete_output(self, only_temp: bool = False, dryrun: bool = False):
         """Delete the output of the workflow.
 

@@ -54,7 +54,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                         "wms-monitor-arg",
                     ):
                         result[key] = format_one_level_dict(value)
-                    if key in ("set-resources"):
+                    elif key == "set-resources":
                         result[key] = format_two_level_dict(value)
                 else:
                     value = os.path.expandvars(str(value))

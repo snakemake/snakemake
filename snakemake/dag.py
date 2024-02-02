@@ -22,6 +22,7 @@ from operator import attrgetter
 from pathlib import Path
 from snakemake.settings import DeploymentMethod
 
+from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 
@@ -93,12 +94,14 @@ class DAG(DAGExecutorInterface):
         omitrules=None,
         ignore_incomplete=False,
     ):
+        self._queue_input_jobs = None
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
         self._priority = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
+        self._has_unfinished_queue_input_jobs = None
         self._len = 0
         self.workflow: _workflow.Workflow = workflow
         self.rules = set(rules)
@@ -120,6 +123,7 @@ class DAG(DAGExecutorInterface):
         self._group = dict()
         self._n_until_ready = defaultdict(int)
         self._running = set()
+        self._jobs_with_finished_queue_input = set()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -346,12 +350,12 @@ class DAG(DAGExecutorInterface):
         if (self.workflow.is_main_process and shared_local_copies) or (
             self.workflow.remote_exec and not shared_local_copies
         ):
-            logger.info("Retrieving input from storage.")
             to_retrieve = {
                 f
                 for job in self.needrun_jobs()
                 for f in job.input
-                if f.is_storage and self.is_external_input(f, job)
+                if f.is_storage
+                and self.is_external_input(f, job, not_needrun_is_external=True)
             }
 
             try:
@@ -399,11 +403,7 @@ class DAG(DAGExecutorInterface):
                 self.workflow.is_main_process and (job.is_local or shared_local_copies)
             ) or (self.workflow.remote_exec and not shared_local_copies):
                 for f in chain(job.input, job.output):
-                    if (
-                        f.is_storage
-                        and f not in cleaned
-                        and self.is_external_input(f, job)
-                    ):
+                    if f.is_storage and f not in cleaned:
                         f.storage_object.cleanup()
                         cleaned.add(f)
 
@@ -721,11 +721,17 @@ class DAG(DAGExecutorInterface):
                 assert os.path.exists(f)
 
     def temp_input(self, job: Union[Job, GroupJob]):
-        jobs = [job] if not job.is_group() else job
+        if job.is_group():
+            skip = {f for j in job for f in j.output}
+            jobs = job
+        else:
+            skip = set()
+            jobs = [job]
         for job in jobs:
             for job_, files in self.dependencies[job].items():
-                for f in filter(job_.temp_output.__contains__, files):
-                    yield f
+                for f in files:
+                    if f in job_.temp_output and f not in skip:
+                        yield f
 
     async def temp_size(self, job):
         """Return the total size of temporary input files of the job.
@@ -784,15 +790,17 @@ class DAG(DAGExecutorInterface):
                 # If log file was not created during job, create an empty one.
                 f.touch_or_create()
 
-    async def handle_storage(self, job, store_in_storage=True):
+    async def handle_storage(self, job, store_in_storage=True, store_only_log=False):
         """Remove local files if they are no longer needed and upload."""
         if store_in_storage and (
             self.workflow.remote_exec or self.workflow.is_main_process
         ):
             # handle output files
-            files = job.output
-            if job.benchmark:
-                files = chain(job.output, (job.benchmark,))
+            files = []
+            if not store_only_log:
+                files = job.output
+                if job.benchmark:
+                    files = chain(files, (job.benchmark,))
             if job.log:
                 files = chain(files, job.log)
             for f in files:
@@ -1126,6 +1134,10 @@ class DAG(DAGExecutorInterface):
                             reason.updated_input_run.update(
                                 [f for f in job.input if not await f.exists()]
                             )
+                            if not reason.updated_input_run:
+                                reason.unfinished_queue_input = (
+                                    job.has_unfinished_queue_input()
+                                )
                         else:
                             reason.nooutput = True
                     else:
@@ -1162,36 +1174,43 @@ class DAG(DAGExecutorInterface):
                     ]
                     reason.updated_input.update(updated_input)
                 if not updated_input:
-                    # check for other changes like parameters, set of input files, or code
-                    depends_on_checkpoint_target = any(
-                        f.flags.get("checkpoint_target") for f in job.input
-                    )
+                    reason.unfinished_queue_input = job.has_unfinished_queue_input()
+                    if not reason.unfinished_queue_input:
+                        # check for other changes like parameters, set of input files, or code
+                        depends_on_checkpoint_target = any(
+                            f.flags.get("checkpoint_target") for f in job.input
+                        )
 
-                    if not depends_on_checkpoint_target:
-                        # When the job depends on a checkpoint, it will be revaluated in a second pass
-                        # after the checkpoint output has been determined.
-                        # The first pass (with depends_on_checkpoint_target == True) is not informative
-                        # for determining any other changes than file modification dates, as it will
-                        # change after evaluating the input function of the job in the second pass.
-                        if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
-                            reason.params_changed = any(
-                                self.workflow.persistence.params_changed(job)
-                            )
-                        if RerunTrigger.INPUT in self.workflow.rerun_triggers:
-                            reason.input_changed = any(
-                                self.workflow.persistence.input_changed(job)
-                            )
-                        if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                            reason.code_changed = any(
-                                [
-                                    f
-                                    async for f in job.outputs_older_than_script_or_notebook()
-                                ]
-                            ) or any(self.workflow.persistence.code_changed(job))
-                        if RerunTrigger.SOFTWARE_ENV in self.workflow.rerun_triggers:
-                            reason.software_stack_changed = any(
-                                self.workflow.persistence.conda_env_changed(job)
-                            ) or any(self.workflow.persistence.container_changed(job))
+                        if not depends_on_checkpoint_target:
+                            # When the job depends on a checkpoint, it will be revaluated in a second pass
+                            # after the checkpoint output has been determined.
+                            # The first pass (with depends_on_checkpoint_target == True) is not informative
+                            # for determining any other changes than file modification dates, as it will
+                            # change after evaluating the input function of the job in the second pass.
+                            if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
+                                reason.params_changed = any(
+                                    self.workflow.persistence.params_changed(job)
+                                )
+                            if RerunTrigger.INPUT in self.workflow.rerun_triggers:
+                                reason.input_changed = any(
+                                    self.workflow.persistence.input_changed(job)
+                                )
+                            if RerunTrigger.CODE in self.workflow.rerun_triggers:
+                                reason.code_changed = any(
+                                    [
+                                        f
+                                        async for f in job.outputs_older_than_script_or_notebook()
+                                    ]
+                                ) or any(self.workflow.persistence.code_changed(job))
+                            if (
+                                RerunTrigger.SOFTWARE_ENV
+                                in self.workflow.rerun_triggers
+                            ):
+                                reason.software_stack_changed = any(
+                                    self.workflow.persistence.conda_env_changed(job)
+                                ) or any(
+                                    self.workflow.persistence.container_changed(job)
+                                )
 
             if noinitreason and reason:
                 reason.derived = False
@@ -1207,7 +1226,10 @@ class DAG(DAGExecutorInterface):
         _n_until_ready.clear()
         self._ready_jobs.clear()
 
-        candidates = list(self.toposorted())
+        candidates = [
+            [job for job in level if not self.finished(job)]
+            for level in self.toposorted()
+        ]
 
         is_all_forced = all(
             is_forced(job)
@@ -1258,11 +1280,12 @@ class DAG(DAGExecutorInterface):
                 _needrun.add(job)
 
                 for job_, files in dependencies[job].items():
-                    missing_output = [f async for f in job_.missing_output(files)]
-                    reason(job_).missing_output.update(missing_output)
-                    if missing_output and job_ not in visited:
-                        visited.add(job_)
-                        queue.append(job_)
+                    if job_ in candidates_set:
+                        missing_output = [f async for f in job_.missing_output(files)]
+                        reason(job_).missing_output.update(missing_output)
+                        if missing_output and job_ not in visited:
+                            visited.add(job_)
+                            queue.append(job_)
 
                 for job_, files in depending[job].items():
                     if job_ in candidates_set:
@@ -1473,7 +1496,11 @@ class DAG(DAGExecutorInterface):
             if job in self._ready_jobs or job in self._running:
                 # job has been seen before or is running, no need to process again
                 continue
-            if not self.finished(job) and self._ready(job):
+            if (
+                not self.finished(job)
+                and self._ready(job)
+                and not job.has_unfinished_queue_input()
+            ):
                 potential_new_ready_jobs = True
                 if job.group is None:
                     self._ready_jobs.add(job)
@@ -1656,6 +1683,40 @@ class DAG(DAGExecutorInterface):
                 (self._n_until_ready[job] - n_internal_deps(job)) == 0 for job in group
             )
 
+    async def update_queue_input_jobs(self):
+        updated = False
+        if self.has_unfinished_queue_input_jobs():
+            logger.info("Updating jobs with queue input...")
+            for job in self.queue_input_jobs:
+                if (
+                    job.has_queue_input()
+                    and job not in self._jobs_with_finished_queue_input
+                ):
+                    newjob = job.updated()
+                    if newjob.input != job.input:
+                        await self.replace_job(job, newjob, recursive=False)
+                        updated = True
+                    if updated and not job.has_unfinished_queue_input():
+                        self._jobs_with_finished_queue_input.add(job)
+            if updated:
+                await self.postprocess_after_update()
+                # reset queue_input_jobs such that it is recomputed next time
+                self._queue_input_jobs = None
+        return updated
+
+    @property
+    def queue_input_jobs(self):
+        if self._queue_input_jobs is None:
+            self._queue_input_jobs = set(
+                job
+                for job in self.needrun_jobs(exclude_finished=False)
+                if job.has_queue_input()
+            )
+        return self._queue_input_jobs
+
+    def has_unfinished_queue_input_jobs(self):
+        return any(job.has_unfinished_queue_input() for job in self.queue_input_jobs)
+
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
         updated = False
@@ -1680,16 +1741,18 @@ class DAG(DAGExecutorInterface):
                     await self.replace_job(j, newjob, recursive=False)
                     updated = True
         if updated:
-            await self.postprocess()
-            shared_input_output = (
-                SharedFSUsage.INPUT_OUTPUT
-                in self.workflow.storage_settings.shared_fs_usage
-            )
-            if (
-                self.workflow.is_main_process and shared_input_output
-            ) or self.workflow.remote_exec:
-                await self.retrieve_storage_inputs()
+            await self.postprocess_after_update()
         return updated
+
+    async def postprocess_after_update(self):
+        await self.postprocess()
+        shared_input_output = (
+            SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
+        )
+        if (
+            self.workflow.is_main_process and shared_input_output
+        ) or self.workflow.remote_exec:
+            await self.retrieve_storage_inputs()
 
     def register_running(self, jobs):
         self._running.update(jobs)
@@ -2401,9 +2464,16 @@ class DAG(DAGExecutorInterface):
             os.remove(path)
             raise e
 
-    def is_external_input(self, file, job):
+    def is_external_input(self, file, job, not_needrun_is_external=False):
         """Return True if the given file is an external input for the given job."""
-        return not any(file in files for files in self.dependencies[job].values())
+        consider = lambda job: True
+        if not_needrun_is_external:
+            consider = lambda job: self.needrun(job)
+        return not any(
+            file in files
+            for dep, files in self.dependencies[job].items()
+            if consider(dep)
+        )
 
     async def clean(self, only_temp=False, dryrun=False):
         """Removes files generated by the workflow."""

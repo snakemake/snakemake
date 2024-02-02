@@ -50,6 +50,7 @@ from snakemake.exceptions import (
     InputFunctionException,
     WorkflowError,
     IncompleteCheckpointException,
+    is_file_not_found_error,
 )
 from snakemake.logging import logger
 from snakemake.common import (
@@ -198,7 +199,7 @@ class Rule(RuleInterface):
         )
 
     def check_caching(self):
-        if self.name in self.workflow.cache_rules:
+        if self.workflow.cache_rules.get(self.name):
             if len(self.output) == 0:
                 raise RuleException(
                     "Rules without output files cannot be cached.", rule=self
@@ -207,7 +208,8 @@ class Rule(RuleInterface):
                 prefixes = set(out.multiext_prefix for out in self.output)
                 if None in prefixes or len(prefixes) > 1:
                     raise RuleException(
-                        "Rules with multiple output files must define them as a single multiext() "
+                        "Rules marked as eligible for caching that have with multiple "
+                        "output files must define them as a single multiext() "
                         '(e.g. multiext("path/to/index", ".bwt", ".ann")). '
                         "The rationale is that multiple output files can only be unambiously resolved "
                         "if they can be distinguished by a fixed set of extensions (i.e. mime types).",
@@ -629,16 +631,15 @@ class Rule(RuleInterface):
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
             incomplete = True
-        except FileNotFoundError as e:
-            # Function evaluation can depend on input files. Since expansion can happen during dryrun,
-            # where input files are not yet present, we need to skip such cases and
-            # mark them as <TBD>.
-            if "input" in aux_params and e.filename in aux_params["input"]:
+        except Exception as e:
+            if "input" in aux_params and is_file_not_found_error(
+                e, aux_params["input"]
+            ):
+                # Function evaluation can depend on input files. Since expansion can happen during dryrun,
+                # where input files are not yet present, we need to skip such cases and
+                # mark them as <TBD>.
                 value = TBDString()
-            else:
-                raise e
-        except BaseException as e:
-            if raw_exceptions:
+            elif raw_exceptions:
                 raise e
             else:
                 raise InputFunctionException(e, rule=self, wildcards=wildcards)
@@ -665,6 +666,7 @@ class Rule(RuleInterface):
         if aux_params is None:
             aux_params = dict()
         for name, item in olditems._allitems():
+            olditem = item
             start = len(newitems)
             is_unpack = is_flagged(item, "unpack")
             _is_callable = is_callable(item)
@@ -721,7 +723,8 @@ class Rule(RuleInterface):
                         and not isinstance(item_, Path)
                     ):
                         raise WorkflowError(
-                            "Function did not return str or list of str.", rule=self
+                            f"Function did not return str or iterable of str. Encountered: {item} ({type(item)})",
+                            rule=self,
                         )
 
                     if from_callable and path_modifier is not None and not incomplete:
@@ -732,7 +735,7 @@ class Rule(RuleInterface):
                     concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
                     if mapping is not None:
-                        mapping[concrete] = item_
+                        mapping[concrete] = olditem
 
                 if name:
                     newitems._set_name(

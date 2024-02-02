@@ -81,6 +81,7 @@ from snakemake.io import (
     report,
     multiext,
     ensure,
+    from_queue,
     IOFile,
     sourcecache_entry,
 )
@@ -121,6 +122,7 @@ from snakemake.sourcecache import (
 )
 from snakemake.deployment.conda import Conda
 from snakemake import api, sourcecache
+import snakemake.ioutils
 
 
 SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
@@ -206,6 +208,8 @@ class Workflow(WorkflowExecutorInterface):
         _globals["gitlab"] = sourcecache.GitlabFile
         _globals["gitfile"] = sourcecache.LocalGitFile
         _globals["storage"] = self._storage_registry
+        snakemake.ioutils.register_in_globals(_globals)
+        _globals["from_queue"] = from_queue
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -882,7 +886,7 @@ class Workflow(WorkflowExecutorInterface):
     def printdag(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=True,
         )
         self._build_dag()
@@ -891,7 +895,7 @@ class Workflow(WorkflowExecutorInterface):
     def printrulegraph(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=True,
         )
         self._build_dag()
@@ -984,7 +988,7 @@ class Workflow(WorkflowExecutorInterface):
     def conda_create_envs(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -996,7 +1000,7 @@ class Workflow(WorkflowExecutorInterface):
     def conda_cleanup_envs(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -1005,7 +1009,7 @@ class Workflow(WorkflowExecutorInterface):
     def container_cleanup_images(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -1349,10 +1353,13 @@ class Workflow(WorkflowExecutorInterface):
         self.included_stack.append(snakefile)
 
         default_target = self.default_target
-        code, linemap, rulecount = parse(
+        linemap = dict()
+        self.linemaps[snakefile.get_path_or_uri()] = linemap
+        code, rulecount = parse(
             snakefile,
             self,
             rulecount=self._rulecount,
+            linemap=linemap,
         )
         self._rulecount = rulecount
 
@@ -1367,8 +1374,6 @@ class Workflow(WorkflowExecutorInterface):
             # insert the current directory into sys.path
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
-
-        self.linemaps[snakefile.get_path_or_uri()] = linemap
 
         try:
             exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)

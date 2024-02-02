@@ -55,6 +55,7 @@ dependencies:
   - graphviz
   - humanfriendly
   - throttler
+  - dpath
   - nodejs # for cwltool
   - immutables
   - conda

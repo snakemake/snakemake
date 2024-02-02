@@ -162,7 +162,13 @@ def print_exception(ex, linemaps=None):
 
 def update_lineno(ex: SyntaxError, linemaps):
     if ex.filename and ex.lineno:
-        ex.lineno = linemaps[ex.filename][ex.lineno]
+        linemap = linemaps[ex.filename]
+        try:
+            ex.lineno = linemap[ex.lineno]
+        except KeyError:
+            # linemap does not yet contain the line, it must happen during parsing
+            # such that no update is needed.
+            pass
         return ex
 
 
@@ -562,3 +568,28 @@ class CliException(Exception):
     def __init__(self, msg):
         super().__init__(msg)
         self.msg = msg
+
+
+class LookupError(WorkflowError):
+    def __init__(self, msg=None, exc=None, query=None, dpath=None):
+        msg = f" {msg}" if msg is not None else ""
+        expr = ""
+        if query is not None:
+            expr = f" with query: {repr(query)}"
+        if dpath is not None:
+            expr = f" with dpath: {repr(dpath)}"
+        annotated_msg = f"Error in lookup function{expr}.{msg}"
+        args = [annotated_msg]
+        if exc is not None:
+            args.append(exc)
+        super().__init__(*args)
+
+
+def is_file_not_found_error(exc, considered_files):
+    # TODO find a better way to detect whether the input files are not present
+    if isinstance(exc, FileNotFoundError) and exc.filename in considered_files:
+        return True
+    elif isinstance(exc, WorkflowError) and "FileNotFoundError" in str(exc):
+        return True
+    else:
+        return False

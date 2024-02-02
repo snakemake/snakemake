@@ -266,6 +266,12 @@ def test_globwildcards():
     run(dpath("test_globwildcards"))
 
 
+# inpdependent of OS
+@skip_on_windows
+def test_ioutils():
+    run(dpath("test_ioutils"))
+
+
 def test_local_import():
     run(dpath("test_local_import"))
 
@@ -439,6 +445,22 @@ def test_conda():
 
 def test_conda_list_envs():
     run(dpath("test_conda"), conda_list_envs=True, check_results=False)
+
+
+def test_conda_create_envs_only():
+    tmpdir = run(
+        dpath("test_conda"),
+        conda_create_envs=True,
+        check_results=False,
+        cleanup=False,
+        cleanup_scripts=False,
+    )
+    env_dir = next(
+        (p for p in Path(tmpdir, ".snakemake", "conda").iterdir() if p.is_dir()), None
+    )
+    assert env_dir is not None
+    assert Path(env_dir, "env_setup_done").exists()
+    shutil.rmtree(tmpdir)
 
 
 def test_upstream_conda():
@@ -1956,3 +1978,15 @@ def test_resource_string_in_cli_or_profile():
         snakefile="Snakefile",
         shellcmd=f"snakemake --workflow-profile {profile} -c1 --default-resources slurm_account=foo",
     )
+
+
+def test_queue_input():
+    run(dpath("test_queue_input"))
+
+
+def test_queue_input_dryrun():
+    run(dpath("test_queue_input"), executor="dryrun", check_results=False)
+
+
+def test_queue_input_forceall():
+    run(dpath("test_queue_input"), forceall=True)
