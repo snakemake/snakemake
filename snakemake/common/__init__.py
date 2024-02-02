@@ -60,12 +60,13 @@ def mb_to_mib(mb):
     return int(math.ceil(mb * 0.95367431640625))
 
 
-def parse_key_value_arg(arg, errmsg):
+def parse_key_value_arg(arg, errmsg, strip_quotes=True):
     try:
         key, val = arg.split("=", 1)
     except ValueError:
         raise ValueError(errmsg + f" (Unparseable value: {repr(arg)})")
-    val = val.strip("'\"")
+    if strip_quotes:
+        val = val.strip("'\"")
     return key, val
 
 

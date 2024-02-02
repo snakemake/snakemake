@@ -81,7 +81,7 @@ def parse_set_resources(args):
     assignments = defaultdict(dict)
     if args is not None:
         for entry in args:
-            key, value = parse_key_value_arg(entry, errmsg=errmsg)
+            key, value = parse_key_value_arg(entry, errmsg=errmsg, strip_quotes=False)
             key = key.split(":")
             if len(key) != 2:
                 raise ValueError(errmsg)

@@ -1969,6 +1969,17 @@ def test_issue1256():
     assert "line 9" in stderr
 
 
+def test_resource_string_in_cli_or_profile():
+    test_path = dpath("test_resource_string_in_cli_or_profile")
+    profile = os.path.join(test_path, "profiles")
+    # workflow profile is loaded by default
+    run(
+        test_path,
+        snakefile="Snakefile",
+        shellcmd=f"snakemake --workflow-profile {profile} -c1 --default-resources slurm_account=foo other_resource='--test'",
+    )
+
+
 def test_queue_input():
     run(dpath("test_queue_input"))
 
