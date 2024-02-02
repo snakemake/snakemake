@@ -528,10 +528,10 @@ def eval_resource_expression(val, threads_arg=True):
             if not (isinstance(e, FileNotFoundError) and e.filename in kwargs["input"]):
                 # Missing input files are handled by the caller
                 raise WorkflowError(
-                    "Failed to evaluate default resources value "
+                    "Failed to evaluate resources value "
                     f"'{val}'.\n"
                     "    String arguments may need additional "
-                    "quoting. Ex: --default-resources "
+                    "quoting. E.g.: --default-resources "
                     "\"tmpdir='/home/user/tmp'\".",
                     e,
                 )

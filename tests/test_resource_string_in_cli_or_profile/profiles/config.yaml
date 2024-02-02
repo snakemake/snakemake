@@ -1,4 +1,4 @@
 set-resources:
     test1:
         slurm_partition: "smp"
-        slurm_extra: "--nice=150"
+        slurm_extra: "'--nice=150'"
