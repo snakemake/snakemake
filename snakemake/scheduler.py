@@ -299,7 +299,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     runjobs = [job for job in run if not job.is_local]
                     if local_runjobs:
                         self.run(
-                            local_runjobs, executor=self._local_executor or self._executor
+                            local_runjobs,
+                            executor=self._local_executor or self._executor,
                         )
                     if runjobs:
                         self.run(runjobs)
