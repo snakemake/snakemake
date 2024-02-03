@@ -12,7 +12,7 @@ from snakemake_interface_common.exceptions import WorkflowError
 
 
 class WildcardHandlerBase(ABC):
-    fmt_regex = re.compile("\{(?P<stmt>[^\{][^\{\}]+)\}[^\}]")
+    fmt_regex = re.compile(r"\{(?P<stmt>[^\{][^\{\}]+)\}[^\}]")
 
     def __init__(self, func, **namespace):
         self.func = func
