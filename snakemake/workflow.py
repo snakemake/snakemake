@@ -899,7 +899,7 @@ class Workflow(WorkflowExecutorInterface):
             lock_warn_only=True,
         )
         self._build_dag()
-        self.dag.rule_dot()
+        print(self.dag.rule_dot())
 
     def printfilegraph(self):
         self._prepare_dag(
