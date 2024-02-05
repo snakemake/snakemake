@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Optional
+from typing import Any, List, Optional, Union
 from snakemake.io import flag
 from snakemake.workflow import Workflow
 from snakemake_interface_common.exceptions import WorkflowError
@@ -144,11 +144,19 @@ class StorageRegistry:
 
     def _storage_object(
         self,
-        query: str,
+        query: Union[str, List[str]],
         provider: Optional[str] = None,
         retrieve: bool = True,
         keep_local: bool = False,
     ):
+        if isinstance(query, list):
+            return [
+                self._storage_object(
+                    q, provider=provider, retrieve=retrieve, keep_local=keep_local
+                )
+                for q in query
+            ]
+
         provider_name = provider
 
         if provider_name is None:
