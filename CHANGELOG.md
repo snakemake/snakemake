@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [8.4.4](https://github.com/snakemake/snakemake/compare/v8.4.3...v8.4.4) (2024-02-05)
+
+
+### Bug Fixes
+
+* fixed bug in handling of resource overrides for remote job submission ([5c06dd6](https://github.com/snakemake/snakemake/commit/5c06dd6a3273057144a8d5e1305c7cbdfc329b66))
+* output of rulegraph, closes [#2656](https://github.com/snakemake/snakemake/issues/2656) ([#2671](https://github.com/snakemake/snakemake/issues/2671)) ([f9b9110](https://github.com/snakemake/snakemake/commit/f9b9110b2b0e25db25f76ceeabcf548b70aff839))
+* SyntaxWarning due to invalid escape sequences in non-raw regex pattern string ([#2670](https://github.com/snakemake/snakemake/issues/2670)) ([3748d9d](https://github.com/snakemake/snakemake/commit/3748d9dc937195a54bc052994f6d2fa05373da42))
+
 ## [8.4.3](https://github.com/snakemake/snakemake/compare/v8.4.2...v8.4.3) (2024-02-02)
 
 
