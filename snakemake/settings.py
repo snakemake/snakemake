@@ -1,7 +1,7 @@
 from abc import ABC
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from typing import Mapping, Sequence, Set
 
 import immutables
@@ -281,7 +281,7 @@ class ResourceSettings(SettingsBase):
     overwrite_threads: Mapping[str, int] = immutables.Map()
     overwrite_scatter: Mapping[str, int] = immutables.Map()
     overwrite_resource_scopes: Mapping[str, str] = immutables.Map()
-    overwrite_resources: Mapping[str, Mapping[str, int]] = immutables.Map()
+    overwrite_resources: Mapping[str, Mapping[str, Any]] = immutables.Map()
     default_resources: Optional[DefaultResources] = None
 
     def __post_init__(self):

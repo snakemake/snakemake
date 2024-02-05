@@ -7,6 +7,7 @@ from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import common
+from snakemake.io import get_flag_value, is_flagged
 from snakemake.settings import SharedFSUsage
 
 if TYPE_CHECKING:
@@ -82,10 +83,16 @@ class SpawnedJobArgsFactory:
         }
 
     def get_set_resources_args(self):
+        def get_orig_arg(value):
+            if is_flagged(value, "orig_arg"):
+                return get_flag_value(value, "orig_arg")
+            else:
+                return value
+
         return format_cli_arg(
             "--set-resources",
             [
-                f"{rule}:{name}={value}"
+                f"{rule}:{name}={get_orig_arg(value)}"
                 for rule, res in self.workflow.resource_settings.overwrite_resources.items()
                 for name, value in res.items()
             ],
