@@ -930,6 +930,8 @@ class Rule(RuleInterface):
             if skip_evaluation is not None and name in skip_evaluation:
                 res = TBDString()
             else:
+                if isinstance(res, AnnotatedString) and res.callable:
+                    res = res.callable
                 if callable(res):
                     aux = dict(rulename=self.name)
                     if threads is not None:
