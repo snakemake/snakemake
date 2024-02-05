@@ -23,6 +23,7 @@ from snakemake.common import (
     __version__,
     async_run,
     get_appdirs,
+    get_container_image,
     parse_key_value_arg,
 )
 from snakemake.dag import Batch
@@ -1444,6 +1445,7 @@ def get_argument_parser(profiles=None):
     group_cluster.add_argument(
         "--container-image",
         metavar="IMAGE",
+        default=get_container_image(),
         help="Docker image to use, e.g., when submitting jobs to kubernetes. "
         "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
         "the same version as the currently running Snakemake instance. "
