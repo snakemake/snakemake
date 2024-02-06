@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.4.6](https://github.com/snakemake/snakemake/compare/v8.4.5...v8.4.6) (2024-02-06)
+
+
+### Bug Fixes
+
+* fix missing storage information when handling already completed checkpoints. This solves a bug causing failure to retrieve storage files in workflows with checkpoints. ([5791c60](https://github.com/snakemake/snakemake/commit/5791c6017195dd00a5d98c1da1e81fbfdde253b9))
+
 ## [8.4.5](https://github.com/snakemake/snakemake/compare/v8.4.4...v8.4.5) (2024-02-06)
 
 
