@@ -292,7 +292,7 @@ class _IOFile(str, AnnotatedStringInterface):
             if self.is_storage and self not in cache.exists_in_storage:
                 # info not yet in inventory, let's discover as much as we can
                 tasks.append(self.storage_object.inventory(cache))
-            if not ON_WINDOWS and self not in cache.exists_local:
+            elif not ON_WINDOWS and self not in cache.exists_local:
                 # we don't want to mess with different path representations on windows
                 tasks.append(self._local_inventory(cache))
             await asyncio.gather(*tasks)
@@ -887,7 +887,7 @@ def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
 
 
 def flag(value, flag_type, flag_value=True):
-    if isinstance(value, AnnotatedString):
+    if isinstance(value, AnnotatedStringInterface):
         value.flags[flag_type] = flag_value
         return value
     if not_iterable(value):
