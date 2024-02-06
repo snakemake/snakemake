@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [8.4.5](https://github.com/snakemake/snakemake/compare/v8.4.4...v8.4.5) (2024-02-06)
+
+
+### Bug Fixes
+
+* for local execution, always unrestrictedly assume shared FS ([#2679](https://github.com/snakemake/snakemake/issues/2679)) ([0bee50b](https://github.com/snakemake/snakemake/commit/0bee50b24538e9e17f8679fe4e7022f335e32d72))
+* support list of queries for storage provider ([#2674](https://github.com/snakemake/snakemake/issues/2674)) ([d53ef92](https://github.com/snakemake/snakemake/commit/d53ef92e79f5e8cf0187a1aa25c321c1478914d8))
+* use default container image if nothing is provided ([#2677](https://github.com/snakemake/snakemake/issues/2677)) ([109c991](https://github.com/snakemake/snakemake/commit/109c991cea1ca757086488b3ca07f59cb843b46f))
+
 ## [8.4.4](https://github.com/snakemake/snakemake/compare/v8.4.3...v8.4.4) (2024-02-05)
 
 
