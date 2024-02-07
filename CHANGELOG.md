@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.4.7](https://github.com/snakemake/snakemake/compare/v8.4.6...v8.4.7) (2024-02-07)
+
+
+### Documentation
+
+* improve branch function docs ([e9d1a11](https://github.com/snakemake/snakemake/commit/e9d1a11ca67456d7304b580ae6e1f1ae01e712cd))
+
 ## [8.4.6](https://github.com/snakemake/snakemake/compare/v8.4.5...v8.4.6) (2024-02-06)
 
 
