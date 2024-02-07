@@ -433,7 +433,7 @@ The branch function
 The ``branch`` function allows to choose different input files based on a given conditional.
 It has the signature 
 
-.. code-bloc:: python
+.. code-block:: python
 
     branch(
         condition: Union[Callable, bool],
@@ -462,16 +462,16 @@ An example of using ``branch`` in combination with ``lookup`` from a ``config`` 
 .. code-block:: python
 
     branch(
-        use_sometool(),
+        lookup(dpath="tools/sometool", within=config),
         then="results/sometool/{dataset}.txt",
         otherwise="results/someresult/{dataset}.txt"
     )
 
 Here, the semantic is as follows:
-If ``use_sometool()`` returns ``True``, the input is ``results/sometool/{dataset}.txt``, otherwise it is ``results/someresult/{dataset}.txt``.
+If the lookup returns ``True``, the input is ``results/sometool/{dataset}.txt``, otherwise it is ``results/someresult/{dataset}.txt``.
 
 Given that ``condition`` can be a function, if this is used in the context of a rule definition and the usage of the tool ``sometool`` depends on some wildcard values,
-one can also pass the function itself instead of its output to the branch function (using it as an input function).
+one can also pass a function name instead of a boolean value to the branch function (using it as an input function).
 
 .. code-block:: python
 
@@ -489,6 +489,18 @@ one can also pass the function itself instead of its output to the branch functi
 
 Above, the semantic is as follows:
 If ``use_sometool`` returns ``True`` for the given wildcard values, the input is ``results/sometool/{dataset}.txt``, otherwise it is ``results/someresult/{dataset}.txt``.
+
+An example for using the cases argument could look as follows:
+
+.. code-block:: python
+
+    branch(
+        lookup(dpath="tool/to/use", within=config),
+        cases={
+            "sometool": "results/sometool/{dataset}.txt",
+            "someothertool": "results/someothertool/{dataset}.txt"
+        }
+    )
 
 The evaluate function
 """""""""""""""""""""
