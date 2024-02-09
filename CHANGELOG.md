@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [8.4.8](https://github.com/snakemake/snakemake/compare/v8.4.7...v8.4.8) (2024-02-09)
+
+
+### Bug Fixes
+
+* fix bug causing FileNotFoundError when accessing checkpoint output. ([c81954d](https://github.com/snakemake/snakemake/commit/c81954d0bc10011a777aef7d0d5f089ee5748342))
+* Fix collect-lookup attribute error ([#2687](https://github.com/snakemake/snakemake/issues/2687)) ([e39c74c](https://github.com/snakemake/snakemake/commit/e39c74c18d59f117f1e630a516ba00ee8a53c9e8))
+* Fixed plot axis label on report ([#2683](https://github.com/snakemake/snakemake/issues/2683)) ([a4c2a03](https://github.com/snakemake/snakemake/commit/a4c2a03182d5f1bd5e7a9e389dc816cf7a9bc124))
+
 ## [8.4.7](https://github.com/snakemake/snakemake/compare/v8.4.6...v8.4.7) (2024-02-07)
 
 
