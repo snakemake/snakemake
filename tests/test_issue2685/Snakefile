@@ -1,5 +1,5 @@
 import pandas
-import collections.abc
+
 
 samples = pandas.DataFrame.from_records(
     (
@@ -8,16 +8,6 @@ samples = pandas.DataFrame.from_records(
         {"sample_id": "c", "use_a": False},
     ),
 )
-
-print(type(lookup(
-                query="use_a",
-                within=samples
-            )))
-
-print(isinstance(lookup(
-                query="use_a",
-                within=samples
-            ), collections.abc.Iterable))
 
 rule b:
     input:
