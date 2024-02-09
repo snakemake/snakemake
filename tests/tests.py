@@ -1980,6 +1980,13 @@ def test_resource_string_in_cli_or_profile():
     )
 
 
+def test_resource_tbdstring():
+    test_path = dpath("test_resource_tbdstring")
+    results_dir = Path(test_path) / "expected-results"
+    results_dir.mkdir(exist_ok=True)
+    run(test_path, executor="dryrun", check_results=False)
+
+
 def test_queue_input():
     run(dpath("test_queue_input"))
 
