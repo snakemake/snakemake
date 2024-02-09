@@ -12,6 +12,7 @@ import datetime
 import functools
 import json
 import os
+import pandas
 import queue
 import re
 import shutil
@@ -1306,6 +1307,8 @@ def expand(*args, **wildcard_values):
             for wildcard, values in wildcard_values.items():
                 if isinstance(values, str) or not isinstance(
                     values, collections.abc.Iterable
+                ) or not isinstance(
+                    values, pandas.core.frame.DataFrame
                 ):
                     values = [values]
                 yield [(wildcard, value) for value in values]
