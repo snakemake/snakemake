@@ -1990,3 +1990,7 @@ def test_queue_input_dryrun():
 
 def test_queue_input_forceall():
     run(dpath("test_queue_input"), forceall=True)
+
+
+def test_issue2685():
+    run(dpath("test_issue2685"))

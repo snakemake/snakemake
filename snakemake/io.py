@@ -12,7 +12,6 @@ import datetime
 import functools
 import json
 import os
-import pandas
 import queue
 import re
 import shutil
@@ -44,6 +43,7 @@ from snakemake.common import (
     async_run,
     get_function_params,
     get_input_function_aux_params,
+    is_namedtuple_instance,
 )
 from snakemake.exceptions import (
     MissingOutputException,
@@ -1305,10 +1305,10 @@ def expand(*args, **wildcard_values):
     def do_expand(wildcard_values):
         def flatten(wildcard_values):
             for wildcard, values in wildcard_values.items():
-                if isinstance(values, str) or not isinstance(
-                    values, collections.abc.Iterable
-                ) or not isinstance(
-                    values, pandas.core.frame.DataFrame
+                if (
+                    isinstance(values, str)
+                    or not isinstance(values, collections.abc.Iterable)
+                    or is_namedtuple_instance(values)
                 ):
                     values = [values]
                 yield [(wildcard, value) for value in values]
