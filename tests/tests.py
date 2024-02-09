@@ -1992,6 +1992,6 @@ def test_queue_input_forceall():
     run(dpath("test_queue_input"), forceall=True)
 
 
-@skip_on_windows # OS independent
+@skip_on_windows  # OS independent
 def test_issue2685():
     run(dpath("test_issue2685"))
