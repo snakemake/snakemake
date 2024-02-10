@@ -184,25 +184,28 @@ class BenchmarkRecord:
                 "Benchmark: unable to collect cpu and memory benchmark statistics"
             )
             return "\t".join(
-                [
-                    self.jobid,
-                    self.rule_name,
-                    self.wildcards,
-                    f"{self.running_time:.4f}",
-                    timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
-                    "NA",
-                    "NA",
-                    "NA",
-                    "NA",
-                    "NA",
-                    "NA",
-                    "NA",
-                    "NA",
-                    self.resources,
-                    self.threads,
-                    self.input_total_size_mb,
-                    self.input_files_size_mb,
-                ]
+                map(
+                    to_tsv_str,
+                    (
+                        self.jobid,
+                        self.rule_name,
+                        self.wildcards,
+                        f"{self.running_time:.4f}",
+                        timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
+                        "NA",
+                        "NA",
+                        "NA",
+                        "NA",
+                        "NA",
+                        "NA",
+                        "NA",
+                        "NA",
+                        self.resources,
+                        self.threads,
+                        self.input_total_size_mb,
+                        self.input_files_size_mb,
+                    )
+                )
             )
 
 
