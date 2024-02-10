@@ -26,6 +26,9 @@ class BenchmarkRecord:
     def get_header(klass):
         return "\t".join(
             (
+                "job_id",
+                "rule_name",
+                "wildcards",
                 "s",
                 "h:m:s",
                 "max_rss",
@@ -36,11 +39,18 @@ class BenchmarkRecord:
                 "io_out",
                 "mean_load",
                 "cpu_time",
+                "resources",
+                "threads",
+                "input_total_size_mb",
+                "input_files_size_mb",
             )
         )
 
     def __init__(
         self,
+        jobid=None,
+        rule_name=None,
+        wildcards=None,
         running_time=None,
         max_rss=None,
         max_vms=None,
@@ -50,11 +60,20 @@ class BenchmarkRecord:
         io_out=None,
         cpu_usages=None,
         cpu_time=None,
+        resources=None,
+        threads=None,
+        input_total_size_mb=None,
+        input_files_size_mb=None,
     ):
+        #: Job ID
+        self.jobid = (jobid,)
+        #: Rule name
+        self.rule_name = (rule_name,)
+        #: Job wildcards
+        self.wildcards = (wildcards,)
         #: Running time in seconds
         self.running_time = running_time
         #: Maximal RSS in MB
-
         self.max_rss = max_rss
         #: Maximal VMS in MB
         self.max_vms = max_vms
@@ -70,6 +89,14 @@ class BenchmarkRecord:
         self.cpu_usages = cpu_usages or 0
         #: CPU usage (user and system) in seconds
         self.cpu_time = cpu_time or 0
+        #: Job resources
+        self.resources = (resources,)
+        #: Job threads
+        self.threads = (threads,)
+        #: Job input total size in MB
+        self.input_total_size_mb = (input_total_size_mb,)
+        #: Job input file size in MB
+        self.input_files_size_mb = (input_files_size_mb,)
         #: First time when we measured CPU load, for estimating total running time
         self.first_time = None
         #: Previous point when measured CPU load, for estimating total running time
@@ -130,6 +157,9 @@ class BenchmarkRecord:
                 map(
                     to_tsv_str,
                     (
+                        self.jobid,
+                        self.rule_name,
+                        self.wildcards,
                         f"{self.running_time:.4f}",
                         timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
                         self.max_rss,
@@ -140,6 +170,10 @@ class BenchmarkRecord:
                         self.io_out,
                         self.cpu_usages / self.running_time,
                         self.cpu_time,
+                        self.resources,
+                        self.threads,
+                        self.input_total_size_mb,
+                        self.input_files_size_mb,
                     ),
                 )
             )
@@ -151,6 +185,9 @@ class BenchmarkRecord:
             )
             return "\t".join(
                 [
+                    self.jobid,
+                    self.rule_name,
+                    self.wildcards,
                     f"{self.running_time:.4f}",
                     timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
                     "NA",
@@ -161,6 +198,10 @@ class BenchmarkRecord:
                     "NA",
                     "NA",
                     "NA",
+                    self.resources,
+                    self.threads,
+                    self.input_total_size_mb,
+                    self.input_files_size_mb,
                 ]
             )
 

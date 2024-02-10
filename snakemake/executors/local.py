@@ -161,9 +161,11 @@ class Executor(RealExecutor):
             self.workflow.execution_settings.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
-            self.workflow.execution_settings.edit_notebook
-            if self.dag.is_edit_notebook_job(job)
-            else None,
+            (
+                self.workflow.execution_settings.edit_notebook
+                if self.dag.is_edit_notebook_job(job)
+                else None
+            ),
             self.workflow.conda_base_path,
             job.rule.basedir,
             self.workflow.sourcecache.cache_path,
@@ -464,6 +466,28 @@ def run_wrapper(
 
     if benchmark is not None:
         try:
+            # Add job info to (all repeats of) benchmark file
+            for bench_record in bench_records:
+                bench_record.jobid = jobid
+                bench_record.rule_name = job_rule.name
+                bench_record.wildcards = {
+                    key: value for key, value in wildcards.items()
+                }
+                bench_record.resources = {
+                    key: value
+                    for key, value in resources.items()
+                    if not key.startswith("_")
+                }
+                bench_record.input_files_size_mb = {
+                    file: Path(file).stat().st_size / 1024 / 1024 for file in input
+                }
+                bench_record.input_total_size_mb = sum(
+                    [
+                        size_mb
+                        for file, size_mb in bench_record.input_files_size_mb.items()
+                    ]
+                )
+                bench_record.threads = threads
             write_benchmark_records(bench_records, benchmark)
         except Exception as ex:
             raise WorkflowError(ex)
