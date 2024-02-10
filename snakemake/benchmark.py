@@ -204,7 +204,7 @@ class BenchmarkRecord:
                         self.threads,
                         self.input_total_size_mb,
                         self.input_files_size_mb,
-                    )
+                    ),
                 )
             )
 
