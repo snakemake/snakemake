@@ -2689,7 +2689,7 @@ Template rendering rules are always executed locally, without submission to clus
 MPI support
 -----------
 
-Highly parallel programs may use the MPI (:ref: message passing interface<https://en.wikipedia.org/wiki/Message_Passing_Interface>) to enable a programm to span work across an individual compute node's boundary.
+Highly parallel programs may use the MPI (:ref: message passing interface<https://en.wikipedia.org/wiki/Message_Passing_Interface>) to enable a program to span work across an individual compute node's boundary.
 The command to run the MPI program (in below example we assume there exists a program ``calc-pi-mpi``) has to be specified in the ``mpi``-resource, e.g.:
 
 .. code-block:: python

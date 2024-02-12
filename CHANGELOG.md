@@ -2366,7 +2366,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
     (`--threads rulename=3`), thereby improving scalability.
 -   Requester pays configuration for google storage remote files.
 -   Add keyword `allow_missing` to expand function, thereby allowing
-    partical expansion by skipping wildcards for which no keywords are
+    partial expansion by skipping wildcards for which no keywords are
     defined.
 
 #### Changed

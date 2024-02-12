@@ -674,7 +674,7 @@ class Paramspace:
 
             if any((param not in dataframe.columns for param in filename_params)):
                 raise KeyError(
-                    "One or more entries of filename_params are not valid coulumn names for the param file."
+                    "One or more entries of filename_params are not valid column names for the param file."
                 )
             elif len(set(filename_params)) != len(filename_params):
                 raise ValueError("filename_params must be unique")

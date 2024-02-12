@@ -1515,7 +1515,7 @@ def test_modules_all_exclude_1():
 
 
 def test_modules_all_exclude_2():
-    # Successed since the conflicting rules have been excluded
+    # Succeeded since the conflicting rules have been excluded
     run(
         dpath("test_modules_all_exclude"),
         snakefile="Snakefile_exclude",

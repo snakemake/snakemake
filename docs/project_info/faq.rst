@@ -307,7 +307,7 @@ Yes, from version 2.4.8 on, Snakemake allows to import python modules (and also 
 How can I run Snakemake on a cluster where its main process is not allowed to run on the head node?
 ---------------------------------------------------------------------------------------------------
 
-This can be achived by submitting the main Snakemake invocation as a job to the cluster. If it is not allowed to submit a job from a non-head cluster node, you can provide a submit command that goes back to the head node before submitting:
+This can be achieved by submitting the main Snakemake invocation as a job to the cluster. If it is not allowed to submit a job from a non-head cluster node, you can provide a submit command that goes back to the head node before submitting:
 
 .. code-block:: bash
 
