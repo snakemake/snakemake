@@ -72,7 +72,7 @@ The repeated measurements occur as subsequent lines in the tab-delimited benchma
 Modularization
 ::::::::::::::
 
-In order to re-use building blocks or simply to structure large workflows, it is sometimes reasonable to **split a workflow into modules**.
+In order to reuse building blocks or simply to structure large workflows, it is sometimes reasonable to **split a workflow into modules**.
 For this, Snakemake provides the ``include`` directive to include another Snakefile into the current one, e.g.:
 
 .. code:: python

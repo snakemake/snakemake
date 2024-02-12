@@ -584,7 +584,7 @@ class AbstractCmd(Run):
         yield from []
 
     def end(self):
-        # the end is detected. So we can savely reset the indent to zero here
+        # the end is detected. So we can safely reset the indent to zero here
         self.indent = 0
         yield "\n"
         yield ")"
@@ -754,7 +754,7 @@ class Rule(GlobalKeywordState):
             for t in self.subautomaton("run", rulename=self.rulename).start():
                 yield t
             # the end is detected.
-            # So we can savely reset the indent to zero here
+            # So we can safely reset the indent to zero here
             self.indent = 0
             yield "\n"
             yield INDENT * (self.effective_indent + 1)
@@ -994,7 +994,7 @@ class UseRule(GlobalKeywordState):
             rulename = "__allrules__"
         yield f"def __userule_{self.from_module}_{rulename}():"
         # the end is detected.
-        # So we can savely reset the indent to zero here
+        # So we can safely reset the indent to zero here
         self.indent = 0
         yield "\n"
         yield INDENT * (self.effective_indent + 1)

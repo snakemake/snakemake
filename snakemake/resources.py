@@ -181,7 +181,7 @@ class GroupResources:
 
         Users can help mitigate against voids by grouping jobs of similar resource
         dimensions.  Eclectic groups of various runtimes and resource consumptions will
-        not be estimated as efficiently as groups of homogenous consumptions.
+        not be estimated as efficiently as groups of homogeneous consumptions.
 
         Parameters
         ----------
@@ -234,12 +234,12 @@ class GroupResources:
                 #   { "runtime": 15, "tmpdir": "/tmp"},
                 #   ...
                 # ]
-                # Pipe jobs and regular jobs are put in seperate lists.
+                # Pipe jobs and regular jobs are put in separate lists.
                 try:
                     # Remove any TBDStrings from values. These will typically arise
                     # here because the default mem_mb and disk_mb are based off of
                     # input file size, and intermediate files in the group are not yet
-                    # generated. Thus rules consuming such files must explicitely
+                    # generated. Thus rules consuming such files must explicitly
                     # specify their resources
                     res = {
                         k: res
@@ -596,7 +596,7 @@ def parse_resources(resources_args, fallback=None):
                     val = fallback(val)
                 else:
                     raise ValueError(
-                        "Resource definiton must contain an integer, string or python expression after the identifier."
+                        "Resource definition must contain an integer, string or python expression after the identifier."
                     )
             if res == "_cores":
                 raise ValueError(

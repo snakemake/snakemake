@@ -1182,7 +1182,7 @@ class DAG(DAGExecutorInterface):
                         )
 
                         if not depends_on_checkpoint_target:
-                            # When the job depends on a checkpoint, it will be revaluated in a second pass
+                            # When the job depends on a checkpoint, it will be reevaluated in a second pass
                             # after the checkpoint output has been determined.
                             # The first pass (with depends_on_checkpoint_target == True) is not informative
                             # for determining any other changes than file modification dates, as it will

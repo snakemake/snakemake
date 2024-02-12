@@ -112,7 +112,7 @@ class SlackLogger:
     def log_handler(self, msg):
         if "error" in msg["level"] and not self.error_occured:
             self.slack.chat_postMessage(
-                channel=self.own_id, text="At least one error occured."
+                channel=self.own_id, text="At least one error occurred."
             )
             self.error_occured = True
 
@@ -263,7 +263,7 @@ class WMSLogger:
     def _parse_message(self, msg):
         """Given a message dictionary, we want to loop through the key, value
         pairs and convert some attributes to strings (e.g., jobs are fine to be
-        represnted as names) and return a dictionary.
+        represented as names) and return a dictionary.
         """
         result = {}
         for key, value in msg.items():
@@ -701,7 +701,7 @@ def format_resource_names(resources, omit_resources="_cores _nodes".split()):
 
 
 def format_percentage(done, total):
-    """Format percentage from given fraction while avoiding superflous precision."""
+    """Format percentage from given fraction while avoiding superfluous precision."""
     if done == total:
         return "100%"
     if done == 0:

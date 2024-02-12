@@ -1260,7 +1260,7 @@ class RustScript(ScriptBase):
     def _strip_code_block_manifest(src: str) -> Tuple[str, str]:
         """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L634-L664
         We need to find the first `/*!` or `//!` that *isn't* preceeded by something
-        that would make it apply to anything other than the crate itself. Because we
+        that would make it apply to anything other than the create itself. Because we
         can't do this accurately, we'll just require that the doc comment is the
         *first* thing in the file (after the optional shebang, which should already
         have been stripped).
@@ -1268,12 +1268,12 @@ class RustScript(ScriptBase):
         crate_comment_re = re.compile(
             r"^\s*(/\*!|//([!/]))(.*?)(\r\n|\n)", flags=re.MULTILINE
         )
-        # does src start with a crate comment?
+        # does src start with a create comment?
         match = crate_comment_re.match(src)
         if not match:
             return "", src
         end_of_comment = match.end()
-        # find end of crate comment
+        # find end of create comment
         while match is not None:
             end_of_comment = match.end()
             match = crate_comment_re.match(src, pos=end_of_comment)

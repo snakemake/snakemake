@@ -62,7 +62,7 @@ Using and combining pre-exising workflows
 -----------------------------------------
 
 Via the :ref:`module/use <snakefiles-modules>` system introduced with Snakemake 6.0, it is very easy to deploy existing workflows for new projects.
-This ranges from the simple application to new data to the complex combination of several complementary workflows in order to perfom an integrated analysis over multiple data types.
+This ranges from the simple application to new data to the complex combination of several complementary workflows in order to perform an integrated analysis over multiple data types.
 
 Consider the following example:
 
@@ -185,7 +185,7 @@ Above, several things have changed.
 Uploading workflows to WorkflowHub
 ----------------------------------
 
-In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metadata and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
+In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Create <https://w3id.org/ro/create>`_. That way a *snakemake* workflow is annotated with proper metadata and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
 
 To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
 
@@ -243,7 +243,7 @@ Integrated Package Management
 -----------------------------
 
 It is possible (and highly encouraged, see :ref:`snakefiles-best_practices`) to define isolated software environments per rule.
-Upon execution of a workflow, the `Conda package manager <https://conda.pydata.org>`_ is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root priviledges.
+Upon execution of a workflow, the `Conda package manager <https://conda.pydata.org>`_ is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root privileges.
 Given that conda is available on your system (see `Miniconda <https://conda.pydata.org/miniconda.html>`_), to use the Conda integration, add the ``--software-deployment-method conda`` option (``--sdm`` for short) to your workflow execution command, e.g. ``snakemake --cores 8 --sdm conda``.
 When ``--software-deployment-method conda`` (``--sdm`` for short) is activated, Snakemake will automatically create software environments for any used wrapper (see :ref:`snakefiles-wrappers`).
 Further, you can manually define environments via the ``conda`` directive, e.g.:
@@ -302,7 +302,7 @@ Freezing environments to exactly pinned packages
 
 If Snakemake finds a special file ending on ``<platform>.pin.txt`` next to a conda environment file (with ``<platform>`` being the current platform, e.g. ``linux-64``), it will try to use the contents of that file to determine the conda packages to deploy.
 The file is expected to contain conda's `explicit specification file format <https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#building-identical-conda-environments>`_.
-Snakemake will first try to deploy the environment using that file, and only if that fails it will use the regular enviroment file.
+Snakemake will first try to deploy the environment using that file, and only if that fails it will use the regular environment file.
 
 This enables to freeze an environment to a certain state, and will ensure that people using a workflow will get exactly the same environments down to the individual package builds, which is in fact very similar to providing the environment encapsulated in a container image.
 Generating such pin files for conda environments can be automatically done using `Snakedeploy <https://snakedeploy.readthedocs.io>`_.
@@ -545,7 +545,7 @@ The user can, upon execution, freely choose the desired level of reproducibility
 Using environment modules
 -------------------------
 
-In high performace cluster systems (HPC), it can be preferable to use environment modules for deployment of optimized versions of certain standard tools.
+In high performance cluster systems (HPC), it can be preferable to use environment modules for deployment of optimized versions of certain standard tools.
 Snakemake allows to define environment modules per rule:
 
 .. code-block:: python

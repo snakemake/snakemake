@@ -29,7 +29,7 @@ The name is optional and can be left out, creating an anonymous rule. It can als
 .. sidebar:: Note
 
     Note that any placeholders in the shell command (like ``{input}``) are always evaluated and replaced
-    when the corresponding job is executed, even if they are occuring inside a comment.
+    when the corresponding job is executed, even if they are occurring inside a comment.
     To avoid evaluation and replacement, you have to mask the braces by doubling them,
     i.e. ``{{input}}``.
 
@@ -186,7 +186,7 @@ The function has to accept a single argument that will be the wildcards object g
 Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
 By this, rules can have entirely different input files (both in form and number) depending on the inferred wildcards. E.g. you can assign input files that appear in entirely different parts of your filesystem based on some wildcard value and a dictionary that maps the wildcard value to file paths.
 
-In additon to a single wildcards argument, input functions can optionally take a ``groupid`` (with exactly that name) as second argument, see :ref:`snakefiles_group-local` for details.
+In addition to a single wildcards argument, input functions can optionally take a ``groupid`` (with exactly that name) as second argument, see :ref:`snakefiles_group-local` for details.
 
 Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.
 In particular, input files should not be combined with very general rules that can be applied to create almost any file: Snakemake will try to apply the rule, and will report the exceptions of your input function as errors.
@@ -415,7 +415,7 @@ once the wildcard values are known if the lookup is used within an input file st
 .. _snakefiles-branch-function:
 
 In addition to wildcard values, dpath, query and cols may refer via the same syntax
-to auxilliary namespace arguments given to the lookup function, e.g.
+to auxiliary namespace arguments given to the lookup function, e.g.
 
 .. code-block:: python
 
@@ -795,7 +795,7 @@ Modification in the Snakefile uses the following syntax:
         disk_mb="global"
 
 Here, we set both ``gpus`` and ``foo`` as local resources, and we changed ``disk_mb`` from its default to be a ``global`` resource.
-These options could be overriden at the command line using:
+These options could be overridden at the command line using:
 
 .. code-block:: console
 
@@ -1189,7 +1189,7 @@ It usually looks like this:
 
     pub struct Snakemake {
         input: Input,
-        output: Ouput,
+        output: Output,
         params: Params,
         wildcards: Wildcards,
         threads: u64,
@@ -1279,7 +1279,7 @@ variable, named as ``snakemake_<directive>``:
 * ``params``
 * ``config``
 
-Access to the ``input`` directive is faciliated through the bash associative array named ``snakemake_input``. The
+Access to the ``input`` directive is facilitated through the bash associative array named ``snakemake_input``. The
 remaining directives can be found in the variable ``snakemake``.
 
 .. sidebar:: Note
@@ -1575,7 +1575,7 @@ Ensuring output file properties like non-emptyness or checksum compliance
 
 It is possible to annotate certain additional criteria for output files to be ensured after they have been generated successfully.
 For example, this can be used to check for output files to be non-empty, or to compare them against a given sha256 checksum.
-If this functionality is used, Snakemake will check such annotated files before considering a job to be successfull.
+If this functionality is used, Snakemake will check such annotated files before considering a job to be successful.
 Non-emptyness can be checked as follows:
 
 .. code-block:: python
@@ -1824,7 +1824,7 @@ Only if rule1 and rule2 cannot be applied (e.g. due to missing input files), rul
 
 Alternatively, rule dependencies (see above) can also resolve ambiguities.
 
-Another (quick and dirty) possiblity is to tell snakemake to allow ambiguity via a command line option
+Another (quick and dirty) possibility is to tell snakemake to allow ambiguity via a command line option
 
 .. code-block:: console
 
@@ -1931,7 +1931,7 @@ The resulting tsv file can be used as input for other rules, just like any other
 Defining scatter-gather processes
 ---------------------------------
 
-Via Snakemake's powerful and abitrary Python based aggregation abilities (via the ``expand`` function and arbitrary Python code, see :ref:`here <snakefiles_aggregation>`), scatter-gather workflows are well supported.
+Via Snakemake's powerful and arbitrary Python based aggregation abilities (via the ``expand`` function and arbitrary Python code, see :ref:`here <snakefiles_aggregation>`), scatter-gather workflows are well supported.
 Nevertheless, it can sometimes be handy to use Snakemake's specific scatter-gather support, which allows to avoid boilerplate and offers additional configuration options.
 Scatter-gather processes can be defined via a global ``scattergather`` directive:
 
@@ -1953,30 +1953,30 @@ Then, scattering and gathering can be implemented by using globally available ``
 
     rule split:
         output:
-            scatter.split("splitted/{scatteritem}.txt")
+            scatter.split("split/{scatteritem}.txt")
         shell:
             "touch {output}"
 
 
     rule intermediate:
         input:
-            "splitted/{scatteritem}.txt"
+            "split/{scatteritem}.txt"
         output:
-            "splitted/{scatteritem}.post.txt"
+            "split/{scatteritem}.post.txt"
         shell:
             "cp {input} {output}"
 
 
     rule gather:
         input:
-            gather.split("splitted/{scatteritem}.post.txt")
+            gather.split("split/{scatteritem}.post.txt")
         output:
             "gathered/all.txt"
         shell:
             "cat {input} > {output}"
 
-Thereby, ``scatter.split("splitted/{scatteritem}.txt")`` yields a list of paths ``"splitted/1-of-n.txt"``, ``"splitted/2-of-n.txt"``, ..., depending on the number ``n`` of scatter items defined.
-Analogously, ``gather.split("splitted/{scatteritem}.post.txt")``, yields a list of paths ``"splitted/0.post.txt"``, ``"splitted/1.post.txt"``, ..., which request the application of the rule ``intermediate`` to each scatter item.
+Thereby, ``scatter.split("split/{scatteritem}.txt")`` yields a list of paths ``"split/1-of-n.txt"``, ``"split/2-of-n.txt"``, ..., depending on the number ``n`` of scatter items defined.
+Analogously, ``gather.split("split/{scatteritem}.post.txt")``, yields a list of paths ``"split/0.post.txt"``, ``"split/1.post.txt"``, ..., which request the application of the rule ``intermediate`` to each scatter item.
 
 The default number of scatter items can be overwritten via the command line interface.
 For example
@@ -2054,7 +2054,7 @@ However, if we would add ``group: "mygroup"`` to rule ``c``, all jobs would end 
 Alternatively, groups can be defined via the command line interface.
 This enables to almost arbitrarily partition the DAG, e.g. in order to safe network traffic, see :ref:`here <job_grouping>`.
 
-For execution on the cloud using Google Life Science API and preemptible instances, we expect all rules in the group to be homogenously set as preemptible instances (e.g., with command-line option ``--preemptible-rules``), such that a preemptible VM is requested for the execution of the group job.
+For execution on the cloud using Google Life Science API and preemptible instances, we expect all rules in the group to be homogeneously set as preemptible instances (e.g., with command-line option ``--preemptible-rules``), such that a preemptible VM is requested for the execution of the group job.
 
 .. _snakefiles_group-local:
 
@@ -2274,7 +2274,7 @@ From Snakemake 5.31 on (inspired by `JUDI <https://pyjudi.readthedocs.io>`_), th
 
 
 In above example, **please note** the Python ``f``-string formatting (the ``f`` before the initial quotes) applied to the input and output file strings that contain ``paramspace.wildcard_pattern``.
-This means that the file that is registered as input or output file by Snakemake does not contain a wildcard ``{paramspace.wildcard_pattern}``, but instead this item is replaced by a pattern of multiple wildcards derived from the columns of the paramter space dataframe.
+This means that the file that is registered as input or output file by Snakemake does not contain a wildcard ``{paramspace.wildcard_pattern}``, but instead this item is replaced by a pattern of multiple wildcards derived from the columns of the parameter space dataframe.
 This is done by the Python ``f``-string formatting before the string is registered in the rule.
 Given that `params.tsv` contains:
 
@@ -2653,7 +2653,7 @@ An example Jinja2 template could look like this::
 
     This is some text and now we access {{ params.foo }}.
 
-Apart from Jinja2, Snakemake supports `YTE <https://github.com/koesterlab/yte>`_ (YAML template engine), which is particularly designed to support templating of the ubiquitious YAML file format:
+Apart from Jinja2, Snakemake supports `YTE <https://github.com/koesterlab/yte>`_ (YAML template engine), which is particularly designed to support templating of the ubiquitous YAML file format:
 
 .. code-block:: python
 
@@ -2689,7 +2689,7 @@ Template rendering rules are always executed locally, without submission to clus
 MPI support
 -----------
 
-Highly parallel programs may use the MPI (:ref: message passing interface<https://en.wikipedia.org/wiki/Message_Passing_Interface>) to enable a programm to span work across an invidual compute node's boundary.
+Highly parallel programs may use the MPI (:ref: message passing interface<https://en.wikipedia.org/wiki/Message_Passing_Interface>) to enable a programm to span work across an individual compute node's boundary.
 The command to run the MPI program (in below example we assume there exists a program ``calc-pi-mpi``) has to be specified in the ``mpi``-resource, e.g.:
 
 .. code-block:: python
