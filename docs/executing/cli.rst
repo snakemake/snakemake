@@ -147,7 +147,7 @@ For example, the file
 would setup Snakemake to always submit to the SLURM cluster middleware and never use more than 100 parallel jobs in total.
 The profile can be used to set a default for each option of the Snakemake command line interface.
 For this, option ``--someoption`` becomes ``someoption:`` in the profile.
-The profile folder can additionally contain auxilliary files, e.g., jobscripts, or any kind of wrappers. See https://github.com/snakemake-profiles/doc for examples.
+The profile folder can additionally contain auxiliary files, e.g., jobscripts, or any kind of wrappers. See https://github.com/snakemake-profiles/doc for examples.
 If options accept multiple arguments these must be given as YAML list in the profile.
 If options expect structured arguments (like ``--default-resources RESOURCE=VALUE``, ``--set-threads RULE=VALUE``, or ``--set-resources RULE:RESOURCE=VALUE``), those can be given as strings in the expected forms, i.e.
 

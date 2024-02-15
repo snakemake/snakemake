@@ -97,7 +97,7 @@ Resources
     An automatically scraped catalog of publicly available Snakemake workflows for any kind of data analysis.
 
 `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_
-    This project provides a collection of high quality modularized and re-usable workflows.
+    This project provides a collection of high quality modularized and reusable workflows.
     The provided code should also serve as a best-practices of how to build production ready workflows with Snakemake.
     Everybody is invited to contribute.
 
@@ -106,7 +106,7 @@ Resources
     Please consider contributing your own if it is still missing.
 
 `Snakemake API documentation <https://snakemake-api.readthedocs.io>`_
-    The documentation of the Snakemake API for programmatic access and developement on Snakemake.
+    The documentation of the Snakemake API for programmatic access and development on Snakemake.
 
 `Conda-Forge <https://conda-forge.org>`_
     Conda-Forge is a community driven distribution of Conda packages that can be used from Snakemake for creating completely reproducible workflows by defining the used software versions and providing binaries.
