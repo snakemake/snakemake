@@ -64,7 +64,6 @@ from snakemake.exceptions import WorkflowError
 from snakemake.workflow import Workflow
 
 
-
 class EmbeddedMixin(object):
     """
     Replaces the URI of a directive with a base64-encoded version.
@@ -387,13 +386,19 @@ class FileRecord(FileRecordInterface):
         self.id = h.hexdigest()
         self.wildcards = logging.format_wildcards(self.raw_wildcards)
         self.params = (
-            logging.format_dict(self.job.params).replace("\n", r"\n").replace('"', r"\"")
+            logging.format_dict(self.job.params)
+            .replace("\n", r"\n")
+            .replace('"', r"\"")
         )
         self.aux_files = self.aux_files or []
 
     @property
     def raw_wildcards(self):
-        return self.job.wildcards if self.wildcards_overwrite is None else self.wildcards_overwrite
+        return (
+            self.job.wildcards
+            if self.wildcards_overwrite is None
+            else self.wildcards_overwrite
+        )
 
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
@@ -438,7 +443,7 @@ class FileRecord(FileRecordInterface):
     @property
     def filename(self):
         return os.path.basename(self.path)
-    
+
     @property
     def workflow(self):
         return self.job.rule.workflow

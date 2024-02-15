@@ -7,6 +7,7 @@ from snakemake.logging import Logger
 
 from snakemake_interface_common.exceptions import WorkflowError
 
+
 def data_uri(data, filename, encoding="utf8", mime="text/plain"):
     """Craft a base64 data URI from file with proper encoding and mimetype."""
     data = base64.b64encode(data)

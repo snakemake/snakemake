@@ -42,7 +42,6 @@ class ReportSettings(ReportSettingsBase):
 
 
 class Reporter(ReporterBase):
-
     def __post_init__(self):
         self.mode_embedded = True
         if self.settings.path.suffix == ".zip":
@@ -57,7 +56,7 @@ class Reporter(ReporterBase):
                     self.custom_stylesheet = s.read()
             except Exception as e:
                 raise WorkflowError("Unable to read custom report stylesheet.", e)
-            
+
         self.env = Environment(
             loader=PackageLoader("snakemake", "report/html_reporter/template"),
             trim_blocks=True,
@@ -131,7 +130,9 @@ class Reporter(ReporterBase):
         # TODO look into supporting .WARC format, also see (https://webrecorder.io)
 
         if not self.mode_embedded:
-            with ZipFile(self.settings.path, compression=ZIP_DEFLATED, mode="w") as zipout:
+            with ZipFile(
+                self.settings.path, compression=ZIP_DEFLATED, mode="w"
+            ) as zipout:
                 folder = Path(Path(self.settings.path).stem)
                 # store results in data folder
                 for subcats in self.results.values():
@@ -144,9 +145,18 @@ class Reporter(ReporterBase):
                                     "Please use store as zip instead (--report report.zip)."
                                 )
                             # write raw data
-                            zipout.write(result.path, str(folder.joinpath(get_result_uri(result, self.mode_embedded))))
+                            zipout.write(
+                                result.path,
+                                str(
+                                    folder.joinpath(
+                                        get_result_uri(result, self.mode_embedded)
+                                    )
+                                ),
+                            )
                             # write aux files
-                            parent = folder.joinpath(get_result_uri(result, self.mode_embedded)).parent
+                            parent = folder.joinpath(
+                                get_result_uri(result, self.mode_embedded)
+                            ).parent
                             for aux_path in result.aux_files:
                                 zipout.write(
                                     aux_path,

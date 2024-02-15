@@ -953,7 +953,9 @@ class Workflow(WorkflowExecutorInterface):
         with open(path, "w") as cwl:
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
 
-    def create_report(self, report_plugin: ReportPlugin, report_settings: ReportSettingsBase):
+    def create_report(
+        self, report_plugin: ReportPlugin, report_settings: ReportSettingsBase
+    ):
         from snakemake.report import auto_report
 
         self._prepare_dag(

@@ -2,7 +2,6 @@ import json
 from snakemake_interface_common.exceptions import WorkflowError
 
 
-
 def render_rules(rules):
     return json.dumps(
         {
@@ -41,6 +40,4 @@ def render_code(rule):
 
         return highlighted
     except pygments.util.ClassNotFound:
-        return [
-            f'<pre class="source"><code>{rule.source}</code></pre>'
-        ]
+        return [f'<pre class="source"><code>{rule.source}</code></pre>']

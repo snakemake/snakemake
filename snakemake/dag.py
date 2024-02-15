@@ -2613,7 +2613,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             # group, filtering out any dependencies that are, themselves, in the group
             for name, group in pipe_groups.items():
                 pipe_dependencies[name] = set(
-                    d for job in group for d in self._dependencies[job] if d not in group
+                    d
+                    for job in group
+                    for d in self._dependencies[job]
+                    if d not in group
                 )
 
         # Collect every job's dependencies into a definitive mapping

@@ -17,7 +17,12 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 import snakemake.common.argparse
 from snakemake import logging
-from snakemake.api import SnakemakeApi, _get_executor_plugin_registry, _get_report_plugin_registry, resolve_snakefile
+from snakemake.api import (
+    SnakemakeApi,
+    _get_executor_plugin_registry,
+    _get_report_plugin_registry,
+    resolve_snakefile,
+)
 from snakemake.common import (
     SNAKEFILE_CHOICES,
     __version__,

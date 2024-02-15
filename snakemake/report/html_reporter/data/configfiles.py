@@ -2,7 +2,6 @@ import json
 from snakemake_interface_common.exceptions import WorkflowError
 
 
-
 def render_configfiles(configfiles):
     return json.dumps(
         [
@@ -36,7 +35,6 @@ def render_code(configfile):
                 file_ext
             )
         )
-    
 
     source = configfile.source
     lexer = get_lexer_by_name(language)

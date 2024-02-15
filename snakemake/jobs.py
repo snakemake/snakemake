@@ -51,6 +51,7 @@ from snakemake.common import (
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
 
+
 def format_file(f, is_input: bool):
     if is_flagged(f, "pipe"):
         return f"{f} (pipe)"
