@@ -17,7 +17,7 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 import snakemake.common.argparse
 from snakemake import logging
-from snakemake.api import SnakemakeApi, _get_executor_plugin_registry, resolve_snakefile
+from snakemake.api import SnakemakeApi, _get_executor_plugin_registry, _get_report_plugin_registry, resolve_snakefile
 from snakemake.common import (
     SNAKEFILE_CHOICES,
     __version__,
@@ -877,6 +877,13 @@ def get_argument_parser(profiles=None):
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
     )
+    group_report.add_argument(
+        "--reporter",
+        metavar="PLUGIN",
+        help="Specify a custom report plugin. By default, Snakemake's builtin html "
+        "reporter will be used. For custom reporters, check out their command line "
+        "options starting with --report-.",
+    )
 
     group_notebooks = parser.add_argument_group("NOTEBOOKS")
 
@@ -1621,6 +1628,7 @@ def get_argument_parser(profiles=None):
     # Add namespaced arguments to parser for each plugin
     _get_executor_plugin_registry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
+    _get_report_plugin_registry().register_cli_args(parser)
     return parser
 
 
@@ -1777,6 +1785,11 @@ def args_to_api(args, parser):
     elif args.executor is None:
         args.executor = "local"
 
+    if args.report:
+        args.reporter = "html"
+        args.report_html_path = args.report
+        args.report_html_stylesheet_path = args.report_stylesheet
+
     executor_plugin = _get_executor_plugin_registry().get_plugin(args.executor)
     executor_settings = executor_plugin.get_settings(args)
 
@@ -1784,6 +1797,13 @@ def args_to_api(args, parser):
         name: StoragePluginRegistry().get_plugin(name).get_settings(args)
         for name in StoragePluginRegistry().get_registered_plugins()
     }
+
+    if args.reporter:
+        report_plugin = _get_report_plugin_registry().get_plugin(args.reporter)
+        report_settings = report_plugin.get_settings(args)
+    else:
+        report_plugin = None
+        report_settings = None
 
     if args.cores is None:
         if executor_plugin.common_settings.local_exec:
@@ -1928,10 +1948,10 @@ def args_to_api(args, parser):
 
                     if args.containerize:
                         dag_api.containerize()
-                    elif args.report:
+                    elif report_plugin is not None:
                         dag_api.create_report(
-                            path=args.report,
-                            stylesheet=args.report_stylesheet,
+                            reporter=args.reporter,
+                            report_settings=report_settings,
                         )
                     elif args.generate_unit_tests:
                         dag_api.generate_unit_tests(args.generate_unit_tests)

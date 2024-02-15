@@ -1,6 +1,6 @@
 import json
 from snakemake.exceptions import WorkflowError
-from snakemake.report.data.common import get_resource_as_string
+from snakemake.report.html_reporter.common import get_resource_as_string
 import snakemake
 
 

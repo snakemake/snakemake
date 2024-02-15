@@ -49,7 +49,7 @@ from snakemake.common import (
     IO_PROP_LIMIT,
 )
 from snakemake.common.tbdstring import TBDString
-
+from snakemake_interface_report_plugins.interfaces import JobReportInterface
 
 def format_file(f, is_input: bool):
     if is_flagged(f, "pipe"):
@@ -147,7 +147,7 @@ class JobFactory:
         return obj
 
 
-class Job(AbstractJob, SingleJobExecutorInterface):
+class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     obj_cache = dict()
 
     __slots__ = [

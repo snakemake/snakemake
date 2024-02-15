@@ -47,6 +47,8 @@ from snakemake_interface_executor_plugins.registry.plugin import (
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 
 from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -951,7 +953,7 @@ class Workflow(WorkflowExecutorInterface):
         with open(path, "w") as cwl:
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
 
-    def create_report(self, path: Path, stylesheet: Optional[Path] = None):
+    def create_report(self, report_plugin: ReportPlugin, report_settings: ReportSettingsBase):
         from snakemake.report import auto_report
 
         self._prepare_dag(
@@ -961,7 +963,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        async_run(auto_report(self.dag, path, stylesheet=stylesheet))
+        async_run(auto_report(self.dag, report_plugin, report_settings))
 
     def conda_list_envs(self):
         self._prepare_dag(
