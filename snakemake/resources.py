@@ -623,7 +623,7 @@ def infer_resources(name, value, resources: dict):
             raise WorkflowError(
                 f"Cannot parse mem or disk value into size in MB for setting {inferred_name} resource: {value}"
             )
-        resources[inferred_name] = max(int(round(in_bytes / 1000 / 1000)), 1)
+        resources[inferred_name] = max(int(round(in_bytes / 1024 / 1024)), 1)
     elif (
         name == "runtime"
         and isinstance(value, str)
