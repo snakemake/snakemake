@@ -611,7 +611,11 @@ def infer_resources(name, value, resources: dict):
     """Infer resources from a given one, if possible."""
     from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
 
-    if (name == "mem" or name == "disk") and isinstance(value, str):
+    if (
+        (name == "mem" or name == "disk")
+        and isinstance(value, str)
+        and not isinstance(value, TBDString)
+    ):
         inferred_name = f"{name}_mb"
         try:
             in_bytes = parse_size(value)
@@ -620,7 +624,11 @@ def infer_resources(name, value, resources: dict):
                 f"Cannot parse mem or disk value into size in MB for setting {inferred_name} resource: {value}"
             )
         resources[inferred_name] = max(int(round(in_bytes / 1024 / 1024)), 1)
-    elif name == "runtime" and isinstance(value, str):
+    elif (
+        name == "runtime"
+        and isinstance(value, str)
+        and not isinstance(value, TBDString)
+    ):
         try:
             resources["runtime"] = max(int(round(parse_timespan(value) / 60)), 1)
         except InvalidTimespan:
