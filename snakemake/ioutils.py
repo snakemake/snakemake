@@ -142,7 +142,7 @@ def lookup(
     once the wildcard values are known.
 
     In addition to wildcard values, dpath, query and cols may refer via the same syntax
-    to auxilliary namespace arguments given to the lookup function, e.g.
+    to auxiliary namespace arguments given to the lookup function, e.g.
     ``lookup(query="cell_type == '{sample.cell_type}'", within=samples, sample=lookup("sample == '{sample}'", within=samples))``
     This way, one can e.g. pass additional variables or chain lookups into more complex queries.
     """

@@ -1182,7 +1182,7 @@ class DAG(DAGExecutorInterface):
                         )
 
                         if not depends_on_checkpoint_target:
-                            # When the job depends on a checkpoint, it will be revaluated in a second pass
+                            # When the job depends on a checkpoint, it will be reevaluated in a second pass
                             # after the checkpoint output has been determined.
                             # The first pass (with depends_on_checkpoint_target == True) is not informative
                             # for determining any other changes than file modification dates, as it will
@@ -1723,6 +1723,7 @@ class DAG(DAGExecutorInterface):
         self.update_checkpoint_outputs()
         if jobs is None:
             jobs = [job for job in self.jobs if not self.needrun(job)]
+        all_depending = []
         for job in jobs:
             if job.is_checkpoint:
                 depending = list(self.depending[job])
@@ -1735,11 +1736,12 @@ class DAG(DAGExecutorInterface):
                                     tg.create_task(f.retrieve_from_storage())
                     except ExceptionGroup as e:
                         raise WorkflowError("Failed to retrieve checkpoint output.", e)
-                for j in depending:
-                    logger.debug(f"Updating job {j}.")
-                    newjob = j.updated()
-                    await self.replace_job(j, newjob, recursive=False)
-                    updated = True
+                all_depending.extend(depending)
+        for j in all_depending:
+            logger.debug(f"Updating job {j}.")
+            newjob = j.updated()
+            await self.replace_job(j, newjob, recursive=False)
+            updated = True
         if updated:
             await self.postprocess_after_update()
         return updated

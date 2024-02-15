@@ -104,7 +104,7 @@ def test13():
     run(dpath("test13"))
 
 
-# TODO reenable once cluster-generic plugin is released
+# TODO re-enable once cluster-generic plugin is released
 # @skip_on_windows
 # def test_cluster_cancelscript():
 #     outdir = run(
@@ -1263,7 +1263,7 @@ def test_tmpdir():
 
 
 def test_tmpdir_default():
-    # Do not check the content (OS and setup depdendent),
+    # Do not check the content (OS and setup dependent),
     # just check whether everything runs smoothly with the default.
     run(dpath("test_tmpdir"), check_md5=False)
 
@@ -1442,7 +1442,7 @@ def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
 
 
-# SLURM tests go here, after successfull tests
+# SLURM tests go here, after successful tests
 
 
 def test_parsing_terminal_comment_following_statement():
@@ -1515,7 +1515,7 @@ def test_modules_all_exclude_1():
 
 
 def test_modules_all_exclude_2():
-    # Successed since the conflicting rules have been excluded
+    # Succeeded since the conflicting rules have been excluded
     run(
         dpath("test_modules_all_exclude"),
         snakefile="Snakefile_exclude",
@@ -1980,6 +1980,13 @@ def test_resource_string_in_cli_or_profile():
     )
 
 
+def test_resource_tbdstring():
+    test_path = dpath("test_resource_tbdstring")
+    results_dir = Path(test_path) / "expected-results"
+    results_dir.mkdir(exist_ok=True)
+    run(test_path, executor="dryrun", check_results=False)
+
+
 def test_queue_input():
     run(dpath("test_queue_input"))
 
@@ -1990,3 +1997,8 @@ def test_queue_input_dryrun():
 
 def test_queue_input_forceall():
     run(dpath("test_queue_input"), forceall=True)
+
+
+@skip_on_windows  # OS independent
+def test_issue2685():
+    run(dpath("test_issue2685"))

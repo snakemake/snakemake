@@ -19,7 +19,7 @@ Modularization in Snakemake comes at four different levels.
 Wrappers
 --------
 
-The wrapper directive allows to have re-usable wrapper scripts around e.g. command line tools.
+The wrapper directive allows to have reusable wrapper scripts around e.g. command line tools.
 In contrast to modularization strategies like ``include`` or subworkflows, the wrapper directive allows to re-wire the DAG of jobs.
 For example
 
@@ -164,9 +164,9 @@ It is possible to overwrite the global config dictionary for the module, which i
     use rule * from other_workflow as other_*
 
 In this case, any ``configfile`` statements inside the module are ignored.
-In addition, it is possible to skip any :ref:`validation <snakefiles_config_validation>` statements in the module, by specifying ``skip_validation: True`` in the module statment.
+In addition, it is possible to skip any :ref:`validation <snakefiles_config_validation>` statements in the module, by specifying ``skip_validation: True`` in the module statement.
 Moreover, one can automatically move all relative input and output files of a module into a dedicated folder: by specifying ``prefix: "foo"`` in the module definition, e.g. any output file ``path/to/output.txt`` in the module would be stored under ``foo/path/to/output.txt`` instead.
-This becomes particularly usefull when combining multiple modules, see :ref:`use_with_modules`.
+This becomes particularly useful when combining multiple modules, see :ref:`use_with_modules`.
 
 Instead of using all rules, it is possible to import specific rules.
 Specific rules may even be modified before using them, via a final ``with:`` followed by a block that lists items to overwrite.
@@ -204,7 +204,7 @@ Meta-Wrappers
 
 Snakemake wrappers offer a simple way to include commonly used tools in Snakemake workflows.
 In addition the `Snakemake Wrapper Repository`_ offers so-called meta-wrappers, which are combinations of wrappers, meant to perform common tasks.
-Both wrappers and meta-wrappers are continously tested.
+Both wrappers and meta-wrappers are continuously tested.
 The module statement also allows to easily use meta-wrappers, for example:
 
 .. code-block:: python

@@ -95,9 +95,9 @@ Feel free to ask questions about this if you want to contribute to Snakemake :)
 Testing Guidelines
 ------------------
 
-To ensure that you do not introduce bugs into Snakemake, you should test your code thouroughly.
+To ensure that you do not introduce bugs into Snakemake, you should test your code thoroughly.
 
-To have integration tests run automatically when commiting code changes to Github, you need to sign up on wercker.com and register a user.
+To have integration tests run automatically when committing code changes to Github, you need to sign up on wercker.com and register a user.
 
 The easiest way to run your development version of Snakemake is perhaps to go to the folder containing your local copy of Snakemake and call:
 

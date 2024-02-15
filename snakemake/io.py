@@ -43,6 +43,7 @@ from snakemake.common import (
     async_run,
     get_function_params,
     get_input_function_aux_params,
+    is_namedtuple_instance,
 )
 from snakemake.exceptions import (
     MissingOutputException,
@@ -652,8 +653,12 @@ class _IOFile(str, AnnotatedStringInterface):
     async def retrieve_from_storage(self):
         if self.is_storage:
             if not self.should_not_be_retrieved_from_storage:
-                mtime = await self.mtime()
-                if not await self.exists_local() or mtime.local() < mtime.storage():
+
+                async def is_newer_in_storage():
+                    mtime = await self.mtime()
+                    return mtime.local() < mtime.storage()
+
+                if not await self.exists_local() or await is_newer_in_storage():
                     logger.info(f"Retrieving from storage: {self.storage_object.query}")
                     await self.storage_object.managed_retrieve()
                     logger.info("Finished retrieval.")
@@ -1010,7 +1015,7 @@ def regex_from_filepattern(filepattern):
             if match.group("constraint"):
                 raise ValueError(
                     "Constraint regex must be defined only in the first "
-                    "occurence of the wildcard in a string."
+                    "occurrence of the wildcard in a string."
                 )
             f.append(f"(?P={wildcard})")
         else:
@@ -1187,7 +1192,7 @@ def sourcecache_entry(value, orig_path_or_uri):
 
     assert not isinstance(
         orig_path_or_uri, SourceFile
-    ), "bug: sourcecache_entry should recive a path or uri, not a SourceFile"
+    ), "bug: sourcecache_entry should receive a path or uri, not a SourceFile"
     return flag(value, "sourcecache_entry", orig_path_or_uri)
 
 
@@ -1304,8 +1309,10 @@ def expand(*args, **wildcard_values):
     def do_expand(wildcard_values):
         def flatten(wildcard_values):
             for wildcard, values in wildcard_values.items():
-                if isinstance(values, str) or not isinstance(
-                    values, collections.abc.Iterable
+                if (
+                    isinstance(values, str)
+                    or not isinstance(values, collections.abc.Iterable)
+                    or is_namedtuple_instance(values)
                 ):
                     values = [values]
                 yield [(wildcard, value) for value in values]

@@ -13,7 +13,7 @@ def render_timeline(timeline):
                     "field": "endtime",
                     "type": "temporal",
                     "timeUnit": "yearmonthdatehoursminutes",
-                    "axis": {"labelAngle": -90, "title": "creation date"},
+                    "axis": {"labelAngle": -90, "title": "end date"},
                 },
                 "y": {"field": "rule", "type": "nominal"},
                 "color": {"value": "#007bff"},
