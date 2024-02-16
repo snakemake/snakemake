@@ -36,6 +36,7 @@ class TestWorkflowsBase(ABC):
     expect_exception = None
     omit_tmp = False
     latency_wait = 5
+    create_report = False
 
     @abstractmethod
     def get_executor(self) -> str:
@@ -126,14 +127,20 @@ class TestWorkflowsBase(ABC):
 
             dag_api = workflow_api.dag()
 
-            dag_api.execute_workflow(
-                executor=self.get_executor(),
-                executor_settings=self.get_executor_settings(),
-                execution_settings=settings.ExecutionSettings(
-                    latency_wait=self.latency_wait,
-                ),
-                remote_execution_settings=self.get_remote_execution_settings(),
-            )
+            if self.create_report:
+                dag_api.create_report(
+                    reporter=self.get_reporter(),
+                    report_settings=self.get_report_settings(),
+                )
+            else:
+                dag_api.execute_workflow(
+                    executor=self.get_executor(),
+                    executor_settings=self.get_executor_settings(),
+                    execution_settings=settings.ExecutionSettings(
+                        latency_wait=self.latency_wait,
+                    ),
+                    remote_execution_settings=self.get_remote_execution_settings(),
+                )
 
     @handle_testcase
     def test_simple_workflow(self, tmp_path):
@@ -149,6 +156,14 @@ class TestWorkflowsBase(ABC):
     def _common_settings(self):
         registry = ExecutorPluginRegistry()
         return registry.get_plugin(self.get_executor()).common_settings
+    
+    @abstractmethod
+    def get_reporter(self):
+        ...
+    
+    @abstractmethod
+    def get_report_settings(self):
+        ...
 
 
 class TestWorkflowsLocalStorageBase(TestWorkflowsBase):
@@ -162,6 +177,12 @@ class TestWorkflowsLocalStorageBase(TestWorkflowsBase):
         self,
     ) -> Optional[Mapping[str, TaggedSettings]]:
         return None
+    
+    def get_reporter(self):
+        raise NotImplementedError()
+    
+    def get_report_settings(self):
+        raise NotImplementedError()
 
 
 class TestWorkflowsMinioPlayStorageBase(TestWorkflowsBase):
@@ -216,3 +237,19 @@ class TestWorkflowsMinioPlayStorageBase(TestWorkflowsBase):
     @property
     def secret_key(self):
         return "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+    
+    def get_reporter(self):
+        raise NotImplementedError()
+    
+    def get_report_settings(self):
+        raise NotImplementedError()
+
+
+class TestReportBase(TestWorkflowsLocalStorageBase):
+    create_report = True
+
+    def get_executor(self) -> str:
+        return "local"
+
+    def get_executor_settings(self) -> Optional[ExecutorSettingsBase]:
+        return None
