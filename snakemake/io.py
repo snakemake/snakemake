@@ -1015,7 +1015,7 @@ def regex_from_filepattern(filepattern):
             if match.group("constraint"):
                 raise ValueError(
                     "Constraint regex must be defined only in the first "
-                    "occurence of the wildcard in a string."
+                    "occurrence of the wildcard in a string."
                 )
             f.append(f"(?P={wildcard})")
         else:
@@ -1192,7 +1192,7 @@ def sourcecache_entry(value, orig_path_or_uri):
 
     assert not isinstance(
         orig_path_or_uri, SourceFile
-    ), "bug: sourcecache_entry should recive a path or uri, not a SourceFile"
+    ), "bug: sourcecache_entry should receive a path or uri, not a SourceFile"
     return flag(value, "sourcecache_entry", orig_path_or_uri)
 
 

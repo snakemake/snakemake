@@ -43,10 +43,10 @@ This will in particular also work in combination with :ref:`modules <snakefiles-
 Snakemake does not connect my rules as I have expected, what can I do to debug my dependency structure?
 -------------------------------------------------------------------------------------------------------
 
-Since dependencies are inferred implicitly, results can sometimes be suprising when little errors are made in filenames or when input functions raise unexpected errors.
+Since dependencies are inferred implicitly, results can sometimes be surprising when little errors are made in filenames or when input functions raise unexpected errors.
 For debugging such cases, Snakemake provides the command line flag ``--debug-dag`` that leads to printing details each decision that is taken while determining the dependencies.
 
-In addition, it is advisable to check whether certain intermediate files would be created by targetting them individually via the command line.
+In addition, it is advisable to check whether certain intermediate files would be created by targeting them individually via the command line.
 
 Finally, it is possible to constrain the rules that are considered for DAG creating via ``--allowed-rules``. 
 This way, you can easily check rule by rule if it does what you expect.
@@ -307,7 +307,7 @@ Yes, from version 2.4.8 on, Snakemake allows to import python modules (and also 
 How can I run Snakemake on a cluster where its main process is not allowed to run on the head node?
 ---------------------------------------------------------------------------------------------------
 
-This can be achived by submitting the main Snakemake invocation as a job to the cluster. If it is not allowed to submit a job from a non-head cluster node, you can provide a submit command that goes back to the head node before submitting:
+This can be achieved by submitting the main Snakemake invocation as a job to the cluster. If it is not allowed to submit a job from a non-head cluster node, you can provide a submit command that goes back to the head node before submitting:
 
 .. code-block:: bash
 
@@ -551,7 +551,7 @@ One solution is to add the following lines to your ``.bashrc`` (or similar):
     }
 
 (inspired by the answer `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_).
-You can then run ``gitmodtimes`` to update the modification times of all tracked files on the current branch to their last commit time in git; BE CAREFUL--this does not account for local changes that have not been commited.
+You can then run ``gitmodtimes`` to update the modification times of all tracked files on the current branch to their last commit time in git; BE CAREFUL--this does not account for local changes that have not been committed.
 
 How do I exit a running Snakemake workflow?
 -------------------------------------------

@@ -115,13 +115,13 @@ class StorageRegistry:
             raise WorkflowError(
                 f"No storage provider found for query {query}. "
                 "Either install the required storage plugin or check your query. "
-                "Also consider to explictly specify the storage provider to get a more "
+                "Also consider to explicitly specify the storage provider to get a more "
                 "informative error message."
             )
         else:
             raise WorkflowError(
                 f"Multiple suitable storage providers found for query {query}: {', '.join(plugins)}. "
-                "Explictly specify the storage provider."
+                "Explicitly specify the storage provider."
             )
 
     def __getattribute__(self, name: str) -> Any:

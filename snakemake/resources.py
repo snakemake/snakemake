@@ -181,7 +181,7 @@ class GroupResources:
 
         Users can help mitigate against voids by grouping jobs of similar resource
         dimensions.  Eclectic groups of various runtimes and resource consumptions will
-        not be estimated as efficiently as groups of homogenous consumptions.
+        not be estimated as efficiently as groups of homogeneous consumptions.
 
         Parameters
         ----------
@@ -234,12 +234,12 @@ class GroupResources:
                 #   { "runtime": 15, "tmpdir": "/tmp"},
                 #   ...
                 # ]
-                # Pipe jobs and regular jobs are put in seperate lists.
+                # Pipe jobs and regular jobs are put in separate lists.
                 try:
                     # Remove any TBDStrings from values. These will typically arise
                     # here because the default mem_mb and disk_mb are based off of
                     # input file size, and intermediate files in the group are not yet
-                    # generated. Thus rules consuming such files must explicitely
+                    # generated. Thus rules consuming such files must explicitly
                     # specify their resources
                     res = {
                         k: res
@@ -596,7 +596,7 @@ def parse_resources(resources_args, fallback=None):
                     val = fallback(val)
                 else:
                     raise ValueError(
-                        "Resource definiton must contain an integer, string or python expression after the identifier."
+                        "Resource definition must contain an integer, string or python expression after the identifier."
                     )
             if res == "_cores":
                 raise ValueError(
@@ -611,7 +611,11 @@ def infer_resources(name, value, resources: dict):
     """Infer resources from a given one, if possible."""
     from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
 
-    if (name == "mem" or name == "disk") and isinstance(value, str):
+    if (
+        (name == "mem" or name == "disk")
+        and isinstance(value, str)
+        and not isinstance(value, TBDString)
+    ):
         inferred_name = f"{name}_mb"
         try:
             in_bytes = parse_size(value)
@@ -619,8 +623,12 @@ def infer_resources(name, value, resources: dict):
             raise WorkflowError(
                 f"Cannot parse mem or disk value into size in MB for setting {inferred_name} resource: {value}"
             )
-        resources[inferred_name] = max(int(round(in_bytes / 1000 / 1000)), 1)
-    elif name == "runtime" and isinstance(value, str):
+        resources[inferred_name] = max(int(round(in_bytes / 1024 / 1024)), 1)
+    elif (
+        name == "runtime"
+        and isinstance(value, str)
+        and not isinstance(value, TBDString)
+    ):
         try:
             resources["runtime"] = max(int(round(parse_timespan(value) / 60)), 1)
         except InvalidTimespan:

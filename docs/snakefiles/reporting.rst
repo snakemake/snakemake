@@ -71,7 +71,7 @@ In case of output files, you can access the same values as available with the :r
 When marking files for inclusion in the report, a ``category`` and a ``subcategory`` can be given, allowing to group results in of the report.
 For both, wildcards (like ``{model}`` see rule b in the example), are automatically replaced with the respective values from the corresponding job.
 
-The last rule ``d`` creates a directory with several files, here mimicing the case that it is impossible to specify exactly which files will be created while writing the workflow (e.g. it might depend on the data).
+The last rule ``d`` creates a directory with several files, here mimicking the case that it is impossible to specify exactly which files will be created while writing the workflow (e.g. it might depend on the data).
 Nevertheless, it is still possible to include those files one by one into the report by defining inclusion patterns (here ``patterns=["{name}.txt"]``) along with the report flag.
 When creating the report, Snakemake will scan the directory for files matching the given patterns and include all of them in the report.
 Wildcards in those patterns are made available in the jinja-templated caption document along with the rules wildcards in the ``snakemake.wildcards`` object.
