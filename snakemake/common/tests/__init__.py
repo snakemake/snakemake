@@ -156,11 +156,11 @@ class TestWorkflowsBase(ABC):
     def _common_settings(self):
         registry = ExecutorPluginRegistry()
         return registry.get_plugin(self.get_executor()).common_settings
-    
+
     @abstractmethod
     def get_reporter(self):
         ...
-    
+
     @abstractmethod
     def get_report_settings(self):
         ...
@@ -177,10 +177,10 @@ class TestWorkflowsLocalStorageBase(TestWorkflowsBase):
         self,
     ) -> Optional[Mapping[str, TaggedSettings]]:
         return None
-    
+
     def get_reporter(self):
         raise NotImplementedError()
-    
+
     def get_report_settings(self):
         raise NotImplementedError()
 
@@ -237,10 +237,10 @@ class TestWorkflowsMinioPlayStorageBase(TestWorkflowsBase):
     @property
     def secret_key(self):
         return "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
-    
+
     def get_reporter(self):
         raise NotImplementedError()
-    
+
     def get_report_settings(self):
         raise NotImplementedError()
 
