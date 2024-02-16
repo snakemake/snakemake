@@ -49,9 +49,9 @@ from snakemake.common import (
     get_input_function_aux_params,
 )
 from snakemake import logging
-from snakemake_interface_report_plugin.registry.plugin import Plugin as ReportPlugin
-from snakemake_interface_report_plugin.settings import ReportSettingsBase
-from snakemake_interface_report_plugin.interfaces import (
+from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake_interface_report_plugins.interfaces import (
     CategoryInterface,
     RuleRecordInterface,
     ConfigFileRecordInterface,
@@ -61,7 +61,6 @@ from snakemake_interface_report_plugin.interfaces import (
 from pathlib import Path
 from snakemake.common import is_local_file
 from snakemake.exceptions import WorkflowError
-from snakemake.workflow import Workflow
 
 
 class EmbeddedMixin(object):
