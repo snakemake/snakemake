@@ -142,7 +142,7 @@ class ProvenanceHashMap:
 
         provenance_hash = h.hexdigest()
 
-        # Store for re-use.
+        # Store for reuse.
         self._hashes[job] = provenance_hash
 
         return provenance_hash

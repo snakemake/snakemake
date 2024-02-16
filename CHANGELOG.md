@@ -306,7 +306,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ### Bug Fixes
 
-* fix bug occuring when using multiple `use rule` statements in combination with the rules object for referring to output of already defined rules.
+* fix bug occurring when using multiple `use rule` statements in combination with the rules object for referring to output of already defined rules.
 
 
 ## [7.32.2](https://github.com/snakemake/snakemake/compare/v7.32.1...v7.32.2) (2023-08-07)
@@ -434,7 +434,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ### Performance Improvements
 
-* avoid superflous mtime checks when the same file is referred to by multiple jobs ([#2284](https://github.com/snakemake/snakemake/issues/2284)) ([eb6e2e1](https://github.com/snakemake/snakemake/commit/eb6e2e161f01c61b139d95bcf1ddfa862f8029ba))
+* avoid superfluous mtime checks when the same file is referred to by multiple jobs ([#2284](https://github.com/snakemake/snakemake/issues/2284)) ([eb6e2e1](https://github.com/snakemake/snakemake/commit/eb6e2e161f01c61b139d95bcf1ddfa862f8029ba))
 
 
 ### Documentation
@@ -1032,7 +1032,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 ### Bug Fixes
 
 * fail with error if conda installation is not set to strict channel priorities ([#1672](https://www.github.com/snakemake/snakemake/issues/1672)) ([f1ffbf2](https://www.github.com/snakemake/snakemake/commit/f1ffbf28f04150c6e66297f242b768a22f80bd94))
-* fix errors occurring when refering to input func via rules.<rulename>.input ([#1669](https://www.github.com/snakemake/snakemake/issues/1669)) ([28a4795](https://www.github.com/snakemake/snakemake/commit/28a47959bca2d135f82f9d8901b2b0aa228f30cb))
+* fix errors occurring when referring to input func via rules.<rulename>.input ([#1669](https://www.github.com/snakemake/snakemake/issues/1669)) ([28a4795](https://www.github.com/snakemake/snakemake/commit/28a47959bca2d135f82f9d8901b2b0aa228f30cb))
 * parsing error when combining single line directive with multi-line directive in use rule statements ([#1662](https://www.github.com/snakemake/snakemake/issues/1662)) ([26e57d6](https://www.github.com/snakemake/snakemake/commit/26e57d69fc320adc972967a8046c5163b455456c))
 
 ## [7.7.0](https://www.github.com/snakemake/snakemake/compare/v7.6.2...v7.7.0) (2022-05-16)
@@ -1702,7 +1702,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * Improved pepfile (pepschema) documentation (@stolarczyk).
 ### \[6.5.3\] - 2021-07-06
 
--   Fixed a bug occuring when using --resources in the command line
+-   Fixed a bug occurring when using --resources in the command line
     interface (@johanneskoester).
 -   Minor improvements in the docs (@johanneskoester).
 
@@ -1994,7 +1994,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 #### Changed
 
 -   Further speed improvements for DAG computation.
--   Fixed metadata migration errors occuring with long output file
+-   Fixed metadata migration errors occurring with long output file
     paths.
 -   Add WorkflowHub specifications to the docs.
 -   Fix group assignments.
@@ -2171,7 +2171,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Performance improvements for DAG generation (up to 7x in the google
     cloud, anything from a little to massive in a cluster, depending on
     the overall filesystem performance).
--   Made harcoded bucket in google cloud executor configurable.
+-   Made hardcoded bucket in google cloud executor configurable.
 -   Improved speed of --unlock command.
 
 ### \[5.19.2\] - 2020-06-04
@@ -2204,7 +2204,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Fixed directory handling: no longer fail if the same job writes both
     a dir and a contained file.
 -   Linter now recommends using spaces only for indentation.
--   Persistence dir "aux" has been renamed to "auxilliary" in order to
+-   Persistence dir "aux" has been renamed to "auxiliary" in order to
     make windows happy.
 -   Linter now distinguishes awk syntax from regular variable usage.
 -   Various bug fixes for Windows (thanks to @melund).
@@ -2267,7 +2267,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 -   Redesigned HTML reports, with improved interface and performance.
 -   For big data, HTML reports can now be stored as ZIP, where files are
-    not anymore embedded but rather are stored in an auxilliary folder,
+    not anymore embedded but rather are stored in an auxiliary folder,
     such that they don't have to be in memory during report rendering.
 -   Added subcategories to report (see docs).
 -   Fixed a bug linter, leading to only one rule or snakefile to be
@@ -2366,7 +2366,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
     (`--threads rulename=3`), thereby improving scalability.
 -   Requester pays configuration for google storage remote files.
 -   Add keyword `allow_missing` to expand function, thereby allowing
-    partical expansion by skipping wildcards for which no keywords are
+    partial expansion by skipping wildcards for which no keywords are
     defined.
 
 #### Changed
@@ -2386,7 +2386,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 -   Support for per-rule environment module definitions to enable HPC
     specific software deployment (see docs).
--   Allow custom log handler defitions via --log-handler-script (e.g.
+-   Allow custom log handler definitions via --log-handler-script (e.g.
     post errors and progress to a slack channel or send emails).
 
 -   Allow setting threads as a function of the given cores (see docs).
@@ -2728,7 +2728,7 @@ files that just differ by extension.
 -   Allow URLs for the conda directive. # Changed
 -   Various minor updates in the docs.
 -   Several bug fixes with remote file handling.
--   Fix ImportError occuring with script directive.
+-   Fix ImportError occurring with script directive.
 -   Use latest singularity.
 -   Improved caching for file existence checks. We first check existence
     of parent directories and cache these results. By this, large parts
@@ -2926,7 +2926,7 @@ files that just differ by extension.
 #### Added
 
 -   An NCBI remote provider. By this, you can seamlessly integrate any
-    NCBI resouce (reference genome, gene/protein sequences, ...) as
+    NCBI resource (reference genome, gene/protein sequences, ...) as
     input file. # ## Changed
 -   Snakemake now detects if automatically generated conda environments
     have to be recreated because the workflow has been moved to a new
@@ -3029,7 +3029,7 @@ files that just differ by extension.
     execution.
 -   Command line argument --wrapper-prefix in order to overwrite the
     default URL for looking up wrapper scripts. # ## Changed
--   --summary now displays the log files correspoding to each output
+-   --summary now displays the log files corresponding to each output
     file.
 -   Fixed hangups when using run directive and a large number of jobs
 -   Fixed pickling errors with anonymous rules and run directive.
@@ -3073,12 +3073,12 @@ files that just differ by extension.
 -   It is now possible to let items in shell commands be automatically
     quoted (see the
     [docs](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-rules)).
-    This is usefull when dealing with filenames that contain
+    This is useful when dealing with filenames that contain
     whitespaces.
 
 #### Changed
 
--   Snakemake now deletes output files before job exection. Further, it
+-   Snakemake now deletes output files before job execution. Further, it
     touches output files after job execution. This solves various
     problems with slow NFS filesystems.
 -   A bug was fixed that caused dynamic output rules to be executed
@@ -3146,7 +3146,7 @@ files that just differ by extension.
 #### Added
 
 -   New experimental wrapper directive, which allows to refer to
-    re-usable [wrapper
+    reusable [wrapper
     scripts](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-wrappers).
     Wrappers are provided in the [Snakemake Wrapper
     Repository](https://bitbucket.org/snakemake/snakemake-wrappers).

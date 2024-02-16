@@ -61,10 +61,10 @@ Run tutorial for free in the cloud via Gitpod
     This will freeze up you terminal.
     To get it back, make sure you selected the terminal window by clicking on it and then hit ``Ctrl-q``.
 
-The easiest way to run this tutorial is to use Gitpod, which enables performing the excercises via your browser---including all required software, for free and in the cloud.
+The easiest way to run this tutorial is to use Gitpod, which enables performing the exercises via your browser---including all required software, for free and in the cloud.
 In order to do this, simply open the predefined `snakemake-tutorial GitPod workspace <https://gitpod.io/#https://github.com/snakemake/snakemake-tutorial-data>`_ in your browser.
 GitPod provides you with a `Theia development environment <https://theia-ide.org/docs>`_, which you can learn about in the linked documentation.
-Once you have a basic understanding of this environment, you can go on directy with :ref:`tutorial-basics`.
+Once you have a basic understanding of this environment, you can go on directly with :ref:`tutorial-basics`.
 
 Running the tutorial on your local machine
 ::::::::::::::::::::::::::::::::::::::::::

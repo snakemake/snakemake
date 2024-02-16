@@ -40,7 +40,7 @@ The command line interface of Snakemake 8 has a lot of new options which are bes
 
     snakemake --help
 
-Morever, some options have been renamed:
+Moreover, some options have been renamed:
 
 * All the execution backends have been moved into plugins. When you used e.g. ``--kubernetes`` and corresponding options before, you should now use ``--executor kubernetes`` and check the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/kubernetes.html>`_ for the new options. The same holds for all other execution backends, see `here <https://snakemake.github.io/snakemake-plugin-catalog/index.html>`_.
 * The ``--use-conda`` and ``--use-singularity`` options are deprecated. Instead you should now use ``--software-deployment-method conda`` or ``--software-deployment-method apptainer`` or ``--software-deployment-method conda apptainer`` if you need both.
@@ -412,7 +412,7 @@ Morever, some options have been renamed:
                         apptainer/singularity container. If this flag is not
                         set, the singularity directive is ignored. (default:
                         False)
-     - New alias (more general useage)
+     - New alias (more general usage)
    * - --singularity-prefix DIR
      -
                         Specify a directory in which singularity images will
@@ -432,7 +432,7 @@ Morever, some options have been renamed:
                         given as a relative path, which will be extrapolated
                         to the invocation directory, or as an absolute path.
                         (default: None)
-     - New alias (more general useage)
+     - New alias (more general usage)
    * - --singularity-args ARGS
      -
                         Pass additional args to singularity. (default: )
@@ -440,7 +440,7 @@ Morever, some options have been renamed:
      -
                         Pass additional args to apptainer/singularity.
                         (default: )
-     - New alias (more general useage)
+     - New alias (more general usage)
    * - --cleanup-containers
      -
                         Remove unused (singularity) containers (default:
@@ -448,7 +448,7 @@ Morever, some options have been renamed:
      - --container-cleanup-images
      -
                         Remove unused containers (default: False)
-     - New alias (more general useage)
+     - New alias (more general usage)
    * - precommand
      -
      -
@@ -467,7 +467,7 @@ Morever, some options have been renamed:
                         Only used in case of remote execution. Command to be
                         executed before Snakemake executes each job on the
                         remote compute node. (default: None)
-     - Redesigned: more general useage
+     - Redesigned: more general usage
    * - software-deployment-method
      -
      -

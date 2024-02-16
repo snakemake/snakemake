@@ -1,0 +1,9 @@
+rule all:
+     input: "a.out"
+
+rule test1:
+     output: "a.out"
+     resources:
+        mem = lambda wildcards, attempt: f"{attempt}MB",
+        runtime = lambda wildcards, attempt: f"{attempt}m"
+     shell: "touch {output}"

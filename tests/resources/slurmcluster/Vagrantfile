@@ -64,7 +64,7 @@ Vagrant.configure("2") do |config|
     end
   end
 
-    # Some setup on the host for the jgu-slurm-repo to be cloned if not existend
+    # Some setup on the host for the jgu-slurm-repo to be cloned if not existent
   config.trigger.before :up do |trigger|
   	if File.directory?(File.join(vagrant_dir,'slurm')) then
  		   trigger.warn = "slurm src repo already exists"

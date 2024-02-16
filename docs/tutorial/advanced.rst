@@ -159,7 +159,7 @@ For the rule ``bwa_map`` this works as follows:
 .. sidebar:: Note
 
   Snakemake does not automatically rerun jobs when new input files are added as
-  in the excercise below. However, you can get a list of output files that
+  in the exercise below. However, you can get a list of output files that
   are affected by such changes with ``snakemake --list-input-changes``.
   To trigger a rerun, this bit of bash magic helps:
 

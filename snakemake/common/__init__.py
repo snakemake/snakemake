@@ -64,7 +64,7 @@ def parse_key_value_arg(arg, errmsg, strip_quotes=True):
     try:
         key, val = arg.split("=", 1)
     except ValueError:
-        raise ValueError(errmsg + f" (Unparseable value: {repr(arg)})")
+        raise ValueError(errmsg + f" (Unparsable value: {repr(arg)})")
     if strip_quotes:
         val = val.strip("'\"")
     return key, val
