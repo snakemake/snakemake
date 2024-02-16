@@ -518,6 +518,13 @@ def eval_resource_expression(val, threads_arg=True):
             "attempt": kwargs["attempt"],
             "system_tmpdir": tempfile.gettempdir(),
         }
+        # As the 'slurm_extra' parameter from the SLURM
+        # executor plugin permits full strings flags in
+        # the form of '--flag=arg' non-Snakemake parameters
+        # require parsing, which is not possible. They also do
+        # not play any role after submission. Hence, we do:
+        if val.startswith("-"):
+            return None
         if threads_arg:
             args["threads"] = kwargs["threads"]
         try:
