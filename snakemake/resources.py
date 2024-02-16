@@ -523,7 +523,7 @@ def eval_resource_expression(val, threads_arg=True):
         # the form of '--flag=arg' non-Snakemake parameters
         # require parsing, which is not possible. They also do
         # not play any role after submission. Hence, we do:
-        if val.startswith("-"):
+        if "-" in val:
             return None
         if threads_arg:
             args["threads"] = kwargs["threads"]
