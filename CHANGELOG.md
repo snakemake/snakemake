@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [8.4.9](https://github.com/snakemake/snakemake/compare/v8.4.8...v8.4.9) (2024-02-15)
+
+
+### Bug Fixes
+
+* binary mem ([#2695](https://github.com/snakemake/snakemake/issues/2695)) ([18689b4](https://github.com/snakemake/snakemake/commit/18689b42dcc690deea7f27dc909379f603aaa1a9))
+* Don't attempt to parse TBDString resources ([#2690](https://github.com/snakemake/snakemake/issues/2690)) ([f884b50](https://github.com/snakemake/snakemake/commit/f884b50eddf30f829b0f7d2bbda77d0148cf8cd7))
+
+
+### Documentation
+
+* added Mastodon follow label with just 'Follow' similar to X ([#2692](https://github.com/snakemake/snakemake/issues/2692)) ([7e36496](https://github.com/snakemake/snakemake/commit/7e364968fb601b2fd87dc5cd703e251b708a0e19))
+
 ## [8.4.8](https://github.com/snakemake/snakemake/compare/v8.4.7...v8.4.8) (2024-02-09)
 
 
