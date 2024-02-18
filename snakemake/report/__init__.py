@@ -417,7 +417,7 @@ class FileRecord:
         self.path = path
         self.target = os.path.basename(path)
         self.size = os.path.getsize(self.path)
-        self.size_mb = f"{self.size / 1e6:.2g} MB"
+        self.size_mb = f"{self.size / 1e6:.2g} MiB"
         logger.info(f"Adding {self.name} ({self.size_mb}).")
         self.raw_caption = caption
         self.mime, _ = mime_from_file(self.path)
