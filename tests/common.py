@@ -24,6 +24,7 @@ from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 from snakemake import api, settings
 from snakemake.common import ON_WINDOWS
+from snakemake.report.html_reporter import ReportSettings
 from snakemake.resources import ResourceScopes
 
 
@@ -377,8 +378,12 @@ def run(
                 if report is not None:
                     if report_stylesheet is not None:
                         report_stylesheet = Path(report_stylesheet)
-                    dag_api.create_report(
+                    settings = ReportSettings(
                         path=Path(report), stylesheet=report_stylesheet
+                    )
+                    dag_api.create_report(
+                        reporter="html",
+                        report_settings=settings,
                     )
                 elif conda_create_envs:
                     dag_api.conda_create_envs()
