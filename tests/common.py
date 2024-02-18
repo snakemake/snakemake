@@ -379,7 +379,7 @@ def run(
                     if report_stylesheet is not None:
                         report_stylesheet = Path(report_stylesheet)
                     report_settings = ReportSettings(
-                        path=Path(report), stylesheet=report_stylesheet
+                        path=Path(report), stylesheet_path=report_stylesheet
                     )
                     dag_api.create_report(
                         reporter="html",
