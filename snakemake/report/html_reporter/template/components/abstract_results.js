@@ -1,10 +1,6 @@
 'use strict';
 
 class AbstractResults extends React.Component {
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         return e(
             "table",
