@@ -22,9 +22,8 @@ from operator import attrgetter
 from pathlib import Path
 from snakemake.settings import DeploymentMethod
 
-from snakemake_interface_common.utils import lazy_property
-from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
+from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
 
 from snakemake import workflow
 from snakemake import workflow as _workflow
@@ -602,6 +601,11 @@ class DAG(DAGExecutorInterface):
                 ),
                 rule=job.rule,
             )
+        
+    def is_touch_compatible(self):
+        def is_touchable(f):
+            return not f.is_storage or isinstance(f.storage_object, StorageObjectTouch)
+        return all(is_touchable(f) for job in self.jobs for f in job.output)
 
     async def check_and_touch_output(
         self,
@@ -612,6 +616,7 @@ class DAG(DAGExecutorInterface):
         wait_for_local=True,
     ):
         """Raise exception if output files of job are missing."""
+        # do not touch output in storage. This is done before by the touch executor.
         expanded_output = [job.shadowed_path(path) for path in job.output]
         if job.benchmark:
             expanded_output.append(job.benchmark)
@@ -1728,6 +1733,7 @@ class DAG(DAGExecutorInterface):
             if job.is_checkpoint:
                 depending = list(self.depending[job])
                 # re-evaluate depending jobs, replace and update DAG
+                # Note: even for touch, this needs retrieval from storage!
                 if depending:
                     try:
                         async with asyncio.TaskGroup() as tg:

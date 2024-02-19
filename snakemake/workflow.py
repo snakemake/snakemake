@@ -1108,7 +1108,8 @@ class Workflow(WorkflowExecutorInterface):
             )
             logger.debug(f"shared_storage_local_copies: {shared_storage_local_copies}")
             logger.debug(f"remote_exec: {self.remote_exec}")
-            if not self.dryrun and (
+            dryrun_or_touch = self.dryrun or self.touch
+            if not dryrun_or_touch and (
                 (self.exec_mode == ExecMode.DEFAULT and shared_storage_local_copies)
                 or (self.remote_exec and not shared_storage_local_copies)
             ):
@@ -1233,7 +1234,7 @@ class Workflow(WorkflowExecutorInterface):
             ):
                 self.dag.cleanup_workdir()
 
-            if not self.dryrun:
+            if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
                 self.dag.cleanup_storage_objects()
 
