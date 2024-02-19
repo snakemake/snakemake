@@ -30,7 +30,8 @@ from itertools import chain, product
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Union
 
-from snakemake_interface_common.utils import not_iterable
+from snakemake_interface_common.utils import not_iterable, lchmod
+from snakemake_interface_common.utils import lutime as lutime_raw
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -53,48 +54,13 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 
 
-def lutime(f, times):
-    # In some cases, we have a platform where os.supports_follow_symlink includes stat()
-    # but not utime().  This leads to an anomaly.  In any case we never want to touch the
-    # target of a link.
-    if os.utime in os.supports_follow_symlinks:
-        # ...utime is well behaved
-        os.utime(f, times, follow_symlinks=False)
-    elif not os.path.islink(f):
-        # ...symlinks not an issue here
-        os.utime(f, times)
-    else:
-        try:
-            # try the system command
-            if times:
-                fmt_time = lambda sec: datetime.fromtimestamp(sec).strftime(
-                    "%Y%m%d%H%M.%S"
-                )
-                atime, mtime = times
-                sp.check_call(["touch", "-h", f, "-a", "-t", fmt_time(atime)])
-                sp.check_call(["touch", "-h", f, "-m", "-t", fmt_time(mtime)])
-            else:
-                sp.check_call(["touch", "-h", f])
-        except sp.CalledProcessError:
-            pass
-        # ...problem system.  Do nothing.
+def lutime(file, times):
+    success = lutime_raw(file, times)
+    if not success:
         logger.warning(
-            "Unable to set utime on symlink {}. Your Python build does not support it.".format(
-                f
-            )
+            "Unable to set mtime without following symlink because it seems "
+            "unsupported by your system. Proceeding without."
         )
-        return None
-
-
-if os.chmod in os.supports_follow_symlinks:
-
-    def lchmod(f, mode):
-        os.chmod(f, mode, follow_symlinks=False)
-
-else:
-
-    def lchmod(f, mode):
-        os.chmod(f, mode)
 
 
 class AnnotatedStringInterface(ABC):
