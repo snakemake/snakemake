@@ -1082,6 +1082,8 @@ class Workflow(WorkflowExecutorInterface):
                     "with checkpoint jobs, as the dependencies cannot be determined before "
                     "execution in such cases."
                 )
+            if self.touch:
+                self.dag.check_touch_compatible()
 
             if updated_files is not None:
                 updated_files.extend(

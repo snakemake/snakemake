@@ -39,12 +39,14 @@ class Executor(RealExecutor):
             time.sleep(0.1)
 
             if job.output:
+
                 async def touch():
                     for f in job.output:
                         if f.is_storage and await f.exists_in_storage():
                             await f.touch()
                         elif await f.exists_local():
                             f.touch()
+
                 async_run(touch())
 
             self.report_job_submission(job_info)

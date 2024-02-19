@@ -601,11 +601,19 @@ class DAG(DAGExecutorInterface):
                 ),
                 rule=job.rule,
             )
-        
-    def is_touch_compatible(self):
+
+    def check_touch_compatible(self):
         def is_touchable(f):
             return not f.is_storage or isinstance(f.storage_object, StorageObjectTouch)
-        return all(is_touchable(f) for job in self.jobs for f in job.output)
+
+        if not all(is_touchable(f) for job in self.jobs for f in job.output):
+            raise WorkflowError(
+                "Touching output files is impossible. The workflow uses remote storage "
+                "but the storage plugin does not support the touch operation. "
+                "It might be possible to improve the storage plugin to support this "
+                "operation. Consider checking the source code and contributing to the "
+                "plugin."
+            )
 
     async def check_and_touch_output(
         self,
