@@ -204,7 +204,7 @@ For example, when the workflow has its Snakefile at ``workflow/Snakefile``, the 
 
 
 Use templating in profiles
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In Snakemake 7.30 or newer, when the profile starts with
 
