@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.4.10](https://github.com/snakemake/snakemake/compare/v8.4.9...v8.4.10) (2024-02-19)
+
+
+### Bug Fixes
+
+* properly handle --touch when using a storage provider ([#2705](https://github.com/snakemake/snakemake/issues/2705)) ([fca138d](https://github.com/snakemake/snakemake/commit/fca138d680ac0abad14df8dc208a84f1ae0dc0e2))
+
 ## [8.4.9](https://github.com/snakemake/snakemake/compare/v8.4.8...v8.4.9) (2024-02-15)
 
 
