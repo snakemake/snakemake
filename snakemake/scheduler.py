@@ -320,9 +320,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     try:
                         if self.workflow.exec_mode == ExecMode.DEFAULT:
                             await job.postprocess(
-                                store_in_storage=True,
+                                store_in_storage=not self.touch,
                                 handle_log=True,
-                                handle_touch=True,
+                                handle_touch=not self.touch,
                                 ignore_missing_output=self.touch,
                             )
                         elif self.workflow.exec_mode == ExecMode.SUBPROCESS:
