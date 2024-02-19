@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.4.11](https://github.com/snakemake/snakemake/compare/v8.4.10...v8.4.11) (2024-02-19)
+
+
+### Documentation
+
+* fix heading ([1eda36d](https://github.com/snakemake/snakemake/commit/1eda36d9d7e545b05428548f8b826e941ad078d9))
+
 ## [8.4.10](https://github.com/snakemake/snakemake/compare/v8.4.9...v8.4.10) (2024-02-19)
 
 
