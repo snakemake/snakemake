@@ -13,7 +13,7 @@ jobs:
       - uses: actions/stale@v5
         with:
           days-before-issue-stale: 180
-          days-before-issue-close: 30
+          days-before-issue-close: 365
           stale-issue-label: "stale"
           stale-issue-message: "This issue was marked as stale because it has been open for 6 months with no activity."
           close-issue-message: "This issue was closed because it has been inactive for 1 month since being marked as stale. Feel free to re-open it if you have any further comments."
