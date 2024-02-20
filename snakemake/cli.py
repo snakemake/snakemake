@@ -35,6 +35,7 @@ from snakemake.exceptions import (
 from snakemake.io import flag
 from snakemake.resources import (
     DefaultResources,
+    ParsedResource,
     ResourceScopes,
     eval_resource_expression,
     parse_resources,
@@ -96,7 +97,9 @@ def parse_set_resources(args):
                 value = eval_resource_expression(orig_value)
             if isinstance(value, int) and value < 0:
                 raise ValueError(errmsg)
-            assignments[rule][resource] = flag(value, "orig_arg", orig_value)
+            assignments[rule][resource] = ParsedResource(
+                value=value, orig_arg=orig_value
+            )
     return assignments
 
 
