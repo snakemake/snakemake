@@ -1,6 +1,10 @@
 'use strict';
 
 class RuleInfo extends React.Component {
+    static propTypes = {
+        rule: PropTypes.object.isRequired,
+    };
+
     render() {
         let rule = rules[this.props.rule];
         if (rule === undefined) {
