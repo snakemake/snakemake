@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.4.12](https://github.com/snakemake/snakemake/compare/v8.4.11...v8.4.12) (2024-02-20)
+
+
+### Bug Fixes
+
+* constrain dependencies to match conda experience ([#2710](https://github.com/snakemake/snakemake/issues/2710)) ([d9a7a13](https://github.com/snakemake/snakemake/commit/d9a7a13d6e427c025902a78c2d21c3f21cac242b))
+* various bug fixes for resource parsing ([#2711](https://github.com/snakemake/snakemake/issues/2711)) ([d1daf0b](https://github.com/snakemake/snakemake/commit/d1daf0b4b2cc64b92adb9f58ac71c601ab5d29c8))
+
 ## [8.4.11](https://github.com/snakemake/snakemake/compare/v8.4.10...v8.4.11) (2024-02-19)
 
 
