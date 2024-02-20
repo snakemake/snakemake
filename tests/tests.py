@@ -2002,3 +2002,19 @@ def test_queue_input_forceall():
 @skip_on_windows  # OS independent
 def test_issue2685():
     run(dpath("test_issue2685"))
+
+
+@skip_on_windows
+def test_set_resources_complex():
+    run(
+        dpath("test05"),
+        shellcmd="snakemake -c1 --set-resources \"compute1:slurm_extra='--nice=10'\"",
+    )
+
+
+@skip_on_windows
+def test_set_resources_human_readable():
+    run(
+        dpath("test05"),
+        shellcmd="snakemake -c1 --set-resources \"compute1:runtime='50h'\"",
+    )

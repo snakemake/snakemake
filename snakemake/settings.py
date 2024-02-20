@@ -20,7 +20,7 @@ from snakemake_interface_common.settings import SettingsEnumBase
 
 from snakemake.common import dict_to_key_value_args, get_container_image
 from snakemake.common.configfile import load_configfile
-from snakemake.resources import DefaultResources
+from snakemake.resources import DefaultResources, ParsedResource
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 
