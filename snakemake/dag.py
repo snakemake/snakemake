@@ -24,6 +24,7 @@ from snakemake.settings import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
+from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
 
 from snakemake import workflow
 from snakemake import workflow as _workflow
@@ -606,6 +607,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 rule=job.rule,
             )
 
+    def check_touch_compatible(self):
+        def is_touchable(f):
+            return not f.is_storage or isinstance(f.storage_object, StorageObjectTouch)
+
+        if not all(is_touchable(f) for job in self.jobs for f in job.output):
+            raise WorkflowError(
+                "Touching output files is impossible. The workflow uses remote storage "
+                "but the storage plugin does not support the touch operation. "
+                "It might be possible to improve the storage plugin to support this "
+                "operation. Consider checking the source code and contributing to the "
+                "plugin."
+            )
+
     async def check_and_touch_output(
         self,
         job,
@@ -615,6 +629,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         wait_for_local=True,
     ):
         """Raise exception if output files of job are missing."""
+        # do not touch output in storage. This is done before by the touch executor.
         expanded_output = [job.shadowed_path(path) for path in job.output]
         if job.benchmark:
             expanded_output.append(job.benchmark)
@@ -1731,6 +1746,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if job.is_checkpoint:
                 depending = list(self.depending[job])
                 # re-evaluate depending jobs, replace and update DAG
+                # Note: even for touch, this needs retrieval from storage!
                 if depending:
                     try:
                         async with asyncio.TaskGroup() as tg:
