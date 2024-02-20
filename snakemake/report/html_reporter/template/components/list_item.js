@@ -1,10 +1,6 @@
 'use strict';
 
 class ListItem extends React.Component {
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         return e(
             "li",

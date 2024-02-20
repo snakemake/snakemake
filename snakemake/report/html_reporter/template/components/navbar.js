@@ -2,10 +2,6 @@
 
 
 class Navbar extends React.Component {
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         let showHideNavbar = `${this.getWidth()}`;
         let showHideShowButton = "-translate-x-full";
@@ -180,7 +176,7 @@ class Navbar extends React.Component {
         if (category === undefined) {
             return undefined;
         }
-        let subcategory = undefined;
+        let subcategory;
         let mode = "category";
         if (isSingleSubcategory(category)) {
             subcategory = this.props.app.state.subcategory;
