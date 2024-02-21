@@ -88,7 +88,7 @@ class Reporter(ReporterBase):
         ]
 
         # rulegraph
-        rulegraph, xmax, ymax = rulegraph_spec(self.dag)
+        rulegraph, _, _ = rulegraph_spec(self.dag)
 
         # record time
         now = f"{datetime.datetime.now().ctime()} {time.tzname[0]}"
