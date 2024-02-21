@@ -1,8 +1,10 @@
 from collections import UserDict, defaultdict
+from dataclasses import dataclass
 import itertools as it
 import operator as op
 import re
 import tempfile
+from typing import Any
 
 from snakemake.exceptions import (
     ResourceScopesException,
@@ -10,6 +12,12 @@ from snakemake.exceptions import (
     is_file_not_found_error,
 )
 from snakemake.common.tbdstring import TBDString
+
+
+@dataclass
+class ParsedResource:
+    orig_arg: str
+    value: Any
 
 
 class DefaultResources:
@@ -536,7 +544,8 @@ def eval_resource_expression(val, threads_arg=True):
                     f"'{val}'.\n"
                     "    String arguments may need additional "
                     "quoting. E.g.: --default-resources "
-                    "\"tmpdir='/home/user/tmp'\".",
+                    "\"tmpdir='/home/user/tmp'\" or "
+                    "--set-resources \"compute1:slurm_extra='--nice=100'\".",
                     e,
                 )
             raise e

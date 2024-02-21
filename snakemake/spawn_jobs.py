@@ -4,6 +4,7 @@ import os
 import sys
 from typing import Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
+from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import common
@@ -73,19 +74,23 @@ class SpawnedJobArgsFactory:
         for plugin, field, field_settings in self._get_storage_provider_setting_items():
             if not field.metadata.get("env_var", False):
                 cli_arg = plugin.get_cli_arg(field.name)
+                if isinstance(field_settings[0], bool) and field.default is not True:
+                    # so far no tagged settings for flags with default value False
+                    assert len(field_settings) == 1
+                    field_settings = field_settings[0]
                 yield format_cli_arg(cli_arg, field_settings)
 
     def get_storage_provider_envvars(self):
         return {
             plugin.get_envvar(field.name): " ".join(map(str, field_settings))
             for plugin, field, field_settings in self._get_storage_provider_setting_items()
-            if "env_var" in field.metadata
+            if field.metadata.get("env_var")
         }
 
     def get_set_resources_args(self):
         def get_orig_arg(value):
-            if is_flagged(value, "orig_arg"):
-                return get_flag_value(value, "orig_arg")
+            if isinstance(value, ParsedResource):
+                return value.orig_arg
             else:
                 return value
 
