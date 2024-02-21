@@ -32,3 +32,7 @@ class RuleGraph extends React.Component {
         });
     }
 }
+
+RuleGraph.propTypes = {
+    setView: PropTypes.func.isRequired
+};

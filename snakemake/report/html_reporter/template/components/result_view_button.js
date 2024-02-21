@@ -66,3 +66,8 @@ class ResultViewButton extends React.Component {
         return results[resultPath].mime_type
     }
 }
+
+ResultViewButton.propTypes = {
+    resultPath: PropTypes.string.isRequired,
+    app: PropTypes.object.isRequired
+};
