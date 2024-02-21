@@ -20,6 +20,10 @@ class Breadcrumbs extends React.Component {
     }
 
     renderEntries() {
+        Breadcrumbs.propTypes = {
+            entries: PropTypes.arrayOf(PropTypes.object).isRequired,
+        };
+
         let entries = this.props.entries.filter(function (entry) {
             return entry !== undefined
         });

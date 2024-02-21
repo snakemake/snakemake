@@ -1,4 +1,4 @@
-'use strict';
+import PropTypes from 'prop-types';
 
 class AbstractResults extends React.Component {
     render() {
@@ -93,6 +93,10 @@ class AbstractResults extends React.Component {
     }
 
     renderEntries() {
+        AbstractResults.propTypes = {
+            app: PropTypes.object.isRequired,
+        };
+
         let app = this.props.app;
         let labels;
         if (this.isLabelled()) {
