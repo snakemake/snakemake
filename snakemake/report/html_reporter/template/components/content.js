@@ -13,6 +13,17 @@ class ContentDisplay extends React.Component {
 
     renderContent() {
         let setView = this.props.app.setView;
+        ContentDisplay.propTypes = {
+            app: PropTypes.shape({
+                state: PropTypes.shape({
+                    content: PropTypes.string.isRequired,
+                    contentPath: PropTypes.string,
+                    contentText: PropTypes.string
+                }).isRequired,
+                setView: PropTypes.func.isRequired
+            }).isRequired
+        };
+
         switch (this.props.app.state.content) {
             case "rulegraph":
                 return e(
