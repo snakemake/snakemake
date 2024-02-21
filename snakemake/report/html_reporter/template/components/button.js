@@ -1,6 +1,7 @@
 'use strict';
 
 class Button extends React.Component {
+    
     render() {
         return this.renderButton(this.props.iconName, this.props);
     }
@@ -13,3 +14,7 @@ class Button extends React.Component {
         );
     }
 }
+
+Button.propTypes = {
+    iconName: PropTypes.string.isRequired,
+};

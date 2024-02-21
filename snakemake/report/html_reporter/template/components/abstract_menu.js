@@ -4,10 +4,6 @@ class AbstractMenu extends React.Component {
     buttonProps = { className: "transition-all block hover:text-emerald-500 rounded hover:bg-slate-800 p-1 flex items-center gap-2" };
     iconProps = { className: "text-emerald-500" };
 
-    constructor(props) {
-        super(props);
-    }
-
     getMenuItem(label, iconName, onClick) {
         return e(
             "li",

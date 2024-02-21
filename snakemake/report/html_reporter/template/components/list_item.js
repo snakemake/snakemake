@@ -1,9 +1,9 @@
 'use strict';
 
 class ListItem extends React.Component {
-    constructor(props) {
-        super(props);
-    }
+    static propTypes = {
+        children: PropTypes.node.isRequired,
+    };
 
     render() {
         return e(

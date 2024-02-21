@@ -18,7 +18,7 @@ class RuleGraph extends React.Component {
         vegaEmbed("#rulegraph", rulegraph_spec).then(function (ret) {
             ret.view.addEventListener("click", function (event, item) {
                 if (item && "rule" in item.datum) {
-                    var rule = item.datum.rule;
+                    let rule = item.datum.rule;
                     showRuleProperties(rule);
                 }
             });
@@ -32,3 +32,7 @@ class RuleGraph extends React.Component {
         });
     }
 }
+
+RuleGraph.propTypes = {
+    setView: PropTypes.func.isRequired
+};

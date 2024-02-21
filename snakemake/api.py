@@ -44,6 +44,8 @@ from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_common.exceptions import ApiError
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -616,8 +618,8 @@ class DAGApi(ApiBase):
     @_no_exec
     def create_report(
         self,
-        path: Path,
-        stylesheet: Optional[Path] = None,
+        reporter: str = "html",
+        report_settings: Optional[ReportSettingsBase] = None,
     ):
         """Create a report for the workflow.
 
@@ -625,10 +627,18 @@ class DAGApi(ApiBase):
         ---------
         report: Path -- The path to the report.
         report_stylesheet: Optional[Path] -- The path to the report stylesheet.
+        reporter: str -- report plugin to use (default: html)
         """
+
+        report_plugin_registry = _get_report_plugin_registry()
+        report_plugin = report_plugin_registry.get_plugin(reporter)
+
+        if report_settings is not None:
+            report_plugin.validate_settings(report_settings)
+
         self.workflow_api._workflow.create_report(
-            path=path,
-            stylesheet=stylesheet,
+            report_plugin=report_plugin,
+            report_settings=report_settings,
         )
 
     @_no_exec
@@ -763,5 +773,14 @@ def _get_executor_plugin_registry():
     registry.register_plugin("local", local_executor)
     registry.register_plugin("dryrun", dryrun_executor)
     registry.register_plugin("touch", touch_executor)
+
+    return registry
+
+
+def _get_report_plugin_registry():
+    from snakemake.report import html_reporter
+
+    registry = ReportPluginRegistry()
+    registry.register_plugin("html", html_reporter)
 
     return registry
