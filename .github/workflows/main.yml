@@ -145,3 +145,19 @@ jobs:
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         run: |
           python -m pytest --show-capture=stderr -v -x --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration tests/tests.py
+
+      - name: Run report test
+        env:
+          CI: true
+        run: |
+          python -m pytest --show-capture=stderr -v -x tests/test_report.py
+
+      - name: List directory structure
+        run: |
+          ls -R
+
+      - name: Upload report
+        uses: actions/upload-artifact@v2
+        with:
+          name: report
+          path: tests/test-report
