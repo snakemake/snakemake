@@ -99,6 +99,7 @@ jobs:
             tests/test_api.py
 
       - name: Run tests/test_report/Snakefile to generate report
+        shell: bash -el {0}
         run: |
           snakemake -s tests/test_report/Snakefile --use-conda --cores 1
 
