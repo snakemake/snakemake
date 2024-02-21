@@ -1,5 +1,3 @@
-import PropTypes from 'prop-types';
-
 class AbstractResults extends React.Component {
     render() {
         return e(

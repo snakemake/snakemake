@@ -52,6 +52,11 @@ def get_packages():
                 version="1.0.6",
                 license_url="https://raw.githubusercontent.com/tailwindlabs/heroicons/master/LICENSE",
             ),
+            "prop-types": Package(
+                version="15.7.2",
+                url="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.7.2/prop-types.min.js",
+                license_url="https://raw.githubusercontent.com/facebook/prop-types/main/LICENSE",
+            ),
         }
     )
 
