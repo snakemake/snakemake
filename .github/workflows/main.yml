@@ -97,10 +97,13 @@ jobs:
             tests/test_linting.py \
             tests/test_executor_test_suite.py \
             tests/test_api.py
-            
+
       - name: Run report test
         env:
           CI: true
+          ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
+          #PYTHONTRACEMALLOC: 10
+        shell: bash -el {0}
         run: |
           python -m pytest --show-capture=stderr -v -x tests/test_report.py
 
