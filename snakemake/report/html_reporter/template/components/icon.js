@@ -71,4 +71,5 @@ class Icon extends React.Component {
 
 Icon.propTypes = {
         iconName: PropTypes.string.isRequired,
+        className: PropTypes.string,
 };
