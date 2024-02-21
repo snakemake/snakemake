@@ -10,6 +10,8 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import *
+
+
 def test_report():
     run(
         dpath("test_report"),
