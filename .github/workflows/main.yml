@@ -102,7 +102,7 @@ jobs:
         shell: bash -el {0}
         run: |
           cd tests/test_report
-          snakemake --use-conda --cores 1
+          snakemake --use-conda --cores 1 --report report.zip
 
       - name: List directory structure
         run: |
