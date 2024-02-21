@@ -111,7 +111,7 @@ jobs:
       - name: Upload report
         uses: actions/upload-artifact@v4
         with:
-          name: report-${{ matrix.py_ver }}-${{ matrix.test_group }}
+          name: report-${{ matrix.py_ver }}-${{ matrix.test_group }}.zip
           path: tests/test_report/report.zip
 
 
