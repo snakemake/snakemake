@@ -98,14 +98,9 @@ jobs:
             tests/test_executor_test_suite.py \
             tests/test_api.py
 
-      - name: Run report test
-        env:
-          CI: true
-          ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
-          #PYTHONTRACEMALLOC: 10
-        shell: bash -el {0}
+      - name: Run tests/test_report/Snakefile to generate report
         run: |
-          python -m pytest --show-capture=stderr -v -x tests/test_report.py
+          snakemake -s tests/test_report/Snakefile --use-conda --cores 1
 
       - name: List directory structure
         run: |
