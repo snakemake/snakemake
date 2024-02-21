@@ -112,7 +112,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: report-${{ matrix.py_ver }}-${{ matrix.test_group }}
-          path: tests/test_report
+          path: tests/test_report/report.zip
 
 
   build-container-image:
