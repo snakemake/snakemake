@@ -1,10 +1,10 @@
 'use strict';
 
-
 class Navbar extends React.Component {
     render() {
         let showHideNavbar = `${this.getWidth()}`;
         let showHideShowButton = "-translate-x-full";
+
         if (this.props.app.state.hideNavbar) {
             showHideNavbar = "w-0";
             showHideShowButton = "";
@@ -245,3 +245,18 @@ class Navbar extends React.Component {
         }
     }
 }
+
+Navbar.propTypes = {
+    app: PropTypes.shape({
+        state: PropTypes.shape({
+            ruleinfo: PropTypes.string,
+            subcategory: PropTypes.string,
+            category: PropTypes.string,
+            searchTerm: PropTypes.string,
+            resultPath: PropTypes.string,
+            hideNavbar: PropTypes.bool.isRequired,
+            navbarMode: PropTypes.string.isRequired
+        }).isRequired,
+        setView: PropTypes.func.isRequired
+    }).isRequired
+};
