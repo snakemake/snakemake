@@ -101,7 +101,8 @@ jobs:
       - name: Run tests/test_report/Snakefile to generate report
         shell: bash -el {0}
         run: |
-          snakemake -s tests/test_report/Snakefile --use-conda --cores 1
+          cd tests/test_report
+          snakemake --use-conda --cores 1
 
       - name: List directory structure
         run: |
