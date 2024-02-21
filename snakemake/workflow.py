@@ -111,7 +111,7 @@ from snakemake.common import (
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoints
-from snakemake.resources import ResourceScopes
+from snakemake.resources import ParsedResource, ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
@@ -1632,7 +1632,19 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 rule.resources.update(resources)
             if name in self.resource_settings.overwrite_resources:
-                rule.resources.update(self.resource_settings.overwrite_resources[name])
+
+                def get_value(value):
+                    if isinstance(value, ParsedResource):
+                        return value.value
+                    else:
+                        return value
+
+                rule.resources.update(
+                    (resource, get_value(value))
+                    for resource, value in self.resource_settings.overwrite_resources[
+                        name
+                    ].items()
+                )
 
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(
