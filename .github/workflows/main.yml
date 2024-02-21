@@ -100,6 +100,8 @@ jobs:
 
       - name: Run tests/test_report/Snakefile to generate report
         run: |
+          conda install snakemake -c conda-forge -y -n snakemake
+          conda activate snakemake
           snakemake -s tests/test_report/Snakefile --use-conda --cores 1
 
       - name: List directory structure
