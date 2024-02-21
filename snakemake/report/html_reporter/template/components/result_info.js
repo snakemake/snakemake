@@ -23,7 +23,7 @@ class ResultInfo extends React.Component {
         let app = this.props.app;
 
         if (result.labels) {
-            const labels = Object.keys(result.labels).sort();
+            const labels = Object.keys(result.labels).sort((a, b) => a.localeCompare(b));
             return [
                 e(
                     ListItem,
