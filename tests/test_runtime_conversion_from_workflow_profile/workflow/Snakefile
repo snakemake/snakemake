@@ -1,0 +1,9 @@
+rule a:
+     output: "300.out"
+     #resources:
+     #   runtime="5m"
+     shell: """
+          if [ {resources.runtime} -eq 300 ]; then
+             touch {output}
+          fi
+          """

@@ -1918,6 +1918,16 @@ def test_no_workflow_profile():
     )
 
 
+def test_runtime_conversion_from_workflow_profile():
+    test_path = dpath("test_runtime_conversion_from_workflow_profile")
+    worflow_profile = os.path.join(test_path, "profiles")
+    run(
+        test_path,
+        snakefile="workflow/Snakefile",
+        shellcmd="snakemake --workflow-profile {workflow_profile} -c1",
+    )
+
+
 @skip_on_windows
 def test_localrule():
     run(dpath("test_localrule"), targets=["1.txt", "2.txt"])
