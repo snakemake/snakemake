@@ -23,7 +23,7 @@ class ResultInfo extends React.Component {
         let app = this.props.app;
 
         if (result.labels) {
-            const labels = Object.keys(result.labels).sort();
+            const labels = Object.keys(result.labels).sort((a, b) => a.localeCompare(b));
             return [
                 e(
                     ListItem,
@@ -207,3 +207,19 @@ class ResultInfo extends React.Component {
         ];
     }
 }
+
+ResultInfo.propTypes = {
+    resultPath: PropTypes.string.isRequired,
+    app: PropTypes.shape({
+        state: PropTypes.shape({
+            ruleinfo: PropTypes.string,
+            subcategory: PropTypes.string,
+            category: PropTypes.string,
+            searchTerm: PropTypes.string,
+            resultPath: PropTypes.string,
+            hideNavbar: PropTypes.bool.isRequired,
+            navbarMode: PropTypes.string.isRequired
+        }).isRequired,
+        setView: PropTypes.func.isRequired
+    }).isRequired
+};

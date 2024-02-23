@@ -5,7 +5,7 @@ def render_categories(results):
     return json.dumps(
         {
             cat.name: {
-                subcat.name: [res.path for res in catresults]
+                subcat.name: [str(res.path) for res in catresults]
                 for subcat, catresults in subcats.items()
                 if catresults
             }

@@ -104,3 +104,8 @@ class Breadcrumbs extends React.Component {
         this.props.setView({ navbarMode: "searchresults", searchTerm: this.state.searchTerm })
     }
 }
+
+Breadcrumbs.propTypes = {
+    entries: PropTypes.arrayOf(PropTypes.object).isRequired,
+    setView: PropTypes.func.isRequired,
+};

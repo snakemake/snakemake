@@ -1,7 +1,7 @@
 'use strict';
 
 
-var app = undefined;
+let app;
 
 
 class App extends React.Component {
@@ -43,7 +43,7 @@ class App extends React.Component {
     }
 
     showCategory(category) {
-        let subcategory = undefined;
+        let subcategory;
         let mode = "category";
         if (isSingleSubcategory(category)) {
             subcategory = Object.keys(categories[category])[0];
@@ -68,4 +68,5 @@ class App extends React.Component {
     }
 }
 
-ReactDOM.render(e(App), document.querySelector('#app'));
+const root = ReactDOM.createRoot(document.querySelector('#app'));
+root.render(e(App));

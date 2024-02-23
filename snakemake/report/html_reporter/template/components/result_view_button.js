@@ -1,11 +1,6 @@
 'use strict';
 
 class ResultViewButton extends React.Component {
-
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         let result = results[this.props.resultPath];
 
@@ -16,7 +11,7 @@ class ResultViewButton extends React.Component {
         const mimeType = this.getResultMimeType(resultPath);
         let setView = this.props.app.setView;
 
-        let props = undefined;
+        let props;
 
         switch (mimeType) {
             case "image/svg+xml":
@@ -71,3 +66,8 @@ class ResultViewButton extends React.Component {
         return results[resultPath].mime_type
     }
 }
+
+ResultViewButton.propTypes = {
+    resultPath: PropTypes.string.isRequired,
+    app: PropTypes.object.isRequired
+};

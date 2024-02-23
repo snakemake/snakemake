@@ -27,7 +27,13 @@ rule c:
     input:
         "test2.out"
     output:
-        "test3.out"
+        report(
+            "test3.out",
+            caption="caption.rst",
+            category="Test",
+            subcategory="Subtest",
+            labels={"label1": "foo", "label2": "bar"},
+        )
     log:
         "c.log"
     resources:

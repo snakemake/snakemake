@@ -1,6 +1,6 @@
 import json
 from snakemake.exceptions import WorkflowError
-from snakemake.report.data.common import get_resource_as_string
+from snakemake.report.html_reporter.common import get_resource_as_string
 import snakemake
 
 
@@ -51,6 +51,11 @@ def get_packages():
             "heroicons": Package(
                 version="1.0.6",
                 license_url="https://raw.githubusercontent.com/tailwindlabs/heroicons/master/LICENSE",
+            ),
+            "prop-types": Package(
+                version="15.7.2",
+                url="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.7.2/prop-types.min.js",
+                license_url="https://raw.githubusercontent.com/facebook/prop-types/main/LICENSE",
             ),
         }
     )

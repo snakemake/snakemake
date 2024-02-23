@@ -1,9 +1,9 @@
 'use strict';
 
 class RuleInfo extends React.Component {
-    constructor(props) {
-        super(props);
-    }
+    static propTypes = {
+        rule: PropTypes.object.isRequired,
+    };
 
     render() {
         let rule = rules[this.props.rule];

@@ -62,7 +62,14 @@ class Icon extends React.Component {
         )
     }
 
+    
+
     renderPath() {
         return this.paths[this.props.iconName];
     }
 }
+
+Icon.propTypes = {
+        iconName: PropTypes.string.isRequired,
+        className: PropTypes.string,
+};

@@ -1,10 +1,4 @@
-'use strict';
-
 class AbstractResults extends React.Component {
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         return e(
             "table",
@@ -97,8 +91,12 @@ class AbstractResults extends React.Component {
     }
 
     renderEntries() {
+        AbstractResults.propTypes = {
+            app: PropTypes.object.isRequired,
+        };
+
         let app = this.props.app;
-        let labels = undefined;
+        let labels;
         if (this.isLabelled()) {
             labels = this.getLabels();
         }
@@ -124,8 +122,8 @@ class AbstractResults extends React.Component {
                 )
             );
 
-            let entryLabels = undefined;
-            let key = undefined;
+            let entryLabels;
+            let key;
             if (labels !== undefined) {
                 entryLabels = labels.map(function (label) {
                     return e(
