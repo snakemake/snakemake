@@ -1,3 +1,0 @@
-set-resources:
-    test1:
-        runtime: "5m"

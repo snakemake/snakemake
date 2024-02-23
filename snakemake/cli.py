@@ -1670,16 +1670,19 @@ def parse_args(argv):
         if args.profile:
             profiles.append(args.profile)
         if workflow_profile:
-            workflow_profile_stmt = f" and workflow specific profile {workflow_profile}"
+            workflow_profile_stmt = f" {'and ' if profiles else ''}workflow specific profile {workflow_profile}"
             profiles.append(workflow_profile)
         else:
             workflow_profile_stmt = ""
 
-        print(
-            f"Using profile{'s' if len(profiles) > 1 else ''} "
-            f"{' and '.join(map(str, profiles))}{workflow_profile_stmt} for setting default command line arguments.",
-            file=sys.stderr,
-        )
+        fmt_profiles = profiles if not workflow_profile else profiles[:-1]
+        profile_stmt = f"Using profile{'s' if len(profiles) > 1 else ''} {' and '.join(map(str, fmt_profiles))}" if fmt_profiles else "Using"
+
+        if profiles:
+            print(
+                f"{profile_stmt}{workflow_profile_stmt} for setting default command line arguments.",
+                file=sys.stderr,
+            )
 
         parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)

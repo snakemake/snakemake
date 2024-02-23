@@ -1635,6 +1635,7 @@ class Workflow(WorkflowExecutorInterface):
                     else:
                         return value
 
+                import pdb; pdb.set_trace()
                 rule.resources.update(
                     (resource, get_value(value))
                     for resource, value in self.resource_settings.overwrite_resources[
