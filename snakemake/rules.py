@@ -992,21 +992,23 @@ class Rule(RuleInterface):
 
                 if value is not None:
                     resources[name] = value
-                    # Infer standard resources from eventual human readable forms.
-                    infer_resources(name, value, resources)
 
-                    # infer additional resources
-                    for mb_item, mib_item in (
-                        ("mem_mb", "mem_mib"),
-                        ("disk_mb", "disk_mib"),
-                    ):
-                        if (
-                            name == mb_item
-                            and mib_item not in self.resources.keys()
-                            and isinstance(value, int)
+                    if not isinstance(value, TBDString):
+                        # Infer standard resources from eventual human readable forms.
+                        infer_resources(name, value, resources)
+
+                        # infer additional resources
+                        for mb_item, mib_item in (
+                            ("mem_mb", "mem_mib"),
+                            ("disk_mb", "disk_mib"),
                         ):
-                            # infer mem_mib (memory in Mebibytes) as additional resource
-                            resources[mib_item] = mb_to_mib(value)
+                            if (
+                                name == mb_item
+                                and mib_item not in self.resources.keys()
+                                and isinstance(value, int)
+                            ):
+                                # infer mem_mib (memory in Mebibytes) as additional resource
+                                resources[mib_item] = mb_to_mib(value)
 
         resources = Resources(fromdict=resources)
         return resources
