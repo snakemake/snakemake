@@ -1689,7 +1689,11 @@ def parse_args(argv):
             workflow_profile_stmt = ""
 
         fmt_profiles = profiles if not workflow_profile else profiles[:-1]
-        profile_stmt = f"Using profile{'s' if len(profiles) > 1 else ''} {' and '.join(map(str, fmt_profiles))}" if fmt_profiles else "Using"
+        profile_stmt = (
+            f"Using profile{'s' if len(profiles) > 1 else ''} {' and '.join(map(str, fmt_profiles))}"
+            if fmt_profiles
+            else "Using"
+        )
 
         if profiles:
             print(
