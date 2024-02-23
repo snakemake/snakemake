@@ -1918,6 +1918,7 @@ def test_no_workflow_profile():
     )
 
 
+@skip_on_windows  # not platform dependent
 def test_runtime_conversion_from_workflow_profile():
     test_path = dpath("test_runtime_conversion_from_workflow_profile")
     run(
