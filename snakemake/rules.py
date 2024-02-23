@@ -647,7 +647,7 @@ class Rule(RuleInterface):
                 else:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
             return value, incomplete
-        
+
         res = func
         tries = 0
         while (callable(res) or tries == 0) and tries < 10:
