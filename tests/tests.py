@@ -2022,4 +2022,4 @@ def test_set_resources_human_readable():
 
 @skip_on_windows
 def test_call_inner():
-    run(dpath("test_inner_call"), executor="dryrun")
+    run(dpath("test_inner_call"))
