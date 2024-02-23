@@ -987,7 +987,7 @@ class Rule(RuleInterface):
         resources["_cores"] = threads
 
         for name, res in list(self.resources.items()):
-            if name != "_cores" and name != "_nodes":
+            if name != "_cores":
                 value = apply(name, res, threads=threads)
 
                 if value is not None:
