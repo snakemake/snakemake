@@ -1,5 +1,5 @@
 rule a:
-     output: "300.out"
+     output: "a.out"
      #resources:
      #   runtime="5m"
      shell: """
