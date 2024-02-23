@@ -1048,7 +1048,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             SharedFSUsage.INPUT_OUTPUT
             in self.dag.workflow.storage_settings.shared_fs_usage
         )
-        wait_for_local = SharedFSUsage.STORAGE_LOCAL_COPIES in self.dag.workflow.storage_settings.shared_fs_usage
+        wait_for_local = (
+            SharedFSUsage.STORAGE_LOCAL_COPIES
+            in self.dag.workflow.storage_settings.shared_fs_usage
+        )
         if (
             self.dag.workflow.exec_mode == ExecMode.SUBPROCESS
             or shared_input_output
