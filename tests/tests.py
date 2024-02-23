@@ -2028,3 +2028,8 @@ def test_set_resources_human_readable():
         dpath("test05"),
         shellcmd="snakemake -c1 --set-resources \"compute1:runtime='50h'\"",
     )
+
+
+@skip_on_windows
+def test_call_inner():
+    run(dpath("test_inner_call"))

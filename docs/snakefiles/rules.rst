@@ -186,6 +186,11 @@ The function has to accept a single argument that will be the wildcards object g
 Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
 By this, rules can have entirely different input files (both in form and number) depending on the inferred wildcards. E.g. you can assign input files that appear in entirely different parts of your filesystem based on some wildcard value and a dictionary that maps the wildcard value to file paths.
 
+.. sidebar:: Note
+
+    Input functions can themselves return input functions again (this also holds for functions given to params and resources.)
+    Such nested evaluation is allowed for a depth up to 10. Afterwards, an exception will be thrown.
+
 In addition to a single wildcards argument, input functions can optionally take a ``groupid`` (with exactly that name) as second argument, see :ref:`snakefiles_group-local` for details.
 
 Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.

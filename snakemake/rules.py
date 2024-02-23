@@ -598,7 +598,6 @@ class Rule(RuleInterface):
         groupid=None,
         **aux_params,
     ):
-        incomplete = False
         if isinstance(func, _IOFile):
             func = func._file.callable
         elif isinstance(func, AnnotatedString):
@@ -621,29 +620,49 @@ class Rule(RuleInterface):
             if callable(value):
                 _aux_params[name] = value()
 
-        try:
-            value = func(Wildcards(fromdict=wildcards), **_aux_params)
-            if isinstance(value, types.GeneratorType):
-                # generators should be immediately collected here,
-                # otherwise we would miss any exceptions and
-                # would have to capture them again later.
-                value = list(value)
-        except IncompleteCheckpointException as e:
-            value = incomplete_checkpoint_func(e)
-            incomplete = True
-        except Exception as e:
-            if "input" in aux_params and is_file_not_found_error(
-                e, aux_params["input"]
-            ):
-                # Function evaluation can depend on input files. Since expansion can happen during dryrun,
-                # where input files are not yet present, we need to skip such cases and
-                # mark them as <TBD>.
-                value = TBDString()
-            elif raw_exceptions:
-                raise e
-            else:
-                raise InputFunctionException(e, rule=self, wildcards=wildcards)
-        return value, incomplete
+        wildcards_arg = Wildcards(fromdict=wildcards)
+
+        def apply_func(func):
+            incomplete = False
+            try:
+                value = func(wildcards_arg, **_aux_params)
+                if isinstance(value, types.GeneratorType):
+                    # generators should be immediately collected here,
+                    # otherwise we would miss any exceptions and
+                    # would have to capture them again later.
+                    value = list(value)
+            except IncompleteCheckpointException as e:
+                value = incomplete_checkpoint_func(e)
+                incomplete = True
+            except Exception as e:
+                if "input" in aux_params and is_file_not_found_error(
+                    e, aux_params["input"]
+                ):
+                    # Function evaluation can depend on input files. Since expansion can happen during dryrun,
+                    # where input files are not yet present, we need to skip such cases and
+                    # mark them as <TBD>.
+                    value = TBDString()
+                elif raw_exceptions:
+                    raise e
+                else:
+                    raise InputFunctionException(e, rule=self, wildcards=wildcards)
+            return value, incomplete
+
+        res = func
+        tries = 0
+        while (callable(res) or tries == 0) and tries < 10:
+            res, incomplete = apply_func(res)
+            tries += 1
+        if tries == 10:
+            raise WorkflowError(
+                "Evaluated 10 nested input functions (i.e. input functions that "
+                "themselves return an input function.). More than 10 such nested "
+                "evaluations are not allowed. Does the workflow accidentally return a "
+                "function instead of calling it in the input function?",
+                rule=self,
+            )
+
+        return res, incomplete
 
     def _apply_wildcards(
         self,
