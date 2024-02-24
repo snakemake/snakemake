@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [8.5.2](https://github.com/snakemake/snakemake/compare/v8.5.1...v8.5.2) (2024-02-24)
+
+
+### Bug Fixes
+
+* when using remote storage: only wait for files if job did not error ([8c7ee91](https://github.com/snakemake/snakemake/commit/8c7ee91ac5425279955e60071fd0269bf2bf197b))
+
+
+### Documentation
+
+* fix apidocs theme ([1fb5467](https://github.com/snakemake/snakemake/commit/1fb546772bc90d96af2a390ced2d02db100ad810))
+
 ## [8.5.1](https://github.com/snakemake/snakemake/compare/v8.5.0...v8.5.1) (2024-02-24)
 
 
