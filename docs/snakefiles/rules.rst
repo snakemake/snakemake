@@ -2691,7 +2691,7 @@ MPI support
 
 Highly parallel programs may use the MPI (:ref: [message passing interface](https://en.wikipedia.org/wiki/Message_Passing_Interface)) to enable a program to span work across an individual compute node's boundary. 
 To actually use an HPC cluster with Snakemake, an [executor plugin is provided for the SLURM batch system](https://github.com/snakemake/snakemake-executor-plugin-slurm). You can find its documentation [here](https://github.com/snakemake/snakemake-executor-plugin-slurm/blob/main/docs/further.md).
-Users of different batch systems ought to refer to the [Snakemake profiles project](https://github.com/Snakemake-Profiles) for available plugins.
+Users of different batch systems are encouraged to [provide further plugins](https://snakemake.github.io/snakemake-plugin-catalog/#contributing) and/or share their Snakemake configuration via the [Snakemake profiles project](https://github.com/Snakemake-Profiles) project.
 
 The command to run the MPI program (in below example we assume there exists a program ``calc-pi-mpi``) has to be specified in the ``mpi``-resource, e.g.:
 
