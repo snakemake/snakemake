@@ -47,8 +47,8 @@ Finally, Snakemake workflows can entail a description of required software, whic
 Snakemake is **highly popular**, with `>7 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
 For an introduction, please visit https://snakemake.github.io.
 
-This is the home of the **Snakemake API documentation**, which is meant **purely for developers**.
-If you are looking for the Snakemake user documentation, please visit https://snakemake.readthedocs.io.
+This is the home of the **Snakemake API documentation**, which is meant **purely for developers of snakemake's internal functionalities**.
+If you are looking for the Snakemake user documentation (for writing workflows or executing them), please visit https://snakemake.readthedocs.io.
 
 
 
