@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.5.1](https://github.com/snakemake/snakemake/compare/v8.5.0...v8.5.1) (2024-02-24)
+
+
+### Documentation
+
+* api docs polishing ([58a6a13](https://github.com/snakemake/snakemake/commit/58a6a139a6fe2719de7d2d7c98e21f4d33a67cba))
+* fix [#2698](https://github.com/snakemake/snakemake/issues/2698) ([#2714](https://github.com/snakemake/snakemake/issues/2714)) ([508080b](https://github.com/snakemake/snakemake/commit/508080b8e1185c45e4c3d7b413350c68444db90c))
+
 ## [8.5.0](https://github.com/snakemake/snakemake/compare/v8.4.12...v8.5.0) (2024-02-24)
 
 
