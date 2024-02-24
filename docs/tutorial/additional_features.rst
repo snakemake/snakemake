@@ -197,10 +197,10 @@ will automatically download the requested version of the wrapper.
 Furthermore, in combination with ``--software-deployment-method conda`` (see :ref:`tutorial-conda`),
 the required software will be automatically deployed before execution.
 
-Cluster execution
+Cluster or cloud execution
 :::::::::::::::::
 
-Executing jobs on a cluster is supported either by the [executor plugin for SLURM](https://github.com/snakemake/snakemake-executor-plugin-slurm/blob/main/docs/further.md) or by [snakemake-profiles for other batch systems](https://github.com/Snakemake-Profiles).
+Executing jobs on a cluster or in the cloud is supported by so-called executor plugins, which are distributed and documented via the [Snakemake plugin catalog](https://snakemake.github.io/snakemake-plugin-catalog/).
 
 Constraining wildcards
 ::::::::::::::::::::::
