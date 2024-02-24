@@ -1048,6 +1048,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             SharedFSUsage.INPUT_OUTPUT
             in self.dag.workflow.storage_settings.shared_fs_usage
         )
+        wait_for_local = (
+            SharedFSUsage.STORAGE_LOCAL_COPIES
+            in self.dag.workflow.storage_settings.shared_fs_usage
+        )
         if (
             self.dag.workflow.exec_mode == ExecMode.SUBPROCESS
             or shared_input_output
@@ -1063,7 +1067,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     self,
                     wait=self.dag.workflow.execution_settings.latency_wait,
                     ignore_missing_output=ignore_missing_output,
-                    wait_for_local=True,
+                    wait_for_local=wait_for_local,
                 )
             self.dag.unshadow_output(self, only_log=error)
             await self.dag.handle_storage(
@@ -1071,6 +1075,16 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             )
             if not error:
                 self.dag.handle_protected(self)
+        elif not shared_input_output and not wait_for_local:
+            expanded_output = list(self.output)
+            if self.benchmark:
+                expanded_output.append(self.benchmark)
+            await wait_for_files(
+                expanded_output,
+                wait_for_local=False,
+                latency_wait=self.dag.workflow.execution_settings.latency_wait,
+                ignore_pipe_or_service=True,
+            )
         if not error:
             try:
                 await self.dag.workflow.persistence.finished(self)
