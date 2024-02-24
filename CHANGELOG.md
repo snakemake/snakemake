@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [8.5.0](https://github.com/snakemake/snakemake/compare/v8.4.12...v8.5.0) (2024-02-24)
+
+
+### Features
+
+* add ability to return input functions from input functions. Such nesting is evaluated 10 times at most. Beyond that, an error is thrown.  ([#2717](https://github.com/snakemake/snakemake/issues/2717)) ([7a47924](https://github.com/snakemake/snakemake/commit/7a47924627b30dc774efef0faae08e13e44c350a))
+* support for report plugins ([#2700](https://github.com/snakemake/snakemake/issues/2700)) ([2f7d4b5](https://github.com/snakemake/snakemake/commit/2f7d4b5196979d368f6e2eede25ca2a61220691b))
+
+
+### Bug Fixes
+
+* fix wait for files in case of using remote storage and remote execution ([#2718](https://github.com/snakemake/snakemake/issues/2718)) ([eec3a5f](https://github.com/snakemake/snakemake/commit/eec3a5fd7a02c093dc14cfd0912fbaf8d7dd10cc))
+* proper interpretation of standard resources given as strings (e.g. runtime as '5m'). Avoid the need to set additional quotes around size or timespan resources. Improved error messages for resource handling.  ([#2716](https://github.com/snakemake/snakemake/issues/2716)) ([b6636e9](https://github.com/snakemake/snakemake/commit/b6636e95f6d9baddb4a3eb5bc79351207f048b4d))
+
 ## [8.4.12](https://github.com/snakemake/snakemake/compare/v8.4.11...v8.4.12) (2024-02-20)
 
 
