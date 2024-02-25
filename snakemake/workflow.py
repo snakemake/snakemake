@@ -1055,9 +1055,7 @@ class Workflow(WorkflowExecutorInterface):
             else self.execution_settings.benchmark_output
         )
         benchmark_jobs = [
-            job
-            for job in self.dag._finished
-            if job._benchmark is not None
+            job for job in self.dag._finished if job._benchmark is not None
         ]
         records = gather_benchmark_records(
             benchmark_jobs=benchmark_jobs,
