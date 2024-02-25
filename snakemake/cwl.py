@@ -5,19 +5,16 @@ __license__ = "MIT"
 
 from urllib.request import pathname2url
 import os
-import subprocess
 import tempfile
 import json
 import shutil
-import uuid
 from itertools import chain
 
 from snakemake.utils import format
-from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import get_container_image, Mode
-from snakemake.io import is_flagged
+from snakemake.common import get_container_image
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 
 def cwl(
@@ -35,6 +32,7 @@ def cwl(
     use_singularity,
     bench_record,
     jobid,
+    sourcecache_path,
     runtime_sourcecache_path,
 ):
     """
@@ -81,13 +79,10 @@ def cwl(
 
 def job_to_cwl(job, dag, outputs, inputs):
     """Convert a job with its dependencies to a CWL workflow step."""
-
-    if job.dynamic_output:
-        raise WorkflowError("Dynamic output is not supported by CWL conversion.")
     for f in job.output:
         if os.path.isabs(f):
             raise WorkflowError(
-                "All output files have to be relative to the " "working directory."
+                "All output files have to be relative to the working directory."
             )
 
     get_output_id = lambda job, i: f"#main/job-{job.jobid}/{i}"
@@ -203,18 +198,18 @@ def dag_to_cwl(dag):
         "requirements": {"ResourceRequirement": {"coresMin": "$(inputs.cores)"}},
         "arguments": [
             "--force",
-            "--keep-target-files",
+            "--target-files-omit-workdir-adjustment",
             "--keep-remote",
             "--force-use-threads",
             "--wrapper-prefix",
-            dag.workflow.wrapper_prefix,
+            dag.workflow.workflow_settings.wrapper_prefix,
             "--notemp",
             "--quiet",
             "--use-conda",
             "--no-hooks",
             "--nolock",
             "--mode",
-            str(Mode.subprocess),
+            str(ExecMode.SUBPROCESS.item_to_choice()),
         ],
         "inputs": {
             "snakefile": {

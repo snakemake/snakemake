@@ -1,3 +1,5 @@
+.. _Mamba: https://github.com/mamba-org/mamba
+
 .. _distribution_and_reproducibility:
 
 ================================
@@ -60,7 +62,7 @@ Using and combining pre-exising workflows
 -----------------------------------------
 
 Via the :ref:`module/use <snakefiles-modules>` system introduced with Snakemake 6.0, it is very easy to deploy existing workflows for new projects.
-This ranges from the simple application to new data to the complex combination of several complementary workflows in order to perfom an integrated analysis over multiple data types.
+This ranges from the simple application to new data to the complex combination of several complementary workflows in order to perform an integrated analysis over multiple data types.
 
 Consider the following example:
 
@@ -183,7 +185,7 @@ Above, several things have changed.
 Uploading workflows to WorkflowHub
 ----------------------------------
 
-In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metadata and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
+In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Create <https://w3id.org/ro/create>`_. That way a *snakemake* workflow is annotated with proper metadata and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
 
 To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
 
@@ -240,10 +242,10 @@ Therefore, the repository structure should comply with:
 Integrated Package Management
 -----------------------------
 
-With Snakemake 3.9.0 it is possible to define isolated software environments per rule.
-Upon execution of a workflow, the `Conda package manager <https://conda.pydata.org>`_ is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root priviledges.
-Given that conda is available on your system (see `Miniconda <https://conda.pydata.org/miniconda.html>`_), to use the Conda integration, add the ``--use-conda`` flag to your workflow execution command, e.g. ``snakemake --cores 8 --use-conda``.
-When ``--use-conda`` is activated, Snakemake will automatically create software environments for any used wrapper (see :ref:`snakefiles-wrappers`).
+It is possible (and highly encouraged, see :ref:`snakefiles-best_practices`) to define isolated software environments per rule.
+Upon execution of a workflow, the `Conda package manager <https://conda.pydata.org>`_ is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root privileges.
+Given that conda is available on your system (see `Miniconda <https://conda.pydata.org/miniconda.html>`_), to use the Conda integration, add the ``--software-deployment-method conda`` option (``--sdm`` for short) to your workflow execution command, e.g. ``snakemake --cores 8 --sdm conda``.
+When ``--software-deployment-method conda`` (``--sdm`` for short) is activated, Snakemake will automatically create software environments for any used wrapper (see :ref:`snakefiles-wrappers`).
 Further, you can manually define environments via the ``conda`` directive, e.g.:
 
 .. code-block:: python
@@ -269,6 +271,8 @@ with the following `environment definition <https://conda.io/projects/conda/en/l
      - r=3.3.1
      - r-ggplot2=2.1.0
 
+Please note that in the environment definition, conda determines the priority of channels depending on their order of appearance in the channels list. For instance, the channel that comes first in the list gets the highest priority.
+
 The path to the environment definition is interpreted as **relative to the Snakefile that contains the rule** (unless it is an absolute path, which is discouraged).
 
 Instead of using a concrete path, it is also possible to provide a path containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
@@ -291,14 +295,14 @@ At the moment, only a single, random conda environment is shown.
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
-Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --use-conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
+Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --sdm conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--sdm conda`` will make use of the local environments without requiring internet access.
 
 Freezing environments to exactly pinned packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If Snakemake finds a special file ending on ``<platform>.pin.txt`` next to a conda environment file (with ``<platform>`` being the current platform, e.g. ``linux-64``), it will try to use the contents of that file to determine the conda packages to deploy.
 The file is expected to contain conda's `explicit specification file format <https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#building-identical-conda-environments>`_.
-Snakemake will first try to deploy the environment using that file, and only if that fails it will use the regular enviroment file.
+Snakemake will first try to deploy the environment using that file, and only if that fails it will use the regular environment file.
 
 This enables to freeze an environment to a certain state, and will ensure that people using a workflow will get exactly the same environments down to the individual package builds, which is in fact very similar to providing the environment encapsulated in a container image.
 Generating such pin files for conda environments can be automatically done using `Snakedeploy <https://snakedeploy.readthedocs.io>`_.
@@ -396,7 +400,7 @@ if the given specification ends on ``.yaml`` or ``.yml``, Snakemake assumes it t
 to be the name of an existing environment.
 
 
-.. _singularity:
+.. _apptainer:
 
 --------------------------
 Running jobs in containers
@@ -420,20 +424,19 @@ When executing Snakemake with
 
 .. code-block:: bash
 
-    snakemake --use-singularity
+    snakemake --software-deployment-method apptainer
+    # or the shorthand version
+    snakemake --sdm apptainer
 
 it will execute the job within a container that is spawned from the given image.
-Allowed image urls entail everything supported by singularity (e.g., ``shub://`` and ``docker://``).
+Allowed image urls entail everything supported by apptainer (e.g., ``shub://`` and ``docker://``).
 However, ``docker://`` is preferred, as other container runtimes will be supported in the future (e.g. podman).
 
 .. sidebar:: Note
 
-   Note that singularity integration is only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
+   Note that apptainer integration is only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
    The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
 
-
-When ``--use-singularity`` is combined with ``--kubernetes`` (see :ref:`kubernetes`), cloud jobs will be automatically configured to run in priviledged mode, because this is a current requirement of the singularity executable.
-Importantly, those privileges won't be shared by the actual code that is executed in the singularity container though.
 
 A global definition of a container image can be given:
 
@@ -497,7 +500,7 @@ Ad-hoc combination of Conda package management with containers
 While :ref:`integrated_package_management` provides control over the used software in exactly
 the desired versions, it does not control the underlying operating system.
 Here, it becomes handy that Snakemake >=4.8.0 allows to combine Conda-based package management
-with :ref:`singularity`.
+with :ref:`apptainer`.
 For example, you can write
 
 .. code-block:: python
@@ -520,7 +523,9 @@ Then, upon invocation with
 
 .. code-block:: bash
 
-    snakemake --use-conda --use-singularity
+    snakemake --software-deployment-method conda apptainer
+    # or the shorthand version
+    snakemake --sdm conda apptainer
 
 Snakemake will first pull the defined container image, and then create the requested conda environment from within the container.
 The conda environments will still be stored in your working environment, such that they don't have to be recreated unless they have changed.
@@ -540,7 +545,7 @@ The user can, upon execution, freely choose the desired level of reproducibility
 Using environment modules
 -------------------------
 
-In high performace cluster systems (HPC), it can be preferable to use environment modules for deployment of optimized versions of certain standard tools.
+In high performance cluster systems (HPC), it can be preferable to use environment modules for deployment of optimized versions of certain standard tools.
 Snakemake allows to define environment modules per rule:
 
 .. code-block:: python
@@ -562,7 +567,7 @@ Snakemake allows to define environment modules per rule:
 Here, when Snakemake is executed with ``snakemake --use-envmodules``, it will load the defined modules in the given order, instead of using the also defined conda environment.
 Note that although not mandatory, one should always provide either a conda environment or a container (see above), along with environment module definitions.
 The reason is that environment modules are often highly platform specific, and cannot be assumed to be available somewhere else, thereby limiting reproducibility.
-By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running ``snakemake --use-conda`` instead of ``snakemake --use-envmodules``.
+By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running ``snakemake --software-deployment-method conda`` instead of ``snakemake --use-envmodules``.
 
 --------------------------------------
 Sustainable and reproducible archiving
@@ -596,3 +601,43 @@ upload it to `Zenodo <https://zenodo.org/>`_ and thereby obtain a
 `DOI <https://en.wikipedia.org/wiki/Digital_object_identifier>`_.
 Then, the DOI can be cited in manuscripts, and readers are able to download
 and reproduce the data analysis at any time in the future.
+
+.. _global-workflow-dependencies:
+
+----------------------------
+Global workflow dependencies
+----------------------------
+
+Often, your workflow will depend on some additional packages that need to be present 
+along with Snakemake in order to handle actions before any rule is executed.
+Classical examples for this are `pandas <https://pandas.pydata.org/>`_, 
+`pep <https://pep.databio.org>`_ (also see :ref:`snakefiles-peps`) and 
+:ref:`storage plugins <storage-support>`.
+
+Snakemake allows to define such global dependencies using a global ``conda`` directive
+that should occur at the beginning of your workflow, before you import or use any of
+those additional packages::
+
+    conda:
+        "envs/global.yaml"
+
+With ``envs/global.yaml`` containing e.g.::
+
+    channels:
+      - conda-forge
+      - bioconda
+      - nodefaults
+    dependencies:
+      - pandas=1.0.3
+      - snakemake-storage-plugin-s3
+    
+Under the hood, this is implemented using `conda-inject <https://github.com/koesterlab/conda-inject>`_, 
+which modifies the python searchpath and the PATH variable on the fly during execution,
+pointing to additional environments that do not alter the environment in which Snakemake
+has been installed.
+
+This mechanism requires that you use Mamba_ or Conda and activate conda-based software deployment via::
+
+    --software-deployment-method conda
+    # or the shorthand version
+    --sdm conda

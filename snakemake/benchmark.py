@@ -7,12 +7,11 @@ import contextlib
 import datetime
 from itertools import chain
 import os
-import sys
 import time
 import threading
 import pandas as pd
 
-from snakemake.exceptions import WorkflowError, IOFileException
+from snakemake.exceptions import IOFileException
 from snakemake.logging import logger
 
 
@@ -79,7 +78,7 @@ class BenchmarkRecord:
         #: Previous point when measured CPU load, for estimating total running time
         self.prev_time = None
         #: Set with procs that has been skipped
-        self.processed_procs = set()
+        self.processed_procs = dict()
         #: Set with procs that has been saved
         self.skipped_procs = set()
         #: Track if data has been collected
@@ -311,8 +310,11 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                             check_io = False
 
                     cpu_times = proc.cpu_times()
-                    cpu_time += cpu_times.user + cpu_times.system
-                    self.bench_record.processed_procs.add((proc.pid, proc.name()))
+                    self.bench_record.processed_procs[(proc.pid, proc.name())] = (
+                        cpu_times.user + cpu_times.system
+                    )
+
+            cpu_time = sum(self.bench_record.processed_procs.values())
 
             self.bench_record.prev_time = this_time
             if not self.bench_record.first_time:

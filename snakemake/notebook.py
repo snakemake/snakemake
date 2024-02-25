@@ -1,13 +1,10 @@
 from abc import abstractmethod
-import os, sys
+import os
 from pathlib import Path
-from urllib.error import URLError
 import tempfile
 import re
-import shutil
 
 from snakemake.exceptions import WorkflowError
-from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 from snakemake.common import is_local_file
@@ -17,13 +14,6 @@ from snakemake.utils import format
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
-
-
-class EditMode:
-    def __init__(self, server_addr=None, draft_only=False):
-        if server_addr is not None:
-            self.ip, self.port = server_addr.split(":")
-        self.draft_only = draft_only
 
 
 def get_cell_sources(source):
@@ -260,6 +250,7 @@ def notebook(
     cleanup_scripts,
     shadow_dir,
     edit,
+    sourcecache_path,
     runtime_sourcecache_path,
 ):
     """
@@ -295,7 +286,11 @@ def notebook(
 
     if not draft:
         path, source, language, is_local, cache_path = get_source(
-            path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
+            path,
+            SourceCache(sourcecache_path, runtime_sourcecache_path),
+            basedir,
+            wildcards,
+            params,
         )
     else:
         source = None

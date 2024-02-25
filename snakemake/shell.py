@@ -13,7 +13,7 @@ import stat
 import tempfile
 import threading
 
-from snakemake.utils import format, argvquote, cmd_exe_quote, find_bash_on_windows
+from snakemake.utils import format, argvquote, cmd_exe_quote
 from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
 from snakemake.deployment import singularity
@@ -77,7 +77,7 @@ class shell:
                 if cmd == r"C:\Windows\System32\bash.exe":
                     raise WorkflowError(
                         "Cannot use WSL bash.exe on Windows. Ensure that you have "
-                        "a usable bash.exe availble on your path."
+                        "a usable bash.exe available on your path."
                     )
                 cls._process_prefix = "set -euo pipefail; "
                 cls._win_command_prefix = "-c"
@@ -95,7 +95,7 @@ class shell:
 
     @classmethod
     def win_command_prefix(cls, cmd):
-        """The command prefix used on windows when specifing a explicit
+        """The command prefix used on windows when specifying a explicit
         shell executable. This would be "-c" for bash.
         Note: that if no explicit executable is set commands are executed
         with Popen(..., shell=True) which uses COMSPEC on windows where this
@@ -151,7 +151,7 @@ class shell:
         context.update(kwargs)
 
         jobid = context.get("jobid")
-        if not context.get("is_shell"):
+        if not context.get("is_shell") and jobid is not None:
             logger.shellcmd(cmd)
 
         conda_env = context.get("conda_env", None)
@@ -175,7 +175,7 @@ class shell:
 
         if conda_env:
             if ON_WINDOWS and not cls.get_executable():
-                # If we use cmd.exe directly on winodws we need to prepend batch activation script.
+                # If we use cmd.exe directly on windows we need to prepend batch activation script.
                 cmd = Conda(
                     container_img=container_img, prefix_path=conda_base_path
                 ).shellcmd_win(conda_env, cmd)
@@ -288,7 +288,10 @@ class shell:
 
         if jobid is not None:
             with cls._lock:
-                del cls._processes[jobid]
+                try:
+                    del cls._processes[jobid]
+                except KeyError:
+                    pass
 
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)

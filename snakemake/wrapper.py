@@ -4,15 +4,9 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 
-import os
-import posixpath
-
-from urllib.error import URLError
-from urllib.request import urlopen
-
 from snakemake.exceptions import WorkflowError
 from snakemake.script import script
-from snakemake.sourcecache import LocalGitFile, SourceCache, infer_source_file
+from snakemake.sourcecache import SourceCache, infer_source_file
 
 
 PREFIX = "https://github.com/snakemake/snakemake-wrappers/raw/"
@@ -95,6 +89,7 @@ def wrapper(
     bench_iteration,
     cleanup_scripts,
     shadow_dir,
+    sourcecache_path,
     runtime_sourcecache_path,
 ):
     """
@@ -103,7 +98,9 @@ def wrapper(
     """
     assert path is not None
     script_source = get_script(
-        path, SourceCache(runtime_cache_path=runtime_sourcecache_path), prefix=prefix
+        path,
+        SourceCache(sourcecache_path, runtime_cache_path=runtime_sourcecache_path),
+        prefix=prefix,
     )
     if script_source is None:
         raise WorkflowError(
@@ -132,5 +129,6 @@ def wrapper(
         bench_iteration,
         cleanup_scripts,
         shadow_dir,
+        sourcecache_path,
         runtime_sourcecache_path,
     )

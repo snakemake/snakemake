@@ -1,0 +1,7 @@
+Metadata-Version: 2.1
+Name: dummy
+Version: 0.0.0
+Author: Egor Kosaretskiy
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent

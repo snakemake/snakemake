@@ -1,0 +1,5 @@
+threads: 2
+mem_mb: 1
+eggs_factor: twitter
+spam_factor: X
+double_jeopardy: 1
