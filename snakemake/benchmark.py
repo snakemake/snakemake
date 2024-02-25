@@ -412,12 +412,18 @@ def gather_benchmark_records(benchmark_jobs, persistence):
                 + f"exist for rule {job.rule.name} \n"
                 + "A complete run is required to print all benchmark metrics."
             )
-        wildcard_str = None if len(job.wildcards_dict) == 0 else ";".join(
-            [f"{name}={value}" for name, value in job.wildcards_dict.items()]
+        wildcard_str = (
+            None
+            if len(job.wildcards_dict) == 0
+            else ";".join(
+                [f"{name}={value}" for name, value in job.wildcards_dict.items()]
+            )
         )
         resources = job.resources
-        resources_str = None if len(resources) == 0 else ";".join(
-            [f"{name}={value}" for name, value in resources.items()]
+        resources_str = (
+            None
+            if len(resources) == 0
+            else ";".join([f"{name}={value}" for name, value in resources.items()])
         )
 
         _benchmark = pd.read_csv(job._benchmark, index_col=None, sep="\t")

@@ -1047,6 +1047,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def aggregate_benchmarks(self):
         from snakemake.benchmark import gather_benchmark_records
+
         logger.info("Collecting run metrics from benchmarked jobs")
         benchmark_file = (
             self.execution_settings.benchmark_all
@@ -1309,7 +1310,10 @@ class Workflow(WorkflowExecutorInterface):
                         )
                 else:
                     logger.logfile_hint()
-                    if self.execution_settings.benchmark_all is not None or self.execution_settings.benchmark_output is not None:
+                    if (
+                        self.execution_settings.benchmark_all is not None
+                        or self.execution_settings.benchmark_output is not None
+                    ):
                         self.aggregate_benchmarks()
 
                 if not self.dryrun and not self.execution_settings.no_hooks:

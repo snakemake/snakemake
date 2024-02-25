@@ -271,7 +271,9 @@ class Persistence(PersistenceExecutorInterface):
                 shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
 
     def started(self, job, external_jobid: Optional[str] = None):
-        infile_sizes = {infile: asyncio.run(infile.size()) / 1024 / 1024 for infile in job.input}
+        infile_sizes = {
+            infile: asyncio.run(infile.size()) / 1024 / 1024 for infile in job.input
+        }
         for f in job.output:
             self._record(
                 self._incomplete_path,
@@ -308,10 +310,6 @@ class Persistence(PersistenceExecutorInterface):
             )
 
             checksums = ((infile, await infile.checksum()) for infile in job.input)
-
-            infile_sizes = self._read_record(self._incomplete_path, f).get(
-                "input_sizes_mb"
-            )
 
             infile_sizes = self._read_record(self._incomplete_path, f).get(
                 "input_sizes_mb"
@@ -423,7 +421,7 @@ class Persistence(PersistenceExecutorInterface):
             self.metadata(output_path).get("input_checksums", {}).get(input_path)
             for output_path in job.output
         )
-    
+
     def input_sizes_mb(self, path):
         return self.metadata(path).get("input_sizes_mb")
 
