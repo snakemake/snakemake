@@ -270,8 +270,8 @@ class Persistence(PersistenceExecutorInterface):
             if d not in in_use:
                 shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
 
-    async def started(self, job, external_jobid: Optional[str] = None):
-        infile_sizes = {await infile: infile.size() / 1024 / 1024 for infile in job.input}
+    def started(self, job, external_jobid: Optional[str] = None):
+        infile_sizes = {infile: asyncio.run(infile.size()) / 1024 / 1024 for infile in job.input}
         for f in job.output:
             self._record(
                 self._incomplete_path,

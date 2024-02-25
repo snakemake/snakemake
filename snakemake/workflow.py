@@ -1045,6 +1045,25 @@ class Workflow(WorkflowExecutorInterface):
         for rule in self.rules:
             rule._benchmark = None
 
+    def aggregate_benchmarks(self):
+        from snakemake.benchmark import gather_benchmark_records
+        logger.info("Collecting run metrics from benchmarked jobs")
+        benchmark_file = (
+            self.execution_settings.benchmark_all
+            if self.execution_settings.benchmark_all is not None
+            else self.execution_settings.benchmark_output
+        )
+        benchmark_jobs = [
+            job
+            for job in self.dag._finished
+            if job.rule.name is not self.default_target and job._benchmark is not None
+        ]
+        records = gather_benchmark_records(
+            benchmark_jobs=benchmark_jobs,
+            persistence=self.persistence,
+        )
+        records.to_csv(benchmark_file, index=False)
+
     def execute(
         self,
         executor_plugin: ExecutorPlugin,
@@ -1291,27 +1310,13 @@ class Workflow(WorkflowExecutorInterface):
                 else:
                     logger.logfile_hint()
                     if self.execution_settings.benchmark_all is not None or self.execution_settings.benchmark_output is not None:
-                        from snakemake.benchmark import gather_benchmark_records
-                        benchmark_file = (
-                            self.execution_settings.benchmark_all
-                            if self.execution_settings.benchmark_all is not None
-                            else self.execution_settings.benchmark_output
-                        )
-                        benchmark_jobs = [
-                            job
-                            for job in self.dag._finished
-                            if job.rule.name is not self.default_target and job._benchmark is not None
-                        ]
-                        records = gather_benchmark_records(
-                            benchmark_jobs=benchmark_jobs,
-                            persistence=self.persistence,
-                        )
-                        records.to_csv(benchmark_file, index=False)
+                        self.aggregate_benchmarks()
 
                 if not self.dryrun and not self.execution_settings.no_hooks:
                     self._onsuccess(logger.get_logfile())
             else:
                 if not self.dryrun and not self.execution_settings.no_hooks:
+                    self.aggregate_benchmarks()
                     self._onerror(logger.get_logfile())
                 logger.logfile_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
