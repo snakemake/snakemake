@@ -425,10 +425,6 @@ class Persistence(PersistenceExecutorInterface):
     def input_sizes_mb(self, path):
         return self.metadata(path).get("input_sizes_mb")
 
-    def version_changed(self, job, file=None):
-        """Yields output files with changed versions or bool if file given."""
-        return _bool_or_gen(self._version_changed, job, file=file)
-
     def code_changed(self, job, file=None):
         """Yields output files with changed code or bool if file given."""
         return _bool_or_gen(self._code_changed, job, file=file)
