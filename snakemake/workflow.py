@@ -1045,7 +1045,7 @@ class Workflow(WorkflowExecutorInterface):
         for rule in self.rules:
             rule._benchmark = None
 
-    def aggregate_benchmarks(self):
+    def _aggregate_benchmarks(self):
         from snakemake.benchmark import gather_benchmark_records
 
         logger.info("Collecting run metrics from benchmarked jobs")
@@ -1314,13 +1314,13 @@ class Workflow(WorkflowExecutorInterface):
                         self.execution_settings.benchmark_all is not None
                         or self.execution_settings.benchmark_output is not None
                     ):
-                        self.aggregate_benchmarks()
+                        self._aggregate_benchmarks()
 
                 if not self.dryrun and not self.execution_settings.no_hooks:
                     self._onsuccess(logger.get_logfile())
             else:
                 if not self.dryrun and not self.execution_settings.no_hooks:
-                    self.aggregate_benchmarks()
+                    self._aggregate_benchmarks()
                     self._onerror(logger.get_logfile())
                 logger.logfile_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
