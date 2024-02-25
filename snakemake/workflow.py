@@ -1024,6 +1024,27 @@ class Workflow(WorkflowExecutorInterface):
         async_run(self.dag.init())
         async_run(self.dag.update_checkpoint_dependencies())
 
+    def _add_default_benchmark(self):
+        """
+        Add default benchmark files to rules without such directive. This is necessary for --workflow-benchmark.
+        """
+        for rule in self.rules:
+            if rule._benchmark is None and rule.name is not self.default_target:
+                default_name = [rule.name] + [
+                    f"{name}={{{name}}}" for name in rule.wildcard_names
+                ]
+                rule._benchmark = IOFile(
+                    f".snakemake/benchmarks/{'_'.join(default_name)}.txt", rule=rule
+                )
+
+    def _remove_benchmark(self):
+        """
+        Disable benchmarking by removing benchmark from all rules
+        """
+
+        for rule in self.rules:
+            rule._benchmark = None
+
     def execute(
         self,
         executor_plugin: ExecutorPlugin,
@@ -1053,6 +1074,12 @@ class Workflow(WorkflowExecutorInterface):
             except IOError as e:
                 logger.error(str(e))
                 return False
+
+        if self.execution_settings.benchmark_all:
+            self._add_default_benchmark()
+
+        if self.execution_settings.nobenchmark:
+            self._remove_benchmark()
 
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
@@ -1263,6 +1290,24 @@ class Workflow(WorkflowExecutorInterface):
                         )
                 else:
                     logger.logfile_hint()
+                    if self.execution_settings.benchmark_all is not None or self.execution_settings.benchmark_output is not None:
+                        from snakemake.benchmark import gather_benchmark_records
+                        benchmark_file = (
+                            self.execution_settings.benchmark_all
+                            if self.execution_settings.benchmark_all is not None
+                            else self.execution_settings.benchmark_output
+                        )
+                        benchmark_jobs = [
+                            job
+                            for job in self.dag._finished
+                            if job.rule.name is not self.default_target and job._benchmark is not None
+                        ]
+                        records = gather_benchmark_records(
+                            benchmark_jobs=benchmark_jobs,
+                            persistence=self.persistence,
+                        )
+                        records.to_csv(benchmark_file, index=False)
+
                 if not self.dryrun and not self.execution_settings.no_hooks:
                     self._onsuccess(logger.get_logfile())
             else:

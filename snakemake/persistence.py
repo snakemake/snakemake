@@ -270,8 +270,8 @@ class Persistence(PersistenceExecutorInterface):
             if d not in in_use:
                 shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
 
-    def started(self, job, external_jobid: Optional[str] = None):
-        infile_sizes = {infile: infile.size / 1024 / 1024 for infile in job.input}
+    async def started(self, job, external_jobid: Optional[str] = None):
+        infile_sizes = {await infile: infile.size() / 1024 / 1024 for infile in job.input}
         for f in job.output:
             self._record(
                 self._incomplete_path,
@@ -423,9 +423,13 @@ class Persistence(PersistenceExecutorInterface):
             self.metadata(output_path).get("input_checksums", {}).get(input_path)
             for output_path in job.output
         )
-
+    
     def input_sizes_mb(self, path):
         return self.metadata(path).get("input_sizes_mb")
+
+    def version_changed(self, job, file=None):
+        """Yields output files with changed versions or bool if file given."""
+        return _bool_or_gen(self._version_changed, job, file=file)
 
     def code_changed(self, job, file=None):
         """Yields output files with changed code or bool if file given."""

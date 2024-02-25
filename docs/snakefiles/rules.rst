@@ -1924,17 +1924,18 @@ However, the benchmark file can be annotated with the desired number of repeats,
 will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
 The resulting tsv file can be used as input for other rules, just like any other output file.
 
-Since version x.x, Snakemake supports benchmarking all rules via a command line argument `--benchmark-all`.  
+Since version x.x, Snakemake supports benchmarking all rules via a command line argument ``--benchmark`` or ``--benchmark-all```. 
 
-To benchmark every rule in a workflow, a file can be supplied via ``--benchmark-all benchmark_file.tsv``.
-When this option is specified, rules without a ``benchmark`` directive will have their benchmark stats written to ``.snakemake/benchmark`` directory.
-The output ``benchmark_file.tsv`` is a tab-separated text file with following columns:
+To aggregate benchmark metrics of all rules with a ``benchmark`` directive, a file can be provided via ``--benchmark FILE``.
+
+To benchmark every rule in a workflow, a file can be provided via ``--benchmark-all FILE``.
+When ``--benchmark-all`` is specified, rules without a ``benchmark`` directive will have their benchmark stats written to ``.snakemake/benchmark`` directory.
+
+With either ``--benchmark`` or ``--benchmark-all`` (if both are specified, ``--benchmark`` is simply ignored), benchmark metrics are aggregated to provided file in a comma separated format.
+The output ``FILE`` is a comma-separated text file with following columns:
 * jobid: Internal job id,  
 * rule: Name of the rule,  
 * wildcards: A list of wildcard values from this job,  
-* resources: Default and additional resources used for this job,  
-* input_size_mb: Total size (MB) of input files,  
-* threads: Number of threads requested for this job,  
 * s: CPU time (in seconds),  
 * h:m:s: Wall clock time,  
 * max_rss: Max memory usage (MB) in `RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_,  
@@ -1945,13 +1946,11 @@ The output ``benchmark_file.tsv`` is a tab-separated text file with following co
 * io_out: Output load (B),  
 * mean_load: Mean CPU load,  
 * cpu_time: CPU time in seconds,  
+* threads: Number of threads requested for this job,  
+* resources: Default and additional resources used for this job,  
+* input_size_mb: Total size (MB) of input files,  
 
 If a a benchmark file is annotated with ``repeat()`` in ``benchmark`` directive, each repeated measurement will show up as a separate row with identical ``jobid``, ``rule``, and ``wildcards`` values. 
-
-It is also now possible to have snakemake gather benchmark metrics from all benchmarked rules:
-With `--print-benchmark`, Snakemake will gather benchmark metrics from rules with `benchmark` directive in their rule definitions.
-With `--print-benchmark-all`, Snakemake will gather benchmark metrics from all rules. Note that all rules must have been benchmarked through either `benchmark` directive in Snakefile or `--benchmark-all`.
-When printing benchmarks with `--print-benchmark` or `--print-benchmark-all`, Snakemake will additionally list input file sizes (MB), separated by `;` in `input_file_size_mb` column.
 
 .. sidebar:: Note
 

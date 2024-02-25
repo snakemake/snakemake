@@ -996,8 +996,8 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     ):
         logger.job_error(**self.get_log_error_info(msg, indent, aux_logs, **kwargs))
 
-    def register(self, external_jobid: Optional[str] = None):
-        self.dag.workflow.persistence.started(self, external_jobid)
+    async def register(self, external_jobid: Optional[str] = None):
+        await self.dag.workflow.persistence.started(self, external_jobid)
 
     def get_wait_for_files(self):
         wait_for_files = []

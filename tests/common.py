@@ -224,6 +224,9 @@ def run(
     rerun_triggers=settings.RerunTrigger.all(),
     storage_provider_settings=None,
     shared_fs_usage=None,
+    nobenchmark=False,
+    benchmark_output=None,
+    benchmark_all=None,
 ):
     """
     Test the Snakefile in the path.
@@ -405,6 +408,9 @@ def run(
                             shadow_prefix=shadow_prefix,
                             retries=retries,
                             edit_notebook=edit_notebook,
+                            nobenchmark=nobenchmark,
+                            benchmark_output=benchmark_output,
+                            benchmark_all=benchmark_all,
                         ),
                         remote_execution_settings=settings.RemoteExecutionSettings(
                             container_image=container_image,
