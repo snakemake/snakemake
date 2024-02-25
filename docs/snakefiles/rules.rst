@@ -1931,7 +1931,7 @@ To aggregate benchmark metrics of all rules with a ``benchmark`` directive, a fi
 To benchmark every rule in a workflow, a file can be provided via ``--benchmark-all [FILE]``.
 When ``--benchmark-all`` is specified, rules without a ``benchmark`` directive will have their benchmark stats written to ``.snakemake/benchmarks`` directory.
 
-Optional ``[FILE]`` argument can be ommitted. In that case, aggregated metrics will be written to ``.snakemake/benchmarks/workflow_benchmark_{timestamp}.csv`` 
+Optional ``[FILE]`` argument can be omitted. In that case, aggregated metrics will be written to ``.snakemake/benchmarks/workflow_benchmark_{timestamp}.csv`` 
 
 With either ``--benchmark`` or ``--benchmark-all`` (if both are specified, ``--benchmark`` is simply ignored), benchmark metrics are aggregated to provided file in a comma separated format.
 The output ``FILE`` is a comma-separated text file with following columns:
