@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from datetime import datetime
 import os
 import re
 import sys
@@ -720,11 +721,19 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--benchmark",
         metavar="FILE",
+        nargs="?",
+        const=f".snakemake/benchmarks/workflow_benchmark.{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.csv",
+        type=str,
+        default=None,
         help="File to write benchmarking metrics of all jobs with a benchmark directive to.",
     )
     group_exec.add_argument(
         "--benchmark-all",
         metavar="FILE",
+        nargs="?",
+        const=f".snakemake/benchmarks/workflow_benchmark.{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.csv",
+        type=str,
+        default=None,
         help="File to write global benchmark of all jobs to, regardless if a benchmark directive is set",
     )
     group_exec.add_argument(
