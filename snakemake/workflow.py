@@ -1029,7 +1029,7 @@ class Workflow(WorkflowExecutorInterface):
         Add default benchmark files to rules without such directive. This is necessary for --workflow-benchmark.
         """
         for rule in self.rules:
-            if rule._benchmark is None and rule.name is not self.default_target:
+            if rule._benchmark is None:
                 default_name = [rule.name] + [
                     f"{name}={{{name}}}" for name in rule.wildcard_names
                 ]
@@ -1057,7 +1057,7 @@ class Workflow(WorkflowExecutorInterface):
         benchmark_jobs = [
             job
             for job in self.dag._finished
-            if job.rule.name is not self.default_target and job._benchmark is not None
+            if job._benchmark is not None
         ]
         records = gather_benchmark_records(
             benchmark_jobs=benchmark_jobs,
