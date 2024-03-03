@@ -3,7 +3,7 @@ import mimetypes
 import os
 from pathlib import Path
 from snakemake.common import is_local_file
-from snakemake.logging import Logger
+from snakemake.logging import logger
 
 from snakemake_interface_common.exceptions import WorkflowError
 
@@ -18,7 +18,7 @@ def mime_from_file(file):
     mime, encoding = mimetypes.guess_type(file)
     if mime is None:
         mime = "text/plain"
-        Logger.info(
+        logger.info(
             "Could not detect mimetype for {}, assuming text/plain.".format(file)
         )
     return mime, encoding

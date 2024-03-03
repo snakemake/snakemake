@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.5.3](https://github.com/snakemake/snakemake/compare/v8.5.2...v8.5.3) (2024-02-26)
+
+
+### Bug Fixes
+
+* error when detecting mime type during report creation ([#2721](https://github.com/snakemake/snakemake/issues/2721)) ([42dad42](https://github.com/snakemake/snakemake/commit/42dad4258b0b0028733b94cbde6ae63c534ba645))
+
 ## [8.5.2](https://github.com/snakemake/snakemake/compare/v8.5.1...v8.5.2) (2024-02-24)
 
 
