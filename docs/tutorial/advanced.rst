@@ -76,7 +76,7 @@ would execute the workflow with 10 cores.
 Since the rule ``bwa_map`` needs 8 threads, only one job of the rule can run at a time, and the Snakemake scheduler will try to saturate the remaining cores with other jobs like, e.g., ``samtools_sort``.
 The threads directive in a rule is interpreted as a maximum: when **less cores than threads** are provided, the number of threads a rule uses will be **reduced to the number of given cores**.
 
-If ``--cores`` is given without a number, all available cores are used.
+If ``--cores all`` is given, all available cores are used.
 
 Exercise
 ........
