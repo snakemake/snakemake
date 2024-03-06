@@ -2033,3 +2033,13 @@ def test_set_resources_human_readable():
 @skip_on_windows
 def test_call_inner():
     run(dpath("test_inner_call"))
+
+
+@skip_on_windows
+def test_list_input_changes():
+    run(dpath("test01"), shellcmd="snakemake --list-input-changes", check_results=False)
+
+
+@skip_on_windows
+def test_summary():
+    run(dpath("test01"), shellcmd="snakemake --summary", check_results=False)

@@ -878,7 +878,12 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        print("\n".join(async_run(self.dag.summary(detailed=detailed))))
+        async def join_summary(detailed):
+            return "\n".join(
+                [line async for line in self.dag.summary(detailed=detailed)]
+            )
+
+        print(async_run(join_summary(detailed)))
 
     def conda_cleanup_envs(self):
         self._prepare_dag(forceall=True, ignore_incomplete=True, lock_warn_only=False)

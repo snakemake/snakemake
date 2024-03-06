@@ -2357,17 +2357,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def summary(self, detailed=False):
         if detailed:
-            yield "output_file\tdate\trule\tversion\tlog-file(s)\tinput-file(s)\tshellcmd\tstatus\tplan"
+            yield "output_file\tdate\trule\tlog-file(s)\tinput-file(s)\tshellcmd\tstatus\tplan"
         else:
-            yield "output_file\tdate\trule\tversion\tlog-file(s)\tstatus\tplan"
+            yield "output_file\tdate\trule\tlog-file(s)\tstatus\tplan"
 
         for job in self.jobs:
             output = job.output
             for f in output:
                 rule = job.rule.name
-
-                version = self.workflow.persistence.version(f)
-                version = "-" if version is None else str(version)
 
                 date = (
                     time.ctime((await f.mtime()).local_or_storage())
@@ -2400,8 +2397,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         status = "missing"
                 elif self.reason(job).updated_input:
                     status = "updated input files"
-                elif self.workflow.persistence.version_changed(job, file=f):
-                    status = f"version changed to {job.rule.version}"
                 elif self.workflow.persistence.code_changed(job, file=f):
                     status = "rule implementation changed"
                 elif self.workflow.persistence.input_changed(job, file=f):
@@ -2410,10 +2405,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     status = "params changed"
                 if detailed:
                     yield "\t".join(
-                        (f, date, rule, version, log, input, shellcmd, status, pending)
+                        (f, date, rule, log, input, shellcmd, status, pending)
                     )
                 else:
-                    yield "\t".join((f, date, rule, version, log, status, pending))
+                    yield "\t".join((f, date, rule, log, status, pending))
 
     def archive(self, path: Path):
         """Archives workflow such that it can be re-run on a different system.
