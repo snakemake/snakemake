@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [8.5.4](https://github.com/snakemake/snakemake/compare/v8.5.3...v8.5.4) (2024-03-06)
+
+
+### Bug Fixes
+
+* fix bugs in --summary and --list-input-changes. Removed outdated statement in tutorial. ([#2735](https://github.com/snakemake/snakemake/issues/2735)) ([55c06d8](https://github.com/snakemake/snakemake/commit/55c06d853116cf402b90832649c805643712c437))
+
+
+### Documentation
+
+* fix explanation on how to use all cores in tutorial ([#2733](https://github.com/snakemake/snakemake/issues/2733)) ([6420428](https://github.com/snakemake/snakemake/commit/64204286f3061c494389ea502f1e4393e357efcd))
+* fix syntax highlighting in tutorial ([2887604](https://github.com/snakemake/snakemake/commit/2887604ebe8a1e4c9c226780129312f556150dca))
+
 ## [8.5.3](https://github.com/snakemake/snakemake/compare/v8.5.2...v8.5.3) (2024-02-26)
 
 
