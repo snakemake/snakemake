@@ -156,17 +156,6 @@ For the rule ``bwa_map`` this works as follows:
         shell:
             "bwa mem -t {threads} {input} | samtools view -Sb - > {output}"
 
-.. sidebar:: Note
-
-  Snakemake does not automatically rerun jobs when new input files are added as
-  in the exercise below. However, you can get a list of output files that
-  are affected by such changes with ``snakemake --list-input-changes``.
-  To trigger a rerun, this bit of bash magic helps:
-
-  .. code:: console
-
-    snakemake -n --forcerun $(snakemake --list-input-changes)
-
 Any normal function would work as well.
 Input functions take as **single argument** a ``wildcards`` object, that allows to access the wildcards values via attributes (here ``wildcards.sample``).
 They have to **return a string or a list of strings**, that are interpreted as paths to input files (here, we return the path that is stored for the sample in the config file).

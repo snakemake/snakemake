@@ -1081,8 +1081,8 @@ def get_argument_parser(profiles=None):
         "--lc",
         choices=ChangeType.all(),
         type=ChangeType.parse_choice,
-        help="List all output files for which the rule body (run or shell) have "
-        "changed in the Snakefile.",
+        help="List all output files for which the given items (code, input, params) "
+        "have changed since creation.",
     )
     group_utils.add_argument(
         "--list-input-changes",
@@ -1994,6 +1994,10 @@ def args_to_api(args, parser):
                         dag_api.container_cleanup_images()
                     elif args.list_changes:
                         dag_api.list_changes(args.list_changes)
+                    elif args.list_input_changes:
+                        dag_api.list_changes(ChangeType.INPUT)
+                    elif args.list_params_changes:
+                        dag_api.list_changes(ChangeType.PARAMS)
                     elif args.list_untracked:
                         dag_api.list_untracked()
                     elif args.summary:
