@@ -879,7 +879,9 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         async def join_summary(detailed):
-            return "\n".join([line async for line in self.dag.summary(detailed=detailed)])
+            return "\n".join(
+                [line async for line in self.dag.summary(detailed=detailed)]
+            )
 
         print(async_run(join_summary(detailed)))
 
