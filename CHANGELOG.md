@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.5.5](https://github.com/snakemake/snakemake/compare/v8.5.4...v8.5.5) (2024-03-07)
+
+
+### Bug Fixes
+
+* less frightering message when telling about missing output files as reason for running a job ([7b6c9d4](https://github.com/snakemake/snakemake/commit/7b6c9d4f620e020911192e0f311f1d9098391e0d))
+
 ## [8.5.4](https://github.com/snakemake/snakemake/compare/v8.5.3...v8.5.4) (2024-03-06)
 
 
