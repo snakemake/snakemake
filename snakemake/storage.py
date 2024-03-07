@@ -171,7 +171,7 @@ class StorageRegistry:
             raise WorkflowError(
                 f"Error applying storage provider {provider_name} "
                 "(see https://snakemake.github.io/snakemake-plugin-catalog/plugins/"
-                "storage/{provider}.html). {query_validity}"
+                f"storage/{provider}.html). {query_validity}"
             )
 
         storage_object = provider.object(
