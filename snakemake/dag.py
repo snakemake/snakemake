@@ -1845,8 +1845,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        for job in jobs:
-            await self.handle_temp(job)
+        if not any(self.checkpoint_jobs):
+            # While there are still checkpoint jobs, we cannot safely delete
+            # temp files.
+            # TODO: we maybe could be more accurate and determine whether there is a
+            # checkpoint that depends on the temp file.
+            for job in jobs:
+                await self.handle_temp(job)
 
         return potential_new_ready_jobs
 
