@@ -1624,7 +1624,7 @@ class Reason:
         if self.nooutput:
             yield "run or shell but no output"
         if self._missing_output:
-            yield "missing output files"
+            yield "output files have to be generated"
         if self._incomplete_output:
             yield "incomplete output files"
         if self._updated_input:
