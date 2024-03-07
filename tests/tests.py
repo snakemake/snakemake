@@ -2014,7 +2014,7 @@ def test_issue2685():
     run(dpath("test_issue2685"))
 
 
-@skip_on_windows
+@skip_on_windows  # OS agnostic
 def test_set_resources_complex():
     run(
         dpath("test05"),
@@ -2022,7 +2022,7 @@ def test_set_resources_complex():
     )
 
 
-@skip_on_windows
+@skip_on_windows  # OS agnostic
 def test_set_resources_human_readable():
     run(
         dpath("test05"),
@@ -2030,16 +2030,21 @@ def test_set_resources_human_readable():
     )
 
 
-@skip_on_windows
+@skip_on_windows  # OS agnostic
 def test_call_inner():
     run(dpath("test_inner_call"))
 
 
-@skip_on_windows
+@skip_on_windows  # OS agnostic
 def test_list_input_changes():
     run(dpath("test01"), shellcmd="snakemake --list-input-changes", check_results=False)
 
 
-@skip_on_windows
+@skip_on_windows  # OS agnostic
 def test_summary():
     run(dpath("test01"), shellcmd="snakemake --summary", check_results=False)
+
+
+@skip_on_windows  # OS agnostic
+def test_github_issue2732():
+    run(dpath("test_github_issue2732"))

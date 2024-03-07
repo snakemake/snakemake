@@ -1,0 +1,38 @@
+rule a:
+    output:
+        temp("{name}.txt"),
+    shell:
+        "touch {output}"
+
+rule a1:
+    input:
+        "{name}.txt",
+    output:
+        temp("{name}.a1.out"),
+    shell:
+        "touch {output}"
+
+rule b1:
+    input:
+        "A.txt",
+    output:
+        temp("A.b1.out"),
+    shell:
+        "touch {output}"
+
+checkpoint b2:
+    input:
+        "A.b1.out"
+    output:
+        "A.b2.out"
+    shell:
+        "echo A > {output}"
+
+def in_func1(w):
+    file = checkpoints.b2.get().output[0]
+    return open(file, "r").read().strip()
+
+rule all:
+    input:
+        lambda w: expand(rules.a1.output, name=in_func1(w)),
+    default_target: True
