@@ -287,7 +287,6 @@ The ``expand`` function also allows us to combine different variables, e.g.
             ...
 
 If ``FORMATS=["txt", "csv"]`` contains a list of desired output formats then expand will automatically combine any dataset with any of these extensions.
-
 Furthermore, the first argument can also be a list of strings. In that case, the transformation is applied to all elements of the list. E.g.
 
 .. code-block:: python
@@ -319,6 +318,10 @@ You can also mask a wildcard expression in ``expand`` such that it will be kept,
     expand("{{dataset}}/a.{ext}", ext=FORMATS)
 
 will create strings with all values for ext but starting with the wildcard ``"{dataset}"``.
+
+Finally, argument values passed to ``expand`` can also be functions or lists of functions if the return value of ``expand`` or ``expand`` itself is used within ``input``, or ``params``.
+Depending on the context, that function has to accept the same arguments as functions for ``input`` (see :ref:`snakefiles-input_functions`) or functions for ``params`` (see :ref:`snakefiles-params`).
+If that is the case, ``expand`` returns a function again, the evaluation of which is deferred to the point in time when the wildcards of the respective job are known.
 
 
 .. _snakefiles-multiext:
@@ -948,6 +951,8 @@ Note that it is also possible to have multiple named log files, which could be u
         output: "output.txt"
         log: stdout="logs/foo.stdout", stderr="logs/foo.stderr"
         shell: "somecommand {input} {output} > {log.stdout} 2> {log.stderr}"
+
+.. _snakefiles-params:
 
 Non-file parameters for rules
 -----------------------------

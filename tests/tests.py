@@ -2048,3 +2048,7 @@ def test_summary():
 @skip_on_windows  # OS agnostic
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
+
+
+def test_expand_list_of_functions():
+    run(dpath("test_expand_list_of_functions"))
