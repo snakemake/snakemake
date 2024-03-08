@@ -1259,7 +1259,8 @@ def expand(*args, **wildcard_values):
     callables = {
         key: value
         for key, value in wildcard_values.items()
-        if isinstance(value, Callable)
+        if callable(value)
+        or (isinstance(value, List) and any(callable(v) for v in value))
     }
 
     # remove unused wildcards to avoid duplicate filepatterns
@@ -1299,9 +1300,22 @@ def expand(*args, **wildcard_values):
         # defer expansion and return a function that does the expansion once it is called with
         # the usual arguments (wildcards, [input, ])
         def inner(wildcards, **aux_params):
-            for wildcard, func in callables.items():
-                func_aux_params = get_input_function_aux_params(func, aux_params)
-                ret = func(wildcards, **func_aux_params)
+            for wildcard, func_or_list_of_func in callables.items():
+
+                def get_func_ret(func):
+                    func_aux_params = get_input_function_aux_params(func, aux_params)
+                    return func(wildcards, **func_aux_params)
+
+                if callable(func_or_list_of_func):
+                    ret = get_func_ret(func_or_list_of_func)
+                else:
+                    ret = []
+                    for maybe_func in func_or_list_of_func:
+                        if callable(maybe_func):
+                            item_ret = get_func_ret(maybe_func)
+                        else:
+                            item_ret = maybe_func
+                        ret.append(item_ret)
                 # store result for all filepatterns that need it
                 for pattern_values in wildcard_values.values():
                     pattern_values[wildcard] = ret

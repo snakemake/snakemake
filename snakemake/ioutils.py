@@ -172,7 +172,7 @@ def lookup(
             try:
                 res = within.query(query)
             except Exception as e:
-                raise error(exc=e)
+                raise LookupError(query=query, exc=e)
 
             if is_nrows is not None:
                 return is_nrows == len(res)
@@ -204,7 +204,7 @@ def lookup(
             except ValueError:
                 return dp.values(within, dpath)
             except KeyError as e:
-                raise error(msg="Dpath not found.")
+                raise LookupError(dpath=dpath, msg="Dpath not found.")
 
         return DpathWildcardHandler(do_dpath, **namespace).handle(dpath)
     else:
