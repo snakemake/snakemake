@@ -361,7 +361,7 @@ The lookup function
 
 The ``lookup`` function can be used to look up a value in a python mapping (e.g. a ``dict``) or a `pandas dataframe or series <https://pandas.pydata.org>`_.
 It is especially useful for looking up information based on wildcard values.
-The ``lookup`` function has the signature ``lookup(dpath: Optional[str] = None, query: Optional[str] = None, cols: Optional[List[str]] = None, within=None)``.
+The ``lookup`` function has the signature ``lookup(dpath: Optional[str | Callable] = None, query: Optional[str | Callable] = None, cols: Optional[List[str]] = None, within=None)``.
 The ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
 For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
 
@@ -371,6 +371,8 @@ If the query results in multiple rows, the result is returned as a list of
 named tuples with the column names as attributes.
 If the query results in a single row, the result is returned as a single
 named tuple with the column names as attributes.
+If the query or dpath parameter is given a function, the function will be evaluated with wildcards passed as the first argument.
+
 In both cases, the result can be used by the ``expand`` or ``collect`` function,
 e.g. 
 
