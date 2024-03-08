@@ -2052,3 +2052,8 @@ def test_github_issue2732():
 
 def test_expand_list_of_functions():
     run(dpath("test_expand_list_of_functions"))
+
+
+@skip_on_windows  # OS agnostic
+def test_scheduler_sequential_all_cores():
+    run(dpath("test_scheduler_sequential_all_cores"), cores=90)
