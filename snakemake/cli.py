@@ -1374,6 +1374,16 @@ def get_argument_parser(profiles=None):
         "freely chosen, e.g. in order to store those files on a local scratch disk.",
     )
     group_behavior.add_argument(
+        "--remote-job-local-storage-prefix",
+        default=".snakemake/storage",
+        type=Path,
+        help="Specify prefix for storing local copies of storage files and folders in "
+        "case of remote jobs (e.g. cluster or cloud jobs). This may differ from "
+        "--local-storage-prefix. If not set, uses value of --local-storage-prefix. "
+        "By default, this is a hidden subfolder in the workdir. It can however be "
+        "freely chosen, e.g. in order to store those files on a local scratch disk.",
+    )
+    group_behavior.add_argument(
         "--shared-fs-usage",
         nargs="+",
         default=SharedFSUsage.all(),
@@ -1864,6 +1874,7 @@ def args_to_api(args, parser):
                 default_storage_provider=args.default_storage_provider,
                 default_storage_prefix=args.default_storage_prefix,
                 local_storage_prefix=args.local_storage_prefix,
+                remote_job_local_storage_prefix=args.remote_job_local_storage_prefix,
                 shared_fs_usage=args.shared_fs_usage,
                 keep_storage_local=args.keep_storage_local_copies,
                 notemp=args.notemp,

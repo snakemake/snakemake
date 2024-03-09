@@ -206,6 +206,7 @@ class SpawnedJobArgsFactory:
         pass_default_storage_provider_args: bool = True,
         pass_default_resources_args: bool = False,
         pass_group_args: bool = False,
+        non_local_exec: bool = True,
     ) -> str:
         """Return a string to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
@@ -217,6 +218,15 @@ class SpawnedJobArgsFactory:
         shared_deployment = (
             SharedFSUsage.SOFTWARE_DEPLOYMENT
             in self.workflow.storage_settings.shared_fs_usage
+        )
+
+        local_storage_prefix = (
+            w2a(
+                "storage_settings.remote_job_local_storage_prefix",
+                flag="--local-storage-prefix",
+            )
+            if non_local_exec
+            else w2a("storage_settings.local_storage_prefix")
         )
 
         args = [
@@ -261,6 +271,7 @@ class SpawnedJobArgsFactory:
             w2a("output_settings.printshellcmds"),
             w2a("execution_settings.latency_wait"),
             w2a("scheduling_settings.scheduler", flag="--scheduler"),
+            local_storage_prefix,
             format_cli_arg(
                 "--scheduler-solver-path",
                 os.path.dirname(sys.executable),

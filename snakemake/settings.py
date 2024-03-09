@@ -190,9 +190,14 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     shared_fs_usage: Set[SharedFSUsage] = SharedFSUsage.all()
     keep_storage_local: bool = False
     local_storage_prefix: Path = Path(".snakemake/storage")
+    remote_job_local_storage_prefix: Optional[Path] = None
     notemp: bool = False
     all_temp: bool = False
     unneeded_temp_files: Set[str] = frozenset()
+
+    def __post_init__(self):
+        if self.remote_job_local_storage_prefix is None:
+            self.remote_job_local_storage_prefix = self.local_storage_prefix
 
 
 class CondaCleanupPkgs(SettingsEnumBase):
