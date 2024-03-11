@@ -4,6 +4,7 @@ import os
 import sys
 from typing import Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
+from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
@@ -110,8 +111,11 @@ class SpawnedJobArgsFactory:
             self.workflow.resource_settings.overwrite_resource_scopes,
         )
 
-    def get_shared_fs_usage_arg(self):
-        usage = self.workflow.storage_settings.shared_fs_usage
+    def get_shared_fs_usage_arg(self, executor_common_settings: CommonSettings):
+        if executor_common_settings.spawned_jobs_assume_shared_fs:
+            usage = SharedFSUsage.all()
+        else:
+            usage = self.workflow.storage_settings.shared_fs_usage
         return format_cli_arg(
             "--shared-fs-usage",
             usage if usage else "none",
@@ -169,14 +173,14 @@ class SpawnedJobArgsFactory:
 
     def precommand(
         self,
-        auto_deploy_default_storage_provider: bool = False,
+        executor_common_settings: CommonSettings,
         python_executable: str = "python",
     ) -> str:
         precommand = []
         if self.workflow.remote_execution_settings.precommand:
             precommand.append(self.workflow.remote_execution_settings.precommand)
         if (
-            auto_deploy_default_storage_provider
+            executor_common_settings.auto_deploy_default_storage_provider
             and self.workflow.storage_settings.default_storage_provider is not None
         ):
             package_name = StoragePluginRegistry().get_plugin_package_name(
@@ -203,10 +207,7 @@ class SpawnedJobArgsFactory:
 
     def general_args(
         self,
-        pass_default_storage_provider_args: bool = True,
-        pass_default_resources_args: bool = False,
-        pass_group_args: bool = False,
-        non_local_exec: bool = True,
+        executor_common_settings: CommonSettings,
     ) -> str:
         """Return a string to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
@@ -225,7 +226,7 @@ class SpawnedJobArgsFactory:
                 "storage_settings.remote_job_local_storage_prefix",
                 flag="--local-storage-prefix",
             )
-            if non_local_exec
+            if executor_common_settings.non_local_exec
             else w2a("storage_settings.local_storage_prefix")
         )
 
@@ -258,7 +259,7 @@ class SpawnedJobArgsFactory:
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
             w2a("resource_settings.max_threads"),
-            self.get_shared_fs_usage_arg(),
+            self.get_shared_fs_usage_arg(executor_common_settings),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
@@ -286,11 +287,11 @@ class SpawnedJobArgsFactory:
             self.get_resource_scopes_args(),
         ]
         args.extend(self.get_storage_provider_args())
-        if pass_default_storage_provider_args:
+        if executor_common_settings.pass_default_storage_provider_args:
             args.append(self.get_default_storage_provider_args())
-        if pass_default_resources_args:
+        if executor_common_settings.pass_default_resources_args:
             args.append(w2a("resource_settings.default_resources", attr="args"))
-        if pass_group_args:
+        if executor_common_settings.pass_group_args:
             args.append(self.get_group_args())
 
         return join_cli_args(args)

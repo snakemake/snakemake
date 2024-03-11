@@ -889,15 +889,21 @@ async def wait_for_files(
 
     async def get_missing(list_parent=False):
         async def eval_file(f):
-            if (isinstance(f, _IOFile)
+            if (
+                isinstance(f, _IOFile)
                 and f.is_storage
-                and (not wait_for_local or f.should_not_be_retrieved_from_storage)):
+                and (not wait_for_local or f.should_not_be_retrieved_from_storage)
+            ):
                 if not await f.exists_in_storage():
                     return f"{f} (missing in storage)"
             elif not os.path.exists(f):
                 parent_dir = os.path.dirname(f)
                 if list_parent:
-                    parent_msg = f" contents: {', '.join(os.listdir(parent_dir))}" if os.path.exists(parent_dir) else " not present"
+                    parent_msg = (
+                        f" contents: {', '.join(os.listdir(parent_dir))}"
+                        if os.path.exists(parent_dir)
+                        else " not present"
+                    )
                     return f"{f} (missing locally, parent dir{parent_msg})"
                 else:
                     return f"{f} (missing locally)"
