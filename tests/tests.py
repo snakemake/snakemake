@@ -989,7 +989,7 @@ def test_scopes_submitted_to_cluster(mocker):
         default_resources=DefaultResources(["mem_mb=0"]),
     )
 
-    assert spy.spy_return == "--set-resource-scopes \"fake_res='local'\""
+    assert spy.spy_return == "--set-resource-scopes 'fake_res=local'"
 
 
 @skip_on_windows
