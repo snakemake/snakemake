@@ -887,35 +887,42 @@ async def wait_for_files(
     """Wait for given files to be present in the filesystem."""
     files = list(files)
 
-    async def get_missing():
-        return [
-            f
-            for f in files
-            if not (
-                await f.exists_in_storage()
-                if (
-                    isinstance(f, _IOFile)
-                    and f.is_storage
-                    and (not wait_for_local or f.should_not_be_retrieved_from_storage)
-                )
-                else os.path.exists(f)
-                if not (
-                    (is_flagged(f, "pipe") or is_flagged(f, "service"))
-                    and ignore_pipe_or_service
-                )
-                else True
-            )
-        ]
+    async def get_missing(list_parent=False):
+        async def eval_file(f):
+            if (
+                isinstance(f, _IOFile)
+                and f.is_storage
+                and (not wait_for_local or f.should_not_be_retrieved_from_storage)
+            ):
+                if not await f.exists_in_storage():
+                    return f"{f} (missing in storage)"
+            elif not os.path.exists(f):
+                parent_dir = os.path.dirname(f)
+                if list_parent:
+                    parent_msg = (
+                        f" contents: {', '.join(os.listdir(parent_dir))}"
+                        if os.path.exists(parent_dir)
+                        else " not present"
+                    )
+                    return f"{f} (missing locally, parent dir{parent_msg})"
+                else:
+                    return f"{f} (missing locally)"
+            return None
+
+        return list(filter(None, [await eval_file(f) for f in files]))
 
     missing = await get_missing()
     if missing:
+        sleep = max(latency_wait / 10, 1)
+        before_time = time.time()
         logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
-        for _ in range(latency_wait):
+        while time.time() - before_time < latency_wait:
             missing = await get_missing()
+            logger.debug("still missing files, waiting...")
             if not missing:
                 return
-            time.sleep(1)
-        missing = "\n".join(await get_missing())
+            time.sleep(sleep)
+        missing = "\n".join(await get_missing(list_parent=True))
         raise IOError(
             f"Missing files after {latency_wait} seconds. This might be due to "
             "filesystem latency. If that is the case, consider to increase the "

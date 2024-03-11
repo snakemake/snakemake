@@ -1067,7 +1067,8 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     self,
                     wait=self.dag.workflow.execution_settings.latency_wait,
                     ignore_missing_output=ignore_missing_output,
-                    wait_for_local=wait_for_local,
+                    # storage not yet handled, just require the local files
+                    wait_for_local=True,
                 )
             self.dag.unshadow_output(self, only_log=error)
             await self.dag.handle_storage(

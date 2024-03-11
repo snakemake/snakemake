@@ -69,6 +69,20 @@ from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
 
 
+def expandvars(atype):
+    def inner(args):
+        if isinstance(args, list):
+            return atype([os.path.expandvars(arg) for arg in args])
+        elif isinstance(args, str):
+            return atype(os.path.expandvars(args))
+        elif args is None:
+            return None
+        else:
+            return atype(args)
+
+    return inner
+
+
 def parse_set_threads(args):
     return parse_set_ints(
         args,
@@ -1368,10 +1382,23 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--local-storage-prefix",
         default=".snakemake/storage",
-        type=Path,
+        type=expandvars(Path),
         help="Specify prefix for storing local copies of storage files and folders. "
         "By default, this is a hidden subfolder in the workdir. It can however be "
-        "freely chosen, e.g. in order to store those files on a local scratch disk.",
+        "freely chosen, e.g. in order to store those files on a local scratch disk. "
+        "Environment variables will be expanded.",
+    )
+    group_behavior.add_argument(
+        "--remote-job-local-storage-prefix",
+        type=expandvars(Path),
+        help="Specify prefix for storing local copies of storage files and folders in "
+        "case of remote jobs (e.g. cluster or cloud jobs). This may differ from "
+        "--local-storage-prefix. If not set, uses value of --local-storage-prefix. "
+        "By default, this is a hidden subfolder in the workdir. It can however be "
+        "freely chosen, e.g. in order to store those files on a local scratch disk. "
+        "Environment variables will be expanded. In case they shall be expanded only "
+        "within the remote job, mask them with a leading backslash, i.e. "
+        "\\$SLURM_JOB_ID.",
     )
     group_behavior.add_argument(
         "--shared-fs-usage",
@@ -1864,6 +1891,7 @@ def args_to_api(args, parser):
                 default_storage_provider=args.default_storage_provider,
                 default_storage_prefix=args.default_storage_prefix,
                 local_storage_prefix=args.local_storage_prefix,
+                remote_job_local_storage_prefix=args.remote_job_local_storage_prefix,
                 shared_fs_usage=args.shared_fs_usage,
                 keep_storage_local=args.keep_storage_local_copies,
                 notemp=args.notemp,

@@ -485,14 +485,13 @@ class DAGApi(ApiBase):
         if executor_plugin.common_settings.implies_no_shared_fs:
             # no shared FS at all
             self.workflow_api.storage_settings.shared_fs_usage = frozenset()
+
         if (
             executor_plugin.common_settings.local_exec
             and not executor_plugin.common_settings.dryrun_exec
             and self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT
         ):
-            logger.info(
-                "Assuming unrestricted shared filesystem usage for local execution."
-            )
+            logger.info("Assuming unrestricted shared filesystem usage.")
             self.workflow_api.storage_settings.shared_fs_usage = SharedFSUsage.all()
         if executor_plugin.common_settings.job_deploy_sources:
             remote_execution_settings.job_deploy_sources = True
