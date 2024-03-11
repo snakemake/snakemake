@@ -890,6 +890,10 @@ async def wait_for_files(
     async def get_missing(list_parent=False):
         async def eval_file(f):
             if (
+                is_flagged(f, "pipe") or is_flagged(f, "service")
+            ) and ignore_pipe_or_service:
+                return None
+            if (
                 isinstance(f, _IOFile)
                 and f.is_storage
                 and (not wait_for_local or f.should_not_be_retrieved_from_storage)
