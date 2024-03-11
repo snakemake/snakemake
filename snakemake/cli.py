@@ -1375,7 +1375,6 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
-        default=".snakemake/storage",
         type=Path,
         help="Specify prefix for storing local copies of storage files and folders in "
         "case of remote jobs (e.g. cluster or cloud jobs). This may differ from "

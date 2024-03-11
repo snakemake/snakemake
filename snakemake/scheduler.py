@@ -333,6 +333,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             )
                         else:
                             await job.postprocess(
+                                # storage upload will be done after all jobs of 
+                                # this remote job (e.g. in case of group) are finished
+                                # DAG.store_storage_outputs()
                                 store_in_storage=False,
                                 handle_log=True,
                                 handle_touch=True,
