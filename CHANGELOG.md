@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [8.6.0](https://github.com/snakemake/snakemake/compare/v8.5.5...v8.6.0) (2024-03-11)
+
+
+### Features
+
+* add setting for defining separate local storage prefix for remote jobs; improved ergonomics for semantic helper functions ([#2743](https://github.com/snakemake/snakemake/issues/2743)) ([5007e5c](https://github.com/snakemake/snakemake/commit/5007e5c038e0fa5e90a8d44ec4a75ec77c2cd91c))
+* allow passing of lists of functions or single functions to expand ([#2741](https://github.com/snakemake/snakemake/issues/2741)) ([32e65df](https://github.com/snakemake/snakemake/commit/32e65df607127a93cc1857c415154137e3fd438d))
+
+
+### Bug Fixes
+
+* fix error message for invalid storage provider queries ([977951e](https://github.com/snakemake/snakemake/commit/977951ea541bceb97b6a77709fde863f6c638352))
+* fix premature deletion of temp files in combination with checkpoints ([#2737](https://github.com/snakemake/snakemake/issues/2737)) ([b22ba5f](https://github.com/snakemake/snakemake/commit/b22ba5f32b893e8eb50f6e3a6f0874f1c932943b))
+
 ## [8.5.5](https://github.com/snakemake/snakemake/compare/v8.5.4...v8.5.5) (2024-03-07)
 
 
