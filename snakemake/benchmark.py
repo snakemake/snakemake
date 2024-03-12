@@ -439,14 +439,14 @@ def benchmarked(pid=None, benchmark_record=None, interval=BENCHMARK_INTERVAL):
         result.running_time = time.time() - start_time
 
 
-def print_benchmark_records(records, file_):
+def print_benchmark_tsv(records, file_):
     """Write benchmark records to file-like the object"""
     print(BenchmarkRecord.get_header(), file=file_)
     for r in records:
         print(r.to_tsv(), file=file_)
 
 
-def print_benchmark_json(records, file_):
+def print_benchmark_jsonl(records, file_):
     """Write benchmark records to file-like the object"""
     for r in records:
         print(r.to_json(), file=file_)
@@ -456,6 +456,6 @@ def write_benchmark_records(records, path):
     """Write benchmark records to file at path"""
     with open(path, "wt") as f:
         if path.endswith(".jsonl"):
-            print_benchmark_json(records, f)
+            print_benchmark_jsonl(records, f)
         else:
-            print_benchmark_records(records, f)
+            print_benchmark_tsv(records, f)
