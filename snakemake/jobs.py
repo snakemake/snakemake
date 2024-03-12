@@ -39,6 +39,7 @@ from snakemake.io import (
 from snakemake.settings import SharedFSUsage
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
+from snakemake.sourcecache import infer_source_file
 from snakemake.utils import format
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 
@@ -347,9 +348,13 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         path = self.rule.script or self.rule.notebook
         if not path:
             return
+        if self.wildcards is not None or self.params is not None:
+            # parse wildcards and params to get the correct script name
+            path = infer_source_file(format(path, wildcards=self.wildcards, params=self.params))
         if self.rule.basedir:
             # needed if rule is included from another subdirectory
             path = self.rule.basedir.join(path).get_path_or_uri()
+
         if is_local_file(path) and os.path.exists(path):
             script_mtime = os.lstat(path).st_mtime
             for f in self.output:
