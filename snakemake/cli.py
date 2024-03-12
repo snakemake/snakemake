@@ -83,6 +83,13 @@ def expandvars(atype):
     return inner
 
 
+def optional_str(arg):
+    if arg is None or arg == "none":
+        return None
+    else:
+        return arg
+
+
 def parse_set_threads(args):
     return parse_set_ints(
         args,
@@ -1369,10 +1376,12 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--default-storage-provider",
+        type=optional_str,
         help="Specify default storage provider to be used for "
         "all input and output files that don't yet specify "
         "one (e.g. 's3'). See https://snakemake.github.io/snakemake-plugin-catalog "
-        "for available storage provider plugins.",
+        "for available storage provider plugins. If not set or explicitly 'none', no "
+        "default storage provider will be used.",
     )
     group_behavior.add_argument(
         "--default-storage-prefix",
