@@ -1990,6 +1990,10 @@ def test_resource_string_in_cli_or_profile():
     )
 
 
+def test_default_storage_provider_none():
+    run(dpath("test01"), shellcmd="snakemake --default-storage-provider none -c3")
+
+
 def test_resource_tbdstring():
     test_path = dpath("test_resource_tbdstring")
     results_dir = Path(test_path) / "expected-results"
