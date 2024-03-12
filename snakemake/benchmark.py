@@ -26,9 +26,6 @@ class BenchmarkRecord:
     def get_header(klass):
         return "\t".join(
             (
-                "job_id",
-                "rule_name",
-                "wildcards",
                 "s",
                 "h:m:s",
                 "max_rss",
@@ -39,10 +36,6 @@ class BenchmarkRecord:
                 "io_out",
                 "mean_load",
                 "cpu_time",
-                "resources",
-                "threads",
-                "input_total_size_mb",
-                "input_files_size_mb",
             )
         )
 
@@ -62,8 +55,7 @@ class BenchmarkRecord:
         cpu_time=None,
         resources=None,
         threads=None,
-        input_total_size_mb=None,
-        input_files_size_mb=None,
+        input_size_mb=None,
     ):
         #: Job ID
         self.jobid = (jobid,)
@@ -93,10 +85,8 @@ class BenchmarkRecord:
         self.resources = (resources,)
         #: Job threads
         self.threads = (threads,)
-        #: Job input total size in MB
-        self.input_total_size_mb = (input_total_size_mb,)
         #: Job input file size in MB
-        self.input_files_size_mb = (input_files_size_mb,)
+        self.input_size_mb = (input_size_mb,)
         #: First time when we measured CPU load, for estimating total running time
         self.first_time = None
         #: Previous point when measured CPU load, for estimating total running time
@@ -157,9 +147,6 @@ class BenchmarkRecord:
                 map(
                     to_tsv_str,
                     (
-                        self.jobid,
-                        self.rule_name,
-                        self.wildcards,
                         f"{self.running_time:.4f}",
                         timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
                         self.max_rss,
@@ -170,10 +157,6 @@ class BenchmarkRecord:
                         self.io_out,
                         self.cpu_usages / self.running_time,
                         self.cpu_time,
-                        self.resources,
-                        self.threads,
-                        self.input_total_size_mb,
-                        self.input_files_size_mb,
                     ),
                 )
             )
@@ -184,29 +167,65 @@ class BenchmarkRecord:
                 "Benchmark: unable to collect cpu and memory benchmark statistics"
             )
             return "\t".join(
-                map(
-                    to_tsv_str,
-                    (
-                        self.jobid,
-                        self.rule_name,
-                        self.wildcards,
-                        f"{self.running_time:.4f}",
-                        timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
-                        "NA",
-                        "NA",
-                        "NA",
-                        "NA",
-                        "NA",
-                        "NA",
-                        "NA",
-                        "NA",
-                        self.resources,
-                        self.threads,
-                        self.input_total_size_mb,
-                        self.input_files_size_mb,
-                    ),
-                )
+                [
+                    f"{self.running_time:.4f}",
+                    timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
+                    "NA",
+                    "NA",
+                    "NA",
+                    "NA",
+                    "NA",
+                    "NA",
+                    "NA",
+                    "NA",
+                ]
             )
+
+    def to_json(self):
+        """Return ``str`` with the JSON representation of this record"""
+        import json
+
+        record = dict(
+            zip(
+                [
+                    "jobid",
+                    "rule_name",
+                    "wildcards",
+                    "threads",
+                    "running_time",
+                    "max_rss",
+                    "max_vms",
+                    "max_uss",
+                    "max_pss",
+                    "io_in",
+                    "io_out",
+                    "cpu_usages",
+                    "mean_load",
+                    "cpu_time",
+                    "resources",
+                    "input_size_mb",
+                ],
+                [
+                    self.jobid,
+                    self.rule_name,
+                    self.wildcards,
+                    self.threads,
+                    self.running_time,
+                    self.max_rss,
+                    self.max_vms,
+                    self.max_uss,
+                    self.max_pss,
+                    self.io_in,
+                    self.io_out,
+                    self.cpu_usages,
+                    self.cpu_usages / self.running_time,
+                    self.cpu_time,
+                    self.resources,
+                    self.input_size_mb,
+                ],
+            )
+        )
+        return json.dumps(record, sort_keys=True)
 
 
 class DaemonTimer(threading.Thread):
@@ -427,7 +446,16 @@ def print_benchmark_records(records, file_):
         print(r.to_tsv(), file=file_)
 
 
+def print_benchmark_json(records, file_):
+    """Write benchmark records to file-like the object"""
+    for r in records:
+        print(r.to_json(), file=file_)
+
+
 def write_benchmark_records(records, path):
     """Write benchmark records to file at path"""
     with open(path, "wt") as f:
-        print_benchmark_records(records, f)
+        if path.endswith(".jsonl"):
+            print_benchmark_json(records, f)
+        else:
+            print_benchmark_records(records, f)

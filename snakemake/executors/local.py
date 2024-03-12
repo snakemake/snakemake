@@ -478,15 +478,9 @@ def run_wrapper(
                     for key, value in resources.items()
                     if not key.startswith("_")
                 }
-                bench_record.input_files_size_mb = {
+                bench_record.input_size_mb = {
                     file: Path(file).stat().st_size / 1024 / 1024 for file in input
                 }
-                bench_record.input_total_size_mb = sum(
-                    [
-                        size_mb
-                        for file, size_mb in bench_record.input_files_size_mb.items()
-                    ]
-                )
                 bench_record.threads = threads
             write_benchmark_records(bench_records, benchmark)
         except Exception as ex:
