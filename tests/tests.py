@@ -1990,7 +1990,7 @@ def test_resource_string_in_cli_or_profile():
     )
 
 
-@skip_on_windows # not platform dependent, only cli
+@skip_on_windows  # not platform dependent, only cli
 def test_default_storage_provider_none():
     run(dpath("test01"), shellcmd="snakemake --default-storage-provider none -c3")
 
