@@ -480,6 +480,7 @@ class Env:
                             "--quiet",
                             "--no-shortcuts" if ON_WINDOWS else "",
                             "--yes",
+                            "--no-default-packages",
                             f"--prefix '{env_path}'",
                         ]
                         + packages
@@ -522,6 +523,7 @@ class Env:
                             + [
                                 "create",
                                 "--quiet",
+                                "--no-default-packages",
                                 f'--file "{target_env_file}"',
                                 f'--prefix "{env_path}"',
                             ]
