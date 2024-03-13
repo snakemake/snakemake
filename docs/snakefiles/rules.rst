@@ -1931,7 +1931,7 @@ However, the benchmark file can be annotated with the desired number of repeats,
 will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
 The resulting tsv file can be used as input for other rules, just like any other output file.
 
-Since vesion X.X, if the extension of the `benchmark` file is `.jsonl`, Snakemake will output a more verbose benchmark output in JSONL format (i.e. one JSON record per line ) with the fields:
+Since version X.X, if the extension of the `benchmark` file is `.jsonl`, Snakemake will output a more verbose benchmark output in JSONL format (i.e. one JSON record per line ) with the fields:
 * `jobid`: Internal job ID,
 * `rule_name`: Name of rule,
 * `threads`: Number of threads requested for this job,
