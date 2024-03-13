@@ -17,7 +17,7 @@ import copy
 from pathlib import Path
 import tarfile
 import tempfile
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Union
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings import (
     ConfigSettings,
@@ -240,6 +240,12 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def snakemake_tmp_dir(self) -> Path:
         return Path(self._snakemake_tmp_dir.name)
+
+    def register_resource(self, name: str, value: Union[int, str]):
+        self.global_resources[name] = value
+        if self.scheduler is not None:
+            # update the scheduler if it is already active
+            self.scheduler.resources[name] = value
 
     @property
     def source_cache_path(self) -> Path:

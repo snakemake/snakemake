@@ -182,6 +182,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         "incomplete_input_expand",
         "_params_and_resources_resetted",
         "_queue_input",
+        "_aux_resources",
     ]
 
     def __init__(
@@ -237,6 +238,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self._params_and_resources_resetted = False
 
         self._attempt = self.dag.workflow.attempt
+        self._aux_resources = dict()
 
         # TODO get rid of these
         self.temp_output, self.protected_output = set(), set()
@@ -255,6 +257,13 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             queue_info = get_flag_value(f_, "from_queue")
             if queue_info:
                 self._queue_input[queue_info].append(f)
+
+    def add_aux_resource(self, name, value):
+        if name in self._aux_resources:
+            raise ValueError(
+                f"Resource {name} already exists in aux_resources of job {self}."
+            )
+        self._aux_resources[name] = value
 
     @property
     def is_updated(self):
@@ -435,6 +444,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.attempt,
                 skip_evaluation=skip_evaluation,
             )
+        if self._aux_resources and any(
+            name not in self._resources.keys() for name in self._aux_resources.keys()
+        ):
+            self._resources.update(self._aux_resources)
         return self._resources
 
     @property
