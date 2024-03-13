@@ -55,7 +55,7 @@ class BenchmarkRecord:
         cpu_time=None,
         resources=None,
         threads=None,
-        input_size_mb=None,
+        input=None,
     ):
         #: Job ID
         self.jobid = (jobid,)
@@ -85,8 +85,8 @@ class BenchmarkRecord:
         self.resources = (resources,)
         #: Job threads
         self.threads = (threads,)
-        #: Job input file size in MB
-        self.input_size_mb = (input_size_mb,)
+        #: Job input
+        self.input = input
         #: First time when we measured CPU load, for estimating total running time
         self.first_time = None
         #: Previous point when measured CPU load, for estimating total running time
@@ -184,47 +184,28 @@ class BenchmarkRecord:
     def to_json(self):
         """Return ``str`` with the JSON representation of this record"""
         import json
+        from pathlib import Path
 
-        record = dict(
-            zip(
-                [
-                    "jobid",
-                    "rule_name",
-                    "wildcards",
-                    "threads",
-                    "running_time",
-                    "max_rss",
-                    "max_vms",
-                    "max_uss",
-                    "max_pss",
-                    "io_in",
-                    "io_out",
-                    "cpu_usages",
-                    "mean_load",
-                    "cpu_time",
-                    "resources",
-                    "input_size_mb",
-                ],
-                [
-                    self.jobid,
-                    self.rule_name,
-                    self.wildcards,
-                    self.threads,
-                    self.running_time,
-                    self.max_rss,
-                    self.max_vms,
-                    self.max_uss,
-                    self.max_pss,
-                    self.io_in,
-                    self.io_out,
-                    self.cpu_usages,
-                    self.cpu_usages / self.running_time,
-                    self.cpu_time,
-                    self.resources,
-                    self.input_size_mb,
-                ],
-            )
-        )
+        record = {
+            "jobid": self.jobid,
+            "rule_name": self.rule_name,
+            "wildcards": self.wildcards,
+            "threads": self.threads,
+            "running_time": self.running_time,
+            "max_rss": self.max_rss,
+            "max_vms": self.max_vms,
+            "max_uss": self.max_uss,
+            "max_pss": self.max_pss,
+            "io_in": self.io_in,
+            "io_out": self.io_out,
+            "cpu_usages": self.cpu_usages,
+            "mean_load": self.cpu_usages / self.running_time,
+            "cpu_time": self.cpu_time,
+            "resources": {key: value for key, value in self.resources.items()},
+            "input_size_mb": {
+                file: Path(file).stat().st_size / 1024 / 1024 for file in self.input
+            },
+        }
         return json.dumps(record, sort_keys=True)
 
 

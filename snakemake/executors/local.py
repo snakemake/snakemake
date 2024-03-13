@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 
 import os
-from pathlib import Path
 import sys
 import time
 import shlex
@@ -470,17 +469,9 @@ def run_wrapper(
             for bench_record in bench_records:
                 bench_record.jobid = jobid
                 bench_record.rule_name = job_rule.name
-                bench_record.wildcards = {
-                    key: value for key, value in wildcards.items()
-                }
-                bench_record.resources = {
-                    key: value
-                    for key, value in resources.items()
-                    if not key.startswith("_")
-                }
-                bench_record.input_size_mb = {
-                    file: Path(file).stat().st_size / 1024 / 1024 for file in input
-                }
+                bench_record.wildcards = wildcards
+                bench_record.resources = resources
+                bench_record.input = input
                 bench_record.threads = threads
             write_benchmark_records(bench_records, benchmark)
         except Exception as ex:
