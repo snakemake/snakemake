@@ -326,6 +326,11 @@ def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 
 
+@skip_on_windows
+def test_benchmark_jsonl():
+    run(dpath("test_benchmark_jsonl"), check_md5=False)
+
+
 def test_temp_expand():
     run(dpath("test_temp_expand"))
 

@@ -41,6 +41,9 @@ class BenchmarkRecord:
 
     def __init__(
         self,
+        jobid=None,
+        rule_name=None,
+        wildcards=None,
         running_time=None,
         max_rss=None,
         max_vms=None,
@@ -50,11 +53,19 @@ class BenchmarkRecord:
         io_out=None,
         cpu_usages=None,
         cpu_time=None,
+        resources=None,
+        threads=None,
+        input=None,
     ):
+        #: Job ID
+        self.jobid = (jobid,)
+        #: Rule name
+        self.rule_name = (rule_name,)
+        #: Job wildcards
+        self.wildcards = (wildcards,)
         #: Running time in seconds
         self.running_time = running_time
         #: Maximal RSS in MB
-
         self.max_rss = max_rss
         #: Maximal VMS in MB
         self.max_vms = max_vms
@@ -70,6 +81,12 @@ class BenchmarkRecord:
         self.cpu_usages = cpu_usages or 0
         #: CPU usage (user and system) in seconds
         self.cpu_time = cpu_time or 0
+        #: Job resources
+        self.resources = (resources,)
+        #: Job threads
+        self.threads = (threads,)
+        #: Job input
+        self.input = input
         #: First time when we measured CPU load, for estimating total running time
         self.first_time = None
         #: Previous point when measured CPU load, for estimating total running time
@@ -163,6 +180,33 @@ class BenchmarkRecord:
                     "NA",
                 ]
             )
+
+    def to_json(self):
+        """Return ``str`` with the JSON representation of this record"""
+        import json
+        from pathlib import Path
+
+        record = {
+            "jobid": self.jobid,
+            "rule_name": self.rule_name,
+            "wildcards": self.wildcards,
+            "threads": self.threads,
+            "running_time": self.running_time,
+            "max_rss": self.max_rss,
+            "max_vms": self.max_vms,
+            "max_uss": self.max_uss,
+            "max_pss": self.max_pss,
+            "io_in": self.io_in,
+            "io_out": self.io_out,
+            "cpu_usages": self.cpu_usages,
+            "mean_load": self.cpu_usages / self.running_time,
+            "cpu_time": self.cpu_time,
+            "resources": {key: value for key, value in self.resources.items()},
+            "input_size_mb": {
+                file: Path(file).stat().st_size / 1024 / 1024 for file in self.input
+            },
+        }
+        return json.dumps(record, sort_keys=True)
 
 
 class DaemonTimer(threading.Thread):
@@ -376,14 +420,23 @@ def benchmarked(pid=None, benchmark_record=None, interval=BENCHMARK_INTERVAL):
         result.running_time = time.time() - start_time
 
 
-def print_benchmark_records(records, file_):
+def print_benchmark_tsv(records, file_):
     """Write benchmark records to file-like the object"""
     print(BenchmarkRecord.get_header(), file=file_)
     for r in records:
         print(r.to_tsv(), file=file_)
 
 
+def print_benchmark_jsonl(records, file_):
+    """Write benchmark records to file-like the object"""
+    for r in records:
+        print(r.to_json(), file=file_)
+
+
 def write_benchmark_records(records, path):
     """Write benchmark records to file at path"""
     with open(path, "wt") as f:
-        print_benchmark_records(records, f)
+        if path.endswith(".jsonl"):
+            print_benchmark_jsonl(records, f)
+        else:
+            print_benchmark_tsv(records, f)

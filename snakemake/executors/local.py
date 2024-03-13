@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 
 import os
-from pathlib import Path
 import sys
 import time
 import shlex
@@ -161,9 +160,11 @@ class Executor(RealExecutor):
             self.workflow.execution_settings.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
-            self.workflow.execution_settings.edit_notebook
-            if self.dag.is_edit_notebook_job(job)
-            else None,
+            (
+                self.workflow.execution_settings.edit_notebook
+                if self.dag.is_edit_notebook_job(job)
+                else None
+            ),
             self.workflow.conda_base_path,
             job.rule.basedir,
             self.workflow.sourcecache.cache_path,
@@ -464,6 +465,14 @@ def run_wrapper(
 
     if benchmark is not None:
         try:
+            # Add job info to (all repeats of) benchmark file
+            for bench_record in bench_records:
+                bench_record.jobid = jobid
+                bench_record.rule_name = job_rule.name
+                bench_record.wildcards = wildcards
+                bench_record.resources = resources
+                bench_record.input = input
+                bench_record.threads = threads
             write_benchmark_records(bench_records, benchmark)
         except Exception as ex:
             raise WorkflowError(ex)

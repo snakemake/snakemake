@@ -52,7 +52,7 @@ Write Documentation
 Snakemake could always use more documentation, whether as part of the official vcfpy docs, in docstrings, or even on the web in blog posts, articles, and such.
 
 Snakemake uses `Sphinx <https://sphinx-doc.org>`_ for the user manual (that you are currently reading).
-See `project_info-doc_guidelines` on how the documentation reStructuredText is used.
+See :ref:`project_info-doc_guidelines` on how the documentation reStructuredText is used.
 
 
 Submit Feedback
