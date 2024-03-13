@@ -1562,6 +1562,14 @@ class Namedlist(list):
         else:
             setattr(self, name, Namedlist(toclone=self[index:end]))
 
+    def update(self, items: Dict):
+        for key, value in items.items():
+            if key in self._names:
+                raise ValueError(f"Key {key} already exists in Namedlist")
+            else:
+                self.append(value)
+                self._add_name(key)
+
     def _get_names(self):
         """
         Get the defined names as (name, index) pairs.

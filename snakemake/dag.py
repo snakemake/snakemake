@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import asyncio
 from builtins import ExceptionGroup
+import hashlib
 import html
 import os
 import shutil
@@ -1559,6 +1560,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             await self.update_needrun()
         self.update_priority()
         self.handle_pipes_and_services()
+        self.handle_update_flags()
         self.update_groups()
 
         if update_incomplete_input_expand_jobs:
@@ -1965,6 +1967,32 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Return True if the underlying rule is to be used for batching the DAG."""
         return self.batch is not None and rule.name == self.batch.rulename
 
+    def handle_update_flags(self):
+        before_update_jobs = dict()
+        update_jobs = dict()
+        for job in self.needrun_jobs():
+            for f in job.input:
+                if is_flagged(f, "before_update"):
+                    before_update_jobs[f] = job
+            for f in job.output:
+                if is_flagged(f, "update"):
+                    update_jobs[f] = job
+
+        for f, job in before_update_jobs.items():
+            update_job = update_jobs.get(f)
+            if update_job is not None and job.priority <= update_job.priority:
+                logger.info(
+                    f"Raising priority of job {job} such that it runs before "
+                    f"job {update_job} because of flag 'before_update' on {f}"
+                )
+                self._priority[job] = update_job.priority + 1
+                f_hash = hashlib.sha256()
+                f_hash.update(f.encode())
+                mutex = f"update_file_{f_hash.hexdigest()}"
+                job.add_aux_resource(mutex, 1)
+                update_job.add_aux_resource(mutex, 1)
+                self.workflow.register_resource(mutex, 1)
+
     def collect_potential_dependencies(self, job, known_producers):
         """Collect all potential dependencies of a job. These might contain
         ambiguities. The keys of the returned dict represent the files to be considered.
@@ -1987,6 +2015,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 input_files = input_batch
 
         for file in input_files:
+            if is_flagged(file, "before_update"):
+                # do not find a producer for this file, it shall be considered in its
+                # form before the update
+                continue
             try:
                 yield PotentialDependency(file, known_producers[file], True)
             except KeyError:
