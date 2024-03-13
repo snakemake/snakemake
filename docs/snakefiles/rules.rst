@@ -1931,6 +1931,24 @@ However, the benchmark file can be annotated with the desired number of repeats,
 will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
 The resulting tsv file can be used as input for other rules, just like any other output file.
 
+Since vesion X.X, if the extension of the `benchmark` file is `.jsonl`, Snakemake will output a more verbose benchmark output in JSONL format (i.e. one JSON record per line ) with the fields:
+* `jobid`: Internal job ID,
+* `rule_name`: Name of rule,
+* `threads`: Number of threads requested for this job,
+* `wildcards`: Wildcards on this job,
+* `running_time`: Running time (seconds),
+* `max_rss`: Max `RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_ memory usage (MB),
+* `max_vms`: Max `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_ memory usage (MB),
+* `max_uss`: Max `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_ memory usage (MB),
+* `max_pss`: Max `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_ memory usage (MB),
+* `io_in`: Input load (B),
+* `io_out`: Output load (B),
+* `cpu_usages`: Total CPU usage (seconds),
+* `mean_load`: Mean CPU load (`cpu_usages` / `runnning_time`),
+* `cpu_time`: CPU time (seconds),
+* `resources`: Resources requested for this job,
+* `input_size_mb`: Size of input files (MiB),
+
 .. sidebar:: Note
 
     Note that benchmarking is only possible in a reliable fashion for subprocesses (thus for tasks run through the ``shell``, ``script``, and ``wrapper`` directive).
