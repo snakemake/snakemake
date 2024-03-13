@@ -2832,7 +2832,7 @@ This way, Snakemake will not delete the file before the job is executed.
 
 If such a file/directory has to be considered as input **before the update** for another rule
 it can be marked as ``before_update``.
-This ensures that Snakemake does not search for a producing job but instead consideres the file as is on disk or in the storage:
+This ensures that Snakemake does not search for a producing job but instead considers the file as is on disk or in the storage:
 
 .. code-block:: python
 
