@@ -2804,3 +2804,28 @@ Consider the following complete toy example:
             "test{i}.txt"
         shell:
             "echo {wildcards.i} > {output}"
+
+.. _snakefiles_update_output:
+
+Updating existing output files
+------------------------------
+
+By default, Snakemake deletes already existing output files before a job is executed.
+This is usually very convenient, because many tools will fail if their output files already exist.
+However, from Snakemake 8.7 on, it is possible to declare an output file to be updated by a job instead of rewritten from scratch.
+Consider the following example:
+
+.. code-block:: python
+
+    rule update:
+        input:
+            "in.txt"
+        output:
+            update("test.txt")
+        shell:
+            "echo test >> {output}"
+
+
+Here, the statement ``test`` is appended to the output file ``test.txt``.
+Hence, we declare it as being updated via the ``update`` flag.
+This way, Snakemake will not delete the file before the job is executed.

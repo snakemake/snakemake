@@ -57,6 +57,8 @@ def format_file(f, is_input: bool):
         return f"{f} (pipe)"
     elif is_flagged(f, "service"):
         return f"{f} (service)"
+    elif is_flagged(f, "update"):
+        return f"{f} (updated)"
     elif is_flagged(f, "checkpoint_target"):
         return TBDString()
     elif is_flagged(f, "sourcecache_entry"):
@@ -703,6 +705,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     async def remove_existing_output(self):
         """Clean up output before rules actually run"""
         for f, f_ in zip(self.output, self.rule.output):
+            if is_flagged(f, "update"):
+                # output files marked as to be updated are not removed
+                continue
             try:
                 # remove_non_empty_dir only applies to directories which aren't
                 # flagged with directory().

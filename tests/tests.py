@@ -2041,6 +2041,11 @@ def test_call_inner():
 
 
 @skip_on_windows  # OS agnostic
+def test_update_flag():
+    run(dpath("test_update_flag"))
+
+
+@skip_on_windows  # OS agnostic
 def test_list_input_changes():
     run(dpath("test01"), shellcmd="snakemake --list-input-changes", check_results=False)
 

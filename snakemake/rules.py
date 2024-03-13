@@ -441,6 +441,7 @@ class Rule(RuleInterface):
                         "pipe",
                         "service",
                         "ensure",
+                        "update",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
