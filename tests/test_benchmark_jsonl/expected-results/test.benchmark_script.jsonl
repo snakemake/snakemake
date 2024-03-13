@@ -1,0 +1,1 @@
+{"cpu_time": 0.14, "cpu_usages": 0.0, "input_size_mb": {}, "io_in": 0.0, "io_out": 0.0, "jobid": 2, "max_pss": 19.5517578125, "max_rss": 28.8984375, "max_uss": 14.99609375, "max_vms": 57.59375, "mean_load": 0.0, "resources": {"_cores": 1, "_nodes": 1, "tmpdir": "/tmp"}, "rule_name": "bench_script", "running_time": 1.3009295463562012, "threads": 1, "wildcards": []}
