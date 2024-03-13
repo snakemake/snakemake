@@ -448,7 +448,7 @@ class Rule(RuleInterface):
                                 item_flag, self
                             )
                         )
-                    if output and item_flag in ["ancient"]:
+                    if output and item_flag in ["ancient", "before_update"]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(
                                 item_flag, self

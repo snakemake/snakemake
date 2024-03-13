@@ -58,7 +58,9 @@ def format_file(f, is_input: bool):
     elif is_flagged(f, "service"):
         return f"{f} (service)"
     elif is_flagged(f, "update"):
-        return f"{f} (updated)"
+        return f"{f} (update)"
+    elif is_flagged(f, "before_update"):
+        return f"{f} (before update)"
     elif is_flagged(f, "checkpoint_target"):
         return TBDString()
     elif is_flagged(f, "sourcecache_entry"):

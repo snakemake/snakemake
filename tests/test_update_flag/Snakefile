@@ -1,5 +1,20 @@
 shell("date > in.txt")
 
+
+rule all:
+    input:
+        "out.txt", "test.txt"
+
+
+rule b:
+    input:
+        before_update("test.txt")
+    output:
+        "out.txt"
+    shell:
+        "cp {input} {output}"
+
+
 rule a:
     input:
         "in.txt"
