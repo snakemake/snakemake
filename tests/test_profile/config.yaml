@@ -8,6 +8,6 @@ default-resources:
   - eggs_factor=twitter
 set-resources:
   a:
-    mem_mb: max(1024*24*input.size_mb * threads, 1)
+    mem_mb: max(1024*24*input.size_mb * threads, 3)
     spam_factor: X
     double_jeopardy: attempt
