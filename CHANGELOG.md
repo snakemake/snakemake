@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [8.8.0](https://github.com/snakemake/snakemake/compare/v8.7.0...v8.8.0) (2024-03-15)
+
+
+### Features
+
+* Allow smart_open 7.x ([#2745](https://github.com/snakemake/snakemake/issues/2745)) ([d52c1b1](https://github.com/snakemake/snakemake/commit/d52c1b1805d2e30124da2ac01f614fe4f5cb0257))
+
+
+### Bug Fixes
+
+* various error handling improvements, fixed logging/error behavior (stdout from dryrun, stderr otherwise) ([#2759](https://github.com/snakemake/snakemake/issues/2759)) ([d0d1f48](https://github.com/snakemake/snakemake/commit/d0d1f48e9bc1f8f994c2f243255b84a1b73e5208))
+
 ## [8.7.0](https://github.com/snakemake/snakemake/compare/v8.6.0...v8.7.0) (2024-03-13)
 
 
