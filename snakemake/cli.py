@@ -1885,6 +1885,7 @@ def args_to_api(args, parser):
             show_failed_logs=args.show_failed_logs,
             log_handlers=log_handlers,
             keep_logger=False,
+            stdout=args.dryrun,
         )
     ) as snakemake_api:
         deployment_method = args.software_deployment_method

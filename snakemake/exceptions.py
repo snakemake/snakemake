@@ -18,8 +18,10 @@ def format_error(
     msg = str(ex)
     if linemaps and snakefile and snakefile in linemaps:
         lineno = linemaps[snakefile][lineno]
-        if isinstance(ex, SyntaxError):
-            msg = ex.msg
+
+    if isinstance(ex, SyntaxError):
+        msg = ex.msg.split("(")[0]
+        msg = f"{msg}:\n{ex.text}"
 
     location = ""
     if lineno and snakefile:
@@ -157,7 +159,7 @@ def print_exception(ex, linemaps=None):
     elif isinstance(ex, KeyboardInterrupt):
         logger.info("Cancelling snakemake on user request.")
     else:
-        traceback.print_exception(type(ex), ex, ex.__traceback__)
+        logger.error(traceback.format_exeption(ex))
 
 
 def update_lineno(ex: SyntaxError, linemaps):

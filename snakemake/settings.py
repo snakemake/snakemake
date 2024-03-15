@@ -340,6 +340,7 @@ class OutputSettings(SettingsBase):
     show_failed_logs: bool = False
     log_handlers: Sequence[object] = tuple()
     keep_logger: bool = False
+    stdout: bool = False
 
 
 @dataclass
