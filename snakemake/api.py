@@ -382,11 +382,11 @@ class WorkflowApi(ApiBase):
     def _workflow(self):
         if self._workflow_store is None:
             workflow = self._get_workflow()
+            self._workflow_store = workflow
             workflow.include(
                 self.snakefile, overwrite_default_target=True, print_compilation=False
             )
             workflow.check()
-            self._workflow_store = workflow
         return self._workflow_store
 
     def _get_workflow(self, **kwargs):

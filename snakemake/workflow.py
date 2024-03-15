@@ -1395,11 +1395,7 @@ class Workflow(WorkflowExecutorInterface):
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
 
-        try:
-            exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
-        except SyntaxError as e:
-            e = update_lineno(e, self.linemaps)
-            raise
+        exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
         if not overwrite_default_target:
             self.default_target = default_target

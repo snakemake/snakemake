@@ -18,8 +18,10 @@ def format_error(
     msg = str(ex)
     if linemaps and snakefile and snakefile in linemaps:
         lineno = linemaps[snakefile][lineno]
-        if isinstance(ex, SyntaxError):
-            msg = ex.msg
+
+    if isinstance(ex, SyntaxError):
+        msg = ex.msg.split("(")[0]
+        msg = f"{msg}:\n{ex.text}"
 
     location = ""
     if lineno and snakefile:
