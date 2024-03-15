@@ -1,4 +1,3 @@
-
 from snakemake.utils import min_version
 
 from snakemake import __version__
