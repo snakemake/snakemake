@@ -2056,6 +2056,11 @@ def test_summary():
 
 
 @skip_on_windows  # OS agnostic
+def test_exists():
+    run(dpath("test_exists"), check_results=False, executor="dryrun")
+
+
+@skip_on_windows  # OS agnostic
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
 
