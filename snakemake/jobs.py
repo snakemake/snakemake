@@ -772,11 +772,17 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
 
         # wait for input files, respecting keep_storage_local
         wait_for_local = self.dag.workflow.storage_settings.keep_storage_local
-        await wait_for_files(
-            self.input,
-            wait_for_local=wait_for_local,
-            latency_wait=self.dag.workflow.execution_settings.latency_wait,
-        )
+        try:
+            await wait_for_files(
+                self.input,
+                wait_for_local=wait_for_local,
+                latency_wait=self.dag.workflow.execution_settings.latency_wait,
+            )
+        except IOError as ex:
+            raise WorkflowError(
+                ex,
+                rule=self.rule,
+            )
 
         if not self.is_shadow or self.is_norun:
             return

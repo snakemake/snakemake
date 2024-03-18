@@ -534,6 +534,33 @@ Consider the following example:
 The semantic is as follows:
 If the sample wildcard is ``100``, the input is ``a/100.txt``, otherwise it is ``b/100.txt``.
 
+.. _snakefiles-semantic-helpers-exists:
+
+The exists function
+"""""""""""""""""""
+
+The ``exists`` function allows to check whether a file exists, while properly considering remote storage settings provided to Snakemake.
+For example, if Snakemake has been configured to consider all input and output files to be located in an S3 bucket, ``exists`` will check whether the file exists in the S3 bucket.
+It has the signature ``exists(path)``, with ``path`` being the path to a file or directory, or an explicit :ref:`storage object <storage-support>`.
+The function returns ``True`` if the file exists, and ``False`` otherwise.
+It can for example be used to condition some behavior in the workflow on the existence of a file **before** the workflow is executed:
+
+.. code-block:: python
+
+    rule all:
+        input:
+            # only expect the output if test.txt is present before workflow execution
+            "out.txt" if exists("test.txt") else [],
+
+    rule b:
+        input:
+            "test.txt"
+        output:
+            "out.txt"
+        shell:
+            "cp {input} {output}"
+
+
 .. _snakefiles-targets:
 
 Target rules
@@ -2853,3 +2880,4 @@ This ensures that Snakemake does not search for a producing job but instead cons
             "echo test >> {output}"
 
 As can be seen, this way it is even possible to break a cyclic dependency.
+An important helper for setting up the logic of ``before_update`` is the :ref:`exists function <snakefiles-semantic-helpers-exists>`, which allows to e.g. condition the consideration of the file that shall be used before the update by its actual existence before the update.

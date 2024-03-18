@@ -1030,7 +1030,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 if self.workflow.is_main_process and not await res.file.exists():
                     # file not found, hence missing input
                     missing_input.add(res.file)
-                known_producers[res.file] = None
+                if not is_flagged(res.file, "before_update"):
+                    # record info that there is no known producer, but only
+                    # do that for files that are not flagged as before_update
+                    # otherwise, we would risk a conflict with corresponding files
+                    # that are flagged as 'update'.
+                    known_producers[res.file] = None
                 # file found, no problem
                 continue
 
@@ -2018,32 +2023,33 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if is_flagged(file, "before_update"):
                 # do not find a producer for this file, it shall be considered in its
                 # form before the update
-                continue
-            try:
-                yield PotentialDependency(file, known_producers[file], True)
-            except KeyError:
+                yield PotentialDependency(file, None, False)
+            else:
                 try:
-                    if file in job.dependencies:
-                        yield PotentialDependency(
-                            file,
-                            [
-                                self.new_job(
-                                    job.dependencies[file],
-                                    targetfile=file,
-                                    wildcards_dict=job.wildcards_dict,
-                                )
-                            ],
-                            False,
-                        )
-                    else:
-                        yield PotentialDependency(
-                            file,
-                            file2jobs(file, wildcards_dict=job.wildcards_dict),
-                            False,
-                        )
-                except MissingRuleException as ex:
-                    # no dependency found
-                    yield PotentialDependency(file, None, False)
+                    yield PotentialDependency(file, known_producers[file], True)
+                except KeyError:
+                    try:
+                        if file in job.dependencies:
+                            yield PotentialDependency(
+                                file,
+                                [
+                                    self.new_job(
+                                        job.dependencies[file],
+                                        targetfile=file,
+                                        wildcards_dict=job.wildcards_dict,
+                                    )
+                                ],
+                                False,
+                            )
+                        else:
+                            yield PotentialDependency(
+                                file,
+                                file2jobs(file, wildcards_dict=job.wildcards_dict),
+                                False,
+                            )
+                    except MissingRuleException as ex:
+                        # no dependency found
+                        yield PotentialDependency(file, None, False)
 
     def bfs(self, direction, *jobs, stop=lambda job: False):
         """Perform a breadth-first traversal of the DAG."""

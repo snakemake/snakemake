@@ -159,7 +159,7 @@ def print_exception(ex, linemaps=None):
     elif isinstance(ex, KeyboardInterrupt):
         logger.info("Cancelling snakemake on user request.")
     else:
-        logger.error(traceback.format_exeption(ex))
+        logger.error("\n".join(traceback.format_exception(ex)))
 
 
 def update_lineno(ex: SyntaxError, linemaps):
