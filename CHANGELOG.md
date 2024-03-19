@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.9.0](https://github.com/snakemake/snakemake/compare/v8.8.0...v8.9.0) (2024-03-18)
+
+
+### Features
+
+* add function 'exists' for checking the prior existence of files or dirs before workflow execution while considering any remote storage settings. In addition: some bug fixes for error handling and the update/before_update functionality. ([ee96393](https://github.com/snakemake/snakemake/commit/ee9639385cb2c9cec425800088faee4e4bf77c9a))
+
 ## [8.8.0](https://github.com/snakemake/snakemake/compare/v8.7.0...v8.8.0) (2024-03-15)
 
 
