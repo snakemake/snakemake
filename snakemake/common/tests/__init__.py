@@ -65,7 +65,7 @@ class TestWorkflowsBase(ABC):
             seconds_between_status_checks=0,
             envvars=self.get_envvars(),
         )
-    
+
     def get_resource_settings(self) -> settings.ResourceSettings:
         return settings.ResourceSettings()
 
