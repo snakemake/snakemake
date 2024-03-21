@@ -604,21 +604,6 @@ def get_argument_parser(profiles=None):
         type=int,
         help="Number of retries that shall be made in order to finish a job from of rule that has been marked as preemptible via the --preemptible-rules setting.",
     )
-
-    group_exec.add_argument(
-        "--config",
-        "-C",
-        nargs="*",
-        metavar="KEY=VALUE",
-        default=dict(),
-        parse_func=parse_config,
-        help=(
-            "Set or overwrite values in the workflow config object. "
-            "The workflow config object is accessible as variable config inside "
-            "the workflow. Default values can be set by providing a JSON file "
-            "(see Documentation)."
-        ),
-    )
     group_exec.add_argument(
         "--configfile",
         "--configfiles",
@@ -633,6 +618,18 @@ def get_argument_parser(profiles=None):
             "the given order. Thereby missing keys in previous config files are extended by "
             "following configfiles. Note that this order also includes a config file defined "
             "in the workflow definition itself (which will come first)."
+        ),
+    )
+    group_exec.add_argument(
+        "--config",
+        "-C",
+        nargs="*",
+        metavar="KEY=VALUE",
+        help=(
+            "Set or overwrite values in the workflow config object. "
+            "The workflow config object is accessible as variable config inside "
+            "the workflow. Default values can be set by providing a YAML JSON file "
+            "(see --configfile and Documentation)."
         ),
     )
     group_exec.add_argument(
@@ -1932,8 +1929,9 @@ def args_to_api(args, parser):
                         default_resources=args.default_resources,
                     ),
                     config_settings=ConfigSettings(
-                        config=args.config,
+                        config=parse_config(args.config),
                         configfiles=args.configfile,
+                        config_args=args.config,
                     ),
                     storage_settings=storage_settings,
                     storage_provider_settings=storage_provider_settings,
