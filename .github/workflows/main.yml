@@ -70,6 +70,8 @@ jobs:
         run: |
           conda config --set channel_priority strict
 
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins@fix/quoting
+
           pip install -e .
 
       - name: Configure fast APT mirror
