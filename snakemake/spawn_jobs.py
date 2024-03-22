@@ -294,4 +294,8 @@ class SpawnedJobArgsFactory:
         if executor_common_settings.pass_group_args:
             args.append(self.get_group_args())
 
+        from snakemake.logging import logger
+
+        logger.debug(f"General args: {args}")
+
         return join_cli_args(args)

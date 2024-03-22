@@ -319,7 +319,7 @@ class ConfigSettings(SettingsBase):
 
     def _get_config_args(self):
         if self.config_args is None:
-            return dict_to_key_value_args(self.config)
+            return dict_to_key_value_args(self.config, repr_obj=True)
         else:
             return self.config_args
 
