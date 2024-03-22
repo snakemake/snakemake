@@ -63,7 +63,7 @@ dependencies:
   - pip:
       - cwltool
       - cwl-utils
-      - "--editable=https://github.com/snakemake/snakemake-interface-executor-plugins.git@fix/quoting-lists"
+      - "--editable=git+https://github.com/snakemake/snakemake-interface-executor-plugins.git@fix/quoting-lists"
       - snakemake-executor-plugin-cluster-generic >=1.0.9
       - snakemake-storage-plugin-http
       - snakemake-storage-plugin-s3
