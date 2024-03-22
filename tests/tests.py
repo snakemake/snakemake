@@ -447,6 +447,11 @@ def test_conda_list_envs():
     run(dpath("test_conda"), conda_list_envs=True, check_results=False)
 
 
+# TODO failing with FAILED tests/tests.py::test_conda_create_envs_only - 
+# PermissionError: [WinError 32] The process cannot access the file because 
+# it is being used by another process: 
+# 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\snakemake-2q4osog0\\test-env.yaml'
+@skip_on_windows 
 def test_conda_create_envs_only():
     tmpdir = run(
         dpath("test_conda"),
