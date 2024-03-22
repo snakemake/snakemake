@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.10.0](https://github.com/snakemake/snakemake/compare/v8.9.0...v8.10.0) (2024-03-22)
+
+
+### Features
+
+* expose ResourceSettings in TestWorkflowsBase ([#2770](https://github.com/snakemake/snakemake/issues/2770)) ([e7c323b](https://github.com/snakemake/snakemake/commit/e7c323b707091d759592a6c0b75e8f772b2c72c5))
+
 ## [8.9.0](https://github.com/snakemake/snakemake/compare/v8.8.0...v8.9.0) (2024-03-18)
 
 
