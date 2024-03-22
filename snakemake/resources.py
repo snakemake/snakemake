@@ -626,7 +626,8 @@ def infer_resources(name, value, resources: dict):
     """Infer resources from a given one, if possible."""
     from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
 
-    value = value.strip("'\"")
+    if isinstance(value, str):
+        value = value.strip("'\"")
 
     if (
         (name == "mem" or name == "disk")
