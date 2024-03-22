@@ -2023,7 +2023,7 @@ def test_issue2685():
 def test_set_resources_complex():
     run(
         dpath("test05"),
-        shellcmd="snakemake -c1 --set-resources \"compute1:slurm_extra='--nice=10'\"",
+        shellcmd="snakemake --verbose -c1 --set-resources \"compute1:slurm_extra='--nice=10'\"",
     )
 
 

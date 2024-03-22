@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Set
 
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_executor_plugins.utils import is_quoted
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 import snakemake.common.argparse
@@ -117,10 +118,14 @@ def parse_set_resources(args):
             if len(key) != 2:
                 raise ValueError(errmsg)
             rule, resource = key
-            try:
-                value = int(orig_value)
-            except ValueError:
-                value = eval_resource_expression(orig_value)
+            if is_quoted(orig_value):
+                # value is a string, just keep it
+                value = orig_value
+            else:
+                try:
+                    value = int(orig_value)
+                except ValueError:
+                    value = eval_resource_expression(orig_value)
             if isinstance(value, int) and value < 0:
                 raise ValueError(errmsg)
             assignments[rule][resource] = ParsedResource(

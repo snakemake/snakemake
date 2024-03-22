@@ -277,7 +277,7 @@ def run(
         shellcmd = "{} -m {}".format(sys.executable, shellcmd)
         try:
             if sigint_after is None:
-                subprocess.run(
+                res = subprocess.run(
                     shellcmd,
                     cwd=path if no_tmpdir else tmpdir,
                     check=True,
@@ -285,6 +285,7 @@ def run(
                     stderr=subprocess.STDOUT,
                     stdout=subprocess.PIPE,
                 )
+                print(res.stdout.decode())
                 success = True
             else:
                 with subprocess.Popen(
@@ -297,6 +298,8 @@ def run(
                     process.send_signal(signal.SIGINT)
                     time.sleep(2)
                     success = process.returncode == 0
+                    if success:
+                        print(process.stdout.read().decode())
         except subprocess.CalledProcessError as e:
             success = False
             print(e.stdout.decode(), file=sys.stderr)
