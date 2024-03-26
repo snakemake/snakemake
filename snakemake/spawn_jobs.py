@@ -104,6 +104,7 @@ class SpawnedJobArgsFactory:
                     for name, value in res.items()
                 ],
                 skip=not self.workflow.resource_settings.overwrite_resources,
+                base64_encode=True,
             ),
             format_cli_arg(
                 "--set-threads",
@@ -112,6 +113,7 @@ class SpawnedJobArgsFactory:
                     for rule, value in self.workflow.resource_settings.overwrite_threads.items()
                 ],
                 skip=not self.workflow.resource_settings.overwrite_threads,
+                base64_encode=True,
             ),
         ]
 
@@ -149,7 +151,13 @@ class SpawnedJobArgsFactory:
         return join_cli_args([groups, group_components])
 
     def workflow_property_to_arg(
-        self, property, flag=None, quote=True, skip=False, invert=False, attr=None
+        self,
+        property,
+        flag=None,
+        base64_encode=False,
+        skip=False,
+        invert=False,
+        attr=None,
     ):
         if skip:
             return ""
@@ -171,7 +179,7 @@ class SpawnedJobArgsFactory:
         if invert and isinstance(value, bool):
             value = not value
 
-        return format_cli_arg(flag, value, quote=quote)
+        return format_cli_arg(flag, value, base64_encode=base64_encode)
 
     def envvars(self) -> Mapping[str, str]:
         envvars = {
