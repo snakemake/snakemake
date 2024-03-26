@@ -163,7 +163,7 @@ def test15():
     run(dpath("test15"))
 
 
-@skip_on_windows # OS agnostic
+@skip_on_windows  # OS agnostic
 def test_set_threads():
     run(
         dpath("test_set_threads"),
