@@ -106,13 +106,13 @@ class SpawnedJobArgsFactory:
                 skip=not self.workflow.resource_settings.overwrite_resources,
             ),
             format_cli_arg(
-               "--set-threads",
+                "--set-threads",
                 [
                     f"{rule}={get_orig_arg(value)}"
                     for rule, value in self.workflow.resource_settings.overwrite_threads.items()
                 ],
                 skip=not self.workflow.resource_settings.overwrite_threads,
-            )
+            ),
         ]
 
     def get_resource_scopes_args(self):

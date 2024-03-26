@@ -1602,9 +1602,9 @@ class Workflow(WorkflowExecutorInterface):
                 rule.resources["_cores"] = 1
 
             if name in self.resource_settings.overwrite_threads:
-                rule.resources["_cores"] = get_resource_value(self.resource_settings.overwrite_threads[
-                    name
-                ])
+                rule.resources["_cores"] = get_resource_value(
+                    self.resource_settings.overwrite_threads[name]
+                )
 
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (
@@ -1647,7 +1647,6 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 rule.resources.update(resources)
             if name in self.resource_settings.overwrite_resources:
-
                 rule.resources.update(
                     (resource, get_resource_value(value))
                     for resource, value in self.resource_settings.overwrite_resources[

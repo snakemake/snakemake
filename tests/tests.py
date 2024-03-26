@@ -166,7 +166,7 @@ def test15():
 def test_set_threads():
     run(
         dpath("test_set_threads"),
-        shellcmd="snakemake --executor local --set-threads \"a=max(input.size, 5)\" -c 5 --verbose"
+        shellcmd='snakemake --executor local --set-threads "a=max(input.size, 5)" -c 5 --verbose',
     )
 
 
