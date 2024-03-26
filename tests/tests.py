@@ -201,6 +201,22 @@ def test_directory2():
     )
 
 
+@skip_on_windows  # OS agnostic
+def test_set_resources_complex_profile():
+    run(
+        dpath("test_set_resources_complex"),
+        shellcmd="snakemake -c1 --verbose --profile test-profile",
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_set_resources_complex_cli():
+    run(
+        dpath("test_set_resources_complex"),
+        shellcmd="snakemake -c1 --verbose --set-resources \"a:slurm_extra='--nice=150 --gres=gpu:1'\"",
+    )
+
+
 def test_ancient():
     run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
