@@ -95,15 +95,25 @@ class SpawnedJobArgsFactory:
             else:
                 return value
 
-        return format_cli_arg(
-            "--set-resources",
-            [
-                f"{rule}:{name}={get_orig_arg(value)}"
-                for rule, res in self.workflow.resource_settings.overwrite_resources.items()
-                for name, value in res.items()
-            ],
-            skip=not self.workflow.resource_settings.overwrite_resources,
-        )
+        return [
+            format_cli_arg(
+                "--set-resources",
+                [
+                    f"{rule}:{name}={get_orig_arg(value)}"
+                    for rule, res in self.workflow.resource_settings.overwrite_resources.items()
+                    for name, value in res.items()
+                ],
+                skip=not self.workflow.resource_settings.overwrite_resources,
+            ),
+            format_cli_arg(
+                "--set-threads",
+                [
+                    f"{rule}={get_orig_arg(value)}"
+                    for rule, value in self.workflow.resource_settings.overwrite_threads.items()
+                ],
+                skip=not self.workflow.resource_settings.overwrite_threads,
+            ),
+        ]
 
     def get_resource_scopes_args(self):
         return format_cli_arg(
@@ -264,7 +274,6 @@ class SpawnedJobArgsFactory:
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
             w2a("workflow_settings.wrapper_prefix"),
-            w2a("resource_settings.overwrite_threads", flag="--set-threads"),
             w2a("resource_settings.overwrite_scatter", flag="--set-scatter"),
             w2a("deployment_settings.conda_not_block_search_path_envvars"),
             w2a("overwrite_configfiles", flag="--configfiles"),
@@ -283,10 +292,10 @@ class SpawnedJobArgsFactory:
                 flag="--directory",
                 skip=self.workflow.storage_settings.assume_common_workdir,
             ),
-            self.get_set_resources_args(),
             self.get_resource_scopes_args(),
         ]
         args.extend(self.get_storage_provider_args())
+        args.extend(self.get_set_resources_args())
         if executor_common_settings.pass_default_storage_provider_args:
             args.append(self.get_default_storage_provider_args())
         if executor_common_settings.pass_default_resources_args:

@@ -92,11 +92,15 @@ def optional_str(arg):
 
 
 def parse_set_threads(args):
+    def fallback(orig_value):
+        value = eval_resource_expression(orig_value, threads_arg=False)
+        return ParsedResource(value=value, orig_arg=orig_value)
+
     return parse_set_ints(
         args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
-        fallback=partial(eval_resource_expression, threads_arg=False),
+        fallback=fallback,
     )
 
 
@@ -172,8 +176,8 @@ def parse_set_ints(arg, errmsg, fallback=None):
                 if fallback is not None:
                     try:
                         value = fallback(value)
-                    except Exception:
-                        raise ValueError(errmsg)
+                    except Exception as e:
+                        raise ValueError(f"{errmsg} Cause: {e}")
                 else:
                     raise ValueError(errmsg)
             if isinstance(value, int) and value < 0:

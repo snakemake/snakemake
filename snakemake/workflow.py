@@ -1568,6 +1568,12 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
 
+            def get_resource_value(value):
+                if isinstance(value, ParsedResource):
+                    return value.value
+                else:
+                    return value
+
             # handle default resources
             if self.resource_settings.default_resources is not None:
                 rule.resources = copy.deepcopy(
@@ -1596,9 +1602,9 @@ class Workflow(WorkflowExecutorInterface):
                 rule.resources["_cores"] = 1
 
             if name in self.resource_settings.overwrite_threads:
-                rule.resources["_cores"] = self.resource_settings.overwrite_threads[
-                    name
-                ]
+                rule.resources["_cores"] = get_resource_value(
+                    self.resource_settings.overwrite_threads[name]
+                )
 
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (
@@ -1641,15 +1647,8 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 rule.resources.update(resources)
             if name in self.resource_settings.overwrite_resources:
-
-                def get_value(value):
-                    if isinstance(value, ParsedResource):
-                        return value.value
-                    else:
-                        return value
-
                 rule.resources.update(
-                    (resource, get_value(value))
+                    (resource, get_resource_value(value))
                     for resource, value in self.resource_settings.overwrite_resources[
                         name
                     ].items()

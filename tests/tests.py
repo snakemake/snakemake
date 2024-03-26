@@ -163,6 +163,14 @@ def test15():
     run(dpath("test15"))
 
 
+@skip_on_windows  # OS agnostic
+def test_set_threads():
+    run(
+        dpath("test_set_threads"),
+        shellcmd='snakemake --executor local --set-threads "a=max(input.size, 5)" -c 5 --verbose',
+    )
+
+
 def test_glpk_solver():
     run(dpath("test_solver"), scheduler_ilp_solver="GLPK_CMD")
 
