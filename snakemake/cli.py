@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Set
 
 from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_executor_plugins.utils import is_quoted
+from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 import snakemake.common.argparse
@@ -521,7 +521,7 @@ def get_argument_parser(profiles=None):
         metavar="RULE=THREADS",
         nargs="+",
         default=dict(),
-        parse_func=parse_set_threads,
+        parse_func=maybe_base64(parse_set_threads),
         help="Overwrite thread usage of rules. This allows to fine-tune workflow "
         "parallelization. In particular, this is helpful to target certain cluster nodes "
         "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
@@ -541,7 +541,7 @@ def get_argument_parser(profiles=None):
         metavar="RULE:RESOURCE=VALUE",
         nargs="+",
         default=dict(),
-        parse_func=parse_set_resources,
+        parse_func=maybe_base64(parse_set_resources),
         help="Overwrite resource usage of rules. This allows to fine-tune workflow "
         "resources. In particular, this is helpful to target certain cluster nodes "
         "by e.g. defining a certain partition for a rule, or overriding a temporary directory. "

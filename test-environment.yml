@@ -63,7 +63,7 @@ dependencies:
   - pip:
       - cwltool
       - cwl-utils
-      - snakemake-interface-executor-plugins >=9.0.2
+      - snakemake-interface-executor-plugins >=9.1.0
       - snakemake-executor-plugin-cluster-generic >=1.0.9
       - snakemake-storage-plugin-http
       - snakemake-storage-plugin-s3

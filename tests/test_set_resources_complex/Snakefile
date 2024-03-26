@@ -4,6 +4,6 @@ rule a:
     output:
         "test.out"
     run:
-        with open("test.in") as f:
-            with open("test.out", "w") as out:
+        with open(input[0]) as f:
+            with open(output[0], "w") as out:
                 print(resources.slurm_extra, file=out)
