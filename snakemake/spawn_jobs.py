@@ -307,7 +307,13 @@ class SpawnedJobArgsFactory:
         if executor_common_settings.pass_default_storage_provider_args:
             args.append(self.get_default_storage_provider_args())
         if executor_common_settings.pass_default_resources_args:
-            args.append(w2a("resource_settings.default_resources", attr="args"))
+            args.append(
+                w2a(
+                    "resource_settings.default_resources",
+                    attr="args",
+                    base64_encode=True,
+                )
+            )
         if executor_common_settings.pass_group_args:
             args.append(self.get_group_args())
 
