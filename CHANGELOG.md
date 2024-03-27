@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.10.3](https://github.com/snakemake/snakemake/compare/v8.10.2...v8.10.3) (2024-03-27)
+
+
+### Documentation
+
+* mention maintainers ([be95e25](https://github.com/snakemake/snakemake/commit/be95e25d7ee65abe993f08b9d6ca726ee79ec7d4))
+
 ## [8.10.2](https://github.com/snakemake/snakemake/compare/v8.10.1...v8.10.2) (2024-03-26)
 
 
