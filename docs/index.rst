@@ -83,6 +83,17 @@ When using Snakemake, please cite our "rolling" paper
 This paper will also be regularly updated when Snakemake receives new features.
 See :doc:`Citations <project_info/citations>` for more information.
 
+-----------
+Maintainers
+-----------
+
+The Snakemake maintainers are:
+
+* [Johannes Köster](https://github.com/johanneskoester) (lead developer)
+* [David Lähnemann](https://github.com/dlaehnemann)
+* [Christian Meesters](https://github.com/cmeesters)
+* [Michael B. Hall](https://github.com/mbhall88)
+* [Filipe G. Vieira](https://github.com/fgvieira)
 
 .. _main-resources:
 
