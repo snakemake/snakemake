@@ -1,0 +1,11 @@
+jobid,rule,wildcards,s,h:m:s,max_rss,max_vms,max_uss,max_pss,io_in,io_out,mean_load,cpu_time,threads,input_size_mb,resources,input_file_size_mb
+6,with_wildcards,num=3,0.0876,0:00:00,,,,,,,,,1,0.0,_cores=1;_nodes=1;tmpdir=/tmp,
+4,with_wildcards,num=1,0.0791,0:00:00,,,,,,,,,1,0.0,_cores=1;_nodes=1;tmpdir=/tmp,
+1,with_directive,,0.0906,0:00:00,,,,,,,,,1,0.0,_cores=1;_nodes=1;tmpdir=/tmp,
+2,with_repeat,,0.0722,0:00:00,,,,,,,,,1,0.0,_cores=1;_nodes=1;tmpdir=/tmp,
+2,with_repeat,,0.0278,0:00:00,,,,,,,,,1,0.0,_cores=1;_nodes=1;tmpdir=/tmp,
+2,with_repeat,,0.0076,0:00:00,,,,,,,,,1,0.0,_cores=1;_nodes=1;tmpdir=/tmp,
+7,named_input,,0.0048,0:00:00,,,,,,,,,1,0.0,_cores=1;_nodes=1;tmpdir=/tmp,test.without_directive.output=0.00
+5,with_wildcards,num=2,0.0857,0:00:00,,,,,,,,,1,0.0,_cores=1;_nodes=1;tmpdir=/tmp,
+3,without_directive,,0.092,0:00:00,,,,,,,,,1,0.0,_cores=1;_nodes=1;tmpdir=/tmp,
+0,all,,0.0048,0:00:00,146.52,3859.73,135.48,140.3,0.0,0.21,0.0,2.54,1,0.00010585784912109375,_cores=1;_nodes=1;tmpdir=/tmp,NA

@@ -347,7 +347,45 @@ def test_wildcard_keyword():
 
 @skip_on_windows
 def test_benchmark():
-    run(dpath("test_benchmark"), check_md5=False)
+    run(dpath("test_benchmark"), check_md5=False, benchmark_output="benchmark.tsv")
+
+
+@skip_on_windows
+def test_benchmark_global():
+    # Test --benchmark-all option
+    tmpdir = run(
+        dpath("test_benchmark_global"),
+        check_md5=False,
+        benchmark_all="workflow.benchmark",
+        cleanup=False,
+    )
+    with open(os.path.join(tmpdir, "workflow.benchmark"), "r") as f:
+        for line in f.readlines()[1:]:
+            jobid, rule, wildcards, *_ = line.strip().split(",")
+            if rule == "with_wildcards":
+                assert wildcards in ["num=1", "num=2", "num=3"]
+            else:
+                assert wildcards == ""
+
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+    # Test --benchmark option
+    tmpdir = run(
+        dpath("test_benchmark_global"),
+        check_md5=False,
+        benchmark_output="workflow.benchmark",
+        cleanup=False,
+    )
+    with open(os.path.join(tmpdir, "workflow.benchmark"), "r") as f:
+        lo = 0
+        for line in f.readlines()[1:]:
+            lo += 1
+            jobid, rule, wildcards, *_ = line.strip().split(",")
+            assert rule in ["with_repeat", "with_directive"]
+        # Output file should only have 4 lines excluding header: one record of with_directive + 3 records of with_repeat
+        assert lo == 4
+
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 def test_temp_expand():

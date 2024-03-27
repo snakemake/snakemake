@@ -271,8 +271,15 @@ class Persistence(PersistenceExecutorInterface):
                 shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
 
     def started(self, job, external_jobid: Optional[str] = None):
+        infile_sizes = {
+            infile: asyncio.run(infile.size()) / 1024 / 1024 for infile in job.input
+        }
         for f in job.output:
-            self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
+            self._record(
+                self._incomplete_path,
+                {"external_jobid": external_jobid, "input_sizes_mb": infile_sizes},
+                f,
+            )
 
     async def finished(self, job):
         if not self.dag.workflow.execution_settings.keep_metadata:
@@ -304,6 +311,10 @@ class Persistence(PersistenceExecutorInterface):
 
             checksums = ((infile, await infile.checksum()) for infile in job.input)
 
+            infile_sizes = self._read_record(self._incomplete_path, f).get(
+                "input_sizes_mb"
+            )
+
             self._record(
                 self._metadata_path,
                 {
@@ -324,6 +335,7 @@ class Persistence(PersistenceExecutorInterface):
                         async for infile, checksum in checksums
                         if checksum is not None
                     },
+                    "input_sizes_mb": infile_sizes,
                 },
                 f,
             )
@@ -409,6 +421,9 @@ class Persistence(PersistenceExecutorInterface):
             self.metadata(output_path).get("input_checksums", {}).get(input_path)
             for output_path in job.output
         )
+
+    def input_sizes_mb(self, path):
+        return self.metadata(path).get("input_sizes_mb")
 
     def code_changed(self, job, file=None):
         """Yields output files with changed code or bool if file given."""

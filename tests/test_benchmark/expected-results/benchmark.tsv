@@ -1,0 +1,6 @@
+jobid	rule	wildcards	resources	input_size_mb	threads	s	h:m:s	max_rss	max_vms	max_uss	max_pss	io_in	io_out	mean_load	cpu_time	input_file_size_mb
+2	bench_script	NA	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	1.1346	0:00:01	32.8	45.8	19.93	23.09	0.0	0.0	0.0	0.09	NA
+4	bench_run_shell	NA	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	1.0101	0:00:01	156.17	3464.11	119.68	135.93	0.0	0.01	0.0	2.17	NA
+1	bench_shell	NA	_cores=2;_nodes=1;tmpdir=/tmp	0.0	2	10.0008	0:00:10	4.25	19.73	0.38	1.11	0.0	0.0	180.34	19.08	NA
+1	bench_shell	NA	_cores=2;_nodes=1;tmpdir=/tmp	0.0	2	10.0017	0:00:10	4.22	19.73	0.38	1.1	0.0	0.0	180.33	19.02	NA
+3	bench_run	NA	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	1.0085	0:00:01	151.95	3447.64	117.98	132.69	0.0	0.01	0.0	2.19	NA

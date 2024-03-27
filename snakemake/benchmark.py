@@ -9,8 +9,11 @@ from itertools import chain
 import os
 import time
 import threading
+import pandas as pd
 
+from snakemake.exceptions import IOFileException
 from snakemake.logging import logger
+
 
 #: Interval (in seconds) between measuring resource usage
 BENCHMARK_INTERVAL = 30
@@ -387,3 +390,67 @@ def write_benchmark_records(records, path):
     """Write benchmark records to file at path"""
     with open(path, "wt") as f:
         print_benchmark_records(records, f)
+
+
+def gather_benchmark_records(benchmark_jobs, persistence):
+    """
+    Gather benchmark from given files.
+
+    Args:
+        benchmark_jobs (List[Job]): A list of jobs to extract benchmark from
+        persistence (Persistence): A Snakemake Persistence instance recording input file sizes
+    Return:
+        (DataFrame): A Pandas DataFrame object with jobid as index,
+            containing benchmark values for all jobs
+    """
+    benchmarks = []
+    for job in benchmark_jobs:
+        if not job._benchmark.exists:
+            raise IOFileException(
+                "Error: \n"
+                + f"Benchmark file {job._benchmark} does not "
+                + f"exist for rule {job.rule.name} \n"
+                + "A complete run is required to print all benchmark metrics."
+            )
+        wildcard_str = (
+            None
+            if len(job.wildcards_dict) == 0
+            else ";".join(
+                [f"{name}={value}" for name, value in job.wildcards_dict.items()]
+            )
+        )
+        resources = job.resources
+        resources_str = (
+            None
+            if len(resources) == 0
+            else ";".join([f"{name}={value}" for name, value in resources.items()])
+        )
+
+        _benchmark = pd.read_csv(job._benchmark, index_col=None, sep="\t")
+        # Add jobid, rule name, and wildcard values to left most of the table
+        _benchmark.insert(0, "wildcards", wildcard_str)
+        _benchmark.insert(0, "rule", job.rule.name)
+        _benchmark.insert(0, "jobid", job.jobid)
+        # Add resources to right most of the table
+        _benchmark.insert(_benchmark.shape[1], "threads", job.threads)
+        _benchmark.insert(_benchmark.shape[1], "input_size_mb", job.input.size_mb)
+        _benchmark.insert(_benchmark.shape[1], "resources", resources_str)
+        # Add individual file sizes to last column
+        if len(job.output) == 0:
+            input_file_size = "NA"
+        else:
+            infile_sizes = persistence.input_sizes_mb(job.output)
+            input_file_size = (
+                ";".join(
+                    "{name}={size:0.2f}".format(
+                        name=name,
+                        size=size,
+                    )
+                    for name, size in infile_sizes.items()
+                )
+                if infile_sizes and len(infile_sizes) > 0
+                else None
+            )
+        _benchmark.insert(_benchmark.shape[1], "input_file_size_mb", input_file_size)
+        benchmarks.append(_benchmark)
+    return pd.concat(benchmarks, axis=0)
