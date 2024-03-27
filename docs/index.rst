@@ -89,11 +89,11 @@ Maintainers
 
 The Snakemake maintainers are:
 
-* [Johannes Köster](https://github.com/johanneskoester) (lead developer)
-* [David Lähnemann](https://github.com/dlaehnemann)
-* [Christian Meesters](https://github.com/cmeesters)
-* [Michael B. Hall](https://github.com/mbhall88)
-* [Filipe G. Vieira](https://github.com/fgvieira)
+* `Johannes Köster <https://github.com/johanneskoester>`_ (lead developer)
+* `David Lähnemann <https://github.com/dlaehnemann>`_
+* `Christian Meesters <https://github.com/cmeesters>`_
+* `Michael B. Hall <https://github.com/mbhall88>`_
+* `Filipe G. Vieira <https://github.com/fgvieira`_
 
 .. _main-resources:
 
