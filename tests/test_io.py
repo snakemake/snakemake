@@ -20,6 +20,11 @@ def test_wildcard_regex():
     assert matches("{abc}") == [("abc", None)]
     assert matches("abc{def}{ghi}") == [("def", None), ("ghi", None)]
 
+    # with wildcards object, used in the script path
+    assert matches("{wildcards.test}") == [("wildcards.test", None)]
+    assert matches("{wildcards.test, const}") == [("wildcards.test", "const")]
+    assert matches("{wildcards.test, const}{abc, def}") == [("wildcards.test", "const"), ("abc", "def")]
+
     # with constraints
     assert matches("{w,constraint}") == [("w", "constraint")]
     assert matches("{w , constraint}") == [("w", "constraint")]
