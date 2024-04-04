@@ -1,5 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 from typing import Any, Optional
 from typing import Mapping, Sequence, Set
@@ -18,7 +19,11 @@ from snakemake_interface_executor_plugins.settings import (
 )
 from snakemake_interface_common.settings import SettingsEnumBase
 
-from snakemake.common import dict_to_key_value_args, get_container_image
+from snakemake.common import (
+    dict_to_key_value_args,
+    expand_vars_and_user,
+    get_container_image,
+)
 from snakemake.common.configfile import load_configfile
 from snakemake.resources import DefaultResources, ParsedResource
 from snakemake.utils import update_config
@@ -237,6 +242,12 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     def imply_deployment_method(self, method: DeploymentMethod):
         self.deployment_method = set(self.deployment_method)
         self.deployment_method.add(method)
+
+    def __post_init__(self):
+        if self.apptainer_prefix is None:
+            self.apptainer_prefix = os.envvars.get("APPTAINER_CACHEDIR", None)
+        self.apptainer_prefix = expand_vars_and_user(self.apptainer_prefix)
+        self.conda_prefix = expand_vars_and_user(self.conda_prefix)
 
 
 @dataclass
