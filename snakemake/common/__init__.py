@@ -334,7 +334,7 @@ def set_env(**environ):
 
 def expand_vars_and_user(value):
     if value is not None:
-        return os.expanduser(os.expandvars(value))
+        return os.path.expanduser(os.path.expandvars(value))
 
 
 # Taken from https://stackoverflow.com/a/2166841/7070491
