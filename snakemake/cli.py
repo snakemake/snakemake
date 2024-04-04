@@ -1600,7 +1600,12 @@ def get_argument_parser(profiles=None):
         "If supplied, the `--use-conda` flag must also be set. The value may "
         "be given as a relative path, which will be extrapolated to the "
         "invocation directory, or as an absolute path. The value can also be "
-        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX.",
+        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX. "
+        "In any case, the prefix may contain environment "
+        "variables which will be properly expanded. "
+        "Note that if you use remote execution "
+        "e.g. on a cluster and you have node specific values for this, you should "
+        "disable assuming shared fs for software-deployment (see --shared-fs-usage).",
     )
     group_conda.add_argument(
         "--conda-cleanup-envs",
@@ -1654,7 +1659,11 @@ def get_argument_parser(profiles=None):
         "to the '.snakemake' directory relative to the invocation directory. "
         "If supplied, the `--use-apptainer` flag must also be set. The value "
         "may be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path.",
+        "invocation directory, or as an absolute path. If not supplied, "
+        "APPTAINER_CACHEDIR is used. In any case, the prefix may contain environment "
+        "variables which will be properly expanded. Note that if you use remote execution "
+        "e.g. on a cluster and you have node specific values for this, you should "
+        "disable assuming shared fs for software-deployment (see --shared-fs-usage).",
     )
     group_singularity.add_argument(
         "--apptainer-args",
