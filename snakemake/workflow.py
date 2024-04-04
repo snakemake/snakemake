@@ -1040,7 +1040,7 @@ class Workflow(WorkflowExecutorInterface):
     def execute(
         self,
         executor_plugin: ExecutorPlugin,
-        executor_settings: ExecutorSettingsBase,
+        executor_settings: Optional[Union[ExecutorSettingsBase, Mapping[str, ExecutorSettingsBase]]],
         updated_files: Optional[List[str]] = None,
     ):
         from snakemake.shell import shell

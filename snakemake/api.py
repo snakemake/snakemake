@@ -8,13 +8,13 @@ from dataclasses import dataclass, field
 import hashlib
 from pathlib import Path
 import sys
-from typing import Dict, List, Mapping, Optional, Set
+from typing import Dict, List, Mapping, Optional, Set, Union
 import os
 from functools import partial
 import importlib
 import tarfile
 
-from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
+from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run, get_executor_plugin
 from snakemake.settings import (
     ChangeType,
     GroupSettings,
@@ -444,18 +444,18 @@ class DAGApi(ApiBase):
         remote_execution_settings: Optional[RemoteExecutionSettings] = None,
         scheduling_settings: Optional[SchedulingSettings] = None,
         group_settings: Optional[GroupSettings] = None,
-        executor_settings: Optional[ExecutorSettingsBase] = None,
+        executor_settings: Optional[Union[ExecutorSettingsBase, Mapping[str, ExecutorSettingsBase]]] = None,
         updated_files: Optional[List[str]] = None,
     ):
         """Execute the workflow.
 
         Arguments
         ---------
-        executor: str -- The executor to use.
+        executor: str -- The default executor to use (may be overwritten by the executor resource of rules).
         execution_settings: ExecutionSettings -- The execution settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
         remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
-        executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
+        executor_settings: Optional[Union[ExecutorSettingsBase, Mapping[str, ExecutorSettingsBase]]] -- The executor settings for the workflow (None, one executor settings class or a mapping between executor names (str) and executor settings classes).
         updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
         """
 
@@ -476,11 +476,7 @@ class DAGApi(ApiBase):
                 "immediate_submit has to be combined with notemp (it does not support temp file handling)"
             )
 
-        executor_plugin_registry = _get_executor_plugin_registry()
-        executor_plugin = executor_plugin_registry.get_plugin(executor)
-
-        if executor_settings is not None:
-            executor_plugin.validate_settings(executor_settings)
+        executor_plugin = get_executor_plugin(executor, executor_settings)
 
         if executor_plugin.common_settings.implies_no_shared_fs:
             # no shared FS at all
@@ -761,19 +757,6 @@ class DAGApi(ApiBase):
         path: Path -- The path to the CWL file.
         """
         self.workflow_api._workflow.export_to_cwl(path=path)
-
-
-def _get_executor_plugin_registry():
-    from snakemake.executors import local as local_executor
-    from snakemake.executors import dryrun as dryrun_executor
-    from snakemake.executors import touch as touch_executor
-
-    registry = ExecutorPluginRegistry()
-    registry.register_plugin("local", local_executor)
-    registry.register_plugin("dryrun", dryrun_executor)
-    registry.register_plugin("touch", touch_executor)
-
-    return registry
 
 
 def _get_report_plugin_registry():

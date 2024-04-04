@@ -11,6 +11,7 @@ import platform
 import hashlib
 import inspect
 import sys
+from typing import Mapping, Optional, Union
 import uuid
 import os
 import asyncio
@@ -20,6 +21,9 @@ from pathlib import Path
 from snakemake._version import get_versions
 
 from snakemake_interface_common.exceptions import WorkflowError
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
+
 
 __version__ = get_versions()["version"]
 del get_versions
@@ -343,3 +347,27 @@ def is_namedtuple_instance(x):
     if not isinstance(f, tuple):
         return False
     return all(type(n) == str for n in f)
+
+
+def get_executor_plugin_registry():
+    from snakemake.executors import local as local_executor
+    from snakemake.executors import dryrun as dryrun_executor
+    from snakemake.executors import touch as touch_executor
+
+    registry = ExecutorPluginRegistry()
+    registry.register_plugin("local", local_executor)
+    registry.register_plugin("dryrun", dryrun_executor)
+    registry.register_plugin("touch", touch_executor)
+
+    return registry
+
+
+def get_executor_plugin(executor: str, executor_settings: Optional[Union[ExecutorSettingsBase, Mapping[str, ExecutorSettingsBase]]]):
+    executor_plugin_registry = get_executor_plugin_registry()
+    executor_plugin = executor_plugin_registry.get_plugin(executor)
+
+    if executor_settings is not None:
+        executor_plugin.validate_settings(
+            executor_settings[executor] if isinstance(executor_settings, dict) else executor_settings 
+        )
+    return executor_plugin

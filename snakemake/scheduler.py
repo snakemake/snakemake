@@ -18,6 +18,7 @@ from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorI
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake.api import get_executor_plugin_registry
 from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
@@ -103,12 +104,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._local_executor = None
 
         if self.workflow.local_exec:
-            self._executor = executor_plugin.executor(
+            self._default_executor = executor_plugin.executor(
                 self.workflow,
                 logger,
             )
         else:
-            self._executor = executor_plugin.executor(
+            self._default_executor = executor_plugin.executor(
                 self.workflow,
                 logger,
             )
@@ -215,7 +216,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                     if executor_error or not running:
                         logger.info("Shutting down, this might take some time.")
-                        self._executor.shutdown()
+                        self._default_executor.shutdown()
                         if not user_kill:
                             logger.error(_ERROR_MSG_FINAL)
                         return False
@@ -230,7 +231,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     )
                     and not self.workflow.dag.has_unfinished_queue_input_jobs()
                 ):
-                    self._executor.shutdown()
+                    self._default_executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
                     # we still have unfinished jobs. this is not good. direct
@@ -300,7 +301,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if local_runjobs:
                         self.run(
                             local_runjobs,
-                            executor=self._local_executor or self._executor,
+                            executor=self._local_executor or self._default_executor,
                         )
                     if runjobs:
                         self.run(runjobs)
@@ -308,7 +309,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             logger.info(
                 "Terminating processes on user request, this might take some time."
             )
-            self._executor.cancel()
+            self._default_executor.cancel()
             return False
 
     def _finish_jobs(self):
@@ -390,13 +391,29 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
     def run(self, jobs, executor=None):
         if executor is None:
-            executor = self._executor
+            executor = self._default_executor
         executor.run_jobs(jobs)
 
     def get_executor(self, job):
         if job.is_local and self._local_executor is not None:
             return self._local_executor
-        return self._executor
+        elif "executor" in job.resources.keys():
+            executor_name = job.resources.executor
+            if executor_name not in self._job_specific_executors:
+                executor_plugin = get_executor_plugin_registry().get_plugin(
+                    executor_name
+                )
+                executor_settings = self.workflow.executor_settings.get(executor_name)
+                if executor_settings is not None:
+                    executor_plugin.validate_settings(executor_settings)
+                self._job_specific_executors[executor_name] = executor_plugin.executor(
+                    self.workflow,
+                    logger,
+                    executor_settings,
+                )
+            return self._job_specific_executors[executor_name]
+        else:
+            return self._default_executor
 
     def _noop(self, job):
         pass
