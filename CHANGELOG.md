@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.10.6](https://github.com/snakemake/snakemake/compare/v8.10.5...v8.10.6) (2024-04-04)
+
+
+### Bug Fixes
+
+* only constrain by --max-threads if threads of job are already known ([#2790](https://github.com/snakemake/snakemake/issues/2790)) ([5f28fcd](https://github.com/snakemake/snakemake/commit/5f28fcd32bd8fa0f539c4fc8aabf07702787132b))
+
 ## [8.10.5](https://github.com/snakemake/snakemake/compare/v8.10.4...v8.10.5) (2024-04-04)
 
 
