@@ -245,7 +245,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
 
     def __post_init__(self):
         if self.apptainer_prefix is None:
-            self.apptainer_prefix = os.envvars.get("APPTAINER_CACHEDIR", None)
+            self.apptainer_prefix = os.environ.get("APPTAINER_CACHEDIR", None)
         self.apptainer_prefix = expand_vars_and_user(self.apptainer_prefix)
         self.conda_prefix = expand_vars_and_user(self.conda_prefix)
 
