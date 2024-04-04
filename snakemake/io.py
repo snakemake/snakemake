@@ -671,7 +671,9 @@ class _IOFile(str, AnnotatedStringInterface):
         if self.is_directory:
             await remove(self, remove_non_empty_dir=True, only_local=only_local)
         else:
-            await remove(self, remove_non_empty_dir=remove_non_empty_dir, only_local=only_local)
+            await remove(
+                self, remove_non_empty_dir=remove_non_empty_dir, only_local=only_local
+            )
 
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
