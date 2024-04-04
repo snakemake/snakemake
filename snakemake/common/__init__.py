@@ -332,6 +332,11 @@ def set_env(**environ):
         os.environ.update(old_environ)
 
 
+def expand_vars_and_user(value):
+    if value is not None:
+        return os.path.expanduser(os.path.expandvars(value))
+
+
 # Taken from https://stackoverflow.com/a/2166841/7070491
 # Thanks to Alex Martelli.
 def is_namedtuple_instance(x):
