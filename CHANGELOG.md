@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.10.5](https://github.com/snakemake/snakemake/compare/v8.10.4...v8.10.5) (2024-04-04)
+
+
+### Bug Fixes
+
+* properly delete local copies of storage files after remote jobs ([#2793](https://github.com/snakemake/snakemake/issues/2793)) ([e3362b0](https://github.com/snakemake/snakemake/commit/e3362b03e11d9770ed6b01e82017973f4a652d4a))
+* respect APPTAINER_CACHEDIR and allow env variables in --apptainer-prefix and --conda-prefix ([#2795](https://github.com/snakemake/snakemake/issues/2795)) ([b1694cd](https://github.com/snakemake/snakemake/commit/b1694cdf10ce46ff80236a8bb1d9c72e2f0fae0e))
+
 ## [8.10.4](https://github.com/snakemake/snakemake/compare/v8.10.3...v8.10.4) (2024-03-27)
 
 
