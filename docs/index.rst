@@ -94,6 +94,7 @@ The Snakemake maintainers are:
 * `Christian Meesters <https://github.com/cmeesters>`_
 * `Michael B. Hall <https://github.com/mbhall88>`_
 * `Filipe G. Vieira <https://github.com/fgvieira>`_
+* `Morten E. Lund <https://github.com/melund>`_
 
 .. _main-resources:
 
