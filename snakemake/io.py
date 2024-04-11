@@ -1247,12 +1247,13 @@ def expand(*args, **wildcard_values):
 
     filepatterns = list(map(path_to_str, filepatterns))
 
-    if any(map(lambda f: getattr(f, "flags", {}), filepatterns)):
-        raise WorkflowError(
-            "Flags in file patterns given to expand() are invalid. "
-            "Flags (e.g. temp(), directory()) have to be applied outside "
-            "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
-        )
+    for fp in filepatterns:
+        if fp_flags := getattr(fp, "flags"):
+            raise WorkflowError(
+                f"Flags ({fp_flags}) in file pattern {fp} given to expand() are invalid. "
+                "Flags (e.g. temp(), directory()) have to be applied outside "
+                "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
+            )
 
     # check if remove missing is provided
     format_dict = dict
@@ -1505,9 +1506,15 @@ class Namedlist(list):
             elif plainstr:
                 self.extend(
                     # use original query if storage is not retrieved by snakemake
-                    (str(x) if x.storage_object.retrieve else x.storage_object.query)
-                    if isinstance(x, _IOFile) and x.storage_object is not None
-                    else str(x)
+                    (
+                        (
+                            str(x)
+                            if x.storage_object.retrieve
+                            else x.storage_object.query
+                        )
+                        if isinstance(x, _IOFile) and x.storage_object is not None
+                        else str(x)
+                    )
                     for x in toclone
                 )
             elif strip_constraints:
