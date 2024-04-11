@@ -1247,10 +1247,14 @@ def expand(*args, **wildcard_values):
 
     filepatterns = list(map(path_to_str, filepatterns))
 
-    for fp in filepatterns:
-        if fp_flags := getattr(fp, "flags", False):
+    for filepattern in filepatterns:
+        if filepattern_flags := {
+            key: value
+            for key, value in getattr(filepattern, "flags", {}).items()
+            if key not in ["path_modified"]
+        }:
             raise WorkflowError(
-                f"Flags ({fp_flags}) in file pattern {fp} given to expand() are invalid. "
+                f"Flags ({filepattern_flags}) in file pattern '{filepattern}' given to expand() are invalid. "
                 "Flags (e.g. temp(), directory()) have to be applied outside "
                 "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
             )
