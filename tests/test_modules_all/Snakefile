@@ -1,11 +1,7 @@
 shell.executable("bash")
 
+
 configfile: "config/config.yaml"
-
-
-rule all:
-    input:
-        expand("results/{w}.out", w="test")
 
 
 module test:
@@ -13,10 +9,11 @@ module test:
         "module-test/Snakefile"
     config:
         config
-    replace_prefix: 
+    replace_prefix:
         {"results/": "results/testmodule/"}
 
 
 use rule * from test
+
 
 assert test.some_func() == 15
