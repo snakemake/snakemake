@@ -3,6 +3,11 @@ shell.executable("bash")
 configfile: "config/config.yaml"
 
 
+rule all:
+    input:
+        expand("results/{w}.out", w="test")
+
+
 module test:
     snakefile:
         "module-test/Snakefile"
