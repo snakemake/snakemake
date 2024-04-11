@@ -1248,7 +1248,7 @@ def expand(*args, **wildcard_values):
     filepatterns = list(map(path_to_str, filepatterns))
 
     for fp in filepatterns:
-        if fp_flags := getattr(fp, "flags"):
+        if fp_flags := getattr(fp, "flags", False):
             raise WorkflowError(
                 f"Flags ({fp_flags}) in file pattern {fp} given to expand() are invalid. "
                 "Flags (e.g. temp(), directory()) have to be applied outside "
