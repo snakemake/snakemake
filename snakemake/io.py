@@ -1232,6 +1232,8 @@ def expand(*args, **wildcard_values):
         with their values as lists. If allow_missing=True is included
         wildcards in filepattern without values will stay unformatted.
     """
+    from snakemake.path_modifier import PATH_MODIFIER_FLAG
+
     filepatterns = args[0]
     if len(args) == 1:
         combinator = product
@@ -1247,12 +1249,18 @@ def expand(*args, **wildcard_values):
 
     filepatterns = list(map(path_to_str, filepatterns))
 
-    if any(map(lambda f: getattr(f, "flags", {}), filepatterns)):
-        raise WorkflowError(
-            "Flags in file patterns given to expand() are invalid. "
-            "Flags (e.g. temp(), directory()) have to be applied outside "
-            "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
-        )
+    for filepattern in filepatterns:
+        filepattern_flags = {
+            key: value
+            for key, value in getattr(filepattern, "flags", {}).items()
+            if key != PATH_MODIFIER_FLAG
+        }
+        if filepattern_flags:
+            raise WorkflowError(
+                f"Flags ({filepattern_flags}) in file pattern '{filepattern}' given to expand() are invalid. "
+                "Flags (e.g. temp(), directory()) have to be applied outside "
+                "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
+            )
 
     # check if remove missing is provided
     format_dict = dict
@@ -1505,9 +1513,15 @@ class Namedlist(list):
             elif plainstr:
                 self.extend(
                     # use original query if storage is not retrieved by snakemake
-                    (str(x) if x.storage_object.retrieve else x.storage_object.query)
-                    if isinstance(x, _IOFile) and x.storage_object is not None
-                    else str(x)
+                    (
+                        (
+                            str(x)
+                            if x.storage_object.retrieve
+                            else x.storage_object.query
+                        )
+                        if isinstance(x, _IOFile) and x.storage_object is not None
+                        else str(x)
+                    )
                     for x in toclone
                 )
             elif strip_constraints:

@@ -1,17 +1,17 @@
-configfile: "config.yaml" # does not exist, but this statement should be ignored on module import
+configfile: "config.yaml"  # does not exist, but this statement should be ignored on module import
 
 
 def some_func():
     return 15
 
 
-rule all:
-    input:
-        "results/test.out"
-
-
 rule a:
     output:
-        "results/test.out"
+        touch("results/{name}.out"),
     shell:
         "echo {config[test]} > {output}"
+
+
+rule all:
+    input:
+        expand(rules.a.output, name="test"),
