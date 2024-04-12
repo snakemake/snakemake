@@ -1232,6 +1232,8 @@ def expand(*args, **wildcard_values):
         with their values as lists. If allow_missing=True is included
         wildcards in filepattern without values will stay unformatted.
     """
+    from snakemake.path_modifier import PATH_MODIFIER_FLAG
+
     filepatterns = args[0]
     if len(args) == 1:
         combinator = product
