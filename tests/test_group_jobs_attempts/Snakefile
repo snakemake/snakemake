@@ -1,0 +1,17 @@
+rule a:
+    output: "a"
+    resources: mem_mb = lambda w, attempt: attempt*1000
+    group: "mygroup"
+    shell: '''
+    if [ {resources.mem_mb} == 2000 ]; then
+        touch {output}
+    fi
+    '''
+
+# rule b:
+#     input: rules.a.output
+#     output: "b_{number}"
+#     group: "mygroup"
+#     shell: '''
+#     touch -m {output}
+#     '''

@@ -61,10 +61,10 @@ Run tutorial for free in the cloud via Gitpod
     This will freeze up you terminal.
     To get it back, make sure you selected the terminal window by clicking on it and then hit ``Ctrl-q``.
 
-The easiest way to run this tutorial is to use Gitpod, which enables performing the excercises via your browser---including all required software, for free and in the cloud.
+The easiest way to run this tutorial is to use Gitpod, which enables performing the exercises via your browser---including all required software, for free and in the cloud.
 In order to do this, simply open the predefined `snakemake-tutorial GitPod workspace <https://gitpod.io/#https://github.com/snakemake/snakemake-tutorial-data>`_ in your browser.
 GitPod provides you with a `Theia development environment <https://theia-ide.org/docs>`_, which you can learn about in the linked documentation.
-Once you have a basic understanding of this environment, you can go on directy with :ref:`tutorial-basics`.
+Once you have a basic understanding of this environment, you can go on directly with :ref:`tutorial-basics`.
 
 Running the tutorial on your local machine
 ::::::::::::::::::::::::::::::::::::::::::
@@ -75,6 +75,10 @@ The easiest way to set these prerequisites up, is to use the Mambaforge_ Python 
 (Mambaforge_ is a Conda based distribution like Miniconda_, which however uses Mamba_ a fast and more robust replacement for the Conda_ package manager).
 The tutorial assumes that you are using either Linux or MacOS X.
 Both Snakemake and Mambaforge_ work also under Windows, but the Windows shell is too different to be able to provide generic examples.
+
+**Currently, the setup currently only works for Intel based machines (x86_64), not ARM based machines like the new Apple M1/2/3 architecture.**
+This will change in the coming months. In the meantime, if you are on an ARM based Mac, you can use Rosetta to emulate an intel architecture.
+Otherwise, you can simply use the Gitpod approach outlined above.
 
 Setup on Windows
 ::::::::::::::::
@@ -167,7 +171,7 @@ First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ curl -L https://github.com/snakemake/snakemake-tutorial-data/archive/v5.24.1.tar.gz -o snakemake-tutorial-data.tar.gz
+    $ curl -L https://api.github.com/repos/snakemake/snakemake-tutorial-data/tarball -o snakemake-tutorial-data.tar.gz
 
 Next we extract the data. On Linux, run
 

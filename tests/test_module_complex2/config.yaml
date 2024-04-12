@@ -117,13 +117,29 @@ annotations:
     datasources:
       - DrugBank
   vep:
-    # Consider removing --everything if VEP is slow for you (e.g. for WGS), 
-    # and think carefully about which annotations you need.
-    params: --everything
-    plugins:
-      # Add any plugin from https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html
-      # Plugin args can be passed as well, e.g. "LoFtool,path/to/custom/scores.txt".
-      - LoFtool
+    candidate_calls:
+      params: --af_gnomade
+      plugins: []
+    final_calls:
+      # Consider removing --everything if VEP is slow for you (e.g. for WGS), 
+      # and think carefully about which annotations you need.
+      params: --everything
+      plugins:
+        # Add any plugin from https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html
+        # Plugin args can be passed as well, e.g. "LoFtool,path/to/custom/scores.txt".
+        - LoFtool
+
+mutational_burden:
+  activate: false
+  # Plotting modes - hist (stratified histogram)
+  # or curve (stratified curve)
+  mode:
+    - curve
+    - hist
+  events:
+    - somatic_tumor_low
+    - somatic_tumor_medium
+    - somatic_tumor_high
 
 params:
   cutadapt: ""
@@ -138,3 +154,13 @@ params:
     omit_read_bias: false # Set true when processing panel data
   freebayes:
     min_alternate_fraction: 0.05 # Reduce for calling variants with lower VAFs
+  varlociraptor:
+    # add extra arguments for varlociraptor call
+    # For example, in case of panel data consider to omit certain bias estimations
+    # which might be misleading because all reads of an amplicon have the same start
+    # position, strand etc. (--omit-strand-bias, --omit-read-position-bias,
+    # --omit-softclip-bias, --omit-read-orientation-bias).
+    call: ""
+    # Add extra arguments for varlociraptor preprocess. By default, we limit the depth to 200.
+    # Increase this value for panel sequencing!
+    preprocess: "--max-depth 200"

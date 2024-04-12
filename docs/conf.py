@@ -16,6 +16,7 @@
 import sys
 import os
 from datetime import datetime
+from sphinxawesome_theme.postprocess import Icons
 
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -38,10 +39,10 @@ extensions = [
     "sphinxarg.ext",
     "sphinx.ext.autosectionlabel",
     "myst_parser",
+    "sphinxawesome_theme.highlighting",
 ]
 
-# Snakemake theme (made by SciAni).
-html_css_files = ["theme.css"]
+html_css_files = ["custom.css"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -120,7 +121,67 @@ pygments_style = "sphinx"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "sphinx_rtd_theme"
+html_theme = "sphinxawesome_theme"
+html_theme_options = {
+    "logo_light": "logo-snake.svg",
+    "logo_dark": "logo-snake.svg",
+    "main_nav_links": {
+        "Homepage": "https://snakemake.github.io",
+        "Plugin catalog": "https://snakemake.github.io/snakemake-plugin-catalog",
+        "Workflow catalog": "https://snakemake.github.io/snakemake-workflow-catalog",
+        "Wrappers": "https://snakemake-wrappers.readthedocs.io",
+        "API docs": "https://snakemake-api.readthedocs.io",
+    },
+    "awesome_external_links": True,
+    "awesome_headerlinks": True,
+    "show_prev_next": False,
+}
+html_permalinks_icon = Icons.permalinks_icon
+# html_theme_options = {
+#     "show_nav_level": 2,
+#     "header_links_before_dropdown": 0,
+#     "external_links": [
+#     {
+#         "text": "Snakemake plugin catalog",
+#         "alt": "Snakemake plugin catalog",
+#         "href": "https://snakemake.github.io/snakemake-plugin-catalog",
+#     },
+#     {
+#         "text": "Snakemake workflow catalog",
+#         "alt": "Snakemake workflow catalog",
+#         "href": "https://snakemake.github.io/snakemake-workflow-catalog",
+#     },
+#     {
+#         "text": "Snakemake wrappers",
+#         "alt": "Snakemake wrappers",
+#         "href": "https://snakemake-wrappers.readthedocs.io",
+#         },
+#     ],
+# }
+# html_theme_options = {
+#     "primary_color": "emerald",
+#     "secondary_color": "emerald",
+#     "dark_logo": "logo-snake.svg",
+#     "light_logo": "logo-snake.svg",
+#     "navigation_style": "plain",
+#     "sidebar_links": [
+#         {
+#             "text": "Snakemake plugin catalog",
+#             "alt": "Snakemake plugin catalog",
+#             "href": "https://snakemake.github.io/snakemake-plugin-catalog",
+#         },
+#         {
+#             "text": "Snakemake workflow catalog",
+#             "alt": "Snakemake workflow catalog",
+#             "href": "https://snakemake.github.io/snakemake-workflow-catalog",
+#         },
+#         {
+#             "text": "Snakemake wrappers",
+#             "alt": "Snakemake wrappers",
+#             "href": "https://snakemake-wrappers.readthedocs.io",
+#         },
+#     ],
+# }
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -198,26 +259,26 @@ html_static_path = ["_static"]
 # html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "Snakemakedoc"
+# htmlhelp_basename = "Snakemakedoc"
 
 
 # -- Options for LaTeX output ---------------------------------------------
 
-latex_elements = {
-    # The paper size ('letterpaper' or 'a4paper').
-    #'papersize': 'letterpaper',
-    # The font size ('10pt', '11pt' or '12pt').
-    #'pointsize': '10pt',
-    # Additional stuff for the LaTeX preamble.
-    #'preamble': '',
-}
+# latex_elements = {
+#     # The paper size ('letterpaper' or 'a4paper').
+#     #'papersize': 'letterpaper',
+#     # The font size ('10pt', '11pt' or '12pt').
+#     #'pointsize': '10pt',
+#     # Additional stuff for the LaTeX preamble.
+#     #'preamble': '',
+# }
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
-latex_documents = [
-    ("index", "Snakemake.tex", "Snakemake Documentation", "Johannes Koester", "manual"),
-]
+# latex_documents = [
+#     ("index", "Snakemake.tex", "Snakemake Documentation", "Johannes Koester", "manual"),
+# ]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
@@ -244,7 +305,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [("index", "snakemake", "Snakemake Documentation", ["Johannes Koester"], 1)]
+# man_pages = [("index", "snakemake", "Snakemake Documentation", ["Johannes Koester"], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -255,17 +316,17 @@ man_pages = [("index", "snakemake", "Snakemake Documentation", ["Johannes Koeste
 # Grouping the document tree into Texinfo files. List of tuples
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
-texinfo_documents = [
-    (
-        "index",
-        "Snakemake",
-        "Snakemake Documentation",
-        "Johannes Koester",
-        "Snakemake",
-        "One line description of project.",
-        "Miscellaneous",
-    ),
-]
+# texinfo_documents = [
+#     (
+#         "index",
+#         "Snakemake",
+#         "Snakemake Documentation",
+#         "Johannes Koester",
+#         "Snakemake",
+#         "One line description of project.",
+#         "Miscellaneous",
+#     ),
+# ]
 
 # Documents to append as an appendix to all manuals.
 # texinfo_appendices = []

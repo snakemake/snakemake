@@ -1,0 +1,11 @@
+rule all:
+    input:
+        o='output.txt'
+
+rule test_prebuilt_conda_script:
+    output:
+        o='output.txt'
+    conda:
+        'test_prebuilt_conda_script'
+    script:
+        'test.py'

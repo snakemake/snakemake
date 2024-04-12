@@ -1,4 +1,3 @@
-
 from snakemake.utils import min_version
 
 from snakemake import __version__
@@ -44,11 +43,10 @@ rule rule1:
 		'test.inter'
 	output: 'dir/test.out'
 	log:    a='log/logfile.log'
-	version: version()
 	threads: 3
 	shell: 
 		'if [ {threads} -ne 3 ]; then echo "This test has to be run with -j3 in order to succeed!"; exit 1; fi; ' \
-		'echo {TEST}; echo {version}; cp {input[0]} {output[0]}; ' # append a comment
+		'echo {TEST}; cp {input[0]} {output[0]}; ' # append a comment
 		'echo test > {log.a}'
 
 rule rule2:

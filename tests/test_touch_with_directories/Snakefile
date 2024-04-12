@@ -1,0 +1,6 @@
+# need a dummy file in expected-results in order to commit it to git
+with open("out", 'w'):
+    pass
+
+rule a:
+    output: directory('output/'),
