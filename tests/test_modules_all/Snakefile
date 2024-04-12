@@ -13,7 +13,13 @@ module test:
         {"results/": "results/testmodule/"}
 
 
-use rule * from test
+use rule * from test as test_*
+
+
+rule all:
+    input:
+        expand(rules.test_a.output, name="test"),
+    default_target: True
 
 
 assert test.some_func() == 15

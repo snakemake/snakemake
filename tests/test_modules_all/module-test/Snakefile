@@ -15,4 +15,3 @@ rule a:
 rule all:
     input:
         expand(rules.a.output, name="test"),
-    default_target: True
