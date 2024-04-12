@@ -1,6 +1,85 @@
 # Changelog
 
 
+## [8.10.6](https://github.com/snakemake/snakemake/compare/v8.10.5...v8.10.6) (2024-04-04)
+
+
+### Bug Fixes
+
+* only constrain by --max-threads if threads of job are already known ([#2790](https://github.com/snakemake/snakemake/issues/2790)) ([5f28fcd](https://github.com/snakemake/snakemake/commit/5f28fcd32bd8fa0f539c4fc8aabf07702787132b))
+
+## [8.10.5](https://github.com/snakemake/snakemake/compare/v8.10.4...v8.10.5) (2024-04-04)
+
+
+### Bug Fixes
+
+* properly delete local copies of storage files after remote jobs ([#2793](https://github.com/snakemake/snakemake/issues/2793)) ([e3362b0](https://github.com/snakemake/snakemake/commit/e3362b03e11d9770ed6b01e82017973f4a652d4a))
+* respect APPTAINER_CACHEDIR and allow env variables in --apptainer-prefix and --conda-prefix ([#2795](https://github.com/snakemake/snakemake/issues/2795)) ([b1694cd](https://github.com/snakemake/snakemake/commit/b1694cdf10ce46ff80236a8bb1d9c72e2f0fae0e))
+
+## [8.10.4](https://github.com/snakemake/snakemake/compare/v8.10.3...v8.10.4) (2024-03-27)
+
+
+### Documentation
+
+* fix links ([420ea9c](https://github.com/snakemake/snakemake/commit/420ea9ca52d3de76f93e3ad30d922a97950c75de))
+
+## [8.10.3](https://github.com/snakemake/snakemake/compare/v8.10.2...v8.10.3) (2024-03-27)
+
+
+### Documentation
+
+* mention maintainers ([be95e25](https://github.com/snakemake/snakemake/commit/be95e25d7ee65abe993f08b9d6ca726ee79ec7d4))
+
+## [8.10.2](https://github.com/snakemake/snakemake/compare/v8.10.1...v8.10.2) (2024-03-26)
+
+
+### Bug Fixes
+
+* remove default packages from conda envs ([#2749](https://github.com/snakemake/snakemake/issues/2749)) ([027906c](https://github.com/snakemake/snakemake/commit/027906c519b5e39a628dda072f314e7b9f6343dc))
+* use base64 encoding for passing default resources args to jobs ([#2780](https://github.com/snakemake/snakemake/issues/2780)) ([4735bc3](https://github.com/snakemake/snakemake/commit/4735bc3b81d9db96da0fb949893285ec0f77d076))
+
+## [8.10.1](https://github.com/snakemake/snakemake/compare/v8.10.0...v8.10.1) (2024-03-26)
+
+
+### Bug Fixes
+
+* passing of --set-threads values to remote jobs ([#2775](https://github.com/snakemake/snakemake/issues/2775)) ([4fd767a](https://github.com/snakemake/snakemake/commit/4fd767a4e57043551e0551542a93dbc9d34df777))
+* use base64 encoding when passing resources and threads to remote jobs (this solves issues with complex quoted resources) ([#2778](https://github.com/snakemake/snakemake/issues/2778)) ([a8ee4d8](https://github.com/snakemake/snakemake/commit/a8ee4d8a8228aeac7bccefdc3b868059455e38c4))
+
+## [8.10.0](https://github.com/snakemake/snakemake/compare/v8.9.0...v8.10.0) (2024-03-22)
+
+
+### Features
+
+* expose ResourceSettings in TestWorkflowsBase ([#2770](https://github.com/snakemake/snakemake/issues/2770)) ([e7c323b](https://github.com/snakemake/snakemake/commit/e7c323b707091d759592a6c0b75e8f772b2c72c5))
+
+## [8.9.0](https://github.com/snakemake/snakemake/compare/v8.8.0...v8.9.0) (2024-03-18)
+
+
+### Features
+
+* add function 'exists' for checking the prior existence of files or dirs before workflow execution while considering any remote storage settings. In addition: some bug fixes for error handling and the update/before_update functionality. ([ee96393](https://github.com/snakemake/snakemake/commit/ee9639385cb2c9cec425800088faee4e4bf77c9a))
+
+## [8.8.0](https://github.com/snakemake/snakemake/compare/v8.7.0...v8.8.0) (2024-03-15)
+
+
+### Features
+
+* Allow smart_open 7.x ([#2745](https://github.com/snakemake/snakemake/issues/2745)) ([d52c1b1](https://github.com/snakemake/snakemake/commit/d52c1b1805d2e30124da2ac01f614fe4f5cb0257))
+
+
+### Bug Fixes
+
+* various error handling improvements, fixed logging/error behavior (stdout from dryrun, stderr otherwise) ([#2759](https://github.com/snakemake/snakemake/issues/2759)) ([d0d1f48](https://github.com/snakemake/snakemake/commit/d0d1f48e9bc1f8f994c2f243255b84a1b73e5208))
+
+## [8.7.0](https://github.com/snakemake/snakemake/compare/v8.6.0...v8.7.0) (2024-03-13)
+
+
+### Features
+
+* add flag for marking output as being updated instead of rewritten (update("test.txt")) ([#2754](https://github.com/snakemake/snakemake/issues/2754)) ([9ba5d95](https://github.com/snakemake/snakemake/commit/9ba5d95a657952f06ad22cc415670f79c013d3f8))
+* allow default storage provider to be explicitly set to none ([#2746](https://github.com/snakemake/snakemake/issues/2746)) ([ce519d7](https://github.com/snakemake/snakemake/commit/ce519d7fd2b9dde1f369cb0da27a71d910b46734))
+
 ## [8.6.0](https://github.com/snakemake/snakemake/compare/v8.5.5...v8.6.0) (2024-03-11)
 
 

@@ -271,9 +271,8 @@ class RuleRecord(RuleRecordInterface):
             self.conda_env = yaml.load(self._conda_env_raw, Loader=yaml.Loader)
         self.n_jobs = 1
         self.id = uuid.uuid4()
-        self._init_source()
 
-    def _init_source(self):
+    def init_source(self):
         sources, language = None, None
         if self._rule.shellcmd is not None:
             sources = [self._rule.shellcmd]
@@ -632,6 +631,7 @@ async def auto_report(
         rule = RuleRecord(job_rec.job, job_rec)
         if job_rec.rule not in rules:
             rules[job_rec.rule].append(rule)
+            rule.init_source()
         else:
             merged = False
             for other in rules[job_rec.rule]:
@@ -641,6 +641,7 @@ async def auto_report(
                     break
             if not merged:
                 rules[job_rec.rule].append(rule)
+                rule.init_source()
     # In theory there could be more than one rule with the same name kept from above.
     # For now, we just keep the first.
     rules = {rulename: items[0] for rulename, items in rules.items()}

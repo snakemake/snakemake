@@ -667,11 +667,13 @@ class _IOFile(str, AnnotatedStringInterface):
         # protect explicit output itself
         lchmod(self.file, mode)
 
-    async def remove(self, remove_non_empty_dir=False):
+    async def remove(self, remove_non_empty_dir=False, only_local=False):
         if self.is_directory:
-            await remove(self, remove_non_empty_dir=True)
+            await remove(self, remove_non_empty_dir=True, only_local=only_local)
         else:
-            await remove(self, remove_non_empty_dir=remove_non_empty_dir)
+            await remove(
+                self, remove_non_empty_dir=remove_non_empty_dir, only_local=only_local
+            )
 
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
@@ -947,8 +949,8 @@ def contains_wildcard_constraints(pattern):
     return any(match.group("constraint") for match in WILDCARD_REGEX.finditer(pattern))
 
 
-async def remove(file, remove_non_empty_dir=False):
-    if file.is_storage and file.should_not_be_retrieved_from_storage:
+async def remove(file, remove_non_empty_dir=False, only_local=False):
+    if not only_local and file.is_storage and file.should_not_be_retrieved_from_storage:
         if await file.exists_in_storage():
             await file.storage_object.managed_remove()
     elif os.path.isdir(file) and not os.path.islink(file):
@@ -1561,6 +1563,14 @@ class Namedlist(list):
             setattr(self, name, self[index])
         else:
             setattr(self, name, Namedlist(toclone=self[index:end]))
+
+    def update(self, items: Dict):
+        for key, value in items.items():
+            if key in self._names:
+                raise ValueError(f"Key {key} already exists in Namedlist")
+            else:
+                self.append(value)
+                self._add_name(key)
 
     def _get_names(self):
         """

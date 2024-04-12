@@ -534,6 +534,33 @@ Consider the following example:
 The semantic is as follows:
 If the sample wildcard is ``100``, the input is ``a/100.txt``, otherwise it is ``b/100.txt``.
 
+.. _snakefiles-semantic-helpers-exists:
+
+The exists function
+"""""""""""""""""""
+
+The ``exists`` function allows to check whether a file exists, while properly considering remote storage settings provided to Snakemake.
+For example, if Snakemake has been configured to consider all input and output files to be located in an S3 bucket, ``exists`` will check whether the file exists in the S3 bucket.
+It has the signature ``exists(path)``, with ``path`` being the path to a file or directory, or an explicit :ref:`storage object <storage-support>`.
+The function returns ``True`` if the file exists, and ``False`` otherwise.
+It can for example be used to condition some behavior in the workflow on the existence of a file **before** the workflow is executed:
+
+.. code-block:: python
+
+    rule all:
+        input:
+            # only expect the output if test.txt is present before workflow execution
+            "out.txt" if exists("test.txt") else [],
+
+    rule b:
+        input:
+            "test.txt"
+        output:
+            "out.txt"
+        shell:
+            "cp {input} {output}"
+
+
 .. _snakefiles-targets:
 
 Target rules
@@ -2822,3 +2849,53 @@ Consider the following complete toy example:
             "test{i}.txt"
         shell:
             "echo {wildcards.i} > {output}"
+
+.. _snakefiles_update_output:
+
+Updating existing output files
+------------------------------
+
+By default, Snakemake deletes already existing output files before a job is executed.
+This is usually very convenient, because many tools will fail if their output files already exist.
+However, from Snakemake 8.7 on, it is possible to declare an output file/directory to be updated by a job instead of rewritten from scratch.
+Consider the following example:
+
+.. code-block:: python
+
+    rule update:
+        input:
+            "in.txt"
+        output:
+            update("test.txt")
+        shell:
+            "echo test >> {output}"
+
+
+Here, the statement ``test`` is appended to the output file ``test.txt``.
+Hence, we declare it as being updated via the ``update`` flag.
+This way, Snakemake will not delete the file before the job is executed.
+
+If such a file/directory has to be considered as input **before the update** for another rule
+it can be marked as ``before_update``.
+This ensures that Snakemake does not search for a producing job but instead considers the file as is on disk or in the storage:
+
+.. code-block:: python
+
+    rule do_something:
+        input:
+            before_update("test.txt")
+        output:
+            "in.txt"
+        shell:
+            "cp {input} {output}"
+
+    rule update:
+        input:
+            "in.txt"
+        output:
+            update("test.txt")
+        shell:
+            "echo test >> {output}"
+
+As can be seen, this way it is even possible to break a cyclic dependency.
+An important helper for setting up the logic of ``before_update`` is the :ref:`exists function <snakefiles-semantic-helpers-exists>`, which allows to e.g. condition the consideration of the file that shall be used before the update by its actual existence before the update.
