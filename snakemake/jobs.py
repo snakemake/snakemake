@@ -58,6 +58,10 @@ def format_file(f, is_input: bool):
         return f"{f} (pipe)"
     elif is_flagged(f, "service"):
         return f"{f} (service)"
+    elif is_flagged(f, "update"):
+        return f"{f} (update)"
+    elif is_flagged(f, "before_update"):
+        return f"{f} (before update)"
     elif is_flagged(f, "checkpoint_target"):
         return TBDString()
     elif is_flagged(f, "sourcecache_entry"):
@@ -179,6 +183,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         "incomplete_input_expand",
         "_params_and_resources_resetted",
         "_queue_input",
+        "_aux_resources",
     ]
 
     def __init__(
@@ -234,6 +239,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self._params_and_resources_resetted = False
 
         self._attempt = self.dag.workflow.attempt
+        self._aux_resources = dict()
 
         # TODO get rid of these
         self.temp_output, self.protected_output = set(), set()
@@ -252,6 +258,13 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             queue_info = get_flag_value(f_, "from_queue")
             if queue_info:
                 self._queue_input[queue_info].append(f)
+
+    def add_aux_resource(self, name, value):
+        if name in self._aux_resources:
+            raise ValueError(
+                f"Resource {name} already exists in aux_resources of job {self}."
+            )
+        self._aux_resources[name] = value
 
     @property
     def is_updated(self):
@@ -436,6 +449,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.attempt,
                 skip_evaluation=skip_evaluation,
             )
+        if self._aux_resources and any(
+            name not in self._resources.keys() for name in self._aux_resources.keys()
+        ):
+            self._resources.update(self._aux_resources)
         return self._resources
 
     @property
@@ -708,6 +725,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     async def remove_existing_output(self):
         """Clean up output before rules actually run"""
         for f, f_ in zip(self.output, self.rule.output):
+            if is_flagged(f, "update"):
+                # output files marked as to be updated are not removed
+                continue
             try:
                 # remove_non_empty_dir only applies to directories which aren't
                 # flagged with directory().
@@ -757,11 +777,17 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
 
         # wait for input files, respecting keep_storage_local
         wait_for_local = self.dag.workflow.storage_settings.keep_storage_local
-        await wait_for_files(
-            self.input,
-            wait_for_local=wait_for_local,
-            latency_wait=self.dag.workflow.execution_settings.latency_wait,
-        )
+        try:
+            await wait_for_files(
+                self.input,
+                wait_for_local=wait_for_local,
+                latency_wait=self.dag.workflow.execution_settings.latency_wait,
+            )
+        except IOError as ex:
+            raise WorkflowError(
+                ex,
+                rule=self.rule,
+            )
 
         if not self.is_shadow or self.is_norun:
             return

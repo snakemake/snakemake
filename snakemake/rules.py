@@ -441,13 +441,14 @@ class Rule(RuleInterface):
                         "pipe",
                         "service",
                         "ensure",
+                        "update",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
                                 item_flag, self
                             )
                         )
-                    if output and item_flag in ["ancient"]:
+                    if output and item_flag in ["ancient", "before_update"]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(
                                 item_flag, self
@@ -1001,7 +1002,9 @@ class Rule(RuleInterface):
         threads = apply("_cores", self.resources["_cores"])
         if threads is None:
             raise WorkflowError("Threads must be given as an int", rule=self)
-        if self.workflow.resource_settings.max_threads is not None:
+        if self.workflow.resource_settings.max_threads is not None and not isinstance(
+            threads, TBDString
+        ):
             threads = min(threads, self.workflow.resource_settings.max_threads)
         resources["_cores"] = threads
 
