@@ -14,7 +14,7 @@ rule bench_shell:
         "input1.zero",
         "input2.zero",
     benchmark:
-        repeat("test.benchmark_shell.jsonl", 2)
+        repeat("test.benchmark_shell.{ext}", 2)
     threads: 2
     shell:
         "stress --cpu {threads} --timeout 10"
@@ -25,7 +25,7 @@ rule bench_script:
         "input1.zero",
         "input2.zero",
     benchmark:
-        "test.benchmark_script.jsonl"
+        "test.benchmark_script.{ext}"
     script:
         "script.py"
 
@@ -35,7 +35,7 @@ rule bench_run:
         "input1.zero",
         "input2.zero",
     benchmark:
-        "test.benchmark_run.jsonl"
+        "test.benchmark_run.{ext}"
     run:
         time.sleep(1)
 
@@ -45,6 +45,6 @@ rule bench_run_shell:
         "input1.zero",
         "input2.zero",
     benchmark:
-        "test.benchmark_run_shell.jsonl"
+        "test.benchmark_run_shell.{ext}"
     run:
         shell("sleep 1")

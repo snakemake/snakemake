@@ -189,7 +189,7 @@ class BenchmarkRecord:
         record = {
             "jobid": self.jobid,
             "rule_name": self.rule_name,
-            "wildcards": self.wildcards,
+            "wildcards": {key: value for key, value in self.wildcards.items()},
             "threads": self.threads,
             "running_time": self.running_time,
             "max_rss": self.max_rss,
