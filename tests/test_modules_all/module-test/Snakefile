@@ -5,7 +5,7 @@ def some_func():
     return 15
 
 
-rule a:
+rule rule_a:
     output:
         temp("results/{name}.out"),
     shell:
@@ -14,4 +14,4 @@ rule a:
 
 rule all:
     input:
-        expand(rules.a.output, name="test"),
+        expand(rules.rule_a.output, name="test"),
