@@ -5,13 +5,13 @@ def some_func():
     return 15
 
 
-rule rule_a:
+rule a:
     output:
-        temp("results/{name}.out"),
+        touch("results/{name}.out"),
     shell:
         "echo {config[test]} > {output}"
 
 
 rule all:
     input:
-        expand(rules.rule_a.output, name="test"),
+        expand(rules.a.output, name="test"),
