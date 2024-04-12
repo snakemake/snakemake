@@ -1251,7 +1251,7 @@ def expand(*args, **wildcard_values):
         filepattern_flags = {
             key: value
             for key, value in getattr(filepattern, "flags", {}).items()
-            if key not in ["path_modified"]
+            if key != PATH_MODIFIER_FLAG
         }
         if filepattern_flags:
             raise WorkflowError(
