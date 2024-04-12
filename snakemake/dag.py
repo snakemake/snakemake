@@ -397,7 +397,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to store output in storage.", e)
 
-    def cleanup_storage_objects(self):
+    async def cleanup_storage_objects(self):
         shared_local_copies = (
             SharedFSUsage.STORAGE_LOCAL_COPIES
             in self.workflow.storage_settings.shared_fs_usage
@@ -407,11 +407,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if (
                 self.workflow.is_main_process and (job.is_local or shared_local_copies)
             ) or (self.workflow.remote_exec and not shared_local_copies):
-                for f in chain(job.input, job.output):
-                    if f.is_storage and f not in cleaned:
-                        f.storage_object.cleanup()
-                        f.remove(only_local=True)
-                        cleaned.add(f)
+                async with asyncio.TaskGroup() as tg:
+                    for f in chain(job.input, job.output):
+                        if f.is_storage and f not in cleaned:
+                            f.storage_object.cleanup()
+                            tg.create_task(f.remove(only_local=True))
+                            cleaned.add(f)
 
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
