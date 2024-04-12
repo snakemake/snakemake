@@ -153,6 +153,7 @@ class GroupResources:
         run_local,
         additive_resources=None,
         sortby=None,
+        skip_constraints=None,
     ):
         """Basic implementation of group job resources calculation
 
@@ -302,7 +303,7 @@ class GroupResources:
             # For now, we are unable to handle a constraint on runtime, so ignore.
             # Jobs requesting too much runtime will still get flagged by the
             # scheduler
-            for res in additive_resources:
+            for res in skip_constraints:
                 if res in sorted_constraints:
                     sorted_constraints[res] = None
 
@@ -455,7 +456,7 @@ class GroupResources:
         """
 
         # Calculates the ratio of resource to constraint. E.g, if the resource is 12
-        #  cores, and the constraint is 16, it will return 0.75. This is done for
+        # cores, and the constraint is 16, it will return 0.75. This is done for
         # every resource type in the group, returning the result in a list
         def _proportion(group):
             return [r / c if c else 0 for r, c in zip(group, constraints)]

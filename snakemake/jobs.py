@@ -1351,6 +1351,9 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     @property
     def resources(self):
         if self._resources is None:
+            skip_constraints = ["runtime"]
+            if not self.dag.workflow.remote_exec:
+                skip_constraints.append("_cores")
             try:
                 self._resources = GroupResources.basic_layered(
                     toposorted_jobs=self.toposorted,
@@ -1358,6 +1361,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                     run_local=self.dag.workflow.local_exec,
                     additive_resources=["runtime"],
                     sortby=["runtime"],
+                    skip_constraints=skip_constraints,
                 )
             except WorkflowError as err:
                 raise WorkflowError(
