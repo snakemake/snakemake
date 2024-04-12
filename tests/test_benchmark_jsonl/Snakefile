@@ -10,6 +10,9 @@ rule all:
 
 
 rule bench_shell:
+    input:
+        "input1.zero",
+        "input2.zero",
     benchmark:
         repeat("test.benchmark_shell.jsonl", 2)
     threads: 2
@@ -18,6 +21,9 @@ rule bench_shell:
 
 
 rule bench_script:
+    input:
+        "input1.zero",
+        "input2.zero",
     benchmark:
         "test.benchmark_script.jsonl"
     script:
@@ -25,6 +31,9 @@ rule bench_script:
 
 
 rule bench_run:
+    input:
+        "input1.zero",
+        "input2.zero",
     benchmark:
         "test.benchmark_run.jsonl"
     run:
@@ -32,6 +41,9 @@ rule bench_run:
 
 
 rule bench_run_shell:
+    input:
+        "input1.zero",
+        "input2.zero",
     benchmark:
         "test.benchmark_run_shell.jsonl"
     run:
