@@ -15,6 +15,7 @@ from typing import Set
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
+from snakemake_interface_monitoring_plugins.registry import MonitoringPluginRegistry
 
 import snakemake.common.argparse
 from snakemake import logging
@@ -709,6 +710,7 @@ def get_argument_parser(profiles=None):
         help="Specify a custom executor, available via an executor plugin: snakemake_executor_<name>",
         choices=_get_executor_plugin_registry().plugins.keys(),
     )
+
     group_exec.add_argument(
         "--forceall",
         "-F",
@@ -1482,12 +1484,8 @@ def get_argument_parser(profiles=None):
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
     group_behavior.add_argument(
-        "--log-service",
-        default=None,
-        choices=["none", "slack", "wms"],
-        help="Set a specific messaging service for logging output."
-        "Snakemake will notify the service on errors and completed execution."
-        "Currently slack and workflow management system (wms) are supported.",
+        "--monitoring-provider",
+        help="Specify a custom monitoring provider, available via an monitoring plugin: snakemake_monitoring_<name>",
     )
     group_behavior.add_argument(
         "--job-deploy-sources",
@@ -1687,6 +1685,7 @@ def get_argument_parser(profiles=None):
     # Add namespaced arguments to parser for each plugin
     _get_executor_plugin_registry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
+    MonitoringPluginRegistry().register_cli_args(parser)
     _get_report_plugin_registry().register_cli_args(parser)
     return parser
 
@@ -1789,19 +1788,13 @@ def setup_log_handlers(args, parser):
                 file=sys.stderr,
             )
             sys.exit(1)
-
-    if args.log_service == "slack":
-        slack_logger = logging.SlackLogger()
-        log_handler.append(slack_logger.log_handler)
-
-    elif args.wms_monitor or args.log_service == "wms":
-        # Generate additional metadata for server
-        metadata = generate_parser_metadata(parser, args)
-        wms_logger = logging.WMSLogger(
-            args.wms_monitor, args.wms_monitor_arg, metadata=metadata
+    if args.monitoring_provider:
+        monitoring_provider = MonitoringPluginRegistry().get_plugin(
+            args.monitoring_provider
         )
-        log_handler.append(wms_logger.log_handler)
-
+        settings = monitoring_provider.get_settings(args)
+        provider_instance = monitoring_provider.monitoring_provider(settings)
+        log_handler.append(provider_instance.log_handler)
     return log_handler
 
 
