@@ -1306,14 +1306,12 @@ def expand(*args, **wildcard_values):
                     values = [values]
                 yield [(wildcard, value) for value in values]
 
+        # string.Formatter does not fully support AnnotatedString (flags are discarded)
+        # so, if they exist, need to be copied
         def copy_flags(from_path, dest_path):
             if hasattr(from_path, "flags"):
                 dest_path = AnnotatedString(dest_path)
                 dest_path.flags.update(from_path.flags)
-                if is_flagged(dest_path, "multiext"):
-                    dest_path.flags["multiext"] = self.apply_default_storage(
-                        self.replace_prefix(dest_path.flags["multiext"], property)
-                    )
             return dest_path
 
         formatter = string.Formatter()

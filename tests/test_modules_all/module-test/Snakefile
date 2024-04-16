@@ -21,15 +21,20 @@ rule b:
         "cat {input} > {output}"
 
 
-rule c:
+rule c_tsv:
     input:
         expand(rules.b.output, name="test"),
     output:
-        "results/b/{name}.out",
+        "results/c/{name}.tsv",
     shell:
         "cat {input} > {output}"
 
 
+use rule c_tsv as c_txt with:
+    output:
+        "results/c/{name}.txt",
+
+
 rule all:
     input:
-        expand(rules.c.output, name="test"),
+        expand(rules.c_tsv.output, name="test"),
