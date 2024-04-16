@@ -2069,6 +2069,23 @@ def test_call_inner():
     run(dpath("test_inner_call"))
 
 
+def test_storage_localrule():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        run(
+            dpath("test_storage_localrule"),
+            cluster="./qsub",
+            default_storage_provider="fs",
+            default_storage_prefix="fs-storage",
+            remote_job_local_storage_prefix=Path(tmpdir) / "remotejobs/$JOBID",
+            local_storage_prefix=Path(tmpdir) / "localjobs",
+            shared_fs_usage=[
+                SharedFSUsage.PERSISTENCE,
+                SharedFSUsage.SOURCE_CACHE,
+                SharedFSUsage.SOURCES,
+            ],
+        )
+
+
 @skip_on_windows  # OS agnostic
 def test_update_flag():
     run(dpath("test_update_flag"))
@@ -2077,6 +2094,21 @@ def test_update_flag():
 @skip_on_windows  # OS agnostic
 def test_list_input_changes():
     run(dpath("test01"), shellcmd="snakemake --list-input-changes", check_results=False)
+
+
+def test_storage_cleanup_local():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        breakpoint()
+        run(
+            dpath("test_storage_cleanup_local"),
+            cluster="./qsub",
+            default_storage_provider="fs",
+            default_storage_prefix="fs-storage",
+            local_storage_prefix=tmpdir_path,
+        )
+        breakpoint()
+        assert not any(tmpdir_path.iterdir())
 
 
 @skip_on_windows  # OS agnostic

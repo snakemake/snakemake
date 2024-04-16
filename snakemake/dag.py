@@ -366,7 +366,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for f in job.input
             if f.is_storage
             and (
-                also_missing_internal
+                (also_missing_internal and not shared_local_copies)
                 or self.is_external_input(f, job, not_needrun_is_external=True)
             )
         }
