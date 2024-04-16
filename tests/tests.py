@@ -1536,7 +1536,7 @@ def test_long_shell():
 
 
 def test_modules_all():
-    run(dpath("test_modules_all"), targets=["a"])
+    run(dpath("test_modules_all"), targets=["all"])
 
 
 def test_module_nested():

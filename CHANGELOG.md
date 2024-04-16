@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [8.10.7](https://github.com/snakemake/snakemake/compare/v8.10.6...v8.10.7) (2024-04-12)
+
+
+### Bug Fixes
+
+* expand error on modules with prefix ([#1614](https://github.com/snakemake/snakemake/issues/1614)) ([#2803](https://github.com/snakemake/snakemake/issues/2803)) ([c6bfcd7](https://github.com/snakemake/snakemake/commit/c6bfcd762c595c7d009fb3c2cfff6231a1f3ffe4))
+* failure message in cleanup_metadata ([#2800](https://github.com/snakemake/snakemake/issues/2800)) ([4c7fe55](https://github.com/snakemake/snakemake/commit/4c7fe55285fd4641d86a945110e546ad19dd9c2e))
+* handle async method in cleanup_storage_objects ([#2806](https://github.com/snakemake/snakemake/issues/2806)) ([272205b](https://github.com/snakemake/snakemake/commit/272205beb0765e65c86a7b4e4f740b84ceac44b5))
+
+
+### Documentation
+
+* add Morten Lund as another maintainer. ([293bc05](https://github.com/snakemake/snakemake/commit/293bc056b6c44f17340543b2678f8a59e808a5a6))
+
 ## [8.10.6](https://github.com/snakemake/snakemake/compare/v8.10.5...v8.10.6) (2024-04-04)
 
 

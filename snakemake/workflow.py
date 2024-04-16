@@ -815,7 +815,7 @@ class Workflow(WorkflowExecutorInterface):
         for path in paths:
             success = self.persistence.cleanup_metadata(path)
             if not success:
-                failed.append(path)
+                failed.append(str(path))
         if failed:
             raise WorkflowError(
                 "Failed to clean up metadata for the following files because the metadata was not present.\n"
@@ -1255,7 +1255,7 @@ class Workflow(WorkflowExecutorInterface):
 
             if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
-                self.dag.cleanup_storage_objects()
+                async_run(self.dag.cleanup_storage_objects())
 
             if success:
                 if self.dryrun:
