@@ -7,6 +7,8 @@ configargparse
 appdirs
 immutables
 sphinxawesome-theme
+snakemake
 snakemake-interface-common
 snakemake-interface-executor-plugins
 snakemake-interface-storage-plugins
+snakemake-interface-report-plugins
