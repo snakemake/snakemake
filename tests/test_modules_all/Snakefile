@@ -18,7 +18,7 @@ use rule * from test as test_*
 
 rule all:
     input:
-        expand(rules.test_a.output, name="test"),
+        expand(rules.test_c.output, name="test"),
 
 
 assert test.some_func() == 15

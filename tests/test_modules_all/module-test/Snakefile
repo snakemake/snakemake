@@ -7,11 +7,29 @@ def some_func():
 
 rule a:
     output:
-        touch("results/{name}.out"),
+        temp("results/a/{name}.out"),
     shell:
         "echo {config[test]} > {output}"
 
 
-rule all:
+rule b:
     input:
         expand(rules.a.output, name="test"),
+    output:
+        "results/b/{name}.out",
+    shell:
+        "cat {input} > {output}"
+
+
+rule c:
+    input:
+        expand(rules.b.output, name="test"),
+    output:
+        "results/b/{name}.out",
+    shell:
+        "cat {input} > {output}"
+
+
+rule all:
+    input:
+        expand(rules.c.output, name="test"),

@@ -1249,6 +1249,7 @@ def expand(*args, **wildcard_values):
 
     filepatterns = list(map(path_to_str, filepatterns))
 
+    # check if there are any flags defined
     for filepattern in filepatterns:
         filepattern_flags = {
             key: value
