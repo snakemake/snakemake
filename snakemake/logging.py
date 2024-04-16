@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import logging as _logging
 import platform
+import re
 import time
 import datetime
 import sys
@@ -14,6 +15,8 @@ import threading
 from functools import partial
 import inspect
 import textwrap
+
+from requests.models import Response
 
 
 def get_default_exec_mode():
@@ -131,31 +134,65 @@ class WMSLogger:
         the run, but we don't exit with error if any updates fail, as the
         workflow will already be running and it would not be worth stopping it.
         """
-
-        from snakemake.resources import DefaultResources
-
+        
         self.address = address or "http:127.0.0.1:5000"
-        self.args = list(map(DefaultResources.decode_arg, args)) if args else []
-        self.args = {item[0]: item[1] for item in list(self.args)}
+
+        self.args: dict = self._decode_args(args)
 
         self.metadata = metadata or {}
 
         # A token is suggested but not required, depends on server
-        self.token = os.getenv("WMS_MONITOR_TOKEN")
+        self.token: str | None = os.getenv(key="WMS_MONITOR_TOKEN")
         self.service_info()
 
         # Create or retrieve the existing workflow
         self.create_workflow()
 
-    def service_info(self):
+    @property
+    def _headers(self) -> dict[str, str] | None:
+        """
+        Get the headers for the logging request.
+        
+        Returns:
+            dict[str, str] | None: The headers for the logging request, or None if no token is available.
+        """
+        return (
+            None 
+            if not self.token 
+            else {"Authorization": f"Bearer {self.token}"}
+        )
+    
+    @staticmethod
+    def _decode_args(args : list) -> dict:
+        """
+        Decode the arguments for creating a workflow.
+
+        Args:
+            args (list): The list of arguments.
+
+        Returns:
+            dict: The decoded arguments as a dictionary.
+        """
+        from snakemake.resources import DefaultResources
+        decoded_args: list = (
+            [DefaultResources.decode_arg(arg) for arg in args] 
+            if args 
+            else []
+        )
+        args_dict: dict = {item[0]: item[1] for item in decoded_args}
+
+        return args_dict
+    
+    def service_info(self) -> None:
         """Service Info ensures that the server is running. We exit on error
         if this isn't the case, so the function can be called in init.
         """
         import requests
 
         # We first ensure that the server is running, period
-        response = requests.get(
-            f"{self.address}/api/service-info", headers=self._headers
+        response: Response = requests.get(
+            url=f"{self.address}/api/service-info", 
+            headers=self._headers
         )
         if response.status_code != 200:
             sys.stderr.write(f"Problem with server: {self.address} {os.linesep}")
@@ -252,14 +289,6 @@ class WMSLogger:
             f"The {endpoint} response code {response.status_code} is not recognized."
         )
 
-    @property
-    def _headers(self):
-        """return authenticated headers if the user has provided a token"""
-        headers = None
-        if self.token:
-            headers = {"Authorization": "Bearer %s" % self.token}
-        return headers
-
     def _parse_message(self, msg):
         """Given a message dictionary, we want to loop through the key, value
         pairs and convert some attributes to strings (e.g., jobs are fine to be
@@ -301,8 +330,8 @@ class WMSLogger:
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
-        response = requests.post(url, data=server_info, headers=self._headers)
-        self.check_response(response, "/update_workflow_status")
+        response: Response = requests.post(url=url, data=server_info, headers=self._headers)
+        self.check_response(response=response, endpoint="/update_workflow_status")
 
 
 class Logger:

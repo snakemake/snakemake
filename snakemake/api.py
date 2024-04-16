@@ -75,6 +75,7 @@ def resolve_snakefile(path: Optional[Path], allow_missing: bool = False):
     ---------
     path: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
     """
+
     if path is None:
         for p in SNAKEFILE_CHOICES:
             if p.exists():
@@ -143,7 +144,7 @@ class SnakemakeApi(ApiBase):
         self._check_default_storage_provider(storage_settings=storage_settings)
 
         snakefile = resolve_snakefile(snakefile)
-
+        
         self._workflow_api = WorkflowApi(
             snakemake_api=self,
             snakefile=snakefile,
