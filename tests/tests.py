@@ -2099,7 +2099,6 @@ def test_list_input_changes():
 def test_storage_cleanup_local():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
-        breakpoint()
         run(
             dpath("test_storage_cleanup_local"),
             cluster="./qsub",
@@ -2107,7 +2106,6 @@ def test_storage_cleanup_local():
             default_storage_prefix="fs-storage",
             local_storage_prefix=tmpdir_path,
         )
-        breakpoint()
         assert not any(tmpdir_path.iterdir())
 
 
