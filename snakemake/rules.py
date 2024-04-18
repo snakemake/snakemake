@@ -742,9 +742,10 @@ class Rule(RuleInterface):
                         and not isinstance(item_, str)
                         and not isinstance(item_, Path)
                     ):
-                        raise WorkflowError(
+                        raise InputFunctionException(
                             f"Function did not return str or iterable of str. Encountered: {item} ({type(item)})",
                             rule=self,
+                            wildcards=wildcards,
                         )
 
                     if from_callable and path_modifier is not None and not incomplete:

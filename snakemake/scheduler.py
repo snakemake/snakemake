@@ -298,6 +298,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     local_runjobs = [job for job in run if job.is_local]
                     runjobs = [job for job in run if not job.is_local]
                     if local_runjobs:
+                        async_run(
+                            self.workflow.dag.retrieve_storage_inputs(
+                                jobs=local_runjobs, also_missing_internal=True
+                            )
+                        )
                         self.run(
                             local_runjobs,
                             executor=self._local_executor or self._executor,
