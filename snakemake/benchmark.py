@@ -138,7 +138,9 @@ class BenchmarkRecord:
         return {file: Path(file).stat().st_size / 1024 / 1024 for file in self.input}
 
     def get_benchmarks(self, extended_fmt=False):
-        logger.debug(f"Stats included in benchmarks file: {self.get_header(extended_fmt)}")
+        logger.debug(
+            f"Stats included in benchmarks file: {self.get_header(extended_fmt)}"
+        )
         if self.skipped_procs:
             logger.debug(
                 "Benchmark: not collected for "
@@ -168,7 +170,7 @@ class BenchmarkRecord:
         record = [
             f"{self.running_time:.4f}",
             self.timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
-	    self.max_rss if self.data_collected else "NA",
+            self.max_rss if self.data_collected else "NA",
             self.max_vms if self.data_collected else "NA",
             self.max_uss if self.data_collected else "NA",
             self.max_pss if self.data_collected else "NA",
@@ -179,16 +181,16 @@ class BenchmarkRecord:
         ]
         if extended_fmt:
             record += [
-	        self.jobid,
+                self.jobid,
                 self.rule_name,
-	        self.parse_wildcards(),
+                self.parse_wildcards(),
                 self.threads,
                 self.cpu_usages if self.data_collected else "NA",
-	        self.parse_resources(),
+                self.parse_resources(),
                 self.input_size_mb(),
             ]
         return record
-        
+
     def to_tsv(self):
         """Return ``str`` with the TSV representation of this record"""
 
@@ -206,7 +208,11 @@ class BenchmarkRecord:
     def to_json(self):
         """Return ``str`` with the JSON representation of this record"""
         import json
-        return json.dumps(dict(zip(self.get_header(extended), self.get_benchmarks(extended))), sort_keys=True)
+
+        return json.dumps(
+            dict(zip(self.get_header(extended), self.get_benchmarks(extended))),
+            sort_keys=True,
+        )
 
 
 class DaemonTimer(threading.Thread):
