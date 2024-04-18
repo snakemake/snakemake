@@ -18,7 +18,7 @@ use rule * from test as test_*
 
 rule all:
     input:
-        expand(rules.test_a.output, name="test"),
+        multiext(expand("results/testmodule/c/{name}.", name="test")[0], "tsv", "txt"),
 
 
 assert test.some_func() == 15
