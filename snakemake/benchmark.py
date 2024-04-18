@@ -19,8 +19,6 @@ BENCHMARK_INTERVAL = 30
 #: BENCHMARK_INTERVAL
 BENCHMARK_INTERVAL_SHORT = 0.5
 
-extended = True
-
 
 class BenchmarkRecord:
     """Record type for benchmark times"""
@@ -70,6 +68,7 @@ class BenchmarkRecord:
         resources=None,
         threads=None,
         input=None,
+        extended=None,
     ):
         #: Job ID
         self.jobid = (jobid,)
@@ -111,6 +110,8 @@ class BenchmarkRecord:
         self.skipped_procs = set()
         #: Track if data has been collected
         self.data_collected = False
+        # Print extended benchmarks?
+        self.extended = extended
 
     def timedelta_to_str(self, x):
         """Conversion of timedelta to str without fractions of seconds"""
@@ -203,14 +204,16 @@ class BenchmarkRecord:
             else:
                 return str(x)
 
-        return "\t".join(map(to_tsv_str, self.get_benchmarks(extended)))
+        return "\t".join(map(to_tsv_str, self.get_benchmarks(self.extended)))
 
     def to_json(self):
         """Return ``str`` with the JSON representation of this record"""
         import json
 
         return json.dumps(
-            dict(zip(self.get_header(extended), self.get_benchmarks(extended))),
+            dict(
+                zip(self.get_header(self.extended), self.get_benchmarks(self.extended))
+            ),
             sort_keys=True,
         )
 
@@ -429,7 +432,7 @@ def benchmarked(pid=None, benchmark_record=None, interval=BENCHMARK_INTERVAL):
 def print_benchmark_tsv(records, file_):
     """Write benchmark records to file-like the object"""
     logger.debug("Benchmarks in TSV format")
-    print("\t".join(BenchmarkRecord.get_header(extended)), file=file_)
+    print("\t".join(BenchmarkRecord.get_header(self.extended)), file=file_)
     for r in records:
         print(r.to_tsv(), file=file_)
 

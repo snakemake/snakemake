@@ -149,6 +149,7 @@ class Executor(RealExecutor):
             job.log._plainstrings(),
             benchmark,
             benchmark_repeats,
+            self.workflow.output_settings.benchmark_extended,
             conda_env,
             container_img,
             self.workflow.deployment_settings.apptainer_args,
@@ -288,6 +289,7 @@ def run_wrapper(
     log,
     benchmark,
     benchmark_repeats,
+    benchmark_extended,
     conda_env,
     container_img,
     singularity_args,
@@ -473,6 +475,7 @@ def run_wrapper(
                 bench_record.resources = resources
                 bench_record.input = input
                 bench_record.threads = threads
+                bench_record.extended = benchmark_extended
             write_benchmark_records(bench_records, benchmark)
         except Exception as ex:
             raise WorkflowError(ex)
