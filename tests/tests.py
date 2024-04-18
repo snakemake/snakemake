@@ -2106,7 +2106,7 @@ def test_storage_cleanup_local():
             default_storage_prefix="fs-storage",
             local_storage_prefix=tmpdir_path,
         )
-        assert not any(tmpdir_path.iterdir())
+        assert not tmpdir_path.exists() or not any(tmpdir_path.iterdir())
 
 
 @skip_on_windows  # OS agnostic
