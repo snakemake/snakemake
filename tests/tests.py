@@ -2069,6 +2069,7 @@ def test_call_inner():
     run(dpath("test_inner_call"))
 
 
+@skip_on_windows  # OS agnostic
 def test_storage_localrule():
     with tempfile.TemporaryDirectory() as tmpdir:
         run(
@@ -2096,6 +2097,7 @@ def test_list_input_changes():
     run(dpath("test01"), shellcmd="snakemake --list-input-changes", check_results=False)
 
 
+@skip_on_windows  # OS agnostic
 def test_storage_cleanup_local():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
