@@ -475,7 +475,6 @@ def run_wrapper(
                 bench_record.resources = resources
                 bench_record.input = input
                 bench_record.threads = threads
-                bench_record.extended = benchmark_extended
-            write_benchmark_records(bench_records, benchmark)
+            write_benchmark_records(bench_records, benchmark, benchmark_extended)
         except Exception as ex:
             raise WorkflowError(ex)

@@ -68,7 +68,6 @@ class BenchmarkRecord:
         resources=None,
         threads=None,
         input=None,
-        extended=None,
     ):
         #: Job ID
         self.jobid = (jobid,)
@@ -110,8 +109,6 @@ class BenchmarkRecord:
         self.skipped_procs = set()
         #: Track if data has been collected
         self.data_collected = False
-        # Print extended benchmarks?
-        self.extended = extended
 
     def timedelta_to_str(self, x):
         """Conversion of timedelta to str without fractions of seconds"""
@@ -192,7 +189,7 @@ class BenchmarkRecord:
             ]
         return record
 
-    def to_tsv(self):
+    def to_tsv(self, extended_fmt):
         """Return ``str`` with the TSV representation of this record"""
 
         def to_tsv_str(x):
@@ -204,16 +201,14 @@ class BenchmarkRecord:
             else:
                 return str(x)
 
-        return "\t".join(map(to_tsv_str, self.get_benchmarks(self.extended)))
+        return "\t".join(map(to_tsv_str, self.get_benchmarks(extended_fmt)))
 
-    def to_json(self):
+    def to_json(self, extended_fmt):
         """Return ``str`` with the JSON representation of this record"""
         import json
 
         return json.dumps(
-            dict(
-                zip(self.get_header(self.extended), self.get_benchmarks(self.extended))
-            ),
+            dict(zip(self.get_header(extended_fmt), self.get_benchmarks(extended_fmt))),
             sort_keys=True,
         )
 
@@ -429,25 +424,25 @@ def benchmarked(pid=None, benchmark_record=None, interval=BENCHMARK_INTERVAL):
         result.running_time = time.time() - start_time
 
 
-def print_benchmark_tsv(records, file_):
+def print_benchmark_tsv(records, file_, extended_fmt):
     """Write benchmark records to file-like the object"""
     logger.debug("Benchmarks in TSV format")
-    print("\t".join(BenchmarkRecord.get_header(self.extended)), file=file_)
+    print("\t".join(BenchmarkRecord.get_header(extended_fmt)), file=file_)
     for r in records:
-        print(r.to_tsv(), file=file_)
+        print(r.to_tsv(extended_fmt), file=file_)
 
 
-def print_benchmark_jsonl(records, file_):
+def print_benchmark_jsonl(records, file_, extended_fmt):
     """Write benchmark records to file-like the object"""
     logger.debug("Benchmarks in JSONL format")
     for r in records:
-        print(r.to_json(), file=file_)
+        print(r.to_json(extended_fmt), file=file_)
 
 
-def write_benchmark_records(records, path):
+def write_benchmark_records(records, path, extended_fmt):
     """Write benchmark records to file at path"""
     with open(path, "wt") as f:
         if path.endswith(".jsonl"):
-            print_benchmark_jsonl(records, f)
+            print_benchmark_jsonl(records, f, extended_fmt)
         else:
-            print_benchmark_tsv(records, f)
+            print_benchmark_tsv(records, f, extended_fmt)
