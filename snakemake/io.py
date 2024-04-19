@@ -1249,6 +1249,7 @@ def expand(*args, **wildcard_values):
 
     filepatterns = list(map(path_to_str, filepatterns))
 
+    # check if there are any flags defined
     for filepattern in filepatterns:
         filepattern_flags = {
             key: value
@@ -1305,10 +1306,18 @@ def expand(*args, **wildcard_values):
                     values = [values]
                 yield [(wildcard, value) for value in values]
 
+        # string.Formatter does not fully support AnnotatedString (flags are discarded)
+        # so, if they exist, need to be copied
+        def copy_flags(from_path, dest_path):
+            if hasattr(from_path, "flags"):
+                dest_path = AnnotatedString(dest_path)
+                dest_path.flags.update(from_path.flags)
+            return dest_path
+
         formatter = string.Formatter()
         try:
             return [
-                formatter.vformat(filepattern, (), comb)
+                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))
                 for filepattern in filepatterns
                 for comb in map(
                     format_dict, combinator(*flatten(wildcard_values[filepattern]))

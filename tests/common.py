@@ -199,6 +199,8 @@ def run(
     printshellcmds=False,
     default_storage_provider=None,
     default_storage_prefix=None,
+    local_storage_prefix=Path(".snakemake/storage"),
+    remote_job_local_storage_prefix=None,
     archive=None,
     cluster=None,
     cluster_status=None,
@@ -351,6 +353,8 @@ def run(
                         default_storage_prefix=default_storage_prefix,
                         all_temp=all_temp,
                         shared_fs_usage=shared_fs_usage,
+                        local_storage_prefix=local_storage_prefix,
+                        remote_job_local_storage_prefix=remote_job_local_storage_prefix,
                     ),
                     storage_provider_settings=storage_provider_settings,
                     workflow_settings=settings.WorkflowSettings(
