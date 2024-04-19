@@ -1947,7 +1947,7 @@ Since version X.X, it is possible to have extra benchmark metrics with the comma
 * `rule_name`: Name of rule,
 * `wildcards`: Wildcards of this job,
 * `threads`: Number of threads requested for this job,
-* `cpu_usages`: Total CPU time (seconds),
+* `cpu_usages`: Total CPU load,
 * `resources`: Resources requested for this job,
 * `input_size_mb`: Size of input files (MiB),
 
