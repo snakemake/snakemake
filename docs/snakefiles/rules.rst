@@ -1958,6 +1958,36 @@ However, the benchmark file can be annotated with the desired number of repeats,
 will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
 The resulting tsv file can be used as input for other rules, just like any other output file.
 
+Since version x.x, Snakemake supports benchmarking all rules via a command line argument ``--benchmark`` or ``--benchmark-all```. 
+
+To aggregate benchmark metrics of all rules with a ``benchmark`` directive, a file can be provided via ``--benchmark [FILE]``.
+
+To benchmark every rule in a workflow, a file can be provided via ``--benchmark-all [FILE]``.
+When ``--benchmark-all`` is specified, rules without a ``benchmark`` directive will have their benchmark stats written to ``.snakemake/benchmarks`` directory.
+
+Optional ``[FILE]`` argument can be omitted. In that case, aggregated metrics will be written to ``.snakemake/benchmarks/workflow_benchmark_{timestamp}.csv`` 
+
+With either ``--benchmark`` or ``--benchmark-all`` (if both are specified, ``--benchmark`` is simply ignored), benchmark metrics are aggregated to provided file in a comma separated format.
+The output ``FILE`` is a comma-separated text file with following columns:
+* jobid: Internal job id,  
+* rule: Name of the rule,  
+* wildcards: A list of wildcard values from this job,  
+* s: CPU time (in seconds),  
+* h:m:s: Wall clock time,  
+* max_rss: Max memory usage (MB) in `RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_,  
+* max_vms: Max memory usage (MB) in `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_,  
+* max_uss: Max memory usage (MB) in `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_,  
+* max_pss: Max memory usage (MB) in `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_,  
+* io_in: Input load (B),  
+* io_out: Output load (B),  
+* mean_load: Mean CPU load,  
+* cpu_time: CPU time in seconds,  
+* threads: Number of threads requested for this job,  
+* resources: Default and additional resources used for this job,  
+* input_size_mb: Total size (MB) of input files,  
+
+If a a benchmark file is annotated with ``repeat()`` in ``benchmark`` directive, each repeated measurement will show up as a separate row with identical ``jobid``, ``rule``, and ``wildcards`` values. 
+
 .. sidebar:: Note
 
     Note that benchmarking is only possible in a reliable fashion for subprocesses (thus for tasks run through the ``shell``, ``script``, and ``wrapper`` directive).

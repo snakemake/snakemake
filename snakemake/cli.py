@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from datetime import datetime
 import os
 import re
 import sys
@@ -745,6 +746,24 @@ def get_argument_parser(profiles=None):
         ),
     )
     group_exec.add_argument(
+        "--benchmark",
+        metavar="FILE",
+        nargs="?",
+        const=f".snakemake/benchmarks/workflow_benchmark.{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.csv",
+        type=str,
+        default=None,
+        help="File to write benchmarking metrics of all jobs with a benchmark directive to.",
+    )
+    group_exec.add_argument(
+        "--benchmark-all",
+        metavar="FILE",
+        nargs="?",
+        const=f".snakemake/benchmarks/workflow_benchmark.{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.csv",
+        type=str,
+        default=None,
+        help="File to write global benchmark of all jobs to, regardless if a benchmark directive is set",
+    )
+    group_exec.add_argument(
         "--batch",
         metavar="RULE=BATCH/BATCHES",
         type=parse_batch,
@@ -1323,6 +1342,11 @@ def get_argument_parser(profiles=None):
         help="Only consider given rules. If omitted, all rules in Snakefile are "
         "used. Note that this is intended primarily for internal use and may "
         "lead to unexpected results otherwise.",
+    )
+    group_behavior.add_argument(
+        "--nobenchmark",
+        action="store_true",
+        help="Disable benchmarking for all rules",
     )
     group_behavior.add_argument(
         "--target-jobs",
@@ -2086,6 +2110,9 @@ def args_to_api(args, parser):
                                 edit_notebook=edit_notebook,
                                 cleanup_scripts=not args.skip_script_cleanup,
                                 queue_input_wait_time=args.queue_input_wait_time,
+                                nobenchmark=args.nobenchmark,
+                                benchmark_output=args.benchmark,
+                                benchmark_all=args.benchmark_all,
                             ),
                             remote_execution_settings=RemoteExecutionSettings(
                                 jobname=args.jobname,

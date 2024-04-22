@@ -1,0 +1,37 @@
+rule all:
+    input: 
+        "test.with_directive.benchmark",
+        "test.with_repeat.output",
+        "test.without_directive.output",
+        "test.with_wildcards.1.output",
+        "test.with_wildcards.2.output",
+        "test.with_wildcards.3.output",
+        "test.named_input.output",
+
+rule with_directive:
+    output: "test.with_directive.output"
+    benchmark: "test.with_directive.benchmark"
+    shell:
+        "touch {output}"
+
+rule with_repeat:
+    output: "test.with_repeat.output"
+    benchmark: repeat("test.with_repeat.benchmark", 3)
+    shell:
+        "touch {output}"
+
+rule without_directive:
+    output: "test.without_directive.output"
+    shell:
+        "touch {output}"
+
+rule with_wildcards:
+    output: "test.with_wildcards.{num}.output"
+    shell:
+        "touch {output}"
+        
+rule named_input:
+    input: in_data="test.without_directive.output"
+    output: "test.named_input.output"
+    shell:
+        "touch {output}"
