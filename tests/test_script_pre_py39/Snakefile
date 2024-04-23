@@ -1,0 +1,7 @@
+rule a:
+    output:
+        "test.out"
+    conda:
+        "env.yaml"
+    script:
+        "script.py"

@@ -6,11 +6,11 @@ from snakemake_interface_executor_plugins.utils import TargetSpec
 from snakemake.common import parse_key_value_arg
 
 
-def parse_target_jobs_cli_args(args):
+def parse_target_jobs_cli_args(target_jobs_args):
     errmsg = "Invalid target wildcards definition: entries have to be defined as WILDCARD=VALUE pairs"
-    if args.target_jobs is not None:
+    if target_jobs_args is not None:
         target_jobs = list()
-        for entry in args.target_jobs:
+        for entry in target_jobs_args:
             rulename, wildcards = entry.split(":", 1)
             if wildcards:
 

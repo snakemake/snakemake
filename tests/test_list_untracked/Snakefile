@@ -2,4 +2,4 @@ shell.executable("bash")
 
 rule run_test:
     output: "leftover_files"
-    shell:  "python -m snakemake -s Snakefile_inner --list-untracked 2> {output}"
+    shell:  "python -m snakemake -s Snakefile_inner --list-untracked > {output}"

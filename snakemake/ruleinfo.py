@@ -33,7 +33,6 @@ class RuleInfo:
         self.resources = None
         self.priority = None
         self.retries = None
-        self.version = None
         self.log = None
         self.docstring = None
         self.group = None

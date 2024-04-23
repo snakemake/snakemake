@@ -1,0 +1,31 @@
+import threading, queue, time
+
+
+finish_sentinel = object()
+all_results = queue.Queue()
+
+
+def update_results():
+    try:
+        for i in range(20):
+            all_results.put(f"test{i}.txt")
+            time.sleep(1)
+        all_results.put(finish_sentinel)
+        all_results.join()
+    except (KeyboardInterrupt, SystemExit):
+        return
+
+update_thread = threading.Thread(target=update_results)
+update_thread.start()
+
+
+rule all:
+    input:
+        from_queue(all_results, finish_sentinel=finish_sentinel)
+
+
+rule generate:
+    output:
+        "test{i}.txt"
+    shell:
+        "echo {wildcards.i} > {output}"

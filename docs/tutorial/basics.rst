@@ -480,7 +480,7 @@ When executing Snakemake with
 
 .. sidebar:: Note
 
-   In case you have mutliple reasonable sets of target files,
+   In case you have multiple reasonable sets of target files,
    you can add multiple target rules at the top of the Snakefile. While
    Snakemake will execute the first per default, you can target any of them via
    the command line (for example, ``snakemake -n mytarget``).
@@ -501,7 +501,7 @@ Summary
 
 In total, the resulting workflow looks like this:
 
-.. code:: console
+.. code:: python
 
     SAMPLES = ["A", "B"]
 

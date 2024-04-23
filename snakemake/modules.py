@@ -107,7 +107,8 @@ class ModuleInfo:
     def get_snakefile(self):
         if self.meta_wrapper:
             return wrapper.get_path(
-                self.meta_wrapper + "/test/Snakefile", self.workflow.wrapper_prefix
+                self.meta_wrapper + "/test/Snakefile",
+                self.workflow.workflow_settings.wrapper_prefix,
             )
         elif self.snakefile:
             return self.snakefile
@@ -208,11 +209,10 @@ class WorkflowModifier:
         self.namespace = namespace
 
     def inherit_rule_proxies(self, child_modifier):
-        if child_modifier.local_rulename_modifier is not None:
-            for name, rule in child_modifier.rule_proxies._rules.items():
-                self.rule_proxies._register_rule(
-                    child_modifier.local_rulename_modifier(name), rule
-                )
+        for name, rule in child_modifier.rule_proxies._rules.items():
+            if child_modifier.local_rulename_modifier is not None:
+                name = child_modifier.local_rulename_modifier(name)
+            self.rule_proxies._register_rule(name, rule)
 
     def skip_rule(self, rulename):
         return (

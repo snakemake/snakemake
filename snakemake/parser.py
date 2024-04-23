@@ -3,9 +3,11 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from dataclasses import dataclass
+import sys
 import textwrap
 import tokenize
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Callable, Dict, Generator, List, Optional
 
 import snakemake
 from snakemake import common, sourcecache, workflow
@@ -17,6 +19,11 @@ INDENT = "\t"
 
 def is_newline(token, newline_tokens=set((tokenize.NEWLINE, tokenize.NL))):
     return token.type in newline_tokens
+
+
+def is_line_start(token):
+    prefix = token.line[: token.start[1]]
+    return not prefix or prefix.isspace()
 
 
 def is_indent(token):
@@ -55,6 +62,10 @@ def is_string(token):
     return token.type == tokenize.STRING
 
 
+def is_fstring_start(token):
+    return sys.version_info >= (3, 12) and token.type == tokenize.FSTRING_START
+
+
 def is_eof(token):
     return token.type == tokenize.ENDMARKER
 
@@ -70,11 +81,12 @@ class StopAutomaton(Exception):
 
 class TokenAutomaton:
     subautomata: Dict[str, Any] = {}
+    deprecated: Dict[str, str] = {}
 
     def __init__(self, snakefile: "Snakefile", base_indent=0, dedent=0, root=True):
         self.root = root
         self.snakefile = snakefile
-        self.state = None
+        self.state: Callable[[tokenize.TokenInfo], Generator] = None  # type: ignore
         self.base_indent = base_indent
         self.line = 0
         self.indent = 0
@@ -95,11 +107,37 @@ class TokenAutomaton:
             self.indent = token.end[1] - self.base_indent
             self.was_indented |= self.indent > 0
 
+    def parse_fstring(self, token: tokenize.TokenInfo):
+        # only for python >= 3.12, since then python changed the
+        # parsing manner of f-string, see
+        # [pep-0701](https://peps.python.org/pep-0701)
+        isin_fstring = 1
+        t = token.string
+        for t1 in self.snakefile:
+            if t1.type == tokenize.FSTRING_START:
+                isin_fstring += 1
+                t += t1.string
+            elif t1.type == tokenize.FSTRING_END:
+                isin_fstring -= 1
+                t += t1.string
+            elif t1.type == tokenize.FSTRING_MIDDLE:
+                t += t1.string.replace("{", "{{").replace("}", "}}")
+            else:
+                t += t1.string
+            if isin_fstring == 0:
+                break
+        if hasattr(self, "cmd") and self.cmd[-1][1] == token:
+            self.cmd[-1] = t, token
+        return t
+
     def consume(self):
         for token in self.snakefile:
             self.indentation(token)
             try:
                 for t, orig in self.state(token):
+                    # python >= 3.12 only
+                    if is_fstring_start(token):
+                        t = self.parse_fstring(token)
                     if self.lasttoken == "\n" and not t.isspace():
                         yield INDENT * self.effective_indent, orig
                     yield t, orig
@@ -109,10 +147,24 @@ class TokenAutomaton:
                     str(e).split(",")[0].strip("()''"), token
                 )  # TODO the inferred line number seems to be wrong sometimes
 
-    def error(self, msg, token):
+    def error(self, msg, token, naming_hint=None):
+        if naming_hint is not None:
+            msg += (
+                f" The keyword {naming_hint} has a special meaning in Snakemake. "
+                "If you named a variable or function like this, please rename it to "
+                "avoid the conflict."
+            )
         raise SyntaxError(msg, (self.snakefile.path, lineno(token), None, None))
 
-    def subautomaton(self, automaton, *args, **kwargs):
+    def subautomaton(self, automaton, *args, token=None, **kwargs):
+        if automaton in self.deprecated:
+            assert (
+                token is not None
+            ), "bug: deprecation encountered but subautomaton not called with a token"
+            self.error(
+                f"Keyword {automaton} is deprecated. {self.deprecated[automaton]}",
+                token,
+            )
         return self.subautomata[automaton](
             self.snakefile,
             *args,
@@ -125,6 +177,7 @@ class TokenAutomaton:
 
 class KeywordState(TokenAutomaton):
     prefix = ""
+    start: Callable[[], Generator[str, None, None]]
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -262,6 +315,30 @@ class Scattergather(GlobalKeywordState):
     pass
 
 
+class Storage(GlobalKeywordState):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tag = None
+        self.state = self.register_tag
+
+    def start(self):
+        yield f"workflow.storage_registry.register_storage(tag={self.tag!r}, "
+
+    def register_tag(self, token):
+        if is_name(token):
+            self.tag = token.string
+        elif is_colon(token):
+            self.state = self.block
+            for t in self.start():
+                yield t, token
+        else:
+            self.error(
+                "Expected name or colon after storage keyword.",
+                token,
+                naming_hint="storage",
+            )
+
+
 class ResourceScope(GlobalKeywordState):
     err_msg = (
         "Invalid scope: {resource}={scope}. Scope must be set to either 'local' or "
@@ -321,89 +398,10 @@ class GlobalContainerized(GlobalKeywordState):
         return "global_containerized"
 
 
-# subworkflows
-
-
-class SubworkflowKeywordState(SectionKeywordState):
-    prefix = "Subworkflow"
-
-
-class SubworkflowSnakefile(SubworkflowKeywordState):
-    pass
-
-
-class SubworkflowWorkdir(SubworkflowKeywordState):
-    pass
-
-
-class SubworkflowConfigfile(SubworkflowKeywordState):
-    pass
-
-
-class Subworkflow(GlobalKeywordState):
-    subautomata = dict(
-        snakefile=SubworkflowSnakefile,
-        workdir=SubworkflowWorkdir,
-        configfile=SubworkflowConfigfile,
-    )
-
-    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
-        self.state = self.name
-        self.has_snakefile = False
-        self.has_workdir = False
-        self.has_name = False
-        self.primary_token = None
-
-    def end(self):
-        if not (self.has_snakefile or self.has_workdir):
-            self.error(
-                "A subworkflow needs either a path to a Snakefile or to a workdir.",
-                self.primary_token,
-            )
-        yield ")"
-
-    def name(self, token):
-        if is_name(token):
-            yield f"workflow.subworkflow({token.string!r}", token
-            self.has_name = True
-        elif is_colon(token) and self.has_name:
-            self.primary_token = token
-            self.state = self.block
-        else:
-            self.error("Expected name after subworkflow keyword.", token)
-
-    def block_content(self, token):
-        if is_name(token):
-            try:
-                if token.string == "snakefile":
-                    self.has_snakefile = True
-                if token.string == "workdir":
-                    self.has_workdir = True
-                for t in self.subautomaton(token.string).consume():
-                    yield t
-            except KeyError:
-                self.error(
-                    "Unexpected keyword {} in "
-                    "subworkflow definition".format(token.string),
-                    token,
-                )
-            except StopAutomaton as e:
-                self.indentation(e.token)
-                for t in self.block(e.token):
-                    yield t
-        elif is_comment(token):
-            yield "\n", token
-            yield token.string, token
-        elif is_string(token):
-            # ignore docstring
-            pass
-        else:
-            self.error(
-                "Expecting subworkflow keyword, comment or docstrings "
-                "inside a subworkflow definition.",
-                token,
-            )
+class GlobalConda(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_conda"
 
 
 class Localrules(GlobalKeywordState):
@@ -538,10 +536,10 @@ class Run(RuleKeywordState):
         yield "\n"
         yield (
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
-            "resources, log, version, rule, conda_env, container_img, "
+            "resources, log, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
-            "conda_base_path, basedir, runtime_sourcecache_path, {rule_func_marker}=True):".format(
+            "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, {rule_func_marker}=True):".format(
                 rulename=self.rulename
                 if self.rulename is not None
                 else self.snakefile.rulecount,
@@ -569,10 +567,10 @@ class AbstractCmd(Run):
         super().__init__(
             snakefile, rulename, base_indent=base_indent, dedent=dedent, root=root
         )
-        self.cmd = list()
+        self.cmd: list[tuple[str, tokenize.TokenInfo]] = []
         self.token = None
         if self.overwrite_cmd is not None:
-            self.block_content = self.overwrite_block_content
+            self.block_content = self.overwrite_block_content  # type: ignore
 
     def is_block_end(self, token):
         return (self.line and self.indent <= 0) or is_eof(token)
@@ -586,7 +584,7 @@ class AbstractCmd(Run):
         yield from []
 
     def end(self):
-        # the end is detected. So we can savely reset the indent to zero here
+        # the end is detected. So we can safely reset the indent to zero here
         self.indent = 0
         yield "\n"
         yield ")"
@@ -597,7 +595,7 @@ class AbstractCmd(Run):
         yield INDENT * (self.effective_indent + 1)
         yield self.end_func
         yield "("
-        yield "\n".join(self.cmd)
+        yield from self.cmd
         yield from self.args()
         yield "\n"
         yield ")"
@@ -610,19 +608,18 @@ class AbstractCmd(Run):
             self.error(
                 "Command must be given as string after the shell keyword.", token
             )
-        for t in self.end():
-            yield t, self.token
+        yield from super().decorate_end(self.token)
 
     def block_content(self, token):
         self.token = token
-        self.cmd.append(token.string)
+        self.cmd.append((token.string, token))
         yield token.string, token
 
     def overwrite_block_content(self, token):
         if self.token is None:
             self.token = token
             cmd = repr(self.overwrite_cmd)
-            self.cmd.append(cmd)
+            self.cmd.append((cmd, token))
             yield cmd, token
 
 
@@ -642,7 +639,8 @@ class Script(AbstractCmd):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, runtime_sourcecache_path"
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, sourcecache_path, "
+            "runtime_sourcecache_path"
         )
 
 
@@ -655,7 +653,7 @@ class Notebook(Script):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook, runtime_sourcecache_path"
+            "edit_notebook, sourcecache_path, runtime_sourcecache_path"
         )
 
 
@@ -667,8 +665,8 @@ class Wrapper(Script):
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir, runtime_sourcecache_path"
+            "bench_record, workflow.workflow_settings.wrapper_prefix, jobid, bench_iteration, "
+            "cleanup_scripts, shadow_dir, sourcecache_path, runtime_sourcecache_path"
         )
 
 
@@ -687,7 +685,8 @@ class CWL(Script):
     def args(self):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, use_singularity, bench_record, jobid, runtime_sourcecache_path"
+            "config, rule, use_singularity, bench_record, jobid, sourcecache_path, "
+            "runtime_sourcecache_path"
         )
 
 
@@ -700,7 +699,6 @@ rule_property_subautomata = dict(
     resources=Resources,
     retries=Retries,
     priority=Priority,
-    version=Version,
     log=Log,
     message=Message,
     benchmark=Benchmark,
@@ -717,6 +715,9 @@ rule_property_subautomata = dict(
     default_target=DefaultTarget,
     localrule=LocalRule,
 )
+rule_property_deprecated = dict(
+    version="Use conda or container directive instead (see docs)."
+)
 
 
 class Rule(GlobalKeywordState):
@@ -730,6 +731,7 @@ class Rule(GlobalKeywordState):
         cwl=CWL,
         **rule_property_subautomata,
     )
+    deprecated = rule_property_deprecated
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -752,7 +754,7 @@ class Rule(GlobalKeywordState):
             for t in self.subautomaton("run", rulename=self.rulename).start():
                 yield t
             # the end is detected.
-            # So we can savely reset the indent to zero here
+            # So we can safely reset the indent to zero here
             self.indent = 0
             yield "\n"
             yield INDENT * (self.effective_indent + 1)
@@ -768,7 +770,9 @@ class Rule(GlobalKeywordState):
                 yield t, token
         else:
             self.error(
-                "Expected name or colon after rule or checkpoint keyword.", token
+                "Expected name or colon after rule or checkpoint keyword.",
+                token,
+                naming_hint="rule",
             )
 
     def block_content(self, token):
@@ -798,7 +802,7 @@ class Rule(GlobalKeywordState):
                         token,
                     )
                 for t in self.subautomaton(
-                    token.string, rulename=self.rulename
+                    token.string, token=token, rulename=self.rulename
                 ).consume():
                     yield t
             except KeyError:
@@ -919,7 +923,9 @@ class Module(GlobalKeywordState):
             self.primary_token = token
             self.state = self.block
         else:
-            self.error("Expected name after module keyword.", token)
+            self.error(
+                "Expected name after module keyword.", token, naming_hint="module"
+            )
 
     def block_content(self, token):
         if is_name(token):
@@ -928,7 +934,7 @@ class Module(GlobalKeywordState):
                     self.has_snakefile = True
                 if token.string == "meta_wrapper":
                     self.has_meta_wrapper = True
-                for t in self.subautomaton(token.string).consume():
+                for t in self.subautomaton(token.string, token=token).consume():
                     yield t
             except KeyError:
                 self.error(
@@ -956,6 +962,7 @@ class Module(GlobalKeywordState):
 
 class UseRule(GlobalKeywordState):
     subautomata = rule_property_subautomata
+    deprecated = rule_property_deprecated
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -987,7 +994,7 @@ class UseRule(GlobalKeywordState):
             rulename = "__allrules__"
         yield f"def __userule_{self.from_module}_{rulename}():"
         # the end is detected.
-        # So we can savely reset the indent to zero here
+        # So we can safely reset the indent to zero here
         self.indent = 0
         yield "\n"
         yield INDENT * (self.effective_indent + 1)
@@ -1168,7 +1175,9 @@ class UseRule(GlobalKeywordState):
             yield token.string, token
         elif is_name(token):
             try:
-                self._with_block.extend(self.subautomaton(token.string).consume())
+                self._with_block.extend(
+                    self.subautomaton(token.string, token=token).consume()
+                )
                 yield from ()
             except KeyError:
                 self.error(
@@ -1202,7 +1211,6 @@ class Python(TokenAutomaton):
         ruleorder=Ruleorder,
         rule=Rule,
         checkpoint=Checkpoint,
-        subworkflow=Subworkflow,
         localrules=Localrules,
         onsuccess=OnSuccess,
         onerror=OnError,
@@ -1211,11 +1219,14 @@ class Python(TokenAutomaton):
         singularity=GlobalSingularity,
         container=GlobalContainer,
         containerized=GlobalContainerized,
+        conda=GlobalConda,
         scattergather=Scattergather,
+        storage=Storage,
         resource_scopes=ResourceScope,
         module=Module,
         use=UseRule,
     )
+    deprecated = dict(subworkflow="Use module directive instead (see docs).")
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -1223,9 +1234,13 @@ class Python(TokenAutomaton):
 
     def python(self, token: tokenize.TokenInfo):
         if not (is_indent(token) or is_dedent(token)):
-            if self.lasttoken is None or self.lasttoken.isspace():
+            if (
+                self.lasttoken is None
+                or self.lasttoken.isspace()
+                and is_line_start(token)
+            ):
                 try:
-                    for t in self.subautomaton(token.string).consume():
+                    for t in self.subautomaton(token.string, token=token).consume():
                         yield t
                 except KeyError:
                     yield token.string, token
@@ -1272,11 +1287,10 @@ def format_tokens(tokens) -> Generator[str, None, None]:
         t_ = t
 
 
-def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
+def parse(path, workflow, linemap, overwrite_shellcmd=None, rulecount=0):
     Shell.overwrite_cmd = overwrite_shellcmd
     with Snakefile(path, workflow, rulecount=rulecount) as snakefile:
         automaton = Python(snakefile)
-        linemap = dict()
         compilation = list()
         for t, orig_token in automaton.consume():
             l = lineno(orig_token)
@@ -1290,8 +1304,8 @@ def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
             )
             snakefile.lines += t.count("\n")
             compilation.append(t)
-        compilation = "".join(format_tokens(compilation))
-        if linemap:
-            last = max(linemap)
-            linemap[last + 1] = linemap[last]
-        return compilation, linemap, snakefile.rulecount
+    join_compilation = "".join(format_tokens(compilation))
+    if linemap:
+        last = max(linemap)
+        linemap[last + 1] = linemap[last]
+    return join_compilation, snakefile.rulecount
