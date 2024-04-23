@@ -325,7 +325,10 @@ class _IOFile(str, AnnotatedStringInterface):
         """Open this file.
 
         This can (and should) be used in a `with`-statement.
+        If the file is a remote storage file, retrieve it first if necessary.
         """
+        if self.is_storage and not self.exists_local():
+            async_run(self.retrieve_from_storage())
         f = open(self)
         try:
             yield f
