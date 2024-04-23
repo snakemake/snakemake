@@ -271,7 +271,7 @@ with the following `environment definition <https://conda.io/projects/conda/en/l
      - r=3.3.1
      - r-ggplot2=2.1.0
 
-Please note that in the environment definition, conda determines the priority of channels depending on their order of appearance in the channels list. For instance, the channel that comes first in the list gets the highest priority.
+Please note that in the environment definition, conda determines the priority of channels depending on their order of appearance in the channels list. For instance, the channel that comes first in the list gets the highest priority. Default packages defined in the user configuration of conda (`.condarc`)) are ignored by Snakemake.
 
 The path to the environment definition is interpreted as **relative to the Snakefile that contains the rule** (unless it is an absolute path, which is discouraged).
 

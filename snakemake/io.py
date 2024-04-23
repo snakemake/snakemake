@@ -30,7 +30,8 @@ from itertools import chain, product
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Union
 
-from snakemake_interface_common.utils import not_iterable
+from snakemake_interface_common.utils import not_iterable, lchmod
+from snakemake_interface_common.utils import lutime as lutime_raw
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -53,48 +54,13 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 
 
-def lutime(f, times):
-    # In some cases, we have a platform where os.supports_follow_symlink includes stat()
-    # but not utime().  This leads to an anomaly.  In any case we never want to touch the
-    # target of a link.
-    if os.utime in os.supports_follow_symlinks:
-        # ...utime is well behaved
-        os.utime(f, times, follow_symlinks=False)
-    elif not os.path.islink(f):
-        # ...symlinks not an issue here
-        os.utime(f, times)
-    else:
-        try:
-            # try the system command
-            if times:
-                fmt_time = lambda sec: datetime.fromtimestamp(sec).strftime(
-                    "%Y%m%d%H%M.%S"
-                )
-                atime, mtime = times
-                sp.check_call(["touch", "-h", f, "-a", "-t", fmt_time(atime)])
-                sp.check_call(["touch", "-h", f, "-m", "-t", fmt_time(mtime)])
-            else:
-                sp.check_call(["touch", "-h", f])
-        except sp.CalledProcessError:
-            pass
-        # ...problem system.  Do nothing.
+def lutime(file, times):
+    success = lutime_raw(file, times)
+    if not success:
         logger.warning(
-            "Unable to set utime on symlink {}. Your Python build does not support it.".format(
-                f
-            )
+            "Unable to set mtime without following symlink because it seems "
+            "unsupported by your system. Proceeding without."
         )
-        return None
-
-
-if os.chmod in os.supports_follow_symlinks:
-
-    def lchmod(f, mode):
-        os.chmod(f, mode, follow_symlinks=False)
-
-else:
-
-    def lchmod(f, mode):
-        os.chmod(f, mode)
 
 
 class AnnotatedStringInterface(ABC):
@@ -701,11 +667,13 @@ class _IOFile(str, AnnotatedStringInterface):
         # protect explicit output itself
         lchmod(self.file, mode)
 
-    async def remove(self, remove_non_empty_dir=False):
+    async def remove(self, remove_non_empty_dir=False, only_local=False):
         if self.is_directory:
-            await remove(self, remove_non_empty_dir=True)
+            await remove(self, remove_non_empty_dir=True, only_local=only_local)
         else:
-            await remove(self, remove_non_empty_dir=remove_non_empty_dir)
+            await remove(
+                self, remove_non_empty_dir=remove_non_empty_dir, only_local=only_local
+            )
 
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
@@ -921,35 +889,46 @@ async def wait_for_files(
     """Wait for given files to be present in the filesystem."""
     files = list(files)
 
-    async def get_missing():
-        return [
-            f
-            for f in files
-            if not (
-                await f.exists_in_storage()
-                if (
-                    isinstance(f, _IOFile)
-                    and f.is_storage
-                    and (not wait_for_local or f.should_not_be_retrieved_from_storage)
-                )
-                else os.path.exists(f)
-                if not (
-                    (is_flagged(f, "pipe") or is_flagged(f, "service"))
-                    and ignore_pipe_or_service
-                )
-                else True
-            )
-        ]
+    async def get_missing(list_parent=False):
+        async def eval_file(f):
+            if (
+                is_flagged(f, "pipe") or is_flagged(f, "service")
+            ) and ignore_pipe_or_service:
+                return None
+            if (
+                isinstance(f, _IOFile)
+                and f.is_storage
+                and (not wait_for_local or f.should_not_be_retrieved_from_storage)
+            ):
+                if not await f.exists_in_storage():
+                    return f"{f} (missing in storage)"
+            elif not os.path.exists(f):
+                parent_dir = os.path.dirname(f)
+                if list_parent:
+                    parent_msg = (
+                        f" contents: {', '.join(os.listdir(parent_dir))}"
+                        if os.path.exists(parent_dir)
+                        else " not present"
+                    )
+                    return f"{f} (missing locally, parent dir{parent_msg})"
+                else:
+                    return f"{f} (missing locally)"
+            return None
+
+        return list(filter(None, [await eval_file(f) for f in files]))
 
     missing = await get_missing()
     if missing:
+        sleep = max(latency_wait / 10, 1)
+        before_time = time.time()
         logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
-        for _ in range(latency_wait):
+        while time.time() - before_time < latency_wait:
             missing = await get_missing()
+            logger.debug("still missing files, waiting...")
             if not missing:
                 return
-            time.sleep(1)
-        missing = "\n".join(await get_missing())
+            time.sleep(sleep)
+        missing = "\n".join(await get_missing(list_parent=True))
         raise IOError(
             f"Missing files after {latency_wait} seconds. This might be due to "
             "filesystem latency. If that is the case, consider to increase the "
@@ -970,8 +949,8 @@ def contains_wildcard_constraints(pattern):
     return any(match.group("constraint") for match in WILDCARD_REGEX.finditer(pattern))
 
 
-async def remove(file, remove_non_empty_dir=False):
-    if file.is_storage and file.should_not_be_retrieved_from_storage:
+async def remove(file, remove_non_empty_dir=False, only_local=False):
+    if not only_local and file.is_storage and file.should_not_be_retrieved_from_storage:
         if await file.exists_in_storage():
             await file.storage_object.managed_remove()
     elif os.path.isdir(file) and not os.path.islink(file):
@@ -1253,6 +1232,8 @@ def expand(*args, **wildcard_values):
         with their values as lists. If allow_missing=True is included
         wildcards in filepattern without values will stay unformatted.
     """
+    from snakemake.path_modifier import PATH_MODIFIER_FLAG
+
     filepatterns = args[0]
     if len(args) == 1:
         combinator = product
@@ -1268,12 +1249,19 @@ def expand(*args, **wildcard_values):
 
     filepatterns = list(map(path_to_str, filepatterns))
 
-    if any(map(lambda f: getattr(f, "flags", {}), filepatterns)):
-        raise WorkflowError(
-            "Flags in file patterns given to expand() are invalid. "
-            "Flags (e.g. temp(), directory()) have to be applied outside "
-            "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
-        )
+    # check if there are any flags defined
+    for filepattern in filepatterns:
+        filepattern_flags = {
+            key: value
+            for key, value in getattr(filepattern, "flags", {}).items()
+            if key != PATH_MODIFIER_FLAG
+        }
+        if filepattern_flags:
+            raise WorkflowError(
+                f"Flags ({filepattern_flags}) in file pattern '{filepattern}' given to expand() are invalid. "
+                "Flags (e.g. temp(), directory()) have to be applied outside "
+                "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
+            )
 
     # check if remove missing is provided
     format_dict = dict
@@ -1293,7 +1281,8 @@ def expand(*args, **wildcard_values):
     callables = {
         key: value
         for key, value in wildcard_values.items()
-        if isinstance(value, Callable)
+        if callable(value)
+        or (isinstance(value, List) and any(callable(v) for v in value))
     }
 
     # remove unused wildcards to avoid duplicate filepatterns
@@ -1317,10 +1306,18 @@ def expand(*args, **wildcard_values):
                     values = [values]
                 yield [(wildcard, value) for value in values]
 
+        # string.Formatter does not fully support AnnotatedString (flags are discarded)
+        # so, if they exist, need to be copied
+        def copy_flags(from_path, dest_path):
+            if hasattr(from_path, "flags"):
+                dest_path = AnnotatedString(dest_path)
+                dest_path.flags.update(from_path.flags)
+            return dest_path
+
         formatter = string.Formatter()
         try:
             return [
-                formatter.vformat(filepattern, (), comb)
+                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))
                 for filepattern in filepatterns
                 for comb in map(
                     format_dict, combinator(*flatten(wildcard_values[filepattern]))
@@ -1333,9 +1330,22 @@ def expand(*args, **wildcard_values):
         # defer expansion and return a function that does the expansion once it is called with
         # the usual arguments (wildcards, [input, ])
         def inner(wildcards, **aux_params):
-            for wildcard, func in callables.items():
-                func_aux_params = get_input_function_aux_params(func, aux_params)
-                ret = func(wildcards, **func_aux_params)
+            for wildcard, func_or_list_of_func in callables.items():
+
+                def get_func_ret(func):
+                    func_aux_params = get_input_function_aux_params(func, aux_params)
+                    return func(wildcards, **func_aux_params)
+
+                if callable(func_or_list_of_func):
+                    ret = get_func_ret(func_or_list_of_func)
+                else:
+                    ret = []
+                    for maybe_func in func_or_list_of_func:
+                        if callable(maybe_func):
+                            item_ret = get_func_ret(maybe_func)
+                        else:
+                            item_ret = maybe_func
+                        ret.append(item_ret)
                 # store result for all filepatterns that need it
                 for pattern_values in wildcard_values.values():
                     pattern_values[wildcard] = ret
@@ -1512,9 +1522,15 @@ class Namedlist(list):
             elif plainstr:
                 self.extend(
                     # use original query if storage is not retrieved by snakemake
-                    (str(x) if x.storage_object.retrieve else x.storage_object.query)
-                    if isinstance(x, _IOFile) and x.storage_object is not None
-                    else str(x)
+                    (
+                        (
+                            str(x)
+                            if x.storage_object.retrieve
+                            else x.storage_object.query
+                        )
+                        if isinstance(x, _IOFile) and x.storage_object is not None
+                        else str(x)
+                    )
                     for x in toclone
                 )
             elif strip_constraints:
@@ -1570,6 +1586,14 @@ class Namedlist(list):
             setattr(self, name, self[index])
         else:
             setattr(self, name, Namedlist(toclone=self[index:end]))
+
+    def update(self, items: Dict):
+        for key, value in items.items():
+            if key in self._names:
+                raise ValueError(f"Key {key} already exists in Namedlist")
+            else:
+                self.append(value)
+                self._add_name(key)
 
     def _get_names(self):
         """

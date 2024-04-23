@@ -16,6 +16,7 @@
 import sys
 import os
 from datetime import datetime
+from sphinxawesome_theme.postprocess import Icons
 
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -41,6 +42,7 @@ extensions = [
     "sphinxarg.ext",
     "sphinx.ext.autosectionlabel",
     "myst_parser",
+    "sphinxawesome_theme.highlighting",
 ]
 autosummary_generate = True
 
@@ -48,7 +50,7 @@ autosummary_generate = True
 autodoc_default_options = {"exclude-members": "lazy_property"}
 
 # Snakemake theme (made by SciAni).
-html_css_files = ["theme.css"]
+html_css_files = ["custom.css"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -127,21 +129,19 @@ pygments_style = "sphinx"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "lutra"
+html_theme = "sphinxawesome_theme"
 html_theme_options = {
-    "primary_color": "emerald",
-    "secondary_color": "emerald",
-    "dark_logo": "logo-snake.svg",
-    "light_logo": "logo-snake.svg",
-    "navigation_style": "plain",
-    "sidebar_links": [
-        {
-            "text": "Snakemake homepage",
-            "alt": "Snakemake homepage",
-            "href": "https://snakemake.github.io",
-        },
-    ],
+    "logo_light": "logo-snake.svg",
+    "logo_dark": "logo-snake.svg",
+    "main_nav_links": {
+        "Homepage": "https://snakemake.github.io",
+        "Main docs": "https://snakemake.readthedocs.io",
+    },
+    "awesome_external_links": True,
+    "awesome_headerlinks": True,
+    "show_prev_next": False,
 }
+html_permalinks_icon = Icons.permalinks_icon
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -219,88 +219,6 @@ html_static_path = ["../docs/_static"]
 # html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "Snakemakedoc"
-
-
-# -- Options for LaTeX output ---------------------------------------------
-
-latex_elements = {
-    # The paper size ('letterpaper' or 'a4paper').
-    #'papersize': 'letterpaper',
-    # The font size ('10pt', '11pt' or '12pt').
-    #'pointsize': '10pt',
-    # Additional stuff for the LaTeX preamble.
-    #'preamble': '',
-}
-
-# Grouping the document tree into LaTeX files. List of tuples
-# (source start file, target name, title,
-#  author, documentclass [howto, manual, or own class]).
-latex_documents = [
-    ("index", "Snakemake.tex", "Snakemake Documentation", "Johannes Koester", "manual"),
-]
-
-# The name of an image file (relative to this directory) to place at the top of
-# the title page.
-# latex_logo = None
-
-# For "manual" documents, if this is true, then toplevel headings are parts,
-# not chapters.
-# latex_use_parts = False
-
-# If true, show page references after internal links.
-# latex_show_pagerefs = False
-
-# If true, show URL addresses after external links.
-# latex_show_urls = False
-
-# Documents to append as an appendix to all manuals.
-# latex_appendices = []
-
-# If false, no module index is generated.
-# latex_domain_indices = True
-
-
-# -- Options for manual page output ---------------------------------------
-
-# One entry per manual page. List of tuples
-# (source start file, name, description, authors, manual section).
-man_pages = [
-    ("index", "snakemake-api", "Snakemake API Documentation", ["Johannes Koester"], 1)
-]
-
-# If true, show URL addresses after external links.
-# man_show_urls = False
-
-
-# -- Options for Texinfo output -------------------------------------------
-
-# Grouping the document tree into Texinfo files. List of tuples
-# (source start file, target name, title, author,
-#  dir menu entry, description, category)
-texinfo_documents = [
-    (
-        "index",
-        "Snakemake",
-        "Snakemake Documentation",
-        "Johannes Koester",
-        "Snakemake",
-        "One line description of project.",
-        "Miscellaneous",
-    ),
-]
-
-# Documents to append as an appendix to all manuals.
-# texinfo_appendices = []
-
-# If false, no module index is generated.
-# texinfo_domain_indices = True
-
-# How to display URL addresses: 'footnote', 'no', or 'inline'.
-# texinfo_show_urls = 'footnote'
-
-# If true, do not generate a @detailmenu in the "Top" node's menu.
-# texinfo_no_detailmenu = False
 
 
 def setup(app):

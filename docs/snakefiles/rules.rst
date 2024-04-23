@@ -186,6 +186,11 @@ The function has to accept a single argument that will be the wildcards object g
 Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
 By this, rules can have entirely different input files (both in form and number) depending on the inferred wildcards. E.g. you can assign input files that appear in entirely different parts of your filesystem based on some wildcard value and a dictionary that maps the wildcard value to file paths.
 
+.. sidebar:: Note
+
+    Input functions can themselves return input functions again (this also holds for functions given to params and resources.)
+    Such nested evaluation is allowed for a depth up to 10. Afterwards, an exception will be thrown.
+
 In addition to a single wildcards argument, input functions can optionally take a ``groupid`` (with exactly that name) as second argument, see :ref:`snakefiles_group-local` for details.
 
 Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.
@@ -282,7 +287,6 @@ The ``expand`` function also allows us to combine different variables, e.g.
             ...
 
 If ``FORMATS=["txt", "csv"]`` contains a list of desired output formats then expand will automatically combine any dataset with any of these extensions.
-
 Furthermore, the first argument can also be a list of strings. In that case, the transformation is applied to all elements of the list. E.g.
 
 .. code-block:: python
@@ -314,6 +318,10 @@ You can also mask a wildcard expression in ``expand`` such that it will be kept,
     expand("{{dataset}}/a.{ext}", ext=FORMATS)
 
 will create strings with all values for ext but starting with the wildcard ``"{dataset}"``.
+
+Finally, argument values passed to ``expand`` can also be functions or lists of functions if the return value of ``expand`` or ``expand`` itself is used within ``input``, or ``params``.
+Depending on the context, that function has to accept the same arguments as functions for ``input`` (see :ref:`snakefiles-input_functions`) or functions for ``params`` (see :ref:`snakefiles-params`).
+If that is the case, ``expand`` returns a function again, the evaluation of which is deferred to the point in time when the wildcards of the respective job are known.
 
 
 .. _snakefiles-multiext:
@@ -353,7 +361,7 @@ The lookup function
 
 The ``lookup`` function can be used to look up a value in a python mapping (e.g. a ``dict``) or a `pandas dataframe or series <https://pandas.pydata.org>`_.
 It is especially useful for looking up information based on wildcard values.
-The ``lookup`` function has the signature ``lookup(dpath: Optional[str] = None, query: Optional[str] = None, cols: Optional[List[str]] = None, within=None)``.
+The ``lookup`` function has the signature ``lookup(dpath: Optional[str | Callable] = None, query: Optional[str | Callable] = None, cols: Optional[List[str]] = None, within=None)``.
 The ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
 For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
 
@@ -363,6 +371,8 @@ If the query results in multiple rows, the result is returned as a list of
 named tuples with the column names as attributes.
 If the query results in a single row, the result is returned as a single
 named tuple with the column names as attributes.
+If the query or dpath parameter is given a function, the function will be evaluated with wildcards passed as the first argument.
+
 In both cases, the result can be used by the ``expand`` or ``collect`` function,
 e.g. 
 
@@ -523,6 +533,33 @@ Consider the following example:
 
 The semantic is as follows:
 If the sample wildcard is ``100``, the input is ``a/100.txt``, otherwise it is ``b/100.txt``.
+
+.. _snakefiles-semantic-helpers-exists:
+
+The exists function
+"""""""""""""""""""
+
+The ``exists`` function allows to check whether a file exists, while properly considering remote storage settings provided to Snakemake.
+For example, if Snakemake has been configured to consider all input and output files to be located in an S3 bucket, ``exists`` will check whether the file exists in the S3 bucket.
+It has the signature ``exists(path)``, with ``path`` being the path to a file or directory, or an explicit :ref:`storage object <storage-support>`.
+The function returns ``True`` if the file exists, and ``False`` otherwise.
+It can for example be used to condition some behavior in the workflow on the existence of a file **before** the workflow is executed:
+
+.. code-block:: python
+
+    rule all:
+        input:
+            # only expect the output if test.txt is present before workflow execution
+            "out.txt" if exists("test.txt") else [],
+
+    rule b:
+        input:
+            "test.txt"
+        output:
+            "out.txt"
+        shell:
+            "cp {input} {output}"
+
 
 .. _snakefiles-targets:
 
@@ -943,6 +980,8 @@ Note that it is also possible to have multiple named log files, which could be u
         output: "output.txt"
         log: stdout="logs/foo.stdout", stderr="logs/foo.stderr"
         shell: "somecommand {input} {output} > {log.stdout} 2> {log.stderr}"
+
+.. _snakefiles-params:
 
 Non-file parameters for rules
 -----------------------------
@@ -2689,7 +2728,10 @@ Template rendering rules are always executed locally, without submission to clus
 MPI support
 -----------
 
-Highly parallel programs may use the MPI (:ref: message passing interface<https://en.wikipedia.org/wiki/Message_Passing_Interface>) to enable a program to span work across an individual compute node's boundary.
+Highly parallel programs may use the MPI (:ref: [message passing interface](https://en.wikipedia.org/wiki/Message_Passing_Interface)) to enable a program to span work across an individual compute node's boundary. 
+To actually use an HPC cluster with Snakemake, an [executor plugin is provided for the SLURM batch system](https://github.com/snakemake/snakemake-executor-plugin-slurm). You can find its documentation [here](https://github.com/snakemake/snakemake-executor-plugin-slurm/blob/main/docs/further.md).
+Users of different batch systems are encouraged to [provide further plugins](https://snakemake.github.io/snakemake-plugin-catalog/#contributing) and/or share their Snakemake configuration via the [Snakemake profiles project](https://github.com/Snakemake-Profiles) project.
+
 The command to run the MPI program (in below example we assume there exists a program ``calc-pi-mpi``) has to be specified in the ``mpi``-resource, e.g.:
 
 .. code-block:: python
@@ -2720,14 +2762,14 @@ Thereby, additional parameters may be passed to the MPI-starter, e.g.:
     shell:
         "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
 
-As any other resource, the `mpi`-resource can be overwritten via the command line e.g. in order to adapt to a specific platform (see :ref:`snakefiles-resources`):
+As any other resource, the `mpi`-resource can be overwritten via the command line e.g. in order to adapt to a specific platform (see :ref:`snakefiles-resources`). For instance,
+users of the SLURM executor plugin can use `srun` as the MPI-starter:
 
 .. code-block:: console
 
   $ snakemake --set-resources calc_pi:mpi="srun --hint nomultithread" ...
 
 Note that in case of distributed, remote execution (cluster, cloud), MPI support might not be available.
-So far, explicit MPI support is implemented in the `slurm plugin <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html>`_.
 
 .. _snakefiles_continuous_input:
 
@@ -2789,3 +2831,53 @@ Consider the following complete toy example:
             "test{i}.txt"
         shell:
             "echo {wildcards.i} > {output}"
+
+.. _snakefiles_update_output:
+
+Updating existing output files
+------------------------------
+
+By default, Snakemake deletes already existing output files before a job is executed.
+This is usually very convenient, because many tools will fail if their output files already exist.
+However, from Snakemake 8.7 on, it is possible to declare an output file/directory to be updated by a job instead of rewritten from scratch.
+Consider the following example:
+
+.. code-block:: python
+
+    rule update:
+        input:
+            "in.txt"
+        output:
+            update("test.txt")
+        shell:
+            "echo test >> {output}"
+
+
+Here, the statement ``test`` is appended to the output file ``test.txt``.
+Hence, we declare it as being updated via the ``update`` flag.
+This way, Snakemake will not delete the file before the job is executed.
+
+If such a file/directory has to be considered as input **before the update** for another rule
+it can be marked as ``before_update``.
+This ensures that Snakemake does not search for a producing job but instead considers the file as is on disk or in the storage:
+
+.. code-block:: python
+
+    rule do_something:
+        input:
+            before_update("test.txt")
+        output:
+            "in.txt"
+        shell:
+            "cp {input} {output}"
+
+    rule update:
+        input:
+            "in.txt"
+        output:
+            update("test.txt")
+        shell:
+            "echo test >> {output}"
+
+As can be seen, this way it is even possible to break a cyclic dependency.
+An important helper for setting up the logic of ``before_update`` is the :ref:`exists function <snakefiles-semantic-helpers-exists>`, which allows to e.g. condition the consideration of the file that shall be used before the update by its actual existence before the update.

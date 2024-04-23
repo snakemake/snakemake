@@ -36,6 +36,7 @@ class TestWorkflowsBase(ABC):
     expect_exception = None
     omit_tmp = False
     latency_wait = 5
+    create_report = False
 
     @abstractmethod
     def get_executor(self) -> str:
@@ -65,6 +66,9 @@ class TestWorkflowsBase(ABC):
             envvars=self.get_envvars(),
         )
 
+    def get_resource_settings(self) -> settings.ResourceSettings:
+        return settings.ResourceSettings()
+
     def get_deployment_settings(
         self, deployment_method=frozenset()
     ) -> settings.DeploymentSettings:
@@ -93,12 +97,14 @@ class TestWorkflowsBase(ABC):
             tmp_path = Path(tmp_path) / test_name
             self._copy_test_files(test_path, tmp_path)
 
+        resource_settings = self.get_resource_settings()
+
         if self._common_settings().local_exec:
-            cores = 3
-            nodes = None
+            resource_settings.cores = 3
+            resource_settings.nodes = None
         else:
-            cores = 1
-            nodes = 3
+            resource_settings.cores = 1
+            resource_settings.nodes = 3
 
         with api.SnakemakeApi(
             settings.OutputSettings(
@@ -107,10 +113,7 @@ class TestWorkflowsBase(ABC):
             ),
         ) as snakemake_api:
             workflow_api = snakemake_api.workflow(
-                resource_settings=settings.ResourceSettings(
-                    cores=cores,
-                    nodes=nodes,
-                ),
+                resource_settings=resource_settings,
                 storage_settings=settings.StorageSettings(
                     default_storage_provider=self.get_default_storage_provider(),
                     default_storage_prefix=self.get_default_storage_prefix(),
@@ -126,14 +129,20 @@ class TestWorkflowsBase(ABC):
 
             dag_api = workflow_api.dag()
 
-            dag_api.execute_workflow(
-                executor=self.get_executor(),
-                executor_settings=self.get_executor_settings(),
-                execution_settings=settings.ExecutionSettings(
-                    latency_wait=self.latency_wait,
-                ),
-                remote_execution_settings=self.get_remote_execution_settings(),
-            )
+            if self.create_report:
+                dag_api.create_report(
+                    reporter=self.get_reporter(),
+                    report_settings=self.get_report_settings(),
+                )
+            else:
+                dag_api.execute_workflow(
+                    executor=self.get_executor(),
+                    executor_settings=self.get_executor_settings(),
+                    execution_settings=settings.ExecutionSettings(
+                        latency_wait=self.latency_wait,
+                    ),
+                    remote_execution_settings=self.get_remote_execution_settings(),
+                )
 
     @handle_testcase
     def test_simple_workflow(self, tmp_path):
@@ -149,6 +158,12 @@ class TestWorkflowsBase(ABC):
     def _common_settings(self):
         registry = ExecutorPluginRegistry()
         return registry.get_plugin(self.get_executor()).common_settings
+
+    def get_reporter(self):
+        raise NotImplementedError()
+
+    def get_report_settings(self):
+        raise NotImplementedError()
 
 
 class TestWorkflowsLocalStorageBase(TestWorkflowsBase):
@@ -216,3 +231,13 @@ class TestWorkflowsMinioPlayStorageBase(TestWorkflowsBase):
     @property
     def secret_key(self):
         return "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+
+
+class TestReportBase(TestWorkflowsLocalStorageBase):
+    create_report = True
+
+    def get_executor(self) -> str:
+        return "local"
+
+    def get_executor_settings(self) -> Optional[ExecutorSettingsBase]:
+        return None

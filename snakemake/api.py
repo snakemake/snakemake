@@ -44,6 +44,8 @@ from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_common.exceptions import ApiError
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -136,7 +138,7 @@ class SnakemakeApi(ApiBase):
 
         self._check_is_in_context()
 
-        self._setup_logger(mode=workflow_settings.exec_mode)
+        self.setup_logger(mode=workflow_settings.exec_mode)
 
         self._check_default_storage_provider(storage_settings=storage_settings)
 
@@ -238,7 +240,7 @@ class SnakemakeApi(ApiBase):
             linemaps = self._workflow_api._workflow_store.linemaps
         print_exception(ex, linemaps)
 
-    def _setup_logger(
+    def setup_logger(
         self,
         stdout: bool = False,
         mode: ExecMode = ExecMode.DEFAULT,
@@ -252,7 +254,7 @@ class SnakemakeApi(ApiBase):
                 debug=self.output_settings.verbose,
                 printshellcmds=self.output_settings.printshellcmds,
                 debug_dag=self.output_settings.debug_dag,
-                stdout=stdout,
+                stdout=stdout or self.output_settings.stdout,
                 mode=mode,
                 show_failed_logs=self.output_settings.show_failed_logs,
                 dryrun=dryrun,
@@ -380,11 +382,11 @@ class WorkflowApi(ApiBase):
     def _workflow(self):
         if self._workflow_store is None:
             workflow = self._get_workflow()
+            self._workflow_store = workflow
             workflow.include(
                 self.snakefile, overwrite_default_target=True, print_compilation=False
             )
             workflow.check()
-            self._workflow_store = workflow
         return self._workflow_store
 
     def _get_workflow(self, **kwargs):
@@ -483,14 +485,13 @@ class DAGApi(ApiBase):
         if executor_plugin.common_settings.implies_no_shared_fs:
             # no shared FS at all
             self.workflow_api.storage_settings.shared_fs_usage = frozenset()
+
         if (
             executor_plugin.common_settings.local_exec
             and not executor_plugin.common_settings.dryrun_exec
             and self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT
         ):
-            logger.info(
-                "Assuming unrestricted shared filesystem usage for local execution."
-            )
+            logger.info("Assuming unrestricted shared filesystem usage.")
             self.workflow_api.storage_settings.shared_fs_usage = SharedFSUsage.all()
         if executor_plugin.common_settings.job_deploy_sources:
             remote_execution_settings.job_deploy_sources = True
@@ -522,7 +523,7 @@ class DAGApi(ApiBase):
                 "For local execution, --shared-fs-usage has to be unrestricted."
             )
 
-        self.snakemake_api._setup_logger(
+        self.snakemake_api.setup_logger(
             stdout=executor_plugin.common_settings.dryrun_exec,
             mode=self.workflow_api.workflow_settings.exec_mode,
             dryrun=executor_plugin.common_settings.dryrun_exec,
@@ -616,8 +617,8 @@ class DAGApi(ApiBase):
     @_no_exec
     def create_report(
         self,
-        path: Path,
-        stylesheet: Optional[Path] = None,
+        reporter: str = "html",
+        report_settings: Optional[ReportSettingsBase] = None,
     ):
         """Create a report for the workflow.
 
@@ -625,10 +626,18 @@ class DAGApi(ApiBase):
         ---------
         report: Path -- The path to the report.
         report_stylesheet: Optional[Path] -- The path to the report stylesheet.
+        reporter: str -- report plugin to use (default: html)
         """
+
+        report_plugin_registry = _get_report_plugin_registry()
+        report_plugin = report_plugin_registry.get_plugin(reporter)
+
+        if report_settings is not None:
+            report_plugin.validate_settings(report_settings)
+
         self.workflow_api._workflow.create_report(
-            path=path,
-            stylesheet=stylesheet,
+            report_plugin=report_plugin,
+            report_settings=report_settings,
         )
 
     @_no_exec
@@ -763,5 +772,14 @@ def _get_executor_plugin_registry():
     registry.register_plugin("local", local_executor)
     registry.register_plugin("dryrun", dryrun_executor)
     registry.register_plugin("touch", touch_executor)
+
+    return registry
+
+
+def _get_report_plugin_registry():
+    from snakemake.report import html_reporter
+
+    registry = ReportPluginRegistry()
+    registry.register_plugin("html", html_reporter)
 
     return registry

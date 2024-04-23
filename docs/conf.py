@@ -130,6 +130,7 @@ html_theme_options = {
         "Plugin catalog": "https://snakemake.github.io/snakemake-plugin-catalog",
         "Workflow catalog": "https://snakemake.github.io/snakemake-workflow-catalog",
         "Wrappers": "https://snakemake-wrappers.readthedocs.io",
+        "API docs": "https://snakemake-api.readthedocs.io",
     },
     "awesome_external_links": True,
     "awesome_headerlinks": True,

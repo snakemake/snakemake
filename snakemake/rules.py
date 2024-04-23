@@ -441,13 +441,14 @@ class Rule(RuleInterface):
                         "pipe",
                         "service",
                         "ensure",
+                        "update",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
                                 item_flag, self
                             )
                         )
-                    if output and item_flag in ["ancient"]:
+                    if output and item_flag in ["ancient", "before_update"]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(
                                 item_flag, self
@@ -598,7 +599,6 @@ class Rule(RuleInterface):
         groupid=None,
         **aux_params,
     ):
-        incomplete = False
         if isinstance(func, _IOFile):
             func = func._file.callable
         elif isinstance(func, AnnotatedString):
@@ -621,29 +621,49 @@ class Rule(RuleInterface):
             if callable(value):
                 _aux_params[name] = value()
 
-        try:
-            value = func(Wildcards(fromdict=wildcards), **_aux_params)
-            if isinstance(value, types.GeneratorType):
-                # generators should be immediately collected here,
-                # otherwise we would miss any exceptions and
-                # would have to capture them again later.
-                value = list(value)
-        except IncompleteCheckpointException as e:
-            value = incomplete_checkpoint_func(e)
-            incomplete = True
-        except Exception as e:
-            if "input" in aux_params and is_file_not_found_error(
-                e, aux_params["input"]
-            ):
-                # Function evaluation can depend on input files. Since expansion can happen during dryrun,
-                # where input files are not yet present, we need to skip such cases and
-                # mark them as <TBD>.
-                value = TBDString()
-            elif raw_exceptions:
-                raise e
-            else:
-                raise InputFunctionException(e, rule=self, wildcards=wildcards)
-        return value, incomplete
+        wildcards_arg = Wildcards(fromdict=wildcards)
+
+        def apply_func(func):
+            incomplete = False
+            try:
+                value = func(wildcards_arg, **_aux_params)
+                if isinstance(value, types.GeneratorType):
+                    # generators should be immediately collected here,
+                    # otherwise we would miss any exceptions and
+                    # would have to capture them again later.
+                    value = list(value)
+            except IncompleteCheckpointException as e:
+                value = incomplete_checkpoint_func(e)
+                incomplete = True
+            except Exception as e:
+                if "input" in aux_params and is_file_not_found_error(
+                    e, aux_params["input"]
+                ):
+                    # Function evaluation can depend on input files. Since expansion can happen during dryrun,
+                    # where input files are not yet present, we need to skip such cases and
+                    # mark them as <TBD>.
+                    value = TBDString()
+                elif raw_exceptions:
+                    raise e
+                else:
+                    raise InputFunctionException(e, rule=self, wildcards=wildcards)
+            return value, incomplete
+
+        res = func
+        tries = 0
+        while (callable(res) or tries == 0) and tries < 10:
+            res, incomplete = apply_func(res)
+            tries += 1
+        if tries == 10:
+            raise WorkflowError(
+                "Evaluated 10 nested input functions (i.e. input functions that "
+                "themselves return an input function.). More than 10 such nested "
+                "evaluations are not allowed. Does the workflow accidentally return a "
+                "function instead of calling it in the input function?",
+                rule=self,
+            )
+
+        return res, incomplete
 
     def _apply_wildcards(
         self,
@@ -722,9 +742,10 @@ class Rule(RuleInterface):
                         and not isinstance(item_, str)
                         and not isinstance(item_, Path)
                     ):
-                        raise WorkflowError(
+                        raise InputFunctionException(
                             f"Function did not return str or iterable of str. Encountered: {item} ({type(item)})",
                             rule=self,
+                            wildcards=wildcards,
                         )
 
                     if from_callable and path_modifier is not None and not incomplete:
@@ -982,7 +1003,9 @@ class Rule(RuleInterface):
         threads = apply("_cores", self.resources["_cores"])
         if threads is None:
             raise WorkflowError("Threads must be given as an int", rule=self)
-        if self.workflow.resource_settings.max_threads is not None:
+        if self.workflow.resource_settings.max_threads is not None and not isinstance(
+            threads, TBDString
+        ):
             threads = min(threads, self.workflow.resource_settings.max_threads)
         resources["_cores"] = threads
 
@@ -992,21 +1015,23 @@ class Rule(RuleInterface):
 
                 if value is not None:
                     resources[name] = value
-                    # Infer standard resources from eventual human readable forms.
-                    infer_resources(name, value, resources)
 
-                    # infer additional resources
-                    for mb_item, mib_item in (
-                        ("mem_mb", "mem_mib"),
-                        ("disk_mb", "disk_mib"),
-                    ):
-                        if (
-                            name == mb_item
-                            and mib_item not in self.resources.keys()
-                            and isinstance(value, int)
+                    if not isinstance(value, TBDString):
+                        # Infer standard resources from eventual human readable forms.
+                        infer_resources(name, value, resources)
+
+                        # infer additional resources
+                        for mb_item, mib_item in (
+                            ("mem_mb", "mem_mib"),
+                            ("disk_mb", "disk_mib"),
                         ):
-                            # infer mem_mib (memory in Mebibytes) as additional resource
-                            resources[mib_item] = mb_to_mib(value)
+                            if (
+                                name == mb_item
+                                and mib_item not in self.resources.keys()
+                                and isinstance(value, int)
+                            ):
+                                # infer mem_mib (memory in Mebibytes) as additional resource
+                                resources[mib_item] = mb_to_mib(value)
 
         resources = Resources(fromdict=resources)
         return resources

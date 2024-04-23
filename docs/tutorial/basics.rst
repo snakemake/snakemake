@@ -501,7 +501,7 @@ Summary
 
 In total, the resulting workflow looks like this:
 
-.. code:: console
+.. code:: python
 
     SAMPLES = ["A", "B"]
 

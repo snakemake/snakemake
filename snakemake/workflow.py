@@ -17,7 +17,7 @@ import copy
 from pathlib import Path
 import tarfile
 import tempfile
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Union
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings import (
     ConfigSettings,
@@ -47,6 +47,8 @@ from snakemake_interface_executor_plugins.registry.plugin import (
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 
 from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -109,7 +111,7 @@ from snakemake.common import (
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoints
-from snakemake.resources import ResourceScopes
+from snakemake.resources import ParsedResource, ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
@@ -123,6 +125,7 @@ from snakemake.sourcecache import (
 from snakemake.deployment.conda import Conda
 from snakemake import api, sourcecache
 import snakemake.ioutils
+import snakemake.ioflags
 
 
 SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
@@ -209,6 +212,7 @@ class Workflow(WorkflowExecutorInterface):
         _globals["gitfile"] = sourcecache.LocalGitFile
         _globals["storage"] = self._storage_registry
         snakemake.ioutils.register_in_globals(_globals)
+        snakemake.ioflags.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
 
         self.vanilla_globals = dict(_globals)
@@ -236,6 +240,12 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def snakemake_tmp_dir(self) -> Path:
         return Path(self._snakemake_tmp_dir.name)
+
+    def register_resource(self, name: str, value: Union[int, str]):
+        self.global_resources[name] = value
+        if self.scheduler is not None:
+            # update the scheduler if it is already active
+            self.scheduler.resources[name] = value
 
     @property
     def source_cache_path(self) -> Path:
@@ -805,7 +815,7 @@ class Workflow(WorkflowExecutorInterface):
         for path in paths:
             success = self.persistence.cleanup_metadata(path)
             if not success:
-                failed.append(path)
+                failed.append(str(path))
         if failed:
             raise WorkflowError(
                 "Failed to clean up metadata for the following files because the metadata was not present.\n"
@@ -876,7 +886,12 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        print("\n".join(async_run(self.dag.summary(detailed=detailed))))
+        async def join_summary(detailed):
+            return "\n".join(
+                [line async for line in self.dag.summary(detailed=detailed)]
+            )
+
+        print(async_run(join_summary(detailed)))
 
     def conda_cleanup_envs(self):
         self._prepare_dag(forceall=True, ignore_incomplete=True, lock_warn_only=False)
@@ -951,7 +966,9 @@ class Workflow(WorkflowExecutorInterface):
         with open(path, "w") as cwl:
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
 
-    def create_report(self, path: Path, stylesheet: Optional[Path] = None):
+    def create_report(
+        self, report_plugin: ReportPlugin, report_settings: ReportSettingsBase
+    ):
         from snakemake.report import auto_report
 
         self._prepare_dag(
@@ -961,7 +978,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        async_run(auto_report(self.dag, path, stylesheet=stylesheet))
+        async_run(auto_report(self.dag, report_plugin, report_settings))
 
     def conda_list_envs(self):
         self._prepare_dag(
@@ -1082,6 +1099,8 @@ class Workflow(WorkflowExecutorInterface):
                     "with checkpoint jobs, as the dependencies cannot be determined before "
                     "execution in such cases."
                 )
+            if self.touch:
+                self.dag.check_touch_compatible()
 
             if updated_files is not None:
                 updated_files.extend(
@@ -1108,7 +1127,8 @@ class Workflow(WorkflowExecutorInterface):
             )
             logger.debug(f"shared_storage_local_copies: {shared_storage_local_copies}")
             logger.debug(f"remote_exec: {self.remote_exec}")
-            if not self.dryrun and (
+            dryrun_or_touch = self.dryrun or self.touch
+            if not dryrun_or_touch and (
                 (self.exec_mode == ExecMode.DEFAULT and shared_storage_local_copies)
                 or (self.remote_exec and not shared_storage_local_copies)
             ):
@@ -1233,9 +1253,9 @@ class Workflow(WorkflowExecutorInterface):
             ):
                 self.dag.cleanup_workdir()
 
-            if not self.dryrun:
+            if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
-                self.dag.cleanup_storage_objects()
+                async_run(self.dag.cleanup_storage_objects())
 
             if success:
                 if self.dryrun:
@@ -1375,11 +1395,7 @@ class Workflow(WorkflowExecutorInterface):
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
 
-        try:
-            exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
-        except SyntaxError as e:
-            e = update_lineno(e, self.linemaps)
-            raise
+        exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
         if not overwrite_default_target:
             self.default_target = default_target
@@ -1552,6 +1568,12 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
 
+            def get_resource_value(value):
+                if isinstance(value, ParsedResource):
+                    return value.value
+                else:
+                    return value
+
             # handle default resources
             if self.resource_settings.default_resources is not None:
                 rule.resources = copy.deepcopy(
@@ -1580,9 +1602,9 @@ class Workflow(WorkflowExecutorInterface):
                 rule.resources["_cores"] = 1
 
             if name in self.resource_settings.overwrite_threads:
-                rule.resources["_cores"] = self.resource_settings.overwrite_threads[
-                    name
-                ]
+                rule.resources["_cores"] = get_resource_value(
+                    self.resource_settings.overwrite_threads[name]
+                )
 
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (
@@ -1625,7 +1647,12 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 rule.resources.update(resources)
             if name in self.resource_settings.overwrite_resources:
-                rule.resources.update(self.resource_settings.overwrite_resources[name])
+                rule.resources.update(
+                    (resource, get_resource_value(value))
+                    for resource, value in self.resource_settings.overwrite_resources[
+                        name
+                    ].items()
+                )
 
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(

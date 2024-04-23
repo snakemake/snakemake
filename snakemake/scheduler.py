@@ -298,6 +298,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     local_runjobs = [job for job in run if job.is_local]
                     runjobs = [job for job in run if not job.is_local]
                     if local_runjobs:
+                        async_run(
+                            self.workflow.dag.retrieve_storage_inputs(
+                                jobs=local_runjobs, also_missing_internal=True
+                            )
+                        )
                         self.run(
                             local_runjobs,
                             executor=self._local_executor or self._executor,
@@ -320,9 +325,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     try:
                         if self.workflow.exec_mode == ExecMode.DEFAULT:
                             await job.postprocess(
-                                store_in_storage=True,
+                                store_in_storage=not self.touch,
                                 handle_log=True,
-                                handle_touch=True,
+                                handle_touch=not self.touch,
                                 ignore_missing_output=self.touch,
                             )
                         elif self.workflow.exec_mode == ExecMode.SUBPROCESS:
@@ -333,6 +338,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             )
                         else:
                             await job.postprocess(
+                                # storage upload will be done after all jobs of
+                                # this remote job (e.g. in case of group) are finished
+                                # DAG.store_storage_outputs()
                                 store_in_storage=False,
                                 handle_log=True,
                                 handle_touch=True,

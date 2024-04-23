@@ -1,8 +1,10 @@
 from collections import UserDict, defaultdict
+from dataclasses import dataclass
 import itertools as it
 import operator as op
 import re
 import tempfile
+from typing import Any
 
 from snakemake.exceptions import (
     ResourceScopesException,
@@ -10,6 +12,13 @@ from snakemake.exceptions import (
     is_file_not_found_error,
 )
 from snakemake.common.tbdstring import TBDString
+from snakemake.logging import logger
+
+
+@dataclass
+class ParsedResource:
+    orig_arg: str
+    value: Any
 
 
 class DefaultResources:
@@ -529,6 +538,8 @@ def eval_resource_expression(val, threads_arg=True):
         except NameError:
             return val
         except Exception as e:
+            if is_humanfriendly_resource(val):
+                return val
             if not is_file_not_found_error(e, kwargs["input"]):
                 # Missing input files are handled by the caller
                 raise WorkflowError(
@@ -536,7 +547,11 @@ def eval_resource_expression(val, threads_arg=True):
                     f"'{val}'.\n"
                     "    String arguments may need additional "
                     "quoting. E.g.: --default-resources "
-                    "\"tmpdir='/home/user/tmp'\".",
+                    "\"tmpdir='/home/user/tmp'\" or "
+                    "--set-resources \"somerule:someresource='--nice=100'\". "
+                    "This also holds for setting resources inside of a profile, where "
+                    "you might have to enclose them in single and double quotes, "
+                    "i.e. someresource: \"'--nice=100'\".",
                     e,
                 )
             raise e
@@ -611,6 +626,9 @@ def infer_resources(name, value, resources: dict):
     """Infer resources from a given one, if possible."""
     from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
 
+    if isinstance(value, str):
+        value = value.strip("'\"")
+
     if (
         (name == "mem" or name == "disk")
         and isinstance(value, str)
@@ -630,8 +648,28 @@ def infer_resources(name, value, resources: dict):
         and not isinstance(value, TBDString)
     ):
         try:
-            resources["runtime"] = max(int(round(parse_timespan(value) / 60)), 1)
+            parsed = max(int(round(parse_timespan(value) / 60)), 1)
         except InvalidTimespan:
             raise WorkflowError(
                 f"Cannot parse runtime value into minutes for setting runtime resource: {value}"
             )
+        logger.debug(f"Inferred runtime value of {parsed} minutes from {value}")
+        resources["runtime"] = parsed
+
+
+def is_humanfriendly_resource(value):
+    from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
+
+    try:
+        parse_size(value)
+        return True
+    except InvalidSize:
+        pass
+
+    try:
+        parse_timespan(value)
+        return True
+    except InvalidTimespan:
+        pass
+
+    return False

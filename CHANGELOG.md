@@ -1,6 +1,224 @@
 # Changelog
 
 
+## [8.10.8](https://github.com/snakemake/snakemake/compare/v8.10.7...v8.10.8) (2024-04-19)
+
+
+### Bug Fixes
+
+* extend workflow test suite by wildcards with slashes (in order to detect bugs that can occur in executors) ([#2810](https://github.com/snakemake/snakemake/issues/2810)) ([fc9971b](https://github.com/snakemake/snakemake/commit/fc9971b227e43601c8b511c1c37e4dce3211e913))
+* invalid extensions with multixt and cache ([#1808](https://github.com/snakemake/snakemake/issues/1808)) ([#2823](https://github.com/snakemake/snakemake/issues/2823)) ([a845b1c](https://github.com/snakemake/snakemake/commit/a845b1c62b106fb4c0f1b97485a3044bfbcab65b))
+* module prefix added twice on expand ([#2814](https://github.com/snakemake/snakemake/issues/2814)) ([27416f4](https://github.com/snakemake/snakemake/commit/27416f4e233662162232de33e9b82205f7efe397))
+* retrieve inputs of local rules from storage even if they are intermediate results ([#2811](https://github.com/snakemake/snakemake/issues/2811)) ([d158aa8](https://github.com/snakemake/snakemake/commit/d158aa849fb16fb3931d05fb052684c5d09862cd))
+
+
+### Documentation
+
+* add snakemake and reportplugins to req.txt to show all cli options ([#2817](https://github.com/snakemake/snakemake/issues/2817)) ([aaa9065](https://github.com/snakemake/snakemake/commit/aaa906565d102774b99b1515be0747d59e1828a6))
+
+## [8.10.7](https://github.com/snakemake/snakemake/compare/v8.10.6...v8.10.7) (2024-04-12)
+
+
+### Bug Fixes
+
+* expand error on modules with prefix ([#1614](https://github.com/snakemake/snakemake/issues/1614)) ([#2803](https://github.com/snakemake/snakemake/issues/2803)) ([c6bfcd7](https://github.com/snakemake/snakemake/commit/c6bfcd762c595c7d009fb3c2cfff6231a1f3ffe4))
+* failure message in cleanup_metadata ([#2800](https://github.com/snakemake/snakemake/issues/2800)) ([4c7fe55](https://github.com/snakemake/snakemake/commit/4c7fe55285fd4641d86a945110e546ad19dd9c2e))
+* handle async method in cleanup_storage_objects ([#2806](https://github.com/snakemake/snakemake/issues/2806)) ([272205b](https://github.com/snakemake/snakemake/commit/272205beb0765e65c86a7b4e4f740b84ceac44b5))
+
+
+### Documentation
+
+* add Morten Lund as another maintainer. ([293bc05](https://github.com/snakemake/snakemake/commit/293bc056b6c44f17340543b2678f8a59e808a5a6))
+
+## [8.10.6](https://github.com/snakemake/snakemake/compare/v8.10.5...v8.10.6) (2024-04-04)
+
+
+### Bug Fixes
+
+* only constrain by --max-threads if threads of job are already known ([#2790](https://github.com/snakemake/snakemake/issues/2790)) ([5f28fcd](https://github.com/snakemake/snakemake/commit/5f28fcd32bd8fa0f539c4fc8aabf07702787132b))
+
+## [8.10.5](https://github.com/snakemake/snakemake/compare/v8.10.4...v8.10.5) (2024-04-04)
+
+
+### Bug Fixes
+
+* properly delete local copies of storage files after remote jobs ([#2793](https://github.com/snakemake/snakemake/issues/2793)) ([e3362b0](https://github.com/snakemake/snakemake/commit/e3362b03e11d9770ed6b01e82017973f4a652d4a))
+* respect APPTAINER_CACHEDIR and allow env variables in --apptainer-prefix and --conda-prefix ([#2795](https://github.com/snakemake/snakemake/issues/2795)) ([b1694cd](https://github.com/snakemake/snakemake/commit/b1694cdf10ce46ff80236a8bb1d9c72e2f0fae0e))
+
+## [8.10.4](https://github.com/snakemake/snakemake/compare/v8.10.3...v8.10.4) (2024-03-27)
+
+
+### Documentation
+
+* fix links ([420ea9c](https://github.com/snakemake/snakemake/commit/420ea9ca52d3de76f93e3ad30d922a97950c75de))
+
+## [8.10.3](https://github.com/snakemake/snakemake/compare/v8.10.2...v8.10.3) (2024-03-27)
+
+
+### Documentation
+
+* mention maintainers ([be95e25](https://github.com/snakemake/snakemake/commit/be95e25d7ee65abe993f08b9d6ca726ee79ec7d4))
+
+## [8.10.2](https://github.com/snakemake/snakemake/compare/v8.10.1...v8.10.2) (2024-03-26)
+
+
+### Bug Fixes
+
+* remove default packages from conda envs ([#2749](https://github.com/snakemake/snakemake/issues/2749)) ([027906c](https://github.com/snakemake/snakemake/commit/027906c519b5e39a628dda072f314e7b9f6343dc))
+* use base64 encoding for passing default resources args to jobs ([#2780](https://github.com/snakemake/snakemake/issues/2780)) ([4735bc3](https://github.com/snakemake/snakemake/commit/4735bc3b81d9db96da0fb949893285ec0f77d076))
+
+## [8.10.1](https://github.com/snakemake/snakemake/compare/v8.10.0...v8.10.1) (2024-03-26)
+
+
+### Bug Fixes
+
+* passing of --set-threads values to remote jobs ([#2775](https://github.com/snakemake/snakemake/issues/2775)) ([4fd767a](https://github.com/snakemake/snakemake/commit/4fd767a4e57043551e0551542a93dbc9d34df777))
+* use base64 encoding when passing resources and threads to remote jobs (this solves issues with complex quoted resources) ([#2778](https://github.com/snakemake/snakemake/issues/2778)) ([a8ee4d8](https://github.com/snakemake/snakemake/commit/a8ee4d8a8228aeac7bccefdc3b868059455e38c4))
+
+## [8.10.0](https://github.com/snakemake/snakemake/compare/v8.9.0...v8.10.0) (2024-03-22)
+
+
+### Features
+
+* expose ResourceSettings in TestWorkflowsBase ([#2770](https://github.com/snakemake/snakemake/issues/2770)) ([e7c323b](https://github.com/snakemake/snakemake/commit/e7c323b707091d759592a6c0b75e8f772b2c72c5))
+
+## [8.9.0](https://github.com/snakemake/snakemake/compare/v8.8.0...v8.9.0) (2024-03-18)
+
+
+### Features
+
+* add function 'exists' for checking the prior existence of files or dirs before workflow execution while considering any remote storage settings. In addition: some bug fixes for error handling and the update/before_update functionality. ([ee96393](https://github.com/snakemake/snakemake/commit/ee9639385cb2c9cec425800088faee4e4bf77c9a))
+
+## [8.8.0](https://github.com/snakemake/snakemake/compare/v8.7.0...v8.8.0) (2024-03-15)
+
+
+### Features
+
+* Allow smart_open 7.x ([#2745](https://github.com/snakemake/snakemake/issues/2745)) ([d52c1b1](https://github.com/snakemake/snakemake/commit/d52c1b1805d2e30124da2ac01f614fe4f5cb0257))
+
+
+### Bug Fixes
+
+* various error handling improvements, fixed logging/error behavior (stdout from dryrun, stderr otherwise) ([#2759](https://github.com/snakemake/snakemake/issues/2759)) ([d0d1f48](https://github.com/snakemake/snakemake/commit/d0d1f48e9bc1f8f994c2f243255b84a1b73e5208))
+
+## [8.7.0](https://github.com/snakemake/snakemake/compare/v8.6.0...v8.7.0) (2024-03-13)
+
+
+### Features
+
+* add flag for marking output as being updated instead of rewritten (update("test.txt")) ([#2754](https://github.com/snakemake/snakemake/issues/2754)) ([9ba5d95](https://github.com/snakemake/snakemake/commit/9ba5d95a657952f06ad22cc415670f79c013d3f8))
+* allow default storage provider to be explicitly set to none ([#2746](https://github.com/snakemake/snakemake/issues/2746)) ([ce519d7](https://github.com/snakemake/snakemake/commit/ce519d7fd2b9dde1f369cb0da27a71d910b46734))
+
+## [8.6.0](https://github.com/snakemake/snakemake/compare/v8.5.5...v8.6.0) (2024-03-11)
+
+
+### Features
+
+* add setting for defining separate local storage prefix for remote jobs; improved ergonomics for semantic helper functions ([#2743](https://github.com/snakemake/snakemake/issues/2743)) ([5007e5c](https://github.com/snakemake/snakemake/commit/5007e5c038e0fa5e90a8d44ec4a75ec77c2cd91c))
+* allow passing of lists of functions or single functions to expand ([#2741](https://github.com/snakemake/snakemake/issues/2741)) ([32e65df](https://github.com/snakemake/snakemake/commit/32e65df607127a93cc1857c415154137e3fd438d))
+
+
+### Bug Fixes
+
+* fix error message for invalid storage provider queries ([977951e](https://github.com/snakemake/snakemake/commit/977951ea541bceb97b6a77709fde863f6c638352))
+* fix premature deletion of temp files in combination with checkpoints ([#2737](https://github.com/snakemake/snakemake/issues/2737)) ([b22ba5f](https://github.com/snakemake/snakemake/commit/b22ba5f32b893e8eb50f6e3a6f0874f1c932943b))
+
+## [8.5.5](https://github.com/snakemake/snakemake/compare/v8.5.4...v8.5.5) (2024-03-07)
+
+
+### Bug Fixes
+
+* less frightering message when telling about missing output files as reason for running a job ([7b6c9d4](https://github.com/snakemake/snakemake/commit/7b6c9d4f620e020911192e0f311f1d9098391e0d))
+
+## [8.5.4](https://github.com/snakemake/snakemake/compare/v8.5.3...v8.5.4) (2024-03-06)
+
+
+### Bug Fixes
+
+* fix bugs in --summary and --list-input-changes. Removed outdated statement in tutorial. ([#2735](https://github.com/snakemake/snakemake/issues/2735)) ([55c06d8](https://github.com/snakemake/snakemake/commit/55c06d853116cf402b90832649c805643712c437))
+
+
+### Documentation
+
+* fix explanation on how to use all cores in tutorial ([#2733](https://github.com/snakemake/snakemake/issues/2733)) ([6420428](https://github.com/snakemake/snakemake/commit/64204286f3061c494389ea502f1e4393e357efcd))
+* fix syntax highlighting in tutorial ([2887604](https://github.com/snakemake/snakemake/commit/2887604ebe8a1e4c9c226780129312f556150dca))
+
+## [8.5.3](https://github.com/snakemake/snakemake/compare/v8.5.2...v8.5.3) (2024-02-26)
+
+
+### Bug Fixes
+
+* error when detecting mime type during report creation ([#2721](https://github.com/snakemake/snakemake/issues/2721)) ([42dad42](https://github.com/snakemake/snakemake/commit/42dad4258b0b0028733b94cbde6ae63c534ba645))
+
+## [8.5.2](https://github.com/snakemake/snakemake/compare/v8.5.1...v8.5.2) (2024-02-24)
+
+
+### Bug Fixes
+
+* when using remote storage: only wait for files if job did not error ([8c7ee91](https://github.com/snakemake/snakemake/commit/8c7ee91ac5425279955e60071fd0269bf2bf197b))
+
+
+### Documentation
+
+* fix apidocs theme ([1fb5467](https://github.com/snakemake/snakemake/commit/1fb546772bc90d96af2a390ced2d02db100ad810))
+
+## [8.5.1](https://github.com/snakemake/snakemake/compare/v8.5.0...v8.5.1) (2024-02-24)
+
+
+### Documentation
+
+* api docs polishing ([58a6a13](https://github.com/snakemake/snakemake/commit/58a6a139a6fe2719de7d2d7c98e21f4d33a67cba))
+* fix [#2698](https://github.com/snakemake/snakemake/issues/2698) ([#2714](https://github.com/snakemake/snakemake/issues/2714)) ([508080b](https://github.com/snakemake/snakemake/commit/508080b8e1185c45e4c3d7b413350c68444db90c))
+
+## [8.5.0](https://github.com/snakemake/snakemake/compare/v8.4.12...v8.5.0) (2024-02-24)
+
+
+### Features
+
+* add ability to return input functions from input functions. Such nesting is evaluated 10 times at most. Beyond that, an error is thrown.  ([#2717](https://github.com/snakemake/snakemake/issues/2717)) ([7a47924](https://github.com/snakemake/snakemake/commit/7a47924627b30dc774efef0faae08e13e44c350a))
+* support for report plugins ([#2700](https://github.com/snakemake/snakemake/issues/2700)) ([2f7d4b5](https://github.com/snakemake/snakemake/commit/2f7d4b5196979d368f6e2eede25ca2a61220691b))
+
+
+### Bug Fixes
+
+* fix wait for files in case of using remote storage and remote execution ([#2718](https://github.com/snakemake/snakemake/issues/2718)) ([eec3a5f](https://github.com/snakemake/snakemake/commit/eec3a5fd7a02c093dc14cfd0912fbaf8d7dd10cc))
+* proper interpretation of standard resources given as strings (e.g. runtime as '5m'). Avoid the need to set additional quotes around size or timespan resources. Improved error messages for resource handling.  ([#2716](https://github.com/snakemake/snakemake/issues/2716)) ([b6636e9](https://github.com/snakemake/snakemake/commit/b6636e95f6d9baddb4a3eb5bc79351207f048b4d))
+
+## [8.4.12](https://github.com/snakemake/snakemake/compare/v8.4.11...v8.4.12) (2024-02-20)
+
+
+### Bug Fixes
+
+* constrain dependencies to match conda experience ([#2710](https://github.com/snakemake/snakemake/issues/2710)) ([d9a7a13](https://github.com/snakemake/snakemake/commit/d9a7a13d6e427c025902a78c2d21c3f21cac242b))
+* various bug fixes for resource parsing ([#2711](https://github.com/snakemake/snakemake/issues/2711)) ([d1daf0b](https://github.com/snakemake/snakemake/commit/d1daf0b4b2cc64b92adb9f58ac71c601ab5d29c8))
+
+## [8.4.11](https://github.com/snakemake/snakemake/compare/v8.4.10...v8.4.11) (2024-02-19)
+
+
+### Documentation
+
+* fix heading ([1eda36d](https://github.com/snakemake/snakemake/commit/1eda36d9d7e545b05428548f8b826e941ad078d9))
+
+## [8.4.10](https://github.com/snakemake/snakemake/compare/v8.4.9...v8.4.10) (2024-02-19)
+
+
+### Bug Fixes
+
+* properly handle --touch when using a storage provider ([#2705](https://github.com/snakemake/snakemake/issues/2705)) ([fca138d](https://github.com/snakemake/snakemake/commit/fca138d680ac0abad14df8dc208a84f1ae0dc0e2))
+
+## [8.4.9](https://github.com/snakemake/snakemake/compare/v8.4.8...v8.4.9) (2024-02-15)
+
+
+### Bug Fixes
+
+* binary mem ([#2695](https://github.com/snakemake/snakemake/issues/2695)) ([18689b4](https://github.com/snakemake/snakemake/commit/18689b42dcc690deea7f27dc909379f603aaa1a9))
+* Don't attempt to parse TBDString resources ([#2690](https://github.com/snakemake/snakemake/issues/2690)) ([f884b50](https://github.com/snakemake/snakemake/commit/f884b50eddf30f829b0f7d2bbda77d0148cf8cd7))
+
+
+### Documentation
+
+* added Mastodon follow label with just 'Follow' similar to X ([#2692](https://github.com/snakemake/snakemake/issues/2692)) ([7e36496](https://github.com/snakemake/snakemake/commit/7e364968fb601b2fd87dc5cd703e251b708a0e19))
+
 ## [8.4.8](https://github.com/snakemake/snakemake/compare/v8.4.7...v8.4.8) (2024-02-09)
 
 

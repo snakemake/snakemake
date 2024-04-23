@@ -2,9 +2,12 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from collections.abc import Mapping, Callable
 from functools import partial
+import inspect
+import os
 import re
 from typing import List, Optional, Union
 
+from snakemake.common import async_run
 import snakemake.io
 import snakemake.utils
 from snakemake.exceptions import LookupError
@@ -172,7 +175,7 @@ def lookup(
             try:
                 res = within.query(query)
             except Exception as e:
-                raise error(exc=e)
+                raise LookupError(query=query, exc=e)
 
             if is_nrows is not None:
                 return is_nrows == len(res)
@@ -204,7 +207,7 @@ def lookup(
             except ValueError:
                 return dp.values(within, dpath)
             except KeyError as e:
-                raise error(msg="Dpath not found.")
+                raise LookupError(dpath=dpath, msg="Dpath not found.")
 
         return DpathWildcardHandler(do_dpath, **namespace).handle(dpath)
     else:
@@ -288,6 +291,29 @@ def branch(
 collect = snakemake.io.expand
 
 
+def exists(path):
+    """Return True if the given file or directory exists.
+
+    This function considers any storage arguments given to Snakemake.
+    """
+    func_context = inspect.currentframe().f_back.f_locals
+    func_context_global = inspect.currentframe().f_back.f_globals
+
+    workflow = func_context.get("workflow") or func_context_global.get("workflow")
+
+    if workflow is None:
+        raise WorkflowError(
+            "The exists function can only be used within a Snakemake workflow "
+            "(the global variable 'workflow' has to be present)."
+        )
+
+    path = workflow.modifier.path_modifier.apply_default_storage(path)
+    if snakemake.io.is_flagged(path, "storage_object"):
+        return async_run(path.flags["storage_object"].managed_exists())
+    else:
+        return os.path.exists(path)
+
+
 def register_in_globals(_globals):
     _globals.update(
         {
@@ -295,5 +321,6 @@ def register_in_globals(_globals):
             "evaluate": evaluate,
             "branch": branch,
             "collect": collect,
+            "exists": exists,
         }
     )

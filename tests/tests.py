@@ -163,6 +163,14 @@ def test15():
     run(dpath("test15"))
 
 
+@skip_on_windows  # OS agnostic
+def test_set_threads():
+    run(
+        dpath("test_set_threads"),
+        shellcmd='snakemake --executor local --set-threads "a=max(input.size, 5)" -c 5 --verbose',
+    )
+
+
 def test_glpk_solver():
     run(dpath("test_solver"), scheduler_ilp_solver="GLPK_CMD")
 
@@ -198,6 +206,22 @@ def test_directory2():
             "some/dir-child",
             "some/shadow",
         ],
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_set_resources_complex_profile():
+    run(
+        dpath("test_set_resources_complex"),
+        shellcmd="snakemake -c1 --verbose --profile test-profile",
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_set_resources_complex_cli():
+    run(
+        dpath("test_set_resources_complex"),
+        shellcmd="snakemake -c1 --verbose --set-resources \"a:slurm_extra='--nice=150 --gres=gpu:1'\"",
     )
 
 
@@ -447,6 +471,11 @@ def test_conda_list_envs():
     run(dpath("test_conda"), conda_list_envs=True, check_results=False)
 
 
+# TODO failing with FAILED tests/tests.py::test_conda_create_envs_only -
+# PermissionError: [WinError 32] The process cannot access the file because
+# it is being used by another process:
+# 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\snakemake-2q4osog0\\test-env.yaml'
+@skip_on_windows
 def test_conda_create_envs_only():
     tmpdir = run(
         dpath("test_conda"),
@@ -989,7 +1018,7 @@ def test_scopes_submitted_to_cluster(mocker):
         default_resources=DefaultResources(["mem_mb=0"]),
     )
 
-    assert spy.spy_return == "--set-resource-scopes \"fake_res='local'\""
+    assert spy.spy_return == "--set-resource-scopes 'fake_res=local'"
 
 
 @skip_on_windows
@@ -1502,7 +1531,7 @@ def test_long_shell():
 
 
 def test_modules_all():
-    run(dpath("test_modules_all"), targets=["a"])
+    run(dpath("test_modules_all"), targets=["all"])
 
 
 def test_module_nested():
@@ -1918,6 +1947,16 @@ def test_no_workflow_profile():
     )
 
 
+@skip_on_windows  # not platform dependent
+def test_runtime_conversion_from_workflow_profile():
+    test_path = dpath("test_runtime_conversion_from_workflow_profile")
+    run(
+        test_path,
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake -c1",
+    )
+
+
 @skip_on_windows
 def test_localrule():
     run(dpath("test_localrule"), targets=["1.txt", "2.txt"])
@@ -1980,6 +2019,11 @@ def test_resource_string_in_cli_or_profile():
     )
 
 
+@skip_on_windows  # not platform dependent, only cli
+def test_default_storage_provider_none():
+    run(dpath("test01"), shellcmd="snakemake --default-storage-provider none -c3")
+
+
 def test_resource_tbdstring():
     test_path = dpath("test_resource_tbdstring")
     results_dir = Path(test_path) / "expected-results"
@@ -2002,3 +2046,90 @@ def test_queue_input_forceall():
 @skip_on_windows  # OS independent
 def test_issue2685():
     run(dpath("test_issue2685"))
+
+
+@skip_on_windows  # OS agnostic
+def test_set_resources_complex():
+    run(
+        dpath("test05"),
+        shellcmd="snakemake --verbose -c1 --set-resources \"compute1:slurm_extra='--nice=10'\"",
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_set_resources_human_readable():
+    run(
+        dpath("test05"),
+        shellcmd="snakemake -c1 --set-resources \"compute1:runtime='50h'\"",
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_call_inner():
+    run(dpath("test_inner_call"))
+
+
+@skip_on_windows  # OS agnostic
+def test_storage_localrule():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        run(
+            dpath("test_storage_localrule"),
+            cluster="./qsub",
+            default_storage_provider="fs",
+            default_storage_prefix="fs-storage",
+            remote_job_local_storage_prefix=Path(tmpdir) / "remotejobs/$JOBID",
+            local_storage_prefix=Path(tmpdir) / "localjobs",
+            shared_fs_usage=[
+                SharedFSUsage.PERSISTENCE,
+                SharedFSUsage.SOURCE_CACHE,
+                SharedFSUsage.SOURCES,
+            ],
+        )
+
+
+@skip_on_windows  # OS agnostic
+def test_update_flag():
+    run(dpath("test_update_flag"))
+
+
+@skip_on_windows  # OS agnostic
+def test_list_input_changes():
+    run(dpath("test01"), shellcmd="snakemake --list-input-changes", check_results=False)
+
+
+@skip_on_windows  # OS agnostic
+def test_storage_cleanup_local():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        run(
+            dpath("test_storage_cleanup_local"),
+            cluster="./qsub",
+            default_storage_provider="fs",
+            default_storage_prefix="fs-storage",
+            local_storage_prefix=tmpdir_path,
+        )
+        assert not tmpdir_path.exists() or not any(tmpdir_path.iterdir())
+
+
+@skip_on_windows  # OS agnostic
+def test_summary():
+    run(dpath("test01"), shellcmd="snakemake --summary", check_results=False)
+
+
+@skip_on_windows  # OS agnostic
+def test_exists():
+    run(dpath("test_exists"), check_results=False, executor="dryrun")
+
+
+@skip_on_windows  # OS agnostic
+def test_github_issue2732():
+    run(dpath("test_github_issue2732"))
+
+
+def test_expand_list_of_functions():
+    run(dpath("test_expand_list_of_functions"))
+
+
+@skip_on_windows  # OS agnostic
+def test_scheduler_sequential_all_cores():
+    run(dpath("test_scheduler_sequential_all_cores"), cores=90)

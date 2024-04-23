@@ -4,6 +4,8 @@ import os
 import sys
 from typing import Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
+from snakemake_interface_executor_plugins.settings import CommonSettings
+from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import common
@@ -73,31 +75,47 @@ class SpawnedJobArgsFactory:
         for plugin, field, field_settings in self._get_storage_provider_setting_items():
             if not field.metadata.get("env_var", False):
                 cli_arg = plugin.get_cli_arg(field.name)
+                if isinstance(field_settings[0], bool) and field.default is not True:
+                    # so far no tagged settings for flags with default value False
+                    assert len(field_settings) == 1
+                    field_settings = field_settings[0]
                 yield format_cli_arg(cli_arg, field_settings)
 
     def get_storage_provider_envvars(self):
         return {
             plugin.get_envvar(field.name): " ".join(map(str, field_settings))
             for plugin, field, field_settings in self._get_storage_provider_setting_items()
-            if "env_var" in field.metadata
+            if field.metadata.get("env_var")
         }
 
     def get_set_resources_args(self):
         def get_orig_arg(value):
-            if is_flagged(value, "orig_arg"):
-                return get_flag_value(value, "orig_arg")
+            if isinstance(value, ParsedResource):
+                return value.orig_arg
             else:
                 return value
 
-        return format_cli_arg(
-            "--set-resources",
-            [
-                f"{rule}:{name}={get_orig_arg(value)}"
-                for rule, res in self.workflow.resource_settings.overwrite_resources.items()
-                for name, value in res.items()
-            ],
-            skip=not self.workflow.resource_settings.overwrite_resources,
-        )
+        return [
+            format_cli_arg(
+                "--set-resources",
+                [
+                    f"{rule}:{name}={get_orig_arg(value)}"
+                    for rule, res in self.workflow.resource_settings.overwrite_resources.items()
+                    for name, value in res.items()
+                ],
+                skip=not self.workflow.resource_settings.overwrite_resources,
+                base64_encode=True,
+            ),
+            format_cli_arg(
+                "--set-threads",
+                [
+                    f"{rule}={get_orig_arg(value)}"
+                    for rule, value in self.workflow.resource_settings.overwrite_threads.items()
+                ],
+                skip=not self.workflow.resource_settings.overwrite_threads,
+                base64_encode=True,
+            ),
+        ]
 
     def get_resource_scopes_args(self):
         return format_cli_arg(
@@ -105,8 +123,11 @@ class SpawnedJobArgsFactory:
             self.workflow.resource_settings.overwrite_resource_scopes,
         )
 
-    def get_shared_fs_usage_arg(self):
-        usage = self.workflow.storage_settings.shared_fs_usage
+    def get_shared_fs_usage_arg(self, executor_common_settings: CommonSettings):
+        if executor_common_settings.spawned_jobs_assume_shared_fs:
+            usage = SharedFSUsage.all()
+        else:
+            usage = self.workflow.storage_settings.shared_fs_usage
         return format_cli_arg(
             "--shared-fs-usage",
             usage if usage else "none",
@@ -130,7 +151,13 @@ class SpawnedJobArgsFactory:
         return join_cli_args([groups, group_components])
 
     def workflow_property_to_arg(
-        self, property, flag=None, quote=True, skip=False, invert=False, attr=None
+        self,
+        property,
+        flag=None,
+        base64_encode=False,
+        skip=False,
+        invert=False,
+        attr=None,
     ):
         if skip:
             return ""
@@ -152,7 +179,7 @@ class SpawnedJobArgsFactory:
         if invert and isinstance(value, bool):
             value = not value
 
-        return format_cli_arg(flag, value, quote=quote)
+        return format_cli_arg(flag, value, base64_encode=base64_encode)
 
     def envvars(self) -> Mapping[str, str]:
         envvars = {
@@ -164,14 +191,14 @@ class SpawnedJobArgsFactory:
 
     def precommand(
         self,
-        auto_deploy_default_storage_provider: bool = False,
+        executor_common_settings: CommonSettings,
         python_executable: str = "python",
     ) -> str:
         precommand = []
         if self.workflow.remote_execution_settings.precommand:
             precommand.append(self.workflow.remote_execution_settings.precommand)
         if (
-            auto_deploy_default_storage_provider
+            executor_common_settings.auto_deploy_default_storage_provider
             and self.workflow.storage_settings.default_storage_provider is not None
         ):
             package_name = StoragePluginRegistry().get_plugin_package_name(
@@ -198,9 +225,7 @@ class SpawnedJobArgsFactory:
 
     def general_args(
         self,
-        pass_default_storage_provider_args: bool = True,
-        pass_default_resources_args: bool = False,
-        pass_group_args: bool = False,
+        executor_common_settings: CommonSettings,
     ) -> str:
         """Return a string to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
@@ -212,6 +237,15 @@ class SpawnedJobArgsFactory:
         shared_deployment = (
             SharedFSUsage.SOFTWARE_DEPLOYMENT
             in self.workflow.storage_settings.shared_fs_usage
+        )
+
+        local_storage_prefix = (
+            w2a(
+                "storage_settings.remote_job_local_storage_prefix",
+                flag="--local-storage-prefix",
+            )
+            if executor_common_settings.non_local_exec
+            else w2a("storage_settings.local_storage_prefix")
         )
 
         args = [
@@ -243,12 +277,11 @@ class SpawnedJobArgsFactory:
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
             w2a("resource_settings.max_threads"),
-            self.get_shared_fs_usage_arg(),
+            self.get_shared_fs_usage_arg(executor_common_settings),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
             w2a("workflow_settings.wrapper_prefix"),
-            w2a("resource_settings.overwrite_threads", flag="--set-threads"),
             w2a("resource_settings.overwrite_scatter", flag="--set-scatter"),
             w2a("deployment_settings.conda_not_block_search_path_envvars"),
             w2a("overwrite_configfiles", flag="--configfiles"),
@@ -256,6 +289,7 @@ class SpawnedJobArgsFactory:
             w2a("output_settings.printshellcmds"),
             w2a("execution_settings.latency_wait"),
             w2a("scheduling_settings.scheduler", flag="--scheduler"),
+            local_storage_prefix,
             format_cli_arg(
                 "--scheduler-solver-path",
                 os.path.dirname(sys.executable),
@@ -266,15 +300,25 @@ class SpawnedJobArgsFactory:
                 flag="--directory",
                 skip=self.workflow.storage_settings.assume_common_workdir,
             ),
-            self.get_set_resources_args(),
             self.get_resource_scopes_args(),
         ]
         args.extend(self.get_storage_provider_args())
-        if pass_default_storage_provider_args:
+        args.extend(self.get_set_resources_args())
+        if executor_common_settings.pass_default_storage_provider_args:
             args.append(self.get_default_storage_provider_args())
-        if pass_default_resources_args:
-            args.append(w2a("resource_settings.default_resources", attr="args"))
-        if pass_group_args:
+        if executor_common_settings.pass_default_resources_args:
+            args.append(
+                w2a(
+                    "resource_settings.default_resources",
+                    attr="args",
+                    base64_encode=True,
+                )
+            )
+        if executor_common_settings.pass_group_args:
             args.append(self.get_group_args())
+
+        from snakemake.logging import logger
+
+        logger.debug(f"General args: {args}")
 
         return join_cli_args(args)
