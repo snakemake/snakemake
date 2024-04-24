@@ -226,6 +226,7 @@ def run(
     rerun_triggers=settings.RerunTrigger.all(),
     storage_provider_settings=None,
     shared_fs_usage=None,
+    benchmark_extended=False,
 ):
     """
     Test the Snakefile in the path.
