@@ -44,7 +44,7 @@ class BenchmarkRecord:
                 "rule_name",
                 "wildcards",
                 "threads",
-                "cpu_usages",
+                "cpu_usage",
                 "resources",
                 "input_size_mb",
             ]
@@ -63,7 +63,7 @@ class BenchmarkRecord:
         max_pss=None,
         io_in=None,
         io_out=None,
-        cpu_usages=None,
+        cpu_usage=None,
         cpu_time=None,
         resources=None,
         threads=None,
@@ -90,7 +90,7 @@ class BenchmarkRecord:
         #: I/O written in bytes
         self.io_out = io_out
         #: Count of CPU seconds, divide by running time to get mean load estimate
-        self.cpu_usages = cpu_usages or 0
+        self.cpu_usage = cpu_usage or 0
         #: CPU usage (user and system) in seconds
         self.cpu_time = cpu_time or 0
         #: Job resources
@@ -124,7 +124,7 @@ class BenchmarkRecord:
         return s
 
     def mean_load(self):
-        return self.cpu_usages / self.running_time
+        return self.cpu_usage / self.running_time
 
     def parse_wildcards(self):
         return {key: value for key, value in self.wildcards.items()}
@@ -183,7 +183,7 @@ class BenchmarkRecord:
                 self.rule_name,
                 self.parse_wildcards(),
                 self.threads,
-                self.cpu_usages if self.data_collected else "NA",
+                self.cpu_usage if self.data_collected else "NA",
                 self.parse_resources(),
                 self.input_size_mb(),
             ]
@@ -315,7 +315,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         io_in, io_out = 0, 0
         check_io = True
         # CPU seconds
-        cpu_usages = 0
+        cpu_usage = 0
         # CPU usage time
         cpu_time = 0
 
@@ -327,7 +327,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                 proc = self.procs.setdefault(proc.pid, proc)
                 with proc.oneshot():
                     if self.bench_record.prev_time:
-                        cpu_usages += proc.cpu_percent() * (
+                        cpu_usage += proc.cpu_percent() * (
                             this_time - self.bench_record.prev_time
                         )
                     # Makes it possible to summarize information about the process even
@@ -391,7 +391,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
             self.bench_record.io_in = io_in
             self.bench_record.io_out = io_out
 
-            self.bench_record.cpu_usages += cpu_usages
+            self.bench_record.cpu_usage += cpu_usage
             self.bench_record.cpu_time = cpu_time
 
 

@@ -1939,7 +1939,7 @@ benchmarks the
 * `max_pss`: Max `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_ memory usage (in megabytes),
 * `io_in`: I/O read (in bytes),
 * `io_out`: I/O written (in bytes),
-* `mean_load`: CPU load = CPU time (`cpu_usages`) divided by wall clock time (`s`),
+* `mean_load`: CPU load = CPU time (`cpu_usage`) divided by wall clock time (`s`),
 * `cpu_time`: CPU time user+system (seconds),
 
 Since version X.X, it is possible to have extra benchmark metrics with the command ``--benchmark-extended``:
@@ -1947,7 +1947,7 @@ Since version X.X, it is possible to have extra benchmark metrics with the comma
 * `rule_name`: Name of rule,
 * `wildcards`: Wildcards of this job,
 * `threads`: Number of threads requested for this job,
-* `cpu_usages`: Total CPU load,
+* `cpu_usage`: Total CPU load,
 * `resources`: Resources requested for this job,
 * `input_size_mb`: Size of input files (MiB),
 
