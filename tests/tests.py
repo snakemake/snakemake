@@ -347,7 +347,12 @@ def test_wildcard_keyword():
 
 @skip_on_windows
 def test_benchmark():
-    run(dpath("test_benchmark"), check_md5=False)
+    run(dpath("test_benchmark"), benchmark_extended=True, check_md5=False)
+
+
+@skip_on_windows
+def test_benchmark_jsonl():
+    run(dpath("test_benchmark_jsonl"), benchmark_extended=True, check_md5=False)
 
 
 def test_temp_expand():
