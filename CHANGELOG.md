@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [8.11.0](https://github.com/snakemake/snakemake/compare/v8.10.8...v8.11.0) (2024-04-25)
+
+
+### Features
+
+* allow for more extensive benchmark file in jsonl format ([#2691](https://github.com/snakemake/snakemake/issues/2691)) ([de12463](https://github.com/snakemake/snakemake/commit/de12463604bc5f24f81907e33057ff42c31c7fc2))
+
+
+### Bug Fixes
+
+* only download input for local jobs in the main process, not within remote groups ([#2842](https://github.com/snakemake/snakemake/issues/2842)) ([97f428b](https://github.com/snakemake/snakemake/commit/97f428ba2921cebc2a311a4933c1c55536d34335))
+* remove non-empty local copies of remote storage dirs ([#2845](https://github.com/snakemake/snakemake/issues/2845)) ([71b2b87](https://github.com/snakemake/snakemake/commit/71b2b87644ac0470aba1a96093e88e9a64df1176))
+* retrieve files from storage if necessary when calling their open method (e.g. when accessing output files from a checkpoint) ([#2839](https://github.com/snakemake/snakemake/issues/2839)) ([5448208](https://github.com/snakemake/snakemake/commit/54482089893d12a0cab20a7b4b3d0af5a87aa772))
+
 ## [8.10.8](https://github.com/snakemake/snakemake/compare/v8.10.7...v8.10.8) (2024-04-19)
 
 
