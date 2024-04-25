@@ -420,7 +420,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     for f in chain(job.input, job.output):
                         if f.is_storage and f not in cleaned:
                             f.storage_object.cleanup()
-                            tg.create_task(f.remove(only_local=True))
+                            tg.create_task(
+                                f.remove(remove_non_empty_dir=True, only_local=True)
+                            )
                             cleaned.add(f)
 
     def create_conda_envs(self, dryrun=False, quiet=False):
