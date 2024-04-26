@@ -981,7 +981,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             jobid=self.dag.jobid(self),
             msg=self.message,
             name=self.rule.name,
-            local=self.dag.workflow.is_local(self.rule),
+            # in dryrun, we don't want to display a decision whether local or not
+            # since we don't know how the user wants to execute
+            local=(
+                not self.dag.workflow.dryrun and self.dag.workflow.is_local(self.rule)
+            ),
             input=format_files(self.input, is_input=True),
             output=format_files(self.output, is_input=False),
             log=format_files(self.log, is_input=False),
