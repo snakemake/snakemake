@@ -210,7 +210,7 @@ class SnakemakeApi(ApiBase):
             raise ApiError(
                 f"Error when applying default storage provider "
                 f"{storage_settings.default_storage_provider} to upload workflow "
-                "sources. {query_validity}"
+                f"sources. {query_validity}"
             )
         storage_object = provider_instance.object(query)
         async_run(storage_object.managed_retrieve())
