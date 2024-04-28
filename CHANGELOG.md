@@ -1,6 +1,35 @@
 # Changelog
 
 
+## [8.11.0](https://github.com/snakemake/snakemake/compare/v8.10.8...v8.11.0) (2024-04-25)
+
+
+### Features
+
+* allow for more extensive benchmark file in jsonl format ([#2691](https://github.com/snakemake/snakemake/issues/2691)) ([de12463](https://github.com/snakemake/snakemake/commit/de12463604bc5f24f81907e33057ff42c31c7fc2))
+
+
+### Bug Fixes
+
+* only download input for local jobs in the main process, not within remote groups ([#2842](https://github.com/snakemake/snakemake/issues/2842)) ([97f428b](https://github.com/snakemake/snakemake/commit/97f428ba2921cebc2a311a4933c1c55536d34335))
+* remove non-empty local copies of remote storage dirs ([#2845](https://github.com/snakemake/snakemake/issues/2845)) ([71b2b87](https://github.com/snakemake/snakemake/commit/71b2b87644ac0470aba1a96093e88e9a64df1176))
+* retrieve files from storage if necessary when calling their open method (e.g. when accessing output files from a checkpoint) ([#2839](https://github.com/snakemake/snakemake/issues/2839)) ([5448208](https://github.com/snakemake/snakemake/commit/54482089893d12a0cab20a7b4b3d0af5a87aa772))
+
+## [8.10.8](https://github.com/snakemake/snakemake/compare/v8.10.7...v8.10.8) (2024-04-19)
+
+
+### Bug Fixes
+
+* extend workflow test suite by wildcards with slashes (in order to detect bugs that can occur in executors) ([#2810](https://github.com/snakemake/snakemake/issues/2810)) ([fc9971b](https://github.com/snakemake/snakemake/commit/fc9971b227e43601c8b511c1c37e4dce3211e913))
+* invalid extensions with multixt and cache ([#1808](https://github.com/snakemake/snakemake/issues/1808)) ([#2823](https://github.com/snakemake/snakemake/issues/2823)) ([a845b1c](https://github.com/snakemake/snakemake/commit/a845b1c62b106fb4c0f1b97485a3044bfbcab65b))
+* module prefix added twice on expand ([#2814](https://github.com/snakemake/snakemake/issues/2814)) ([27416f4](https://github.com/snakemake/snakemake/commit/27416f4e233662162232de33e9b82205f7efe397))
+* retrieve inputs of local rules from storage even if they are intermediate results ([#2811](https://github.com/snakemake/snakemake/issues/2811)) ([d158aa8](https://github.com/snakemake/snakemake/commit/d158aa849fb16fb3931d05fb052684c5d09862cd))
+
+
+### Documentation
+
+* add snakemake and reportplugins to req.txt to show all cli options ([#2817](https://github.com/snakemake/snakemake/issues/2817)) ([aaa9065](https://github.com/snakemake/snakemake/commit/aaa906565d102774b99b1515be0747d59e1828a6))
+
 ## [8.10.7](https://github.com/snakemake/snakemake/compare/v8.10.6...v8.10.7) (2024-04-12)
 
 

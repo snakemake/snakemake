@@ -347,22 +347,31 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 )
                 self.conda_envs[key] = env
 
-    async def retrieve_storage_inputs(self):
+    async def retrieve_storage_inputs(self, jobs=None, also_missing_internal=False):
         shared_local_copies = (
             SharedFSUsage.STORAGE_LOCAL_COPIES
             in self.workflow.storage_settings.shared_fs_usage
         )
-        if (self.workflow.is_main_process and shared_local_copies) or (
-            self.workflow.remote_exec and not shared_local_copies
-        ):
-            to_retrieve = {
-                f
-                for job in self.needrun_jobs()
-                for f in job.input
-                if f.is_storage
-                and self.is_external_input(f, job, not_needrun_is_external=True)
-            }
+        if jobs is None:
+            if (self.workflow.is_main_process and shared_local_copies) or (
+                self.workflow.remote_exec and not shared_local_copies
+            ):
+                jobs = self.needrun_jobs()
+            else:
+                jobs = []
 
+        to_retrieve = {
+            f
+            for job in jobs
+            for f in job.input
+            if f.is_storage
+            and (
+                (also_missing_internal and not shared_local_copies)
+                or self.is_external_input(f, job, not_needrun_is_external=True)
+            )
+        }
+
+        if to_retrieve:
             try:
                 async with asyncio.TaskGroup() as tg:
                     for f in to_retrieve:
@@ -411,7 +420,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     for f in chain(job.input, job.output):
                         if f.is_storage and f not in cleaned:
                             f.storage_object.cleanup()
-                            tg.create_task(f.remove(only_local=True))
+                            tg.create_task(
+                                f.remove(remove_non_empty_dir=True, only_local=True)
+                            )
                             cleaned.add(f)
 
     def create_conda_envs(self, dryrun=False, quiet=False):

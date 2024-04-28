@@ -347,7 +347,12 @@ def test_wildcard_keyword():
 
 @skip_on_windows
 def test_benchmark():
-    run(dpath("test_benchmark"), check_md5=False)
+    run(dpath("test_benchmark"), benchmark_extended=True, check_md5=False)
+
+
+@skip_on_windows
+def test_benchmark_jsonl():
+    run(dpath("test_benchmark_jsonl"), benchmark_extended=True, check_md5=False)
 
 
 def test_temp_expand():
@@ -614,6 +619,18 @@ def test_dup_out_patterns():
     Duplicate output patterns can be detected on the rule level
     """
     run(dpath("test_dup_out_patterns"), shouldfail=True)
+
+
+def test_issue2826_failed_binary_logs():
+    """Show how a binary log file crushes `show_logs`
+
+    The log file in this test is a binary file.
+    The `show_failed_logs` is activated by default using `run`,
+    thus `show_logs` will be called at the end of the test.
+    Thus this test will check if `show_logs` is able to handle
+    the binary log file.
+    """
+    run(dpath("test_issue2826_failed_binary_logs"), shouldfail=True)
 
 
 # TODO reactivate once generic cluster executor is properly released
@@ -2070,6 +2087,24 @@ def test_call_inner():
 
 
 @skip_on_windows  # OS agnostic
+def test_storage_localrule():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        run(
+            dpath("test_storage_localrule"),
+            cluster="./qsub",
+            default_storage_provider="fs",
+            default_storage_prefix="fs-storage",
+            remote_job_local_storage_prefix=Path(tmpdir) / "remotejobs/$JOBID",
+            local_storage_prefix=Path(tmpdir) / "localjobs",
+            shared_fs_usage=[
+                SharedFSUsage.PERSISTENCE,
+                SharedFSUsage.SOURCE_CACHE,
+                SharedFSUsage.SOURCES,
+            ],
+        )
+
+
+@skip_on_windows  # OS agnostic
 def test_update_flag():
     run(dpath("test_update_flag"))
 
@@ -2077,6 +2112,20 @@ def test_update_flag():
 @skip_on_windows  # OS agnostic
 def test_list_input_changes():
     run(dpath("test01"), shellcmd="snakemake --list-input-changes", check_results=False)
+
+
+@skip_on_windows  # OS agnostic
+def test_storage_cleanup_local():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        run(
+            dpath("test_storage_cleanup_local"),
+            cluster="./qsub",
+            default_storage_provider="fs",
+            default_storage_prefix="fs-storage",
+            local_storage_prefix=tmpdir_path,
+        )
+        assert not tmpdir_path.exists() or not any(tmpdir_path.iterdir())
 
 
 @skip_on_windows  # OS agnostic
