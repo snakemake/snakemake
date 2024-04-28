@@ -18,6 +18,7 @@ from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings import DeploymentMethod
 
+from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
@@ -1101,6 +1102,15 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     wait_for_local=True,
                 )
             self.dag.unshadow_output(self, only_log=error)
+
+            if (
+                not error
+                and self.rule.is_template_engine
+                and not is_flagged(self.output[0], "temp")
+            ):
+                # TODO also check if consumers are executed on the same node
+                check_template_output(self)
+
             await self.dag.handle_storage(
                 self, store_in_storage=store_in_storage, store_only_log=error
             )
