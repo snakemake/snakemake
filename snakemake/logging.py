@@ -746,7 +746,7 @@ def setup_logger(
             quiet = set()
     elif not isinstance(quiet, set):
         raise ValueError(
-            "Unsupported value provided for quiet mode (either bool, None or list allowed)."
+            "Unsupported value provided for quiet mode (either bool, None or set allowed)."
         )
 
     logger.log_handler.extend(handler)
