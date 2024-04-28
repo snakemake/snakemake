@@ -506,6 +506,9 @@ class Logger:
                 except FileNotFoundError:
                     yield f"Logfile {f} not found."
                     return
+                except UnicodeDecodeError:
+                    yield f"Logfile {f} is not a text file."
+                    return
                 lines = content.splitlines()
                 logfile_header = f"Logfile {f}:"
                 if not lines:
