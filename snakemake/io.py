@@ -329,7 +329,14 @@ class _IOFile(str, AnnotatedStringInterface):
         """
         if self.is_storage and not self.exists_local():
             async_run(self.retrieve_from_storage())
-        f = open(self, mode=mode, buffering=buffering, encoding=encoding, errors=errors, newline=newline)
+        f = open(
+            self,
+            mode=mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
         try:
             yield f
         finally:
