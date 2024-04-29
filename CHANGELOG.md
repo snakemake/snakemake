@@ -1,6 +1,25 @@
 # Changelog
 
 
+## [8.11.1](https://github.com/snakemake/snakemake/compare/v8.11.0...v8.11.1) (2024-04-29)
+
+
+### Bug Fixes
+
+* check template rendering output for leaked input file paths ([#2850](https://github.com/snakemake/snakemake/issues/2850)) ([433302e](https://github.com/snakemake/snakemake/commit/433302ee990787d1aee5ad6d7cdbcc9533646305))
+* do not distinguish between local and remote rules in dryrun ([74b99ec](https://github.com/snakemake/snakemake/commit/74b99ecee63a9922c4dbb6951cc63865955d198a))
+* omit norun jobs when determining remote storage input file retrieval ([#2854](https://github.com/snakemake/snakemake/issues/2854)) ([37a7c7f](https://github.com/snakemake/snakemake/commit/37a7c7f9dbd7295e558298097301827f714db994))
+* Prevent binary log files to crash snakemake execution with `show-failed-logs` ([#2827](https://github.com/snakemake/snakemake/issues/2827)) ([8a80bda](https://github.com/snakemake/snakemake/commit/8a80bdaed0d8524dffbdce71dd07eb123f71726d))
+* replace pkg_resources for python 3.12 ([#2831](https://github.com/snakemake/snakemake/issues/2831)) ([ac144fc](https://github.com/snakemake/snakemake/commit/ac144fc7c68083cc56d1960f46b5f5e7888dd38e))
+* return set instead of list when just --quiet ([#2829](https://github.com/snakemake/snakemake/issues/2829)) ([eeb57e2](https://github.com/snakemake/snakemake/commit/eeb57e26c4d85b520d5ae69a0f00183d4ea80eb8))
+* small typo in error ([#2853](https://github.com/snakemake/snakemake/issues/2853)) ([325a715](https://github.com/snakemake/snakemake/commit/325a715b11f1763d835c67f70e2d301e903c7ebb))
+* use keyword arguments in `_IOFile.open` ([#2847](https://github.com/snakemake/snakemake/issues/2847)) ([50c84dc](https://github.com/snakemake/snakemake/commit/50c84dc8a3b39143ea53edb77081448762832678))
+
+
+### Documentation
+
+* fix typo and link for RO Crate ([#2851](https://github.com/snakemake/snakemake/issues/2851)) ([cec0041](https://github.com/snakemake/snakemake/commit/cec0041a71cbd4ebb4e1f8ec4ca296127a65b24b))
+
 ## [8.11.0](https://github.com/snakemake/snakemake/compare/v8.10.8...v8.11.0) (2024-04-25)
 
 
