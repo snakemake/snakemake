@@ -2712,7 +2712,7 @@ Apart from Jinja2, Snakemake supports `YTE <https://github.com/koesterlab/yte>`_
 
 .. code-block:: python
 
-    rule render_jinja2_template:
+    rule render_yte_template:
         input:
             "some-yte-template.yaml"
         output:
@@ -2737,7 +2737,33 @@ Analogously to the jinja2 case YTE has access to ``params``, ``wildcards``, and 
         - b
         - ?config["threshold"]
 
-Template rendering rules are always executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
+By default, template rendering rules are executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
+However, if a :ref:`storage plugin <storage-support>` is used, a template rule can theoretically leak paths to local copies of the storage files into the rendered template.
+This can happen if the template inserts the path of an input file into the rendered output.
+Snakemake tries to detect such cases by checking the template output.
+To avoid such leaks (only required if your template does something like that with an input file path), you can assign the same :ref:`group <job_grouping>` to your template rule and the consuming rule, and in addition mark the template output as ``temp()``, i.e.:
+
+.. code-block:: python
+
+    rule render_yte_template:
+        input:
+            "some-yte-template.yaml"
+        output:
+            temp("results/{sample}.rendered-version.yaml")
+        params:
+            foo=0.1
+        group: "some-group"
+        template_engine:
+            "yte"
+
+    rule consume_template:
+        input:
+            "results/{sample}.rendered-version.yaml"
+        output:
+            "results/some-output.txt"
+        group: "some-group"
+        shell:
+            "sometool {input} {output}"
 
 .. _snakefiles_mpi_support:
 

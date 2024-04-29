@@ -621,6 +621,18 @@ def test_dup_out_patterns():
     run(dpath("test_dup_out_patterns"), shouldfail=True)
 
 
+def test_issue2826_failed_binary_logs():
+    """Show how a binary log file crushes `show_logs`
+
+    The log file in this test is a binary file.
+    The `show_failed_logs` is activated by default using `run`,
+    thus `show_logs` will be called at the end of the test.
+    Thus this test will check if `show_logs` is able to handle
+    the binary log file.
+    """
+    run(dpath("test_issue2826_failed_binary_logs"), shouldfail=True)
+
+
 # TODO reactivate once generic cluster executor is properly released
 # @skip_on_windows
 # def test_restartable_job_cmd_exit_1_no_restart():
