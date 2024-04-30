@@ -647,7 +647,7 @@ class Script(AbstractCmd):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, sourcecache_path, "
-            "runtime_sourcecache_path"
+            "runtime_sourcecache_path, shell_exec"
         )
 
 
@@ -660,7 +660,7 @@ class Notebook(Script):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook, sourcecache_path, runtime_sourcecache_path"
+            "edit_notebook, sourcecache_path, runtime_sourcecache_path, shell_exec"
         )
 
 
@@ -673,7 +673,7 @@ class Wrapper(Script):
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, workflow.workflow_settings.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir, sourcecache_path, runtime_sourcecache_path"
+            "cleanup_scripts, shadow_dir, sourcecache_path, runtime_sourcecache_path, shell_exec"
         )
 
 
@@ -693,7 +693,7 @@ class CWL(Script):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, use_singularity, bench_record, jobid, sourcecache_path, "
-            "runtime_sourcecache_path"
+            "runtime_sourcecache_path, shell_exec"
         )
 
 
