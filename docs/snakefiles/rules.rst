@@ -1942,7 +1942,7 @@ benchmarks the
 * `mean_load`: CPU load = CPU time (`cpu_usage`) divided by wall clock time (`s`),
 * `cpu_time`: CPU time user+system (seconds),
 
-Since version X.X, it is possible to have extra benchmark metrics with the command ``--benchmark-extended``:
+Since version 8.11.0, it is possible to have extra benchmark metrics with the command ``--benchmark-extended``:
 * `jobid`: Internal job ID,
 * `rule_name`: Name of rule,
 * `wildcards`: Wildcards of this job,
@@ -1972,7 +1972,7 @@ However, the benchmark file can be annotated with the desired number of repeats,
 will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
 The resulting `tsv` file can be used as input for other rules, just like any other output file.
 
-Since version X.X, it is also possible to have the benchmark metrics in different formats (depending on the extension); currently only the `.jsonl` extension (JSONL format; i.e. one JSON record per line) is supported and all other extensions will be treated as TSV.
+Since version 8.11.0, it is also possible to have the benchmark metrics in different formats (depending on the extension); currently only the `.jsonl` extension (JSONL format; i.e. one JSON record per line) is supported and all other extensions will be treated as TSV.
 
 .. sidebar:: Note
 
