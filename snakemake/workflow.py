@@ -1680,6 +1680,8 @@ class Workflow(WorkflowExecutorInterface):
                 rule.benchmark_modifier = ruleinfo.benchmark.modifier
                 rule.benchmark = ruleinfo.benchmark.paths
 
+            rule.shell_exec = ruleinfo.shell_exec
+
             group = ruleinfo.group
             if group is not None:
                 rule.group = group
@@ -1894,6 +1896,13 @@ class Workflow(WorkflowExecutorInterface):
     def benchmark(self, benchmark):
         def decorate(ruleinfo):
             ruleinfo.benchmark = InOutput(benchmark, {}, self.modifier.path_modifier)
+            return ruleinfo
+
+        return decorate
+
+    def shell_exec(self, shell_exec):
+        def decorate(ruleinfo):
+            ruleinfo.shell_exec = shell_exec
             return ruleinfo
 
         return decorate

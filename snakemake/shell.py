@@ -193,13 +193,21 @@ class shell:
             os.chmod(script, os.stat(script).st_mode | stat.S_IXUSR | stat.S_IRUSR)
             cmd = '"{}" "{}"'.format(cls.get_executable() or "/bin/sh", script)
 
+        shell_executable = context.get("shell_exec", None)
+        if shell_executable is not None:
+            process_args = dict(cls._process_args)
+            process_args["executable"] = shell_executable
+        else:
+            shell_executable = cls.get_executable()
+            process_args = cls._process_args
+
         if container_img:
             cmd = singularity.shellcmd(
                 container_img,
                 cmd,
                 singularity_args,
                 envvars=None,
-                shell_executable=cls._process_args["executable"],
+                shell_executable=shell_executable,
                 container_workdir=shadow_dir,
                 is_python_script=context.get("is_python_script", False),
             )
@@ -246,13 +254,13 @@ class shell:
                     pass
 
         use_shell = True
-        if ON_WINDOWS and cls.get_executable():
+        if ON_WINDOWS and shell_executable:
             # If executable is set on Windows shell mode can not be used
             # and the executable should be prepended the command together
             # with a command prefix (e.g. -c for bash).
             use_shell = False
             cmd = '"{}" {} {}'.format(
-                cls.get_executable(), cls._win_command_prefix, argvquote(cmd)
+                shell_executable, cls._win_command_prefix, argvquote(cmd)
             )
 
         proc = sp.Popen(
@@ -262,7 +270,7 @@ class shell:
             stdout=stdout,
             universal_newlines=iterable or read or None,
             close_fds=close_fds,
-            **cls._process_args,
+            **process_args,
             env=envvars,
         )
 

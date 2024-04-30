@@ -116,6 +116,7 @@ class Rule(RuleInterface):
         self.benchmark_modifier = None
         self.ruleinfo = None
         self.module_globals = None
+        self.shell_exec = None
 
     @property
     def name(self):

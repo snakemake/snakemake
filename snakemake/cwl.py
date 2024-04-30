@@ -34,6 +34,7 @@ def cwl(
     jobid,
     sourcecache_path,
     runtime_sourcecache_path,
+    shell_exec,
 ):
     """
     Load cwl from the given basedir + path and execute it.

@@ -407,6 +407,7 @@ class ScriptBase(ABC):
         cleanup_scripts,
         shadow_dir,
         is_local,
+        shell_exec,
     ):
         self.path = path
         self.cache_path = cache_path
@@ -433,6 +434,7 @@ class ScriptBase(ABC):
         self.cleanup_scripts = cleanup_scripts
         self.shadow_dir = shadow_dir
         self.is_local = is_local
+        self.shell_exec = shell_exec
 
     def evaluate(self, edit=False):
         assert not edit or self.editable
@@ -524,6 +526,7 @@ class PythonScript(ScriptBase):
         cleanup_scripts,
         shadow_dir,
         is_local,
+        shell_exec,
         preamble_addendum="",
     ):
         snakemake = Snakemake(
@@ -561,13 +564,14 @@ class PythonScript(ScriptBase):
         preamble = textwrap.dedent(
             """
         ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys; sys.path.extend({searchpaths}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
+        import sys; sys.path.extend({searchpaths}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; from snakemake.shell import shell; shell.executable({shell_exec}); {preamble_addendum}
         ######## snakemake preamble end #########
         """
         ).format(
             searchpaths=repr(searchpaths),
             snakemake=snakemake,
             printshellcmds=logger.printshellcmds,
+            shell_exec=shell_exec,
             preamble_addendum=preamble_addendum,
         )
         return preamble
@@ -607,6 +611,7 @@ class PythonScript(ScriptBase):
             self.cleanup_scripts,
             self.shadow_dir,
             self.is_local,
+            self.shell_exec,
             preamble_addendum=preamble_addendum,
         )
 
@@ -1493,6 +1498,7 @@ def script(
     shadow_dir,
     sourcecache_path,
     runtime_sourcecache_path,
+    shell_exec,
 ):
     """
     Load a script from the given basedir + path and execute it.
@@ -1546,5 +1552,6 @@ def script(
         cleanup_scripts,
         shadow_dir,
         is_local,
+        shell_exec,
     )
     executor.evaluate()

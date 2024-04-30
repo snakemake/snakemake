@@ -515,6 +515,12 @@ class Handover(RuleKeywordState):
     pass
 
 
+class ShellExec(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "shell_exec"
+
+
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
@@ -539,7 +545,8 @@ class Run(RuleKeywordState):
             "resources, log, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
-            "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, {rule_func_marker}=True):".format(
+            "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, "
+            "shell_exec, {rule_func_marker}=True):".format(
                 rulename=self.rulename
                 if self.rulename is not None
                 else self.snakefile.rulecount,
@@ -714,6 +721,7 @@ rule_property_subautomata = dict(
     handover=Handover,
     default_target=DefaultTarget,
     localrule=LocalRule,
+    shell_exec=ShellExec,
 )
 rule_property_deprecated = dict(
     version="Use conda or container directive instead (see docs)."
