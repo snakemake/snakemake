@@ -3,7 +3,8 @@ shell("date > in.txt")
 
 rule all:
     input:
-        "out.txt", "test.txt"
+        "out.txt" if exists("test.txt") else [],
+        "test.txt"
 
 
 rule b:

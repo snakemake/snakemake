@@ -66,6 +66,9 @@ class TestWorkflowsBase(ABC):
             envvars=self.get_envvars(),
         )
 
+    def get_resource_settings(self) -> settings.ResourceSettings:
+        return settings.ResourceSettings()
+
     def get_deployment_settings(
         self, deployment_method=frozenset()
     ) -> settings.DeploymentSettings:
@@ -94,12 +97,14 @@ class TestWorkflowsBase(ABC):
             tmp_path = Path(tmp_path) / test_name
             self._copy_test_files(test_path, tmp_path)
 
+        resource_settings = self.get_resource_settings()
+
         if self._common_settings().local_exec:
-            cores = 3
-            nodes = None
+            resource_settings.cores = 3
+            resource_settings.nodes = None
         else:
-            cores = 1
-            nodes = 3
+            resource_settings.cores = 1
+            resource_settings.nodes = 3
 
         with api.SnakemakeApi(
             settings.OutputSettings(
@@ -108,10 +113,7 @@ class TestWorkflowsBase(ABC):
             ),
         ) as snakemake_api:
             workflow_api = snakemake_api.workflow(
-                resource_settings=settings.ResourceSettings(
-                    cores=cores,
-                    nodes=nodes,
-                ),
+                resource_settings=resource_settings,
                 storage_settings=settings.StorageSettings(
                     default_storage_provider=self.get_default_storage_provider(),
                     default_storage_prefix=self.get_default_storage_prefix(),

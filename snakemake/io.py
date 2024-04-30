@@ -325,8 +325,18 @@ class _IOFile(str, AnnotatedStringInterface):
         """Open this file.
 
         This can (and should) be used in a `with`-statement.
+        If the file is a remote storage file, retrieve it first if necessary.
         """
-        f = open(self)
+        if self.is_storage and not self.exists_local():
+            async_run(self.retrieve_from_storage())
+        f = open(
+            self,
+            mode=mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
         try:
             yield f
         finally:
@@ -667,11 +677,13 @@ class _IOFile(str, AnnotatedStringInterface):
         # protect explicit output itself
         lchmod(self.file, mode)
 
-    async def remove(self, remove_non_empty_dir=False):
+    async def remove(self, remove_non_empty_dir=False, only_local=False):
         if self.is_directory:
-            await remove(self, remove_non_empty_dir=True)
+            await remove(self, remove_non_empty_dir=True, only_local=only_local)
         else:
-            await remove(self, remove_non_empty_dir=remove_non_empty_dir)
+            await remove(
+                self, remove_non_empty_dir=remove_non_empty_dir, only_local=only_local
+            )
 
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
@@ -947,8 +959,8 @@ def contains_wildcard_constraints(pattern):
     return any(match.group("constraint") for match in WILDCARD_REGEX.finditer(pattern))
 
 
-async def remove(file, remove_non_empty_dir=False):
-    if file.is_storage and file.should_not_be_retrieved_from_storage:
+async def remove(file, remove_non_empty_dir=False, only_local=False):
+    if not only_local and file.is_storage and file.should_not_be_retrieved_from_storage:
         if await file.exists_in_storage():
             await file.storage_object.managed_remove()
     elif os.path.isdir(file) and not os.path.islink(file):
@@ -1230,6 +1242,8 @@ def expand(*args, **wildcard_values):
         with their values as lists. If allow_missing=True is included
         wildcards in filepattern without values will stay unformatted.
     """
+    from snakemake.path_modifier import PATH_MODIFIER_FLAG
+
     filepatterns = args[0]
     if len(args) == 1:
         combinator = product
@@ -1245,12 +1259,19 @@ def expand(*args, **wildcard_values):
 
     filepatterns = list(map(path_to_str, filepatterns))
 
-    if any(map(lambda f: getattr(f, "flags", {}), filepatterns)):
-        raise WorkflowError(
-            "Flags in file patterns given to expand() are invalid. "
-            "Flags (e.g. temp(), directory()) have to be applied outside "
-            "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
-        )
+    # check if there are any flags defined
+    for filepattern in filepatterns:
+        filepattern_flags = {
+            key: value
+            for key, value in getattr(filepattern, "flags", {}).items()
+            if key != PATH_MODIFIER_FLAG
+        }
+        if filepattern_flags:
+            raise WorkflowError(
+                f"Flags ({filepattern_flags}) in file pattern '{filepattern}' given to expand() are invalid. "
+                "Flags (e.g. temp(), directory()) have to be applied outside "
+                "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
+            )
 
     # check if remove missing is provided
     format_dict = dict
@@ -1295,10 +1316,18 @@ def expand(*args, **wildcard_values):
                     values = [values]
                 yield [(wildcard, value) for value in values]
 
+        # string.Formatter does not fully support AnnotatedString (flags are discarded)
+        # so, if they exist, need to be copied
+        def copy_flags(from_path, dest_path):
+            if hasattr(from_path, "flags"):
+                dest_path = AnnotatedString(dest_path)
+                dest_path.flags.update(from_path.flags)
+            return dest_path
+
         formatter = string.Formatter()
         try:
             return [
-                formatter.vformat(filepattern, (), comb)
+                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))
                 for filepattern in filepatterns
                 for comb in map(
                     format_dict, combinator(*flatten(wildcard_values[filepattern]))
@@ -1503,9 +1532,15 @@ class Namedlist(list):
             elif plainstr:
                 self.extend(
                     # use original query if storage is not retrieved by snakemake
-                    (str(x) if x.storage_object.retrieve else x.storage_object.query)
-                    if isinstance(x, _IOFile) and x.storage_object is not None
-                    else str(x)
+                    (
+                        (
+                            str(x)
+                            if x.storage_object.retrieve
+                            else x.storage_object.query
+                        )
+                        if isinstance(x, _IOFile) and x.storage_object is not None
+                        else str(x)
+                    )
                     for x in toclone
                 )
             elif strip_constraints:

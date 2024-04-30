@@ -18,6 +18,7 @@ from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings import DeploymentMethod
 
+from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
@@ -772,11 +773,17 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
 
         # wait for input files, respecting keep_storage_local
         wait_for_local = self.dag.workflow.storage_settings.keep_storage_local
-        await wait_for_files(
-            self.input,
-            wait_for_local=wait_for_local,
-            latency_wait=self.dag.workflow.execution_settings.latency_wait,
-        )
+        try:
+            await wait_for_files(
+                self.input,
+                wait_for_local=wait_for_local,
+                latency_wait=self.dag.workflow.execution_settings.latency_wait,
+            )
+        except IOError as ex:
+            raise WorkflowError(
+                ex,
+                rule=self.rule,
+            )
 
         if not self.is_shadow or self.is_norun:
             return
@@ -975,7 +982,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             jobid=self.dag.jobid(self),
             msg=self.message,
             name=self.rule.name,
-            local=self.dag.workflow.is_local(self.rule),
+            # in dryrun, we don't want to display a decision whether local or not
+            # since we don't know how the user wants to execute
+            local=(
+                not self.dag.workflow.dryrun and self.dag.workflow.is_local(self.rule)
+            ),
             input=format_files(self.input, is_input=True),
             output=format_files(self.output, is_input=False),
             log=format_files(self.log, is_input=False),
@@ -1091,6 +1102,15 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     wait_for_local=True,
                 )
             self.dag.unshadow_output(self, only_log=error)
+
+            if (
+                not error
+                and self.rule.is_template_engine
+                and not is_flagged(self.output[0], "temp")
+            ):
+                # TODO also check if consumers are executed on the same node
+                check_template_output(self)
+
             await self.dag.handle_storage(
                 self, store_in_storage=store_in_storage, store_only_log=error
             )

@@ -347,22 +347,32 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 )
                 self.conda_envs[key] = env
 
-    async def retrieve_storage_inputs(self):
+    async def retrieve_storage_inputs(self, jobs=None, also_missing_internal=False):
         shared_local_copies = (
             SharedFSUsage.STORAGE_LOCAL_COPIES
             in self.workflow.storage_settings.shared_fs_usage
         )
-        if (self.workflow.is_main_process and shared_local_copies) or (
-            self.workflow.remote_exec and not shared_local_copies
-        ):
-            to_retrieve = {
-                f
-                for job in self.needrun_jobs()
-                for f in job.input
-                if f.is_storage
-                and self.is_external_input(f, job, not_needrun_is_external=True)
-            }
+        if jobs is None:
+            if (self.workflow.is_main_process and shared_local_copies) or (
+                self.workflow.remote_exec and not shared_local_copies
+            ):
+                jobs = self.needrun_jobs()
+            else:
+                jobs = []
 
+        to_retrieve = {
+            f
+            for job in jobs
+            for f in job.input
+            if f.is_storage
+            and (
+                (also_missing_internal and not shared_local_copies)
+                or self.is_external_input(f, job, not_needrun_is_external=True)
+            )
+            and not job.is_norun
+        }
+
+        if to_retrieve:
             try:
                 async with asyncio.TaskGroup() as tg:
                     for f in to_retrieve:
@@ -397,7 +407,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to store output in storage.", e)
 
-    def cleanup_storage_objects(self):
+    async def cleanup_storage_objects(self):
         shared_local_copies = (
             SharedFSUsage.STORAGE_LOCAL_COPIES
             in self.workflow.storage_settings.shared_fs_usage
@@ -407,10 +417,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if (
                 self.workflow.is_main_process and (job.is_local or shared_local_copies)
             ) or (self.workflow.remote_exec and not shared_local_copies):
-                for f in chain(job.input, job.output):
-                    if f.is_storage and f not in cleaned:
-                        f.storage_object.cleanup()
-                        cleaned.add(f)
+                async with asyncio.TaskGroup() as tg:
+                    for f in chain(job.input, job.output):
+                        if f.is_storage and f not in cleaned:
+                            f.storage_object.cleanup()
+                            tg.create_task(
+                                f.remove(remove_non_empty_dir=True, only_local=True)
+                            )
+                            cleaned.add(f)
 
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
@@ -1030,7 +1044,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 if self.workflow.is_main_process and not await res.file.exists():
                     # file not found, hence missing input
                     missing_input.add(res.file)
-                known_producers[res.file] = None
+                if not is_flagged(res.file, "before_update"):
+                    # record info that there is no known producer, but only
+                    # do that for files that are not flagged as before_update
+                    # otherwise, we would risk a conflict with corresponding files
+                    # that are flagged as 'update'.
+                    known_producers[res.file] = None
                 # file found, no problem
                 continue
 
@@ -2018,32 +2037,33 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if is_flagged(file, "before_update"):
                 # do not find a producer for this file, it shall be considered in its
                 # form before the update
-                continue
-            try:
-                yield PotentialDependency(file, known_producers[file], True)
-            except KeyError:
+                yield PotentialDependency(file, None, False)
+            else:
                 try:
-                    if file in job.dependencies:
-                        yield PotentialDependency(
-                            file,
-                            [
-                                self.new_job(
-                                    job.dependencies[file],
-                                    targetfile=file,
-                                    wildcards_dict=job.wildcards_dict,
-                                )
-                            ],
-                            False,
-                        )
-                    else:
-                        yield PotentialDependency(
-                            file,
-                            file2jobs(file, wildcards_dict=job.wildcards_dict),
-                            False,
-                        )
-                except MissingRuleException as ex:
-                    # no dependency found
-                    yield PotentialDependency(file, None, False)
+                    yield PotentialDependency(file, known_producers[file], True)
+                except KeyError:
+                    try:
+                        if file in job.dependencies:
+                            yield PotentialDependency(
+                                file,
+                                [
+                                    self.new_job(
+                                        job.dependencies[file],
+                                        targetfile=file,
+                                        wildcards_dict=job.wildcards_dict,
+                                    )
+                                ],
+                                False,
+                            )
+                        else:
+                            yield PotentialDependency(
+                                file,
+                                file2jobs(file, wildcards_dict=job.wildcards_dict),
+                                False,
+                            )
+                    except MissingRuleException as ex:
+                        # no dependency found
+                        yield PotentialDependency(file, None, False)
 
     def bfs(self, direction, *jobs, stop=lambda job: False):
         """Perform a breadth-first traversal of the DAG."""

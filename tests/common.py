@@ -199,6 +199,8 @@ def run(
     printshellcmds=False,
     default_storage_provider=None,
     default_storage_prefix=None,
+    local_storage_prefix=Path(".snakemake/storage"),
+    remote_job_local_storage_prefix=None,
     archive=None,
     cluster=None,
     cluster_status=None,
@@ -224,6 +226,7 @@ def run(
     rerun_triggers=settings.RerunTrigger.all(),
     storage_provider_settings=None,
     shared_fs_usage=None,
+    benchmark_extended=False,
 ):
     """
     Test the Snakefile in the path.
@@ -248,9 +251,10 @@ def run(
     results_dir = join(path, "expected-results")
     original_snakefile = join(path, snakefile)
     assert os.path.exists(original_snakefile)
-    assert os.path.exists(results_dir) and os.path.isdir(
-        results_dir
-    ), "{} does not exist".format(results_dir)
+    if check_results:
+        assert os.path.exists(results_dir) and os.path.isdir(
+            results_dir
+        ), "{} does not exist".format(results_dir)
 
     # If we need to further check results, we won't cleanup tmpdir
     tmpdir = next(tempfile._get_candidate_names())
@@ -276,7 +280,7 @@ def run(
         shellcmd = "{} -m {}".format(sys.executable, shellcmd)
         try:
             if sigint_after is None:
-                subprocess.run(
+                res = subprocess.run(
                     shellcmd,
                     cwd=path if no_tmpdir else tmpdir,
                     check=True,
@@ -284,6 +288,7 @@ def run(
                     stderr=subprocess.STDOUT,
                     stdout=subprocess.PIPE,
                 )
+                print(res.stdout.decode())
                 success = True
             else:
                 with subprocess.Popen(
@@ -296,6 +301,8 @@ def run(
                     process.send_signal(signal.SIGINT)
                     time.sleep(2)
                     success = process.returncode == 0
+                    if success:
+                        print(process.stdout.read().decode())
         except subprocess.CalledProcessError as e:
             success = False
             print(e.stdout.decode(), file=sys.stderr)
@@ -347,6 +354,8 @@ def run(
                         default_storage_prefix=default_storage_prefix,
                         all_temp=all_temp,
                         shared_fs_usage=shared_fs_usage,
+                        local_storage_prefix=local_storage_prefix,
+                        remote_job_local_storage_prefix=remote_job_local_storage_prefix,
                     ),
                     storage_provider_settings=storage_provider_settings,
                     workflow_settings=settings.WorkflowSettings(

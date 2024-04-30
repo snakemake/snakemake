@@ -534,6 +534,33 @@ Consider the following example:
 The semantic is as follows:
 If the sample wildcard is ``100``, the input is ``a/100.txt``, otherwise it is ``b/100.txt``.
 
+.. _snakefiles-semantic-helpers-exists:
+
+The exists function
+"""""""""""""""""""
+
+The ``exists`` function allows to check whether a file exists, while properly considering remote storage settings provided to Snakemake.
+For example, if Snakemake has been configured to consider all input and output files to be located in an S3 bucket, ``exists`` will check whether the file exists in the S3 bucket.
+It has the signature ``exists(path)``, with ``path`` being the path to a file or directory, or an explicit :ref:`storage object <storage-support>`.
+The function returns ``True`` if the file exists, and ``False`` otherwise.
+It can for example be used to condition some behavior in the workflow on the existence of a file **before** the workflow is executed:
+
+.. code-block:: python
+
+    rule all:
+        input:
+            # only expect the output if test.txt is present before workflow execution
+            "out.txt" if exists("test.txt") else [],
+
+    rule b:
+        input:
+            "test.txt"
+        output:
+            "out.txt"
+        shell:
+            "cp {input} {output}"
+
+
 .. _snakefiles-targets:
 
 Target rules
@@ -1904,11 +1931,25 @@ With the `benchmark` keyword, a rule can be declared to store a benchmark of its
 
 benchmarks the
 
-* CPU time (in seconds),
-* wall clock time,
-* memory usage (`RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_, `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_, `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_, `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_ in megabytes),
-* CPU load (CPU time divided by wall clock time),
-* I/O (in bytes)
+* `s`: Wall clock time (in seconds),
+* `h:m:s`: Wall clock time (in `hour:minutes:seconds`),
+* `max_rss`: Max `RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_ memory usage (in megabytes),
+* `max_vms`: Max `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_ memory usage (in megabytes),
+* `max_uss`: Max `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_ memory usage (in megabytes),
+* `max_pss`: Max `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_ memory usage (in megabytes),
+* `io_in`: I/O read (in bytes),
+* `io_out`: I/O written (in bytes),
+* `mean_load`: CPU load = CPU time (`cpu_usage`) divided by wall clock time (`s`),
+* `cpu_time`: CPU time user+system (seconds),
+
+Since version X.X, it is possible to have extra benchmark metrics with the command ``--benchmark-extended``:
+* `jobid`: Internal job ID,
+* `rule_name`: Name of rule,
+* `wildcards`: Wildcards of this job,
+* `threads`: Number of threads requested for this job,
+* `cpu_usage`: Total CPU load,
+* `resources`: Resources requested for this job,
+* `input_size_mb`: Size of input files (MiB),
 
 of the command ``somecommand`` for the given output and input files.
 
@@ -1929,7 +1970,9 @@ However, the benchmark file can be annotated with the desired number of repeats,
             "somecommand {input} {output}"
 
 will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
-The resulting tsv file can be used as input for other rules, just like any other output file.
+The resulting `tsv` file can be used as input for other rules, just like any other output file.
+
+Since version X.X, it is also possible to have the benchmark metrics in different formats (depending on the extension); currently only the `.jsonl` extension (JSONL format; i.e. one JSON record per line) is supported and all other extensions will be treated as TSV.
 
 .. sidebar:: Note
 
@@ -2669,7 +2712,7 @@ Apart from Jinja2, Snakemake supports `YTE <https://github.com/koesterlab/yte>`_
 
 .. code-block:: python
 
-    rule render_jinja2_template:
+    rule render_yte_template:
         input:
             "some-yte-template.yaml"
         output:
@@ -2694,7 +2737,33 @@ Analogously to the jinja2 case YTE has access to ``params``, ``wildcards``, and 
         - b
         - ?config["threshold"]
 
-Template rendering rules are always executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
+By default, template rendering rules are executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
+However, if a :ref:`storage plugin <storage-support>` is used, a template rule can theoretically leak paths to local copies of the storage files into the rendered template.
+This can happen if the template inserts the path of an input file into the rendered output.
+Snakemake tries to detect such cases by checking the template output.
+To avoid such leaks (only required if your template does something like that with an input file path), you can assign the same :ref:`group <job_grouping>` to your template rule and the consuming rule, and in addition mark the template output as ``temp()``, i.e.:
+
+.. code-block:: python
+
+    rule render_yte_template:
+        input:
+            "some-yte-template.yaml"
+        output:
+            temp("results/{sample}.rendered-version.yaml")
+        params:
+            foo=0.1
+        group: "some-group"
+        template_engine:
+            "yte"
+
+    rule consume_template:
+        input:
+            "results/{sample}.rendered-version.yaml"
+        output:
+            "results/some-output.txt"
+        group: "some-group"
+        shell:
+            "sometool {input} {output}"
 
 .. _snakefiles_mpi_support:
 
@@ -2853,3 +2922,4 @@ This ensures that Snakemake does not search for a producing job but instead cons
             "echo test >> {output}"
 
 As can be seen, this way it is even possible to break a cyclic dependency.
+An important helper for setting up the logic of ``before_update`` is the :ref:`exists function <snakefiles-semantic-helpers-exists>`, which allows to e.g. condition the consideration of the file that shall be used before the update by its actual existence before the update.

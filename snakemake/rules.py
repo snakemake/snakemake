@@ -742,9 +742,10 @@ class Rule(RuleInterface):
                         and not isinstance(item_, str)
                         and not isinstance(item_, Path)
                     ):
-                        raise WorkflowError(
+                        raise InputFunctionException(
                             f"Function did not return str or iterable of str. Encountered: {item} ({type(item)})",
                             rule=self,
+                            wildcards=wildcards,
                         )
 
                     if from_callable and path_modifier is not None and not incomplete:
@@ -1002,7 +1003,9 @@ class Rule(RuleInterface):
         threads = apply("_cores", self.resources["_cores"])
         if threads is None:
             raise WorkflowError("Threads must be given as an int", rule=self)
-        if self.workflow.resource_settings.max_threads is not None:
+        if self.workflow.resource_settings.max_threads is not None and not isinstance(
+            threads, TBDString
+        ):
             threads = min(threads, self.workflow.resource_settings.max_threads)
         resources["_cores"] = threads
 

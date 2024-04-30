@@ -1,6 +1,127 @@
 # Changelog
 
 
+## [8.11.1](https://github.com/snakemake/snakemake/compare/v8.11.0...v8.11.1) (2024-04-29)
+
+
+### Bug Fixes
+
+* check template rendering output for leaked input file paths ([#2850](https://github.com/snakemake/snakemake/issues/2850)) ([433302e](https://github.com/snakemake/snakemake/commit/433302ee990787d1aee5ad6d7cdbcc9533646305))
+* do not distinguish between local and remote rules in dryrun ([74b99ec](https://github.com/snakemake/snakemake/commit/74b99ecee63a9922c4dbb6951cc63865955d198a))
+* omit norun jobs when determining remote storage input file retrieval ([#2854](https://github.com/snakemake/snakemake/issues/2854)) ([37a7c7f](https://github.com/snakemake/snakemake/commit/37a7c7f9dbd7295e558298097301827f714db994))
+* Prevent binary log files to crash snakemake execution with `show-failed-logs` ([#2827](https://github.com/snakemake/snakemake/issues/2827)) ([8a80bda](https://github.com/snakemake/snakemake/commit/8a80bdaed0d8524dffbdce71dd07eb123f71726d))
+* replace pkg_resources for python 3.12 ([#2831](https://github.com/snakemake/snakemake/issues/2831)) ([ac144fc](https://github.com/snakemake/snakemake/commit/ac144fc7c68083cc56d1960f46b5f5e7888dd38e))
+* return set instead of list when just --quiet ([#2829](https://github.com/snakemake/snakemake/issues/2829)) ([eeb57e2](https://github.com/snakemake/snakemake/commit/eeb57e26c4d85b520d5ae69a0f00183d4ea80eb8))
+* small typo in error ([#2853](https://github.com/snakemake/snakemake/issues/2853)) ([325a715](https://github.com/snakemake/snakemake/commit/325a715b11f1763d835c67f70e2d301e903c7ebb))
+* use keyword arguments in `_IOFile.open` ([#2847](https://github.com/snakemake/snakemake/issues/2847)) ([50c84dc](https://github.com/snakemake/snakemake/commit/50c84dc8a3b39143ea53edb77081448762832678))
+
+
+### Documentation
+
+* fix typo and link for RO Crate ([#2851](https://github.com/snakemake/snakemake/issues/2851)) ([cec0041](https://github.com/snakemake/snakemake/commit/cec0041a71cbd4ebb4e1f8ec4ca296127a65b24b))
+
+## [8.11.0](https://github.com/snakemake/snakemake/compare/v8.10.8...v8.11.0) (2024-04-25)
+
+
+### Features
+
+* allow for more extensive benchmark file in jsonl format ([#2691](https://github.com/snakemake/snakemake/issues/2691)) ([de12463](https://github.com/snakemake/snakemake/commit/de12463604bc5f24f81907e33057ff42c31c7fc2))
+
+
+### Bug Fixes
+
+* only download input for local jobs in the main process, not within remote groups ([#2842](https://github.com/snakemake/snakemake/issues/2842)) ([97f428b](https://github.com/snakemake/snakemake/commit/97f428ba2921cebc2a311a4933c1c55536d34335))
+* remove non-empty local copies of remote storage dirs ([#2845](https://github.com/snakemake/snakemake/issues/2845)) ([71b2b87](https://github.com/snakemake/snakemake/commit/71b2b87644ac0470aba1a96093e88e9a64df1176))
+* retrieve files from storage if necessary when calling their open method (e.g. when accessing output files from a checkpoint) ([#2839](https://github.com/snakemake/snakemake/issues/2839)) ([5448208](https://github.com/snakemake/snakemake/commit/54482089893d12a0cab20a7b4b3d0af5a87aa772))
+
+## [8.10.8](https://github.com/snakemake/snakemake/compare/v8.10.7...v8.10.8) (2024-04-19)
+
+
+### Bug Fixes
+
+* extend workflow test suite by wildcards with slashes (in order to detect bugs that can occur in executors) ([#2810](https://github.com/snakemake/snakemake/issues/2810)) ([fc9971b](https://github.com/snakemake/snakemake/commit/fc9971b227e43601c8b511c1c37e4dce3211e913))
+* invalid extensions with multixt and cache ([#1808](https://github.com/snakemake/snakemake/issues/1808)) ([#2823](https://github.com/snakemake/snakemake/issues/2823)) ([a845b1c](https://github.com/snakemake/snakemake/commit/a845b1c62b106fb4c0f1b97485a3044bfbcab65b))
+* module prefix added twice on expand ([#2814](https://github.com/snakemake/snakemake/issues/2814)) ([27416f4](https://github.com/snakemake/snakemake/commit/27416f4e233662162232de33e9b82205f7efe397))
+* retrieve inputs of local rules from storage even if they are intermediate results ([#2811](https://github.com/snakemake/snakemake/issues/2811)) ([d158aa8](https://github.com/snakemake/snakemake/commit/d158aa849fb16fb3931d05fb052684c5d09862cd))
+
+
+### Documentation
+
+* add snakemake and reportplugins to req.txt to show all cli options ([#2817](https://github.com/snakemake/snakemake/issues/2817)) ([aaa9065](https://github.com/snakemake/snakemake/commit/aaa906565d102774b99b1515be0747d59e1828a6))
+
+## [8.10.7](https://github.com/snakemake/snakemake/compare/v8.10.6...v8.10.7) (2024-04-12)
+
+
+### Bug Fixes
+
+* expand error on modules with prefix ([#1614](https://github.com/snakemake/snakemake/issues/1614)) ([#2803](https://github.com/snakemake/snakemake/issues/2803)) ([c6bfcd7](https://github.com/snakemake/snakemake/commit/c6bfcd762c595c7d009fb3c2cfff6231a1f3ffe4))
+* failure message in cleanup_metadata ([#2800](https://github.com/snakemake/snakemake/issues/2800)) ([4c7fe55](https://github.com/snakemake/snakemake/commit/4c7fe55285fd4641d86a945110e546ad19dd9c2e))
+* handle async method in cleanup_storage_objects ([#2806](https://github.com/snakemake/snakemake/issues/2806)) ([272205b](https://github.com/snakemake/snakemake/commit/272205beb0765e65c86a7b4e4f740b84ceac44b5))
+
+
+### Documentation
+
+* add Morten Lund as another maintainer. ([293bc05](https://github.com/snakemake/snakemake/commit/293bc056b6c44f17340543b2678f8a59e808a5a6))
+
+## [8.10.6](https://github.com/snakemake/snakemake/compare/v8.10.5...v8.10.6) (2024-04-04)
+
+
+### Bug Fixes
+
+* only constrain by --max-threads if threads of job are already known ([#2790](https://github.com/snakemake/snakemake/issues/2790)) ([5f28fcd](https://github.com/snakemake/snakemake/commit/5f28fcd32bd8fa0f539c4fc8aabf07702787132b))
+
+## [8.10.5](https://github.com/snakemake/snakemake/compare/v8.10.4...v8.10.5) (2024-04-04)
+
+
+### Bug Fixes
+
+* properly delete local copies of storage files after remote jobs ([#2793](https://github.com/snakemake/snakemake/issues/2793)) ([e3362b0](https://github.com/snakemake/snakemake/commit/e3362b03e11d9770ed6b01e82017973f4a652d4a))
+* respect APPTAINER_CACHEDIR and allow env variables in --apptainer-prefix and --conda-prefix ([#2795](https://github.com/snakemake/snakemake/issues/2795)) ([b1694cd](https://github.com/snakemake/snakemake/commit/b1694cdf10ce46ff80236a8bb1d9c72e2f0fae0e))
+
+## [8.10.4](https://github.com/snakemake/snakemake/compare/v8.10.3...v8.10.4) (2024-03-27)
+
+
+### Documentation
+
+* fix links ([420ea9c](https://github.com/snakemake/snakemake/commit/420ea9ca52d3de76f93e3ad30d922a97950c75de))
+
+## [8.10.3](https://github.com/snakemake/snakemake/compare/v8.10.2...v8.10.3) (2024-03-27)
+
+
+### Documentation
+
+* mention maintainers ([be95e25](https://github.com/snakemake/snakemake/commit/be95e25d7ee65abe993f08b9d6ca726ee79ec7d4))
+
+## [8.10.2](https://github.com/snakemake/snakemake/compare/v8.10.1...v8.10.2) (2024-03-26)
+
+
+### Bug Fixes
+
+* remove default packages from conda envs ([#2749](https://github.com/snakemake/snakemake/issues/2749)) ([027906c](https://github.com/snakemake/snakemake/commit/027906c519b5e39a628dda072f314e7b9f6343dc))
+* use base64 encoding for passing default resources args to jobs ([#2780](https://github.com/snakemake/snakemake/issues/2780)) ([4735bc3](https://github.com/snakemake/snakemake/commit/4735bc3b81d9db96da0fb949893285ec0f77d076))
+
+## [8.10.1](https://github.com/snakemake/snakemake/compare/v8.10.0...v8.10.1) (2024-03-26)
+
+
+### Bug Fixes
+
+* passing of --set-threads values to remote jobs ([#2775](https://github.com/snakemake/snakemake/issues/2775)) ([4fd767a](https://github.com/snakemake/snakemake/commit/4fd767a4e57043551e0551542a93dbc9d34df777))
+* use base64 encoding when passing resources and threads to remote jobs (this solves issues with complex quoted resources) ([#2778](https://github.com/snakemake/snakemake/issues/2778)) ([a8ee4d8](https://github.com/snakemake/snakemake/commit/a8ee4d8a8228aeac7bccefdc3b868059455e38c4))
+
+## [8.10.0](https://github.com/snakemake/snakemake/compare/v8.9.0...v8.10.0) (2024-03-22)
+
+
+### Features
+
+* expose ResourceSettings in TestWorkflowsBase ([#2770](https://github.com/snakemake/snakemake/issues/2770)) ([e7c323b](https://github.com/snakemake/snakemake/commit/e7c323b707091d759592a6c0b75e8f772b2c72c5))
+
+## [8.9.0](https://github.com/snakemake/snakemake/compare/v8.8.0...v8.9.0) (2024-03-18)
+
+
+### Features
+
+* add function 'exists' for checking the prior existence of files or dirs before workflow execution while considering any remote storage settings. In addition: some bug fixes for error handling and the update/before_update functionality. ([ee96393](https://github.com/snakemake/snakemake/commit/ee9639385cb2c9cec425800088faee4e4bf77c9a))
+
 ## [8.8.0](https://github.com/snakemake/snakemake/compare/v8.7.0...v8.8.0) (2024-03-15)
 
 
