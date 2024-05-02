@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.11.2](https://github.com/snakemake/snakemake/compare/v8.11.1...v8.11.2) (2024-05-02)
+
+
+### Bug Fixes
+
+* bug when requesting extended benchmark with slurm ([#2855](https://github.com/snakemake/snakemake/issues/2855)) ([0e039ff](https://github.com/snakemake/snakemake/commit/0e039ff5d0a0880c35297a9fd5b983aa2813226b))
+
 ## [8.11.1](https://github.com/snakemake/snakemake/compare/v8.11.0...v8.11.1) (2024-04-29)
 
 
