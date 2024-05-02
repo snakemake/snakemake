@@ -369,6 +369,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 (also_missing_internal and not shared_local_copies)
                 or self.is_external_input(f, job, not_needrun_is_external=True)
             )
+            and not job.is_norun
         }
 
         if to_retrieve:

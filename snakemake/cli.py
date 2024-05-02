@@ -1745,7 +1745,7 @@ def parse_args(argv):
 def parse_quietness(quietness) -> Set[Quietness]:
     if quietness is not None and len(quietness) == 0:
         # default case, set quiet to progress and rule
-        quietness = [Quietness.PROGRESS, Quietness.RULES]
+        quietness = {Quietness.PROGRESS, Quietness.RULES}
     else:
         quietness = Quietness.parse_choices_set(quietness)
     return quietness
