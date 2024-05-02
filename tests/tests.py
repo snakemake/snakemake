@@ -1469,7 +1469,10 @@ def test_jupyter_notebook():
 
 
 def test_jupyter_notebook_nbconvert():
-    run(dpath("test_jupyter_notebook_nbconvert"), deployment_method={DeploymentMethod.CONDA})
+    run(
+        dpath("test_jupyter_notebook_nbconvert"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
 
 
 def test_jupyter_notebook_draft():
