@@ -40,10 +40,8 @@ class PathModifier:
             return path
 
         modified_path = self.apply_default_storage(self.replace_prefix(path, property))
-        logger.debug(f"Path {path}, converted to {modified_path}")
         if modified_path == path:
             # nothing has changed
-            logger.debug("Path did not change after prefix replace")
             return path
 
         # Important, update with previous flags in case of AnnotatedString #596
