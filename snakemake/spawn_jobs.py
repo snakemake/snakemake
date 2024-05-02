@@ -287,6 +287,7 @@ class SpawnedJobArgsFactory:
             w2a("overwrite_configfiles", flag="--configfiles"),
             w2a("config_settings.config_args", flag="--config"),
             w2a("output_settings.printshellcmds"),
+            w2a("output_settings.benchmark_extended"),
             w2a("execution_settings.latency_wait"),
             w2a("scheduling_settings.scheduler", flag="--scheduler"),
             local_storage_prefix,
