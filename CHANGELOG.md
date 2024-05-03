@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.11.3](https://github.com/snakemake/snakemake/compare/v8.11.2...v8.11.3) (2024-05-03)
+
+
+### Bug Fixes
+
+* ignore errors when cleaning up runtime cache ([#2859](https://github.com/snakemake/snakemake/issues/2859)) ([6df7046](https://github.com/snakemake/snakemake/commit/6df70468bb29a9a5b172caa5fe5a1a8bde3f2ebe))
+* show queries of remote storage files instead of local paths in summary ([#2860](https://github.com/snakemake/snakemake/issues/2860)) ([ba1db8e](https://github.com/snakemake/snakemake/commit/ba1db8eaf34a37a4d6029dd1bcddea49a775b912))
+
 ## [8.11.2](https://github.com/snakemake/snakemake/compare/v8.11.1...v8.11.2) (2024-05-02)
 
 
