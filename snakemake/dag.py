@@ -2413,6 +2413,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         ).format(items="\n".join(nodes + edges))
 
     async def summary(self, detailed=False):
+        def fmt_output(f):
+            if f.is_storage:
+                return f.storage_object.query
+            return f
+
         if detailed:
             yield "output_file\tdate\trule\tlog-file(s)\tinput-file(s)\tshellcmd\tstatus\tplan"
         else:
@@ -2434,8 +2439,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 log = self.workflow.persistence.log(f)
                 log = "-" if log is None else ",".join(log)
 
-                input = self.workflow.persistence.input(f)
-                input = "-" if input is None else ",".join(input)
+                inputfiles = self.workflow.persistence.input(f)
+                inputfiles = "-" if inputfiles is None else ",".join(inputfiles)
 
                 shellcmd = self.workflow.persistence.shellcmd(f)
                 shellcmd = "-" if shellcmd is None else shellcmd
@@ -2462,10 +2467,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     status = "params changed"
                 if detailed:
                     yield "\t".join(
-                        (f, date, rule, log, input, shellcmd, status, pending)
+                        (
+                            fmt_output(f),
+                            date,
+                            rule,
+                            log,
+                            inputfiles,
+                            shellcmd,
+                            status,
+                            pending,
+                        )
                     )
                 else:
-                    yield "\t".join((f, date, rule, log, status, pending))
+                    yield "\t".join((fmt_output(f), date, rule, log, status, pending))
 
     def archive(self, path: Path):
         """Archives workflow such that it can be re-run on a different system.
