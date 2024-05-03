@@ -94,21 +94,23 @@ class shell:
     @classmethod
     def _check_executable(cls, shell_exec=None):
         shell_exec = shell_exec or cls.get_executable()
-        if ON_WINDOWS and shell_exec == r"C:\Windows\System32\bash.exe":
-            raise WorkflowError(
-                "Cannot use WSL bash.exe on Windows. Ensure that you have "
-                "a usable bash.exe available on your path."
-            )
-        if not os.path.isabs(shell_exec):
-            path = shutil.which(shell_exec)
-            if not path:
+        if shell_exec is not None:
+            if ON_WINDOWS and shell_exec == r"C:\Windows\System32\bash.exe":
                 raise WorkflowError(
-                    f"Cannot set shell to {shell_exec} because it is not available in your PATH."
+                    "Cannot use WSL bash.exe on Windows. Ensure that you have "
+                    "a usable bash.exe available on your path."
                 )
-        elif not os.path.exists(shell_exec):
-            raise WorkflowError(
-                f"Cannot set shell to {shell_exec} because it does not exist."
-            )
+            if not os.path.isabs(shell_exec):
+                path = shutil.which(shell_exec)
+                if not path:
+                    raise WorkflowError(
+                        f"Cannot set shell to {shell_exec} because it is not "
+                        "available in your PATH."
+                    )
+            elif not os.path.exists(shell_exec):
+                raise WorkflowError(
+                    f"Cannot set shell to {shell_exec} because it does not exist."
+                )
 
     @classmethod
     def _get_executable_name(cls, shell_exec=None):
