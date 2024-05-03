@@ -1,0 +1,8 @@
+rule a:
+    output:
+        "test.out"
+    resources:
+        shell_exec="sh"
+    container: "docker://busybox:1.33"
+    shell:
+        "echo 'hello world' > {output}"
