@@ -617,7 +617,7 @@ Second, by setting the shell executable via the :ref:`resources directive <snake
         shell:
             "echo 'hello world' > {output}"
 
-This can be particularly important in case you use a :ref:`conainer image <apptainer>` for the rule which does not contain bash, e.g.
+This can be particularly important in case you use a :ref:`container image <apptainer>` for the rule which does not contain bash, e.g.
 
 ..code-block:: python
 
