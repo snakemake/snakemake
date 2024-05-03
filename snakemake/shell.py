@@ -42,9 +42,9 @@ class shell:
     _process_args = {}
     _process_prefix = ""
     _process_suffix = ""
+    _win_command_prefix = ""
     _lock = threading.Lock()
     _processes = {}
-    _win_command_prefix = ""
     conda_block_conflicting_envvars = True
 
     @classmethod
@@ -69,21 +69,51 @@ class shell:
                 raise WorkflowError(
                     f"Cannot set default shell {cmd} because it is not available in your PATH."
                 )
-        if ON_WINDOWS:
-            if cmd is None:
-                cls._process_prefix = ""
-                cls._win_command_prefix = ""
-            elif os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
-                if cmd == r"C:\Windows\System32\bash.exe":
-                    raise WorkflowError(
-                        "Cannot use WSL bash.exe on Windows. Ensure that you have "
-                        "a usable bash.exe available on your path."
-                    )
-                cls._process_prefix = "set -euo pipefail; "
-                cls._win_command_prefix = "-c"
-        elif os.path.split(cmd)[-1].lower() == "bash":
-            cls._process_prefix = "set -euo pipefail; "
         cls._process_args["executable"] = cmd
+
+    @classmethod
+    def _get_process_prefix(cls, shell_exec=None):
+        shell_exec = cls._get_executable_name(shell_exec)
+        if shell_exec == "bash" or ON_WINDOWS and shell_exec == "bash.exe":
+            return "set -euo pipefail; " + cls._process_prefix
+        else:
+            return cls._process_prefix
+
+    @classmethod
+    def _get_win_command_prefix(cls, use_default, shell_exec=None):
+        assert ON_WINDOWS
+        if cls._win_command_prefix and shell_exec is None:
+            # use whatever is the default
+            return cls._win_command_prefix
+        shell_exec = cls._get_executable_name(shell_exec)
+        if shell_exec == "bash" or shell_exec == "bash.exe":
+            return "-c"
+        else:
+            return ""
+
+    @classmethod
+    def _check_executable(cls, shell_exec=None):
+        shell_exec = shell_exec or cls.get_executable()
+        if ON_WINDOWS and shell_exec == r"C:\Windows\System32\bash.exe":
+            raise WorkflowError(
+                "Cannot use WSL bash.exe on Windows. Ensure that you have "
+                "a usable bash.exe available on your path."
+            )
+        if not os.path.isabs(shell_exec):
+            path = shutil.which(shell_exec)
+            if not path:
+                raise WorkflowError(
+                    f"Cannot set shell to {shell_exec} because it is not available in your PATH."
+                )
+        elif not os.path.exists(shell_exec):
+            raise WorkflowError(
+                f"Cannot set shell to {shell_exec} because it does not exist."
+            )
+
+    @classmethod
+    def _get_executable_name(cls, shell_exec=None):
+        shell_exec = shell_exec or cls.get_executable()
+        return os.path.split(shell_exec)[-1].lower()
 
     @classmethod
     def prefix(cls, prefix):
@@ -163,7 +193,21 @@ class shell:
         singularity_args = context.get("singularity_args", "")
         threads = context.get("threads", 1)
 
-        cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
+        shell_executable = resources.get("shell_exec")
+        is_default_shell_exec = True
+        if shell_executable is not None:
+            process_args = dict(cls._process_args)
+            process_args["executable"] = shell_executable
+            is_default_shell_exec = False
+        else:
+            shell_executable = cls.get_executable()
+            process_args = cls._process_args
+
+        cls._check_executable(shell_executable)
+
+        cmd = " ".join(
+            (cls._get_process_prefix(shell_executable), cmd, cls._process_suffix)
+        ).strip()
 
         # If the executor is the submit executor or the jobstep executor for the SLURM
         # backend, we do not want the environment modules to be activated:
@@ -199,7 +243,7 @@ class shell:
                 cmd,
                 singularity_args,
                 envvars=None,
-                shell_executable=cls._process_args["executable"],
+                shell_executable=shell_executable,
                 container_workdir=shadow_dir,
                 is_python_script=context.get("is_python_script", False),
             )
@@ -246,13 +290,17 @@ class shell:
                     pass
 
         use_shell = True
-        if ON_WINDOWS and cls.get_executable():
+        if ON_WINDOWS and shell_executable:
             # If executable is set on Windows shell mode can not be used
             # and the executable should be prepended the command together
             # with a command prefix (e.g. -c for bash).
             use_shell = False
             cmd = '"{}" {} {}'.format(
-                cls.get_executable(), cls._win_command_prefix, argvquote(cmd)
+                shell_executable,
+                cls._get_win_command_prefix(
+                    use_default=is_default_shell_exec, shell_exec=shell_executable
+                ),
+                argvquote(cmd),
             )
 
         proc = sp.Popen(
@@ -262,7 +310,7 @@ class shell:
             stdout=stdout,
             universal_newlines=iterable or read or None,
             close_fds=close_fds,
-            **cls._process_args,
+            **process_args,
             env=envvars,
         )
 

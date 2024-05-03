@@ -2143,6 +2143,11 @@ def test_github_issue2732():
     run(dpath("test_github_issue2732"))
 
 
+@skip_on_windows
+def test_shell_exec():
+    run(dpath("test_shell_exec"), deployment_method={DeploymentMethod.APPTAINER})
+
+
 def test_expand_list_of_functions():
     run(dpath("test_expand_list_of_functions"))
 
