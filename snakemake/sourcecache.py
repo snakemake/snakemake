@@ -353,7 +353,9 @@ class SourceCache:
         if runtime_cache_path is None:
             runtime_cache_parent = self.cache_path / "runtime-cache"
             os.makedirs(runtime_cache_parent, exist_ok=True)
-            self.runtime_cache = tempfile.TemporaryDirectory(dir=runtime_cache_parent)
+            self.runtime_cache = tempfile.TemporaryDirectory(
+                dir=runtime_cache_parent, ignore_cleanup_errors=True
+            )
             self._runtime_cache_path = None
         else:
             self._runtime_cache_path = runtime_cache_path
