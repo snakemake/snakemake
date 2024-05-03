@@ -122,8 +122,12 @@ class TokenAutomaton:
                 t += t1.string
             elif t1.type == tokenize.FSTRING_MIDDLE:
                 t += t1.string.replace("{", "{{").replace("}", "}}")
-            else:
+            elif t1.type == tokenize.OP and t1.string == "{":
                 t += t1.string
+            elif t1.type == tokenize.OP and t1.string == "{":
+                t += t1.string
+            else:
+                t += " "+t1.string
             if isin_fstring == 0:
                 break
         if hasattr(self, "cmd") and self.cmd[-1][1] == token:
