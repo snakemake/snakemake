@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from pathlib import Path
 import _io
 import sys
 import os
@@ -62,6 +63,8 @@ class shell:
 
     @classmethod
     def executable(cls, cmd):
+        if isinstance(cmd, Path):
+            cmd = str(cmd)
         if cmd and not os.path.isabs(cmd):
             # always enforce absolute path
             cmd = shutil.which(cmd)
