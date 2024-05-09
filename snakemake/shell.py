@@ -118,7 +118,10 @@ class shell:
     @classmethod
     def _get_executable_name(cls, shell_exec=None):
         shell_exec = shell_exec or cls.get_executable()
-        return os.path.split(shell_exec)[-1].lower()
+        if shell_exec:
+            return os.path.split(shell_exec)[-1].lower()
+        else:
+            return None
 
     @classmethod
     def prefix(cls, prefix):
