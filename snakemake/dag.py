@@ -1773,13 +1773,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 # re-evaluate depending jobs, replace and update DAG
                 # Note: even for touch, this needs retrieval from storage!
                 if depending:
-                    try:
-                        async with asyncio.TaskGroup() as tg:
-                            for f in job.output:
-                                if f.is_storage:
-                                    tg.create_task(f.retrieve_from_storage())
-                    except ExceptionGroup as e:
-                        raise WorkflowError("Failed to retrieve checkpoint output.", e)
+
+                    async def retrieve():
+                        try:
+                            async with asyncio.TaskGroup() as tg:
+                                for f in job.output:
+                                    if f.is_storage:
+                                        tg.create_task(f.retrieve_from_storage())
+                        except ExceptionGroup as e:
+                            raise WorkflowError(
+                                "Failed to retrieve checkpoint output.", e
+                            )
+
+                    async_run(retrieve())
                 all_depending.extend(depending)
         replacer = JobReplacer(self)
         for j in all_depending:
