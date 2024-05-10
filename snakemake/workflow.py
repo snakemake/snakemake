@@ -472,7 +472,9 @@ class Workflow(WorkflowExecutorInterface):
             return self.deployment_settings.conda_base_path
         if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
             try:
-                return Conda(frontend=self.deployment_settings.conda_frontend).prefix_path
+                return Conda(
+                    frontend=self.deployment_settings.conda_frontend
+                ).prefix_path
             except CreateCondaEnvironmentException:
                 # Return no preset conda base path now and report error later in jobs.
                 return None
