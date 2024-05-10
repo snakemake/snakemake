@@ -144,7 +144,7 @@ jobs:
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line, end="")
 
-      - name: Setup snakemke environment
+      - name: Setup snakemake environment
         uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: test-environment.yml
