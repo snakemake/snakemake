@@ -1586,7 +1586,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.update_groups()
 
         if update_incomplete_input_expand_jobs:
-            updated = await self.update_incomplete_input_expand_jobs()
+            updated = self.update_incomplete_input_expand_jobs()
             if updated:
                 # run a second pass, some jobs have been updated
                 # with potentially new input files that have depended
@@ -1844,7 +1844,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         updated_dag = False
         if update_checkpoint_dependencies:
-            updated_dag = await self.update_checkpoint_dependencies(jobs)
+            updated_dag = self.update_checkpoint_dependencies(jobs)
 
         depending = [
             j

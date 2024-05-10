@@ -1035,7 +1035,7 @@ class Workflow(WorkflowExecutorInterface):
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
         async_run(self.dag.init())
-        async_run(self.dag.update_checkpoint_dependencies())
+        self.dag.update_checkpoint_dependencies()
 
     def execute(
         self,

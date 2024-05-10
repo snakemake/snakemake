@@ -392,7 +392,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         currtime = time.time()
         if currtime - self._last_update_queue_input_jobs >= 10:
             self._last_update_queue_input_jobs = currtime
-            async_run(self.workflow.dag.update_queue_input_jobs())
+            self.workflow.dag.update_queue_input_jobs()
 
     def _error_jobs(self):
         # must be called from within lock
