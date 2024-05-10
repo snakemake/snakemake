@@ -13,7 +13,7 @@ import subprocess
 import tarfile
 import textwrap
 import time
-from typing import Iterable, Optional, Set, Union
+from typing import Dict, Iterable, Optional, Set, Union
 import uuid
 import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
@@ -31,6 +31,7 @@ from snakemake import workflow
 from snakemake import workflow as _workflow
 from snakemake.common import (
     ON_WINDOWS,
+    async_run,
     group_into_chunks,
     is_local_file,
 )
@@ -1506,18 +1507,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         rule=job.rule,
                     )
 
-    async def update_incomplete_input_expand_jobs(self):
+    def update_incomplete_input_expand_jobs(self):
         """Update (re-evaluate) all jobs which have incomplete input file expansions.
 
         only filled in the second pass of postprocessing.
         """
-        updated = False
-        for job in list(self.jobs):
-            if job.incomplete_input_expand:
-                newjob = job.updated()
-                await self.replace_job(job, newjob, recursive=False)
-                updated = True
-        return updated
+        replacer = JobReplacer(
+            self,
+            jobs={
+                job: job.updated()
+                for job in list(self.jobs)
+                if job.incomplete_input_expand
+            },
+        )
+        return replacer.process()
 
     def update_ready(self, jobs=None):
         """Update information whether a job is ready to execute.
@@ -1722,10 +1725,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 (self._n_until_ready[job] - n_internal_deps(job)) == 0 for job in group
             )
 
-    async def update_queue_input_jobs(self):
+    def update_queue_input_jobs(self):
         updated = False
         if self.has_unfinished_queue_input_jobs():
             logger.info("Updating jobs with queue input...")
+            replacer = JobReplacer(self)
             for job in self.queue_input_jobs:
                 if (
                     job.has_queue_input()
@@ -1733,12 +1737,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 ):
                     newjob = job.updated()
                     if newjob.input != job.input:
-                        await self.replace_job(job, newjob, recursive=False)
-                        updated = True
-                    if updated and not job.has_unfinished_queue_input():
-                        self._jobs_with_finished_queue_input.add(job)
+                        replacer.add(job, newjob)
+                        if not job.has_unfinished_queue_input():
+                            self._jobs_with_finished_queue_input.add(job)
+            updated = replacer.process()
             if updated:
-                await self.postprocess_after_update()
+                async_run(self.postprocess_after_update())
                 # reset queue_input_jobs such that it is recomputed next time
                 self._queue_input_jobs = None
         return updated
@@ -1756,7 +1760,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def has_unfinished_queue_input_jobs(self):
         return any(job.has_unfinished_queue_input() for job in self.queue_input_jobs)
 
-    async def update_checkpoint_dependencies(self, jobs=None):
+    def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
         updated = False
         self.update_checkpoint_outputs()
@@ -1777,13 +1781,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     except ExceptionGroup as e:
                         raise WorkflowError("Failed to retrieve checkpoint output.", e)
                 all_depending.extend(depending)
+        replacer = JobReplacer(self)
         for j in all_depending:
             logger.debug(f"Updating job {j}.")
             newjob = j.updated()
-            await self.replace_job(j, newjob, recursive=False)
-            updated = True
+            replacer.add(j, newjob)
+        updated = replacer.process()
         if updated:
-            await self.postprocess_after_update()
+            async_run(self.postprocess_after_update())
         return updated
 
     async def postprocess_after_update(self):
@@ -2852,3 +2857,23 @@ class CandidateGroup:
 
     def merge(self, other):
         self.id = other.id
+
+
+class JobReplacer:
+    def __init__(self, dag, jobs: Optional[Dict[Job, Job]] = None):
+        self.jobs = jobs or dict()
+        self.dag = dag
+
+    def add(self, job, newjob):
+        self.jobs[job] = newjob
+
+    def process(self):
+        if self.jobs:
+
+            async def replace():
+                for job, newjob in self.jobs.items():
+                    await self.dag.replace_job(job, newjob, recursive=False)
+
+            async_run(replace())
+            return True
+        return False
