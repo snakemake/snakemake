@@ -1569,7 +1569,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 visited_groups.add(group)
                 yield group
 
-    async def postprocess(
+    def postprocess(
         self, update_needrun=True, update_incomplete_input_expand_jobs=True
     ):
         """Postprocess the DAG. This has to be invoked after any change to the
@@ -1579,7 +1579,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if update_needrun:
             self.update_container_imgs()
             self.update_conda_envs()
-            await self.update_needrun()
+            async_run(self.update_needrun())
         self.update_priority()
         self.handle_pipes_and_services()
         self.handle_update_flags()
@@ -1591,7 +1591,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 # run a second pass, some jobs have been updated
                 # with potentially new input files that have depended
                 # on group ids.
-                await self.postprocess(
+                self.postprocess(
                     update_needrun=True, update_incomplete_input_expand_jobs=False
                 )
 
@@ -1742,7 +1742,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             self._jobs_with_finished_queue_input.add(job)
             updated = replacer.process()
             if updated:
-                async_run(self.postprocess_after_update())
+                self.postprocess_after_update()
                 # reset queue_input_jobs such that it is recomputed next time
                 self._queue_input_jobs = None
         return updated
@@ -1794,18 +1794,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             replacer.add(j, newjob)
         updated = replacer.process()
         if updated:
-            async_run(self.postprocess_after_update())
+            self.postprocess_after_update()
         return updated
 
-    async def postprocess_after_update(self):
-        await self.postprocess()
+    def postprocess_after_update(self):
+        self.postprocess()
         shared_input_output = (
             SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
         )
         if (
             self.workflow.is_main_process and shared_input_output
         ) or self.workflow.remote_exec:
-            await self.retrieve_storage_inputs()
+            async_run(self.retrieve_storage_inputs())
 
     def register_running(self, jobs):
         self._running.update(jobs)
