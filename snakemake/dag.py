@@ -1817,7 +1817,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 # already gone
                 pass
 
-    async def finish(self, job, update_checkpoint_dependencies=True):
+    def finish(self, job, update_checkpoint_dependencies=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
 
@@ -1882,8 +1882,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             # temp files.
             # TODO: we maybe could be more accurate and determine whether there is a
             # checkpoint that depends on the temp file.
-            for job in jobs:
-                await self.handle_temp(job)
+            async def handle_temp():
+                for job in jobs:
+                    await self.handle_temp(job)
+
+            async_run(handle_temp())
 
         return potential_new_ready_jobs
 
