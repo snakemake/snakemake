@@ -506,6 +506,9 @@ class Logger:
                 except FileNotFoundError:
                     yield f"Logfile {f} not found."
                     return
+                except UnicodeDecodeError:
+                    yield f"Logfile {f} is not a text file."
+                    return
                 lines = content.splitlines()
                 logfile_header = f"Logfile {f}:"
                 if not lines:
@@ -746,7 +749,7 @@ def setup_logger(
             quiet = set()
     elif not isinstance(quiet, set):
         raise ValueError(
-            "Unsupported value provided for quiet mode (either bool, None or list allowed)."
+            "Unsupported value provided for quiet mode (either bool, None or set allowed)."
         )
 
     logger.log_handler.extend(handler)

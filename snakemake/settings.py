@@ -352,6 +352,7 @@ class OutputSettings(SettingsBase):
     log_handlers: Sequence[object] = tuple()
     keep_logger: bool = False
     stdout: bool = False
+    benchmark_extended: bool = False
 
 
 @dataclass

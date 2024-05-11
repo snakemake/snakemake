@@ -138,7 +138,7 @@ class OutputFileCache(AbstractOutputFileCache):
         base_path = self.path / provenance_hash
 
         return (
-            (Path(outputfile), base_path.with_suffix(ext))
+            (Path(outputfile), Path(f"{base_path}{ext}"))
             for outputfile, ext in self.get_outputfiles(job)
         )
 

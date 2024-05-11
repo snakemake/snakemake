@@ -815,7 +815,7 @@ class Workflow(WorkflowExecutorInterface):
         for path in paths:
             success = self.persistence.cleanup_metadata(path)
             if not success:
-                failed.append(path)
+                failed.append(str(path))
         if failed:
             raise WorkflowError(
                 "Failed to clean up metadata for the following files because the metadata was not present.\n"
@@ -1035,7 +1035,7 @@ class Workflow(WorkflowExecutorInterface):
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
         async_run(self.dag.init())
-        async_run(self.dag.update_checkpoint_dependencies())
+        self.dag.update_checkpoint_dependencies()
 
     def execute(
         self,
@@ -1081,7 +1081,7 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         with self.persistence.lock():
-            async_run(self.dag.postprocess(update_needrun=False))
+            self.dag.postprocess(update_needrun=False)
             if not self.dryrun:
                 # deactivate IOCache such that from now on we always get updated
                 # size, existence and mtime information
@@ -1255,7 +1255,7 @@ class Workflow(WorkflowExecutorInterface):
 
             if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
-                self.dag.cleanup_storage_objects()
+                async_run(self.dag.cleanup_storage_objects())
 
             if success:
                 if self.dryrun:

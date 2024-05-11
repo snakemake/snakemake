@@ -1496,6 +1496,12 @@ def get_argument_parser(profiles=None):
         "started. Only applies if --no-shared-fs is set or executors are used that "
         "imply no shared FS (e.g. the kubernetes executor).",
     )
+    group_behavior.add_argument(
+        "--benchmark-extended",
+        default=False,
+        action="store_true",
+        help="Write extended benchmarking metrics.",
+    )
 
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
 
@@ -1761,7 +1767,7 @@ def parse_args(argv):
 def parse_quietness(quietness) -> Set[Quietness]:
     if quietness is not None and len(quietness) == 0:
         # default case, set quiet to progress and rule
-        quietness = [Quietness.PROGRESS, Quietness.RULES]
+        quietness = {Quietness.PROGRESS, Quietness.RULES}
     else:
         quietness = Quietness.parse_choices_set(quietness)
     return quietness
@@ -1901,6 +1907,7 @@ def args_to_api(args, parser):
             log_handlers=log_handlers,
             keep_logger=False,
             stdout=args.dryrun,
+            benchmark_extended=args.benchmark_extended,
         )
     ) as snakemake_api:
         deployment_method = args.software_deployment_method

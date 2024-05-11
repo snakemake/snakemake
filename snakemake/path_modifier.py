@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 from snakemake.exceptions import WorkflowError
 from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
+from snakemake.logging import logger
 
 
 PATH_MODIFIER_FLAG = "path_modified"
@@ -34,6 +35,7 @@ class PathModifier:
 
     def modify(self, path, property=None):
         if get_flag_value(path, PATH_MODIFIER_FLAG) is self:
+            logger.debug(f"Flag PATH_MODIFIER_FLAG found in file {path}")
             # Path has been modified before and is reused now, no need to modify again.
             return path
 
