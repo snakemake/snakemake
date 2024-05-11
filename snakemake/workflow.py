@@ -1035,7 +1035,7 @@ class Workflow(WorkflowExecutorInterface):
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
         async_run(self.dag.init())
-        async_run(self.dag.update_checkpoint_dependencies())
+        self.dag.update_checkpoint_dependencies()
 
     def execute(
         self,
@@ -1081,7 +1081,7 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         with self.persistence.lock():
-            async_run(self.dag.postprocess(update_needrun=False))
+            self.dag.postprocess(update_needrun=False)
             if not self.dryrun:
                 # deactivate IOCache such that from now on we always get updated
                 # size, existence and mtime information
