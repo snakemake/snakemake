@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [8.11.4](https://github.com/snakemake/snakemake/compare/v8.11.3...v8.11.4) (2024-05-11)
+
+
+### Bug Fixes
+
+* fix missing await when opening checkpoint output ([#2868](https://github.com/snakemake/snakemake/issues/2868)) ([25a361b](https://github.com/snakemake/snakemake/commit/25a361bb14fcd66a26535093e0c05b5cf84e69d8))
+* make checkpoint updates synchronous ([#2871](https://github.com/snakemake/snakemake/issues/2871)) ([b0e7ebd](https://github.com/snakemake/snakemake/commit/b0e7ebde7d95ac13b517ee4f200c92ebb1b1b805))
+
+
+### Documentation
+
+* update code of conduct email address ([3047683](https://github.com/snakemake/snakemake/commit/3047683bed9e28f9e5abc0d56f981aff18fbc801))
+
 ## [8.11.3](https://github.com/snakemake/snakemake/compare/v8.11.2...v8.11.3) (2024-05-03)
 
 
