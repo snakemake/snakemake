@@ -13,7 +13,7 @@ import subprocess
 import tarfile
 import textwrap
 import time
-from typing import Dict, Iterable, Optional, Set, Union
+from typing import Iterable, Optional, Set, Union
 import uuid
 import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
@@ -31,7 +31,6 @@ from snakemake import workflow
 from snakemake import workflow as _workflow
 from snakemake.common import (
     ON_WINDOWS,
-    async_run,
     group_into_chunks,
     is_local_file,
 )
@@ -1507,20 +1506,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         rule=job.rule,
                     )
 
-    def update_incomplete_input_expand_jobs(self):
+    async def update_incomplete_input_expand_jobs(self):
         """Update (re-evaluate) all jobs which have incomplete input file expansions.
 
         only filled in the second pass of postprocessing.
         """
-        replacer = JobReplacer(
-            self,
-            jobs={
-                job: job.updated()
-                for job in list(self.jobs)
-                if job.incomplete_input_expand
-            },
-        )
-        return replacer.process()
+        updated = False
+        for job in list(self.jobs):
+            if job.incomplete_input_expand:
+                newjob = job.updated()
+                await self.replace_job(job, newjob, recursive=False)
+                updated = True
+        return updated
 
     def update_ready(self, jobs=None):
         """Update information whether a job is ready to execute.
@@ -1569,7 +1566,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 visited_groups.add(group)
                 yield group
 
-    def postprocess(
+    async def postprocess(
         self, update_needrun=True, update_incomplete_input_expand_jobs=True
     ):
         """Postprocess the DAG. This has to be invoked after any change to the
@@ -1579,19 +1576,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if update_needrun:
             self.update_container_imgs()
             self.update_conda_envs()
-            async_run(self.update_needrun())
+            await self.update_needrun()
         self.update_priority()
         self.handle_pipes_and_services()
         self.handle_update_flags()
         self.update_groups()
 
         if update_incomplete_input_expand_jobs:
-            updated = self.update_incomplete_input_expand_jobs()
+            updated = await self.update_incomplete_input_expand_jobs()
             if updated:
                 # run a second pass, some jobs have been updated
                 # with potentially new input files that have depended
                 # on group ids.
-                self.postprocess(
+                await self.postprocess(
                     update_needrun=True, update_incomplete_input_expand_jobs=False
                 )
 
@@ -1725,11 +1722,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 (self._n_until_ready[job] - n_internal_deps(job)) == 0 for job in group
             )
 
-    def update_queue_input_jobs(self):
+    async def update_queue_input_jobs(self):
         updated = False
         if self.has_unfinished_queue_input_jobs():
             logger.info("Updating jobs with queue input...")
-            replacer = JobReplacer(self)
             for job in self.queue_input_jobs:
                 if (
                     job.has_queue_input()
@@ -1737,12 +1733,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 ):
                     newjob = job.updated()
                     if newjob.input != job.input:
-                        replacer.add(job, newjob)
-                        if not job.has_unfinished_queue_input():
-                            self._jobs_with_finished_queue_input.add(job)
-            updated = replacer.process()
+                        await self.replace_job(job, newjob, recursive=False)
+                        updated = True
+                    if updated and not job.has_unfinished_queue_input():
+                        self._jobs_with_finished_queue_input.add(job)
             if updated:
-                self.postprocess_after_update()
+                await self.postprocess_after_update()
                 # reset queue_input_jobs such that it is recomputed next time
                 self._queue_input_jobs = None
         return updated
@@ -1760,7 +1756,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def has_unfinished_queue_input_jobs(self):
         return any(job.has_unfinished_queue_input() for job in self.queue_input_jobs)
 
-    def update_checkpoint_dependencies(self, jobs=None):
+    async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
         updated = False
         self.update_checkpoint_outputs()
@@ -1773,39 +1769,32 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 # re-evaluate depending jobs, replace and update DAG
                 # Note: even for touch, this needs retrieval from storage!
                 if depending:
-
-                    async def retrieve():
-                        try:
-                            async with asyncio.TaskGroup() as tg:
-                                for f in job.output:
-                                    if f.is_storage:
-                                        tg.create_task(f.retrieve_from_storage())
-                        except ExceptionGroup as e:
-                            raise WorkflowError(
-                                "Failed to retrieve checkpoint output.", e
-                            )
-
-                    async_run(retrieve())
+                    try:
+                        async with asyncio.TaskGroup() as tg:
+                            for f in job.output:
+                                if f.is_storage:
+                                    tg.create_task(f.retrieve_from_storage())
+                    except ExceptionGroup as e:
+                        raise WorkflowError("Failed to retrieve checkpoint output.", e)
                 all_depending.extend(depending)
-        replacer = JobReplacer(self)
         for j in all_depending:
             logger.debug(f"Updating job {j}.")
             newjob = j.updated()
-            replacer.add(j, newjob)
-        updated = replacer.process()
+            await self.replace_job(j, newjob, recursive=False)
+            updated = True
         if updated:
-            self.postprocess_after_update()
+            await self.postprocess_after_update()
         return updated
 
-    def postprocess_after_update(self):
-        self.postprocess()
+    async def postprocess_after_update(self):
+        await self.postprocess()
         shared_input_output = (
             SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
         )
         if (
             self.workflow.is_main_process and shared_input_output
         ) or self.workflow.remote_exec:
-            async_run(self.retrieve_storage_inputs())
+            await self.retrieve_storage_inputs()
 
     def register_running(self, jobs):
         self._running.update(jobs)
@@ -1817,7 +1806,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 # already gone
                 pass
 
-    def finish(self, job, update_checkpoint_dependencies=True):
+    async def finish(self, job, update_checkpoint_dependencies=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
 
@@ -1844,7 +1833,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         updated_dag = False
         if update_checkpoint_dependencies:
-            updated_dag = self.update_checkpoint_dependencies(jobs)
+            updated_dag = await self.update_checkpoint_dependencies(jobs)
 
         depending = [
             j
@@ -1882,11 +1871,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             # temp files.
             # TODO: we maybe could be more accurate and determine whether there is a
             # checkpoint that depends on the temp file.
-            async def handle_temp():
-                for job in jobs:
-                    await self.handle_temp(job)
-
-            async_run(handle_temp())
+            for job in jobs:
+                await self.handle_temp(job)
 
         return potential_new_ready_jobs
 
@@ -2866,23 +2852,3 @@ class CandidateGroup:
 
     def merge(self, other):
         self.id = other.id
-
-
-class JobReplacer:
-    def __init__(self, dag, jobs: Optional[Dict[Job, Job]] = None):
-        self.jobs = jobs or dict()
-        self.dag = dag
-
-    def add(self, job, newjob):
-        self.jobs[job] = newjob
-
-    def process(self):
-        if self.jobs:
-
-            async def replace():
-                for job, newjob in self.jobs.items():
-                    await self.dag.replace_job(job, newjob, recursive=False)
-
-            async_run(replace())
-            return True
-        return False
