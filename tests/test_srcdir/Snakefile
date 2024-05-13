@@ -1,7 +1,0 @@
-rule:
-    output:
-        "test.out"
-    params:
-        srcdir("script.sh")
-    shell:
-        "sh {params} > {output}"

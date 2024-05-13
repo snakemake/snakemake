@@ -1,0 +1,9 @@
+rule a:
+    input:
+        "test.in"
+    output:
+        "test.out"
+    run:
+        with open(input[0]) as f:
+            with open(output[0], "w") as out:
+                print(resources.slurm_extra, file=out)

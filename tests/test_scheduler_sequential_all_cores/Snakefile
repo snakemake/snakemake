@@ -1,0 +1,30 @@
+from pathlib import Path
+
+
+running_marker = Path("running")
+if workflow.is_main_process and running_marker.exists():
+    running_marker.unlink()
+
+
+rule all:
+    input:
+        expand("test.{i}.out", i=range(2))
+
+
+rule a:
+    output:
+        "test.{i}.out"
+    threads:
+        max(workflow.cores - 1, 1)
+    run:
+        import time
+        if running_marker.exists():
+            raise ValueError("running file exists")
+
+        running_marker.touch()
+
+        time.sleep(5)
+        
+        with open(output[0], "w") as f:
+            f.write("Hello, world!\n")
+        running_marker.unlink()

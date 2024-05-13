@@ -7,7 +7,7 @@ from abc import ABCMeta, abstractmethod
 import os
 
 from snakemake.jobs import Job
-from snakemake.io import is_flagged, get_flag_value, apply_wildcards
+from snakemake.io import apply_wildcards
 from snakemake.exceptions import WorkflowError, CacheMissException
 from snakemake.caching.hash import ProvenanceHashMap
 
@@ -29,15 +29,15 @@ class AbstractOutputFileCache:
         self.provenance_hash_map = ProvenanceHashMap()
 
     @abstractmethod
-    def store(self, job: Job, cache_mode):
+    async def store(self, job: Job, cache_mode):
         pass
 
     @abstractmethod
-    def fetch(self, job: Job, cache_mode):
+    async def fetch(self, job: Job, cache_mode):
         pass
 
     @abstractmethod
-    def exists(self, job: Job):
+    async def exists(self, job: Job):
         pass
 
     def get_outputfiles(self, job: Job):
@@ -69,4 +69,4 @@ class AbstractOutputFileCache:
         )
 
     def raise_cache_miss_exception(self, job):
-        raise CacheMissException("Job {} not yet cached.".format(job))
+        raise CacheMissException(f"Job {job} not yet cached.")

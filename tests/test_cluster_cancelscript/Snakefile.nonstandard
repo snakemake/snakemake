@@ -1,4 +1,4 @@
-from snakemake import shell
+
 
 
 rule all:

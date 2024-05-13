@@ -1,0 +1,50 @@
+import time
+
+
+rule all:
+    input:
+        "test.benchmark_shell.jsonl",
+        "test.benchmark_script.jsonl",
+        "test.benchmark_run.jsonl",
+        "test.benchmark_run_shell.jsonl",
+
+
+rule bench_shell:
+    input:
+        "input1.zero",
+        "input2.zero",
+    benchmark:
+        repeat("{name}.benchmark_shell.{ext}", 2)
+    threads: 2
+    shell:
+        "stress --cpu {threads} --timeout 10"
+
+
+rule bench_script:
+    input:
+        "input1.zero",
+        "input2.zero",
+    benchmark:
+        "{name}.benchmark_script.{ext}"
+    script:
+        "script.py"
+
+
+rule bench_run:
+    input:
+        "input1.zero",
+        "input2.zero",
+    benchmark:
+        "{name}.benchmark_run.{ext}"
+    run:
+        time.sleep(1)
+
+
+rule bench_run_shell:
+    input:
+        "input1.zero",
+        "input2.zero",
+    benchmark:
+        "{name}.benchmark_run_shell.{ext}"
+    run:
+        shell("sleep 1")
