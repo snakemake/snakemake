@@ -54,7 +54,6 @@ class CondaCleanupMode(Enum):
 
 
 class Env:
-
     """Conda environment from a given specification file."""
 
     def __init__(
@@ -508,9 +507,11 @@ class Env:
                         strict_priority = (
                             ["micromamba config set channel_priority strict &&"]
                             if self._container_img and self.frontend == "micromamba"
-                            else ["conda config --set channel_priority strict &&"]
-                            if self._container_img
-                            else []
+                            else (
+                                ["conda config --set channel_priority strict &&"]
+                                if self._container_img
+                                else []
+                            )
                         )
 
                         subcommand = [self.frontend]
@@ -718,6 +719,10 @@ class Conda:
         if self.frontend != "conda":
             frontends.append(self.frontend)
 
+        # Micromamba doesn't require conda to be installed
+        if self.frontend == "micromamba":
+            frontends = ["micromamba"]
+
         for frontend in frontends:
             # Use type here since conda now is a function.
             # type allows to check for both functions and regular commands.
@@ -847,17 +852,24 @@ class Conda:
             return os.path.join(self.prefix_path, "bin")
 
     def shellcmd(self, env_address, cmd):
-        # get path to activate script
-        activate = os.path.join(self.bin_path(), "activate")
+        if self.frontend != "micromamba":
+            # get path to activate script
+            activate = os.path.join(self.bin_path(), "activate")
 
-        if ON_WINDOWS:
-            activate = activate.replace("\\", "/")
-            env_address = env_address.replace("\\", "/")
+            if ON_WINDOWS:
+                activate = activate.replace("\\", "/")
+                env_address = env_address.replace("\\", "/")
 
-        return f"source {activate} '{env_address}'; {cmd}"
+            return f"source {activate} '{env_address}'; {cmd}"
+        else:
+            # TODO: replace bash with whatever shell is used.
+            return 'eval "$(micromamba shell hook --shell bash)" && micromamba activate {env_address} && {cmd}'.format(
+                env_address=env_address, cmd=cmd
+            )
 
     def shellcmd_win(self, env_address, cmd):
         """Prepend the windows activate bat script."""
+        # TODO: make this work with micromamba
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate.bat").replace("\\", "/")
         env_address = env_address.replace("\\", "/")
@@ -871,16 +883,15 @@ def is_mamba_available():
 
 class CondaEnvSpec(ABC):
     @abstractmethod
-    def apply_wildcards(self, wildcards):
-        ...
+    def apply_wildcards(self, wildcards): ...
 
     @abstractmethod
-    def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
-        ...
+    def get_conda_env(
+        self, workflow, env_dir=None, container_img=None, cleanup=None
+    ): ...
 
     @abstractmethod
-    def check(self):
-        ...
+    def check(self): ...
 
     @property
     def is_file(self):
@@ -888,16 +899,13 @@ class CondaEnvSpec(ABC):
 
     @property
     @abstractmethod
-    def contains_wildcard(self):
-        ...
+    def contains_wildcard(self): ...
 
     @abstractmethod
-    def __hash__(self):
-        ...
+    def __hash__(self): ...
 
     @abstractmethod
-    def __eq__(self, other):
-        ...
+    def __eq__(self, other): ...
 
 
 class CondaEnvFileSpec(CondaEnvSpec):
