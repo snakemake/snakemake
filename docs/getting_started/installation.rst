@@ -42,7 +42,6 @@ Snakemake can be installed with all goodies needed to run in any environment and
 
 .. code-block:: console
 
-    $ conda activate base
     $ mamba create -c conda-forge -c bioconda -n snakemake snakemake
 
 from the `Bioconda <https://bioconda.github.io>`_ channel.
@@ -50,25 +49,10 @@ This will install snakemake into an isolated software environment, that has to b
 
 .. code-block:: console
 
-    $ conda activate snakemake
+    $ mamba activate snakemake
     $ snakemake --help
 
 Installing into isolated environments is best practice in order to avoid side effects with other packages.
-
-Note that full installation is not possible from **Windows**, because some of the dependencies are Unix (Linux/MacOS) only.
-For Windows, please use the minimal installation below.
-
-Minimal installation
---------------------
-
-A minimal version of Snakemake which only depends on the bare necessities can be installed with
-
-.. code-block:: console
-
-    $ conda activate base
-    $ mamba create -c bioconda -c conda-forge -n snakemake snakemake-minimal
-
-In contrast to the full installation, which depends on some Unix (Linux/MacOS) only packages, this also works on Windows.
 
 Notes on Bioconda as a package source
 -------------------------------------
@@ -78,8 +62,8 @@ However, it is easy to combine Snakemake installation with other channels, e.g.,
 
 .. code-block:: console
 
-    $ conda activate base
-    $ mamba create -n some-env -c conda-forge bioconda::snakemake bioconda::snakemake-minimal ...
+    $ mamba activate base
+    $ mamba create -n some-env -c conda-forge bioconda::snakemake ...
 
 Installation via pip
 ====================
@@ -97,8 +81,8 @@ If you want to quickly try out an unreleased version from the snakemake reposito
 
 .. code-block:: console
 
-    $ mamba create --only-deps -n snakemake-main snakemake
-    $ conda activate snakemake-main
+    $ mamba create --only-deps -n snakemake-dev snakemake
+    $ mamba activate snakemake-dev
     $ pip install git+https://github.com/snakemake/snakemake
 
 You can also install the current state of another branch or the repository state at a particular commit.

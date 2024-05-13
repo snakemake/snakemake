@@ -12,7 +12,7 @@ checkpoint somestep:
         "somestep/{sample}.txt"
     shell:
         # simulate some output vale
-        "echo {wildcards.sample} > somestep/{wildcards.sample}.txt"
+        "echo {wildcards.sample} > {output}"
 
 
 rule intermediate:

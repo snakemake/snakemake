@@ -13,7 +13,7 @@ import stat
 import tempfile
 import threading
 
-from snakemake.utils import format, argvquote, cmd_exe_quote, find_bash_on_windows
+from snakemake.utils import format, argvquote, cmd_exe_quote
 from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
 from snakemake.deployment import singularity
@@ -55,9 +55,7 @@ class shell:
     def check_output(cls, cmd, **kwargs):
         executable = cls.get_executable()
         if ON_WINDOWS and executable:
-            cmd = '"{}" {} {}'.format(
-                executable, cls._win_command_prefix, argvquote(cmd)
-            )
+            cmd = f'"{executable}" {cls._win_command_prefix} {argvquote(cmd)}'
             return sp.check_output(cmd, shell=False, executable=executable, **kwargs)
         else:
             return sp.check_output(cmd, shell=True, executable=executable, **kwargs)
@@ -69,9 +67,7 @@ class shell:
             cmd = shutil.which(cmd)
             if not cmd:
                 raise WorkflowError(
-                    "Cannot set default shell {} because it "
-                    "is not available in your "
-                    "PATH.".format(cmd)
+                    f"Cannot set default shell {cmd} because it is not available in your PATH."
                 )
         if ON_WINDOWS:
             if cmd is None:
@@ -81,7 +77,7 @@ class shell:
                 if cmd == r"C:\Windows\System32\bash.exe":
                     raise WorkflowError(
                         "Cannot use WSL bash.exe on Windows. Ensure that you have "
-                        "a usable bash.exe availble on your path."
+                        "a usable bash.exe available on your path."
                     )
                 cls._process_prefix = "set -euo pipefail; "
                 cls._win_command_prefix = "-c"
@@ -99,7 +95,7 @@ class shell:
 
     @classmethod
     def win_command_prefix(cls, cmd):
-        """The command prefix used on windows when specifing a explicit
+        """The command prefix used on windows when specifying a explicit
         shell executable. This would be "-c" for bash.
         Note: that if no explicit executable is set commands are executed
         with Popen(..., shell=True) which uses COMSPEC on windows where this
@@ -155,7 +151,7 @@ class shell:
         context.update(kwargs)
 
         jobid = context.get("jobid")
-        if not context.get("is_shell"):
+        if not context.get("is_shell") and jobid is not None:
             logger.shellcmd(cmd)
 
         conda_env = context.get("conda_env", None)
@@ -175,11 +171,11 @@ class shell:
         # incompatible with the module's environment.
         if env_modules and "slurm" not in (item.filename for item in inspect.stack()):
             cmd = env_modules.shellcmd(cmd)
-            logger.info("Activating environment modules: {}".format(env_modules))
+            logger.info(f"Activating environment modules: {env_modules}")
 
         if conda_env:
             if ON_WINDOWS and not cls.get_executable():
-                # If we use cmd.exe directly on winodws we need to prepend batch activation script.
+                # If we use cmd.exe directly on windows we need to prepend batch activation script.
                 cmd = Conda(
                     container_img=container_img, prefix_path=conda_base_path
                 ).shellcmd_win(conda_env, cmd)
@@ -207,11 +203,9 @@ class shell:
                 container_workdir=shadow_dir,
                 is_python_script=context.get("is_python_script", False),
             )
-            logger.info("Activating singularity image {}".format(container_img))
+            logger.info(f"Activating singularity image {container_img}")
         if conda_env:
-            logger.info(
-                "Activating conda environment: {}".format(os.path.relpath(conda_env))
-            )
+            logger.info(f"Activating conda environment: {os.path.relpath(conda_env)}")
 
         tmpdir_resource = resources.get("tmpdir", None)
         # environment variable lists for linear algebra libraries taken from:
@@ -294,7 +288,10 @@ class shell:
 
         if jobid is not None:
             with cls._lock:
-                del cls._processes[jobid]
+                try:
+                    del cls._processes[jobid]
+                except KeyError:
+                    pass
 
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)

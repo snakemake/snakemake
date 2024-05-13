@@ -1,7 +1,7 @@
 def conda_func(wildcards, params):
     env_name = f"{params.name_prefix}-test-env-{wildcards.version}"
     shell(
-        f"source activate base; mamba create -y -n {env_name} -c conda-forge --override-channels ripgrep=={wildcards.version}"
+        f"mamba create -y -n {env_name} -c conda-forge --override-channels ripgrep=={wildcards.version}"
     )
     return env_name
 
@@ -25,9 +25,11 @@ rule all:
 rule a:
     output:
         "test_{version}_v.out",
+    log:
+        err="test_{version}.log",
     params:
         name_prefix="foo",
     conda:
         conda_func
     shell:
-        r"rg --version | head -n1 | grep -o 'ripgrep [0-9]*\.[0-9]*\.[0-9]*' > {output}"
+        r"(rg --version | grep -o 'ripgrep [0-9]*\.[0-9]*\.[0-9]*' > {output}) 2> {log.err}"

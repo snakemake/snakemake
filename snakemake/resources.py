@@ -1,34 +1,45 @@
 from collections import UserDict, defaultdict
+from dataclasses import dataclass
 import itertools as it
 import operator as op
 import re
 import tempfile
+from typing import Any
 
-from snakemake.exceptions import ResourceScopesException, WorkflowError
-from snakemake.common import TBDString
+from snakemake.exceptions import (
+    ResourceScopesException,
+    WorkflowError,
+    is_file_not_found_error,
+)
+from snakemake.common.tbdstring import TBDString
+from snakemake.logging import logger
+
+
+@dataclass
+class ParsedResource:
+    orig_arg: str
+    value: Any
 
 
 class DefaultResources:
     defaults = {
-        "mem_mb": "max(2*input.size_mb, 1000)",
+        "mem_mb": "min(max(2*input.size_mb, 1000), 8000)",
         "disk_mb": "max(2*input.size_mb, 1000)",
         "tmpdir": "system_tmpdir",
     }
 
-    bare_defaults = {
-        "tmpdir": "system_tmpdir",
-    }
+    bare_defaults = {"tmpdir": "system_tmpdir"}
 
     @classmethod
     def decode_arg(cls, arg):
         try:
-            return arg.split("=")
+            return arg.split("=", maxsplit=1)
         except ValueError:
             raise ValueError("Resources have to be defined as name=value pairs.")
 
     @classmethod
     def encode_arg(cls, name, value):
-        return "{}={}".format(name, value)
+        return f"{name}={value}"
 
     def __init__(self, args=None, from_other=None, mode="full"):
         if mode == "full":
@@ -36,7 +47,7 @@ class DefaultResources:
         elif mode == "bare":
             self._args = dict(DefaultResources.bare_defaults)
         else:
-            raise ValueError("Unexpected mode for DefaultResources: {}".format(mode))
+            raise ValueError(f"Unexpected mode for DefaultResources: {mode}")
 
         if from_other is not None:
             self._args = dict(from_other._args)
@@ -49,44 +60,13 @@ class DefaultResources:
                 {name: value for name, value in map(self.decode_arg, args)}
             )
 
-            def fallback(val):
-                def callable(wildcards, input, attempt, threads, rulename):
-                    try:
-                        value = eval(
-                            val,
-                            {
-                                "input": input,
-                                "attempt": attempt,
-                                "threads": threads,
-                                "system_tmpdir": tempfile.gettempdir(),
-                            },
-                        )
-                    # Triggers for string arguments like n1-standard-4
-                    except NameError:
-                        return val
-                    except Exception as e:
-                        if not (
-                            isinstance(e, FileNotFoundError) and e.filename in input
-                        ):
-                            # Missing input files are handled by the caller
-                            raise WorkflowError(
-                                "Failed to evaluate default resources value "
-                                "'{}'.\n"
-                                "    String arguments may need additional "
-                                "quoting. Ex: --default-resources "
-                                "\"tmpdir='/home/user/tmp'\".".format(val),
-                                e,
-                            )
-                        raise e
-                    return value
-
-                return callable
-
             self.parsed = dict(_cores=1, _nodes=1)
-            self.parsed.update(parse_resources(self._args, fallback=fallback))
+            self.parsed.update(
+                parse_resources(self._args, fallback=eval_resource_expression)
+            )
 
     def set_resource(self, name, value):
-        self._args[name] = "{}".format(value)
+        self._args[name] = f"{value}"
         self.parsed[name] = value
 
     @property
@@ -210,7 +190,7 @@ class GroupResources:
 
         Users can help mitigate against voids by grouping jobs of similar resource
         dimensions.  Eclectic groups of various runtimes and resource consumptions will
-        not be estimated as efficiently as groups of homogenous consumptions.
+        not be estimated as efficiently as groups of homogeneous consumptions.
 
         Parameters
         ----------
@@ -263,12 +243,12 @@ class GroupResources:
                 #   { "runtime": 15, "tmpdir": "/tmp"},
                 #   ...
                 # ]
-                # Pipe jobs and regular jobs are put in seperate lists.
+                # Pipe jobs and regular jobs are put in separate lists.
                 try:
                     # Remove any TBDStrings from values. These will typically arise
                     # here because the default mem_mb and disk_mb are based off of
                     # input file size, and intermediate files in the group are not yet
-                    # generated. Thus rules consuming such files must explicitely
+                    # generated. Thus rules consuming such files must explicitly
                     # specify their resources
                     res = {
                         k: res
@@ -540,9 +520,75 @@ class GroupResources:
         return rows
 
 
+def eval_resource_expression(val, threads_arg=True):
+    def generic_callable(val, threads_arg, **kwargs):
+        args = {
+            "input": kwargs["input"],
+            "attempt": kwargs["attempt"],
+            "system_tmpdir": tempfile.gettempdir(),
+        }
+        if threads_arg:
+            args["threads"] = kwargs["threads"]
+        try:
+            value = eval(
+                val,
+                args,
+            )
+        # Triggers for string arguments like n1-standard-4
+        except NameError:
+            return val
+        except Exception as e:
+            if is_humanfriendly_resource(val):
+                return val
+            if not is_file_not_found_error(e, kwargs["input"]):
+                # Missing input files are handled by the caller
+                raise WorkflowError(
+                    "Failed to evaluate resources value "
+                    f"'{val}'.\n"
+                    "    String arguments may need additional "
+                    "quoting. E.g.: --default-resources "
+                    "\"tmpdir='/home/user/tmp'\" or "
+                    "--set-resources \"somerule:someresource='--nice=100'\". "
+                    "This also holds for setting resources inside of a profile, where "
+                    "you might have to enclose them in single and double quotes, "
+                    "i.e. someresource: \"'--nice=100'\".",
+                    e,
+                )
+            raise e
+        return value
+
+    if threads_arg:
+
+        def callable(wildcards, input, attempt, threads, rulename):
+            return generic_callable(
+                val,
+                threads_arg=threads_arg,
+                wildcards=wildcards,
+                input=input,
+                attempt=attempt,
+                threads=threads,
+                rulename=rulename,
+            )
+
+    else:
+
+        def callable(wildcards, input, attempt, rulename):
+            return generic_callable(
+                val,
+                threads_arg=threads_arg,
+                wildcards=wildcards,
+                input=input,
+                attempt=attempt,
+                rulename=rulename,
+            )
+
+    return callable
+
+
 def parse_resources(resources_args, fallback=None):
     """Parse resources from args."""
     resources = dict()
+
     if resources_args is not None:
         valid = re.compile(r"[a-zA-Z_]\w*$")
 
@@ -565,7 +611,7 @@ def parse_resources(resources_args, fallback=None):
                     val = fallback(val)
                 else:
                     raise ValueError(
-                        "Resource definiton must contain an integer, string or python expression after the identifier."
+                        "Resource definition must contain an integer, string or python expression after the identifier."
                     )
             if res == "_cores":
                 raise ValueError(
@@ -580,7 +626,14 @@ def infer_resources(name, value, resources: dict):
     """Infer resources from a given one, if possible."""
     from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
 
-    if (name == "mem" or name == "disk") and isinstance(value, str):
+    if isinstance(value, str):
+        value = value.strip("'\"")
+
+    if (
+        (name == "mem" or name == "disk")
+        and isinstance(value, str)
+        and not isinstance(value, TBDString)
+    ):
         inferred_name = f"{name}_mb"
         try:
             in_bytes = parse_size(value)
@@ -588,11 +641,35 @@ def infer_resources(name, value, resources: dict):
             raise WorkflowError(
                 f"Cannot parse mem or disk value into size in MB for setting {inferred_name} resource: {value}"
             )
-        resources[inferred_name] = max(int(round(in_bytes / 1000 / 1000)), 1)
-    elif name == "runtime" and isinstance(value, str):
+        resources[inferred_name] = max(int(round(in_bytes / 1024 / 1024)), 1)
+    elif (
+        name == "runtime"
+        and isinstance(value, str)
+        and not isinstance(value, TBDString)
+    ):
         try:
-            resources["runtime"] = max(int(round(parse_timespan(value) / 60)), 1)
+            parsed = max(int(round(parse_timespan(value) / 60)), 1)
         except InvalidTimespan:
             raise WorkflowError(
                 f"Cannot parse runtime value into minutes for setting runtime resource: {value}"
             )
+        logger.debug(f"Inferred runtime value of {parsed} minutes from {value}")
+        resources["runtime"] = parsed
+
+
+def is_humanfriendly_resource(value):
+    from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
+
+    try:
+        parse_size(value)
+        return True
+    except InvalidSize:
+        pass
+
+    try:
+        parse_timespan(value)
+        return True
+    except InvalidTimespan:
+        pass
+
+    return False

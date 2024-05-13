@@ -1,7 +1,7 @@
 """
 Tests for Snakemake’s API
 """
-from snakemake import snakemake
+from snakemake.api import snakemake
 import asyncio
 import sys
 import tempfile
@@ -33,10 +33,7 @@ def test_workflow_calling():
                 ),
                 file=f,
             )
-        workflow = Workflow(
-            snakefile=snakefile,
-            overwrite_workdir=tmpdir,
-        )
+        workflow = Workflow(snakefile=snakefile, overwrite_workdir=tmpdir)
 
 
 def test_run_script_directive():
@@ -111,9 +108,9 @@ def test_lockexception():
     persistence = Persistence()
     persistence.all_inputfiles = lambda: ["A.txt"]
     persistence.all_outputfiles = lambda: ["B.txt"]
-    persistence.lock()
-    try:
-        persistence.lock()
-    except LockException as e:
-        return True
-    assert False
+    with persistence.lock():
+        try:
+            persistence.lock()
+        except LockException as e:
+            return True
+        assert False

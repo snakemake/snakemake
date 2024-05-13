@@ -14,7 +14,9 @@ Basics: An example workflow
 .. _Miniconda: https://conda.pydata.org/miniconda.html
 .. _Conda: https://conda.pydata.org
 .. _Bash: https://www.tldp.org/LDP/Bash-Beginners-Guide/html
-.. _Atom: https://atom.io
+.. _Visual Studio Code: https://code.visualstudio.com/
+.. _Snakemake extension: https://marketplace.visualstudio.com/items?itemName=Snakemake.snakemake-lang
+.. _remote extension: https://marketplace.visualstudio.com/items?itemName=ms-vscode.remote-explorer
 .. _Anaconda: https://anaconda.org
 .. _Graphviz: https://www.graphviz.org
 .. _RestructuredText: https://docutils.sourceforge.io/docs/user/rst/quickstart.html
@@ -83,7 +85,7 @@ Step 1: Mapping reads
 Our first Snakemake rule maps reads of a given sample to a given reference genome (see :ref:`tutorial-background`).
 For this, we will use the tool bwa_, specifically the subcommand ``bwa mem``.
 In the working directory, **create a new file** called ``Snakefile`` with an editor of your choice.
-We propose to use the Atom_ editor, since it provides out-of-the-box syntax highlighting for Snakemake.
+We propose to use the integrated development environment (IDE) tool `Visual Studio Code`_, since it provides a good syntax highlighting `Snakemake extension`_ and a `remote extension`_ for directly using the IDE on a remote server.
 In the Snakefile, define the following rule:
 
 .. code:: python
@@ -478,7 +480,7 @@ When executing Snakemake with
 
 .. sidebar:: Note
 
-   In case you have mutliple reasonable sets of target files,
+   In case you have multiple reasonable sets of target files,
    you can add multiple target rules at the top of the Snakefile. While
    Snakemake will execute the first per default, you can target any of them via
    the command line (for example, ``snakemake -n mytarget``).
@@ -499,7 +501,7 @@ Summary
 
 In total, the resulting workflow looks like this:
 
-.. code:: console
+.. code:: python
 
     SAMPLES = ["A", "B"]
 
