@@ -1,0 +1,19 @@
+def get_input(wildcards):
+    with checkpoints.a.get().output[0].open() as f:
+        f.read()
+        return "test.txt"
+
+rule b:
+    input:
+        get_input
+    output:
+        "test2.txt"
+    shell:
+        "cp {input} {output}"
+
+
+checkpoint a:
+    output:
+        "test.txt"
+    shell:
+        "echo hello > {output}"
