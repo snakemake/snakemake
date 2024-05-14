@@ -2139,6 +2139,16 @@ def test_exists():
 
 
 @skip_on_windows  # OS agnostic
+def test_handle_storage_multi_consumers():
+    run(
+        dpath("test_handle_storage_multi_consumers"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+        cores=1,
+    )
+
+
+@skip_on_windows  # OS agnostic
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
 
