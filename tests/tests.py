@@ -2152,6 +2152,7 @@ def test_scheduler_sequential_all_cores():
     run(dpath("test_scheduler_sequential_all_cores"), cores=90)
 
 
+@skip_on_windows  # OS agnostic
 def test_checkpoint_open():
     run(
         dpath("test_checkpoint_open"),
