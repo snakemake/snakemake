@@ -126,6 +126,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._n_until_ready = defaultdict(int)
         self._running = set()
         self._jobs_with_finished_queue_input = set()
+        self._storage_input_jobs = defaultdict(list)
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -381,6 +382,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         tg.create_task(f.retrieve_from_storage())
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to retrieve input from storage.", e)
+
+    def update_storage_inputs(self):
+        self._storage_input_jobs.clear()
+        for job in self.needrun_jobs():
+            for f in job.input:
+                if f.is_storage:
+                    self._storage_input_jobs[f].append(job)
 
     async def store_storage_outputs(self):
         if self.workflow.remote_exec:
@@ -886,8 +894,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     ):
                         yield f
                 for f in job.input:
-                    # TODO what about storage inputs that are used by multiple jobs?
-                    if await putative(f) and f not in generated_input:
+                    if (
+                        await putative(f)
+                        and f not in generated_input
+                        # all other jobs that depend on this file are finished
+                        and all(
+                            self.finished(job_)
+                            for job_ in self._storage_input_jobs[f]
+                            if job_ != job
+                        )
+                    ):
                         yield f
 
             async for f in unneeded_files():
@@ -1584,6 +1600,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.handle_pipes_and_services()
         self.handle_update_flags()
         self.update_groups()
+        self.update_storage_inputs()
 
         if update_incomplete_input_expand_jobs:
             updated = self.update_incomplete_input_expand_jobs()
