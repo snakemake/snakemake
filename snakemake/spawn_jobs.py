@@ -3,7 +3,7 @@ import hashlib
 import os
 import sys
 from typing import Mapping, TypeVar, TYPE_CHECKING, Any
-from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
+from snakemake_interface_executor_plugins.utils import format_cli_arg, format_cli_value, join_cli_args
 from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
@@ -248,6 +248,12 @@ class SpawnedJobArgsFactory:
             else w2a("storage_settings.local_storage_prefix")
         )
 
+        # ensure --apptainer-args are quoted        
+        apptainer_args = w2a("deployment_settings.apptainer_args")
+        apptainer_args = '--apptainer-args ' + format_cli_value(
+            ' '.join(apptainer_args.split()[1:]),
+            quote=True) if apptainer_args else ""
+
         args = [
             "--force",
             "--target-files-omit-workdir-adjustment",
@@ -275,7 +281,7 @@ class SpawnedJobArgsFactory:
                 skip=not shared_deployment,
             ),
             w2a("deployment_settings.apptainer_prefix"),
-            w2a("deployment_settings.apptainer_args"),
+            apptainer_args, 
             w2a("resource_settings.max_threads"),
             self.get_shared_fs_usage_arg(executor_common_settings),
             w2a(
