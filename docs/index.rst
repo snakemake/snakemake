@@ -72,7 +72,7 @@ Support
 * To **discuss** with other Snakemake users, use the `discord server <https://discord.gg/kHvtG6N>`_. **Please do not post questions there. Use stack overflow for questions.**
 * For **bugs and feature requests**, please use the `issue tracker <https://github.com/snakemake/snakemake/issues>`_.
 * For **contributions**, visit Snakemake on `Github <https://github.com/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
-* Check our our `code of conduct <https://github.com/snakemake/snakemake/blob/main/CODE_OF_CONDUCT.md>`_ and refer to it for requests or concerns in that directions.
+* Check our our `code of conduct <https://github.com/snakemake/snakemake/blob/main/CODE_OF_CONDUCT.md>`_ and refer to it for requests or concerns in that direction.
 
 --------
 Citation
