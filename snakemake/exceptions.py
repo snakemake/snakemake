@@ -541,6 +541,12 @@ class IncompleteCheckpointException(Exception):
         self.targetfile = checkpoint_target(targetfile)
 
 
+class InputOpenException(Exception):
+    def __init__(self, iofile):
+        self.iofile = iofile
+        self.rule = None
+
+
 class CacheMissException(Exception):
     pass
 

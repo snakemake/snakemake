@@ -326,29 +326,25 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def _finish_jobs(self):
         # must be called from within lock
         # clear the global tofinish such that parallel calls do not interfere
-        for job in self._tofinish:
-            if not self.workflow.dryrun:
-                try:
-                    if self.workflow.exec_mode == ExecMode.DEFAULT:
-                        async_run(
-                            job.postprocess(
+        async def postprocess():
+            for job in self._tofinish:
+                if not self.workflow.dryrun:
+                    try:
+                        if self.workflow.exec_mode == ExecMode.DEFAULT:
+                            await job.postprocess(
                                 store_in_storage=not self.touch,
                                 handle_log=True,
                                 handle_touch=not self.touch,
                                 ignore_missing_output=self.touch,
                             )
-                        )
-                    elif self.workflow.exec_mode == ExecMode.SUBPROCESS:
-                        async_run(
-                            job.postprocess(
+                        elif self.workflow.exec_mode == ExecMode.SUBPROCESS:
+                            await job.postprocess(
                                 store_in_storage=False,
                                 handle_log=True,
                                 handle_touch=True,
                             )
-                        )
-                    else:
-                        async_run(
-                            job.postprocess(
+                        else:
+                            await job.postprocess(
                                 # storage upload will be done after all jobs of
                                 # this remote job (e.g. in case of group) are finished
                                 # DAG.store_storage_outputs()
@@ -356,46 +352,47 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 handle_log=True,
                                 handle_touch=True,
                             )
-                        )
-                except (RuleException, WorkflowError) as e:
-                    # if an error occurs while processing job output,
-                    # we do the same as in case of errors during execution
-                    print_exception(e, self.workflow.linemaps)
-                    async_run(job.postprocess(error=True))
-                    self._handle_error(job, postprocess_job=False)
-                    continue
+                    except (RuleException, WorkflowError) as e:
+                        # if an error occurs while processing job output,
+                        # we do the same as in case of errors during execution
+                        print_exception(e, self.workflow.linemaps)
+                        await job.postprocess(error=True)
+                        self._handle_error(job, postprocess_job=False)
+                        continue
 
-            if self.handle_job_success:
-                self.get_executor(job).handle_job_success(job)
+                if self.handle_job_success:
+                    self.get_executor(job).handle_job_success(job)
 
-            if self.update_resources:
-                # normal jobs have len=1, group jobs have len>1
-                self.finished_jobs += len(job)
-                logger.debug(
-                    f"jobs registered as running before removal {self.running}"
+                if self.update_resources:
+                    # normal jobs have len=1, group jobs have len>1
+                    self.finished_jobs += len(job)
+                    logger.debug(
+                        f"jobs registered as running before removal {self.running}"
+                    )
+                    self.running.remove(job)
+                    self._free_resources(job)
+
+                if self.print_progress:
+                    if job.is_group():
+                        for j in job:
+                            logger.job_finished(jobid=j.jobid)
+                    else:
+                        logger.job_finished(jobid=job.jobid)
+                    self.progress()
+
+                await self.workflow.dag.finish(
+                    job,
+                    update_checkpoint_dependencies=self.update_checkpoint_dependencies,
                 )
-                self.running.remove(job)
-                self._free_resources(job)
 
-            if self.print_progress:
-                if job.is_group():
-                    for j in job:
-                        logger.job_finished(jobid=j.jobid)
-                else:
-                    logger.job_finished(jobid=job.jobid)
-                self.progress()
-
-            self.workflow.dag.finish(
-                job,
-                update_checkpoint_dependencies=self.update_checkpoint_dependencies,
-            )
+        async_run(postprocess())
         self._tofinish.clear()
 
     def update_queue_input_jobs(self):
         currtime = time.time()
         if currtime - self._last_update_queue_input_jobs >= 10:
             self._last_update_queue_input_jobs = currtime
-            self.workflow.dag.update_queue_input_jobs()
+            async_run(self.workflow.dag.update_queue_input_jobs())
 
     def _error_jobs(self):
         # must be called from within lock

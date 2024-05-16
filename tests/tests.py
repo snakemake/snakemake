@@ -2146,6 +2146,16 @@ def test_exists():
 
 
 @skip_on_windows  # OS agnostic
+def test_handle_storage_multi_consumers():
+    run(
+        dpath("test_handle_storage_multi_consumers"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+        cores=1,
+    )
+
+
+@skip_on_windows  # OS agnostic
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
 
@@ -2157,3 +2167,12 @@ def test_expand_list_of_functions():
 @skip_on_windows  # OS agnostic
 def test_scheduler_sequential_all_cores():
     run(dpath("test_scheduler_sequential_all_cores"), cores=90)
+
+
+@skip_on_windows  # OS agnostic
+def test_checkpoint_open():
+    run(
+        dpath("test_checkpoint_open"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+    )
