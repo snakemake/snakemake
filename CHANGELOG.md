@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [8.11.5](https://github.com/snakemake/snakemake/compare/v8.11.4...v8.11.5) (2024-05-16)
+
+
+### Bug Fixes
+
+* avoid premature deletion of local copies of remote storage input files used by multiple jobs ([#2874](https://github.com/snakemake/snakemake/issues/2874)) ([21ec649](https://github.com/snakemake/snakemake/commit/21ec649b6d69ff9eeeec229e1eb6058f417bba56))
+* fix opening of checkpoint output files from remote storage ([#2873](https://github.com/snakemake/snakemake/issues/2873)) ([e7cb7fb](https://github.com/snakemake/snakemake/commit/e7cb7fb3e469057afc1f2c74008a40a716e76111))
+
+
+### Documentation
+
+* add link to code of conduct ([889a3bc](https://github.com/snakemake/snakemake/commit/889a3bca881e913764e4a4dc0eea70ee7ace8598))
+
 ## [8.11.4](https://github.com/snakemake/snakemake/compare/v8.11.3...v8.11.4) (2024-05-11)
 
 
