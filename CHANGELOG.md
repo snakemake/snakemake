@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.11.6](https://github.com/snakemake/snakemake/compare/v8.11.5...v8.11.6) (2024-05-17)
+
+
+### Bug Fixes
+
+* fix opening of multiple checkout output files in the same input function when using remote storage ([2f8e719](https://github.com/snakemake/snakemake/commit/2f8e71927edfe636492bc14dfd7b90d3c226294c))
+
 ## [8.11.5](https://github.com/snakemake/snakemake/compare/v8.11.4...v8.11.5) (2024-05-16)
 
 
