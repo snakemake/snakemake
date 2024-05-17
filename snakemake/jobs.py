@@ -169,7 +169,6 @@ class JobFactory:
                         # retrieve the missing file from storage
                         await e.iofile.retrieve_from_storage()
                         missing_iofiles.add(e.iofile)
-                        obj = new_job()
                     else:
                         raise WorkflowError(
                             f"Failed to open input file: {e.iofile}. Has it been deleted by another process?",
