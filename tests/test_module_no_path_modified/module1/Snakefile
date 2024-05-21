@@ -1,0 +1,7 @@
+rule a:
+    input:
+        path_modified("input.txt"),
+    output:
+        "test_final.txt",
+    shell:
+        "cat {input} > {output}"

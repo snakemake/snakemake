@@ -34,7 +34,7 @@ class PathModifier:
                 self.trie[prefix] = replacement
 
     def modify(self, path, property=None):
-        if get_flag_value(path, PATH_MODIFIER_FLAG) is self:
+        if get_flag_value(path, PATH_MODIFIER_FLAG):
             logger.debug(f"Flag PATH_MODIFIER_FLAG found in file {path}")
             # Path has been modified before and is reused now, no need to modify again.
             return path
@@ -54,7 +54,7 @@ class PathModifier:
                     self.replace_prefix(modified_path.flags["multiext"], property)
                 )
         # Flag the path as modified and return.
-        modified_path = flag(modified_path, PATH_MODIFIER_FLAG, self)
+        modified_path = flag(modified_path, PATH_MODIFIER_FLAG)
         return modified_path
 
     def replace_prefix(self, path, property=None):

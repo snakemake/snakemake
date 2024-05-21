@@ -1612,6 +1612,14 @@ def test_module_no_prefixing_modified_paths():
     )
 
 
+@skip_on_windows
+def test_module_no_path_modified():
+    run(
+        dpath("test_module_no_path_modified"),
+        targets=["out_1/test_final.txt"],
+    )
+
+
 def test_module_with_script():
     run(dpath("test_module_with_script"))
 
