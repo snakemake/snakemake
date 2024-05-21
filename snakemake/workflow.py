@@ -693,8 +693,8 @@ class Workflow(WorkflowExecutorInterface):
         else:
 
             def files(items):
-                relpath = (
-                    lambda f: f
+                relpath = lambda f: (
+                    f
                     if os.path.isabs(f) or f.startswith("root://")
                     else os.path.relpath(f)
                 )
