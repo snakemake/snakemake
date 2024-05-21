@@ -472,6 +472,7 @@ def run_wrapper(
                 bench_record.jobid = jobid
                 bench_record.rule_name = job_rule.name
                 bench_record.wildcards = wildcards
+                bench_record.params = params
                 bench_record.resources = resources
                 bench_record.input = input
                 bench_record.threads = threads
