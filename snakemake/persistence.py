@@ -76,13 +76,11 @@ class Persistence(PersistenceExecutorInterface):
         if conda_prefix is None:
             self.conda_env_path = os.path.join(self.path, "conda")
         else:
-            self.conda_env_path = os.path.abspath(os.path.expanduser(conda_prefix))
+            self.conda_env_path = os.path.abspath(conda_prefix)
         if singularity_prefix is None:
             self.container_img_path = os.path.join(self.path, "singularity")
         else:
-            self.container_img_path = os.path.abspath(
-                os.path.expanduser(singularity_prefix)
-            )
+            self.container_img_path = os.path.abspath(singularity_prefix)
         if shadow_prefix is None:
             self.shadow_path = os.path.join(self.path, "shadow")
         else:

@@ -468,10 +468,10 @@ def read_job_properties(
 
 def min_version(version):
     """Require minimum snakemake version, raise workflow error if not met."""
-    import pkg_resources
+    from packaging.version import parse
     from snakemake.common import __version__
 
-    if pkg_resources.parse_version(__version__) < pkg_resources.parse_version(version):
+    if parse(__version__) < parse(version):
         raise WorkflowError(
             "Expecting Snakemake version {} or higher (you are currently using {}).".format(
                 version, __version__
@@ -674,7 +674,7 @@ class Paramspace:
 
             if any((param not in dataframe.columns for param in filename_params)):
                 raise KeyError(
-                    "One or more entries of filename_params are not valid coulumn names for the param file."
+                    "One or more entries of filename_params are not valid column names for the param file."
                 )
             elif len(set(filename_params)) != len(filename_params):
                 raise ValueError("filename_params must be unique")

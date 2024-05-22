@@ -1,10 +1,9 @@
 from abc import ABC
 from dataclasses import dataclass, field
-from enum import Enum
-import importlib
+import os
 from pathlib import Path
-from typing import Optional
-from collections.abc import Mapping, Sequence, Set
+from typing import Any, Optional
+from typing import Mapping, Sequence, Set
 
 import immutables
 
@@ -16,12 +15,17 @@ from snakemake_interface_executor_plugins.settings import (
     StorageSettingsExecutorInterface,
     DeploymentMethod,
     ExecMode,
+    SharedFSUsage,
 )
 from snakemake_interface_common.settings import SettingsEnumBase
 
-from snakemake.common import dict_to_key_value_args, get_container_image
+from snakemake.common import (
+    dict_to_key_value_args,
+    expand_vars_and_user,
+    get_container_image,
+)
 from snakemake.common.configfile import load_configfile
-from snakemake.resources import DefaultResources
+from snakemake.resources import DefaultResources, ParsedResource
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 
@@ -92,12 +96,14 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     keep_metadata: bool = True
     edit_notebook: Optional[NotebookEditMode] = None
     cleanup_scripts: bool = True
+    queue_input_wait_time: int = 10
 
 
 @dataclass
 class WorkflowSettings(SettingsBase):
     wrapper_prefix: Optional[str] = None
     exec_mode: ExecMode = ExecMode.DEFAULT
+    cache: Optional[Sequence[str]] = None
 
 
 class Batch:
@@ -150,6 +156,13 @@ class Batch:
     def __str__(self):
         return f"{self.idx}/{self.batches} (rule {self.rulename})"
 
+    def __eq__(self, other):
+        return (
+            self.rulename == other.rulename
+            and self.idx == other.idx
+            and self.batches == other.batches
+        )
+
 
 @dataclass
 class DAGSettings(SettingsBase):
@@ -166,7 +179,6 @@ class DAGSettings(SettingsBase):
     allowed_rules: Set[str] = frozenset()
     rerun_triggers: Set[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
-    cache: Optional[Sequence[str]] = None
 
     def _check(self):
         if self.batch is not None and self.forceall:
@@ -180,11 +192,17 @@ class DAGSettings(SettingsBase):
 class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_storage_provider: Optional[str] = None
     default_storage_prefix: Optional[str] = None
-    assume_shared_fs: bool = True
+    shared_fs_usage: Set[SharedFSUsage] = SharedFSUsage.all()
     keep_storage_local: bool = False
     local_storage_prefix: Path = Path(".snakemake/storage")
+    remote_job_local_storage_prefix: Optional[Path] = None
     notemp: bool = False
     all_temp: bool = False
+    unneeded_temp_files: Set[str] = frozenset()
+
+    def __post_init__(self):
+        if self.remote_job_local_storage_prefix is None:
+            self.remote_job_local_storage_prefix = self.local_storage_prefix
 
 
 class CondaCleanupPkgs(SettingsEnumBase):
@@ -224,6 +242,12 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     def imply_deployment_method(self, method: DeploymentMethod):
         self.deployment_method = set(self.deployment_method)
         self.deployment_method.add(method)
+
+    def __post_init__(self):
+        if self.apptainer_prefix is None:
+            self.apptainer_prefix = os.environ.get("APPTAINER_CACHEDIR", None)
+        self.apptainer_prefix = expand_vars_and_user(self.apptainer_prefix)
+        self.conda_prefix = expand_vars_and_user(self.conda_prefix)
 
 
 @dataclass
@@ -273,7 +297,7 @@ class ResourceSettings(SettingsBase):
     overwrite_threads: Mapping[str, int] = immutables.Map()
     overwrite_scatter: Mapping[str, int] = immutables.Map()
     overwrite_resource_scopes: Mapping[str, str] = immutables.Map()
-    overwrite_resources: Mapping[str, Mapping[str, int]] = immutables.Map()
+    overwrite_resources: Mapping[str, Mapping[str, Any]] = immutables.Map()
     default_resources: Optional[DefaultResources] = None
 
     def __post_init__(self):
@@ -306,7 +330,7 @@ class ConfigSettings(SettingsBase):
 
     def _get_config_args(self):
         if self.config_args is None:
-            return dict_to_key_value_args(self.config)
+            return dict_to_key_value_args(self.config, repr_obj=True)
         else:
             return self.config_args
 
@@ -327,6 +351,8 @@ class OutputSettings(SettingsBase):
     show_failed_logs: bool = False
     log_handlers: Sequence[object] = tuple()
     keep_logger: bool = False
+    stdout: bool = False
+    benchmark_extended: bool = False
 
 
 @dataclass
@@ -350,6 +376,7 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     envvars: Sequence[str] = tuple()
     immediate_submit: bool = False
     precommand: Optional[str] = None
+    job_deploy_sources: bool = True
 
 
 @dataclass

@@ -18,8 +18,10 @@ def format_error(
     msg = str(ex)
     if linemaps and snakefile and snakefile in linemaps:
         lineno = linemaps[snakefile][lineno]
-        if isinstance(ex, SyntaxError):
-            msg = ex.msg
+
+    if isinstance(ex, SyntaxError):
+        msg = ex.msg.split("(")[0]
+        msg = f"{msg}:\n{ex.text}"
 
     location = ""
     if lineno and snakefile:
@@ -45,16 +47,21 @@ def get_exception_origin(ex, linemaps):
 
 
 def cut_traceback(ex):
+    lines = []
     snakemake_path = os.path.dirname(__file__)
-    for line in traceback.extract_tb(ex.__traceback__):
+    not_seen_snakemake = True
+    for line in traceback.extract_tb(ex.__traceback__)[::-1]:
         dir = os.path.dirname(line[0])
         if not dir:
             dir = "."
         is_snakemake_dir = lambda path: os.path.realpath(path).startswith(
             os.path.realpath(snakemake_path)
         )
-        if not os.path.isdir(dir) or not is_snakemake_dir(dir):
-            yield line
+        if is_snakemake_dir(dir):
+            not_seen_snakemake = False
+        if not os.path.isdir(dir) or not_seen_snakemake:
+            lines.append(line)
+    return lines[::-1]
 
 
 def format_traceback(tb, linemaps):
@@ -152,7 +159,19 @@ def print_exception(ex, linemaps=None):
     elif isinstance(ex, KeyboardInterrupt):
         logger.info("Cancelling snakemake on user request.")
     else:
-        traceback.print_exception(type(ex), ex, ex.__traceback__)
+        logger.error("\n".join(traceback.format_exception(ex)))
+
+
+def update_lineno(ex: SyntaxError, linemaps):
+    if ex.filename and ex.lineno:
+        linemap = linemaps[ex.filename]
+        try:
+            ex.lineno = linemap[ex.lineno]
+        except KeyError:
+            # linemap does not yet contain the line, it must happen during parsing
+            # such that no update is needed.
+            pass
+        return ex
 
 
 class SourceFileError(WorkflowError):
@@ -183,18 +202,18 @@ class RuleException(Exception):
         snakefile -- the file the exception originates
         """
         super(RuleException, self).__init__(message)
-        self._include = set()
+        _include = set()
         if include:
             for ex in include:
-                self._include.add(ex)
-                self._include.update(ex._include)
+                _include.add(ex)
+                _include.update(ex._include)
         if rule is not None:
             if lineno is None:
                 lineno = rule.lineno
             if snakefile is None:
                 snakefile = rule.snakefile
 
-        self._include = list(self._include)
+        self._include = list(_include)
         self.rule = rule
         self.lineno = lineno
         self.filename = snakefile
@@ -522,6 +541,12 @@ class IncompleteCheckpointException(Exception):
         self.targetfile = checkpoint_target(targetfile)
 
 
+class InputOpenException(Exception):
+    def __init__(self, iofile):
+        self.iofile = iofile
+        self.rule = None
+
+
 class CacheMissException(Exception):
     pass
 
@@ -551,3 +576,28 @@ class CliException(Exception):
     def __init__(self, msg):
         super().__init__(msg)
         self.msg = msg
+
+
+class LookupError(WorkflowError):
+    def __init__(self, msg=None, exc=None, query=None, dpath=None):
+        msg = f" {msg}" if msg is not None else ""
+        expr = ""
+        if query is not None:
+            expr = f" with query: {repr(query)}"
+        if dpath is not None:
+            expr = f" with dpath: {repr(dpath)}"
+        annotated_msg = f"Error in lookup function{expr}.{msg}"
+        args = [annotated_msg]
+        if exc is not None:
+            args.append(exc)
+        super().__init__(*args)
+
+
+def is_file_not_found_error(exc, considered_files):
+    # TODO find a better way to detect whether the input files are not present
+    if isinstance(exc, FileNotFoundError) and exc.filename in considered_files:
+        return True
+    elif isinstance(exc, WorkflowError) and "FileNotFoundError" in str(exc):
+        return True
+    else:
+        return False

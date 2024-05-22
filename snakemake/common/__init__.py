@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
+import contextlib
 import itertools
 import math
 import operator
@@ -59,19 +60,25 @@ def mb_to_mib(mb):
     return int(math.ceil(mb * 0.95367431640625))
 
 
-def parse_key_value_arg(arg, errmsg):
+def parse_key_value_arg(arg, errmsg, strip_quotes=True):
     try:
         key, val = arg.split("=", 1)
     except ValueError:
-        raise ValueError(errmsg + f" (Unparseable value: {repr(arg)})")
-    val = val.strip("'\"")
+        raise ValueError(errmsg + f" (Unparsable value: {repr(arg)})")
+    if strip_quotes:
+        val = val.strip("'\"")
     return key, val
 
 
-def dict_to_key_value_args(some_dict: dict, quote_str: bool = True):
+def dict_to_key_value_args(
+    some_dict: dict, quote_str: bool = True, repr_obj: bool = False
+):
     items = []
     for key, value in some_dict.items():
-        encoded = f"'{value}'" if quote_str and isinstance(value, str) else value
+        if repr_obj and not isinstance(value, str):
+            encoded = repr(value)
+        else:
+            encoded = f"'{value}'" if quote_str and isinstance(value, str) else value
         items.append(f"{key}={encoded}")
     return items
 
@@ -277,8 +284,15 @@ def get_function_params(func):
 
 def get_input_function_aux_params(func, candidate_params):
     func_params = get_function_params(func)
-
-    return {k: v for k, v in candidate_params.items() if k in func_params}
+    has_var_keyword = any(
+        param.kind == param.VAR_KEYWORD for param in func_params.values()
+    )
+    if has_var_keyword:
+        # If the function has a **kwargs parameter, we assume that it can take any
+        # parameter, so we return all candidate parameters.
+        return candidate_params
+    else:
+        return {k: v for k, v in candidate_params.items() if k in func_params}
 
 
 def unique_justseen(iterable, key=None):
@@ -290,3 +304,47 @@ def unique_justseen(iterable, key=None):
     # unique_justseen('AAAABBBCCDAABBB') --> A B C D A B
     # unique_justseen('ABBcCAD', str.lower) --> A B c A D
     return map(next, map(operator.itemgetter(1), itertools.groupby(iterable, key)))
+
+
+# Taken from https://stackoverflow.com/a/34333710/7070491.
+# Thanks to Laurent Laporte.
+@contextlib.contextmanager
+def set_env(**environ):
+    """
+    Temporarily set the process environment variables.
+
+    >>> with set_env(PLUGINS_DIR='test/plugins'):
+    ...   "PLUGINS_DIR" in os.environ
+    True
+
+    >>> "PLUGINS_DIR" in os.environ
+    False
+
+    :type environ: dict[str, unicode]
+    :param environ: Environment variables to set
+    """
+    old_environ = dict(os.environ)
+    os.environ.update(environ)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(old_environ)
+
+
+def expand_vars_and_user(value):
+    if value is not None:
+        return os.path.expanduser(os.path.expandvars(value))
+
+
+# Taken from https://stackoverflow.com/a/2166841/7070491
+# Thanks to Alex Martelli.
+def is_namedtuple_instance(x):
+    t = type(x)
+    b = t.__bases__
+    if len(b) != 1 or b[0] != tuple:
+        return False
+    f = getattr(t, "_fields", None)
+    if not isinstance(f, tuple):
+        return False
+    return all(type(n) == str for n in f)

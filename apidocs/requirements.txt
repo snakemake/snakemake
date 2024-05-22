@@ -1,0 +1,12 @@
+sphinx >=3
+sphinxcontrib-napoleon
+sphinx-argparse
+sphinx-autodoc-typehints
+docutils
+myst-parser
+configargparse
+appdirs
+sphinxawesome-theme
+snakemake-interface-common
+snakemake-interface-executor-plugins
+snakemake-interface-storage-plugins

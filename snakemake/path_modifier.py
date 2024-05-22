@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 from snakemake.exceptions import WorkflowError
 from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
+from snakemake.logging import logger
 
 
 PATH_MODIFIER_FLAG = "path_modified"
@@ -34,6 +35,7 @@ class PathModifier:
 
     def modify(self, path, property=None):
         if get_flag_value(path, PATH_MODIFIER_FLAG) is self:
+            logger.debug(f"Flag PATH_MODIFIER_FLAG found in file {path}")
             # Path has been modified before and is reused now, no need to modify again.
             return path
 
@@ -97,25 +99,33 @@ class PathModifier:
             if isinstance(value, AnnotatedString):
                 return bool(value.callable)
 
+        provider = self.workflow.storage_settings.default_storage_provider
+
         if (
-            self.workflow.storage_registry.default_storage_provider is None
+            provider is None
             or is_flagged(path, "storage_object")
             or is_flagged(path, "local")
+            or is_flagged(path, "sourcecache_entry")
             or is_annotated_callable(path)
         ):
             # no default remote needed
             return path
 
-        path = os.path.normpath(path)
         # This will convert any AnnotatedString to str
-        query = f"{self.workflow.storage_settings.default_storage_prefix}/{path}"
+        prefix = self.workflow.storage_settings.default_storage_prefix
+        if prefix and not prefix.endswith("/"):
+            prefix = f"{prefix}/"
+        query = f"{prefix}{os.path.normpath(path)}"
         storage_object = self.workflow.storage_registry.default_storage_provider.object(
             query
         )
         validation_res = storage_object.is_valid_query()
         if not validation_res:
             raise WorkflowError(
-                validation_res,
+                f"Error applying default storage provider {provider}. "
+                "Make sure to provide a valid --default-storage-prefix "
+                "(see https://snakemake.github.io/snakemake-plugin-catalog/plugins/"
+                "storage/{provider}.html). {validation_res}",
             )
         return flag_with_storage_object(path, storage_object)
 

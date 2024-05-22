@@ -353,7 +353,7 @@ class Env:
         )
 
     def create(self, dryrun=False):
-        """Create the conda enviroment."""
+        """Create the conda environment."""
         from snakemake.shell import shell
 
         self.check_is_file_based()
@@ -461,7 +461,7 @@ class Env:
                     logger.info("Installing archived conda packages.")
                     pkg_list = os.path.join(env_archive, "packages.txt")
                     if os.path.exists(pkg_list):
-                        # read pacakges in correct order
+                        # read packages in correct order
                         # this is for newer env archives where the package list
                         # was stored
                         packages = [
@@ -480,6 +480,7 @@ class Env:
                             "--quiet",
                             "--no-shortcuts" if ON_WINDOWS else "",
                             "--yes",
+                            "--no-default-packages",
                             f"--prefix '{env_path}'",
                         ]
                         + packages
@@ -522,6 +523,7 @@ class Env:
                             + [
                                 "create",
                                 "--quiet",
+                                "--no-default-packages",
                                 f'--file "{target_env_file}"',
                                 f'--prefix "{env_path}"',
                             ]

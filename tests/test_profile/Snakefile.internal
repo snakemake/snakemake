@@ -1,5 +1,15 @@
+shell.executable("bash")
+
 rule a:
+    input:
+        "input.txt",
     output:
-        config["out"]
+        config["out"],
     shell:
-        "touch {output}"
+        'echo "'
+        'threads: {threads}\n'
+        'mem_mb: {resources.mem_mb}\n'
+        'eggs_factor: {resources.eggs_factor}\n'
+        'spam_factor: {resources.spam_factor}\n'
+        'double_jeopardy: {resources.double_jeopardy}'
+        '"> {output}'

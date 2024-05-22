@@ -3,53 +3,27 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import argparse
+import os
+import re
 import sys
+from argparse import ArgumentDefaultsHelpFormatter
+from functools import partial
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
 from typing import Set
 
-import configargparse
-
-from snakemake import logging
-import snakemake.common.argparse
-from snakemake.api import SnakemakeApi, _get_executor_plugin_registry, resolve_snakefile
-
-import os
-import glob
-from argparse import ArgumentDefaultsHelpFormatter
-from pathlib import Path
-import re
-import shlex
-from importlib.machinery import SourceFileLoader
-from snakemake.settings import (
-    ChangeType,
-    ConfigSettings,
-    DAGSettings,
-    DeploymentMethod,
-    DeploymentSettings,
-    ExecutionSettings,
-    NotebookEditMode,
-    OutputSettings,
-    PreemptibleRules,
-    Quietness,
-    RemoteExecutionSettings,
-    ResourceSettings,
-    SchedulingSettings,
-    StorageSettings,
-    WorkflowSettings,
-)
-
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
-from snakemake.target_jobs import parse_target_jobs_cli_args
 
-from snakemake.workflow import Workflow
-from snakemake.dag import Batch
-from snakemake.exceptions import (
-    CliException,
-    ResourceScopesException,
-    print_exception,
+import snakemake.common.argparse
+from snakemake import logging
+from snakemake.api import (
+    SnakemakeApi,
+    _get_executor_plugin_registry,
+    _get_report_plugin_registry,
+    resolve_snakefile,
 )
-from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
     SNAKEFILE_CHOICES,
     __version__,
@@ -58,22 +32,82 @@ from snakemake.common import (
     get_container_image,
     parse_key_value_arg,
 )
-from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
-from snakemake.settings import RerunTrigger
+from snakemake.dag import Batch
+from snakemake.exceptions import (
+    CliException,
+    ResourceScopesException,
+    print_exception,
+)
+from snakemake.io import flag
+from snakemake.resources import (
+    DefaultResources,
+    ParsedResource,
+    ResourceScopes,
+    eval_resource_expression,
+    parse_resources,
+)
+from snakemake.settings import (
+    ChangeType,
+    ConfigSettings,
+    DAGSettings,
+    DeploymentMethod,
+    DeploymentSettings,
+    ExecutionSettings,
+    GroupSettings,
+    NotebookEditMode,
+    OutputSettings,
+    PreemptibleRules,
+    Quietness,
+    RemoteExecutionSettings,
+    RerunTrigger,
+    ResourceSettings,
+    SchedulingSettings,
+    SharedFSUsage,
+    StorageSettings,
+    WorkflowSettings,
+)
+from snakemake.target_jobs import parse_target_jobs_cli_args
+from snakemake.utils import available_cpu_count, update_config
+
+
+def expandvars(atype):
+    def inner(args):
+        if isinstance(args, list):
+            return atype([os.path.expandvars(arg) for arg in args])
+        elif isinstance(args, str):
+            return atype(os.path.expandvars(args))
+        elif args is None:
+            return None
+        else:
+            return atype(args)
+
+    return inner
+
+
+def optional_str(arg):
+    if arg is None or arg == "none":
+        return None
+    else:
+        return arg
 
 
 def parse_set_threads(args):
+    def fallback(orig_value):
+        value = eval_resource_expression(orig_value, threads_arg=False)
+        return ParsedResource(value=value, orig_arg=orig_value)
+
     return parse_set_ints(
         args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
+        fallback=fallback,
     )
 
 
 def parse_set_resources(args):
     errmsg = (
         "Invalid resource definition: entries have to be defined as RULE:RESOURCE=VALUE, with "
-        "VALUE being a positive integer or a string."
+        "VALUE being a positive integer a quoted string, or a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
     )
 
     from collections import defaultdict
@@ -81,19 +115,26 @@ def parse_set_resources(args):
     assignments = defaultdict(dict)
     if args is not None:
         for entry in args:
-            key, value = parse_key_value_arg(entry, errmsg=errmsg)
+            key, orig_value = parse_key_value_arg(
+                entry, errmsg=errmsg, strip_quotes=False
+            )
             key = key.split(":")
             if len(key) != 2:
                 raise ValueError(errmsg)
             rule, resource = key
-            try:
-                value = int(value)
-            except ValueError:
-                assignments[rule][resource] = value
-                continue
-            if value < 0:
+            if is_quoted(orig_value):
+                # value is a string, just keep it
+                value = orig_value
+            else:
+                try:
+                    value = int(orig_value)
+                except ValueError:
+                    value = eval_resource_expression(orig_value)
+            if isinstance(value, int) and value < 0:
                 raise ValueError(errmsg)
-            assignments[rule][resource] = value
+            assignments[rule][resource] = ParsedResource(
+                value=value, orig_arg=orig_value
+            )
     return assignments
 
 
@@ -124,7 +165,7 @@ def parse_set_resource_scope(args):
     return ResourceScopes()
 
 
-def parse_set_ints(arg, errmsg):
+def parse_set_ints(arg, errmsg, fallback=None):
     assignments = dict()
     if arg is not None:
         for entry in arg:
@@ -132,17 +173,23 @@ def parse_set_ints(arg, errmsg):
             try:
                 value = int(value)
             except ValueError:
-                raise ValueError(errmsg)
-            if value < 0:
+                if fallback is not None:
+                    try:
+                        value = fallback(value)
+                    except Exception as e:
+                        raise ValueError(f"{errmsg} Cause: {e}")
+                else:
+                    raise ValueError(errmsg)
+            if isinstance(value, int) and value < 0:
                 raise ValueError(errmsg)
             assignments[key] = value
     return assignments
 
 
-def parse_batch(args):
+def parse_batch(arg):
     errmsg = "Invalid batch definition: batch entry has to be defined as RULE=BATCH/BATCHES (with integers BATCH <= BATCHES, BATCH >= 1)."
-    if args.batch is not None:
-        rule, batchdef = parse_key_value_arg(args.batch, errmsg=errmsg)
+    if arg is not None:
+        rule, batchdef = parse_key_value_arg(arg, errmsg=errmsg)
         try:
             batch, batches = batchdef.split("/")
             batch = int(batch)
@@ -158,8 +205,8 @@ def parse_batch(args):
 def parse_groups(args):
     errmsg = "Invalid groups definition: entries have to be defined as RULE=GROUP pairs"
     overwrite_groups = dict()
-    if args.groups is not None:
-        for entry in args.groups:
+    if args is not None:
+        for entry in args:
             rule, group = parse_key_value_arg(entry, errmsg=errmsg)
             overwrite_groups[rule] = group
     return overwrite_groups
@@ -168,8 +215,8 @@ def parse_groups(args):
 def parse_group_components(args):
     errmsg = "Invalid group components definition: entries have to be defined as GROUP=COMPONENTS pairs (with COMPONENTS being a positive integer)"
     group_components = dict()
-    if args.group_components is not None:
-        for entry in args.group_components:
+    if args is not None:
+        for entry in args:
             group, count = parse_key_value_arg(entry, errmsg=errmsg)
             try:
                 count = int(count)
@@ -268,33 +315,18 @@ def get_profile_dir(profile: str) -> (Path, Path):
     else:
         search_dirs = [os.getcwd(), dirs.user_config_dir, dirs.site_config_dir]
     for d in search_dirs:
-        d = Path(d)
-        files = os.listdir(d / profile)
-        curr_major = int(__version__.split(".")[0])
-        config_files = {
-            f: min_major
-            for f, min_major in zip(files, map(get_config_min_major, files))
-            if min_major is not None and curr_major >= min_major
-        }
-        if config_files:
-            config_file = max(config_files, key=config_files.get)
-            return d / profile, d / profile / config_file
-
-
-def get_profile_file(profile_dir: Path, file, return_default=False):
-    p = profile_dir / file
-    # "file" can actually be a full command. If so, `p` won't exist as the
-    # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
-    # exists. To fix this, we use shlex.split() to get the path to the
-    # script. We check for both, in case the path contains spaces or some
-    # other thing that would cause shlex.split() to mangle the path
-    # inaccurately.
-    if p.exists() or os.path.exists(shlex.split(str(p))[0]):
-        return p
-
-    if return_default:
-        return file
-    return None
+        profile_candidate = Path(d) / profile
+        if profile_candidate.exists():
+            files = os.listdir(profile_candidate)
+            curr_major = int(__version__.split(".")[0])
+            config_files = {
+                f: min_major
+                for f, min_major in zip(files, map(get_config_min_major, files))
+                if min_major is not None and curr_major >= min_major
+            }
+            if config_files:
+                config_file = max(config_files, key=config_files.get)
+                return profile_candidate, profile_candidate / config_file
 
 
 def get_argument_parser(profiles=None):
@@ -303,7 +335,6 @@ def get_argument_parser(profiles=None):
 
     dirs = get_appdirs()
     config_files = []
-    profile_dir = None
     if profiles:
         for profile in profiles:
             if profile == "":
@@ -312,7 +343,7 @@ def get_argument_parser(profiles=None):
 
             profile_entry = get_profile_dir(profile)
             if profile_entry is not None:
-                profile_dir, config_file = profile_entry
+                _profile_dir, config_file = profile_entry
                 config_files.append(config_file)
             else:
                 print(
@@ -490,7 +521,7 @@ def get_argument_parser(profiles=None):
         metavar="RULE=THREADS",
         nargs="+",
         default=dict(),
-        parse_func=parse_set_threads,
+        parse_func=maybe_base64(parse_set_threads),
         help="Overwrite thread usage of rules. This allows to fine-tune workflow "
         "parallelization. In particular, this is helpful to target certain cluster nodes "
         "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
@@ -510,7 +541,7 @@ def get_argument_parser(profiles=None):
         metavar="RULE:RESOURCE=VALUE",
         nargs="+",
         default=dict(),
-        parse_func=parse_set_resources,
+        parse_func=maybe_base64(parse_set_resources),
         help="Overwrite resource usage of rules. This allows to fine-tune workflow "
         "resources. In particular, this is helpful to target certain cluster nodes "
         "by e.g. defining a certain partition for a rule, or overriding a temporary directory. "
@@ -549,7 +580,7 @@ def get_argument_parser(profiles=None):
         "--default-res",
         nargs="*",
         metavar="NAME=INT",
-        parse_func=DefaultResources,
+        parse_func=maybe_base64(DefaultResources),
         help=(
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb'). "
@@ -574,7 +605,6 @@ def get_argument_parser(profiles=None):
             "Define which rules shall use a preemptible machine which can be prematurely killed by e.g. a cloud provider (also called spot instances). "
             "This is currently only supported by the Google Life Sciences executor and ignored by all other executors. "
             "If no rule names are provided, all rules are considered to be preemptible. "
-            "The "
         ),
     )
 
@@ -582,21 +612,6 @@ def get_argument_parser(profiles=None):
         "--preemptible-retries",
         type=int,
         help="Number of retries that shall be made in order to finish a job from of rule that has been marked as preemptible via the --preemptible-rules setting.",
-    )
-
-    group_exec.add_argument(
-        "--config",
-        "-C",
-        nargs="*",
-        metavar="KEY=VALUE",
-        default=dict(),
-        parse_func=parse_config,
-        help=(
-            "Set or overwrite values in the workflow config object. "
-            "The workflow config object is accessible as variable config inside "
-            "the workflow. Default values can be set by providing a JSON file "
-            "(see Documentation)."
-        ),
     )
     group_exec.add_argument(
         "--configfile",
@@ -612,6 +627,18 @@ def get_argument_parser(profiles=None):
             "the given order. Thereby missing keys in previous config files are extended by "
             "following configfiles. Note that this order also includes a config file defined "
             "in the workflow definition itself (which will come first)."
+        ),
+    )
+    group_exec.add_argument(
+        "--config",
+        "-C",
+        nargs="*",
+        metavar="KEY=VALUE",
+        help=(
+            "Set or overwrite values in the workflow config object. "
+            "The workflow config object is accessible as variable config inside "
+            "the workflow. Default values can be set by providing a YAML JSON file "
+            "(see --configfile and Documentation)."
         ),
     )
     group_exec.add_argument(
@@ -778,7 +805,7 @@ def get_argument_parser(profiles=None):
     try:
         import pulp
 
-        lp_solvers = pulp.list_solvers(onlyAvailable=True)
+        lp_solvers = pulp.listSolvers(onlyAvailable=True)
     except ImportError:
         # Dummy list for the case that pulp is not available
         # This only happened when building docs.
@@ -848,6 +875,7 @@ def get_argument_parser(profiles=None):
         "--groups",
         nargs="+",
         parse_func=parse_groups,
+        default=dict(),
         help="Assign rules to groups (this overwrites any "
         "group definitions from the workflow).",
     )
@@ -855,6 +883,7 @@ def get_argument_parser(profiles=None):
         "--group-components",
         nargs="+",
         parse_func=parse_group_components,
+        default=dict(),
         help="Set the number of connected components a group is "
         "allowed to span. By default, this is 1, but this flag "
         "allows to extend this. This can be used to run e.g. 3 "
@@ -882,6 +911,13 @@ def get_argument_parser(profiles=None):
         type=Path,
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
+    )
+    group_report.add_argument(
+        "--reporter",
+        metavar="PLUGIN",
+        help="Specify a custom report plugin. By default, Snakemake's builtin html "
+        "reporter will be used. For custom reporters, check out their command line "
+        "options starting with --report-.",
     )
 
     group_notebooks = parser.add_argument_group("NOTEBOOKS")
@@ -1072,8 +1108,8 @@ def get_argument_parser(profiles=None):
         "--lc",
         choices=ChangeType.all(),
         type=ChangeType.parse_choice,
-        help="List all output files for which the rule body (run or shell) have "
-        "changed in the Snakefile.",
+        help="List all output files for which the given items (code, input, params) "
+        "have changed since creation.",
     )
     group_utils.add_argument(
         "--list-input-changes",
@@ -1242,6 +1278,13 @@ def get_argument_parser(profiles=None):
         "passed on the commandline.",
     )
     group_behavior.add_argument(
+        "--queue-input-wait-time",
+        metavar="SECONDS",
+        type=int,
+        default=10,
+        help="Set the interval in seconds to check for new input in rules that use from_queue to obtain input files.",
+    )
+    group_behavior.add_argument(
         "--notemp",
         "--nt",
         action="store_true",
@@ -1254,6 +1297,15 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Mark all output files as temp files. This can be useful for CI testing, "
         "in order to save space.",
+    )
+    group_behavior.add_argument(
+        "--unneeded-temp-files",
+        parse_func=set,
+        default=frozenset(),
+        metavar="FILE",
+        nargs="+",
+        help="Given files will not be uploaded to storage and immediately deleted "
+        "after job or group job completion.",
     )
     group_behavior.add_argument(
         "--keep-storage-local-copies",
@@ -1330,9 +1382,12 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--default-storage-provider",
+        type=optional_str,
         help="Specify default storage provider to be used for "
         "all input and output files that don't yet specify "
-        "one (e.g. 's3').",
+        "one (e.g. 's3'). See https://snakemake.github.io/snakemake-plugin-catalog "
+        "for available storage provider plugins. If not set or explicitly 'none', no "
+        "default storage provider will be used.",
     )
     group_behavior.add_argument(
         "--default-storage-prefix",
@@ -1340,19 +1395,44 @@ def get_argument_parser(profiles=None):
         help="Specify prefix for default storage provider. E.g. a bucket name.",
     )
     group_behavior.add_argument(
-        "--no-shared-fs",
-        action="store_true",
-        help="Do not assume that jobs share a common file "
-        "system. When this flag is activated, Snakemake will "
-        "assume that the filesystem on a cluster node is not "
-        "shared with other nodes. For example, this will lead "
-        "to downloading remote files on each cluster node "
-        "separately. Further, it won't take special measures "
-        "to deal with filesystem latency issues. This option "
-        "will in most cases only make sense in combination with "
-        "--default-storage-provider. "
-        "Only activate this if you "
-        "know what you are doing.",
+        "--local-storage-prefix",
+        default=".snakemake/storage",
+        type=expandvars(Path),
+        help="Specify prefix for storing local copies of storage files and folders. "
+        "By default, this is a hidden subfolder in the workdir. It can however be "
+        "freely chosen, e.g. in order to store those files on a local scratch disk. "
+        "Environment variables will be expanded.",
+    )
+    group_behavior.add_argument(
+        "--remote-job-local-storage-prefix",
+        type=expandvars(Path),
+        help="Specify prefix for storing local copies of storage files and folders in "
+        "case of remote jobs (e.g. cluster or cloud jobs). This may differ from "
+        "--local-storage-prefix. If not set, uses value of --local-storage-prefix. "
+        "By default, this is a hidden subfolder in the workdir. It can however be "
+        "freely chosen, e.g. in order to store those files on a local scratch disk. "
+        "Environment variables will be expanded. In case they shall be expanded only "
+        "within the remote job, mask them with a leading backslash, i.e. "
+        "\\$SLURM_JOB_ID.",
+    )
+    group_behavior.add_argument(
+        "--shared-fs-usage",
+        nargs="+",
+        default=SharedFSUsage.all(),
+        choices=SharedFSUsage.choices(),
+        parse_func=SharedFSUsage.parse_choices_set,
+        help="Set assumptions on shared filesystem for non-local "
+        "workflow execution. To disable any sharing via the filesystem, "
+        "specify 'none'. "
+        "Usually, the executor plugin sets this to a correct "
+        "default. However, sometimes it is worth tuning this setting, e.g. for "
+        "optimizing cluster performance. For example, when using "
+        "'--default-storage-provider fs' together with a cluster executor like "
+        "slurm, you might want to set "
+        "'--shared-fs-usage persistence software-deployment sources source-cache', "
+        "such that software deployment and data provenance will be handled by NFS "
+        "but input and output files will be handled exclusively by the storage "
+        "provider.",
     )
     group_behavior.add_argument(
         "--scheduler-greediness",
@@ -1409,12 +1489,26 @@ def get_argument_parser(profiles=None):
         "Snakemake will notify the service on errors and completed execution."
         "Currently slack and workflow management system (wms) are supported.",
     )
+    group_behavior.add_argument(
+        "--job-deploy-sources",
+        action="store_true",
+        help="Whether the workflow sources shall be deployed before a remote job is "
+        "started. Only applies if --no-shared-fs is set or executors are used that "
+        "imply no shared FS (e.g. the kubernetes executor).",
+    )
+    group_behavior.add_argument(
+        "--benchmark-extended",
+        default=False,
+        action="store_true",
+        help="Write extended benchmarking metrics.",
+    )
 
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
 
     group_cluster.add_argument(
         "--container-image",
         metavar="IMAGE",
+        default=get_container_image(),
         help="Docker image to use, e.g., when submitting jobs to kubernetes. "
         "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
         "the same version as the currently running Snakemake instance. "
@@ -1469,6 +1563,7 @@ def get_argument_parser(profiles=None):
         "--software-deployment-method",
         "--deployment-method",
         "--deployment",
+        "--sdm",
         nargs="+",
         choices=DeploymentMethod.choices(),
         parse_func=DeploymentMethod.parse_choices_set,
@@ -1511,7 +1606,12 @@ def get_argument_parser(profiles=None):
         "If supplied, the `--use-conda` flag must also be set. The value may "
         "be given as a relative path, which will be extrapolated to the "
         "invocation directory, or as an absolute path. The value can also be "
-        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX.",
+        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX. "
+        "In any case, the prefix may contain environment "
+        "variables which will be properly expanded. "
+        "Note that if you use remote execution "
+        "e.g. on a cluster and you have node specific values for this, you should "
+        "disable assuming shared fs for software-deployment (see --shared-fs-usage).",
     )
     group_conda.add_argument(
         "--conda-cleanup-envs",
@@ -1565,7 +1665,11 @@ def get_argument_parser(profiles=None):
         "to the '.snakemake' directory relative to the invocation directory. "
         "If supplied, the `--use-apptainer` flag must also be set. The value "
         "may be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path.",
+        "invocation directory, or as an absolute path. If not supplied, "
+        "APPTAINER_CACHEDIR is used. In any case, the prefix may contain environment "
+        "variables which will be properly expanded. Note that if you use remote execution "
+        "e.g. on a cluster and you have node specific values for this, you should "
+        "disable assuming shared fs for software-deployment (see --shared-fs-usage).",
     )
     group_singularity.add_argument(
         "--apptainer-args",
@@ -1589,7 +1693,8 @@ def get_argument_parser(profiles=None):
     # Add namespaced arguments to parser for each plugin
     _get_executor_plugin_registry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
-    return parser, profile_dir
+    _get_report_plugin_registry().register_cli_args(parser)
+    return parser
 
 
 def generate_parser_metadata(parser, args):
@@ -1605,7 +1710,7 @@ def generate_parser_metadata(parser, args):
 
 
 def parse_args(argv):
-    parser, profile_dir = get_argument_parser()
+    parser = get_argument_parser()
     args = parser.parse_args(argv)
 
     snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
@@ -1635,36 +1740,26 @@ def parse_args(argv):
         if args.profile:
             profiles.append(args.profile)
         if workflow_profile:
-            workflow_profile_stmt = f" and workflow specific profile {workflow_profile}"
+            workflow_profile_stmt = f" {'and ' if profiles else ''}workflow specific profile {workflow_profile}"
             profiles.append(workflow_profile)
         else:
             workflow_profile_stmt = ""
 
-        print(
-            f"Using profile{'s' if len(profiles) > 1 else ''} "
-            f"{' and '.join(map(str, profiles))}{workflow_profile_stmt} for setting default command line arguments.",
-            file=sys.stderr,
+        fmt_profiles = profiles if not workflow_profile else profiles[:-1]
+        profile_stmt = (
+            f"Using profile{'s' if len(profiles) > 1 else ''} {' and '.join(map(str, fmt_profiles))}"
+            if fmt_profiles
+            else "Using"
         )
 
-        parser, profile_dir = get_argument_parser(profiles=profiles)
+        if profiles:
+            print(
+                f"{profile_stmt}{workflow_profile_stmt} for setting default command line arguments.",
+                file=sys.stderr,
+            )
+
+        parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
-
-        def adjust_path(path_or_value):
-            if isinstance(path_or_value, str):
-                adjusted = get_profile_file(
-                    profile_dir, path_or_value, return_default=False
-                )
-                if adjusted is None or os.path.exists(path_or_value):
-                    return path_or_value
-                else:
-                    return adjusted
-            else:
-                return path_or_value
-
-        # Update file paths to be relative to the profile if profile
-        # contains them and they don't exist without prepending it.
-        for key, _ in list(args._get_kwargs()):
-            setattr(args, key, adjust_path(getattr(args, key)))
 
     return parser, args
 
@@ -1672,7 +1767,7 @@ def parse_args(argv):
 def parse_quietness(quietness) -> Set[Quietness]:
     if quietness is not None and len(quietness) == 0:
         # default case, set quiet to progress and rule
-        quietness = [Quietness.PROGRESS, Quietness.RULES]
+        quietness = {Quietness.PROGRESS, Quietness.RULES}
     else:
         quietness = Quietness.parse_choices_set(quietness)
     return quietness
@@ -1762,6 +1857,11 @@ def args_to_api(args, parser):
     elif args.executor is None:
         args.executor = "local"
 
+    if args.report:
+        args.reporter = "html"
+        args.report_html_path = args.report
+        args.report_html_stylesheet_path = args.report_stylesheet
+
     executor_plugin = _get_executor_plugin_registry().get_plugin(args.executor)
     executor_settings = executor_plugin.get_settings(args)
 
@@ -1769,6 +1869,13 @@ def args_to_api(args, parser):
         name: StoragePluginRegistry().get_plugin(name).get_settings(args)
         for name in StoragePluginRegistry().get_registered_plugins()
     }
+
+    if args.reporter:
+        report_plugin = _get_report_plugin_registry().get_plugin(args.reporter)
+        report_settings = report_plugin.get_settings(args)
+    else:
+        report_plugin = None
+        report_settings = None
 
     if args.cores is None:
         if executor_plugin.common_settings.local_exec:
@@ -1799,6 +1906,8 @@ def args_to_api(args, parser):
             show_failed_logs=args.show_failed_logs,
             log_handlers=log_handlers,
             keep_logger=False,
+            stdout=args.dryrun,
+            benchmark_extended=args.benchmark_extended,
         )
     ) as snakemake_api:
         deployment_method = args.software_deployment_method
@@ -1813,10 +1922,13 @@ def args_to_api(args, parser):
             storage_settings = StorageSettings(
                 default_storage_provider=args.default_storage_provider,
                 default_storage_prefix=args.default_storage_prefix,
-                assume_shared_fs=not args.no_shared_fs,
+                local_storage_prefix=args.local_storage_prefix,
+                remote_job_local_storage_prefix=args.remote_job_local_storage_prefix,
+                shared_fs_usage=args.shared_fs_usage,
                 keep_storage_local=args.keep_storage_local_copies,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
+                unneeded_temp_files=args.unneeded_temp_files,
             )
 
             if args.deploy_sources:
@@ -1842,14 +1954,16 @@ def args_to_api(args, parser):
                         default_resources=args.default_resources,
                     ),
                     config_settings=ConfigSettings(
-                        config=args.config,
+                        config=parse_config(args.config),
                         configfiles=args.configfile,
+                        config_args=args.config,
                     ),
                     storage_settings=storage_settings,
                     storage_provider_settings=storage_provider_settings,
                     workflow_settings=WorkflowSettings(
                         wrapper_prefix=args.wrapper_prefix,
                         exec_mode=args.mode,
+                        cache=args.cache,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
@@ -1892,13 +2006,14 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
-                            cache=args.cache,
                         ),
                     )
 
+                    # None indicates that the flag is not being used, a set indicates used
                     if args.preemptible_rules is not None:
-                        if not preemptible_rules:
-                            # no specific rule given, consider all to be made preemptible
+                        # If no explicit rules provided (empty set) we assume all preemptible
+                        # Checking for "not" evaluates for an empty set
+                        if not args.preemptible_rules:
                             preemptible_rules = PreemptibleRules(all=True)
                         else:
                             preemptible_rules = PreemptibleRules(
@@ -1909,10 +2024,10 @@ def args_to_api(args, parser):
 
                     if args.containerize:
                         dag_api.containerize()
-                    elif args.report:
+                    elif report_plugin is not None:
                         dag_api.create_report(
-                            path=args.report,
-                            stylesheet=args.report_stylesheet,
+                            reporter=args.reporter,
+                            report_settings=report_settings,
                         )
                     elif args.generate_unit_tests:
                         dag_api.generate_unit_tests(args.generate_unit_tests)
@@ -1940,6 +2055,10 @@ def args_to_api(args, parser):
                         dag_api.container_cleanup_images()
                     elif args.list_changes:
                         dag_api.list_changes(args.list_changes)
+                    elif args.list_input_changes:
+                        dag_api.list_changes(ChangeType.INPUT)
+                    elif args.list_params_changes:
+                        dag_api.list_changes(ChangeType.PARAMS)
                     elif args.list_untracked:
                         dag_api.list_untracked()
                     elif args.summary:
@@ -1973,6 +2092,7 @@ def args_to_api(args, parser):
                                 keep_metadata=not args.drop_metadata,
                                 edit_notebook=edit_notebook,
                                 cleanup_scripts=not args.skip_script_cleanup,
+                                queue_input_wait_time=args.queue_input_wait_time,
                             ),
                             remote_execution_settings=RemoteExecutionSettings(
                                 jobname=args.jobname,
@@ -1984,6 +2104,7 @@ def args_to_api(args, parser):
                                 preemptible_rules=preemptible_rules,
                                 envvars=args.envvars,
                                 immediate_submit=args.immediate_submit,
+                                job_deploy_sources=args.job_deploy_sources,
                             ),
                             scheduling_settings=SchedulingSettings(
                                 prioritytargets=args.prioritize,
@@ -1992,6 +2113,11 @@ def args_to_api(args, parser):
                                 solver_path=args.scheduler_solver_path,
                                 greediness=args.scheduler_greediness,
                                 max_jobs_per_second=args.max_jobs_per_second,
+                            ),
+                            group_settings=GroupSettings(
+                                group_components=args.group_components,
+                                overwrite_groups=args.groups,
+                                local_groupid=args.local_groupid,
                             ),
                             executor_settings=executor_settings,
                         )

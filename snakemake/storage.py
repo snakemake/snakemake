@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Optional
+from typing import Any, List, Optional, Union
 from snakemake.io import flag
 from snakemake.workflow import Workflow
 from snakemake_interface_common.exceptions import WorkflowError
@@ -68,13 +68,14 @@ class StorageRegistry:
             final_settings = None
         else:
             final_settings = tagged_settings.get_settings(tag)
-        if final_settings is None:
+        if final_settings is None and plugin.settings_cls is not None:
             final_settings = plugin.settings_cls()
 
-        final_settings = copy.copy(final_settings)
-        final_settings.__dict__.update(**settings)
+        if final_settings is not None:
+            final_settings = copy.copy(final_settings)
+            final_settings.__dict__.update(**settings)
 
-        plugin.validate_settings(final_settings)
+            plugin.validate_settings(final_settings)
 
         name = tag if tag else plugin.name
 
@@ -114,13 +115,13 @@ class StorageRegistry:
             raise WorkflowError(
                 f"No storage provider found for query {query}. "
                 "Either install the required storage plugin or check your query. "
-                "Also consider to explictly specify the storage provider to get a more "
+                "Also consider to explicitly specify the storage provider to get a more "
                 "informative error message."
             )
         else:
             raise WorkflowError(
                 f"Multiple suitable storage providers found for query {query}: {', '.join(plugins)}. "
-                "Explictly specify the storage provider."
+                "Explicitly specify the storage provider."
             )
 
     def __getattribute__(self, name: str) -> Any:
@@ -143,11 +144,19 @@ class StorageRegistry:
 
     def _storage_object(
         self,
-        query: str,
+        query: Union[str, List[str]],
         provider: Optional[str] = None,
         retrieve: bool = True,
         keep_local: bool = False,
     ):
+        if isinstance(query, list):
+            return [
+                self._storage_object(
+                    q, provider=provider, retrieve=retrieve, keep_local=keep_local
+                )
+                for q in query
+            ]
+
         provider_name = provider
 
         if provider_name is None:
@@ -156,6 +165,14 @@ class StorageRegistry:
         provider = self._storages.get(provider_name)
         if provider is None:
             provider = self.register_storage(provider_name)
+
+        query_validity = provider.is_valid_query(query)
+        if not query_validity:
+            raise WorkflowError(
+                f"Error applying storage provider {provider_name} "
+                "(see https://snakemake.github.io/snakemake-plugin-catalog/plugins/"
+                f"storage/{provider}.html). {query_validity}"
+            )
 
         storage_object = provider.object(
             query, retrieve=retrieve, keep_local=keep_local

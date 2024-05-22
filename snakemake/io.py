@@ -7,10 +7,12 @@ from abc import ABC, abstractmethod
 import asyncio
 import collections
 import copy
+from dataclasses import dataclass, field
 import datetime
 import functools
 import json
 import os
+import queue
 import re
 import shutil
 import stat
@@ -18,13 +20,18 @@ import string
 import subprocess as sp
 import time
 from contextlib import contextmanager
+import string
+import collections
+import asyncio
+from typing import Callable
 from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, Set, Union, Sequence
+from typing import Any, Callable, Dict, List, Optional, Set, Union, Sequence
 
-from snakemake_interface_common.utils import not_iterable
+from snakemake_interface_common.utils import not_iterable, lchmod
+from snakemake_interface_common.utils import lutime as lutime_raw
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -32,8 +39,15 @@ from snakemake_interface_storage_plugins.io import (
     get_constant_prefix,
 )
 
-from snakemake.common import ON_WINDOWS, async_run
+from snakemake.common import (
+    ON_WINDOWS,
+    async_run,
+    get_function_params,
+    get_input_function_aux_params,
+    is_namedtuple_instance,
+)
 from snakemake.exceptions import (
+    InputOpenException,
     MissingOutputException,
     WildcardError,
     WorkflowError,
@@ -41,48 +55,13 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 
 
-def lutime(f, times):
-    # In some cases, we have a platform where os.supports_follow_symlink includes stat()
-    # but not utime().  This leads to an anomaly.  In any case we never want to touch the
-    # target of a link.
-    if os.utime in os.supports_follow_symlinks:
-        # ...utime is well behaved
-        os.utime(f, times, follow_symlinks=False)
-    elif not os.path.islink(f):
-        # ...symlinks not an issue here
-        os.utime(f, times)
-    else:
-        try:
-            # try the system command
-            if times:
-                fmt_time = lambda sec: datetime.fromtimestamp(sec).strftime(
-                    "%Y%m%d%H%M.%S"
-                )
-                atime, mtime = times
-                sp.check_call(["touch", "-h", f, "-a", "-t", fmt_time(atime)])
-                sp.check_call(["touch", "-h", f, "-m", "-t", fmt_time(mtime)])
-            else:
-                sp.check_call(["touch", "-h", f])
-        except sp.CalledProcessError:
-            pass
-        # ...problem system.  Do nothing.
+def lutime(file, times):
+    success = lutime_raw(file, times)
+    if not success:
         logger.warning(
-            "Unable to set utime on symlink {}. Your Python build does not support it.".format(
-                f
-            )
+            "Unable to set mtime without following symlink because it seems "
+            "unsupported by your system. Proceeding without."
         )
-        return None
-
-
-if os.chmod in os.supports_follow_symlinks:
-
-    def lchmod(f, mode):
-        os.chmod(f, mode, follow_symlinks=False)
-
-else:
-
-    def lchmod(f, mode):
-        os.chmod(f, mode)
 
 
 class AnnotatedStringInterface(ABC):
@@ -114,8 +93,11 @@ class ExistsDict(dict):
 
     def __contains__(self, path):
         # if already in inventory, always return True.
-        parent = path.get_inventory_parent()
-        return parent in self.has_inventory or super().__contains__(path)
+        if isinstance(path, _IOFile):
+            parent = path.get_inventory_parent()
+            return parent in self.has_inventory or super().__contains__(path)
+        else:
+            return super().__contains__(path)
 
 
 class IOCache(IOCacheStorageInterface):
@@ -172,9 +154,13 @@ class IOCache(IOCacheStorageInterface):
 
         for job in jobs:
             for f in chain(job.input, job.output):
-                if await f.exists():
+                if not f.is_storage and await f.exists():
                     queue.put_nowait(f)
-            if job.benchmark and await job.benchmark.exists():
+            if (
+                job.benchmark
+                and not job.benchmark.is_storage
+                and await job.benchmark.exists()
+            ):
                 queue.put_nowait(job.benchmark)
 
         # Send a stop item to each worker.
@@ -234,6 +220,8 @@ class _IOFile(str, AnnotatedStringInterface):
         is_callable = (
             isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
         )
+        if isinstance(file, Path):
+            file = str(file.as_posix())
         if not is_callable and file.endswith("/"):
             # remove trailing slashes
             stripped = file.rstrip("/")
@@ -272,7 +260,7 @@ class _IOFile(str, AnnotatedStringInterface):
             if self.is_storage and self not in cache.exists_in_storage:
                 # info not yet in inventory, let's discover as much as we can
                 tasks.append(self.storage_object.inventory(cache))
-            if not ON_WINDOWS and self not in cache.exists_local:
+            elif not ON_WINDOWS and self not in cache.exists_local:
                 # we don't want to mess with different path representations on windows
                 tasks.append(self._local_inventory(cache))
             await asyncio.gather(*tasks)
@@ -338,8 +326,18 @@ class _IOFile(str, AnnotatedStringInterface):
         """Open this file.
 
         This can (and should) be used in a `with`-statement.
+        If the file is a remote storage file, retrieve it first if necessary.
         """
-        f = open(self)
+        if not os.path.exists(self):
+            raise InputOpenException(self)
+        f = open(
+            self,
+            mode=mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
         try:
             yield f
         finally:
@@ -458,11 +456,24 @@ class _IOFile(str, AnnotatedStringInterface):
             and not os.path.islink(self.file)
         )
 
-    @iocache
     async def mtime(self):
-        return await self.mtime_uncached()
+        if self.rule.workflow.iocache.active:
+            cache = self.rule.workflow.iocache
+            if self in cache.mtime:
+                mtime = cache.mtime[self]
+                # if inventory is filled by storage plugin, mtime.local() will be None and
+                # needs update
+                if mtime.local() is None and await self.exists_local():
+                    mtime_local = await self.mtime_uncached(skip_storage=True)
+                    mtime._local_target = mtime_local._local_target
+                    mtime._local = mtime_local._local
+            else:
+                cache.mtime[self] = mtime = await self.mtime_uncached()
+            return mtime
+        else:
+            return await self.mtime_uncached()
 
-    async def mtime_uncached(self):
+    async def mtime_uncached(self, skip_storage: bool = False):
         """Obtain mtime.
 
         Usually, this will be one stat call only. For symlinks and directories
@@ -471,7 +482,9 @@ class _IOFile(str, AnnotatedStringInterface):
         location.
         """
         mtime_in_storage = (
-            (await self.storage_object.managed_mtime()) if self.is_storage else None
+            (await self.storage_object.managed_mtime())
+            if self.is_storage and not skip_storage
+            else None
         )
 
         # We first do a normal stat.
@@ -617,8 +630,12 @@ class _IOFile(str, AnnotatedStringInterface):
     async def retrieve_from_storage(self):
         if self.is_storage:
             if not self.should_not_be_retrieved_from_storage:
-                mtime = await self.mtime()
-                if not await self.exists_local() or mtime.local() < mtime.storage():
+
+                async def is_newer_in_storage():
+                    mtime = await self.mtime()
+                    return mtime.local() < mtime.storage()
+
+                if not await self.exists_local() or await is_newer_in_storage():
                     logger.info(f"Retrieving from storage: {self.storage_object.query}")
                     await self.storage_object.managed_retrieve()
                     logger.info("Finished retrieval.")
@@ -661,11 +678,13 @@ class _IOFile(str, AnnotatedStringInterface):
         # protect explicit output itself
         lchmod(self.file, mode)
 
-    async def remove(self, remove_non_empty_dir=False):
+    async def remove(self, remove_non_empty_dir=False, only_local=False):
         if self.is_directory:
-            await remove(self, remove_non_empty_dir=True)
+            await remove(self, remove_non_empty_dir=True, only_local=only_local)
         else:
-            await remove(self, remove_non_empty_dir=remove_non_empty_dir)
+            await remove(
+                self, remove_non_empty_dir=remove_non_empty_dir, only_local=only_local
+            )
 
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
@@ -730,12 +749,12 @@ class _IOFile(str, AnnotatedStringInterface):
             validation_res = storage_object.is_valid_query()
             if not validation_res:
                 raise WorkflowError(
-                    validation_res,
+                    str(validation_res),
                     rule=self.rule,
                 )
 
             file_with_wildcards_applied = IOFile(
-                str(storage_object.local_path()), rule=self.rule
+                storage_object.local_path(), rule=self.rule
             )
             file_with_wildcards_applied.clone_flags(self, skip_storage_object=True)
             file_with_wildcards_applied.flags["storage_object"] = storage_object
@@ -852,10 +871,12 @@ def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
 
 
 def flag(value, flag_type, flag_value=True):
-    if isinstance(value, AnnotatedString):
+    if isinstance(value, AnnotatedStringInterface):
         value.flags[flag_type] = flag_value
         return value
     if not_iterable(value):
+        if isinstance(value, Path):
+            value = str(value.as_posix())
         value = AnnotatedString(value)
         value.flags[flag_type] = flag_value
         return value
@@ -879,35 +900,46 @@ async def wait_for_files(
     """Wait for given files to be present in the filesystem."""
     files = list(files)
 
-    async def get_missing():
-        return [
-            f
-            for f in files
-            if not (
-                await f.exists_in_storage()
-                if (
-                    isinstance(f, _IOFile)
-                    and f.is_storage
-                    and (not wait_for_local or f.should_not_be_retrieved_from_storage)
-                )
-                else os.path.exists(f)
-                if not (
-                    (is_flagged(f, "pipe") or is_flagged(f, "service"))
-                    and ignore_pipe_or_service
-                )
-                else True
-            )
-        ]
+    async def get_missing(list_parent=False):
+        async def eval_file(f):
+            if (
+                is_flagged(f, "pipe") or is_flagged(f, "service")
+            ) and ignore_pipe_or_service:
+                return None
+            if (
+                isinstance(f, _IOFile)
+                and f.is_storage
+                and (not wait_for_local or f.should_not_be_retrieved_from_storage)
+            ):
+                if not await f.exists_in_storage():
+                    return f"{f} (missing in storage)"
+            elif not os.path.exists(f):
+                parent_dir = os.path.dirname(f)
+                if list_parent:
+                    parent_msg = (
+                        f" contents: {', '.join(os.listdir(parent_dir))}"
+                        if os.path.exists(parent_dir)
+                        else " not present"
+                    )
+                    return f"{f} (missing locally, parent dir{parent_msg})"
+                else:
+                    return f"{f} (missing locally)"
+            return None
+
+        return list(filter(None, [await eval_file(f) for f in files]))
 
     missing = await get_missing()
     if missing:
+        sleep = max(latency_wait / 10, 1)
+        before_time = time.time()
         logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
-        for _ in range(latency_wait):
+        while time.time() - before_time < latency_wait:
             missing = await get_missing()
+            logger.debug("still missing files, waiting...")
             if not missing:
                 return
-            time.sleep(1)
-        missing = "\n".join(await get_missing())
+            time.sleep(sleep)
+        missing = "\n".join(await get_missing(list_parent=True))
         raise IOError(
             f"Missing files after {latency_wait} seconds. This might be due to "
             "filesystem latency. If that is the case, consider to increase the "
@@ -928,8 +960,8 @@ def contains_wildcard_constraints(pattern):
     return any(match.group("constraint") for match in WILDCARD_REGEX.finditer(pattern))
 
 
-async def remove(file, remove_non_empty_dir=False):
-    if file.is_storage and file.should_not_be_retrieved_from_storage:
+async def remove(file, remove_non_empty_dir=False, only_local=False):
+    if not only_local and file.is_storage and file.should_not_be_retrieved_from_storage:
         if await file.exists_in_storage():
             await file.storage_object.managed_remove()
     elif os.path.isdir(file) and not os.path.islink(file):
@@ -973,7 +1005,7 @@ def regex_from_filepattern(filepattern):
             if match.group("constraint"):
                 raise ValueError(
                     "Constraint regex must be defined only in the first "
-                    "occurence of the wildcard in a string."
+                    "occurrence of the wildcard in a string."
                 )
             f.append(f"(?P={wildcard})")
         else:
@@ -1047,6 +1079,51 @@ def temp(value):
     return flag(value, "temp")
 
 
+@dataclass
+class QueueInfo:
+    queue: queue.Queue
+    finish_sentinel: Any
+    last_checked: Optional[float] = None
+    finished: bool = False
+    items: List[Any] = field(default_factory=list, init=False)
+
+    def consume(self, wildcards):
+        assert (
+            self.finished is False
+        ), "bug: queue marked as finished but consume method called again"
+
+        if wildcards:
+            raise WorkflowError("from_queue() may not be used in rules with wildcards.")
+
+        while True:
+            try:
+                item = self.queue.get_nowait()
+            except queue.Empty:
+                self.update_last_checked()
+                return self.items
+            self.queue.task_done()
+            if item is self.finish_sentinel:
+                logger.debug("finish sentinel found, stopping queue consumption")
+                self.finished = True
+                self.update_last_checked()
+                return self.items
+            self.items.append(item)
+
+    def update_last_checked(self):
+        self.last_checked = time.time()
+
+    def __hash__(self):
+        return hash(self.queue)
+
+
+def from_queue(queue, finish_sentinel=None):
+    if finish_sentinel is None:
+        raise WorkflowError("Please provide a finish sentinel to from_queue.")
+
+    queue_info = QueueInfo(queue, finish_sentinel)
+    return flag(queue_info.consume, "from_queue", queue_info)
+
+
 def pipe(value):
     if is_flagged(value, "protected"):
         raise SyntaxError("Pipes may not be protected.")
@@ -1105,7 +1182,7 @@ def sourcecache_entry(value, orig_path_or_uri):
 
     assert not isinstance(
         orig_path_or_uri, SourceFile
-    ), "bug: sourcecache_entry should recive a path or uri, not a SourceFile"
+    ), "bug: sourcecache_entry should receive a path or uri, not a SourceFile"
     return flag(value, "sourcecache_entry", orig_path_or_uri)
 
 
@@ -1154,7 +1231,7 @@ def local(value):
     return flag(value, "local")
 
 
-def expand(*args, **wildcards):
+def expand(*args, **wildcard_values):
     """
     Expand wildcards in given filepatterns.
 
@@ -1162,10 +1239,12 @@ def expand(*args, **wildcards):
     *args -- first arg: filepatterns as list or one single filepattern,
         second arg (optional): a function to combine wildcard values
         (itertools.product per default)
-    **wildcards -- the wildcards as keyword arguments
+    **wildcard_values -- the wildcards as keyword arguments
         with their values as lists. If allow_missing=True is included
         wildcards in filepattern without values will stay unformatted.
     """
+    from snakemake.path_modifier import PATH_MODIFIER_FLAG
+
     filepatterns = args[0]
     if len(args) == 1:
         combinator = product
@@ -1181,16 +1260,23 @@ def expand(*args, **wildcards):
 
     filepatterns = list(map(path_to_str, filepatterns))
 
-    if any(map(lambda f: getattr(f, "flags", {}), filepatterns)):
-        raise WorkflowError(
-            "Flags in file patterns given to expand() are invalid. "
-            "Flags (e.g. temp(), directory()) have to be applied outside "
-            "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
-        )
+    # check if there are any flags defined
+    for filepattern in filepatterns:
+        filepattern_flags = {
+            key: value
+            for key, value in getattr(filepattern, "flags", {}).items()
+            if key != PATH_MODIFIER_FLAG
+        }
+        if filepattern_flags:
+            raise WorkflowError(
+                f"Flags ({filepattern_flags}) in file pattern '{filepattern}' given to expand() are invalid. "
+                "Flags (e.g. temp(), directory()) have to be applied outside "
+                "of expand (e.g. 'temp(expand(\"plots/{sample}.pdf\", sample=SAMPLES))')."
+            )
 
     # check if remove missing is provided
     format_dict = dict
-    if "allow_missing" in wildcards and wildcards["allow_missing"] is True:
+    if "allow_missing" in wildcard_values and wildcard_values["allow_missing"] is True:
 
         class FormatDict(dict):
             def __missing__(self, key):
@@ -1203,43 +1289,82 @@ def expand(*args, **wildcards):
                 format_dict = dict
                 break
 
-    # raise error if function is passed as value for any wildcard
-    for key, value in wildcards.items():
-        if callable(value):
-            raise WorkflowError(
-                f"Callable/function {value} is passed as value for {key} in 'expand' statement. "
-                "This is most likely not what you want, as expand takes iterables of values or single values for "
-                "its arguments. If you want to use a function to generate the values, you can wrap the entire "
-                "expand in another function that does the computation."
-            )
+    callables = {
+        key: value
+        for key, value in wildcard_values.items()
+        if callable(value)
+        or (isinstance(value, List) and any(callable(v) for v in value))
+    }
 
     # remove unused wildcards to avoid duplicate filepatterns
-    wildcards = {
+    wildcard_values = {
         filepattern: {
             k: v
-            for k, v in wildcards.items()
+            for k, v in wildcard_values.items()
             if k in re.findall(r"{([^}\.[!:]+)", filepattern)
         }
         for filepattern in filepatterns
     }
 
-    def flatten(wildcards):
-        for wildcard, values in wildcards.items():
-            if isinstance(values, str) or not isinstance(
-                values, collections.abc.Iterable
-            ):
-                values = [values]
-            yield [(wildcard, value) for value in values]
+    def do_expand(wildcard_values):
+        def flatten(wildcard_values):
+            for wildcard, values in wildcard_values.items():
+                if (
+                    isinstance(values, str)
+                    or not isinstance(values, collections.abc.Iterable)
+                    or is_namedtuple_instance(values)
+                ):
+                    values = [values]
+                yield [(wildcard, value) for value in values]
 
-    formatter = string.Formatter()
-    try:
-        return [
-            formatter.vformat(filepattern, (), comb)
-            for filepattern in filepatterns
-            for comb in map(format_dict, combinator(*flatten(wildcards[filepattern])))
-        ]
-    except KeyError as e:
-        raise WildcardError(f"No values given for wildcard {e}.")
+        # string.Formatter does not fully support AnnotatedString (flags are discarded)
+        # so, if they exist, need to be copied
+        def copy_flags(from_path, dest_path):
+            if hasattr(from_path, "flags"):
+                dest_path = AnnotatedString(dest_path)
+                dest_path.flags.update(from_path.flags)
+            return dest_path
+
+        formatter = string.Formatter()
+        try:
+            return [
+                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))
+                for filepattern in filepatterns
+                for comb in map(
+                    format_dict, combinator(*flatten(wildcard_values[filepattern]))
+                )
+            ]
+        except KeyError as e:
+            raise WildcardError(f"No values given for wildcard {e}.")
+
+    if callables:
+        # defer expansion and return a function that does the expansion once it is called with
+        # the usual arguments (wildcards, [input, ])
+        def inner(wildcards, **aux_params):
+            for wildcard, func_or_list_of_func in callables.items():
+
+                def get_func_ret(func):
+                    func_aux_params = get_input_function_aux_params(func, aux_params)
+                    return func(wildcards, **func_aux_params)
+
+                if callable(func_or_list_of_func):
+                    ret = get_func_ret(func_or_list_of_func)
+                else:
+                    ret = []
+                    for maybe_func in func_or_list_of_func:
+                        if callable(maybe_func):
+                            item_ret = get_func_ret(maybe_func)
+                        else:
+                            item_ret = maybe_func
+                        ret.append(item_ret)
+                # store result for all filepatterns that need it
+                for pattern_values in wildcard_values.values():
+                    pattern_values[wildcard] = ret
+            return do_expand(wildcard_values)
+
+        return inner
+    else:
+        return do_expand(wildcard_values)
 
 
 def multiext(prefix, *extensions):
@@ -1408,9 +1533,15 @@ class Namedlist(list):
             elif plainstr:
                 self.extend(
                     # use original query if storage is not retrieved by snakemake
-                    (x if x.storage_object.retrieve else x.storage_object.query)
-                    if isinstance(x, _IOFile) and x.storage_object is not None
-                    else str(x)
+                    (
+                        (
+                            str(x)
+                            if x.storage_object.retrieve
+                            else x.storage_object.query
+                        )
+                        if isinstance(x, _IOFile) and x.storage_object is not None
+                        else str(x)
+                    )
                     for x in toclone
                 )
             elif strip_constraints:
@@ -1466,6 +1597,14 @@ class Namedlist(list):
             setattr(self, name, self[index])
         else:
             setattr(self, name, Namedlist(toclone=self[index:end]))
+
+    def update(self, items: Dict):
+        for key, value in items.items():
+            if key in self._names:
+                raise ValueError(f"Key {key} already exists in Namedlist")
+            else:
+                self.append(value)
+                self._add_name(key)
 
     def _get_names(self):
         """

@@ -86,38 +86,39 @@ class ColorizingStreamHandler(_logging.StreamHandler):
 
 class SlackLogger:
     def __init__(self):
-        from slacker import Slacker
+        from slack_sdk import WebClient
 
         self.token = os.getenv("SLACK_TOKEN")
         if not self.token:
             print(
-                "The use of slack logging requires the user to set a user specific slack legacy token to the SLACK_TOKEN environment variable. Set this variable by 'export SLACK_TOKEN=your_token'. To generate your token please visit https://api.slack.com/custom-integrations/legacy-tokens."
+                "The use of slack logging requires the user to set a user specific slack User OAuth token to the SLACK_TOKEN environment variable. Set this variable by 'export SLACK_TOKEN=your_token'. To generate your token please visit https://api.slack.com/authentication/token-types#user."
             )
             exit(-1)
-        self.slack = Slacker(self.token)
+        self.slack = WebClient(self.token)
         # Check for success
         try:
-            auth = self.slack.auth.test().body
+            auth = self.slack.auth_test().data
         except Exception:
             print(
-                "Slack connection failed. Please compare your provided slack token exported in the SLACK_TOKEN environment variable with your online token at https://api.slack.com/custom-integrations/legacy-tokens. A different token can be set up by 'export SLACK_TOKEN=your_token'."
+                "Slack connection failed. Please compare your provided slack token exported in the SLACK_TOKEN environment variable with your online token (app). This token can be tested at https://api.slack.com/methods/auth.test/test. A different token can be set up by 'export SLACK_TOKEN=your_token'."
             )
             exit(-1)
         self.own_id = auth["user_id"]
         self.error_occured = False
+        self.slack.chat_postMessage(
+            channel=self.own_id, text="Snakemake has connected."
+        )
 
     def log_handler(self, msg):
-        if msg["level"] == "error" and not self.error_occured:
-            self.slack.chat.post_message(
-                self.own_id, text="At least one error occured.", username="snakemake"
+        if "error" in msg["level"] and not self.error_occured:
+            self.slack.chat_postMessage(
+                channel=self.own_id, text="At least one error occurred."
             )
             self.error_occured = True
 
         if msg["level"] == "progress" and msg["done"] == msg["total"]:
             # workflow finished
-            self.slack.chat.post_message(
-                self.own_id, text="Workflow complete.", username="snakemake"
-            )
+            self.slack.chat_postMessage(channel=self.own_id, text="Workflow complete.")
 
 
 class WMSLogger:
@@ -134,7 +135,9 @@ class WMSLogger:
         from snakemake.resources import DefaultResources
 
         self.address = address or "http:127.0.0.1:5000"
-        self.args = map(DefaultResources.decode_arg, args) if args else []
+        self.args = list(map(DefaultResources.decode_arg, args)) if args else []
+        self.args = {item[0]: item[1] for item in list(self.args)}
+
         self.metadata = metadata or {}
 
         # A token is suggested but not required, depends on server
@@ -181,7 +184,6 @@ class WMSLogger:
 
         # Prepare a request that has metadata about the job
         metadata = {
-            "snakefile": os.path.join(workdir, self.metadata.get("snakefile")),
             "command": self.metadata.get("command"),
             "workdir": workdir,
         }
@@ -190,14 +192,33 @@ class WMSLogger:
             f"{self.address}/create_workflow",
             headers=self._headers,
             params=self.args,
-            data=json.dumps(metadata),
+            data=metadata,
         )
+
+        # Extract the id from the response
+        id = response.json()["id"]
 
         # Check the response, will exit on any error
         self.check_response(response, "/create_workflow")
 
         # Provide server parameters to the logger
-        self.server = {"url": self.address, "id": response.json()["id"]}
+        headers = (
+            {"Content-Type": "application/json"}
+            if self._headers is None
+            else {**self._headers, **{"Content-Type": "application/json"}}
+        )
+
+        # Send the workflow name to the server
+        response_change_workflow_name = requests.put(
+            f"{self.address }/api/workflow/{id}",
+            headers=headers,
+            data=json.dumps(self.args),
+        )
+        # Check the response, will exit on any error
+        self.check_response(response_change_workflow_name, f"/api/workflow/{id}")
+
+        # Provide server parameters to the logger
+        self.server = {"url": self.address, "id": id}
 
     def check_response(self, response, endpoint="wms monitor request"):
         """A helper function to take a response and check for an expected set of
@@ -205,7 +226,6 @@ class WMSLogger:
         denied), 500 (server error) and 200 (success).
         """
         status_code = response.status_code
-
         # Cut out early on success
         if status_code == 200:
             return
@@ -243,7 +263,7 @@ class WMSLogger:
     def _parse_message(self, msg):
         """Given a message dictionary, we want to loop through the key, value
         pairs and convert some attributes to strings (e.g., jobs are fine to be
-        represnted as names) and return a dictionary.
+        represented as names) and return a dictionary.
         """
         result = {}
         for key, value in msg.items():
@@ -281,9 +301,7 @@ class WMSLogger:
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
-        response = requests.post(
-            url, data=json.dumps(server_info), headers=self._headers
-        )
+        response = requests.post(url, data=server_info, headers=self._headers)
         self.check_response(response, "/update_workflow_status")
 
 
@@ -488,6 +506,9 @@ class Logger:
                 except FileNotFoundError:
                     yield f"Logfile {f} not found."
                     return
+                except UnicodeDecodeError:
+                    yield f"Logfile {f} is not a text file."
+                    return
                 lines = content.splitlines()
                 logfile_header = f"Logfile {f}:"
                 if not lines:
@@ -683,7 +704,7 @@ def format_resource_names(resources, omit_resources="_cores _nodes".split()):
 
 
 def format_percentage(done, total):
-    """Format percentage from given fraction while avoiding superflous precision."""
+    """Format percentage from given fraction while avoiding superfluous precision."""
     if done == total:
         return "100%"
     if done == 0:
@@ -728,7 +749,7 @@ def setup_logger(
             quiet = set()
     elif not isinstance(quiet, set):
         raise ValueError(
-            "Unsupported value provided for quiet mode (either bool, None or list allowed)."
+            "Unsupported value provided for quiet mode (either bool, None or set allowed)."
         )
 
     logger.log_handler.extend(handler)

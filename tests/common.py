@@ -19,10 +19,12 @@ import glob
 import subprocess
 import tarfile
 
+from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 from snakemake import api, settings
 from snakemake.common import ON_WINDOWS
+from snakemake.report.html_reporter import ReportSettings
 from snakemake.resources import ResourceScopes
 
 
@@ -191,11 +193,14 @@ def run(
     omit_from=frozenset(),
     forcerun=frozenset(),
     conda_list_envs=False,
+    conda_create_envs=False,
     conda_prefix=None,
     wrapper_prefix=None,
     printshellcmds=False,
     default_storage_provider=None,
     default_storage_prefix=None,
+    local_storage_prefix=Path(".snakemake/storage"),
+    remote_job_local_storage_prefix=None,
     archive=None,
     cluster=None,
     cluster_status=None,
@@ -220,6 +225,8 @@ def run(
     cleanup_metadata=None,
     rerun_triggers=settings.RerunTrigger.all(),
     storage_provider_settings=None,
+    shared_fs_usage=None,
+    benchmark_extended=False,
 ):
     """
     Test the Snakefile in the path.
@@ -244,9 +251,10 @@ def run(
     results_dir = join(path, "expected-results")
     original_snakefile = join(path, snakefile)
     assert os.path.exists(original_snakefile)
-    assert os.path.exists(results_dir) and os.path.isdir(
-        results_dir
-    ), "{} does not exist".format(results_dir)
+    if check_results:
+        assert os.path.exists(results_dir) and os.path.isdir(
+            results_dir
+        ), "{} does not exist".format(results_dir)
 
     # If we need to further check results, we won't cleanup tmpdir
     tmpdir = next(tempfile._get_candidate_names())
@@ -272,7 +280,7 @@ def run(
         shellcmd = "{} -m {}".format(sys.executable, shellcmd)
         try:
             if sigint_after is None:
-                subprocess.run(
+                res = subprocess.run(
                     shellcmd,
                     cwd=path if no_tmpdir else tmpdir,
                     check=True,
@@ -280,6 +288,7 @@ def run(
                     stderr=subprocess.STDOUT,
                     stdout=subprocess.PIPE,
                 )
+                print(res.stdout.decode())
                 success = True
             else:
                 with subprocess.Popen(
@@ -292,6 +301,8 @@ def run(
                     process.send_signal(signal.SIGINT)
                     time.sleep(2)
                     success = process.returncode == 0
+                    if success:
+                        print(process.stdout.read().decode())
         except subprocess.CalledProcessError as e:
             success = False
             print(e.stdout.decode(), file=sys.stderr)
@@ -305,6 +316,9 @@ def run(
                 submit_cmd=cluster, status_cmd=cluster_status
             )
             nodes = 3
+
+        if shared_fs_usage is None:
+            shared_fs_usage = SharedFSUsage.all()
 
         success = True
 
@@ -339,10 +353,14 @@ def run(
                         default_storage_provider=default_storage_provider,
                         default_storage_prefix=default_storage_prefix,
                         all_temp=all_temp,
+                        shared_fs_usage=shared_fs_usage,
+                        local_storage_prefix=local_storage_prefix,
+                        remote_job_local_storage_prefix=remote_job_local_storage_prefix,
                     ),
                     storage_provider_settings=storage_provider_settings,
                     workflow_settings=settings.WorkflowSettings(
                         wrapper_prefix=wrapper_prefix,
+                        cache=cache,
                     ),
                     deployment_settings=settings.DeploymentSettings(
                         conda_frontend=conda_frontend,
@@ -361,7 +379,6 @@ def run(
                         forcerun=forcerun,
                         batch=batch,
                         force_incomplete=force_incomplete,
-                        cache=cache,
                         forceall=forceall,
                         rerun_triggers=rerun_triggers,
                     ),
@@ -370,9 +387,15 @@ def run(
                 if report is not None:
                     if report_stylesheet is not None:
                         report_stylesheet = Path(report_stylesheet)
-                    dag_api.create_report(
-                        path=Path(report), stylesheet=report_stylesheet
+                    report_settings = ReportSettings(
+                        path=Path(report), stylesheet_path=report_stylesheet
                     )
+                    dag_api.create_report(
+                        reporter="html",
+                        report_settings=report_settings,
+                    )
+                elif conda_create_envs:
+                    dag_api.conda_create_envs()
                 elif conda_list_envs:
                     dag_api.conda_list_envs()
                 elif archive is not None:

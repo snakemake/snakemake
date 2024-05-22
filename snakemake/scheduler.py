@@ -12,6 +12,7 @@ import threading
 from functools import partial
 from itertools import chain, accumulate
 from contextlib import ContextDecorator
+import time
 
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -91,6 +92,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._finished = False
         self._job_queue = None
         self._last_job_selection_empty = False
+        self._last_update_queue_input_jobs = 0
         self.submit_callback = self._noop
         self.finish_callback = self._proceed
 
@@ -184,6 +186,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """Schedule jobs that are ready, maximizing cpu usage."""
         try:
             while True:
+                if self.workflow.dag.queue_input_jobs:
+                    self.update_queue_input_jobs()
                 # work around so that the wait does not prevent keyboard interrupts
                 # while not self._open_jobs.acquire(False):
                 #    time.sleep(1)
@@ -218,9 +222,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     continue
 
                 # all runnable jobs have finished, normal shutdown
-                if not needrun and (
-                    not running
-                    or self.workflow.remote_execution_settings.immediate_submit
+                if (
+                    not needrun
+                    and (
+                        not running
+                        or self.workflow.remote_execution_settings.immediate_submit
+                    )
+                    and not self.workflow.dag.has_unfinished_queue_input_jobs()
                 ):
                     self._executor.shutdown()
                     if errors:
@@ -241,6 +249,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                 # continue if no new job needs to be executed
                 if not needrun:
+                    if self.workflow.dag.has_unfinished_queue_input_jobs():
+                        logger.info("Waiting for queue input...")
+                        # schedule a reevaluation in 10 seconds
+                        threading.Timer(
+                            self.workflow.execution_settings.queue_input_wait_time,
+                            lambda: self._open_jobs.release(),
+                        ).start()
                     continue
 
                 # select jobs by solving knapsack problem (omit with dryrun)
@@ -276,15 +291,31 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     # remove from ready_jobs
                     self.workflow.dag.register_running(run)
 
-                # actually run jobs
-                local_runjobs = [job for job in run if job.is_local]
-                runjobs = [job for job in run if not job.is_local]
-                if local_runjobs:
-                    self.run(
-                        local_runjobs, executor=self._local_executor or self._executor
-                    )
-                if runjobs:
-                    self.run(runjobs)
+                if run:
+                    logger.info(f"Execute {len(run)} jobs...")
+
+                    # actually run jobs
+                    local_runjobs = [job for job in run if job.is_local]
+                    runjobs = [job for job in run if not job.is_local]
+                    if local_runjobs:
+                        if (
+                            not self.workflow.remote_exec
+                            and not self.workflow.local_exec
+                        ):
+                            # Workflow uses a remote plugin and this scheduling run
+                            # is on the main process. Hence, we have to download
+                            # non-shared remote files for the local jobs.
+                            async_run(
+                                self.workflow.dag.retrieve_storage_inputs(
+                                    jobs=local_runjobs, also_missing_internal=True
+                                )
+                            )
+                        self.run(
+                            local_runjobs,
+                            executor=self._local_executor or self._executor,
+                        )
+                    if runjobs:
+                        self.run(runjobs)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
@@ -301,9 +332,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     try:
                         if self.workflow.exec_mode == ExecMode.DEFAULT:
                             await job.postprocess(
-                                store_in_storage=True,
+                                store_in_storage=not self.touch,
                                 handle_log=True,
-                                handle_touch=True,
+                                handle_touch=not self.touch,
                                 ignore_missing_output=self.touch,
                             )
                         elif self.workflow.exec_mode == ExecMode.SUBPROCESS:
@@ -314,6 +345,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             )
                         else:
                             await job.postprocess(
+                                # storage upload will be done after all jobs of
+                                # this remote job (e.g. in case of group) are finished
+                                # DAG.store_storage_outputs()
                                 store_in_storage=False,
                                 handle_log=True,
                                 handle_touch=True,
@@ -332,6 +366,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 if self.update_resources:
                     # normal jobs have len=1, group jobs have len>1
                     self.finished_jobs += len(job)
+                    logger.debug(
+                        f"jobs registered as running before removal {self.running}"
+                    )
                     self.running.remove(job)
                     self._free_resources(job)
 
@@ -350,6 +387,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
         async_run(postprocess())
         self._tofinish.clear()
+
+    def update_queue_input_jobs(self):
+        currtime = time.time()
+        if currtime - self._last_update_queue_input_jobs >= 10:
+            self._last_update_queue_input_jobs = currtime
+            async_run(self.workflow.dag.update_queue_input_jobs())
 
     def _error_jobs(self):
         # must be called from within lock
@@ -602,7 +645,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             )
         try:
             solver = (
-                pulp.get_solver(self.workflow.scheduling_settings.ilp_solver)
+                pulp.getSolver(self.workflow.scheduling_settings.ilp_solver)
                 if self.workflow.scheduling_settings.ilp_solver
                 else pulp.apis.LpSolverDefault
             )

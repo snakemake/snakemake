@@ -1,5 +1,7 @@
 import sys, os, subprocess
 
+from snakemake.executors import local
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import *
@@ -22,13 +24,13 @@ def test_deploy_sources(s3_storage):
             storage_settings=settings.StorageSettings(
                 default_storage_prefix=s3_prefix,
                 default_storage_provider="s3",
-                assume_shared_fs=False,
+                shared_fs_usage=frozenset(),
             ),
             resource_settings=settings.ResourceSettings(
                 cores=1,
             ),
             storage_provider_settings=s3_settings,
-            snakefile=Path(dpath("test01/Snakefile")),
+            snakefile=Path(dpath("test_deploy_sources/Snakefile")),
         )
         dag_api = workflow_api.dag()
 
@@ -44,7 +46,7 @@ def test_deploy_sources(s3_storage):
         workflow._build_dag()
         workflow.upload_sources()
 
-        cmd = workflow.spawned_job_args_factory.precommand()
+        cmd = workflow.spawned_job_args_factory.precommand(local.common_settings)
         assert cmd
 
         origdir = os.getcwd()

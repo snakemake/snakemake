@@ -4,9 +4,10 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from dataclasses import dataclass
+import sys
 import textwrap
 import tokenize
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Callable, Dict, Generator, List, Optional
 
 import snakemake
 from snakemake import common, sourcecache, workflow
@@ -61,6 +62,10 @@ def is_string(token):
     return token.type == tokenize.STRING
 
 
+def is_fstring_start(token):
+    return sys.version_info >= (3, 12) and token.type == tokenize.FSTRING_START
+
+
 def is_eof(token):
     return token.type == tokenize.ENDMARKER
 
@@ -81,7 +86,7 @@ class TokenAutomaton:
     def __init__(self, snakefile: "Snakefile", base_indent=0, dedent=0, root=True):
         self.root = root
         self.snakefile = snakefile
-        self.state = None
+        self.state: Callable[[tokenize.TokenInfo], Generator] = None  # type: ignore
         self.base_indent = base_indent
         self.line = 0
         self.indent = 0
@@ -102,11 +107,37 @@ class TokenAutomaton:
             self.indent = token.end[1] - self.base_indent
             self.was_indented |= self.indent > 0
 
+    def parse_fstring(self, token: tokenize.TokenInfo):
+        # only for python >= 3.12, since then python changed the
+        # parsing manner of f-string, see
+        # [pep-0701](https://peps.python.org/pep-0701)
+        isin_fstring = 1
+        t = token.string
+        for t1 in self.snakefile:
+            if t1.type == tokenize.FSTRING_START:
+                isin_fstring += 1
+                t += t1.string
+            elif t1.type == tokenize.FSTRING_END:
+                isin_fstring -= 1
+                t += t1.string
+            elif t1.type == tokenize.FSTRING_MIDDLE:
+                t += t1.string.replace("{", "{{").replace("}", "}}")
+            else:
+                t += t1.string
+            if isin_fstring == 0:
+                break
+        if hasattr(self, "cmd") and self.cmd[-1][1] == token:
+            self.cmd[-1] = t, token
+        return t
+
     def consume(self):
         for token in self.snakefile:
             self.indentation(token)
             try:
                 for t, orig in self.state(token):
+                    # python >= 3.12 only
+                    if is_fstring_start(token):
+                        t = self.parse_fstring(token)
                     if self.lasttoken == "\n" and not t.isspace():
                         yield INDENT * self.effective_indent, orig
                     yield t, orig
@@ -146,6 +177,7 @@ class TokenAutomaton:
 
 class KeywordState(TokenAutomaton):
     prefix = ""
+    start: Callable[[], Generator[str, None, None]]
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -535,10 +567,10 @@ class AbstractCmd(Run):
         super().__init__(
             snakefile, rulename, base_indent=base_indent, dedent=dedent, root=root
         )
-        self.cmd = list()
+        self.cmd: list[tuple[str, tokenize.TokenInfo]] = []
         self.token = None
         if self.overwrite_cmd is not None:
-            self.block_content = self.overwrite_block_content
+            self.block_content = self.overwrite_block_content  # type: ignore
 
     def is_block_end(self, token):
         return (self.line and self.indent <= 0) or is_eof(token)
@@ -552,7 +584,7 @@ class AbstractCmd(Run):
         yield from []
 
     def end(self):
-        # the end is detected. So we can savely reset the indent to zero here
+        # the end is detected. So we can safely reset the indent to zero here
         self.indent = 0
         yield "\n"
         yield ")"
@@ -563,7 +595,7 @@ class AbstractCmd(Run):
         yield INDENT * (self.effective_indent + 1)
         yield self.end_func
         yield "("
-        yield "\n".join(self.cmd)
+        yield from self.cmd
         yield from self.args()
         yield "\n"
         yield ")"
@@ -576,19 +608,18 @@ class AbstractCmd(Run):
             self.error(
                 "Command must be given as string after the shell keyword.", token
             )
-        for t in self.end():
-            yield t, self.token
+        yield from super().decorate_end(self.token)
 
     def block_content(self, token):
         self.token = token
-        self.cmd.append(token.string)
+        self.cmd.append((token.string, token))
         yield token.string, token
 
     def overwrite_block_content(self, token):
         if self.token is None:
             self.token = token
             cmd = repr(self.overwrite_cmd)
-            self.cmd.append(cmd)
+            self.cmd.append((cmd, token))
             yield cmd, token
 
 
@@ -723,7 +754,7 @@ class Rule(GlobalKeywordState):
             for t in self.subautomaton("run", rulename=self.rulename).start():
                 yield t
             # the end is detected.
-            # So we can savely reset the indent to zero here
+            # So we can safely reset the indent to zero here
             self.indent = 0
             yield "\n"
             yield INDENT * (self.effective_indent + 1)
@@ -963,7 +994,7 @@ class UseRule(GlobalKeywordState):
             rulename = "__allrules__"
         yield f"def __userule_{self.from_module}_{rulename}():"
         # the end is detected.
-        # So we can savely reset the indent to zero here
+        # So we can safely reset the indent to zero here
         self.indent = 0
         yield "\n"
         yield INDENT * (self.effective_indent + 1)
@@ -1256,11 +1287,10 @@ def format_tokens(tokens) -> Generator[str, None, None]:
         t_ = t
 
 
-def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
+def parse(path, workflow, linemap, overwrite_shellcmd=None, rulecount=0):
     Shell.overwrite_cmd = overwrite_shellcmd
     with Snakefile(path, workflow, rulecount=rulecount) as snakefile:
         automaton = Python(snakefile)
-        linemap = dict()
         compilation = list()
         for t, orig_token in automaton.consume():
             l = lineno(orig_token)
@@ -1274,8 +1304,8 @@ def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
             )
             snakefile.lines += t.count("\n")
             compilation.append(t)
-        compilation = "".join(format_tokens(compilation))
-        if linemap:
-            last = max(linemap)
-            linemap[last + 1] = linemap[last]
-        return compilation, linemap, snakefile.rulecount
+    join_compilation = "".join(format_tokens(compilation))
+    if linemap:
+        last = max(linemap)
+        linemap[last + 1] = linemap[last]
+    return join_compilation, snakefile.rulecount

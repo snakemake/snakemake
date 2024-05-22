@@ -44,12 +44,14 @@ from snakemake.io import (
     ReportObject,
 )
 from snakemake.exceptions import (
+    InputOpenException,
     RuleException,
     IOFileException,
     WildcardError,
     InputFunctionException,
     WorkflowError,
     IncompleteCheckpointException,
+    is_file_not_found_error,
 )
 from snakemake.logging import logger
 from snakemake.common import (
@@ -198,7 +200,7 @@ class Rule(RuleInterface):
         )
 
     def check_caching(self):
-        if self.name in self.workflow.cache_rules:
+        if self.workflow.cache_rules.get(self.name):
             if len(self.output) == 0:
                 raise RuleException(
                     "Rules without output files cannot be cached.", rule=self
@@ -207,7 +209,8 @@ class Rule(RuleInterface):
                 prefixes = set(out.multiext_prefix for out in self.output)
                 if None in prefixes or len(prefixes) > 1:
                     raise RuleException(
-                        "Rules with multiple output files must define them as a single multiext() "
+                        "Rules marked as eligible for caching that have with multiple "
+                        "output files must define them as a single multiext() "
                         '(e.g. multiext("path/to/index", ".bwt", ".ann")). '
                         "The rationale is that multiple output files can only be unambiously resolved "
                         "if they can be distinguished by a fixed set of extensions (i.e. mime types).",
@@ -367,7 +370,7 @@ class Rule(RuleInterface):
 
             newitem = None
             if item.is_storage:
-                storage_object = copy.copy(item.storage_object.clone())
+                storage_object = copy.copy(item.storage_object)
                 storage_object.query = self._update_item_wildcard_constraints(
                     storage_object.query
                 )
@@ -405,7 +408,7 @@ class Rule(RuleInterface):
 
         # Check to see if the item is a path, if so, just make it a string
         if isinstance(item, Path):
-            item = str(item)
+            item = str(item.as_posix())
         if isinstance(item, str):
             if ON_WINDOWS:
                 if isinstance(item, (_IOFile, AnnotatedString)):
@@ -439,13 +442,14 @@ class Rule(RuleInterface):
                         "pipe",
                         "service",
                         "ensure",
+                        "update",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
                                 item_flag, self
                             )
                         )
-                    if output and item_flag in ["ancient"]:
+                    if output and item_flag in ["ancient", "before_update"]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(
                                 item_flag, self
@@ -596,7 +600,6 @@ class Rule(RuleInterface):
         groupid=None,
         **aux_params,
     ):
-        incomplete = False
         if isinstance(func, _IOFile):
             func = func._file.callable
         elif isinstance(func, AnnotatedString):
@@ -619,30 +622,52 @@ class Rule(RuleInterface):
             if callable(value):
                 _aux_params[name] = value()
 
-        try:
-            value = func(Wildcards(fromdict=wildcards), **_aux_params)
-            if isinstance(value, types.GeneratorType):
-                # generators should be immediately collected here,
-                # otherwise we would miss any exceptions and
-                # would have to capture them again later.
-                value = list(value)
-        except IncompleteCheckpointException as e:
-            value = incomplete_checkpoint_func(e)
-            incomplete = True
-        except FileNotFoundError as e:
-            # Function evaluation can depend on input files. Since expansion can happen during dryrun,
-            # where input files are not yet present, we need to skip such cases and
-            # mark them as <TBD>.
-            if "input" in aux_params and e.filename in aux_params["input"]:
-                value = TBDString()
-            else:
+        wildcards_arg = Wildcards(fromdict=wildcards)
+
+        def apply_func(func):
+            incomplete = False
+            try:
+                value = func(wildcards_arg, **_aux_params)
+                if isinstance(value, types.GeneratorType):
+                    # generators should be immediately collected here,
+                    # otherwise we would miss any exceptions and
+                    # would have to capture them again later.
+                    value = list(value)
+            except IncompleteCheckpointException as e:
+                value = incomplete_checkpoint_func(e)
+                incomplete = True
+            except InputOpenException as e:
+                e.rule = self
                 raise e
-        except BaseException as e:
-            if raw_exceptions:
-                raise e
-            else:
-                raise InputFunctionException(e, rule=self, wildcards=wildcards)
-        return value, incomplete
+            except Exception as e:
+                if "input" in aux_params and is_file_not_found_error(
+                    e, aux_params["input"]
+                ):
+                    # Function evaluation can depend on input files. Since expansion can happen during dryrun,
+                    # where input files are not yet present, we need to skip such cases and
+                    # mark them as <TBD>.
+                    value = TBDString()
+                elif raw_exceptions:
+                    raise e
+                else:
+                    raise InputFunctionException(e, rule=self, wildcards=wildcards)
+            return value, incomplete
+
+        res = func
+        tries = 0
+        while (callable(res) or tries == 0) and tries < 10:
+            res, incomplete = apply_func(res)
+            tries += 1
+        if tries == 10:
+            raise WorkflowError(
+                "Evaluated 10 nested input functions (i.e. input functions that "
+                "themselves return an input function.). More than 10 such nested "
+                "evaluations are not allowed. Does the workflow accidentally return a "
+                "function instead of calling it in the input function?",
+                rule=self,
+            )
+
+        return res, incomplete
 
     def _apply_wildcards(
         self,
@@ -665,6 +690,7 @@ class Rule(RuleInterface):
         if aux_params is None:
             aux_params = dict()
         for name, item in olditems._allitems():
+            olditem = item
             start = len(newitems)
             is_unpack = is_flagged(item, "unpack")
             _is_callable = is_callable(item)
@@ -720,8 +746,10 @@ class Rule(RuleInterface):
                         and not isinstance(item_, str)
                         and not isinstance(item_, Path)
                     ):
-                        raise WorkflowError(
-                            "Function did not return str or list of str.", rule=self
+                        raise InputFunctionException(
+                            f"Function did not return str or iterable of str. Encountered: {item} ({type(item)})",
+                            rule=self,
+                            wildcards=wildcards,
                         )
 
                     if from_callable and path_modifier is not None and not incomplete:
@@ -732,7 +760,7 @@ class Rule(RuleInterface):
                     concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
                     if mapping is not None:
-                        mapping[concrete] = item_
+                        mapping[concrete] = olditem
 
                 if name:
                     newitems._set_name(
@@ -927,6 +955,8 @@ class Rule(RuleInterface):
             if skip_evaluation is not None and name in skip_evaluation:
                 res = TBDString()
             else:
+                if isinstance(res, AnnotatedString) and res.callable:
+                    res = res.callable
                 if callable(res):
                     aux = dict(rulename=self.name)
                     if threads is not None:
@@ -977,7 +1007,9 @@ class Rule(RuleInterface):
         threads = apply("_cores", self.resources["_cores"])
         if threads is None:
             raise WorkflowError("Threads must be given as an int", rule=self)
-        if self.workflow.resource_settings.max_threads is not None:
+        if self.workflow.resource_settings.max_threads is not None and not isinstance(
+            threads, TBDString
+        ):
             threads = min(threads, self.workflow.resource_settings.max_threads)
         resources["_cores"] = threads
 
@@ -987,21 +1019,23 @@ class Rule(RuleInterface):
 
                 if value is not None:
                     resources[name] = value
-                    # Infer standard resources from eventual human readable forms.
-                    infer_resources(name, value, resources)
 
-                    # infer additional resources
-                    for mb_item, mib_item in (
-                        ("mem_mb", "mem_mib"),
-                        ("disk_mb", "disk_mib"),
-                    ):
-                        if (
-                            name == mb_item
-                            and mib_item not in self.resources.keys()
-                            and isinstance(value, int)
+                    if not isinstance(value, TBDString):
+                        # Infer standard resources from eventual human readable forms.
+                        infer_resources(name, value, resources)
+
+                        # infer additional resources
+                        for mb_item, mib_item in (
+                            ("mem_mb", "mem_mib"),
+                            ("disk_mb", "disk_mib"),
                         ):
-                            # infer mem_mib (memory in Mebibytes) as additional resource
-                            resources[mib_item] = mb_to_mib(value)
+                            if (
+                                name == mb_item
+                                and mib_item not in self.resources.keys()
+                                and isinstance(value, int)
+                            ):
+                                # infer mem_mib (memory in Mebibytes) as additional resource
+                                resources[mib_item] = mb_to_mib(value)
 
         resources = Resources(fromdict=resources)
         return resources
@@ -1012,7 +1046,10 @@ class Rule(RuleInterface):
             item, _ = self.apply_input_function(self.group, wildcards)
             return item
         elif isinstance(self.group, str):
-            return apply_wildcards(self.group, wildcards)
+            resolved = apply_wildcards(self.group, wildcards)
+            if resolved != self.group:
+                self.workflow.parent_groupids[resolved] = self.group
+            return resolved
         else:
             return self.group
 
@@ -1252,7 +1289,8 @@ class RuleProxy:
                 and f.startswith(prefix)
                 and not is_flagged(f, "local")
             ):
-                cleaned = f[len(prefix) + 1 :]
+                start = len(prefix) + 1 if prefix else 0
+                cleaned = f.storage_object.query[start:]
                 cleaned = IOFile(cleaned, rule=self.rule)
             else:
                 cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
