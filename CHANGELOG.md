@@ -1,6 +1,54 @@
 # Changelog
 
 
+## [8.11.6](https://github.com/snakemake/snakemake/compare/v8.11.5...v8.11.6) (2024-05-17)
+
+
+### Bug Fixes
+
+* fix opening of multiple checkout output files in the same input function when using remote storage ([2f8e719](https://github.com/snakemake/snakemake/commit/2f8e71927edfe636492bc14dfd7b90d3c226294c))
+
+## [8.11.5](https://github.com/snakemake/snakemake/compare/v8.11.4...v8.11.5) (2024-05-16)
+
+
+### Bug Fixes
+
+* avoid premature deletion of local copies of remote storage input files used by multiple jobs ([#2874](https://github.com/snakemake/snakemake/issues/2874)) ([21ec649](https://github.com/snakemake/snakemake/commit/21ec649b6d69ff9eeeec229e1eb6058f417bba56))
+* fix opening of checkpoint output files from remote storage ([#2873](https://github.com/snakemake/snakemake/issues/2873)) ([e7cb7fb](https://github.com/snakemake/snakemake/commit/e7cb7fb3e469057afc1f2c74008a40a716e76111))
+
+
+### Documentation
+
+* add link to code of conduct ([889a3bc](https://github.com/snakemake/snakemake/commit/889a3bca881e913764e4a4dc0eea70ee7ace8598))
+
+## [8.11.4](https://github.com/snakemake/snakemake/compare/v8.11.3...v8.11.4) (2024-05-11)
+
+
+### Bug Fixes
+
+* fix missing await when opening checkpoint output ([#2868](https://github.com/snakemake/snakemake/issues/2868)) ([25a361b](https://github.com/snakemake/snakemake/commit/25a361bb14fcd66a26535093e0c05b5cf84e69d8))
+* make checkpoint updates synchronous ([#2871](https://github.com/snakemake/snakemake/issues/2871)) ([b0e7ebd](https://github.com/snakemake/snakemake/commit/b0e7ebde7d95ac13b517ee4f200c92ebb1b1b805))
+
+
+### Documentation
+
+* update code of conduct email address ([3047683](https://github.com/snakemake/snakemake/commit/3047683bed9e28f9e5abc0d56f981aff18fbc801))
+
+## [8.11.3](https://github.com/snakemake/snakemake/compare/v8.11.2...v8.11.3) (2024-05-03)
+
+
+### Bug Fixes
+
+* ignore errors when cleaning up runtime cache ([#2859](https://github.com/snakemake/snakemake/issues/2859)) ([6df7046](https://github.com/snakemake/snakemake/commit/6df70468bb29a9a5b172caa5fe5a1a8bde3f2ebe))
+* show queries of remote storage files instead of local paths in summary ([#2860](https://github.com/snakemake/snakemake/issues/2860)) ([ba1db8e](https://github.com/snakemake/snakemake/commit/ba1db8eaf34a37a4d6029dd1bcddea49a775b912))
+
+## [8.11.2](https://github.com/snakemake/snakemake/compare/v8.11.1...v8.11.2) (2024-05-02)
+
+
+### Bug Fixes
+
+* bug when requesting extended benchmark with slurm ([#2855](https://github.com/snakemake/snakemake/issues/2855)) ([0e039ff](https://github.com/snakemake/snakemake/commit/0e039ff5d0a0880c35297a9fd5b983aa2813226b))
+
 ## [8.11.1](https://github.com/snakemake/snakemake/compare/v8.11.0...v8.11.1) (2024-04-29)
 
 
