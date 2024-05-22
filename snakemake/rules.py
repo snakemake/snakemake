@@ -44,6 +44,7 @@ from snakemake.io import (
     ReportObject,
 )
 from snakemake.exceptions import (
+    InputOpenException,
     RuleException,
     IOFileException,
     WildcardError,
@@ -635,6 +636,9 @@ class Rule(RuleInterface):
             except IncompleteCheckpointException as e:
                 value = incomplete_checkpoint_func(e)
                 incomplete = True
+            except InputOpenException as e:
+                e.rule = self
+                raise e
             except Exception as e:
                 if "input" in aux_params and is_file_not_found_error(
                     e, aux_params["input"]

@@ -47,6 +47,7 @@ from snakemake.common import (
     is_namedtuple_instance,
 )
 from snakemake.exceptions import (
+    InputOpenException,
     MissingOutputException,
     WildcardError,
     WorkflowError,
@@ -325,8 +326,18 @@ class _IOFile(str, AnnotatedStringInterface):
         """Open this file.
 
         This can (and should) be used in a `with`-statement.
+        If the file is a remote storage file, retrieve it first if necessary.
         """
-        f = open(self)
+        if not os.path.exists(self):
+            raise InputOpenException(self)
+        f = open(
+            self,
+            mode=mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
         try:
             yield f
         finally:

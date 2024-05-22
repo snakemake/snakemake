@@ -18,6 +18,7 @@ from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings import DeploymentMethod
 
+from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
@@ -40,7 +41,12 @@ from snakemake.settings import SharedFSUsage
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
 from snakemake.utils import format
-from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
+from snakemake.exceptions import (
+    InputOpenException,
+    RuleException,
+    ProtectedOutputException,
+    WorkflowError,
+)
 
 from snakemake.logging import logger
 from snakemake.common import (
@@ -127,7 +133,7 @@ class JobFactory:
     def __init__(self):
         self.cache = dict()
 
-    def new(
+    async def new(
         self,
         rule,
         dag,
@@ -138,16 +144,48 @@ class JobFactory:
         groupid=None,
     ):
         key = (rule.name, *sorted(wildcards_dict.items()))
+
+        async def new():
+            if update:
+                new_job = lambda: Job(
+                    rule, dag, wildcards_dict, format_wildcards, targetfile, groupid
+                )
+            else:
+                new_job = lambda: Job(
+                    rule, dag, wildcards_dict, format_wildcards, targetfile
+                )
+            obj = None
+            missing_iofiles = set()
+            while obj is None:
+                try:
+                    obj = new_job()
+                except InputOpenException as e:
+                    if e.iofile in missing_iofiles:
+                        raise WorkflowError(
+                            f"Failed to open input file even after download from remote storage: {e.iofile}. "
+                            "Has it been deleted by another process or is there a filesystem issue?",
+                        )
+                    if e.iofile.is_storage:
+                        # retrieve the missing file from storage
+                        await e.iofile.retrieve_from_storage()
+                        missing_iofiles.add(e.iofile)
+                    else:
+                        raise WorkflowError(
+                            f"Failed to open input file: {e.iofile}. Has it been deleted by another process?",
+                            rule=e.rule,
+                        )
+            return obj
+
         if update:
             # cache entry has to be replaced because job shall be constructed from scratch
-            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile, groupid)
+            obj = await new()
             self.cache[key] = obj
         else:
             try:
                 # try to get job from cache
                 obj = self.cache[key]
             except KeyError:
-                obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+                obj = await new()
                 self.cache[key] = obj
         return obj
 
@@ -329,7 +367,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     def queue_input_last_checked(self) -> float:
         return max(queue_info.last_checked or 0.0 for queue_info in self._queue_input)
 
-    def updated(self):
+    async def updated(self):
         group = self.dag.get_job_group(self)
         groupid = None
         if group is None:
@@ -338,7 +376,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         else:
             groupid = group.jobid
 
-        job = self.dag.job_factory.new(
+        job = await self.dag.job_factory.new(
             self.rule,
             self.dag,
             wildcards_dict=self.wildcards_dict,
@@ -981,7 +1019,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             jobid=self.dag.jobid(self),
             msg=self.message,
             name=self.rule.name,
-            local=self.dag.workflow.is_local(self.rule),
+            # in dryrun, we don't want to display a decision whether local or not
+            # since we don't know how the user wants to execute
+            local=(
+                not self.dag.workflow.dryrun and self.dag.workflow.is_local(self.rule)
+            ),
             input=format_files(self.input, is_input=True),
             output=format_files(self.output, is_input=False),
             log=format_files(self.log, is_input=False),
@@ -1097,6 +1139,15 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     wait_for_local=True,
                 )
             self.dag.unshadow_output(self, only_log=error)
+
+            if (
+                not error
+                and self.rule.is_template_engine
+                and not is_flagged(self.output[0], "temp")
+            ):
+                # TODO also check if consumers are executed on the same node
+                check_template_output(self)
+
             await self.dag.handle_storage(
                 self, store_in_storage=store_in_storage, store_only_log=error
             )

@@ -11,3 +11,4 @@ snakemake-interface-common
 snakemake-interface-executor-plugins
 snakemake-interface-storage-plugins
 snakemake-interface-report-plugins
+humanfriendly
