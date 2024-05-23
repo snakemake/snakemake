@@ -56,7 +56,9 @@ class shell:
     def check_output(cls, cmd, **kwargs):
         executable = cls.get_executable()
         if ON_WINDOWS and executable:
-            cmd = f'"{executable}" {cls._win_command_prefix} {argvquote(cmd)}'
+            win_prefix = cls._get_win_command_prefix()
+            cmd = f'"{executable}" {win_prefix} {argvquote(cmd)}'
+            logger.debug(f"Executing: {cmd}")
             return sp.check_output(cmd, shell=False, executable=executable, **kwargs)
         else:
             return sp.check_output(cmd, shell=True, executable=executable, **kwargs)
@@ -73,6 +75,7 @@ class shell:
                     f"Cannot set default shell {cmd} because it is not available in your PATH."
                 )
         cls._process_args["executable"] = cmd
+        logger.debug(f"Setting shell executable to {cmd}.")
 
     @classmethod
     def _get_process_prefix(cls, shell_exec=None):
@@ -83,9 +86,9 @@ class shell:
             return cls._process_prefix
 
     @classmethod
-    def _get_win_command_prefix(cls, use_default, shell_exec=None):
+    def _get_win_command_prefix(cls, use_default=False, shell_exec=None):
         assert ON_WINDOWS
-        if cls._win_command_prefix and shell_exec is None:
+        if use_default or (cls._win_command_prefix and shell_exec is None):
             # use whatever is the default
             return cls._win_command_prefix
         shell_exec = cls._get_executable_name(shell_exec)
