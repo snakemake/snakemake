@@ -762,6 +762,17 @@ def test_singularity():
 
 
 @skip_on_windows
+@connected
+def test_singularity_cluster():
+    run(
+        dpath("test_singularity"),
+        deployment_method={DeploymentMethod.APPTAINER},
+        cluster="./qsub",
+        apptainer_args="--bind /tmp:/tmp",
+    )
+
+
+@skip_on_windows
 def test_singularity_invalid():
     run(
         dpath("test_singularity"),

@@ -1676,6 +1676,7 @@ def get_argument_parser(profiles=None):
         "--singularity-args",
         default="",
         metavar="ARGS",
+        parse_func=maybe_base64(str),
         help="Pass additional args to apptainer/singularity.",
     )
 
