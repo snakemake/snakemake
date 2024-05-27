@@ -11,7 +11,7 @@ from snakemake.jobs import Job
 from snakemake import script
 from snakemake import wrapper
 from snakemake.exceptions import WorkflowError
-from snakemake.settings.enums import DeploymentMethod
+from snakemake.settings import DeploymentMethod
 
 # ATTENTION: increase version number whenever the hashing algorithm below changes!
 __version__ = "0.1"

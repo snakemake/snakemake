@@ -1,4 +1,5 @@
-from snakemake_interface_common.settings import SettingsEnumBase
+from typing import List
+from snakemake_interface_common.settings import SettingsEnumBase, TSettingsEnumBase
 
 
 class RerunTrigger(SettingsEnumBase):
@@ -24,3 +25,9 @@ class Quietness(SettingsEnumBase):
     RULES = 0
     PROGRESS = 1
     ALL = 2
+
+
+class DeploymentMethod(SettingsEnumBase):
+    CONDA = 0
+    APPTAINER = 1
+    ENV_MODULES = 2
