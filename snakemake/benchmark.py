@@ -43,6 +43,7 @@ class BenchmarkRecord:
                 "jobid",
                 "rule_name",
                 "wildcards",
+                "params",
                 "threads",
                 "cpu_usage",
                 "resources",
@@ -56,6 +57,7 @@ class BenchmarkRecord:
         jobid=None,
         rule_name=None,
         wildcards=None,
+        params=None,
         running_time=None,
         max_rss=None,
         max_vms=None,
@@ -75,6 +77,8 @@ class BenchmarkRecord:
         self.rule_name = (rule_name,)
         #: Job wildcards
         self.wildcards = (wildcards,)
+        #: Job parameters
+        self.params = (params,)
         #: Running time in seconds
         self.running_time = running_time
         #: Maximal RSS in MB
@@ -129,6 +133,9 @@ class BenchmarkRecord:
     def parse_wildcards(self):
         return {key: value for key, value in self.wildcards.items()}
 
+    def parse_params(self):
+        return {key: value for key, value in self.params.items()}
+
     def parse_resources(self):
         return {key: value for key, value in self.resources.items()}
 
@@ -182,6 +189,7 @@ class BenchmarkRecord:
                 self.jobid,
                 self.rule_name,
                 self.parse_wildcards(),
+                self.parse_params(),
                 self.threads,
                 self.cpu_usage if self.data_collected else "NA",
                 self.parse_resources(),
