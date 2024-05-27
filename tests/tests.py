@@ -2150,3 +2150,6 @@ def test_expand_list_of_functions():
 @skip_on_windows  # OS agnostic
 def test_scheduler_sequential_all_cores():
     run(dpath("test_scheduler_sequential_all_cores"), cores=90)
+
+def test_parse_fstring():
+    run(dpath("test_parse_fstring"))
