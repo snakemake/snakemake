@@ -17,7 +17,6 @@ from snakemake_interface_executor_plugins.settings import (
     ExecMode,
     SharedFSUsage,
 )
-from snakemake_interface_common.settings import SettingsEnumBase
 
 from snakemake.common import (
     dict_to_key_value_args,
@@ -25,23 +24,10 @@ from snakemake.common import (
     get_container_image,
 )
 from snakemake.common.configfile import load_configfile
-from snakemake.resources import DefaultResources, ParsedResource
+from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
-
-
-class RerunTrigger(SettingsEnumBase):
-    MTIME = 0
-    PARAMS = 1
-    INPUT = 2
-    SOFTWARE_ENV = 3
-    CODE = 4
-
-
-class ChangeType(SettingsEnumBase):
-    CODE = 0
-    INPUT = 1
-    PARAMS = 2
+from snakemake.settings.enums import *
 
 
 class SettingsBase(ABC):
@@ -205,11 +191,6 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
             self.remote_job_local_storage_prefix = self.local_storage_prefix
 
 
-class CondaCleanupPkgs(SettingsEnumBase):
-    TARBALLS = 0
-    CACHE = 1
-
-
 @dataclass
 class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     """
@@ -333,12 +314,6 @@ class ConfigSettings(SettingsBase):
             return dict_to_key_value_args(self.config, repr_obj=True)
         else:
             return self.config_args
-
-
-class Quietness(SettingsEnumBase):
-    RULES = 0
-    PROGRESS = 1
-    ALL = 2
 
 
 @dataclass

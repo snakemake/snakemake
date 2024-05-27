@@ -8,7 +8,7 @@ import sys
 import subprocess as sp
 from pathlib import Path
 from snakemake.resources import DefaultResources, GroupResources
-from snakemake.settings import RerunTrigger
+from snakemake.settings.enums import RerunTrigger
 
 from snakemake.shell import shell
 
@@ -1469,7 +1469,7 @@ def test_jupyter_notebook():
 
 
 def test_jupyter_notebook_draft():
-    from snakemake.settings import NotebookEditMode
+    from snakemake.settings.enums import NotebookEditMode
 
     run(
         dpath("test_jupyter_notebook_draft"),
