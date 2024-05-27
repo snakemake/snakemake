@@ -41,7 +41,7 @@ MAX_ARG_LEN = 16 * 4096 - 1
 
 class shell:
     _process_args = {}
-    _process_prefix = ""
+    _process_prefix = None
     _process_suffix = ""
     _win_command_prefix = ""
     _lock = threading.Lock()
@@ -80,8 +80,10 @@ class shell:
     @classmethod
     def _get_process_prefix(cls, shell_exec=None):
         shell_exec = cls._get_executable_name(shell_exec)
-        if shell_exec == "bash" or ON_WINDOWS and shell_exec == "bash.exe":
-            return "set -euo pipefail; " + cls._process_prefix
+        if (
+            shell_exec == "bash" or (ON_WINDOWS and shell_exec == "bash.exe")
+        ) and cls._process_prefix is None:
+            return "set -euo pipefail; "
         else:
             return cls._process_prefix
 
