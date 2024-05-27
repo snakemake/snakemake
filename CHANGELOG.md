@@ -1307,7 +1307,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ### Bug Fixes
 
-* fixed bug in needrun computation of jobs downsteam of checkpoints ([#1704](https://www.github.com/snakemake/snakemake/issues/1704)) ([c634b78](https://www.github.com/snakemake/snakemake/commit/c634b78b4d7c4f6ef59e46c94162893e42de6f73))
+* fixed bug in needrun computation of jobs downstream of checkpoints ([#1704](https://www.github.com/snakemake/snakemake/issues/1704)) ([c634b78](https://www.github.com/snakemake/snakemake/commit/c634b78b4d7c4f6ef59e46c94162893e42de6f73))
 
 ### [7.8.1](https://www.github.com/snakemake/snakemake/compare/v7.8.0...v7.8.1) (2022-05-31)
 
