@@ -227,6 +227,7 @@ def run(
     storage_provider_settings=None,
     shared_fs_usage=None,
     benchmark_extended=False,
+    apptainer_args="",
 ):
     """
     Test the Snakefile in the path.
@@ -366,6 +367,7 @@ def run(
                         conda_frontend=conda_frontend,
                         conda_prefix=conda_prefix,
                         deployment_method=deployment_method,
+                        apptainer_args=apptainer_args,
                     ),
                     snakefile=Path(original_snakefile if no_tmpdir else snakefile),
                     workdir=Path(path if no_tmpdir else tmpdir),

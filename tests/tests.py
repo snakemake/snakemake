@@ -768,6 +768,7 @@ def test_singularity_cluster():
         dpath("test_singularity"),
         deployment_method={DeploymentMethod.APPTAINER},
         cluster="./qsub",
+        apptainer_args="--bind /tmp:/tmp",
     )
 
 
