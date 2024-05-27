@@ -1,0 +1,15 @@
+part_one = "foo"
+an_fstring = f'{part_one}/{"bar" if True else "baz"}'
+another_fstring = f"{part_one.replace('foo', 'bar')}/{{escaped}}"
+
+rule:
+    output: 
+        first=an_fstring,
+        second=expand(another_fstring, escaped=["baz"]),
+    shell:
+        """
+        touch {output.first}
+        touch {output.second}
+        """
+
+
