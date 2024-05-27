@@ -233,9 +233,8 @@ class InputFunctionException(WorkflowError):
             + "\n".join(f"  {name}={value}" for name, value in wildcards.items())
         )
         if isinstance(msg, Exception):
-            fmt_msg += (
-                "\nTraceback:\n"
-                + "\n".join(format_traceback(cut_traceback(msg), rule.workflow.linemaps))
+            fmt_msg += "\nTraceback:\n" + "\n".join(
+                format_traceback(cut_traceback(msg), rule.workflow.linemaps)
             )
         super().__init__(fmt_msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
