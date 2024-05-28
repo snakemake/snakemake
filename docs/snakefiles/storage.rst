@@ -60,8 +60,9 @@ Local input/output files
 """"""""""""""""""""""""
 
 Despite using a default storage provider, you might have certain files in your workflow
-that still come from the local filesystem. In this case, you can use the ``local``
-flag::
+that still come from the local filesystem. Likewise, when importing a module while
+specifying a prefix (see :ref:`snakefiles-modules`), you might have some input files
+that come from outside the workflow. In either cases, you can use the ``local`` flag::
 
     rule example:
         input:
