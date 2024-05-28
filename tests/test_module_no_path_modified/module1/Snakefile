@@ -1,6 +1,6 @@
 rule a:
     input:
-        path_modified("input.txt"),
+        local("input.txt"),
     output:
         "test_final.txt",
     shell:
