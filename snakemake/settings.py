@@ -310,6 +310,7 @@ class ConfigSettings(SettingsBase):
     config: Mapping[str, str] = immutables.Map()
     configfiles: Sequence[Path] = tuple()
     config_args: Optional[str] = None
+    relpath: Optional[bool] = False
 
     def __post_init__(self):
         self.overwrite_config = self._get_overwrite_config()
@@ -326,7 +327,11 @@ class ConfigSettings(SettingsBase):
         return overwrite_config
 
     def _get_configfiles(self):
-        return list(map(Path.absolute, self.configfiles))
+        if self.relpath:
+            files = self.configfiles
+        else:
+            files = list(map(Path.absolute, self.configfiles))
+        return files
 
     def _get_config_args(self):
         if self.config_args is None:
