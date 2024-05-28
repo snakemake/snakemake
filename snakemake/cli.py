@@ -1960,6 +1960,7 @@ def args_to_api(args, parser):
                         config=parse_config(args.config),
                         configfiles=args.configfile,
                         config_args=args.config,
+                        relpath=executor_plugin.common_settings.implies_no_shared_fs,
                     ),
                     storage_settings=storage_settings,
                     storage_provider_settings=storage_provider_settings,

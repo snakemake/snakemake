@@ -2818,7 +2818,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     files.add(env_path)
 
         for f in self.workflow.configfiles:
-            files.add(f)
+            if isinstance(f, Path):
+                files.add(f.as_posix())
+            elif isinstance(f, str):
+                files.add(f)
 
         # get git-managed files
         # TODO allow a manifest file as alternative
