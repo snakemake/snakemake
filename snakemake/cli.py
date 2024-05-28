@@ -1676,6 +1676,7 @@ def get_argument_parser(profiles=None):
         "--singularity-args",
         default="",
         metavar="ARGS",
+        parse_func=maybe_base64(str),
         help="Pass additional args to apptainer/singularity.",
     )
 
@@ -1881,8 +1882,10 @@ def args_to_api(args, parser):
         if executor_plugin.common_settings.local_exec:
             # use --jobs as an alias for --cores
             args.cores = args.jobs
+            args.jobs = None
         elif executor_plugin.common_settings.dryrun_exec:
             args.cores = 1
+            args.jobs = None
 
     # start profiler if requested
     if args.runtime_profile:

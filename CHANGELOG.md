@@ -1,6 +1,28 @@
 # Changelog
 
 
+## [8.12.0](https://github.com/snakemake/snakemake/compare/v8.11.6...v8.12.0) (2024-05-27)
+
+
+### Features
+
+* Include parameters in extended benchmarks ([#2887](https://github.com/snakemake/snakemake/issues/2887)) ([31a9c9b](https://github.com/snakemake/snakemake/commit/31a9c9bdb3147fe9c1f9144a584af389ec49720e))
+
+
+### Bug Fixes
+
+* fix corner case bug in input function exception handling ([#2895](https://github.com/snakemake/snakemake/issues/2895)) ([fc24292](https://github.com/snakemake/snakemake/commit/fc24292f14fd5f8bb00412c32568645cfbf5d2fa))
+* fix quoting issues when passing complex apptainer args to spawned jobs ([#2898](https://github.com/snakemake/snakemake/issues/2898)) ([b07e2e0](https://github.com/snakemake/snakemake/commit/b07e2e07aaf7b9bd6fa6368e274f08028cdcea4e))
+* properly restrict scheduler if --jobs/-j is used (in contrast to --cores) in local execution ([#2897](https://github.com/snakemake/snakemake/issues/2897)) ([6a276bb](https://github.com/snakemake/snakemake/commit/6a276bb25cc36d32285a196e0876e2b15040a863))
+* typo in workflow specific profile default location ([#2878](https://github.com/snakemake/snakemake/issues/2878)) ([74627d3](https://github.com/snakemake/snakemake/commit/74627d3f07f549600dc8ad226a545f44191141e0))
+
+## [8.11.6](https://github.com/snakemake/snakemake/compare/v8.11.5...v8.11.6) (2024-05-17)
+
+
+### Bug Fixes
+
+* fix opening of multiple checkout output files in the same input function when using remote storage ([2f8e719](https://github.com/snakemake/snakemake/commit/2f8e71927edfe636492bc14dfd7b90d3c226294c))
+
 ## [8.11.5](https://github.com/snakemake/snakemake/compare/v8.11.4...v8.11.5) (2024-05-16)
 
 
@@ -1300,7 +1322,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ### Bug Fixes
 
-* fixed bug in needrun computation of jobs downsteam of checkpoints ([#1704](https://www.github.com/snakemake/snakemake/issues/1704)) ([c634b78](https://www.github.com/snakemake/snakemake/commit/c634b78b4d7c4f6ef59e46c94162893e42de6f73))
+* fixed bug in needrun computation of jobs downstream of checkpoints ([#1704](https://www.github.com/snakemake/snakemake/issues/1704)) ([c634b78](https://www.github.com/snakemake/snakemake/commit/c634b78b4d7c4f6ef59e46c94162893e42de6f73))
 
 ### [7.8.1](https://www.github.com/snakemake/snakemake/compare/v7.8.0...v7.8.1) (2022-05-31)
 
