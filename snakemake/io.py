@@ -367,10 +367,6 @@ class _IOFile(str, AnnotatedStringInterface):
         return is_flagged(self._file, "multiext")
 
     @property
-    def is_path_modifiedt(self):
-        return is_flagged(self._file, PATH_MODIFIER_FLAG)
-
-    @property
     def multiext_prefix(self):
         return get_flag_value(self._file, "multiext")
 
@@ -1158,12 +1154,6 @@ def protected(value):
     if is_flagged(value, "storage_object"):
         raise SyntaxError("Storage and protected flags are mutually exclusive.")
     return flag(value, "protected")
-
-
-def path_modified(value):
-    from snakemake.path_modifier import PATH_MODIFIER_FLAG
-
-    return flag(value, PATH_MODIFIER_FLAG)
 
 
 def touch(value):

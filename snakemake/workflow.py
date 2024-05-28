@@ -69,7 +69,6 @@ from snakemake.io import (
     protected,
     temp,
     temporary,
-    path_modified,
     ancient,
     directory,
     expand,

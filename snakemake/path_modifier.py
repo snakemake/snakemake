@@ -35,8 +35,13 @@ class PathModifier:
 
     def modify(self, path, property=None):
         if get_flag_value(path, PATH_MODIFIER_FLAG):
-            logger.debug(f"Flag PATH_MODIFIER_FLAG found in file {path}")
+            logger.debug(f"Not modifying path of file {path}, as it has already been modified")
             # Path has been modified before and is reused now, no need to modify again.
+            return path
+
+        if get_flag_value(path, "local"):
+            logger.debug(f"Not modifying path of file {path}, as it is local")
+            # File is local
             return path
 
         modified_path = self.apply_default_storage(self.replace_prefix(path, property))
