@@ -363,7 +363,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             return
         if self.wildcards is not None or self.params is not None:
             # parse wildcards and params to get the correct script name
-            path = infer_source_file(format(path, wildcards=self.wildcards, params=self.params))
+            path = infer_source_file(
+                format(path, wildcards=self.wildcards, params=self.params)
+            )
         if self.rule.basedir:
             # needed if rule is included from another subdirectory
             path = self.rule.basedir.join(path).get_path_or_uri()
