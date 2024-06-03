@@ -23,7 +23,10 @@ def test_wildcard_regex():
     # with wildcards object, used in the script path
     assert matches("{wildcards.test}") == [("wildcards.test", None)]
     assert matches("{wildcards.test, const}") == [("wildcards.test", "const")]
-    assert matches("{wildcards.test, const}{abc, def}") == [("wildcards.test", "const"), ("abc", "def")]
+    assert matches("{wildcards.test, const}{abc, def}") == [
+        ("wildcards.test", "const"),
+        ("abc", "def"),
+    ]
 
     # with constraints
     assert matches("{w,constraint}") == [("w", "constraint")]
