@@ -1943,9 +1943,11 @@ benchmarks the
 * `cpu_time`: CPU time user+system (seconds),
 
 Since version 8.11.0, it is possible to have extra benchmark metrics with the command ``--benchmark-extended``:
+
 * `jobid`: Internal job ID,
-* `rule_name`: Name of rule,
-* `wildcards`: Wildcards of this job,
+* `rule_name`: Rule name,
+* `wildcards`: Job wildcards,
+* `params`: Job parameters,
 * `threads`: Number of threads requested for this job,
 * `cpu_usage`: Total CPU load,
 * `resources`: Resources requested for this job,
@@ -1953,7 +1955,7 @@ Since version 8.11.0, it is possible to have extra benchmark metrics with the co
 
 of the command ``somecommand`` for the given output and input files.
 
-For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark tsv file (which will contain a tab-separated table of run times and memory usage in MiB).
+For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark `tsv` file (which will contain a tab-separated table of run times and memory usage in MiB).
 Per default, Snakemake executes the job once, generating one run time.
 However, the benchmark file can be annotated with the desired number of repeats, e.g.,
 
