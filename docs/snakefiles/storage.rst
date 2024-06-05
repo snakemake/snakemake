@@ -56,6 +56,9 @@ Custom settings can be passed as well::
     snakemake --default-storage-provider s3 --default-storage-prefix s3://mybucket/ \
         --storage-s3-max-requests-per-second 10
 
+
+.. _snakefiles-storage-local-files:
+
 Local input/output files
 """"""""""""""""""""""""
 
