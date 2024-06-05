@@ -361,7 +361,7 @@ The lookup function
 
 The ``lookup`` function can be used to look up a value in a python mapping (e.g. a ``dict``) or a `pandas dataframe or series <https://pandas.pydata.org>`_.
 It is especially useful for looking up information based on wildcard values.
-The ``lookup`` function has the signature ``lookup(dpath: Optional[str | Callable] = None, query: Optional[str | Callable] = None, cols: Optional[List[str]] = None, within=None)``.
+The ``lookup`` function has the signature ``lookup(dpath: Optional[str | Callable] = None, query: Optional[str | Callable] = None, cols: Optional[List[str]] = None, is_nrows: Optiona[int], within=None)``.
 The ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
 For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
 
@@ -372,8 +372,11 @@ named tuples with the column names as attributes.
 If the query results in a single row, the result is returned as a single
 named tuple with the column names as attributes.
 If the query or dpath parameter is given a function, the function will be evaluated with wildcards passed as the first argument.
+In case of dpath, if the dpath is not found, a ``LookupError`` is raised, unless a
+default fallback value is provided via the ``default`` argument (this argument is ignored in case of ``query``).
+Note: ``None`` is also a valid default value.
 
-In both cases, the result can be used by the ``expand`` or ``collect`` function,
+In both cases (``dpath`` and ``query``), the result can be used by the ``expand`` or ``collect`` function,
 e.g. 
 
 .. code-block:: python
@@ -408,9 +411,16 @@ or to a single column, e.g.
 
 .. code-block:: python
     
-    lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")`.
+    lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")
 
 In the latter case, just a list of items in that column is returned (e.g. ``["a", "b", "c"]``).
+
+The argument ``is_nrows`` allows to test for a given number of rows in the queried dataframe.
+If it is used, lookup just returns a boolean value indicating whether the number of rows in the queried dataframe matches the given number:
+
+.. code-block:: python
+    
+    lookup(query="sample == '{sample}'", within=samples, is_nrows=5)
 
 In case of a **pandas series**, the series is converted into a dataframe via
 Series.to_frame() and the same logic as for a dataframe is applied.
@@ -422,7 +432,6 @@ In case of a **python mapping**, the dpath parameter is passed to dpath.values()
 In that case, this function returns an :ref:`input function <snakefiles-input_functions>` which takes
 wildcards as its only argument and will be evaluated by Snakemake
 once the wildcard values are known if the lookup is used within an input file statement.
-.. _snakefiles-branch-function:
 
 In addition to wildcard values, dpath, query and cols may refer via the same syntax
 to auxiliary namespace arguments given to the lookup function, e.g.
@@ -436,6 +445,8 @@ to auxiliary namespace arguments given to the lookup function, e.g.
     )
 
 This way, one can e.g. pass additional variables or chain lookups into more complex queries.
+
+.. _snakefiles-branch-function:
 
 The branch function
 """""""""""""""""""
