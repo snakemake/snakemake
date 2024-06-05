@@ -165,7 +165,7 @@ It is possible to overwrite the global config dictionary for the module, which i
 
 In this case, any ``configfile`` statements inside the module are ignored.
 In addition, it is possible to skip any :ref:`validation <snakefiles_config_validation>` statements in the module, by specifying ``skip_validation: True`` in the module statement.
-Moreover, one can automatically move all relative input and output files of a module into a dedicated folder by specifying ``prefix: "foo"`` in the module definition. In this case any output file ``path/to/output.txt`` in the module would be stored under ``foo/path/to/output.txt`` instead.
+Moreover, one can automatically move all relative input and output files of a module into a dedicated folder by specifying ``prefix: "foo"`` in the module definition, e.g. any output file ``path/to/output.txt`` in the module would be stored under ``foo/path/to/output.txt`` instead.
 This becomes particularly useful when combining multiple modules, see :ref:`use_with_modules`.
 However, if you have some input files that come from outside the workflow, you can use the ``local`` flag so that their path is not modified.
 
