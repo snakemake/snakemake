@@ -85,7 +85,7 @@ class shell:
         ) and cls._process_prefix is None:
             return "set -euo pipefail; "
         else:
-            return cls._process_prefix
+            return cls._process_prefix or ""
 
     @classmethod
     def _get_win_command_prefix(cls, use_default=False, shell_exec=None):
