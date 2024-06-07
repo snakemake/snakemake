@@ -308,11 +308,12 @@ class shell:
             # and the executable should be prepended the command together
             # with a command prefix (e.g. -c for bash).
             use_shell = False
+            win_prefix = cls._get_win_command_prefix(
+                use_default=False, shell_exec=shell_executable
+            )
             cmd = '"{}" {} {}'.format(
                 shell_executable,
-                cls._get_win_command_prefix(
-                    use_default=is_default_shell_exec, shell_exec=shell_executable
-                ),
+                win_prefix,
                 argvquote(cmd),
             )
 
