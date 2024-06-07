@@ -25,9 +25,3 @@ class Quietness(SettingsEnumBase):
     RULES = 0
     PROGRESS = 1
     ALL = 2
-
-
-class DeploymentMethod(SettingsEnumBase):
-    CONDA = 0
-    APPTAINER = 1
-    ENV_MODULES = 2
