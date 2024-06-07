@@ -5,13 +5,15 @@ from typing import List, Mapping, Optional
 import uuid
 
 import pytest
-from snakemake import api, settings
+from snakemake import api
 
 from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_storage_plugins.settings import StorageProviderSettingsBase
+
+from snakemake.settings import types as settings
 
 
 def handle_testcase(func):

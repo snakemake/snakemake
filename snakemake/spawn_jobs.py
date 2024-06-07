@@ -10,7 +10,7 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import common
 from snakemake.io import get_flag_value, is_flagged
-from snakemake.settings import SharedFSUsage
+from snakemake.settings.types import SharedFSUsage
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow

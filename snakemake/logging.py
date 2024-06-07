@@ -734,7 +734,7 @@ def setup_logger(
     show_failed_logs=False,
     dryrun=False,
 ):
-    from snakemake.settings import Quietness
+    from snakemake.settings.types import Quietness
 
     if mode is None:
         mode = get_default_exec_mode()

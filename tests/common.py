@@ -22,10 +22,11 @@ import tarfile
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
-from snakemake import api, settings
+from snakemake import api
 from snakemake.common import ON_WINDOWS
 from snakemake.report.html_reporter import ReportSettings
 from snakemake.resources import ResourceScopes
+from snakemake.settings import types as settings
 
 
 def dpath(path):

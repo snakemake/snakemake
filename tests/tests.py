@@ -1469,7 +1469,7 @@ def test_jupyter_notebook():
 
 
 def test_jupyter_notebook_draft():
-    from snakemake.settings import NotebookEditMode
+    from snakemake.settings.types import NotebookEditMode
 
     run(
         dpath("test_jupyter_notebook_draft"),
