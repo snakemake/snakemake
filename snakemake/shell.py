@@ -207,11 +207,9 @@ class shell:
         threads = context.get("threads", 1)
 
         shell_executable = resources.get("shell_exec")
-        is_default_shell_exec = True
         if shell_executable is not None:
             process_args = dict(cls._process_args)
             process_args["executable"] = shell_executable
-            is_default_shell_exec = False
         else:
             shell_executable = cls.get_executable()
             process_args = cls._process_args
