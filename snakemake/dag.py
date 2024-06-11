@@ -232,7 +232,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def check_directory_outputs(self):
         """Check that no output file is contained in a directory output of the same or another rule."""
         outputs = sorted(
-            {(os.path.abspath(f), job) for job in self.jobs for f in job.output}
+            {(Path(os.path.abspath(f)), job) for job in self.jobs for f in job.output}
         )
         for i in range(len(outputs) - 1):
             (a, job_a), (b, job_b) = outputs[i : i + 2]
@@ -979,15 +979,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             except RecursionError as e:
                 raise WorkflowError(
                     e,
-                    "If building the DAG exceeds the recursion limit, "
-                    "this is likely due to a cyclic dependency."
-                    "E.g. you might have a sequence of rules that "
-                    "can generate their own input. Try to make "
-                    "the output files more specific. "
-                    "A common pattern is to have different prefixes "
-                    "in the output files of different rules."
-                    + f"\nProblematic file pattern: {file}"
-                    if file
+                        "If building the DAG exceeds the recursion limit, "
+                        "this is likely due to a cyclic dependency."
+                        "E.g. you might have a sequence of rules that "
+                        "can generate their own input. Try to make "
+                        "the output files more specific. "
+                        "A common pattern is to have different prefixes "
+                        "in the output files of different rules."
+                        + f"\nProblematic file pattern: {file}"
+                        if file
                     else "",
                 )
         if not producers:

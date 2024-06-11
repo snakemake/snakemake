@@ -2188,3 +2188,12 @@ def test_checkpoint_open():
         default_storage_provider="fs",
         default_storage_prefix="storage",
     )
+
+
+def test_github_issue2848():
+    # Should fail on parsing with ChildIOException, on Windows previously failed during execution
+    run(
+        dpath("test_github_issue2848"),
+        targets=["output/c.txt", "output/dir2/d.txt"],
+        shouldfail=True,
+    )
