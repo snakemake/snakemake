@@ -7,6 +7,7 @@ from typing import Mapping, Sequence, Set
 
 import immutables
 
+from snakemake.common.typing import AnySet
 from snakemake_interface_common.exceptions import ApiError
 from snakemake_interface_executor_plugins.settings import (
     RemoteExecutionSettingsExecutorInterface,
@@ -27,7 +28,12 @@ from snakemake.common.configfile import load_configfile
 from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
-from snakemake.settings.enums import *
+from snakemake.settings.enums import (
+    RerunTrigger,
+    ChangeType,
+    CondaCleanupPkgs,
+    Quietness,
+)
 
 
 class SettingsBase(ABC):
@@ -152,18 +158,18 @@ class Batch:
 
 @dataclass
 class DAGSettings(SettingsBase):
-    targets: Set[str] = frozenset()
-    target_jobs: Set[str] = frozenset()
+    targets: AnySet[str] = frozenset()
+    target_jobs: AnySet[str] = frozenset()
     target_files_omit_workdir_adjustment: bool = False
     batch: Optional[Batch] = None
     forcetargets: bool = False
     forceall: bool = False
-    forcerun: Set[str] = frozenset()
-    until: Set[str] = frozenset()
-    omit_from: Set[str] = frozenset()
+    forcerun: AnySet[str] = frozenset()
+    until: AnySet[str] = frozenset()
+    omit_from: AnySet[str] = frozenset()
     force_incomplete: bool = False
-    allowed_rules: Set[str] = frozenset()
-    rerun_triggers: Set[RerunTrigger] = RerunTrigger.all()
+    allowed_rules: AnySet[str] = frozenset()
+    rerun_triggers: AnySet[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
 
     def _check(self):
@@ -178,13 +184,13 @@ class DAGSettings(SettingsBase):
 class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_storage_provider: Optional[str] = None
     default_storage_prefix: Optional[str] = None
-    shared_fs_usage: Set[SharedFSUsage] = SharedFSUsage.all()
+    shared_fs_usage: AnySet[SharedFSUsage] = SharedFSUsage.all()
     keep_storage_local: bool = False
     local_storage_prefix: Path = Path(".snakemake/storage")
     remote_job_local_storage_prefix: Optional[Path] = None
     notemp: bool = False
     all_temp: bool = False
-    unneeded_temp_files: Set[str] = frozenset()
+    unneeded_temp_files: AnySet[str] = frozenset()
 
     def __post_init__(self):
         if self.remote_job_local_storage_prefix is None:
@@ -211,7 +217,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
     """
 
-    deployment_method: Set[DeploymentMethod] = frozenset()
+    deployment_method: AnySet[DeploymentMethod] = frozenset()
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
     conda_base_path: Optional[Path] = None
@@ -247,7 +253,7 @@ class SchedulingSettings(SettingsBase):
         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
     """
 
-    prioritytargets: Set[str] = frozenset()
+    prioritytargets: AnySet[str] = frozenset()
     scheduler: str = "ilp"
     ilp_solver: Optional[str] = None
     solver_path: Optional[Path] = None
@@ -320,7 +326,7 @@ class ConfigSettings(SettingsBase):
 class OutputSettings(SettingsBase):
     printshellcmds: bool = False
     nocolor: bool = False
-    quiet: Optional[Set[Quietness]] = None
+    quiet: Optional[AnySet[Quietness]] = None
     debug_dag: bool = False
     verbose: bool = False
     show_failed_logs: bool = False
@@ -332,7 +338,7 @@ class OutputSettings(SettingsBase):
 
 @dataclass
 class PreemptibleRules:
-    rules: Set[str] = frozenset()
+    rules: AnySet[str] = frozenset()
     all: bool = False
 
     def is_preemptible(self, rulename: str):
