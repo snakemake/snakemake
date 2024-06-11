@@ -19,7 +19,7 @@ import tarfile
 import tempfile
 from typing import Dict, List, Optional, Set, Union
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import (
+from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,

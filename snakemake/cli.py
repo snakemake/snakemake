@@ -46,7 +46,7 @@ from snakemake.resources import (
     eval_resource_expression,
     parse_resources,
 )
-from snakemake.settings import (
+from snakemake.settings.types import (
     ChangeType,
     ConfigSettings,
     DAGSettings,
