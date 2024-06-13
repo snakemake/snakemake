@@ -651,8 +651,14 @@ class Conda:
             self.container_img = container_img
             self.frontend = frontend
 
+            assert (
+                self.frontend is not None
+            ), "bug: conda frontend must be specified the first time Conda() is used."
+
             self.info = json.loads(
-                shell.check_output(self._get_cmd("conda info --json"), text=True)
+                shell.check_output(
+                    self._get_cmd(f"{self.frontend} info --json"), text=True
+                )
             )
 
             if prefix_path is None or container_img is not None:
@@ -680,59 +686,54 @@ class Conda:
     def _check(self):
         from snakemake.shell import shell
 
-        frontends = ["conda"]
-        if self.frontend == "mamba":
-            frontends = ["mamba", "conda"]
+        # Use type here since conda now is a function.
+        # type allows to check for both functions and regular commands.
+        if not ON_WINDOWS or shell.get_executable():
+            locate_cmd = f"type {self.frontend}"
+        else:
+            locate_cmd = f"where {self.frontend}"
 
-        for frontend in frontends:
-            # Use type here since conda now is a function.
-            # type allows to check for both functions and regular commands.
-            if not ON_WINDOWS or shell.get_executable():
-                locate_cmd = f"type {frontend}"
-            else:
-                locate_cmd = f"where {frontend}"
-
-            try:
-                shell.check_output(
-                    self._get_cmd(locate_cmd), stderr=subprocess.STDOUT, text=True
+        try:
+            shell.check_output(
+                self._get_cmd(locate_cmd), stderr=subprocess.STDOUT, text=True
+            )
+        except subprocess.CalledProcessError as e:
+            if self.container_img:
+                msg = (
+                    f"The '{self.frontend}' command is not "
+                    "available inside "
+                    "your singularity container "
+                    "image. Snakemake mounts "
+                    "your conda installation "
+                    "into singularity. "
+                    "Sometimes, this can fail "
+                    "because of shell restrictions. "
+                    "It has been tested to work "
+                    "with docker://ubuntu, but "
+                    "it e.g. fails with "
+                    "docker://bash "
                 )
-            except subprocess.CalledProcessError as e:
-                if self.container_img:
-                    msg = (
-                        f"The '{frontend}' command is not "
-                        "available inside "
-                        "your singularity container "
-                        "image. Snakemake mounts "
-                        "your conda installation "
-                        "into singularity. "
-                        "Sometimes, this can fail "
-                        "because of shell restrictions. "
-                        "It has been tested to work "
-                        "with docker://ubuntu, but "
-                        "it e.g. fails with "
-                        "docker://bash "
-                    )
-                else:
-                    msg = (
-                        f"The '{frontend}' command is not "
-                        "available in the "
-                        f"shell {shell.get_executable()} that will be "
-                        "used by Snakemake. You have "
-                        "to ensure that it is in your "
-                        "PATH, e.g., first activating "
-                        "the conda base environment "
-                        "with `conda activate base`."
-                    )
-                if frontend == "mamba":
-                    msg += (
-                        "The mamba package manager (https://github.com/mamba-org/mamba) is a "
-                        "fast and robust conda replacement. "
-                        "It is the recommended way of using Snakemake's conda integration. "
-                        "It can be installed with `conda install -n base -c conda-forge mamba`. "
-                        "If you still prefer to use conda, you can enforce that by setting "
-                        "`--conda-frontend conda`."
-                    )
-                raise CreateCondaEnvironmentException(msg)
+            else:
+                msg = (
+                    f"The '{self.frontend}' command is not "
+                    "available in the "
+                    f"shell {shell.get_executable()} that will be "
+                    "used by Snakemake. You have "
+                    "to ensure that it is in your "
+                    "PATH, e.g., first activating "
+                    "the conda base environment "
+                    "with `conda activate base`."
+                )
+            if self.frontend == "mamba":
+                msg += (
+                    "The mamba package manager (https://github.com/mamba-org/mamba) is a "
+                    "fast and robust conda replacement. "
+                    "It is the recommended way of using Snakemake's conda integration. "
+                    "It can be installed with `conda install -n base -c conda-forge mamba`. "
+                    "If you still prefer to use conda, you can enforce that by setting "
+                    "`--conda-frontend conda`."
+                )
+            raise CreateCondaEnvironmentException(msg)
 
         try:
             self._check_version()
