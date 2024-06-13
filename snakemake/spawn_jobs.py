@@ -10,7 +10,7 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import common
 from snakemake.io import get_flag_value, is_flagged
-from snakemake.settings import SharedFSUsage
+from snakemake.settings.types import SharedFSUsage
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -95,15 +95,27 @@ class SpawnedJobArgsFactory:
             else:
                 return value
 
-        return format_cli_arg(
-            "--set-resources",
-            [
-                f"{rule}:{name}={get_orig_arg(value)}"
-                for rule, res in self.workflow.resource_settings.overwrite_resources.items()
-                for name, value in res.items()
-            ],
-            skip=not self.workflow.resource_settings.overwrite_resources,
-        )
+        return [
+            format_cli_arg(
+                "--set-resources",
+                [
+                    f"{rule}:{name}={get_orig_arg(value)}"
+                    for rule, res in self.workflow.resource_settings.overwrite_resources.items()
+                    for name, value in res.items()
+                ],
+                skip=not self.workflow.resource_settings.overwrite_resources,
+                base64_encode=True,
+            ),
+            format_cli_arg(
+                "--set-threads",
+                [
+                    f"{rule}={get_orig_arg(value)}"
+                    for rule, value in self.workflow.resource_settings.overwrite_threads.items()
+                ],
+                skip=not self.workflow.resource_settings.overwrite_threads,
+                base64_encode=True,
+            ),
+        ]
 
     def get_resource_scopes_args(self):
         return format_cli_arg(
@@ -139,7 +151,13 @@ class SpawnedJobArgsFactory:
         return join_cli_args([groups, group_components])
 
     def workflow_property_to_arg(
-        self, property, flag=None, quote=True, skip=False, invert=False, attr=None
+        self,
+        property,
+        flag=None,
+        base64_encode=False,
+        skip=False,
+        invert=False,
+        attr=None,
     ):
         if skip:
             return ""
@@ -161,7 +179,7 @@ class SpawnedJobArgsFactory:
         if invert and isinstance(value, bool):
             value = not value
 
-        return format_cli_arg(flag, value, quote=quote)
+        return format_cli_arg(flag, value, base64_encode=base64_encode)
 
     def envvars(self) -> Mapping[str, str]:
         envvars = {
@@ -257,19 +275,19 @@ class SpawnedJobArgsFactory:
                 skip=not shared_deployment,
             ),
             w2a("deployment_settings.apptainer_prefix"),
-            w2a("deployment_settings.apptainer_args"),
+            w2a("deployment_settings.apptainer_args", base64_encode=True),
             w2a("resource_settings.max_threads"),
             self.get_shared_fs_usage_arg(executor_common_settings),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
             w2a("workflow_settings.wrapper_prefix"),
-            w2a("resource_settings.overwrite_threads", flag="--set-threads"),
             w2a("resource_settings.overwrite_scatter", flag="--set-scatter"),
             w2a("deployment_settings.conda_not_block_search_path_envvars"),
             w2a("overwrite_configfiles", flag="--configfiles"),
             w2a("config_settings.config_args", flag="--config"),
             w2a("output_settings.printshellcmds"),
+            w2a("output_settings.benchmark_extended"),
             w2a("execution_settings.latency_wait"),
             w2a("scheduling_settings.scheduler", flag="--scheduler"),
             local_storage_prefix,
@@ -283,15 +301,25 @@ class SpawnedJobArgsFactory:
                 flag="--directory",
                 skip=self.workflow.storage_settings.assume_common_workdir,
             ),
-            self.get_set_resources_args(),
             self.get_resource_scopes_args(),
         ]
         args.extend(self.get_storage_provider_args())
+        args.extend(self.get_set_resources_args())
         if executor_common_settings.pass_default_storage_provider_args:
             args.append(self.get_default_storage_provider_args())
         if executor_common_settings.pass_default_resources_args:
-            args.append(w2a("resource_settings.default_resources", attr="args"))
+            args.append(
+                w2a(
+                    "resource_settings.default_resources",
+                    attr="args",
+                    base64_encode=True,
+                )
+            )
         if executor_common_settings.pass_group_args:
             args.append(self.get_group_args())
+
+        from snakemake.logging import logger
+
+        logger.debug(f"General args: {args}")
 
         return join_cli_args(args)

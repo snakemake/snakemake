@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Set
 
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 import snakemake.common.argparse
@@ -45,7 +46,7 @@ from snakemake.resources import (
     eval_resource_expression,
     parse_resources,
 )
-from snakemake.settings import (
+from snakemake.settings.types import (
     ChangeType,
     ConfigSettings,
     DAGSettings,
@@ -83,12 +84,23 @@ def expandvars(atype):
     return inner
 
 
+def optional_str(arg):
+    if arg is None or arg == "none":
+        return None
+    else:
+        return arg
+
+
 def parse_set_threads(args):
+    def fallback(orig_value):
+        value = eval_resource_expression(orig_value, threads_arg=False)
+        return ParsedResource(value=value, orig_arg=orig_value)
+
     return parse_set_ints(
         args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
-        fallback=partial(eval_resource_expression, threads_arg=False),
+        fallback=fallback,
     )
 
 
@@ -110,10 +122,14 @@ def parse_set_resources(args):
             if len(key) != 2:
                 raise ValueError(errmsg)
             rule, resource = key
-            try:
-                value = int(orig_value)
-            except ValueError:
-                value = eval_resource_expression(orig_value)
+            if is_quoted(orig_value):
+                # value is a string, just keep it
+                value = orig_value
+            else:
+                try:
+                    value = int(orig_value)
+                except ValueError:
+                    value = eval_resource_expression(orig_value)
             if isinstance(value, int) and value < 0:
                 raise ValueError(errmsg)
             assignments[rule][resource] = ParsedResource(
@@ -160,8 +176,8 @@ def parse_set_ints(arg, errmsg, fallback=None):
                 if fallback is not None:
                     try:
                         value = fallback(value)
-                    except Exception:
-                        raise ValueError(errmsg)
+                    except Exception as e:
+                        raise ValueError(f"{errmsg} Cause: {e}")
                 else:
                     raise ValueError(errmsg)
             if isinstance(value, int) and value < 0:
@@ -505,7 +521,7 @@ def get_argument_parser(profiles=None):
         metavar="RULE=THREADS",
         nargs="+",
         default=dict(),
-        parse_func=parse_set_threads,
+        parse_func=maybe_base64(parse_set_threads),
         help="Overwrite thread usage of rules. This allows to fine-tune workflow "
         "parallelization. In particular, this is helpful to target certain cluster nodes "
         "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
@@ -525,7 +541,7 @@ def get_argument_parser(profiles=None):
         metavar="RULE:RESOURCE=VALUE",
         nargs="+",
         default=dict(),
-        parse_func=parse_set_resources,
+        parse_func=maybe_base64(parse_set_resources),
         help="Overwrite resource usage of rules. This allows to fine-tune workflow "
         "resources. In particular, this is helpful to target certain cluster nodes "
         "by e.g. defining a certain partition for a rule, or overriding a temporary directory. "
@@ -564,7 +580,7 @@ def get_argument_parser(profiles=None):
         "--default-res",
         nargs="*",
         metavar="NAME=INT",
-        parse_func=DefaultResources,
+        parse_func=maybe_base64(DefaultResources),
         help=(
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb'). "
@@ -597,21 +613,6 @@ def get_argument_parser(profiles=None):
         type=int,
         help="Number of retries that shall be made in order to finish a job from of rule that has been marked as preemptible via the --preemptible-rules setting.",
     )
-
-    group_exec.add_argument(
-        "--config",
-        "-C",
-        nargs="*",
-        metavar="KEY=VALUE",
-        default=dict(),
-        parse_func=parse_config,
-        help=(
-            "Set or overwrite values in the workflow config object. "
-            "The workflow config object is accessible as variable config inside "
-            "the workflow. Default values can be set by providing a JSON file "
-            "(see Documentation)."
-        ),
-    )
     group_exec.add_argument(
         "--configfile",
         "--configfiles",
@@ -626,6 +627,18 @@ def get_argument_parser(profiles=None):
             "the given order. Thereby missing keys in previous config files are extended by "
             "following configfiles. Note that this order also includes a config file defined "
             "in the workflow definition itself (which will come first)."
+        ),
+    )
+    group_exec.add_argument(
+        "--config",
+        "-C",
+        nargs="*",
+        metavar="KEY=VALUE",
+        help=(
+            "Set or overwrite values in the workflow config object. "
+            "The workflow config object is accessible as variable config inside "
+            "the workflow. Default values can be set by providing a YAML JSON file "
+            "(see --configfile and Documentation)."
         ),
     )
     group_exec.add_argument(
@@ -1369,10 +1382,12 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--default-storage-provider",
+        type=optional_str,
         help="Specify default storage provider to be used for "
         "all input and output files that don't yet specify "
         "one (e.g. 's3'). See https://snakemake.github.io/snakemake-plugin-catalog "
-        "for available storage provider plugins.",
+        "for available storage provider plugins. If not set or explicitly 'none', no "
+        "default storage provider will be used.",
     )
     group_behavior.add_argument(
         "--default-storage-prefix",
@@ -1481,6 +1496,12 @@ def get_argument_parser(profiles=None):
         "started. Only applies if --no-shared-fs is set or executors are used that "
         "imply no shared FS (e.g. the kubernetes executor).",
     )
+    group_behavior.add_argument(
+        "--benchmark-extended",
+        default=False,
+        action="store_true",
+        help="Write extended benchmarking metrics.",
+    )
 
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
 
@@ -1585,7 +1606,12 @@ def get_argument_parser(profiles=None):
         "If supplied, the `--use-conda` flag must also be set. The value may "
         "be given as a relative path, which will be extrapolated to the "
         "invocation directory, or as an absolute path. The value can also be "
-        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX.",
+        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX. "
+        "In any case, the prefix may contain environment "
+        "variables which will be properly expanded. "
+        "Note that if you use remote execution "
+        "e.g. on a cluster and you have node specific values for this, you should "
+        "disable assuming shared fs for software-deployment (see --shared-fs-usage).",
     )
     group_conda.add_argument(
         "--conda-cleanup-envs",
@@ -1639,13 +1665,18 @@ def get_argument_parser(profiles=None):
         "to the '.snakemake' directory relative to the invocation directory. "
         "If supplied, the `--use-apptainer` flag must also be set. The value "
         "may be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path.",
+        "invocation directory, or as an absolute path. If not supplied, "
+        "APPTAINER_CACHEDIR is used. In any case, the prefix may contain environment "
+        "variables which will be properly expanded. Note that if you use remote execution "
+        "e.g. on a cluster and you have node specific values for this, you should "
+        "disable assuming shared fs for software-deployment (see --shared-fs-usage).",
     )
     group_singularity.add_argument(
         "--apptainer-args",
         "--singularity-args",
         default="",
         metavar="ARGS",
+        parse_func=maybe_base64(str),
         help="Pass additional args to apptainer/singularity.",
     )
 
@@ -1737,7 +1768,7 @@ def parse_args(argv):
 def parse_quietness(quietness) -> Set[Quietness]:
     if quietness is not None and len(quietness) == 0:
         # default case, set quiet to progress and rule
-        quietness = [Quietness.PROGRESS, Quietness.RULES]
+        quietness = {Quietness.PROGRESS, Quietness.RULES}
     else:
         quietness = Quietness.parse_choices_set(quietness)
     return quietness
@@ -1851,8 +1882,10 @@ def args_to_api(args, parser):
         if executor_plugin.common_settings.local_exec:
             # use --jobs as an alias for --cores
             args.cores = args.jobs
+            args.jobs = None
         elif executor_plugin.common_settings.dryrun_exec:
             args.cores = 1
+            args.jobs = None
 
     # start profiler if requested
     if args.runtime_profile:
@@ -1876,6 +1909,8 @@ def args_to_api(args, parser):
             show_failed_logs=args.show_failed_logs,
             log_handlers=log_handlers,
             keep_logger=False,
+            stdout=args.dryrun,
+            benchmark_extended=args.benchmark_extended,
         )
     ) as snakemake_api:
         deployment_method = args.software_deployment_method
@@ -1922,8 +1957,9 @@ def args_to_api(args, parser):
                         default_resources=args.default_resources,
                     ),
                     config_settings=ConfigSettings(
-                        config=args.config,
+                        config=parse_config(args.config),
                         configfiles=args.configfile,
+                        config_args=args.config,
                     ),
                     storage_settings=storage_settings,
                     storage_provider_settings=storage_provider_settings,

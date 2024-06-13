@@ -8,7 +8,7 @@ import sys
 import subprocess as sp
 from pathlib import Path
 from snakemake.resources import DefaultResources, GroupResources
-from snakemake.settings import RerunTrigger
+from snakemake.settings.enums import RerunTrigger
 
 from snakemake.shell import shell
 
@@ -163,6 +163,14 @@ def test15():
     run(dpath("test15"))
 
 
+@skip_on_windows  # OS agnostic
+def test_set_threads():
+    run(
+        dpath("test_set_threads"),
+        shellcmd='snakemake --executor local --set-threads "a=max(input.size, 5)" -c 5 --verbose',
+    )
+
+
 def test_glpk_solver():
     run(dpath("test_solver"), scheduler_ilp_solver="GLPK_CMD")
 
@@ -198,6 +206,22 @@ def test_directory2():
             "some/dir-child",
             "some/shadow",
         ],
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_set_resources_complex_profile():
+    run(
+        dpath("test_set_resources_complex"),
+        shellcmd="snakemake -c1 --verbose --profile test-profile",
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_set_resources_complex_cli():
+    run(
+        dpath("test_set_resources_complex"),
+        shellcmd="snakemake -c1 --verbose --set-resources \"a:slurm_extra='--nice=150 --gres=gpu:1'\"",
     )
 
 
@@ -323,7 +347,12 @@ def test_wildcard_keyword():
 
 @skip_on_windows
 def test_benchmark():
-    run(dpath("test_benchmark"), check_md5=False)
+    run(dpath("test_benchmark"), benchmark_extended=True, check_md5=False)
+
+
+@skip_on_windows
+def test_benchmark_jsonl():
+    run(dpath("test_benchmark_jsonl"), benchmark_extended=True, check_md5=False)
 
 
 def test_temp_expand():
@@ -447,6 +476,11 @@ def test_conda_list_envs():
     run(dpath("test_conda"), conda_list_envs=True, check_results=False)
 
 
+# TODO failing with FAILED tests/tests.py::test_conda_create_envs_only -
+# PermissionError: [WinError 32] The process cannot access the file because
+# it is being used by another process:
+# 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\snakemake-2q4osog0\\test-env.yaml'
+@skip_on_windows
 def test_conda_create_envs_only():
     tmpdir = run(
         dpath("test_conda"),
@@ -587,6 +621,18 @@ def test_dup_out_patterns():
     run(dpath("test_dup_out_patterns"), shouldfail=True)
 
 
+def test_issue2826_failed_binary_logs():
+    """Show how a binary log file crushes `show_logs`
+
+    The log file in this test is a binary file.
+    The `show_failed_logs` is activated by default using `run`,
+    thus `show_logs` will be called at the end of the test.
+    Thus this test will check if `show_logs` is able to handle
+    the binary log file.
+    """
+    run(dpath("test_issue2826_failed_binary_logs"), shouldfail=True)
+
+
 # TODO reactivate once generic cluster executor is properly released
 # @skip_on_windows
 # def test_restartable_job_cmd_exit_1_no_restart():
@@ -713,6 +759,17 @@ def test_profile():
 @connected
 def test_singularity():
     run(dpath("test_singularity"), deployment_method={DeploymentMethod.APPTAINER})
+
+
+@skip_on_windows
+@connected
+def test_singularity_cluster():
+    run(
+        dpath("test_singularity"),
+        deployment_method={DeploymentMethod.APPTAINER},
+        cluster="./qsub",
+        apptainer_args="--bind /tmp:/tmp",
+    )
 
 
 @skip_on_windows
@@ -1423,7 +1480,7 @@ def test_jupyter_notebook():
 
 
 def test_jupyter_notebook_draft():
-    from snakemake.settings import NotebookEditMode
+    from snakemake.settings.types import NotebookEditMode
 
     run(
         dpath("test_jupyter_notebook_draft"),
@@ -1502,7 +1559,7 @@ def test_long_shell():
 
 
 def test_modules_all():
-    run(dpath("test_modules_all"), targets=["a"])
+    run(dpath("test_modules_all"), targets=["all"])
 
 
 def test_module_nested():
@@ -1563,6 +1620,14 @@ def test_module_no_prefixing_modified_paths():
     run(
         dpath("test_module_no_prefixing_modified_paths"),
         targets=["module2/test_final.txt"],
+    )
+
+
+@skip_on_windows
+def test_modules_prefix_local():
+    run(
+        dpath("test_modules_prefix_local"),
+        targets=["out_1/test_final.txt"],
     )
 
 
@@ -1990,6 +2055,11 @@ def test_resource_string_in_cli_or_profile():
     )
 
 
+@skip_on_windows  # not platform dependent, only cli
+def test_default_storage_provider_none():
+    run(dpath("test01"), shellcmd="snakemake --default-storage-provider none -c3")
+
+
 def test_resource_tbdstring():
     test_path = dpath("test_resource_tbdstring")
     results_dir = Path(test_path) / "expected-results"
@@ -2018,7 +2088,7 @@ def test_issue2685():
 def test_set_resources_complex():
     run(
         dpath("test05"),
-        shellcmd="snakemake -c1 --set-resources \"compute1:slurm_extra='--nice=10'\"",
+        shellcmd="snakemake --verbose -c1 --set-resources \"compute1:slurm_extra='--nice=10'\"",
     )
 
 
@@ -2036,8 +2106,45 @@ def test_call_inner():
 
 
 @skip_on_windows  # OS agnostic
+def test_storage_localrule():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        run(
+            dpath("test_storage_localrule"),
+            cluster="./qsub",
+            default_storage_provider="fs",
+            default_storage_prefix="fs-storage",
+            remote_job_local_storage_prefix=Path(tmpdir) / "remotejobs/$JOBID",
+            local_storage_prefix=Path(tmpdir) / "localjobs",
+            shared_fs_usage=[
+                SharedFSUsage.PERSISTENCE,
+                SharedFSUsage.SOURCE_CACHE,
+                SharedFSUsage.SOURCES,
+            ],
+        )
+
+
+@skip_on_windows  # OS agnostic
+def test_update_flag():
+    run(dpath("test_update_flag"))
+
+
+@skip_on_windows  # OS agnostic
 def test_list_input_changes():
     run(dpath("test01"), shellcmd="snakemake --list-input-changes", check_results=False)
+
+
+@skip_on_windows  # OS agnostic
+def test_storage_cleanup_local():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        run(
+            dpath("test_storage_cleanup_local"),
+            cluster="./qsub",
+            default_storage_provider="fs",
+            default_storage_prefix="fs-storage",
+            local_storage_prefix=tmpdir_path,
+        )
+        assert not tmpdir_path.exists() or not any(tmpdir_path.iterdir())
 
 
 @skip_on_windows  # OS agnostic
@@ -2046,8 +2153,28 @@ def test_summary():
 
 
 @skip_on_windows  # OS agnostic
+def test_exists():
+    run(dpath("test_exists"), check_results=False, executor="dryrun")
+
+
+@skip_on_windows  # OS agnostic
+def test_handle_storage_multi_consumers():
+    run(
+        dpath("test_handle_storage_multi_consumers"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+        cores=1,
+    )
+
+
+@skip_on_windows  # OS agnostic
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
+
+
+@skip_on_windows
+def test_shell_exec():
+    run(dpath("test_shell_exec"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 def test_expand_list_of_functions():
@@ -2057,3 +2184,12 @@ def test_expand_list_of_functions():
 @skip_on_windows  # OS agnostic
 def test_scheduler_sequential_all_cores():
     run(dpath("test_scheduler_sequential_all_cores"), cores=90)
+
+
+@skip_on_windows  # OS agnostic
+def test_checkpoint_open():
+    run(
+        dpath("test_checkpoint_open"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+    )

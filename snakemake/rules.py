@@ -44,6 +44,7 @@ from snakemake.io import (
     ReportObject,
 )
 from snakemake.exceptions import (
+    InputOpenException,
     RuleException,
     IOFileException,
     WildcardError,
@@ -441,13 +442,14 @@ class Rule(RuleInterface):
                         "pipe",
                         "service",
                         "ensure",
+                        "update",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
                                 item_flag, self
                             )
                         )
-                    if output and item_flag in ["ancient"]:
+                    if output and item_flag in ["ancient", "before_update"]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(
                                 item_flag, self
@@ -634,6 +636,9 @@ class Rule(RuleInterface):
             except IncompleteCheckpointException as e:
                 value = incomplete_checkpoint_func(e)
                 incomplete = True
+            except InputOpenException as e:
+                e.rule = self
+                raise e
             except Exception as e:
                 if "input" in aux_params and is_file_not_found_error(
                     e, aux_params["input"]
@@ -741,9 +746,10 @@ class Rule(RuleInterface):
                         and not isinstance(item_, str)
                         and not isinstance(item_, Path)
                     ):
-                        raise WorkflowError(
+                        raise InputFunctionException(
                             f"Function did not return str or iterable of str. Encountered: {item} ({type(item)})",
                             rule=self,
+                            wildcards=wildcards,
                         )
 
                     if from_callable and path_modifier is not None and not incomplete:
@@ -1001,7 +1007,9 @@ class Rule(RuleInterface):
         threads = apply("_cores", self.resources["_cores"])
         if threads is None:
             raise WorkflowError("Threads must be given as an int", rule=self)
-        if self.workflow.resource_settings.max_threads is not None:
+        if self.workflow.resource_settings.max_threads is not None and not isinstance(
+            threads, TBDString
+        ):
             threads = min(threads, self.workflow.resource_settings.max_threads)
         resources["_cores"] = threads
 

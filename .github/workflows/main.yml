@@ -72,8 +72,8 @@ jobs:
 
           pip install -e .
 
-      - name: Configure fast APT mirror
-        uses: vegardit/fast-apt-mirror.sh@1.0.0
+      # - name: Configure fast APT mirror
+      #   uses: vegardit/fast-apt-mirror.sh@1.0.0
 
       - name: Setup apt dependencies
         run: |
@@ -144,7 +144,7 @@ jobs:
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line, end="")
 
-      - name: Setup snakemke environment
+      - name: Setup snakemake environment
         uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: test-environment.yml

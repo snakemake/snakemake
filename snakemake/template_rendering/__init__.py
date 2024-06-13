@@ -57,3 +57,17 @@ def render_template(engine, input, output, params, wildcards, config, rule):
             )
     except Exception as e:
         raise WorkflowError(f"Error rendering template in rule {rule}.", e)
+
+
+def check_template_output(job):
+    with open(job.output[0]) as out:
+        for l in out:
+            for f in job.input:
+                if f.is_storage and f in l:
+                    raise WorkflowError(
+                        "Output of template_engine rule contains local path to input file "
+                        f"from storage: {f} for {f.storage_object.query}. "
+                        "However, this path is variable as it can change between runs (e.g. when "
+                        "the storage local prefix is modified). To circumvent this issue, place the "
+                        "rule in one group with the consumer(s) and mark the output as temp()."
+                    )

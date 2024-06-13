@@ -15,7 +15,7 @@ import importlib
 import tarfile
 
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
-from snakemake.settings import (
+from snakemake.settings.types import (
     ChangeType,
     GroupSettings,
     SchedulingSettings,
@@ -26,7 +26,7 @@ if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import (
+from snakemake.settings.types import (
     DAGSettings,
     DeploymentMethod,
     DeploymentSettings,
@@ -138,7 +138,7 @@ class SnakemakeApi(ApiBase):
 
         self._check_is_in_context()
 
-        self._setup_logger(mode=workflow_settings.exec_mode)
+        self.setup_logger(mode=workflow_settings.exec_mode)
 
         self._check_default_storage_provider(storage_settings=storage_settings)
 
@@ -209,7 +209,7 @@ class SnakemakeApi(ApiBase):
             raise ApiError(
                 f"Error when applying default storage provider "
                 f"{storage_settings.default_storage_provider} to upload workflow "
-                "sources. {query_validity}"
+                f"sources. {query_validity}"
             )
         storage_object = provider_instance.object(query)
         async_run(storage_object.managed_retrieve())
@@ -240,7 +240,7 @@ class SnakemakeApi(ApiBase):
             linemaps = self._workflow_api._workflow_store.linemaps
         print_exception(ex, linemaps)
 
-    def _setup_logger(
+    def setup_logger(
         self,
         stdout: bool = False,
         mode: ExecMode = ExecMode.DEFAULT,
@@ -254,7 +254,7 @@ class SnakemakeApi(ApiBase):
                 debug=self.output_settings.verbose,
                 printshellcmds=self.output_settings.printshellcmds,
                 debug_dag=self.output_settings.debug_dag,
-                stdout=stdout,
+                stdout=stdout or self.output_settings.stdout,
                 mode=mode,
                 show_failed_logs=self.output_settings.show_failed_logs,
                 dryrun=dryrun,
@@ -382,11 +382,11 @@ class WorkflowApi(ApiBase):
     def _workflow(self):
         if self._workflow_store is None:
             workflow = self._get_workflow()
+            self._workflow_store = workflow
             workflow.include(
                 self.snakefile, overwrite_default_target=True, print_compilation=False
             )
             workflow.check()
-            self._workflow_store = workflow
         return self._workflow_store
 
     def _get_workflow(self, **kwargs):
@@ -523,7 +523,7 @@ class DAGApi(ApiBase):
                 "For local execution, --shared-fs-usage has to be unrestricted."
             )
 
-        self.snakemake_api._setup_logger(
+        self.snakemake_api.setup_logger(
             stdout=executor_plugin.common_settings.dryrun_exec,
             mode=self.workflow_api.workflow_settings.exec_mode,
             dryrun=executor_plugin.common_settings.dryrun_exec,

@@ -443,7 +443,7 @@ class Logger:
         self.handler(msg)
 
     def is_quiet_about(self, msg_type: str):
-        from snakemake.settings import Quietness
+        from snakemake.settings.enums import Quietness
 
         return (
             Quietness.ALL in self.quiet
@@ -505,6 +505,9 @@ class Logger:
                     content = open(f, "r").read()
                 except FileNotFoundError:
                     yield f"Logfile {f} not found."
+                    return
+                except UnicodeDecodeError:
+                    yield f"Logfile {f} is not a text file."
                     return
                 lines = content.splitlines()
                 logfile_header = f"Logfile {f}:"
@@ -731,7 +734,7 @@ def setup_logger(
     show_failed_logs=False,
     dryrun=False,
 ):
-    from snakemake.settings import Quietness
+    from snakemake.settings.types import Quietness
 
     if mode is None:
         mode = get_default_exec_mode()
@@ -746,7 +749,7 @@ def setup_logger(
             quiet = set()
     elif not isinstance(quiet, set):
         raise ValueError(
-            "Unsupported value provided for quiet mode (either bool, None or list allowed)."
+            "Unsupported value provided for quiet mode (either bool, None or set allowed)."
         )
 
     logger.log_handler.extend(handler)

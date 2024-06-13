@@ -37,7 +37,7 @@ Inside the shell command, all local and global variables, especially input and o
 Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 
-By default shell commands will be invoked with ``bash`` shell (unless the workflow specifies a different default shell via ``shell.executable(...)``).
+By default shell commands will be invoked with ``bash`` shell in the so-called  `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ (unless the workflow specifies something else, seesee :ref:`shell_settings`).
 
 Instead of a shell command, a rule can run some python code to generate the output:
 
@@ -69,8 +69,6 @@ Further, this combination of python and shell commands allows us to iterate over
 
     for line in shell("somecommand {output.somename}", iterable=True):
         ... # do something in python
-
-Note that shell commands in Snakemake use the bash shell in `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ by default.
 
 .. _snakefiles-wildcards:
 
@@ -361,7 +359,7 @@ The lookup function
 
 The ``lookup`` function can be used to look up a value in a python mapping (e.g. a ``dict``) or a `pandas dataframe or series <https://pandas.pydata.org>`_.
 It is especially useful for looking up information based on wildcard values.
-The ``lookup`` function has the signature ``lookup(dpath: Optional[str | Callable] = None, query: Optional[str | Callable] = None, cols: Optional[List[str]] = None, within=None)``.
+The ``lookup`` function has the signature ``lookup(dpath: Optional[str | Callable] = None, query: Optional[str | Callable] = None, cols: Optional[List[str]] = None, is_nrows: Optional[int], within=None)``.
 The ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
 For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
 
@@ -372,8 +370,11 @@ named tuples with the column names as attributes.
 If the query results in a single row, the result is returned as a single
 named tuple with the column names as attributes.
 If the query or dpath parameter is given a function, the function will be evaluated with wildcards passed as the first argument.
+In case of dpath, if the dpath is not found, a ``LookupError`` is raised, unless a
+default fallback value is provided via the ``default`` argument (this argument is ignored in case of ``query``).
+Note: ``None`` is also a valid default value.
 
-In both cases, the result can be used by the ``expand`` or ``collect`` function,
+In both cases (``dpath`` and ``query``), the result can be used by the ``expand`` or ``collect`` function,
 e.g. 
 
 .. code-block:: python
@@ -408,9 +409,16 @@ or to a single column, e.g.
 
 .. code-block:: python
     
-    lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")`.
+    lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")
 
 In the latter case, just a list of items in that column is returned (e.g. ``["a", "b", "c"]``).
+
+The argument ``is_nrows`` allows to test for a given number of rows in the queried dataframe.
+If it is used, lookup just returns a boolean value indicating whether the number of rows in the queried dataframe matches the given number:
+
+.. code-block:: python
+    
+    lookup(query="sample == '{sample}'", within=samples, is_nrows=5)
 
 In case of a **pandas series**, the series is converted into a dataframe via
 Series.to_frame() and the same logic as for a dataframe is applied.
@@ -422,7 +430,6 @@ In case of a **python mapping**, the dpath parameter is passed to dpath.values()
 In that case, this function returns an :ref:`input function <snakefiles-input_functions>` which takes
 wildcards as its only argument and will be evaluated by Snakemake
 once the wildcard values are known if the lookup is used within an input file statement.
-.. _snakefiles-branch-function:
 
 In addition to wildcard values, dpath, query and cols may refer via the same syntax
 to auxiliary namespace arguments given to the lookup function, e.g.
@@ -436,6 +443,8 @@ to auxiliary namespace arguments given to the lookup function, e.g.
     )
 
 This way, one can e.g. pass additional variables or chain lookups into more complex queries.
+
+.. _snakefiles-branch-function:
 
 The branch function
 """""""""""""""""""
@@ -534,6 +543,34 @@ Consider the following example:
 The semantic is as follows:
 If the sample wildcard is ``100``, the input is ``a/100.txt``, otherwise it is ``b/100.txt``.
 
+.. _snakefiles-semantic-helpers-exists:
+
+The exists function
+"""""""""""""""""""
+
+The ``exists`` function allows to check whether a file exists, while properly considering remote storage settings provided to Snakemake.
+For example, if Snakemake has been configured to consider all input and output files to be located in an S3 bucket, ``exists`` will check whether the file exists in the S3 bucket.
+It has the signature ``exists(path)``, with ``path`` being the path to a file or directory, or an explicit :ref:`storage object <storage-support>`.
+The function returns ``True`` if the file exists, and ``False`` otherwise.
+It can for example be used to condition some behavior in the workflow on the existence of a file **before** the workflow is executed:
+
+.. code-block:: python
+
+    rule all:
+        input:
+            # only expect the output if test.txt is present before workflow execution
+            "out.txt" if exists("test.txt") else [],
+
+    rule b:
+        input:
+            "test.txt"
+        output:
+            "out.txt"
+        shell:
+            "cp {input} {output}"
+
+
+
 .. _snakefiles-targets:
 
 Target rules
@@ -564,6 +601,61 @@ It is possible to overwrite this behavior to use the first rule as a default tar
 Regardless of where this rule appears in the Snakefile, it will be the default target.
 Usually, it is still recommended to keep the default target rule (and in fact all other rules that could act as optional targets) at the top of the file, such that it can be easily found.
 The ``default_target`` directive becomes particularly useful when :ref:`combining several pre-existing workflows <use_with_modules>`.
+
+.. _shell_settings:
+
+Shell settings
+--------------
+
+By default, Snakemake uses the ``bash`` shell.
+This can be overridden in two ways.
+First, by globally setting the shell executable (e.g. to zsh) via
+
+.. code-block:: python
+
+    shell.executable("/bin/zsh")
+
+Note that this is usually not recommended, as it requires others who want to use the workflow to have that shell installed.
+Second, by setting the shell executable via the :ref:`resources directive <snakefiles_resources>` of a rule, e.g.
+
+.. code-block:: python
+
+    rule a:
+        input: ...
+        output: ...
+        resources:
+            shell_exec="zsh"
+        shell:
+            "echo 'hello world' > {output}"
+
+This can be particularly important in case you use a :ref:`container image <apptainer>` for the rule which does not contain bash, e.g.
+
+..code-block:: python
+
+    rule a:
+        output:
+            "test.out"
+        resources:
+            shell_exec="sh"
+        # image does not have bash, hence this would fail if shell_exec is not set to sh
+        container: "docker://busybox:1.33"
+        shell:
+            "echo 'hello world' > {output}"
+
+Shell behavior
+~~~~~~~~~~~~~~
+
+In case of bash shell, Snakemake always uses the so-called `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_.
+For individual rules, you can deactivate aspects of the strict mode by unsetting them at the beginning of the shell command.
+Further, it is possible to set global prefixes and suffixes for all shell commands via
+
+.. code-block:: python
+
+    shell.prefix("some prefix command;")
+    shell.suffix("; some suffix command")
+
+anywhere in your snakefile (preferably at the beginning for clarity).
+This can sometimes be useful for debugging, but is not recommended for production workflows and releases because it might hamper reproducibility and readability.
 
 .. _snakefiles-threads:
 
@@ -1904,15 +1996,31 @@ With the `benchmark` keyword, a rule can be declared to store a benchmark of its
 
 benchmarks the
 
-* CPU time (in seconds),
-* wall clock time,
-* memory usage (`RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_, `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_, `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_, `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_ in megabytes),
-* CPU load (CPU time divided by wall clock time),
-* I/O (in bytes)
+* `s`: Wall clock time (in seconds),
+* `h:m:s`: Wall clock time (in `hour:minutes:seconds`),
+* `max_rss`: Max `RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_ memory usage (in megabytes),
+* `max_vms`: Max `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_ memory usage (in megabytes),
+* `max_uss`: Max `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_ memory usage (in megabytes),
+* `max_pss`: Max `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_ memory usage (in megabytes),
+* `io_in`: I/O read (in bytes),
+* `io_out`: I/O written (in bytes),
+* `mean_load`: CPU load = CPU time (`cpu_usage`) divided by wall clock time (`s`),
+* `cpu_time`: CPU time user+system (seconds),
+
+Since version 8.11.0, it is possible to have extra benchmark metrics with the command ``--benchmark-extended``:
+
+* `jobid`: Internal job ID,
+* `rule_name`: Rule name,
+* `wildcards`: Job wildcards,
+* `params`: Job parameters,
+* `threads`: Number of threads requested for this job,
+* `cpu_usage`: Total CPU load,
+* `resources`: Resources requested for this job,
+* `input_size_mb`: Size of input files (MiB),
 
 of the command ``somecommand`` for the given output and input files.
 
-For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark tsv file (which will contain a tab-separated table of run times and memory usage in MiB).
+For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark `tsv` file (which will contain a tab-separated table of run times and memory usage in MiB).
 Per default, Snakemake executes the job once, generating one run time.
 However, the benchmark file can be annotated with the desired number of repeats, e.g.,
 
@@ -1929,7 +2037,9 @@ However, the benchmark file can be annotated with the desired number of repeats,
             "somecommand {input} {output}"
 
 will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
-The resulting tsv file can be used as input for other rules, just like any other output file.
+The resulting `tsv` file can be used as input for other rules, just like any other output file.
+
+Since version 8.11.0, it is also possible to have the benchmark metrics in different formats (depending on the extension); currently only the `.jsonl` extension (JSONL format; i.e. one JSON record per line) is supported and all other extensions will be treated as TSV.
 
 .. sidebar:: Note
 
@@ -2669,7 +2779,7 @@ Apart from Jinja2, Snakemake supports `YTE <https://github.com/koesterlab/yte>`_
 
 .. code-block:: python
 
-    rule render_jinja2_template:
+    rule render_yte_template:
         input:
             "some-yte-template.yaml"
         output:
@@ -2694,7 +2804,33 @@ Analogously to the jinja2 case YTE has access to ``params``, ``wildcards``, and 
         - b
         - ?config["threshold"]
 
-Template rendering rules are always executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
+By default, template rendering rules are executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
+However, if a :ref:`storage plugin <storage-support>` is used, a template rule can theoretically leak paths to local copies of the storage files into the rendered template.
+This can happen if the template inserts the path of an input file into the rendered output.
+Snakemake tries to detect such cases by checking the template output.
+To avoid such leaks (only required if your template does something like that with an input file path), you can assign the same :ref:`group <job_grouping>` to your template rule and the consuming rule, and in addition mark the template output as ``temp()``, i.e.:
+
+.. code-block:: python
+
+    rule render_yte_template:
+        input:
+            "some-yte-template.yaml"
+        output:
+            temp("results/{sample}.rendered-version.yaml")
+        params:
+            foo=0.1
+        group: "some-group"
+        template_engine:
+            "yte"
+
+    rule consume_template:
+        input:
+            "results/{sample}.rendered-version.yaml"
+        output:
+            "results/some-output.txt"
+        group: "some-group"
+        shell:
+            "sometool {input} {output}"
 
 .. _snakefiles_mpi_support:
 
@@ -2804,3 +2940,53 @@ Consider the following complete toy example:
             "test{i}.txt"
         shell:
             "echo {wildcards.i} > {output}"
+
+.. _snakefiles_update_output:
+
+Updating existing output files
+------------------------------
+
+By default, Snakemake deletes already existing output files before a job is executed.
+This is usually very convenient, because many tools will fail if their output files already exist.
+However, from Snakemake 8.7 on, it is possible to declare an output file/directory to be updated by a job instead of rewritten from scratch.
+Consider the following example:
+
+.. code-block:: python
+
+    rule update:
+        input:
+            "in.txt"
+        output:
+            update("test.txt")
+        shell:
+            "echo test >> {output}"
+
+
+Here, the statement ``test`` is appended to the output file ``test.txt``.
+Hence, we declare it as being updated via the ``update`` flag.
+This way, Snakemake will not delete the file before the job is executed.
+
+If such a file/directory has to be considered as input **before the update** for another rule
+it can be marked as ``before_update``.
+This ensures that Snakemake does not search for a producing job but instead considers the file as is on disk or in the storage:
+
+.. code-block:: python
+
+    rule do_something:
+        input:
+            before_update("test.txt")
+        output:
+            "in.txt"
+        shell:
+            "cp {input} {output}"
+
+    rule update:
+        input:
+            "in.txt"
+        output:
+            update("test.txt")
+        shell:
+            "echo test >> {output}"
+
+As can be seen, this way it is even possible to break a cyclic dependency.
+An important helper for setting up the logic of ``before_update`` is the :ref:`exists function <snakefiles-semantic-helpers-exists>`, which allows to e.g. condition the consideration of the file that shall be used before the update by its actual existence before the update.

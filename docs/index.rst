@@ -72,6 +72,7 @@ Support
 * To **discuss** with other Snakemake users, use the `discord server <https://discord.gg/kHvtG6N>`_. **Please do not post questions there. Use stack overflow for questions.**
 * For **bugs and feature requests**, please use the `issue tracker <https://github.com/snakemake/snakemake/issues>`_.
 * For **contributions**, visit Snakemake on `Github <https://github.com/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
+* Check out our `code of conduct <https://github.com/snakemake/snakemake/blob/main/CODE_OF_CONDUCT.md>`_ and refer to it for requests or concerns in that direction.
 
 --------
 Citation
@@ -83,6 +84,18 @@ When using Snakemake, please cite our "rolling" paper
 This paper will also be regularly updated when Snakemake receives new features.
 See :doc:`Citations <project_info/citations>` for more information.
 
+-----------
+Maintainers
+-----------
+
+The Snakemake maintainers are:
+
+* `Johannes Köster <https://github.com/johanneskoester>`_ (lead developer)
+* `David Lähnemann <https://github.com/dlaehnemann>`_
+* `Christian Meesters <https://github.com/cmeesters>`_
+* `Michael B. Hall <https://github.com/mbhall88>`_
+* `Filipe G. Vieira <https://github.com/fgvieira>`_
+* `Morten E. Lund <https://github.com/melund>`_
 
 .. _main-resources:
 

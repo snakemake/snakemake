@@ -185,7 +185,7 @@ Above, several things have changed.
 Uploading workflows to WorkflowHub
 ----------------------------------
 
-In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Create <https://w3id.org/ro/create>`_. That way a *snakemake* workflow is annotated with proper metadata and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
+In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metadata and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
 
 To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
 
@@ -271,7 +271,7 @@ with the following `environment definition <https://conda.io/projects/conda/en/l
      - r=3.3.1
      - r-ggplot2=2.1.0
 
-Please note that in the environment definition, conda determines the priority of channels depending on their order of appearance in the channels list. For instance, the channel that comes first in the list gets the highest priority.
+Please note that in the environment definition, conda determines the priority of channels depending on their order of appearance in the channels list. For instance, the channel that comes first in the list gets the highest priority. Default packages defined in the user configuration of conda (`.condarc`)) are ignored by Snakemake.
 
 The path to the environment definition is interpreted as **relative to the Snakefile that contains the rule** (unless it is an absolute path, which is discouraged).
 
@@ -416,7 +416,7 @@ As an alternative to using Conda (see above), it is possible to define, for each
         output:
             "plots/myplot.pdf"
         container:
-            "docker://joseespinosa/docker-r-ggplot2"
+            "docker://joseespinosa/docker-r-ggplot2:1.0"
         script:
             "scripts/plot-stuff.R"
 
@@ -432,17 +432,19 @@ it will execute the job within a container that is spawned from the given image.
 Allowed image urls entail everything supported by apptainer (e.g., ``shub://`` and ``docker://``).
 However, ``docker://`` is preferred, as other container runtimes will be supported in the future (e.g. podman).
 
+Defining global container images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 .. sidebar:: Note
 
    Note that apptainer integration is only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
    The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
 
-
 A global definition of a container image can be given:
 
 .. code-block:: python
 
-    container: "docker://joseespinosa/docker-r-ggplot2"
+    container: "docker://joseespinosa/docker-r-ggplot2:1.0"
 
     rule NAME:
         ...
@@ -452,10 +454,17 @@ by setting the container directive of the rule to ``None``.
 
 .. code-block:: python
 
-    container: "docker://joseespinosa/docker-r-ggplot2"
+    container: "docker://joseespinosa/docker-r-ggplot2:1.0"
 
     rule NAME:
         container: None
+
+
+Handling shell executable
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Snakemake executes rules using the bash shell by default.
+If your container image does not contain bash, you can specify a different shell executable, see :ref:`shell_settings`.
 
 -----------------------------------------
 Containerization of Conda based workflows

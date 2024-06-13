@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 from snakemake.exceptions import WorkflowError
 from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
+from snakemake.logging import logger
 
 
 PATH_MODIFIER_FLAG = "path_modified"
@@ -33,8 +34,16 @@ class PathModifier:
                 self.trie[prefix] = replacement
 
     def modify(self, path, property=None):
-        if get_flag_value(path, PATH_MODIFIER_FLAG) is self:
+        if get_flag_value(path, PATH_MODIFIER_FLAG):
+            logger.debug(
+                f"Not modifying path of file {path}, as it has already been modified"
+            )
             # Path has been modified before and is reused now, no need to modify again.
+            return path
+
+        if get_flag_value(path, "local"):
+            logger.debug(f"Not modifying path of file {path}, as it is local")
+            # File is local
             return path
 
         modified_path = self.apply_default_storage(self.replace_prefix(path, property))
@@ -52,7 +61,7 @@ class PathModifier:
                     self.replace_prefix(modified_path.flags["multiext"], property)
                 )
         # Flag the path as modified and return.
-        modified_path = flag(modified_path, PATH_MODIFIER_FLAG, self)
+        modified_path = flag(modified_path, PATH_MODIFIER_FLAG)
         return modified_path
 
     def replace_prefix(self, path, property=None):

@@ -17,9 +17,9 @@ import copy
 from pathlib import Path
 import tarfile
 import tempfile
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Union
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import (
+from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
@@ -125,6 +125,7 @@ from snakemake.sourcecache import (
 from snakemake.deployment.conda import Conda
 from snakemake import api, sourcecache
 import snakemake.ioutils
+import snakemake.ioflags
 
 
 SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
@@ -211,6 +212,7 @@ class Workflow(WorkflowExecutorInterface):
         _globals["gitfile"] = sourcecache.LocalGitFile
         _globals["storage"] = self._storage_registry
         snakemake.ioutils.register_in_globals(_globals)
+        snakemake.ioflags.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
 
         self.vanilla_globals = dict(_globals)
@@ -238,6 +240,12 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def snakemake_tmp_dir(self) -> Path:
         return Path(self._snakemake_tmp_dir.name)
+
+    def register_resource(self, name: str, value: Union[int, str]):
+        self.global_resources[name] = value
+        if self.scheduler is not None:
+            # update the scheduler if it is already active
+            self.scheduler.resources[name] = value
 
     @property
     def source_cache_path(self) -> Path:
@@ -684,8 +692,8 @@ class Workflow(WorkflowExecutorInterface):
         else:
 
             def files(items):
-                relpath = (
-                    lambda f: f
+                relpath = lambda f: (
+                    f
                     if os.path.isabs(f) or f.startswith("root://")
                     else os.path.relpath(f)
                 )
@@ -807,7 +815,7 @@ class Workflow(WorkflowExecutorInterface):
         for path in paths:
             success = self.persistence.cleanup_metadata(path)
             if not success:
-                failed.append(path)
+                failed.append(str(path))
         if failed:
             raise WorkflowError(
                 "Failed to clean up metadata for the following files because the metadata was not present.\n"
@@ -1247,7 +1255,7 @@ class Workflow(WorkflowExecutorInterface):
 
             if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
-                self.dag.cleanup_storage_objects()
+                async_run(self.dag.cleanup_storage_objects())
 
             if success:
                 if self.dryrun:
@@ -1387,11 +1395,7 @@ class Workflow(WorkflowExecutorInterface):
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
 
-        try:
-            exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
-        except SyntaxError as e:
-            e = update_lineno(e, self.linemaps)
-            raise
+        exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
         if not overwrite_default_target:
             self.default_target = default_target
@@ -1564,6 +1568,12 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
 
+            def get_resource_value(value):
+                if isinstance(value, ParsedResource):
+                    return value.value
+                else:
+                    return value
+
             # handle default resources
             if self.resource_settings.default_resources is not None:
                 rule.resources = copy.deepcopy(
@@ -1592,9 +1602,9 @@ class Workflow(WorkflowExecutorInterface):
                 rule.resources["_cores"] = 1
 
             if name in self.resource_settings.overwrite_threads:
-                rule.resources["_cores"] = self.resource_settings.overwrite_threads[
-                    name
-                ]
+                rule.resources["_cores"] = get_resource_value(
+                    self.resource_settings.overwrite_threads[name]
+                )
 
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (
@@ -1637,15 +1647,8 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 rule.resources.update(resources)
             if name in self.resource_settings.overwrite_resources:
-
-                def get_value(value):
-                    if isinstance(value, ParsedResource):
-                        return value.value
-                    else:
-                        return value
-
                 rule.resources.update(
-                    (resource, get_value(value))
+                    (resource, get_resource_value(value))
                     for resource, value in self.resource_settings.overwrite_resources[
                         name
                     ].items()

@@ -70,10 +70,15 @@ def parse_key_value_arg(arg, errmsg, strip_quotes=True):
     return key, val
 
 
-def dict_to_key_value_args(some_dict: dict, quote_str: bool = True):
+def dict_to_key_value_args(
+    some_dict: dict, quote_str: bool = True, repr_obj: bool = False
+):
     items = []
     for key, value in some_dict.items():
-        encoded = f"'{value}'" if quote_str and isinstance(value, str) else value
+        if repr_obj and not isinstance(value, str):
+            encoded = repr(value)
+        else:
+            encoded = f"'{value}'" if quote_str and isinstance(value, str) else value
         items.append(f"{key}={encoded}")
     return items
 
@@ -327,6 +332,11 @@ def set_env(**environ):
         os.environ.update(old_environ)
 
 
+def expand_vars_and_user(value):
+    if value is not None:
+        return os.path.expanduser(os.path.expandvars(value))
+
+
 # Taken from https://stackoverflow.com/a/2166841/7070491
 # Thanks to Alex Martelli.
 def is_namedtuple_instance(x):
@@ -337,4 +347,4 @@ def is_namedtuple_instance(x):
     f = getattr(t, "_fields", None)
     if not isinstance(f, tuple):
         return False
-    return all(type(n) == str for n in f)
+    return all(type(n) is str for n in f)

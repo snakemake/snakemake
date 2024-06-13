@@ -18,8 +18,10 @@ def format_error(
     msg = str(ex)
     if linemaps and snakefile and snakefile in linemaps:
         lineno = linemaps[snakefile][lineno]
-        if isinstance(ex, SyntaxError):
-            msg = ex.msg
+
+    if isinstance(ex, SyntaxError):
+        msg = ex.msg.split("(")[0]
+        msg = f"{msg}:\n{ex.text}"
 
     location = ""
     if lineno and snakefile:
@@ -157,7 +159,7 @@ def print_exception(ex, linemaps=None):
     elif isinstance(ex, KeyboardInterrupt):
         logger.info("Cancelling snakemake on user request.")
     else:
-        traceback.print_exception(type(ex), ex, ex.__traceback__)
+        logger.error("\n".join(traceback.format_exception(ex)))
 
 
 def update_lineno(ex: SyntaxError, linemaps):
@@ -224,15 +226,17 @@ class RuleException(Exception):
 
 class InputFunctionException(WorkflowError):
     def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
-        msg = (
+        fmt_msg = (
             "Error:\n  "
             + self.format_arg(msg)
             + "\nWildcards:\n"
             + "\n".join(f"  {name}={value}" for name, value in wildcards.items())
-            + "\nTraceback:\n"
-            + "\n".join(format_traceback(cut_traceback(msg), rule.workflow.linemaps))
         )
-        super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
+        if isinstance(msg, Exception):
+            fmt_msg += "\nTraceback:\n" + "\n".join(
+                format_traceback(cut_traceback(msg), rule.workflow.linemaps)
+            )
+        super().__init__(fmt_msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
 
 class ChildIOException(WorkflowError):
@@ -537,6 +541,12 @@ class IncompleteCheckpointException(Exception):
         from snakemake.io import checkpoint_target
 
         self.targetfile = checkpoint_target(targetfile)
+
+
+class InputOpenException(Exception):
+    def __init__(self, iofile):
+        self.iofile = iofile
+        self.rule = None
 
 
 class CacheMissException(Exception):

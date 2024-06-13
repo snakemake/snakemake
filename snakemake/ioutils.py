@@ -2,9 +2,12 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from collections.abc import Mapping, Callable
 from functools import partial
+import inspect
+import os
 import re
 from typing import List, Optional, Union
 
+from snakemake.common import async_run
 import snakemake.io
 import snakemake.utils
 from snakemake.exceptions import LookupError
@@ -99,12 +102,16 @@ class QueryWildcardHandler(WildcardHandlerBase):
         return self.func(expression, cols=cols, is_nrows=self.is_nrows)
 
 
+NODEFAULT = object()
+
+
 def lookup(
     dpath: Optional[str] = None,
     query: Optional[str] = None,
     cols: Optional[Union[List[str], str]] = None,
     is_nrows: Optional[int] = None,
     within=None,
+    default=NODEFAULT,
     **namespace,
 ):
     """Lookup values in a pandas dataframe, series, or python mapping (e.g. dict).
@@ -145,6 +152,9 @@ def lookup(
     to auxiliary namespace arguments given to the lookup function, e.g.
     ``lookup(query="cell_type == '{sample.cell_type}'", within=samples, sample=lookup("sample == '{sample}'", within=samples))``
     This way, one can e.g. pass additional variables or chain lookups into more complex queries.
+
+    In case of dpath, if the dpath is not found, a LookupError is raised, unless a
+    default fallback value is provided via the ``default`` argument.
     """
     error = partial(LookupError, query=query, dpath=dpath)
 
@@ -203,7 +213,9 @@ def lookup(
                 return dp.get(within, dpath)
             except ValueError:
                 return dp.values(within, dpath)
-            except KeyError as e:
+            except KeyError:
+                if default is not NODEFAULT:
+                    return default
                 raise LookupError(dpath=dpath, msg="Dpath not found.")
 
         return DpathWildcardHandler(do_dpath, **namespace).handle(dpath)
@@ -288,6 +300,29 @@ def branch(
 collect = snakemake.io.expand
 
 
+def exists(path):
+    """Return True if the given file or directory exists.
+
+    This function considers any storage arguments given to Snakemake.
+    """
+    func_context = inspect.currentframe().f_back.f_locals
+    func_context_global = inspect.currentframe().f_back.f_globals
+
+    workflow = func_context.get("workflow") or func_context_global.get("workflow")
+
+    if workflow is None:
+        raise WorkflowError(
+            "The exists function can only be used within a Snakemake workflow "
+            "(the global variable 'workflow' has to be present)."
+        )
+
+    path = workflow.modifier.path_modifier.apply_default_storage(path)
+    if snakemake.io.is_flagged(path, "storage_object"):
+        return async_run(path.flags["storage_object"].managed_exists())
+    else:
+        return os.path.exists(path)
+
+
 def register_in_globals(_globals):
     _globals.update(
         {
@@ -295,5 +330,6 @@ def register_in_globals(_globals):
             "evaluate": evaluate,
             "branch": branch,
             "collect": collect,
+            "exists": exists,
         }
     )
