@@ -1,0 +1,38 @@
+rule all:
+    input:
+        "test3.out"
+
+rule a:
+    output:
+        "test1.{sample}.out"
+    group: "foo"
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        "test1.{sample}.out"
+    output:
+        "test2.{sample}.out"
+    group: "foo"
+    threads: 2
+    shell:
+        "cp {input} {output}"
+
+
+rule c:
+    input:
+        expand("test2.{sample}.out", sample=[1, 2, 3])
+    output:
+        report(
+            "test3.out",
+            caption="caption.rst",
+            category="Test",
+            subcategory="Subtest",
+            labels={"label1": "foo", "label2": "bar"},
+        )
+    resources:
+        mem="5MB"
+    shell:
+        "cat {input} > {output}"

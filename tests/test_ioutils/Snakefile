@@ -1,0 +1,61 @@
+import pandas as pd
+
+samples = pd.read_csv("samples.tsv", sep="\t")
+
+
+configfile: "config.yaml"
+
+
+assert lookup(dpath="does/not/exist", within=config, default=None) is None
+assert lookup(dpath="does/not/exist", within=config, default=5) == 5
+
+
+rule all:
+    input:
+        "results/switch~someswitch.column~sample.txt",
+
+
+rule a:
+    output:
+        "a/{sample}.txt",
+    shell:
+        "echo a > {output}"
+
+
+rule b:
+    input:
+        branch(evaluate("{sample} == '100'"), then="a/{sample}.txt"),
+    output:
+        "b/{sample}.txt",
+    shell:
+        "echo b > {output}"
+
+
+rule c:
+    input:
+        branch(
+            evaluate("{sample} == '1'"),
+            then="a/{sample}.txt",
+            otherwise="b/{sample}.txt",
+        ),
+    output:
+        "c/{sample}.txt",
+    shell:
+        "cat {input} > {output}"
+
+
+rule d:
+    output:
+        "test.txt",
+    shell:
+        "echo d > {output}"
+
+
+rule e:
+    input:
+        collect("c/{item.sample}.txt", item=lookup(query="{col} <= 2", within=samples)),
+        branch(lookup(dpath="switches/{switch}", within=config), then="test.txt"),
+    output:
+        "results/switch~{switch}.column~{col}.txt",
+    shell:
+        "cat {input} > {output}"

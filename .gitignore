@@ -3,6 +3,8 @@
 *.swp
 
 docs/_build
+apidocs/_build
+apidocs/**/_autosummary
 build/
 dist/
 *.egg-info/

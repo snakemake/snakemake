@@ -7,7 +7,7 @@ import os
 import traceback
 import textwrap
 from tokenize import TokenError
-from snakemake.logging import logger
+from snakemake_interface_common.exceptions import WorkflowError, ApiError
 
 
 def format_error(
@@ -18,8 +18,10 @@ def format_error(
     msg = str(ex)
     if linemaps and snakefile and snakefile in linemaps:
         lineno = linemaps[snakefile][lineno]
-        if isinstance(ex, SyntaxError):
-            msg = ex.msg
+
+    if isinstance(ex, SyntaxError):
+        msg = ex.msg.split("(")[0]
+        msg = f"{msg}:\n{ex.text}"
 
     location = ""
     if lineno and snakefile:
@@ -45,16 +47,21 @@ def get_exception_origin(ex, linemaps):
 
 
 def cut_traceback(ex):
+    lines = []
     snakemake_path = os.path.dirname(__file__)
-    for line in traceback.extract_tb(ex.__traceback__):
+    not_seen_snakemake = True
+    for line in traceback.extract_tb(ex.__traceback__)[::-1]:
         dir = os.path.dirname(line[0])
         if not dir:
             dir = "."
         is_snakemake_dir = lambda path: os.path.realpath(path).startswith(
             os.path.realpath(snakemake_path)
         )
-        if not os.path.isdir(dir) or not is_snakemake_dir(dir):
-            yield line
+        if is_snakemake_dir(dir):
+            not_seen_snakemake = False
+        if not os.path.isdir(dir) or not_seen_snakemake:
+            lines.append(line)
+    return lines[::-1]
 
 
 def format_traceback(tb, linemaps):
@@ -66,11 +73,13 @@ def format_traceback(tb, linemaps):
 
 
 def log_verbose_traceback(ex):
+    from snakemake.logging import logger
+
     tb = "Full " + "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
     logger.debug(tb)
 
 
-def print_exception(ex, linemaps):
+def print_exception(ex, linemaps=None):
     """
     Print an error message for a given exception.
 
@@ -79,6 +88,8 @@ def print_exception(ex, linemaps):
     linemaps -- a dict of a dict that maps for each snakefile
         the compiled lines to source code lines in the snakefile.
     """
+    from snakemake.logging import logger
+
     log_verbose_traceback(ex)
     if isinstance(ex, SyntaxError) or isinstance(ex, IndentationError):
         logger.error(
@@ -91,7 +102,7 @@ def print_exception(ex, linemaps):
             )
         )
         return
-    origin = get_exception_origin(ex, linemaps)
+    origin = get_exception_origin(ex, linemaps) if linemaps is not None else None
     if origin is not None:
         lineno, file = origin
         logger.error(
@@ -141,44 +152,26 @@ def print_exception(ex, linemaps):
                 rule=ex.rule,
             )
         )
+    elif isinstance(ex, ApiError):
+        logger.error(f"Error: {ex}")
+    elif isinstance(ex, CliException):
+        logger.error(f"Error: {ex}")
     elif isinstance(ex, KeyboardInterrupt):
         logger.info("Cancelling snakemake on user request.")
     else:
-        traceback.print_exception(type(ex), ex, ex.__traceback__)
+        logger.error("\n".join(traceback.format_exception(ex)))
 
 
-class WorkflowError(Exception):
-    @staticmethod
-    def format_arg(arg):
-        if isinstance(arg, str):
-            return arg
-        elif isinstance(arg, WorkflowError):
-            spec = ""
-            if arg.rule is not None:
-                spec += f"rule {arg.rule}"
-            if arg.snakefile is not None:
-                if spec:
-                    spec += ", "
-                spec += f"line {arg.lineno}, {arg.snakefile}"
-
-            if spec:
-                spec = f" ({spec})"
-
-            return "{}{}:\n{}".format(
-                arg.__class__.__name__, spec, textwrap.indent(str(arg), "    ")
-            )
-        else:
-            return f"{arg.__class__.__name__}: {arg}"
-
-    def __init__(self, *args, lineno=None, snakefile=None, rule=None):
-        super().__init__("\n".join(self.format_arg(arg) for arg in args))
-        if rule is not None:
-            self.lineno = rule.lineno
-            self.snakefile = rule.snakefile
-        else:
-            self.lineno = lineno
-            self.snakefile = snakefile
-        self.rule = rule
+def update_lineno(ex: SyntaxError, linemaps):
+    if ex.filename and ex.lineno:
+        linemap = linemaps[ex.filename]
+        try:
+            ex.lineno = linemap[ex.lineno]
+        except KeyError:
+            # linemap does not yet contain the line, it must happen during parsing
+            # such that no update is needed.
+            pass
+        return ex
 
 
 class SourceFileError(WorkflowError):
@@ -209,18 +202,18 @@ class RuleException(Exception):
         snakefile -- the file the exception originates
         """
         super(RuleException, self).__init__(message)
-        self._include = set()
+        _include = set()
         if include:
             for ex in include:
-                self._include.add(ex)
-                self._include.update(ex._include)
+                _include.add(ex)
+                _include.update(ex._include)
         if rule is not None:
             if lineno is None:
                 lineno = rule.lineno
             if snakefile is None:
                 snakefile = rule.snakefile
 
-        self._include = list(self._include)
+        self._include = list(_include)
         self.rule = rule
         self.lineno = lineno
         self.filename = snakefile
@@ -233,15 +226,17 @@ class RuleException(Exception):
 
 class InputFunctionException(WorkflowError):
     def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
-        msg = (
+        fmt_msg = (
             "Error:\n  "
             + self.format_arg(msg)
             + "\nWildcards:\n"
             + "\n".join(f"  {name}={value}" for name, value in wildcards.items())
-            + "\nTraceback:\n"
-            + "\n".join(format_traceback(cut_traceback(msg), rule.workflow.linemaps))
         )
-        super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
+        if isinstance(msg, Exception):
+            fmt_msg += "\nTraceback:\n" + "\n".join(
+                format_traceback(cut_traceback(msg), rule.workflow.linemaps)
+            )
+        super().__init__(fmt_msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
 
 class ChildIOException(WorkflowError):
@@ -263,15 +258,21 @@ class ChildIOException(WorkflowError):
 class IOException(RuleException):
     def __init__(self, prefix, job, files, include=None, lineno=None, snakefile=None):
         from snakemake.logging import format_wildcards
+        from snakemake.io import pretty_print_iofile
 
         msg = ""
         if files:
             msg = f"{prefix} for rule {job.rule}:"
             if job.output:
-                msg += "\n" + f"    output: {', '.join(job.output)}"
+                msg += (
+                    "\n"
+                    + f"    output: {', '.join(map(pretty_print_iofile, job.output))}"
+                )
             if job.wildcards:
                 msg += "\n" + f"    wildcards: {format_wildcards(job.wildcards)}"
-            msg += "\n    affected files:\n        " + "\n        ".join(files)
+            msg += "\n    affected files:\n        " + "\n        ".join(
+                map(pretty_print_iofile, files)
+            )
         super().__init__(
             message=msg,
             include=include,
@@ -542,6 +543,12 @@ class IncompleteCheckpointException(Exception):
         self.targetfile = checkpoint_target(targetfile)
 
 
+class InputOpenException(Exception):
+    def __init__(self, iofile):
+        self.iofile = iofile
+        self.rule = None
+
+
 class CacheMissException(Exception):
     pass
 
@@ -571,3 +578,28 @@ class CliException(Exception):
     def __init__(self, msg):
         super().__init__(msg)
         self.msg = msg
+
+
+class LookupError(WorkflowError):
+    def __init__(self, msg=None, exc=None, query=None, dpath=None):
+        msg = f" {msg}" if msg is not None else ""
+        expr = ""
+        if query is not None:
+            expr = f" with query: {repr(query)}"
+        if dpath is not None:
+            expr = f" with dpath: {repr(dpath)}"
+        annotated_msg = f"Error in lookup function{expr}.{msg}"
+        args = [annotated_msg]
+        if exc is not None:
+            args.append(exc)
+        super().__init__(*args)
+
+
+def is_file_not_found_error(exc, considered_files):
+    # TODO find a better way to detect whether the input files are not present
+    if isinstance(exc, FileNotFoundError) and exc.filename in considered_files:
+        return True
+    elif isinstance(exc, WorkflowError) and "FileNotFoundError" in str(exc):
+        return True
+    else:
+        return False

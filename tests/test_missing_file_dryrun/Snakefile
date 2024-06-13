@@ -1,0 +1,14 @@
+rule all:
+    input:
+        "out.txt"
+
+def get_units_for_sample(sample):
+    return units[units["sample_name"] == sample]["unit_name"]
+
+rule merge_unit_basecalls:
+    input:
+        "foo"
+    output:
+        "out.txt"
+    shell:
+        "touch {output}"

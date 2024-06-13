@@ -1,26 +1,26 @@
 channels:
   - conda-forge
   - bioconda
+  - nodefaults
 dependencies:
-  - python
+  - python >=3.11
+  - mamba
   - yte
   - packaging
   - stopit
   - datrie
   - boto3
-  - moto
-  - junit-xml # needed for S3Mocked
   - httpretty
   - wrapt
   - pyyaml
   - pytest
   - pytest-mock
   - pytest-cov
+  - pytest-split
   - ftputil
   - pysftp
   - requests
   - responses
-  - dropbox
   - numpy
   - appdirs
   - pytools
@@ -33,29 +33,17 @@ dependencies:
   - xorg-libxdmcp
   - xorg-libsm
   - psutil
-  - google-cloud-storage
-  - google-api-python-client
   - oauth2client
-  - azure-storage-blob
   - configargparse
   - appdirs
-  - python-irodsclient <1.1.2 # bug in 1.1.2 leads to KeyError
-  - cwltool
-  - cwl-utils
   - jsonschema
   - pandas
-  - python-kubernetes
   - gitpython
-  - pulp >=2.0
-  - tibanna
+  - pulp >=2.3.1
   - environment-modules
   - nbformat
   - toposort >=1.10
-  - mamba
   - crc32c
-  - pip
-  - connection_pool
-  - py-tes
   - requests-mock
   - peppy
   - eido
@@ -67,7 +55,16 @@ dependencies:
   - graphviz
   - humanfriendly
   - throttler
-  - msrest
-  - azure-batch
-  - azure-mgmt-batch
-  - azure-identity
+  - dpath
+  - nodejs # for cwltool
+  - immutables
+  - conda
+  - pip
+  - pip:
+      - cwltool
+      - cwl-utils
+      - snakemake-interface-executor-plugins >=9.1.0
+      - snakemake-executor-plugin-cluster-generic >=1.0.9
+      - snakemake-storage-plugin-http
+      - snakemake-storage-plugin-s3
+      - snakemake-storage-plugin-fs >=1.0.3
