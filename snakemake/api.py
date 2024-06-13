@@ -523,12 +523,6 @@ class DAGApi(ApiBase):
                 "For local execution, --shared-fs-usage has to be unrestricted."
             )
 
-        self.snakemake_api.setup_logger(
-            stdout=executor_plugin.common_settings.dryrun_exec,
-            mode=self.workflow_api.workflow_settings.exec_mode,
-            dryrun=executor_plugin.common_settings.dryrun_exec,
-        )
-
         if executor_plugin.common_settings.local_exec:
             if (
                 not executor_plugin.common_settings.dryrun_exec
