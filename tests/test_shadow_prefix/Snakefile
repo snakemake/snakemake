@@ -1,7 +1,32 @@
 shell.executable("bash")
 
 rule all:
-    input:  "test.in"
+    input:  file = "test.in",
+            dependencies = ["recreate_shadow"],
     output: "shadow_prefix"
     shadow: "shallow"
-    shell: "test -h shadowdir && cp -L {input} {output}"
+    shell:  "test -h shadowdir && cp -L {input.file} {output}"
+
+rule recreate_shadow:
+    input:  "delete_shadow",
+    output: "recreate_shadow",
+    shadow: "shallow",
+    shell:  """
+        echo "rule recreate_shadow"
+        ls ../../..
+        test -h shadowdir && touch recreate_shadow
+        pwd
+        ls
+        """
+
+rule delete_shadow:
+    output: "delete_shadow",
+    shell:  """
+        echo "rule delete_shadow"
+        ls
+        echo "rm -r shadowdir"
+        rm -r shadowdir
+        pwd
+        ls
+        touch delete_shadow
+        """
