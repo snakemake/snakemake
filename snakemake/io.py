@@ -28,7 +28,7 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Union, Self
 
 from snakemake_interface_common.utils import not_iterable, lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
@@ -1659,7 +1659,7 @@ class Namedlist(list):
     def keys(self):
         return self._names.keys()
 
-    def _plainstrings(self):
+    def _plainstrings(self) -> Self:
         return self.__class__.__call__(toclone=self, plainstr=True)
 
     def _stripped_constraints(self):

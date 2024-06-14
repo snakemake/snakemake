@@ -8,6 +8,7 @@ import os
 from collections.abc import Iterable
 import typing
 
+from snakemake import io as io_
 from snakemake import sourcecache
 from snakemake.sourcecache import (
     LocalSourceFile,
@@ -43,21 +44,23 @@ from snakemake.deployment import singularity
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 PathLike = Union[str, Path, os.PathLike]
 
+# Type hint, object injected by the python preamble
+snakemake: "Snakemake"
 
 class Snakemake:
     def __init__(
         self,
-        input_,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
+        input_: io_.InputFiles,
+        output: io_.OutputFiles,
+        params: io_.Params,
+        wildcards: io_.Wildcards,
+        threads: int,
+        resources: io_.Resources,
+        log: io_.Log,
+        config: dict[str, typing.Any],
+        rulename: str,
         bench_iteration,
-        scriptdir=None,
+        scriptdir: typing.Optional[PathLike]=None,
     ):
         # convert input and output to plain strings as some remote objects cannot
         # be pickled
@@ -568,7 +571,7 @@ class PythonScript(ScriptBase):
         preamble = textwrap.dedent(
             f"""
         ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys; sys.path.extend({repr(searchpaths)}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds}; {preamble_addendum}
+        import sys; sys.path.extend({repr(searchpaths)}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds}; from snakemake import script; script.snakemake=snakemake; del script; {preamble_addendum}
         ######## snakemake preamble end #########
         """
         )
