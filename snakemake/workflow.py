@@ -19,7 +19,7 @@ import tarfile
 import tempfile
 from typing import Dict, List, Optional, Set, Union
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import (
+from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
@@ -692,8 +692,8 @@ class Workflow(WorkflowExecutorInterface):
         else:
 
             def files(items):
-                relpath = (
-                    lambda f: f
+                relpath = lambda f: (
+                    f
                     if os.path.isabs(f) or f.startswith("root://")
                     else os.path.relpath(f)
                 )

@@ -6,6 +6,10 @@ samples = pd.read_csv("samples.tsv", sep="\t")
 configfile: "config.yaml"
 
 
+assert lookup(dpath="does/not/exist", within=config, default=None) is None
+assert lookup(dpath="does/not/exist", within=config, default=5) == 5
+
+
 rule all:
     input:
         "results/switch~someswitch.column~sample.txt",

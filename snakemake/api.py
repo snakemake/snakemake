@@ -15,7 +15,7 @@ import importlib
 import tarfile
 
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
-from snakemake.settings import (
+from snakemake.settings.types import (
     ChangeType,
     GroupSettings,
     SchedulingSettings,
@@ -26,7 +26,7 @@ if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import (
+from snakemake.settings.types import (
     DAGSettings,
     DeploymentMethod,
     DeploymentSettings,
