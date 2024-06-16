@@ -24,7 +24,7 @@ rule a:
     params:
         checksum=parse_input("checksum", parser=extract_checksum, file="samples.tsv")
     shell:
-        "echo a > {output}"
+        "echo {params.checksum} > {output}"
 
 
 rule b:
