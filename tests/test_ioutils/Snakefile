@@ -22,7 +22,7 @@ rule a:
     output:
         "a/{sample}.txt",
     params:
-        checksum=parse_input("checksum", parser=extract_checksum, file="samples.tsv")
+        checksum=lambda w: parse_input("checksum", parser=extract_checksum, file=f"{w.sample}.tsv")
     shell:
         "echo {params.checksum} > {output}"
 
