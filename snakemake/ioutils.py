@@ -28,8 +28,7 @@ class WildcardHandlerBase(ABC):
         )
 
     @abstractmethod
-    def apply_func(self, expression, namespace=None):
-        ...
+    def apply_func(self, expression, namespace=None): ...
 
     def handle(self, expression):
         if self.needs_wildcards(expression) or any(
@@ -332,4 +331,33 @@ def register_in_globals(_globals):
             "collect": collect,
             "exists": exists,
         }
+    )
+
+
+def parse_input(input_item=None, parser=None, **kwargs):
+    def inner(wildcards, input):
+        with open(input.get(input_item), "r") as infile:
+            if parser is None:
+                return infile.read().strip()
+            else:
+                return parser(infile, **kwargs)
+
+    return inner
+
+
+def extract_checksum(infile, **kwargs):
+    import pandas as pd
+
+    fix_file_name = lambda x: x.removeprefix("./")
+    return (
+        pd.read_csv(
+            infile,
+            sep="  ",
+            header=None,
+            engine="python",
+            converters={1: fix_file_name},
+        )
+        .set_index(1)
+        .loc[fix_file_name(kwargs.get("file"))]
+        .item()
     )
