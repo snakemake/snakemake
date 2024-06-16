@@ -323,18 +323,6 @@ def exists(path):
         return os.path.exists(path)
 
 
-def register_in_globals(_globals):
-    _globals.update(
-        {
-            "lookup": lookup,
-            "evaluate": evaluate,
-            "branch": branch,
-            "collect": collect,
-            "exists": exists,
-        }
-    )
-
-
 def parse_input(input_item=None, parser=None, **kwargs):
     def inner(wildcards, input):
         with open(input.get(input_item), "r") as infile:
@@ -361,4 +349,18 @@ def extract_checksum(infile, **kwargs):
         .set_index(1)
         .loc[fix_file_name(kwargs.get("file"))]
         .item()
+    )
+
+
+def register_in_globals(_globals):
+    _globals.update(
+        {
+            "lookup": lookup,
+            "evaluate": evaluate,
+            "branch": branch,
+            "collect": collect,
+            "exists": exists,
+            "parse_input": parse_input,
+            "extract_checksum": extract_checksum,
+        }
     )
