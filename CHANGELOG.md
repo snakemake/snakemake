@@ -1,6 +1,31 @@
 # Changelog
 
 
+## [8.14.0](https://github.com/snakemake/snakemake/compare/v8.13.0...v8.14.0) (2024-06-11)
+
+
+### Features
+
+* add flag to mark files where path should not be modified ([#2888](https://github.com/snakemake/snakemake/issues/2888)) ([d142b46](https://github.com/snakemake/snakemake/commit/d142b46200df0e1d03b4de3ec7aafd9cdf714588))
+* support per rule shell exec setting via resources ([#2862](https://github.com/snakemake/snakemake/issues/2862)) ([ab8d2dd](https://github.com/snakemake/snakemake/commit/ab8d2ddc38b610b0bf5b2e5368cfaf349921470a))
+
+
+### Documentation
+
+* update FAQ - recommend ensure function for failing on empty output ([#2910](https://github.com/snakemake/snakemake/issues/2910)) ([b035071](https://github.com/snakemake/snakemake/commit/b03507119806f1ada71f950086256c4fe63eb754))
+
+## [8.13.0](https://github.com/snakemake/snakemake/compare/v8.12.0...v8.13.0) (2024-06-05)
+
+
+### Features
+
+* support for default value specification when using lookup helper function ([#2907](https://github.com/snakemake/snakemake/issues/2907)) ([08e88e2](https://github.com/snakemake/snakemake/commit/08e88e27f9e5ddcd5d9ebce7f79f45436262fddc))
+
+
+### Documentation
+
+* add badge for bioconda version ([#2902](https://github.com/snakemake/snakemake/issues/2902)) ([3f01348](https://github.com/snakemake/snakemake/commit/3f01348cda9040adc7af6c8173f9108343edde10))
+
 ## [8.12.0](https://github.com/snakemake/snakemake/compare/v8.11.6...v8.12.0) (2024-05-27)
 
 

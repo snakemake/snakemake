@@ -456,14 +456,15 @@ Since bash otherwise automatically removes quotes, you have to also wrap the ent
 How do I make my rule fail if an output file is empty?
 ------------------------------------------------------
 
-Snakemake expects shell commands to behave properly, meaning that failures should cause an exit status other than zero. If a command does not exit with a status other than zero, Snakemake assumes everything worked fine, even if output files are empty. This is because empty output files are also a reasonable tool to indicate progress where no real output was produced. However, sometimes you will have to deal with tools that do not properly report their failure with an exit status. Here, the recommended way is to use bash to check for non-empty output files, e.g.:
+Snakemake expects shell commands to behave properly, meaning that failures should cause an exit status other than zero. If a command does not exit with a status other than zero, Snakemake assumes everything worked fine, even if output files are empty. This is because empty output files are also a reasonable tool to indicate progress where no real output was produced. However, sometimes you will have to deal with tools that do not properly report their failure with an exit status. Here, you can use the :ref:`ensure function <snakefiles_ensure>` to mark output files that should not be empty, e.g.:
 
 .. code-block:: python
-
-    rule:
+    rule NAME:
         input:  ...
-        output: "my/output/file.txt"
-        shell:  "somecommand {input} {output} && [[ -s {output} ]]"
+        output:
+            ensure("test.txt", non_empty=True)
+        shell:
+            "somecommand {input} {output}"
 
 
 How does Snakemake lock the working directory?

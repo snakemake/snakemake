@@ -13,7 +13,7 @@ import subprocess
 from functools import partial
 from snakemake.common import async_run
 from snakemake.executors import change_working_directory
-from snakemake.settings import DeploymentMethod
+from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.executors.real import RealExecutor

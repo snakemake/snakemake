@@ -416,7 +416,7 @@ As an alternative to using Conda (see above), it is possible to define, for each
         output:
             "plots/myplot.pdf"
         container:
-            "docker://joseespinosa/docker-r-ggplot2"
+            "docker://joseespinosa/docker-r-ggplot2:1.0"
         script:
             "scripts/plot-stuff.R"
 
@@ -432,17 +432,19 @@ it will execute the job within a container that is spawned from the given image.
 Allowed image urls entail everything supported by apptainer (e.g., ``shub://`` and ``docker://``).
 However, ``docker://`` is preferred, as other container runtimes will be supported in the future (e.g. podman).
 
+Defining global container images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 .. sidebar:: Note
 
    Note that apptainer integration is only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
    The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
 
-
 A global definition of a container image can be given:
 
 .. code-block:: python
 
-    container: "docker://joseespinosa/docker-r-ggplot2"
+    container: "docker://joseespinosa/docker-r-ggplot2:1.0"
 
     rule NAME:
         ...
@@ -452,10 +454,17 @@ by setting the container directive of the rule to ``None``.
 
 .. code-block:: python
 
-    container: "docker://joseespinosa/docker-r-ggplot2"
+    container: "docker://joseespinosa/docker-r-ggplot2:1.0"
 
     rule NAME:
         container: None
+
+
+Handling shell executable
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Snakemake executes rules using the bash shell by default.
+If your container image does not contain bash, you can specify a different shell executable, see :ref:`shell_settings`.
 
 -----------------------------------------
 Containerization of Conda based workflows
