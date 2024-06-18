@@ -1,0 +1,77 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# save the current directory for later
+vagrant_dir = File.expand_path(File.dirname(__FILE__))
+
+#Provisioning inline script
+$script = <<SCRIPT
+#yum install -y -q vim slurm-wlm openmpi-bin libopenmpi-dev
+#yum install -y -q qemu qemu-kvm libvirt-clients libvirt-daemon-system virtinst bridge-utils
+echo vagrant ALL=NOPASSWD:ALL > /etc/sudoers.d/vagrant
+SCRIPT
+
+# All Vagrant configuration is done below. The "2" in Vagrant.configure
+# configures the configuration version (we support older styles for
+# backwards compatibility). Please don't change it unless you know what
+# you're doing.
+
+Vagrant.configure("2") do |config|
+    config.vm.box = "almalinux/8" # the image is 8.5, the URL does not specify the minor version
+    config.vm.define "slurmmaster", primary: true do |slurmmaster|
+    slurmmaster.vm.hostname = "slurmmaster"
+    slurmmaster.vm.post_up_message ="SLURM master is starting"
+    slurmmaster.vm.network "private_network", ip: "192.168.55.100"
+    slurmmaster.vm.network "forwarded_port", guest: 6817, host: 6817
+    slurmmaster.vm.synced_folder "workspace" ENV["GITHUB_WORKSPACE"]
+    slurmmaster.vm.synced_folder "resources/slurmconf/", "/cluster/slurm/slurmconf",
+              owner: "slurm", group: "slurm"
+    slurmmaster.vm.synced_folder "slurm", "/slurmsrc"
+    slurmmaster.vm.provision "shell", path: "provision/provision-master.sh"
+    config.ssh.username = 'root'
+    config.ssh.password = 'vagrant'
+    config.ssh.insert_key = 'true'
+    #VM provisioning
+#    config.vm.provision :shell,
+#                :inline => $script
+
+    slurmmaster.vm.provider "virtualbox" do |vb|
+    #   # Display the VirtualBox GUI when booting the machine
+    #   vb.gui = true
+       vb.cpus = 2
+       vb.memory = "1024"
+       vb.name = "slurmmaster"
+       vb.customize ["modifyvm", :id,"--cpuexecutioncap","50"]
+    end
+  end
+  (1..2).each do |i|
+    config.vm.define "node-#{i}", autostart: false do |node|
+      node.vm.provision :shell, :inline => "setenforce 0", run: "always"
+      node.vm.provision "shell", inline: "echo hello from node #{i}"
+      node.vm.hostname = "node-#{i}"
+      node.vm.network  "private_network", ip: "192.168.55.1#{i}"
+      node.vm.network "forwarded_port", guest: 6818, host: 6819
+      node.vm.synced_folder "resources/slurmconf/", "/cluster/slurm/slurmconf",
+              owner: "slurm", group: "slurm"
+      node.vm.synced_folder "slurm", "/slurmsrc"
+      node.vm.provision "shell", path: 'provision/provision-node.sh'
+      node.vm.provider "virtualbox" do |vbnode|
+        vbnode.linked_clone = true
+        vbnode.memory = "512"
+        vbnode.name = "node-#{i}"
+        vbnode.customize ["modifyvm", :id, "--cpuexecutioncap","30"]
+      end
+    end
+  end
+
+    # Some setup on the host for the jgu-slurm-repo to be cloned if not existent
+  config.trigger.before :up do |trigger|
+  	if File.directory?(File.join(vagrant_dir,'slurm')) then
+ 		   trigger.warn = "slurm src repo already exists"
+  	else
+             trigger.info = "cloning SLURM"
+             trigger.run = {path: "clone.sh"}
+	  end
+  end
+
+end

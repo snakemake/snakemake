@@ -1,0 +1,49 @@
+# Test case for slurm executor.
+# Note that in reality, the mpi, account, and partition resources should be specified
+# via --default-resources, in order to keep such infrastructure specific details out of the
+# workflow definition.
+
+
+localrules:
+    all,
+    clean,
+
+
+rule all:
+    input:
+        "pi.calc",
+
+
+rule clean:
+    shell:
+        "rm -f pi.calc"
+
+
+rule compile:
+    input:
+        "pi_MPI.c",
+    output:
+        temp("pi_MPI"),
+    log:
+        "logs/compile.log",
+    conda:
+        "envs/mpicc.yaml"
+    resources:
+        mem_mb=0,
+    shell:
+        "mpicc -o {output} {input} &> {log}"
+
+
+rule calc_pi:
+    input:
+        "pi_MPI",
+    output:
+        "pi.calc",
+    log:
+        "logs/calc_pi.log",
+    resources:
+        mem_mb=0,
+        tasks=1,
+        mpi="mpiexec",
+    shell:
+        "{resources.mpi} -n {resources.tasks} {input} 10 > {output} 2> {log}"

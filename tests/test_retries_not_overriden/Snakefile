@@ -1,0 +1,11 @@
+rule a:
+    output:
+        "test.txt"
+    resources:
+        shouldfail=lambda w, attempt: attempt < 3
+    retries: 0
+    run:
+        if resources.shouldfail:
+            raise ValueError("not enough attempts")
+        with open(output[0], "w") as out:
+            print("test", file=out)

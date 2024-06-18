@@ -1,41 +1,58 @@
-from snakemake import shell
-
 # Only effects for tests on Win
 shell.executable("bash")
 
 
-chromosomes = [1,2,3]
+chromosomes = [1, 2, 3]
 
-#shell('rm test.*.inter 2> /dev/null | true')
+# shell('rm test.*.inter 2> /dev/null | true')
+
 
 rule all:
-	input: 'test.predictions'
+    input:
+        "test.predictions",
+
 
 rule compute1:
-	input: '{name}.in'
-	output: inter=expand('{{name}}.{chr}.inter', chr=chromosomes)
-	resources: gpu=1
-	run:
-		assert len(output.inter) > 0
-		print(output.inter)
-		for out in output:
-			shell('(cat {input[0]} && echo "Part {out}") > {out}')
+    input:
+        "{name}.in",
+    output:
+        inter=expand("{{name}}.{chr}.inter", chr=chromosomes),
+    resources:
+        gpu=1,
+    run:
+        assert len(output.inter) > 0
+        print(output.inter)
+        for out in output:
+            shell('(cat {input[0]} && echo "Part {out}") > {out}')
+
 
 rule compute2:
-	input: '{name}.{chromosome}.inter', 'other.txt'
-	output: '{name}.{chromosome}.inter2'
-        threads: 2
-	resources: io=1
-	shell: 'cp {input[0]} {output[0]}'
+    input:
+        "{name}.{chromosome}.inter",
+        "other.txt",
+    output:
+        "{name}.{chromosome}.inter2",
+    threads: 2
+    resources:
+        io=1,
+    shell:
+        "cp {input[0]} {output[0]}"
+
 
 rule gather:
-	input: ['{name}.%s.inter2'%c for c in chromosomes]
-	output: '{name}.predictions'
-	run:
-		shell('cat {} > {}'.format(' '.join(input), output[0]))
+    input:
+        ["{name}.%s.inter2" % c for c in chromosomes],
+    output:
+        "{name}.predictions",
+    run:
+        shell("cat {} > {}".format(" ".join(input), output[0]))
+
 
 rule other:
-	output: 'other.txt'
-	priority: 50
-	resources: gpu=1
-	shell: 'touch other.txt'
+    output:
+        "other.txt",
+    priority: 50
+    resources:
+        gpu=1,
+    shell:
+        "touch other.txt"

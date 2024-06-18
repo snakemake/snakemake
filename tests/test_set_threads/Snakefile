@@ -1,0 +1,8 @@
+rule a:
+    input:
+        "test.in"
+    output:
+        "test.out"
+    run:
+        with open(output[0], "w") as f:
+            print(threads, file=f)

@@ -1,13 +1,10 @@
 from abc import abstractmethod
-import os, sys
+import os
 from pathlib import Path
-from urllib.error import URLError
 import tempfile
 import re
-import shutil
 
 from snakemake.exceptions import WorkflowError
-from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 from snakemake.common import is_local_file
@@ -19,13 +16,6 @@ KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
 
 
-class EditMode:
-    def __init__(self, server_addr=None, draft_only=False):
-        if server_addr is not None:
-            self.ip, self.port = server_addr.split(":")
-        self.draft_only = draft_only
-
-
 def get_cell_sources(source):
     import nbformat
 
@@ -35,7 +25,6 @@ def get_cell_sources(source):
 
 
 class JupyterNotebook(ScriptBase):
-
     editable = True
 
     def draft(self):
@@ -92,7 +81,7 @@ class JupyterNotebook(ScriptBase):
                 cmd = (
                     "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
                     "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
-                        output_parameter=output_parameter,
+                        output_parameter=output_parameter
                     )
                 )
 
@@ -156,7 +145,7 @@ class JupyterNotebook(ScriptBase):
 
 class PythonJupyterNotebook(JupyterNotebook):
     def get_preamble(self):
-        preamble_addendum = "import os; os.chdir(r'{cwd}');".format(cwd=os.getcwd())
+        preamble_addendum = f"import os; os.chdir(r'{os.getcwd()}');"
 
         return PythonScript.generate_preamble(
             self.path,
@@ -194,7 +183,7 @@ class PythonJupyterNotebook(JupyterNotebook):
 
 class RJupyterNotebook(JupyterNotebook):
     def get_preamble(self):
-        preamble_addendum = "setwd('{cwd}');".format(cwd=os.getcwd())
+        preamble_addendum = f"setwd('{os.getcwd()}');"
 
         return RScript.generate_preamble(
             self.path,
@@ -261,6 +250,7 @@ def notebook(
     cleanup_scripts,
     shadow_dir,
     edit,
+    sourcecache_path,
     runtime_sourcecache_path,
 ):
     """
@@ -278,7 +268,7 @@ def notebook(
                 # draft the notebook, it does not exist yet
                 language = None
                 draft = True
-                path = "file://{}".format(os.path.abspath(local_path))
+                path = f"file://{os.path.abspath(local_path)}"
                 if path.endswith(".py.ipynb"):
                     language = "jupyter_python"
                 elif path.endswith(".r.ipynb"):
@@ -296,7 +286,11 @@ def notebook(
 
     if not draft:
         path, source, language, is_local, cache_path = get_source(
-            path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
+            path,
+            SourceCache(sourcecache_path, runtime_sourcecache_path),
+            basedir,
+            wildcards,
+            params,
         )
     else:
         source = None
@@ -337,7 +331,7 @@ def notebook(
         executor.evaluate(edit=edit)
     elif edit.draft_only:
         executor.draft()
-        msg = "Generated skeleton notebook:\n{} ".format(path)
+        msg = f"Generated skeleton notebook:\n{path} "
         if conda_env and not container_img:
             msg += (
                 "\n\nEditing with VSCode:\nOpen notebook, run command 'Select notebook kernel' (Ctrl+Shift+P or Cmd+Shift+P), and choose:"

@@ -1,0 +1,9 @@
+rule a:
+    output:
+        "test.txt"
+    resources:
+        mem="5MB",
+        disk="5MB",
+        runtime="1h",
+    shell:
+        "echo {resources.mem_mb} {resources.disk_mb} {resources.runtime} > {output}"

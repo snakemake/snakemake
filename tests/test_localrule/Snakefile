@@ -1,0 +1,11 @@
+rule a:
+    output:
+        "{sample}.txt"
+    localrule: True
+    shell:
+        "echo test > {output}"
+
+
+rule b:
+    input:
+        expand("{sample}.txt", sample=[1, 2])

@@ -1,0 +1,21 @@
+rule all:
+    input:
+        "result/a.txt",
+        "result/b.txt"
+
+
+module testmodule:
+    snakefile:
+        "testmodule/Snakefile"
+
+
+use rule * from testmodule
+
+rule b:
+    output:
+        "result/{sample}.txt"
+    shell:
+        "echo rule-b-{wildcards.sample} > {output}"
+
+wildcard_constraints:
+    sample="b"

@@ -1,0 +1,42 @@
+rule all:
+    input:
+        "results/e.txt",
+
+
+rule e:
+    input:
+        "results/d.txt",
+        "results/a.txt"
+    output:
+        "results/e.txt"
+    group:
+        "group1"
+    shell:
+        "touch {output}"
+
+
+rule c:
+    input:
+        "results/a.txt"
+    output:
+        "results/c.txt",
+    shell:
+        "touch {output}"
+
+
+rule d:
+    input:
+        "results/c.txt"
+    output:
+        "results/d.txt"
+    shell:
+        "touch {output}"
+
+
+rule a:
+    output:
+        "results/a.txt"
+    group:
+        "group1"
+    shell:
+        "touch {output}"

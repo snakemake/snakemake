@@ -76,7 +76,7 @@ would execute the workflow with 10 cores.
 Since the rule ``bwa_map`` needs 8 threads, only one job of the rule can run at a time, and the Snakemake scheduler will try to saturate the remaining cores with other jobs like, e.g., ``samtools_sort``.
 The threads directive in a rule is interpreted as a maximum: when **less cores than threads** are provided, the number of threads a rule uses will be **reduced to the number of given cores**.
 
-If ``--cores`` is given without a number, all available cores are used.
+If ``--cores all`` is given, all available cores are used.
 
 Exercise
 ........
@@ -155,17 +155,6 @@ For the rule ``bwa_map`` this works as follows:
         threads: 8
         shell:
             "bwa mem -t {threads} {input} | samtools view -Sb - > {output}"
-
-.. sidebar:: Note
-
-  Snakemake does not automatically rerun jobs when new input files are added as
-  in the excercise below. However, you can get a list of output files that
-  are affected by such changes with ``snakemake --list-input-changes``.
-  To trigger a rerun, this bit of bash magic helps:
-
-  .. code:: console
-
-    snakemake -n --forcerun $(snakemake --list-input-changes)
 
 Any normal function would work as well.
 Input functions take as **single argument** a ``wildcards`` object, that allows to access the wildcards values via attributes (here ``wildcards.sample``).
