@@ -185,7 +185,7 @@ We modify the rule ``bwa_map`` accordingly:
         output:
             "mapped_reads/{sample}.bam"
         params:
-            rg=r"@RG\tID:{sample}\tSM:{sample}"
+            rg="@RG\\tID:{sample}\\tSM:{sample}"
         threads: 8
         shell:
             "bwa mem -R '{params.rg}' -t {threads} {input} | samtools view -Sb - > {output}"
@@ -220,7 +220,7 @@ We modify our rule ``bwa_map`` as follows:
         output:
             "mapped_reads/{sample}.bam"
         params:
-            rg=r"@RG\tID:{sample}\tSM:{sample}"
+            rg="@RG\\tID:{sample}\\tSM:{sample}"
         log:
             "logs/bwa_mem/{sample}.log"
         threads: 8
@@ -264,7 +264,7 @@ We use this mechanism for the output file of the rule ``bwa_map``:
         output:
             temp("mapped_reads/{sample}.bam")
         params:
-            rg=r"@RG\tID:{sample}\tSM:{sample}"
+            rg="@RG\\tID:{sample}\\tSM:{sample}"
         log:
             "logs/bwa_mem/{sample}.log"
         threads: 8
@@ -333,7 +333,7 @@ With this, the final version of our workflow in the ``Snakefile`` looks like thi
         output:
             temp("mapped_reads/{sample}.bam")
         params:
-            rg=r"@RG\tID:{sample}\tSM:{sample}"
+            rg="@RG\\tID:{sample}\\tSM:{sample}"
         log:
             "logs/bwa_mem/{sample}.log"
         threads: 8

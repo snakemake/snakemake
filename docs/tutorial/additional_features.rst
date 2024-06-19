@@ -52,7 +52,7 @@ We activate benchmarking for the rule ``bwa_map``:
         output:
             temp("mapped_reads/{sample}.bam")
         params:
-            rg="@RG\tID:{sample}\tSM:{sample}"
+            rg="@RG\\tID:{sample}\\tSM:{sample}"
         log:
             "logs/bwa_mem/{sample}.log"
         benchmark:
@@ -180,7 +180,7 @@ For example, the rule ``bwa_map`` could alternatively look like this:
     log:
         "logs/bwa_mem/{sample}.log"
     params:
-        "-R '@RG\tID:{sample}\tSM:{sample}'"
+        "-R '@RG\\tID:{sample}\\tSM:{sample}'"
     threads: 8
     wrapper:
         "0.15.3/bio/bwa/mem"
