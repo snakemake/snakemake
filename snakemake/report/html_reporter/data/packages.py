@@ -2,6 +2,8 @@ import json
 from snakemake.exceptions import WorkflowError
 from snakemake.report.html_reporter.common import get_resource_as_string
 import snakemake
+import sys
+import os
 
 
 def get_packages():
@@ -16,46 +18,39 @@ def get_packages():
         {
             "snakemake": Package(
                 version=snakemake.__version__.split("+")[0],
-                license_url="assets/snakemake/snakemake/main/LICENSE.md",
+                license_url=os.path.join(sys.prefix,"share/snakemake/LICENSE.md")
             ),
             "pygments": Package(
                 version=pygments.__version__,
-                license_url="assets/pygments/pygments/master/LICENSE",
+                license_url=os.path.join(sys.prefix,"share/pygments/LICENSE")
             ),
             "tailwindcss": Package(
-                version="3.0",
-                license_url="assets/tailwindlabs/tailwindcss/3.0/LICENSE",
-                url="assets/tailwindlabs/tailwindcss/3.0/3.0.23?plugins=forms@0.4.0,typography@0.5.2"
+                license_url=os.path.join(sys.prefix,"share/tailwindcss/LICENSE"),
+                url="tailwind.css"
             ),
             "react": Package(
-                version="18.2",
-                license_url="assets/facebook/react/18.2/LICENSE",
-                main="assets/facebook/react/18.2/react.production.min.js",
-                dom="assets/facebook/react/18.2/react-dom.production.min.js",
+                license_url=os.path.join(sys.prefix,"share/react/LICENSE"),
+                main=os.path.join(sys.prefix,"share/react/react.production.min.js"),
+                dom=os.path.join(sys.prefix,"share/react/react-dom.production.min.js"),
             ),
             "vega": Package(
-                version="5.21",
-                url="assets/vega/vega/5.21/vega.js",
-                license_url="assets/vega/vega/5.21/LICENSE",
+                url=os.path.join(sys.prefix,"share/vega/vega.js"),
+                license_url=os.path.join(sys.prefix,"share/vega/LICENSE"),
             ),
             "vega-lite": Package(
-                version="5.2",
-                url="assets/vega/vega-lite/5.2/vega-lite.js",
-                license_url="assets/vega/vega-lite/5.2/LICENSE",
+                url=os.path.join(sys.prefix,"share/vega-lite/vega-lite.js"),
+                license_url=os.path.join(sys.prefix,"share/vega-lite/LICENSE"),
             ),
             "vega-embed": Package(
-                version="6.20",
-                url="assets/vega/vega-embed/6.20/vega-embed.js",
-                license_url="assets/vega/vega-embed/6.20/LICENSE",
+                url=os.path.join(sys.prefix,"share/vega-embed/vega-embed.js"),
+                license_url=os.path.join(sys.prefix,"share/vega-embed/LICENSE"),
             ),
             "heroicons": Package(
-                version="1.0.6",
-                license_url="assets/tailwindlabs/heroicons/master/LICENSE",
+                license_url=os.path.join(sys.prefix,"share/heroicons/LICENSE"),
             ),
             "prop-types": Package(
-                version="15.7.2",
-                url="assets/facebook/prop-types/15.7.2/prop-types.min.js",
-                license_url="assets/facebook/prop-types/15.7.2/LICENSE",
+                url=os.path.join(sys.prefix,"share/prop-types/prop-types.min.js"),
+                license_url=os.path.join(sys.prefix,"share/prop-types/LICENSE"),
             ),
         }
     )
