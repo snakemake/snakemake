@@ -3,11 +3,9 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import ABC, abstractmethod
 import asyncio
 import collections
 import copy
-from dataclasses import dataclass, field
 import datetime
 import functools
 import json
@@ -19,19 +17,18 @@ import stat
 import string
 import subprocess as sp
 import time
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
-import string
-import collections
-import asyncio
-from typing import Callable
+from dataclasses import dataclass, field
 from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Union, Self
+from typing import Any, Callable, Dict, List, Optional, Self, Set, Union
 
-from snakemake_interface_common.utils import not_iterable, lchmod
+from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
+from snakemake_interface_common.utils import not_iterable
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -67,12 +64,10 @@ def lutime(file, times):
 class AnnotatedStringInterface(ABC):
     @property
     @abstractmethod
-    def flags(self) -> Dict[str, Any]:
-        ...
+    def flags(self) -> Dict[str, Any]: ...
 
     @abstractmethod
-    def is_callable(self) -> bool:
-        ...
+    def is_callable(self) -> bool: ...
 
     def is_flagged(self, flag: str) -> bool:
         return flag in self.flags and bool(self.flags[flag])
