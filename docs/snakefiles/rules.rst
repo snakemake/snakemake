@@ -9,29 +9,17 @@ Most commonly, rules consist of a name, input files, output files, and a shell c
 
 .. code-block:: python
 
-    rule NAME:
-        input: "path/to/inputfile", "path/to/other/inputfile"
-        output: "path/to/outputfile", "path/to/another/outputfile"
-        shell: "somecommand {input} {output}"
+    rule myrule:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile",
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile",
+        shell:
+            "somecommand {input} {output}"
 
-The name is optional and can be left out, creating an anonymous rule. It can also be overridden by setting a rule's ``name`` attribute.
-
-.. code-block:: python
-
-    for tool in ["bcftools", "freebayes"]:
-        rule:
-            name: f"call_variants_{tool}"
-            input: f"path/to/{tool}/inputfile"
-            output: f"path/to/{tool}/outputfile"
-            shell: f"{tool} {{input}} > {{output}}"
-
-
-.. sidebar:: Note
-
-    Note that any placeholders in the shell command (like ``{input}``) are always evaluated and replaced
-    when the corresponding job is executed, even if they are occurring inside a comment.
-    To avoid evaluation and replacement, you have to mask the braces by doubling them,
-    i.e. ``{{input}}``.
+However, rules can be much more complex, may use :ref:`plain python <snakefiles-plain-python-rules>` or :ref:`boilerplate-free scripting in various languages <snakefiles-external_scripts>`, can contain :ref:`snakefiles-wildcards`, define :ref:`non-file parameters <snakefiles-params>`, :ref:`log files <snakefiles-log>` and many more, see below.
 
 Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_.
 Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
@@ -39,36 +27,6 @@ From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. 
 
 By default shell commands will be invoked with ``bash`` shell in the so-called  `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ (unless the workflow specifies something else, seesee :ref:`shell_settings`).
 
-Instead of a shell command, a rule can run some python code to generate the output:
-
-.. code-block:: python
-
-    rule NAME:
-        input: "path/to/inputfile", "path/to/other/inputfile"
-        output: "path/to/outputfile", somename = "path/to/another/outputfile"
-        run:
-            for f in input:
-                ...
-                with open(output[0], "w") as out:
-                    out.write(...)
-            with open(output.somename, "w") as out:
-                out.write(...)
-
-As can be seen, instead of accessing input and output as a whole, we can also access by index (``output[0]``) or by keyword (``output.somename``).
-Note that, when adding keywords or names for input or output files, their order won't be preserved when accessing them as a whole via e.g. ``{output}`` in a shell command.
-
-Shell commands like above can also be invoked inside a python based rule, via the function ``shell`` that takes a string with the command and allows the same formatting like in the rule above, e.g.:
-
-.. code-block:: python
-
-    shell("somecommand {output.somename}")
-
-Further, this combination of python and shell commands allows us to iterate over the output of the shell command, e.g.:
-
-.. code-block:: python
-
-    for line in shell("somecommand {output.somename}", iterable=True):
-        ... # do something in python
 
 .. _snakefiles-wildcards:
 
@@ -245,10 +203,10 @@ These restrictions do not apply when using ``unpack()``.
 
 .. _snakefiles-input_helpers:
 
-Helper functions for defining input and output files
-----------------------------------------------------
+Helpers for defining rules
+--------------------------
 
-Snakemake provides a number of helper functions that can be used to determine input files and drastically simplify over using 
+Snakemake provides a number of helpers that can be used to define rules and drastically simplify over using 
 :ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`_.
 Below, we will first start with describing two basic helper functions for specifying aggregations and multiple output files.
 Afterwards, we will further show a set of semantic helper functions should increase readability and simplify code (see :ref:`snakefiles-semantic-helpers`).
@@ -345,8 +303,8 @@ Moreover, defining output with ``multiext`` is the only way to use :ref:`between
 
 .. _snakefiles-semantic-helpers:
 
-Semantic helper functions
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Semantic helpers
+~~~~~~~~~~~~~~~~
 
 The collect function
 """"""""""""""""""""
@@ -570,6 +528,24 @@ It can for example be used to condition some behavior in the workflow on the exi
             "cp {input} {output}"
 
 
+.. _snakefiles-rule-item-access:
+
+Rule item access
+""""""""""""""""
+
+Via functions (e.g. for :ref:`snakefiles-params` or :ref:`snakefiles-resources`) it is possible to access other items of the same rule in a deferred way, at the point in time when they are actually known.
+For this, functions like
+
+.. code-block:: python
+
+    def get_file_foo_from_input(wildcards, input):
+        return input.foo
+
+can be written. If such a function is passed to e.g. a resource statement,
+Snakemake knows that this resource shall be evaluated by passing the input files in addition to the wildcards (which are always required as first argument for any such function).
+To simplify such logic for certain situations, Snakemake provides globally available objects
+``input``, ``output``, ``resources``, and ``threads`` that can be used to replace the corresponding function definitions.
+For example, ``input.foo`` returns a function pointer that is equivalent to the pointer ``get_file_foo_from_input`` referring to the function above.
 
 .. _snakefiles-targets:
 
@@ -1008,7 +984,7 @@ Per default, each rule has a priority of 0. Any rule that specifies a higher pri
 Furthermore, the ``--prioritize`` or ``-P`` command line flag allows to specify files (or rules) that shall be created with highest priority during the workflow execution. This means that the scheduler will assign the specified target and all its dependencies highest priority, such that the target is finished as soon as possible.
 The ``--dry-run`` (equivalently ``--dryrun``) or ``-n`` option allows you to see the scheduling plan including the assigned priorities.
 
-
+.. _snakefiles-log:
 
 Log-Files
 ---------
@@ -1095,6 +1071,48 @@ to get the same effect as above. Note that in contrast to the ``input`` directiv
 From the Python perspective, they can be seen as optional keyword arguments without a default value.
 Their order does not matter, apart from the fact that ``wildcards`` has to be the first argument.
 In the example above, this allows you to derive the prefix name from the output file.
+
+.. _snakefiles-plain-python:
+
+Plain python rules
+------------------
+
+Instead of a shell command, a rule can run some python code to generate the output.
+It is highly advisable to limit such code to a few lines.
+Otherwise, use Snakemake's :ref:`script support <snakefiles-external_scripts>`.
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile",
+        output:
+            "path/to/outputfile",
+            somename="path/to/another/outputfile",
+        run:
+            for f in input:
+                ...
+                with open(output[0], "w") as out:
+                    out.write(...)
+            with open(output.somename, "w") as out:
+                out.write(...)
+
+As can be seen, instead of accessing input and output as a whole, we can also access by index (``output[0]``) or by keyword (``output.somename``).
+Note that, when adding keywords or names for input or output files, their order won't be preserved when accessing them as a whole via e.g. ``{output}`` in a shell command.
+
+Shell commands like above can also be invoked inside a python based rule, via the function ``shell`` that takes a string with the command and allows the same formatting like in the rule above, e.g.:
+
+.. code-block:: python
+
+    shell("somecommand {output.somename}")
+
+Further, this combination of python and shell commands allows us to iterate over the output of the shell command, e.g.:
+
+.. code-block:: python
+
+    for line in shell("somecommand {output.somename}", iterable=True):
+        ... # do something in python
 
 .. _snakefiles-external_scripts:
 
@@ -2990,3 +3008,31 @@ This ensures that Snakemake does not search for a producing job but instead cons
 
 As can be seen, this way it is even possible to break a cyclic dependency.
 An important helper for setting up the logic of ``before_update`` is the :ref:`exists function <snakefiles-semantic-helpers-exists>`, which allows to e.g. condition the consideration of the file that shall be used before the update by its actual existence before the update.
+
+.. _snakefiles-procedural-rules:
+
+Procedural rule definition
+--------------------------
+
+The name is optional and can be left out, creating an anonymous rule. It can also be overridden by setting a rule's ``name`` attribute.
+
+.. code-block:: python
+
+    for tool in ["bcftools", "freebayes"]:
+        rule:
+            name: 
+                f"call_variants_{tool}"
+            input:
+                f"path/to/{tool}/inputfile"
+            output:
+                f"path/to/{tool}/outputfile"
+            shell:
+                f"{tool} {{input}} > {{output}}"
+
+
+.. sidebar:: Note
+
+    Note that any placeholders in the shell command (like ``{input}``) are always evaluated and replaced
+    when the corresponding job is executed, even if they are occurring inside a comment.
+    To avoid evaluation and replacement, you have to mask the braces by doubling them,
+    i.e. ``{{input}}``.
