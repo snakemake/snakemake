@@ -297,12 +297,13 @@ class Rule(RuleInterface):
             self._wildcard_names = wildcard_names
         else:
             if self.wildcard_names != wildcard_names:
-                raise SyntaxError(
+                raise RuleException(
                     "Not all output, log and benchmark files of "
                     "rule {} contain the same wildcards. "
                     "This is crucial though, in order to "
                     "avoid that two or more jobs write to the "
-                    "same file.".format(self.name)
+                    "same file.".format(self.name),
+                    rule=self
                 )
 
     @property
@@ -505,7 +506,7 @@ class Rule(RuleInterface):
                 inoutput._add_name(name)
         elif callable(item):
             if output:
-                raise SyntaxError("Only input files can be specified as functions")
+                raise RuleException("Only input files can be specified as functions", rule=self)
             inoutput.append(item)
             if name:
                 inoutput._add_name(name)
@@ -518,8 +519,9 @@ class Rule(RuleInterface):
                     # if the list was named, make it accessible
                     inoutput._set_name(name, start, end=len(inoutput))
             except TypeError:
-                raise SyntaxError(
-                    "Input and output files have to be specified as strings or lists of strings."
+                raise RuleException(
+                    "Input and output files have to be specified as strings or lists of strings.",
+                    rule=self
                 )
 
     @property
@@ -577,7 +579,7 @@ class Rule(RuleInterface):
                 if name:
                     self.log._set_name(name, start, end=len(self.log))
             except TypeError:
-                raise SyntaxError("Log files have to be specified as strings.")
+                raise RuleException("Log files have to be specified as strings.", rule=self)
 
     def check_wildcards(self, wildcards):
         missing_wildcards = self.wildcard_names - set(wildcards.keys())
