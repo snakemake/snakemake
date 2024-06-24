@@ -470,15 +470,15 @@ class ScriptBase(ABC):
 
     @abstractmethod
     def get_preamble(self) -> str:
-        return NotImplemented
+        ...
 
     @abstractmethod
     def write_script(self, preamble, fd) -> None:
-        return NotImplemented
+        ...
 
     @abstractmethod
     def execute_script(self, fname, edit=False) -> None:
-        return NotImplemented
+        ...
 
     def _execute_cmd(self, cmd, **kwargs):
         return shell(
