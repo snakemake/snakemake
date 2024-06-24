@@ -324,7 +324,7 @@ def exists(path):
 
 
 def parse_input(infile=None, parser=None, **kwargs):
-    def inner(wildcards, input):
+    def inner(wildcards, input, output):
         with open(infile, "r") as fh:
             if parser is None:
                 return fh.read().strip()
