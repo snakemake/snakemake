@@ -469,13 +469,16 @@ class ScriptBase(ABC):
         return self.path.get_path_or_uri()
 
     @abstractmethod
-    def get_preamble(self): ...
+    def get_preamble(self) -> str:
+        return NotImplemented
 
     @abstractmethod
-    def write_script(self, preamble, fd): ...
+    def write_script(self, preamble, fd) -> None:
+        return NotImplemented
 
     @abstractmethod
-    def execute_script(self, fname, edit=False): ...
+    def execute_script(self, fname, edit=False) -> None:
+        return NotImplemented
 
     def _execute_cmd(self, cmd, **kwargs):
         return shell(
