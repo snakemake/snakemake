@@ -565,7 +565,7 @@ It can for example be used to extract a value from inside an input file.
         output:
             "samples.id",
         params:
-            id=parse_input("samples", parser=extract_id)
+            id=parse_input(input.samples, parser=extract_id)
         shell:
             "echo {params.id} > {output}"
 
@@ -587,7 +587,7 @@ The function will return the checksum of ``file`` present in ``infile``.
         output:
             tsv="{a}.tsv",
         params:
-            checksum=lambda w, output: parse_input("checksum", parser=extract_checksum, file=output.tsv)
+            checksum=parse_input(input.checksum, parser=extract_checksum, file=output.tsv)
         shell:
             "echo {params.checksum} > {output}"
 
