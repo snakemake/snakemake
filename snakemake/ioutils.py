@@ -323,13 +323,13 @@ def exists(path):
         return os.path.exists(path)
 
 
-def parse_input(input_item=None, parser=None, **kwargs):
+def parse_input(infile=None, parser=None, **kwargs):
     def inner(wildcards, input):
-        with open(input.get(input_item), "r") as infile:
+        with open(infile, "r") as fh:
             if parser is None:
-                return infile.read().strip()
+                return fh.read().strip()
             else:
-                return parser(infile, **kwargs)
+                return parser(fh, **kwargs)
 
     return inner
 
