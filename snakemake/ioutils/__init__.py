@@ -6,7 +6,6 @@ from snakemake.ioutils.lookup import lookup
 from snakemake.ioutils.rule_items_proxy import rule_item_factory
 
 
-
 def register_in_globals(_globals):
     _globals.update(
         {
