@@ -560,14 +560,29 @@ class PythonScript(ScriptBase):
             else f"from snakemake.shell import shell; shell.executable({shell_exec});"
         )
 
-        preamble = textwrap.dedent(
-            f"""
-        ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys; sys.path.extend({repr(searchpaths)}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds}; from snakemake import script; script.snakemake=snakemake; del script; {preamble_addendum}
-        ######## snakemake preamble end #########
-        """
+        preamble = f"""
+            import sys;
+            sys.path.extend({repr(searchpaths)});
+            import pickle;
+            from snakemake import script;
+            script.snakemake = pickle.loads({snakemake});
+            del script;
+            from snakemake.logging import logger;
+            from snakemake.script import snakemake;
+            {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds};
+            {preamble_addendum}
+            """
+        return "\n".join(
+            [
+                "######## snakemake preamble start (automatically inserted, do not edit) ########",
+                PythonScript._minify_preamble(preamble),
+                "######## snakemake preamble end #########\n",
+            ]
         )
-        return preamble
+
+    @staticmethod
+    def _minify_preamble(preamble: str) -> str:
+        return textwrap.dedent(preamble).replace("\n", "")
 
     def get_preamble(self):
         if isinstance(self.path, LocalSourceFile):
