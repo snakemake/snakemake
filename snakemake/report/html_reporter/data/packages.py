@@ -18,39 +18,39 @@ def get_packages():
         {
             "snakemake": Package(
                 version=snakemake.__version__.split("+")[0],
-                license_url=os.path.join(sys.prefix,"share/snakemake/LICENSE.md")
+                license_url=os.path.join(sys.prefix, "share/snakemake/LICENSE.md"),
             ),
             "pygments": Package(
                 version=pygments.__version__,
-                license_url=os.path.join(sys.prefix,"share/pygments/LICENSE")
+                license_url=os.path.join(sys.prefix, "share/pygments/LICENSE"),
             ),
             "tailwindcss": Package(
-                license_url=os.path.join(sys.prefix,"share/tailwindcss/LICENSE"),
-                url="tailwind.css"
+                license_url=os.path.join(sys.prefix, "share/tailwindcss/LICENSE"),
+                url="tailwind.css",
             ),
             "react": Package(
-                license_url=os.path.join(sys.prefix,"share/react/LICENSE"),
-                main=os.path.join(sys.prefix,"share/react/react.production.min.js"),
-                dom=os.path.join(sys.prefix,"share/react/react-dom.production.min.js"),
+                license_url=os.path.join(sys.prefix, "share/react/LICENSE"),
+                main=os.path.join(sys.prefix, "share/react/react.production.min.js"),
+                dom=os.path.join(sys.prefix, "share/react/react-dom.production.min.js"),
             ),
             "vega": Package(
-                url=os.path.join(sys.prefix,"share/vega/vega.js"),
-                license_url=os.path.join(sys.prefix,"share/vega/LICENSE"),
+                url=os.path.join(sys.prefix, "share/vega/vega.js"),
+                license_url=os.path.join(sys.prefix, "share/vega/LICENSE"),
             ),
             "vega-lite": Package(
-                url=os.path.join(sys.prefix,"share/vega-lite/vega-lite.js"),
-                license_url=os.path.join(sys.prefix,"share/vega-lite/LICENSE"),
+                url=os.path.join(sys.prefix, "share/vega-lite/vega-lite.js"),
+                license_url=os.path.join(sys.prefix, "share/vega-lite/LICENSE"),
             ),
             "vega-embed": Package(
-                url=os.path.join(sys.prefix,"share/vega-embed/vega-embed.js"),
-                license_url=os.path.join(sys.prefix,"share/vega-embed/LICENSE"),
+                url=os.path.join(sys.prefix, "share/vega-embed/vega-embed.js"),
+                license_url=os.path.join(sys.prefix, "share/vega-embed/LICENSE"),
             ),
             "heroicons": Package(
-                license_url=os.path.join(sys.prefix,"share/heroicons/LICENSE"),
+                license_url=os.path.join(sys.prefix, "share/heroicons/LICENSE"),
             ),
             "prop-types": Package(
-                url=os.path.join(sys.prefix,"share/prop-types/prop-types.min.js"),
-                license_url=os.path.join(sys.prefix,"share/prop-types/LICENSE"),
+                url=os.path.join(sys.prefix, "share/prop-types/prop-types.min.js"),
+                license_url=os.path.join(sys.prefix, "share/prop-types/LICENSE"),
             ),
         }
     )
