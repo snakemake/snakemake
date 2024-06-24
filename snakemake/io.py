@@ -1493,6 +1493,26 @@ def strip_wildcard_constraints(pattern):
     return WILDCARD_REGEX.sub(strip_constraint, pattern)
 
 
+class AttributeGuard:
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, *args, **kwargs):
+        """
+        Generic function that throws an `AttributeError`.
+
+        Used as replacement for functions such as `index()` and `sort()`,
+        which may be overridden by workflows, to signal to a user that
+        these functions should not be used.
+        """
+        raise AttributeError(
+            f"{self.name}() cannot be used on snakemake input, output, resources etc.; "
+            "instead it is a valid name for items on those objects. If you want e.g. to "
+            "sort, convert to a plain list before or directly use sorted() on the "
+            "object."
+        )
+
+
 class Namedlist(list):
     """
     A list that additionally provides functions to name items. Further,
@@ -1522,7 +1542,7 @@ class Namedlist(list):
         # default to throwing exception if called to prevent use as functions
         self._allowed_overrides = ["index", "sort"]
         for name in self._allowed_overrides:
-            setattr(self, name, functools.partial(self._used_attribute, _name=name))
+            setattr(self, name, AttributeGuard(name))
 
         if toclone is not None:
             if custom_map is not None:
@@ -1551,20 +1571,6 @@ class Namedlist(list):
             for key, item in fromdict.items():
                 self.append(item)
                 self._add_name(key)
-
-    @staticmethod
-    def _used_attribute(*args, _name, **kwargs):
-        """
-        Generic function that throws an `AttributeError`.
-
-        Used as replacement for functions such as `index()` and `sort()`,
-        which may be overridden by workflows, to signal to a user that
-        these functions should not be used.
-        """
-        raise AttributeError(
-            "{_name}() cannot be used; attribute name reserved"
-            " for use in some existing workflows".format(_name=_name)
-        )
 
     def _add_name(self, name):
         """
@@ -1666,7 +1672,11 @@ class Namedlist(list):
         return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):
-        return self.__dict__.get(key, default_value)
+        value = self.__dict__.get(key, default_value)
+        # handle internally guarded values like sort or index (see AttributeGuard)
+        if isinstance(value, AttributeGuard):
+            return default_value
+        return value
 
     def __getitem__(self, key):
         if isinstance(key, str):
