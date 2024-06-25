@@ -630,7 +630,7 @@ Second, by setting the shell executable via the :ref:`resources directive <snake
 
 This can be particularly important in case you use a :ref:`container image <apptainer>` for the rule which does not contain bash, e.g.
 
-..code-block:: python
+.. code-block:: python
 
     rule a:
         output:
