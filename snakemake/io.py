@@ -24,7 +24,7 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Self, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set, TypeVar, Union
 
 from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
@@ -50,7 +50,6 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 from snakemake.logging import logger
-
 
 def lutime(file, times):
     success = lutime_raw(file, times)
@@ -1512,6 +1511,10 @@ class AttributeGuard:
             "object."
         )
 
+# TODO: replace this with Self when Python 3.11 is the minimum supported version for
+#   executing scripts
+_TNamedList = TypeVar("_TNamedList", bound="Namedlist")
+"Type variable for self returning methods on Namedlist deriving classes"
 
 class Namedlist(list):
     """
@@ -1662,13 +1665,13 @@ class Namedlist(list):
     def keys(self):
         return self._names.keys()
 
-    def _plainstrings(self) -> Self:
+    def _plainstrings(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self, plainstr=True)
 
-    def _stripped_constraints(self):
+    def _stripped_constraints(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self, strip_constraints=True)
 
-    def _clone(self):
+    def _clone(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):
