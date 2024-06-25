@@ -111,21 +111,21 @@ class TokenAutomaton:
         # only for python >= 3.12, since then python changed the
         # parsing manner of f-string, see
         # [pep-0701](https://peps.python.org/pep-0701)
+        related_lines = {token.start[0]}
+        s = token.line
         isin_fstring = 1
         for t1 in self.snakefile:
+            if t1.start[0] not in related_lines:
+                s += t1.line
+                related_lines.add(t1.start[0])
             if t1.type == tokenize.FSTRING_START:
                 isin_fstring += 1
             elif t1.type == tokenize.FSTRING_END:
                 isin_fstring -= 1
             if isin_fstring == 0:
                 break
-        with self.snakefile.sourcecache.open(self.snakefile._path) as fi:
-            for i, line in zip(range(token.start[0]), fi):
-                pass
-            s = line[token.start[1] :]
-            for i, line in zip(range(t1.end[0] - token.start[0]), fi):
-                s += line
-            t = s[: t1.end[1] - len(t1.line)]
+        t = s[token.start[1] : t1.end[1] - len(t1.line)]
+        print(s, flush=True)
         if hasattr(self, "cmd") and self.cmd[-1][1] == token:
             self.cmd[-1] = t, token
         return t
@@ -1261,16 +1261,11 @@ class Snakefile:
         workflow: "workflow.Workflow",
         rulecount=0,
     ):
-        self._path = path
-        self.sourcecache = workflow.sourcecache
-        self.file = self.sourcecache.open(path)
+        self.path = path.get_path_or_uri()
+        self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = rulecount
         self.lines = 0
-
-    @property
-    def path(self):
-        return self._path.get_path_or_uri()
 
     def __next__(self):
         return next(self.tokens)
