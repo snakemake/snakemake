@@ -119,7 +119,7 @@ class TokenAutomaton:
                 isin_fstring -= 1
             if isin_fstring == 0:
                 break
-        with open(self.snakefile.path) as fi:
+        with self.snakefile.sourcecache.open(self.snakefile._path) as fi:
             for i, line in zip(range(token.start[0]), fi):
                 pass
             s = line[token.start[1] :]
@@ -1261,11 +1261,16 @@ class Snakefile:
         workflow: "workflow.Workflow",
         rulecount=0,
     ):
-        self.path = path.get_path_or_uri()
-        self.file = workflow.sourcecache.open(path)
+        self._path = path
+        self.sourcecache = workflow.sourcecache
+        self.file = self.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = rulecount
         self.lines = 0
+
+    @property
+    def path(self):
+        return self._path.get_path_or_uri()
 
     def __next__(self):
         return next(self.tokens)
