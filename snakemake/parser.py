@@ -112,20 +112,20 @@ class TokenAutomaton:
         # parsing manner of f-string, see
         # [pep-0701](https://peps.python.org/pep-0701)
         isin_fstring = 1
-        t = token.string
         for t1 in self.snakefile:
             if t1.type == tokenize.FSTRING_START:
                 isin_fstring += 1
-                t += t1.string
             elif t1.type == tokenize.FSTRING_END:
                 isin_fstring -= 1
-                t += t1.string
-            elif t1.type == tokenize.FSTRING_MIDDLE:
-                t += t1.string.replace("{", "{{").replace("}", "}}")
-            else:
-                t += t1.string
             if isin_fstring == 0:
                 break
+        with open(self.snakefile.path) as fi:
+            for i, line in zip(range(token.start[0]), fi):
+                pass
+            s = line[token.start[1] :]
+            for i, line in zip(range(t1.end[0] - token.start[0]), fi):
+                s += line
+            t = s[: t1.end[1] - len(t1.line)]
         if hasattr(self, "cmd") and self.cmd[-1][1] == token:
             self.cmd[-1] = t, token
         return t
@@ -540,9 +540,11 @@ class Run(RuleKeywordState):
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
             "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, {rule_func_marker}=True):".format(
-                rulename=self.rulename
-                if self.rulename is not None
-                else self.snakefile.rulecount,
+                rulename=(
+                    self.rulename
+                    if self.rulename is not None
+                    else self.snakefile.rulecount
+                ),
                 rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
             )
         )
