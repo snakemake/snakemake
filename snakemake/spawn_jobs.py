@@ -211,6 +211,7 @@ class SpawnedJobArgsFactory:
         if (
             SharedFSUsage.SOURCES not in self.workflow.storage_settings.shared_fs_usage
             and self.workflow.remote_execution_settings.job_deploy_sources
+            and not executor_common_settings.can_transfer_local_files
         ):
             archive = self.workflow.source_archive
             default_storage_provider_args = self.get_default_storage_provider_args()
