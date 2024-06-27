@@ -16,7 +16,7 @@ from operator import attrgetter
 from typing import Optional
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
-from snakemake.settings import DeploymentMethod
+from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
@@ -37,7 +37,7 @@ from snakemake.io import (
     get_flag_value,
     wait_for_files,
 )
-from snakemake.settings import SharedFSUsage
+from snakemake.settings.types import SharedFSUsage
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
 from snakemake.utils import format

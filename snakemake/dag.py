@@ -21,7 +21,7 @@ from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
-from snakemake.settings import DeploymentMethod
+from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
@@ -34,7 +34,7 @@ from snakemake.common import (
     group_into_chunks,
     is_local_file,
 )
-from snakemake.settings import RerunTrigger
+from snakemake.settings.types import RerunTrigger
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,
@@ -66,11 +66,11 @@ from snakemake.jobs import (
     JobFactory,
     Reason,
 )
-from snakemake.settings import SharedFSUsage
+from snakemake.settings.types import SharedFSUsage
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
-from snakemake.settings import ChangeType, Batch
+from snakemake.settings.types import ChangeType, Batch
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 

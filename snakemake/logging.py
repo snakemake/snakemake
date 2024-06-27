@@ -443,7 +443,7 @@ class Logger:
         self.handler(msg)
 
     def is_quiet_about(self, msg_type: str):
-        from snakemake.settings import Quietness
+        from snakemake.settings.enums import Quietness
 
         return (
             Quietness.ALL in self.quiet
@@ -734,7 +734,7 @@ def setup_logger(
     show_failed_logs=False,
     dryrun=False,
 ):
-    from snakemake.settings import Quietness
+    from snakemake.settings.types import Quietness
 
     if mode is None:
         mode = get_default_exec_mode()

@@ -8,7 +8,7 @@ import sys
 import subprocess as sp
 from pathlib import Path
 from snakemake.resources import DefaultResources, GroupResources
-from snakemake.settings import RerunTrigger
+from snakemake.settings.enums import RerunTrigger
 
 from snakemake.shell import shell
 
@@ -762,6 +762,17 @@ def test_singularity():
 
 
 @skip_on_windows
+@connected
+def test_singularity_cluster():
+    run(
+        dpath("test_singularity"),
+        deployment_method={DeploymentMethod.APPTAINER},
+        cluster="./qsub",
+        apptainer_args="--bind /tmp:/tmp",
+    )
+
+
+@skip_on_windows
 def test_singularity_invalid():
     run(
         dpath("test_singularity"),
@@ -1469,7 +1480,7 @@ def test_jupyter_notebook():
 
 
 def test_jupyter_notebook_draft():
-    from snakemake.settings import NotebookEditMode
+    from snakemake.settings.types import NotebookEditMode
 
     run(
         dpath("test_jupyter_notebook_draft"),
@@ -1609,6 +1620,14 @@ def test_module_no_prefixing_modified_paths():
     run(
         dpath("test_module_no_prefixing_modified_paths"),
         targets=["module2/test_final.txt"],
+    )
+
+
+@skip_on_windows
+def test_modules_prefix_local():
+    run(
+        dpath("test_modules_prefix_local"),
+        targets=["out_1/test_final.txt"],
     )
 
 
@@ -2151,6 +2170,11 @@ def test_handle_storage_multi_consumers():
 @skip_on_windows  # OS agnostic
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
+
+
+@skip_on_windows
+def test_shell_exec():
+    run(dpath("test_shell_exec"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 def test_expand_list_of_functions():

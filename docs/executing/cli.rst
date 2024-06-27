@@ -117,7 +117,7 @@ to be used to obtain default options.
 Since Snakemake 7.29, two kinds of profiles are supported:
 
 * A **global profile** that is defined in a system-wide or user-specific configuration directory (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
-* A **workflow specific profile** (introduced in Snakemake 7.29) that is defined via a flag (``--workflow-profile``) or searched in a default location (``profile/default``) in the working directory or next to the Snakefile.
+* A **workflow specific profile** (introduced in Snakemake 7.29) that is defined via a flag (``--workflow-profile``) or searched in a default location (``profiles/default``) in the working directory or next to the Snakefile.
 
 The workflow specific profile is meant to be used to define default options for a particular workflow, like providing constraints for certain custom resources the workflow uses (e.g. ``api_calls``) or overwriting the threads and resource definitions of individual rules without modifying the workflow code itself.
 In contrast, the global profile is meant to be used to define default options for a particular environment, like the default cluster submission command or the default number of jobs to run in parallel.
