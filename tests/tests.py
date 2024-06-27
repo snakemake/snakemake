@@ -2193,3 +2193,7 @@ def test_checkpoint_open():
         default_storage_provider="fs",
         default_storage_prefix="storage",
     )
+
+
+def test_parse_fstring():
+    run(dpath("test_parse_fstring"))
