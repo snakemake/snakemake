@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [8.14.1](https://github.com/snakemake/snakemake/compare/v8.14.0...v8.14.1) (2024-06-27)
+
+
+### Bug Fixes
+
+* handling of missing attributes in input/output/params lists that have been guarded against misuse (sort, index) ([#2928](https://github.com/snakemake/snakemake/issues/2928)) ([1b75087](https://github.com/snakemake/snakemake/commit/1b75087fa10cfcfb06e41a6286cb51d10df3ee3f))
+* improve error message in case of invalid default storage prefix ([3c1065c](https://github.com/snakemake/snakemake/commit/3c1065c9b441928f2d390b568a7e9f854256ad41))
+
+
+### Documentation
+
+* fix signature display ([bdd732d](https://github.com/snakemake/snakemake/commit/bdd732d1f98d0af0362115f74baa728bfc976851))
+
 ## [8.14.0](https://github.com/snakemake/snakemake/compare/v8.13.0...v8.14.0) (2024-06-11)
 
 
