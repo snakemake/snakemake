@@ -108,24 +108,31 @@ class TokenAutomaton:
             self.was_indented |= self.indent > 0
 
     def parse_fstring(self, token: tokenize.TokenInfo):
-        # only for python >= 3.12, since then python changed the
-        # parsing manner of f-string, see
-        # [pep-0701](https://peps.python.org/pep-0701)
-        related_lines = {token.start[0]}
+        """
+        only for python >= 3.12, since then python changed the
+        parsing manner of f-string, see
+        [pep-0701](https://peps.python.org/pep-0701)
+
+        Here, we just read where the f-string start and end from tokens.
+        Luckily, each token records the content of the line,
+        and we can just take what we want there.
+        """
+        related_lines = token.start[0]
         s = token.line
         isin_fstring = 1
         for t1 in self.snakefile:
-            if t1.start[0] not in related_lines:
+            if related_lines < t1.start[0]:
+                # go to the next line
+                related_lines = t1.start[0]
                 s += t1.line
-                related_lines.add(t1.start[0])
             if t1.type == tokenize.FSTRING_START:
                 isin_fstring += 1
             elif t1.type == tokenize.FSTRING_END:
                 isin_fstring -= 1
             if isin_fstring == 0:
                 break
+        # trim those around the f-string
         t = s[token.start[1] : t1.end[1] - len(t1.line)]
-        print(s, flush=True)
         if hasattr(self, "cmd") and self.cmd[-1][1] == token:
             self.cmd[-1] = t, token
         return t
