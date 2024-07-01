@@ -153,7 +153,7 @@ class IOCache(IOCacheStorageInterface):
         ]
 
         for job in jobs:
-            f: _IOFile
+            f: "_IOFile"
             for f in chain(job.input, job.output):
                 if not f.is_storage and await f.exists():
                     queue.put_nowait(f)
@@ -193,7 +193,7 @@ def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
 
 def iocache(func: Callable):
     @functools.wraps(func)
-    async def wrapper(self: _IOFile, *args, **kwargs):
+    async def wrapper(self: "_IOFile", *args, **kwargs):
         assert self.rule is not None
         if self.rule.workflow.iocache.active:
             cache = getattr(self.rule.workflow.iocache, func.__name__)
