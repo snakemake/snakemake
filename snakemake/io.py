@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import asyncio
 import collections
+import collections.abc
 import copy
 import functools
 import os
@@ -21,7 +22,7 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Set, Union, TYPE_CHECKING
 
 from snakemake_interface_common.utils import not_iterable, lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
@@ -214,8 +215,8 @@ class _IOFile(str, AnnotatedStringInterface):
             self._is_function: bool
             self._file: str | AnnotatedString
             self.rule: None
-            self._regex: re.Pattern
-            self._wildcard_constraints: dict[str, re.Pattern]
+            self._regex: re.Pattern | None
+            self._wildcard_constraints: dict[str, re.Pattern] | None
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)
@@ -435,9 +436,9 @@ class _IOFile(str, AnnotatedStringInterface):
     def parents(self, omit=0):
         """Yield all parent paths, omitting the given number of ancestors."""
         for p in list(Path(self.file).parents)[::-1][omit:]:
-            p = IOFile(str(p), rule=self.rule)
-            p.clone_flags(self)
-            yield p
+            p1 = IOFile(str(p), rule=self.rule)
+            p1.clone_flags(self)
+            yield p1
 
     @iocache
     async def exists_local(self):
@@ -811,11 +812,12 @@ class _IOFile(str, AnnotatedStringInterface):
                     "to change"
                 )
 
-    def clone_storage_object(self, other):
+    def clone_storage_object(self, other: "_IOFile"):
         if (
             isinstance(other._file, AnnotatedString)
             and "storage_object" in other._file.flags
         ):
+            assert isinstance(self._file, AnnotatedString)
             self._file.flags["storage_object"] = copy.copy(
                 other._file.flags["storage_object"]
             )
@@ -863,7 +865,7 @@ class AnnotatedString(str, AnnotatedStringInterface):
         self._flags = value
 
 
-MaybeAnnotated = AnnotatedStringInterface | str
+MaybeAnnotated = Union[AnnotatedStringInterface, str]
 
 
 def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
@@ -883,12 +885,6 @@ def flag(value, flag_type, flag_value=True):
         value.flags[flag_type] = flag_value
         return value
     return [flag(v, flag_type, flag_value=flag_value) for v in value]
-
-
-def is_callable(value: Any):
-    return callable(value) or (
-        isinstance(value, AnnotatedStringInterface) and value.is_callable()
-    )
 
 
 _double_slash_regex = (
@@ -1308,15 +1304,21 @@ def expand(*args, **wildcard_values):
         for filepattern in filepatterns
     }
 
-    def do_expand(wildcard_values):
-        def flatten(wildcard_values):
-            for wildcard, values in wildcard_values.items():
+    def do_expand(
+        wildcard_values: dict[str, dict[str, Union[str, collections.abc.Iterable[str]]]]
+    ):
+        def flatten(
+            wildcard_values: dict[str, Union[str, collections.abc.Iterable[str]]]
+        ):
+            for wildcard, value in wildcard_values.items():
                 if (
-                    isinstance(values, str)
-                    or not isinstance(values, collections.abc.Iterable)
-                    or is_namedtuple_instance(values)
+                    isinstance(value, str)
+                    or not isinstance(value, collections.abc.Iterable)
+                    or is_namedtuple_instance(value)
                 ):
-                    values = [values]
+                    values: collections.abc.Iterable[str] = [value]  # type: ignore[list-item]
+                else:
+                    values = value
                 yield [(wildcard, value) for value in values]
 
         # string.Formatter does not fully support AnnotatedString (flags are discarded)
