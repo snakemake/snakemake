@@ -50,6 +50,7 @@ from snakemake.logging import logger
 
 if TYPE_CHECKING:
     import snakemake.rules
+    import snakemake.jobs
 
 
 def lutime(file, times):
@@ -123,11 +124,11 @@ class IOCache(IOCacheStorageInterface):
     def size(self):
         return self._size
 
-    async def mtime_inventory(self, jobs, n_workers=8):
-        queue = asyncio.Queue()
+    async def mtime_inventory(self, jobs: collections.abc.Iterable["snakemake.jobs.Job"], n_workers=8):
+        queue: asyncio.Queue = asyncio.Queue()
         stop_item = object()
 
-        async def worker(queue):
+        async def worker(queue: asyncio.Queue):
             while True:
                 item = await queue.get()
                 if item is stop_item:
@@ -150,6 +151,7 @@ class IOCache(IOCacheStorageInterface):
         ]
 
         for job in jobs:
+            f: _IOFile
             for f in chain(job.input, job.output):
                 if not f.is_storage and await f.exists():
                     queue.put_nowait(f)
@@ -263,7 +265,8 @@ class _IOFile(str, AnnotatedStringInterface):
         """Starting from the given file, try to cache as much existence and
         modification date information of this and other files as possible.
         """
-        cache = self.rule.workflow.iocache
+        assert self.rule is not None
+        cache: IOCache = self.rule.workflow.iocache
         if cache.active:
             tasks = []
             if self.is_storage and self not in cache.exists_in_storage:
@@ -468,8 +471,9 @@ class _IOFile(str, AnnotatedStringInterface):
         )
 
     async def mtime(self):
+        assert self.rule is not None
         if self.rule.workflow.iocache.active:
-            cache = self.rule.workflow.iocache
+            cache: IOCache = self.rule.workflow.iocache
             if self in cache.mtime:
                 mtime = cache.mtime[self]
                 # if inventory is filled by storage plugin, mtime.local() will be None and
