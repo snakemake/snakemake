@@ -47,6 +47,7 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 from snakemake.logging import logger
+import snakemake.rules
 
 
 def lutime(file, times):
@@ -178,7 +179,7 @@ class IOCache(IOCacheStorageInterface):
         self.active = False
 
 
-def IOFile(file, rule=None):
+def IOFile(file, rule: Union[snakemake.rules.Rule, None] = None):
     assert rule is not None
     f = _IOFile(file)
     f.rule = rule
@@ -211,10 +212,10 @@ class _IOFile(str, AnnotatedStringInterface):
 
     if TYPE_CHECKING:
 
-        def __init__(self):
+        def __init__(self, file):
             self._is_function: bool
-            self._file: str | AnnotatedString
-            self.rule: None
+            self._file: str | AnnotatedString | Callable[[Namedlist], str]
+            self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
             self._wildcard_constraints: dict[str, re.Pattern] | None
 
@@ -252,6 +253,9 @@ class _IOFile(str, AnnotatedStringInterface):
         if new.is_storage:
             new.storage_object._iofile = new
         return new
+
+    def is_callable(self) -> bool:
+        return self._is_function
 
     async def inventory(self):
         """Starting from the given file, try to cache as much existence and
@@ -396,25 +400,27 @@ class _IOFile(str, AnnotatedStringInterface):
             )
 
     def check(self):
+        if callable(self._file):
+            return
         hint = (
             "It can also lead to inconsistent results of the file-matching "
             "approach used by Snakemake."
         )
         if self._file.startswith("./"):
             logger.warning(
-                "Relative file path '{}' starts with './'. This is redundant "
-                "and strongly discouraged. {} You can simply omit the './' "
-                "for relative file paths.".format(self._file, hint)
+                f"Relative file path '{self._file}' starts with './'. This is redundant "
+                f"and strongly discouraged. {hint} You can simply omit the './' "
+                "for relative file paths."
             )
         if self._file.startswith(" "):
             logger.warning(
-                "File path '{}' starts with whitespace. "
-                "This is likely unintended. {}".format(self._file, hint)
+                f"File path '{self._file}' starts with whitespace. "
+                f"This is likely unintended. {hint}"
             )
         if self._file.endswith(" "):
             logger.warning(
-                "File path '{}' ends with whitespace. "
-                "This is likely unintended. {}".format(self._file, hint)
+                f"File path '{self._file}' ends with whitespace. "
+                f"This is likely unintended. {hint}"
             )
         if "\n" in self._file:
             logger.warning(
@@ -665,6 +671,7 @@ class _IOFile(str, AnnotatedStringInterface):
                     raise e
 
         if is_flagged(self._file, "pipe"):
+            assert isinstance(self._file, AnnotatedString)
             os.mkfifo(self._file)
 
     def protect(self):
@@ -703,9 +710,10 @@ class _IOFile(str, AnnotatedStringInterface):
                 lutime(self.file, times)
         except OSError as e:
             if e.errno == 2:
+                assert self.rule is not None
                 raise MissingOutputException(
-                    "Output file {} of rule {} shall be touched but "
-                    "does not exist.".format(self.file, self.rule.name),
+                    f"Output file {self.file} of rule {self.rule.name} "
+                    "shall be touched but does not exist.",
                     lineno=self.rule.lineno,
                     snakefile=self.rule.snakefile,
                 )
@@ -733,6 +741,7 @@ class _IOFile(str, AnnotatedStringInterface):
         f = self._file
 
         if self._is_function:
+            assert callable(self._file)
             f = self._file(Namedlist(fromdict=wildcards))
 
         # this bit ensures flags are transferred over to files after
@@ -799,9 +808,10 @@ class _IOFile(str, AnnotatedStringInterface):
     def match(self, target):
         return self.regex().match(target) or None
 
-    def clone_flags(self, other, skip_storage_object=False):
+    def clone_flags(self, other: "_IOFile", skip_storage_object=False):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
+        assert isinstance(self._file, AnnotatedString)
         if isinstance(other._file, AnnotatedString) or isinstance(other._file, _IOFile):
             self._file.flags = getattr(other._file, "flags", {}).copy()
             if skip_storage_object and self.is_storage:
@@ -825,6 +835,7 @@ class _IOFile(str, AnnotatedStringInterface):
     def set_flags(self, flags):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
+        assert isinstance(self._file, AnnotatedString)
         self._file.flags = flags
 
     def __eq__(self, other):
@@ -865,7 +876,7 @@ class AnnotatedString(str, AnnotatedStringInterface):
         self._flags = value
 
 
-MaybeAnnotated = Union[AnnotatedStringInterface, str]
+MaybeAnnotated = Union[AnnotatedStringInterface, str, Callable]
 
 
 def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
@@ -1332,7 +1343,7 @@ def expand(*args, **wildcard_values):
         formatter = string.Formatter()
         try:
             return [
-                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))
+                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))  # type: ignore[arg-type]
                 for filepattern in filepatterns
                 for comb in map(
                     format_dict, combinator(*flatten(wildcard_values[filepattern]))
