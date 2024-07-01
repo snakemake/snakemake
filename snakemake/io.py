@@ -124,7 +124,9 @@ class IOCache(IOCacheStorageInterface):
     def size(self):
         return self._size
 
-    async def mtime_inventory(self, jobs: collections.abc.Iterable["snakemake.jobs.Job"], n_workers=8):
+    async def mtime_inventory(
+        self, jobs: collections.abc.Iterable["snakemake.jobs.Job"], n_workers=8
+    ):
         queue: asyncio.Queue = asyncio.Queue()
         stop_item = object()
 
@@ -168,7 +170,7 @@ class IOCache(IOCacheStorageInterface):
 
         await asyncio.gather(*tasks)
 
-    async def collect_mtime(self, path):
+    async def collect_mtime(self, path: "_IOFile"):
         return await path.mtime_uncached()
 
     def clear(self):
@@ -184,7 +186,6 @@ class IOCache(IOCacheStorageInterface):
 
 
 def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
-    assert rule is not None
     f = _IOFile(file)
     f.rule = rule
     return f
@@ -192,8 +193,8 @@ def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
 
 def iocache(func: Callable):
     @functools.wraps(func)
-    async def wrapper(self, *args, **kwargs):
-        # self: _IOFile
+    async def wrapper(self: _IOFile, *args, **kwargs):
+        assert self.rule is not None
         if self.rule.workflow.iocache.active:
             cache = getattr(self.rule.workflow.iocache, func.__name__)
             if self in cache:
@@ -212,12 +213,12 @@ class _IOFile(str, AnnotatedStringInterface):
     A file that is either input or output of a rule.
     """
 
-    __slots__ = ["_is_function", "_file", "rule", "_regex", "_wildcard_constraints"]
+    __slots__ = ["_is_callable", "_file", "rule", "_regex", "_wildcard_constraints"]
 
     if TYPE_CHECKING:
 
         def __init__(self, file):
-            self._is_function: bool
+            self._is_callable: bool
             self._file: str | AnnotatedString | Callable[[Namedlist], str]
             self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
@@ -238,7 +239,7 @@ class _IOFile(str, AnnotatedStringInterface):
                 stripped.flags = file.flags
             file = stripped
         obj = str.__new__(cls, file)
-        obj._is_function = is_callable
+        obj._is_callable = is_callable
         obj._file = file
         obj.rule = None
         obj._regex = None
@@ -251,7 +252,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
     def new_from(self, new_value):
         new = str.__new__(self.__class__, new_value)
-        new._is_function = self._is_function
+        new._is_callable = self._is_callable
         new._file = self._file
         new.rule = self.rule
         if new.is_storage:
@@ -259,7 +260,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return new
 
     def is_callable(self) -> bool:
-        return self._is_function
+        return self._is_callable
 
     async def inventory(self):
         """Starting from the given file, try to cache as much existence and
@@ -277,7 +278,7 @@ class _IOFile(str, AnnotatedStringInterface):
                 tasks.append(self._local_inventory(cache))
             await asyncio.gather(*tasks)
 
-    async def _local_inventory(self, cache):
+    async def _local_inventory(self, cache: IOCache):
         # for local files, perform BFS via os.scandir to determine existence of files
         if cache.remaining_wait_time <= 0:
             # No more time to create inventory.
@@ -313,9 +314,9 @@ class _IOFile(str, AnnotatedStringInterface):
                 break
             except PermissionError:
                 raise WorkflowError(
-                    "Insufficient permissions to access {}. "
+                    f"Insufficient permissions to access {self}. "
                     "Please make sure that all accessed files and directories "
-                    "are readable and writable for you.".format(self)
+                    "are readable and writable for you."
                 )
 
         cache.remaining_wait_time -= time.time() - start_time
@@ -396,7 +397,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
     @property
     def file(self):
-        if not self._is_function:
+        if not self.is_callable():
             return self._file
         else:
             raise ValueError(
@@ -429,13 +430,13 @@ class _IOFile(str, AnnotatedStringInterface):
             )
         if "\n" in self._file:
             logger.warning(
-                "File path '{}' contains line break. "
-                "This is likely unintended. {}".format(self._file, hint)
+                f"File path '{self._file}' contains line break. "
+                f"This is likely unintended. {hint}"
             )
         if _double_slash_regex.search(self._file) is not None and not self.is_storage:
             logger.warning(
-                "File path {} contains double '{}'. "
-                "This is likely unintended. {}".format(self._file, os.path.sep, hint)
+                f"File path {self._file} contains double '{os.path.sep}'. "
+                f"This is likely unintended. {hint}"
             )
 
     async def exists(self):
@@ -746,7 +747,7 @@ class _IOFile(str, AnnotatedStringInterface):
     def apply_wildcards(self, wildcards):
         f = self._file
 
-        if self._is_function:
+        if self.is_callable():
             assert callable(self._file)
             f = self._file(Namedlist(fromdict=wildcards))
 
@@ -1052,7 +1053,7 @@ def apply_wildcards(pattern, wildcards):
 def is_callable(value):
     return (
         callable(value)
-        or (isinstance(value, _IOFile) and value._is_function)
+        or (isinstance(value, _IOFile) and value.is_callable())
         or (isinstance(value, AnnotatedString) and value.callable is not None)
     )
 
@@ -1397,7 +1398,7 @@ def multiext(prefix, *extensions):
     return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
 
 
-def limit(pattern, **wildcards):
+def limit(pattern: Union[str, AnnotatedString], **wildcards):
     """
     Limit wildcards to the given values.
 
@@ -1407,7 +1408,7 @@ def limit(pattern, **wildcards):
     """
     return pattern.format(
         **{
-            wildcard: "{{{},{}}}".format(wildcard, "|".join(values))
+            wildcard: f"{{{wildcard},{'|'.join(values)}}}"
             for wildcard, values in wildcards.items()
         }
     )
