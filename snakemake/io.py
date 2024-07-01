@@ -125,7 +125,7 @@ class IOCache(IOCacheStorageInterface):
         return self._size
 
     async def mtime_inventory(
-        self, jobs: collections.abc.Iterable["snakemake.jobs.Job"], n_workers=8
+        self, jobs: "collections.abc.Iterable[snakemake.jobs.Job]", n_workers=8
     ):
         queue: asyncio.Queue = asyncio.Queue()
         stop_item = object()
