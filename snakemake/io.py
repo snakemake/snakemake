@@ -47,7 +47,9 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 from snakemake.logging import logger
-import snakemake.rules
+
+if TYPE_CHECKING:
+    import snakemake.rules
 
 
 def lutime(file, times):
@@ -179,7 +181,7 @@ class IOCache(IOCacheStorageInterface):
         self.active = False
 
 
-def IOFile(file, rule: Union[snakemake.rules.Rule, None] = None):
+def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
     assert rule is not None
     f = _IOFile(file)
     f.rule = rule
