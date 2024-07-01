@@ -3,32 +3,25 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import ABC, abstractmethod
 import asyncio
 import collections
 import copy
-from dataclasses import dataclass, field
-import datetime
 import functools
-import json
 import os
 import queue
 import re
 import shutil
 import stat
 import string
-import subprocess as sp
 import time
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
-import string
-import collections
-import asyncio
-from typing import Callable
+from dataclasses import dataclass, field
 from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING
 
 from snakemake_interface_common.utils import not_iterable, lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
@@ -214,6 +207,15 @@ class _IOFile(str, AnnotatedStringInterface):
     """
 
     __slots__ = ["_is_function", "_file", "rule", "_regex", "_wildcard_constraints"]
+
+    if TYPE_CHECKING:
+
+        def __init__(self):
+            self._is_function: bool
+            self._file: str | AnnotatedString
+            self.rule: None
+            self._regex: re.Pattern
+            self._wildcard_constraints: dict[str, re.Pattern]
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)
@@ -861,7 +863,7 @@ class AnnotatedString(str, AnnotatedStringInterface):
         self._flags = value
 
 
-MaybeAnnotated = Union[AnnotatedStringInterface, str]
+MaybeAnnotated = AnnotatedStringInterface | str
 
 
 def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
