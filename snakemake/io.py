@@ -67,12 +67,10 @@ def lutime(file, times):
 class AnnotatedStringInterface(ABC):
     @property
     @abstractmethod
-    def flags(self) -> Dict[str, Any]:
-        ...
+    def flags(self) -> Dict[str, Any]: ...
 
     @abstractmethod
-    def is_callable(self) -> bool:
-        ...
+    def is_callable(self) -> bool: ...
 
     def is_flagged(self, flag: str) -> bool:
         return flag in self.flags and bool(self.flags[flag])
@@ -1420,8 +1418,9 @@ def glob_wildcards(pattern, files=None, followlinks=False):
     if not dirname:
         dirname = "."
 
-    names = [match.group("name") for match in WILDCARD_REGEX.finditer(pattern)]
-    Wildcards = collections.namedtuple("Wildcards", names)
+    _names = [match.group("name") for match in WILDCARD_REGEX.finditer(pattern)]
+    names: list[str] = sorted(set(_names), key=_names.index)
+    Wildcards = collections.namedtuple("Wildcards", names)  # type: ignore[misc]
     wildcards = Wildcards(*[list() for name in names])
 
     pattern = re.compile(regex_from_filepattern(pattern))
