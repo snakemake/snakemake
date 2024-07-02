@@ -248,7 +248,7 @@ These restrictions do not apply when using ``unpack()``.
 Helper functions for defining input and output files
 ----------------------------------------------------
 
-Snakemake provides a number of helper functions that can be used to determine input files and drastically simplify over using 
+Snakemake provides a number of helper functions that can be used to determine input files and drastically simplify over using
 :ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`_.
 Below, we will first start with describing two basic helper functions for specifying aggregations and multiple output files.
 Afterwards, we will further show a set of semantic helper functions should increase readability and simplify code (see :ref:`snakefiles-semantic-helpers`).
@@ -385,7 +385,7 @@ default fallback value is provided via the ``default`` argument (this argument i
 Note: ``None`` is also a valid default value.
 
 In both cases (``dpath`` and ``query``), the result can be used by the ``expand`` or ``collect`` function,
-e.g. 
+e.g.
 
 .. code-block:: python
 
@@ -406,7 +406,7 @@ In case your dataframe has an index, you can also access the index within the
 query, e.g. for faster, constant time lookups:
 
 .. code-block:: python
-    
+
     lookup(query="index.loc[{sample}]", within=samples)
 
 Further, it is possible to constrain the output to a list of columns, e.g.
@@ -418,7 +418,7 @@ Further, it is possible to constrain the output to a list of columns, e.g.
 or to a single column, e.g.
 
 .. code-block:: python
-    
+
     lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")
 
 In the latter case, just a list of items in that column is returned (e.g. ``["a", "b", "c"]``).
@@ -427,7 +427,7 @@ The argument ``is_nrows`` allows to test for a given number of rows in the queri
 If it is used, lookup just returns a boolean value indicating whether the number of rows in the queried dataframe matches the given number:
 
 .. code-block:: python
-    
+
     lookup(query="sample == '{sample}'", within=samples, is_nrows=5)
 
 In case of a **pandas series**, the series is converted into a dataframe via
@@ -460,7 +460,7 @@ The branch function
 """""""""""""""""""
 
 The ``branch`` function allows to choose different input files based on a given conditional.
-It has the signature 
+It has the signature
 
 .. code-block:: python
 
@@ -475,7 +475,7 @@ The ``condition`` argument has to be either a function or an expression that can
 If it is a function, it has to take wildcards as its only parameter.
 Similarly, ``then``, ``otherwise`` and the values of the ``cases`` mapping (e.g. a python ``dict``) can be such functions.
 
-If any such function is given to any of those arguments, this function returns a derived 
+If any such function is given to any of those arguments, this function returns a derived
 input function that will be evaluated once the wildcards are known (e.g. when used in the context of an input definition) (see :ref:`snakefiles-input_functions`).
 
 If ``then`` and optionally ``otherwise`` are specified, it does the following:
@@ -1135,10 +1135,22 @@ Python
 The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
+It is also possible to explicitly import the snakemake object in the script like ``from snakemake.script import snakemake`` to enable code completion, linting and type checking your python code in IDEs.
 
 An example external Python script could look like this:
 
 .. code-block:: python
+
+    def do_something(data_path, out_path, threads, myparam):
+        # python code
+
+    do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
+
+or using the explicit import:
+
+.. code-block:: python
+
+    from snakemake.script import snakemake
 
     def do_something(data_path, out_path, threads, myparam):
         # python code
@@ -2847,7 +2859,7 @@ To avoid such leaks (only required if your template does something like that wit
 MPI support
 -----------
 
-Highly parallel programs may use the MPI (:ref: [message passing interface](https://en.wikipedia.org/wiki/Message_Passing_Interface)) to enable a program to span work across an individual compute node's boundary. 
+Highly parallel programs may use the MPI (:ref: [message passing interface](https://en.wikipedia.org/wiki/Message_Passing_Interface)) to enable a program to span work across an individual compute node's boundary.
 To actually use an HPC cluster with Snakemake, an [executor plugin is provided for the SLURM batch system](https://github.com/snakemake/snakemake-executor-plugin-slurm). You can find its documentation [here](https://github.com/snakemake/snakemake-executor-plugin-slurm/blob/main/docs/further.md).
 Users of different batch systems are encouraged to [provide further plugins](https://snakemake.github.io/snakemake-plugin-catalog/#contributing) and/or share their Snakemake configuration via the [Snakemake profiles project](https://github.com/Snakemake-Profiles) project.
 

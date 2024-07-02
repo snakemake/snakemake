@@ -3,11 +3,9 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import ABC, abstractmethod
 import asyncio
 import collections
 import copy
-from dataclasses import dataclass, field
 import datetime
 import functools
 import json
@@ -19,19 +17,18 @@ import stat
 import string
 import subprocess as sp
 import time
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
-import string
-import collections
-import asyncio
-from typing import Callable
+from dataclasses import dataclass, field
 from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set, TypeVar, Union
 
-from snakemake_interface_common.utils import not_iterable, lchmod
+from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
+from snakemake_interface_common.utils import not_iterable
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -53,7 +50,6 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 from snakemake.logging import logger
-
 
 def lutime(file, times):
     success = lutime_raw(file, times)
@@ -1515,6 +1511,10 @@ class AttributeGuard:
             "object."
         )
 
+# TODO: replace this with Self when Python 3.11 is the minimum supported version for
+#   executing scripts
+_TNamedList = TypeVar("_TNamedList", bound="Namedlist")
+"Type variable for self returning methods on Namedlist deriving classes"
 
 class Namedlist(list):
     """
@@ -1665,13 +1665,13 @@ class Namedlist(list):
     def keys(self):
         return self._names.keys()
 
-    def _plainstrings(self):
+    def _plainstrings(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self, plainstr=True)
 
-    def _stripped_constraints(self):
+    def _stripped_constraints(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self, strip_constraints=True)
 
-    def _clone(self):
+    def _clone(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):
