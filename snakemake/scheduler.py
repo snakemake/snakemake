@@ -258,6 +258,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 if self.dryrun:
                     run = needrun
                 else:
+                    # Subsample jobs to be run (to speedup solver)
+                    n_total_needrun = len(needrun)
+                    solver_max_jobs = int(os.environ.get("SNAKEMAKE_SOLVER_MAX_JOBS", 1000))
+                    if n_total_needrun > solver_max_jobs:
+                        import random
+                        needrun = set(random.sample(tuple(needrun), k=solver_max_jobs))
+
                     # Reset params and resources because they might still contain TBDs
                     # or old values from before files have been regenerated.
                     # Now, they can be recalculated as all input is present and up to date.
@@ -266,7 +273,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                     logger.debug(f"Resources before job selection: {self.resources}")
                     logger.debug(
-                        f"Ready jobs ({len(needrun)})"
+                        f"Ready jobs ({len(needrun)} out of {n_total_needrun})"
                         # + "\n\t".join(map(str, needrun))
                     )
 
