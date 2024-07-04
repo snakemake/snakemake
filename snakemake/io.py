@@ -709,7 +709,9 @@ class _IOFile(str, AnnotatedStringInterface):
                     self.touch()
                 await self.storage_object.managed_touch()
             else:
-                raise WorkflowError(f"Storage does not support touch operation. Consider contributing to the used storage provider.")
+                raise WorkflowError(
+                    f"Storage does not support touch operation. Consider contributing to the used storage provider."
+                )
         else:
             self.touch()
 
