@@ -504,6 +504,7 @@ class DAGApi(ApiBase):
                 not self.workflow_api.storage_settings.default_storage_provider
                 or self.workflow_api.storage_settings.default_storage_prefix is None
             )
+            and executor_plugin.common_settings.can_transfer_local_files is False
         ):
             raise ApiError(
                 "If no shared filesystem is assumed for input and output files, a "
