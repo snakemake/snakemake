@@ -336,13 +336,17 @@ class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
     Like argparse.ArgumentDefaultsHelpFormatter, but doesn't print
     None/dataclasses._MISSING_TYPE/etc.
     """
+
     def _get_help_string(self, action):
         if (
-                (action.option_strings or action.nargs in [argparse.OPTIONAL, argparse.ZERO_OR_MORE])
-                and action.default not in (None, '', set(), argparse.SUPPRESS)
-                and not isinstance(action.default, dataclasses._MISSING_TYPE)
+            (
+                action.option_strings
+                or action.nargs in [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
+            )
+            and action.default not in (None, "", set(), argparse.SUPPRESS)
+            and not isinstance(action.default, dataclasses._MISSING_TYPE)
         ):
-            return action.help + ' (default: %(default)s)'
+            return action.help + " (default: %(default)s)"
         else:
             return action.help
 
