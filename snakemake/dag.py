@@ -979,16 +979,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             except RecursionError as e:
                 raise WorkflowError(
                     e,
-                    "If building the DAG exceeds the recursion limit, "
-                    "this is likely due to a cyclic dependency."
-                    "E.g. you might have a sequence of rules that "
-                    "can generate their own input. Try to make "
-                    "the output files more specific. "
-                    "A common pattern is to have different prefixes "
-                    "in the output files of different rules."
-                    + f"\nProblematic file pattern: {file}"
-                    if file
-                    else "",
+                    (
+                        "If building the DAG exceeds the recursion limit, "
+                        "this is likely due to a cyclic dependency."
+                        "E.g. you might have a sequence of rules that "
+                        "can generate their own input. Try to make "
+                        "the output files more specific. "
+                        "A common pattern is to have different prefixes "
+                        "in the output files of different rules."
+                        + f"\nProblematic file pattern: {file}"
+                        if file
+                        else ""
+                    ),
                 )
         if not producers:
             if cycles:
