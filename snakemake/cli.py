@@ -3,10 +3,11 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import argparse
+import dataclasses
 import os
 import re
 import sys
-from argparse import ArgumentDefaultsHelpFormatter
 from functools import partial
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -46,7 +47,7 @@ from snakemake.resources import (
     eval_resource_expression,
     parse_resources,
 )
-from snakemake.settings import (
+from snakemake.settings.types import (
     ChangeType,
     ConfigSettings,
     DAGSettings,
@@ -329,6 +330,27 @@ def get_profile_dir(profile: str) -> (Path, Path):
                 return profile_candidate, profile_candidate / config_file
 
 
+class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
+    """Help message formatter which adds default values to argument help.
+
+    Like argparse.ArgumentDefaultsHelpFormatter, but doesn't print
+    None/dataclasses._MISSING_TYPE/etc.
+    """
+
+    def _get_help_string(self, action):
+        if (
+            (
+                action.option_strings
+                or action.nargs in [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
+            )
+            and action.default not in (None, "", set(), argparse.SUPPRESS)
+            and not isinstance(action.default, dataclasses._MISSING_TYPE)
+        ):
+            return action.help + " (default: %(default)s)"
+        else:
+            return action.help
+
+
 def get_argument_parser(profiles=None):
     """Generate and return argument parser."""
     from snakemake.profiles import ProfileConfigFileParser
@@ -487,13 +509,13 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--local-cores",
         action="store",
-        default=available_cpu_count(),
         metavar="N",
         type=int,
         help=(
             "In cluster/cloud mode, use at most N cores of the host machine in parallel "
             "(default: number of CPU cores of the host). The cores are used to execute "
-            "local rules. This option is ignored when not in cluster/cloud mode."
+            "local rules. This option is ignored when not in cluster/cloud mode. "
+            "(default: <available CPU count>)"
         ),
     )
     group_exec.add_argument(
@@ -1886,6 +1908,9 @@ def args_to_api(args, parser):
         elif executor_plugin.common_settings.dryrun_exec:
             args.cores = 1
             args.jobs = None
+
+    if args.cores is None:
+        args.cores = available_cpu_count()
 
     # start profiler if requested
     if args.runtime_profile:

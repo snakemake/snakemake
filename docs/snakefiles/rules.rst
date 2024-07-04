@@ -37,7 +37,7 @@ Inside the shell command, all local and global variables, especially input and o
 Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 
-By default shell commands will be invoked with ``bash`` shell (unless the workflow specifies a different default shell via ``shell.executable(...)``).
+By default shell commands will be invoked with ``bash`` shell in the so-called  `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ (unless the workflow specifies something else, seesee :ref:`shell_settings`).
 
 Instead of a shell command, a rule can run some python code to generate the output:
 
@@ -69,8 +69,6 @@ Further, this combination of python and shell commands allows us to iterate over
 
     for line in shell("somecommand {output.somename}", iterable=True):
         ... # do something in python
-
-Note that shell commands in Snakemake use the bash shell in `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ by default.
 
 .. _snakefiles-wildcards:
 
@@ -361,7 +359,17 @@ The lookup function
 
 The ``lookup`` function can be used to look up a value in a python mapping (e.g. a ``dict``) or a `pandas dataframe or series <https://pandas.pydata.org>`_.
 It is especially useful for looking up information based on wildcard values.
-The ``lookup`` function has the signature ``lookup(dpath: Optional[str | Callable] = None, query: Optional[str | Callable] = None, cols: Optional[List[str]] = None, is_nrows: Optional[int], within=None)``.
+The ``lookup`` function has the signature 
+
+.. code-block:: python
+
+    lookup(
+        dpath: Optional[str | Callable] = None, 
+        query: Optional[str | Callable] = None, 
+        cols: Optional[List[str]] = None, 
+        is_nrows: Optional[int], within=None
+    )
+
 The ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
 For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
 
@@ -572,6 +580,7 @@ It can for example be used to condition some behavior in the workflow on the exi
             "cp {input} {output}"
 
 
+
 .. _snakefiles-targets:
 
 Target rules
@@ -602,6 +611,61 @@ It is possible to overwrite this behavior to use the first rule as a default tar
 Regardless of where this rule appears in the Snakefile, it will be the default target.
 Usually, it is still recommended to keep the default target rule (and in fact all other rules that could act as optional targets) at the top of the file, such that it can be easily found.
 The ``default_target`` directive becomes particularly useful when :ref:`combining several pre-existing workflows <use_with_modules>`.
+
+.. _shell_settings:
+
+Shell settings
+--------------
+
+By default, Snakemake uses the ``bash`` shell.
+This can be overridden in two ways.
+First, by globally setting the shell executable (e.g. to zsh) via
+
+.. code-block:: python
+
+    shell.executable("/bin/zsh")
+
+Note that this is usually not recommended, as it requires others who want to use the workflow to have that shell installed.
+Second, by setting the shell executable via the :ref:`resources directive <snakefiles_resources>` of a rule, e.g.
+
+.. code-block:: python
+
+    rule a:
+        input: ...
+        output: ...
+        resources:
+            shell_exec="zsh"
+        shell:
+            "echo 'hello world' > {output}"
+
+This can be particularly important in case you use a :ref:`container image <apptainer>` for the rule which does not contain bash, e.g.
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.out"
+        resources:
+            shell_exec="sh"
+        # image does not have bash, hence this would fail if shell_exec is not set to sh
+        container: "docker://busybox:1.33"
+        shell:
+            "echo 'hello world' > {output}"
+
+Shell behavior
+~~~~~~~~~~~~~~
+
+In case of bash shell, Snakemake always uses the so-called `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_.
+For individual rules, you can deactivate aspects of the strict mode by unsetting them at the beginning of the shell command.
+Further, it is possible to set global prefixes and suffixes for all shell commands via
+
+.. code-block:: python
+
+    shell.prefix("some prefix command;")
+    shell.suffix("; some suffix command")
+
+anywhere in your snakefile (preferably at the beginning for clarity).
+This can sometimes be useful for debugging, but is not recommended for production workflows and releases because it might hamper reproducibility and readability.
 
 .. _snakefiles-threads:
 

@@ -10,7 +10,7 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import common
 from snakemake.io import get_flag_value, is_flagged
-from snakemake.settings import SharedFSUsage
+from snakemake.settings.types import SharedFSUsage
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -211,6 +211,7 @@ class SpawnedJobArgsFactory:
         if (
             SharedFSUsage.SOURCES not in self.workflow.storage_settings.shared_fs_usage
             and self.workflow.remote_execution_settings.job_deploy_sources
+            and not executor_common_settings.can_transfer_local_files
         ):
             archive = self.workflow.source_archive
             default_storage_provider_args = self.get_default_storage_provider_args()

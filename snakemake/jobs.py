@@ -16,7 +16,7 @@ from operator import attrgetter
 from typing import Optional
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
-from snakemake.settings import DeploymentMethod
+from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
@@ -37,7 +37,7 @@ from snakemake.io import (
     get_flag_value,
     wait_for_files,
 )
-from snakemake.settings import SharedFSUsage
+from snakemake.settings.types import SharedFSUsage
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
 from snakemake.utils import format
@@ -89,16 +89,13 @@ def jobfiles(jobs, type):
 
 class AbstractJob(JobExecutorInterface):
     @abstractmethod
-    def reset_params_and_resources(self):
-        ...
+    def reset_params_and_resources(self): ...
 
     @abstractmethod
-    def get_target_spec(self):
-        ...
+    def get_target_spec(self): ...
 
     @abstractmethod
-    def products(self, include_logfiles=True):
-        ...
+    def products(self, include_logfiles=True): ...
 
     def has_products(self, include_logfiles=True):
         for _ in self.products(include_logfiles=include_logfiles):
@@ -1031,9 +1028,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             wildcards=self.wildcards_dict,
             reason=str(self.dag.reason(self)),
             resources=self.resources,
-            priority="highest"
-            if priority == JobExecutorInterface.HIGHEST_PRIORITY
-            else priority,
+            priority=(
+                "highest"
+                if priority == JobExecutorInterface.HIGHEST_PRIORITY
+                else priority
+            ),
             threads=self.threads,
             indent=indent,
             is_checkpoint=self.rule.is_checkpoint,

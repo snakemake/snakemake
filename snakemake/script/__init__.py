@@ -471,16 +471,13 @@ class ScriptBase(ABC):
         return self.path.get_path_or_uri()
 
     @abstractmethod
-    def get_preamble(self):
-        ...
+    def get_preamble(self): ...
 
     @abstractmethod
-    def write_script(self, preamble, fd):
-        ...
+    def write_script(self, preamble, fd): ...
 
     @abstractmethod
-    def execute_script(self, fname, edit=False):
-        ...
+    def execute_script(self, fname, edit=False): ...
 
     def _execute_cmd(self, cmd, **kwargs):
         return shell(
@@ -558,17 +555,19 @@ class PythonScript(ScriptBase):
         if is_local:
             searchpaths.append(path.get_basedir().get_path_or_uri())
 
+        shell_exec = resources.get("shell_exec")
+        shell_exec_stmt = (
+            ""
+            if shell_exec is None
+            else f"from snakemake.shell import shell; shell.executable({shell_exec});"
+        )
+
         preamble = textwrap.dedent(
-            """
+            f"""
         ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys; sys.path.extend({searchpaths}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
+        import sys; sys.path.extend({repr(searchpaths)}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds}; {preamble_addendum}
         ######## snakemake preamble end #########
         """
-        ).format(
-            searchpaths=repr(searchpaths),
-            snakemake=snakemake,
-            printshellcmds=logger.printshellcmds,
-            preamble_addendum=preamble_addendum,
         )
         return preamble
 

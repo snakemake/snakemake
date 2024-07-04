@@ -19,7 +19,7 @@ import tarfile
 import tempfile
 from typing import Dict, List, Optional, Set, Union
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import (
+from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
@@ -1138,6 +1138,7 @@ class Workflow(WorkflowExecutorInterface):
                 SharedFSUsage.SOURCES not in self.storage_settings.shared_fs_usage
                 and self.exec_mode == ExecMode.DEFAULT
                 and self.remote_execution_settings.job_deploy_sources
+                and not executor_plugin.common_settings.can_transfer_local_files
             ):
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
