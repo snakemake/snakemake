@@ -1693,16 +1693,32 @@ class InputFiles(Namedlist):
         return async_run(sizes())
 
     @property
+    def size_files_kb(self):
+        return [f / 1024 for f in self.size_files]
+
+    @property
     def size_files_mb(self):
-        return [f / 1024 / 1024 for f in self.size_files]
+        return [f / 1024 for f in self.size_files_kb]
+    
+    @property
+    def size_files_gb(self):
+        return [f / 1024 for f in self.size_files_mb]
 
     @property
     def size(self):
         return sum(self.size_files)
 
     @property
+    def size_kb(self):
+        return sum(self.size_files_kb)
+
+    @property
     def size_mb(self):
         return sum(self.size_files_mb)
+        
+    @property
+    def size_gb(self):
+        return sum(self.size_files_gb)
 
 
 class OutputFiles(Namedlist):
