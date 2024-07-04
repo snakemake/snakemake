@@ -67,12 +67,10 @@ def lutime(file, times):
 class AnnotatedStringInterface(ABC):
     @property
     @abstractmethod
-    def flags(self) -> Dict[str, Any]:
-        ...
+    def flags(self) -> Dict[str, Any]: ...
 
     @abstractmethod
-    def is_callable(self) -> bool:
-        ...
+    def is_callable(self) -> bool: ...
 
     def is_flagged(self, flag: str) -> bool:
         return flag in self.flags and bool(self.flags[flag])
