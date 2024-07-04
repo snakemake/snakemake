@@ -434,6 +434,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             )
                             cleaned.add(f)
 
+    async def sanitize_local_storage_copies(self):
+        """Remove local copies of storage files that will be recreated in this run."""
+        async with asyncio.TaskGroup() as tg:
+            async for job in self.needrun_jobs:
+                if not self.finished(job):
+                    for f in job.output:
+                        if f.is_storage and f.exists_local():
+                            tg.create_task(
+                                f.remove(remove_non_empty_dir=True, only_local=True)
+                            )
+
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
         for env in self.conda_envs.values():
@@ -1595,6 +1606,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.cleanup()
         self.update_jobids()
         if update_needrun:
+            # cleanup local storage copies of files that will be created by jobs
+            # this is important to ensure that there are no outdated local copies
+            # that misguide e.g. params functions.
+            self.sanitize_local_storage_copies()
             self.update_container_imgs()
             self.update_conda_envs()
             await self.update_needrun()
