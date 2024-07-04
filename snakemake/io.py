@@ -32,6 +32,7 @@ from snakemake_interface_storage_plugins.io import (
     Mtime,
     get_constant_prefix,
 )
+from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
 
 from snakemake.common import (
     ON_WINDOWS,
@@ -700,6 +701,19 @@ class _IOFile(str, AnnotatedStringInterface):
             await remove(
                 self, remove_non_empty_dir=remove_non_empty_dir, only_local=only_local
             )
+
+    async def touch_storage_and_local(self):
+        if self.is_storage:
+            if isinstance(self.storage_object, StorageObjectTouch):
+                if await self.exists_local():
+                    self.touch()
+                await self.storage_object.managed_touch()
+            else:
+                raise WorkflowError(
+                    f"Storage does not support touch operation. Consider contributing to the used storage provider."
+                )
+        else:
+            self.touch()
 
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""

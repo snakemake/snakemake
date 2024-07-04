@@ -573,6 +573,10 @@ class DAGApi(ApiBase):
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
 
+        if executor_plugin.common_settings.touch_exec:
+            # no actual execution happening, hence we can omit any deployment
+            self.workflow_api.deployment_settings.deployment_method = frozenset()
+
         execution_settings.use_threads = (
             execution_settings.use_threads
             or (os.name not in ["posix"])
