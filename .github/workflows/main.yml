@@ -24,7 +24,7 @@ jobs:
         with:
           environment-name: black
           create-args: black
-          cache-environment: true
+          cache-environment: false
 
       - name: Check formatting
         shell: bash -el {0}

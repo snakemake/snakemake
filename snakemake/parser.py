@@ -108,24 +108,31 @@ class TokenAutomaton:
             self.was_indented |= self.indent > 0
 
     def parse_fstring(self, token: tokenize.TokenInfo):
-        # only for python >= 3.12, since then python changed the
-        # parsing manner of f-string, see
-        # [pep-0701](https://peps.python.org/pep-0701)
+        """
+        only for python >= 3.12, since then python changed the
+        parsing manner of f-string, see
+        [pep-0701](https://peps.python.org/pep-0701)
+
+        Here, we just read where the f-string start and end from tokens.
+        Luckily, each token records the content of the line,
+        and we can just take what we want there.
+        """
+        related_lines = token.start[0]
+        s = token.line
         isin_fstring = 1
-        t = token.string
         for t1 in self.snakefile:
+            if related_lines < t1.start[0]:
+                # go to the next line
+                related_lines = t1.start[0]
+                s += t1.line
             if t1.type == tokenize.FSTRING_START:
                 isin_fstring += 1
-                t += t1.string
             elif t1.type == tokenize.FSTRING_END:
                 isin_fstring -= 1
-                t += t1.string
-            elif t1.type == tokenize.FSTRING_MIDDLE:
-                t += t1.string.replace("{", "{{").replace("}", "}}")
-            else:
-                t += t1.string
             if isin_fstring == 0:
                 break
+        # trim those around the f-string
+        t = s[token.start[1] : t1.end[1] - len(t1.line)]
         if hasattr(self, "cmd") and self.cmd[-1][1] == token:
             self.cmd[-1] = t, token
         return t
@@ -540,9 +547,11 @@ class Run(RuleKeywordState):
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
             "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, {rule_func_marker}=True):".format(
-                rulename=self.rulename
-                if self.rulename is not None
-                else self.snakefile.rulecount,
+                rulename=(
+                    self.rulename
+                    if self.rulename is not None
+                    else self.snakefile.rulecount
+                ),
                 rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
             )
         )
