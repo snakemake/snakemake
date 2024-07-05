@@ -198,13 +198,13 @@ class REncoder:
             # Try to convert from numpy if numpy is present
             try:
                 import numpy as np
+
+                if isinstance(value, np.number):
+                    return str(value)
+                elif isinstance(value, np.bool_):
+                    return "TRUE" if value else "FALSE"
             except ImportError:
                 pass
-
-            if isinstance(value, np.number):
-                return str(value)
-            elif isinstance(value, np.bool_):
-                return "TRUE" if value else "FALSE"
         raise ValueError(f"Unsupported value for conversion into R: {value}")
 
     @classmethod
