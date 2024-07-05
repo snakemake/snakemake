@@ -52,7 +52,7 @@ class Snakemake:
         threads: int,
         resources: io_.Resources,
         log: io_.Log,
-        config: dict[str, typing.Any],
+        config: typing.Dict[str, typing.Any],
         rulename: str,
         bench_iteration,
         scriptdir: typing.Optional[PathLike] = None,
