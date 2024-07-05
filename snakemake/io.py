@@ -32,7 +32,6 @@ from snakemake_interface_storage_plugins.io import (
     Mtime,
     get_constant_prefix,
 )
-from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
 
 from snakemake.common import (
     ON_WINDOWS,
@@ -703,6 +702,10 @@ class _IOFile(str, AnnotatedStringInterface):
             )
 
     async def touch_storage_and_local(self):
+        from snakemake_interface_storage_plugins.storage_object import (
+            StorageObjectTouch,
+        )
+
         if self.is_storage:
             if isinstance(self.storage_object, StorageObjectTouch):
                 if await self.exists_local():
