@@ -51,6 +51,7 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 
+
 def lutime(file, times):
     success = lutime_raw(file, times)
     if not success:
@@ -63,12 +64,10 @@ def lutime(file, times):
 class AnnotatedStringInterface(ABC):
     @property
     @abstractmethod
-    def flags(self) -> Dict[str, Any]:
-        ...
+    def flags(self) -> Dict[str, Any]: ...
 
     @abstractmethod
-    def is_callable(self) -> bool:
-        ...
+    def is_callable(self) -> bool: ...
 
     def is_flagged(self, flag: str) -> bool:
         return flag in self.flags and bool(self.flags[flag])
@@ -1511,10 +1510,12 @@ class AttributeGuard:
             "object."
         )
 
+
 # TODO: replace this with Self when Python 3.11 is the minimum supported version for
 #   executing scripts
 _TNamedList = TypeVar("_TNamedList", bound="Namedlist")
 "Type variable for self returning methods on Namedlist deriving classes"
+
 
 class Namedlist(list):
     """

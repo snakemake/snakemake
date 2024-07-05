@@ -71,7 +71,9 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
-    def log_fmt_shell(self, stdout=True, stderr=True, append=False):
+    def log_fmt_shell(
+        self, stdout: bool = True, stderr: bool = True, append: bool = False
+    ) -> str:
         """
         Return a shell redirection string to be used in `shell()` calls
 
@@ -108,7 +110,7 @@ class Snakemake:
         any      any      any      None  ""
         -------- -------- -------- ----- -----------
         """
-        return _log_shell_redirect(self.log, stdout, stderr, append)
+        return _log_shell_redirect(str(self.log), stdout, stderr, append)
 
 
 def _log_shell_redirect(
@@ -189,21 +191,20 @@ class REncoder:
             return "TRUE" if value else "FALSE"
         elif isinstance(value, int) or isinstance(value, float):
             return str(value)
-        elif isinstance(value, collections.abc.Iterable):
+        elif isinstance(value, Iterable):
             # convert all iterables to vectors
             return cls.encode_list(value)
         else:
             # Try to convert from numpy if numpy is present
             try:
                 import numpy as np
-
-                if isinstance(value, np.number):
-                    return str(value)
-                elif isinstance(value, np.bool_):
-                    return "TRUE" if value else "FALSE"
-
             except ImportError:
                 pass
+
+            if isinstance(value, np.number):
+                return str(value)
+            elif isinstance(value, np.bool_):
+                return "TRUE" if value else "FALSE"
         raise ValueError(f"Unsupported value for conversion into R: {value}")
 
     @classmethod
@@ -224,7 +225,7 @@ class REncoder:
         return d
 
     @classmethod
-    def encode_namedlist(cls, namedlist):
+    def encode_namedlist(cls, namedlist: io_.Namedlist):
         positional = ", ".join(map(cls.encode_value, namedlist))
         named = cls.encode_items(namedlist.items())
         source = "list("
@@ -469,16 +470,13 @@ class ScriptBase(ABC):
         return self.path.get_path_or_uri()
 
     @abstractmethod
-    def get_preamble(self) -> str:
-        ...
+    def get_preamble(self) -> str: ...
 
     @abstractmethod
-    def write_script(self, preamble, fd) -> None:
-        ...
+    def write_script(self, preamble, fd) -> None: ...
 
     @abstractmethod
-    def execute_script(self, fname, edit=False) -> None:
-        ...
+    def execute_script(self, fname, edit=False) -> None: ...
 
     def _execute_cmd(self, cmd, **kwargs):
         return shell(
