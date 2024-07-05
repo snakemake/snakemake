@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.15.2](https://github.com/snakemake/snakemake/compare/v8.15.1...v8.15.2) (2024-07-05)
+
+
+### Bug Fixes
+
+* ensure that envvars in local storage prefix are not prematurely expanded by the shell ([#2943](https://github.com/snakemake/snakemake/issues/2943)) ([da50f27](https://github.com/snakemake/snakemake/commit/da50f27102e0aa761aa6ff724efe785af7a58b3a))
+* fix circular import ([9e7d56f](https://github.com/snakemake/snakemake/commit/9e7d56f48d6048d8138c718eb577f65e157b42d2))
+
 ## [8.15.1](https://github.com/snakemake/snakemake/compare/v8.15.0...v8.15.1) (2024-07-04)
 
 
