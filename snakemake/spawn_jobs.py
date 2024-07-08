@@ -240,13 +240,16 @@ class SpawnedJobArgsFactory:
             in self.workflow.storage_settings.shared_fs_usage
         )
 
+        # base64 encode the prefix to ensure that eventually unexpanded env vars
+        # are not replaced with values (or become empty if missing) by the shell
         local_storage_prefix = (
             w2a(
                 "storage_settings.remote_job_local_storage_prefix",
                 flag="--local-storage-prefix",
+                base64_encode=True,
             )
             if executor_common_settings.non_local_exec
-            else w2a("storage_settings.local_storage_prefix")
+            else w2a("storage_settings.local_storage_prefix", base64_encode=True)
         )
 
         args = [
