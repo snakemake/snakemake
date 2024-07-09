@@ -26,7 +26,7 @@ The name is optional and can be left out, creating an anonymous rule. It can als
             shell: f"{tool} {{input}} > {{output}}"
 
 
-.. sidebar:: Note
+.. note::
 
     Note that any placeholders in the shell command (like ``{input}``) are always evaluated and replaced
     when the corresponding job is executed, even if they are occurring inside a comment.
@@ -184,7 +184,7 @@ The function has to accept a single argument that will be the wildcards object g
 Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
 By this, rules can have entirely different input files (both in form and number) depending on the inferred wildcards. E.g. you can assign input files that appear in entirely different parts of your filesystem based on some wildcard value and a dictionary that maps the wildcard value to file paths.
 
-.. sidebar:: Note
+.. note::
 
     Input functions can themselves return input functions again (this also holds for functions given to params and resources.)
     Such nested evaluation is allowed for a depth up to 10. Afterwards, an exception will be thrown.
@@ -682,7 +682,7 @@ Further, a rule can be given a number of threads to use, i.e.
         threads: 8
         shell: "somecommand --threads {threads} {input} {output}"
 
-.. sidebar:: Note
+.. note::
 
     On a cluster node, Snakemake uses as many cores as available on that node.
     Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node.
@@ -1095,7 +1095,7 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
         shell:
             "somecommand -o {params.prefix}"
 
-.. sidebar:: Note
+.. note::
 
     When accessing auxiliary source files (i.e. files that are located relative to the current Snakefile, e.g. some additional configuration)
     it is crucial to not manually build their path but rather rely on Snakemake's special registration for these files, see :ref:`snakefiles-aux_source_files`.
@@ -1128,7 +1128,7 @@ Python
         script:
             "scripts/script.py"
 
-.. sidebar:: Note
+.. note::
 
     It is possible to refer to wildcards and params in the script path, e.g. by specifying ``"scripts/{params.scriptname}.py"`` or ``"scripts/{wildcards.scriptname}.py"``.
 
@@ -1396,7 +1396,7 @@ variable, named as ``snakemake_<directive>``:
 Access to the ``input`` directive is facilitated through the bash associative array named ``snakemake_input``. The
 remaining directives can be found in the variable ``snakemake``.
 
-.. sidebar:: Note
+.. note::
 
     As arrays cannot be nested in Bash, use of python's ``dict`` in directives is not supported. So, adding a ``params`` key of ``data={"foo": "bar"}`` will not be reflected - ``${snakemake_params[data]}`` actually only returns ``"foo"``.
 
@@ -1520,7 +1520,7 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
         notebook:
             "notebooks/hello.py.ipynb"
 
-.. sidebar:: Note
+.. note::
 
     Consider Jupyter notebook integration as a way to get the best of both worlds.
     A modular, readable workflow definition with Snakemake, and the ability to quickly explore and plot data with Jupyter.
@@ -1532,7 +1532,7 @@ In other words, you have access to input files via ``snakemake.input`` (in the P
 Optionally it is possible to automatically store the processed notebook.
 This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
 
-.. sidebar:: Note
+.. note::
 
     It is possible to refer to wildcards and params in the notebook path, e.g. by specifying ``"notebook/{params.name}.py"`` or ``"notebook/{wildcards.name}.py"``.
 
@@ -1818,7 +1818,7 @@ With the ``touch`` flag, Snakemake touches (i.e. creates or updates) the file ``
 Job Properties
 --------------
 
-.. sidebar:: Note
+.. note::
 
     If there are more than 100 input and/or output files for a job, ``None`` will be used instead of listing all values. This is to prevent the jobscript from becoming larger than `Slurm jobscript size limits <https://slurm.schedmd.com/slurm.conf.html#OPT_max_script_size=#>`_.
 
@@ -2051,7 +2051,7 @@ The resulting `tsv` file can be used as input for other rules, just like any oth
 
 Since version 8.11.0, it is also possible to have the benchmark metrics in different formats (depending on the extension); currently only the `.jsonl` extension (JSONL format; i.e. one JSON record per line) is supported and all other extensions will be treated as TSV.
 
-.. sidebar:: Note
+.. note::
 
     Note that benchmarking is only possible in a reliable fashion for subprocesses (thus for tasks run through the ``shell``, ``script``, and ``wrapper`` directive).
     In the ``run`` block, the variable ``bench_record`` is available that you can pass to ``shell()`` as ``bench_record=bench_record``.
@@ -2487,7 +2487,7 @@ Assuming that the checkpoint is named ``somestep`` as above, the output files fo
 
   checkpoints.somestep.get(sample="a").output
 
-.. sidebar:: Note
+.. note::
 
     Note that output files of checkpoints that are accessed via this mechanism should not be marked as temporary.
     Otherwise, they would require to trigger reruns of the checkpoint whenever the DAG shall be reevaluated (because they are already missing at that point).
@@ -2560,7 +2560,7 @@ To illustrate the possibilities of this mechanism, consider the following comple
 
 As can be seen, the rule aggregate uses an input function.
 
-.. sidebar:: Note
+.. note::
 
     You don't need to use the checkpoint mechanism to determine parameter or resource values of downstream rules that would be based on the output of previous rules.
     In fact, it won't even work because the checkpoint mechanism is only considered for input functions.
