@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [8.16.0](https://github.com/snakemake/snakemake/compare/v8.15.2...v8.16.0) (2024-07-09)
+
+
+### Features
+
+* added snakemake.script.snakemake for type hinting ([#2917](https://github.com/snakemake/snakemake/issues/2917)) ([c85fb4b](https://github.com/snakemake/snakemake/commit/c85fb4b34ce983cb916bcce361d958d466ee1d07))
+
+
+### Documentation
+
+* use note directive to align with the capabilities of the used theme ([#2950](https://github.com/snakemake/snakemake/issues/2950)) ([fe27405](https://github.com/snakemake/snakemake/commit/fe274055dbd4663d7185114bc4f77ac862f8c7b3))
+
 ## [8.15.2](https://github.com/snakemake/snakemake/compare/v8.15.1...v8.15.2) (2024-07-05)
 
 
