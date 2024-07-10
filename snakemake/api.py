@@ -504,6 +504,7 @@ class DAGApi(ApiBase):
                 not self.workflow_api.storage_settings.default_storage_provider
                 or self.workflow_api.storage_settings.default_storage_prefix is None
             )
+            and executor_plugin.common_settings.can_transfer_local_files is False
         ):
             raise ApiError(
                 "If no shared filesystem is assumed for input and output files, a "
@@ -571,6 +572,10 @@ class DAGApi(ApiBase):
                 )
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
+
+        if executor_plugin.common_settings.touch_exec:
+            # no actual execution happening, hence we can omit any deployment
+            self.workflow_api.deployment_settings.deployment_method = frozenset()
 
         execution_settings.use_threads = (
             execution_settings.use_threads

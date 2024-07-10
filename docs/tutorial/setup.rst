@@ -55,7 +55,7 @@ However, don't install any of these this manually now, we guide you through bett
 Run tutorial for free in the cloud via Gitpod
 :::::::::::::::::::::::::::::::::::::::::::::
 
-.. sidebar:: Note
+.. note::
 
     A common thing to happen while using the development environment in GitPod is to hit ``Ctrl-s`` while in the terminal window, because you wanted to save a file in the editor window.
     This will freeze up you terminal.

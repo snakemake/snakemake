@@ -283,7 +283,7 @@ The signature of the callable has to be ``callable(wildcards [, params] [, input
 Note that the use of distinct conda environments for different jobs from the same rule is currently not properly displayed in the generated reports.
 At the moment, only a single, random conda environment is shown.
 
-.. sidebar:: Note
+.. note::
 
    Note that conda environments are only used with ``shell``, ``script``, ``notebook`` and the ``wrapper`` directive, not the ``run`` directive.
    The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself. If used with ``notebook`` directive, the associated conda environment should have package ``jupyter`` installed (this package contains dependencies required to execute the notebook).
@@ -435,7 +435,7 @@ However, ``docker://`` is preferred, as other container runtimes will be support
 Defining global container images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. sidebar:: Note
+.. note::
 
    Note that apptainer integration is only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
    The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.

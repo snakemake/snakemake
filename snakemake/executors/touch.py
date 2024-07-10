@@ -43,7 +43,7 @@ class Executor(RealExecutor):
                 async def touch():
                     for f in job.output:
                         if f.is_storage and await f.exists_in_storage():
-                            await f.touch()
+                            await f.touch_storage_and_local()
                         elif await f.exists_local():
                             f.touch()
 

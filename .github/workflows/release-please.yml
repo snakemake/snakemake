@@ -16,7 +16,7 @@ jobs:
           release-type: python
           package-name: snakemake
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         if: ${{ steps.release.outputs.release_created }}
         with:
           fetch-depth: 0
@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      
+
       - name: Build and check package
         if: ${{ steps.release.outputs.release_created }}
         run: |
