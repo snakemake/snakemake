@@ -292,7 +292,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     self.workflow.dag.register_running(run)
 
                 if run:
-                    logger.info(f"Execute {len(run)} jobs...")
+                    if not self.dryrun:
+                        logger.info(f"Execute {len(run)} jobs...")
 
                     # actually run jobs
                     local_runjobs = [job for job in run if job.is_local]
@@ -316,6 +317,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         )
                     if runjobs:
                         self.run(runjobs)
+                elif not self.dryrun:
+                    logger.info(
+                        "No enough resources to execute further jobs (waiting)."
+                    )
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
