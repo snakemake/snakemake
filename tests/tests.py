@@ -445,6 +445,7 @@ def test_omitfrom():
     )  # wildcard rule
 
 
+@skip_on_windows # paths are different on windows ('/' vs. '\')
 def test_nonstr_params():
     run(dpath("test_nonstr_params"), benchmark_extended=True)
 
