@@ -1,5 +1,4 @@
 import time
-from pathlib import Path
 
 
 rule all:
@@ -18,7 +17,6 @@ rule bench_shell:
         repeat("{name}.benchmark_shell.{ext}", 2)
     params:
         timeout=10,
-        path=Path("/tmp/"),
     threads: 2
     shell:
         "stress --cpu {threads} --timeout {params.timeout}"
