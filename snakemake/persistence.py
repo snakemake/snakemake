@@ -472,8 +472,8 @@ class Persistence(PersistenceExecutorInterface):
 
     @lru_cache()
     def _input(self, job):
-        get_path = (
-            lambda f: get_flag_value(f, "sourcecache_entry")
+        get_path = lambda f: (
+            get_flag_value(f, "sourcecache_entry")
             if is_flagged(f, "sourcecache_entry")
             else f
         )
