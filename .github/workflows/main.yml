@@ -48,7 +48,7 @@ jobs:
       AWS_AVAILABLE: "${{ secrets.AWS_ACCESS_KEY_ID }}"
       GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -115,7 +115,7 @@ jobs:
           name: report-${{ matrix.py_ver }}.zip
           path: tests/test_report/report.zip
 
-          
+
   build-container-image:
     runs-on: ubuntu-latest
     needs: testing
@@ -132,7 +132,7 @@ jobs:
     runs-on: windows-latest
     needs: formatting
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Remove unix-only dependencies
