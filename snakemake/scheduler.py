@@ -318,9 +318,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if runjobs:
                         self.run(runjobs)
                 elif not self.dryrun:
-                    logger.info(
-                        "Waiting for more resources."
-                    )
+                    logger.info("Waiting for more resources.")
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
