@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.16.1](https://github.com/snakemake/snakemake/compare/v8.16.0...v8.16.1) (2024-07-13)
+
+
+### Bug Fixes
+
+* print message if not yet enough resources for executing further jobs ([b8df036](https://github.com/snakemake/snakemake/commit/b8df0364658071855b3dd66193aeceb4e80d26bf))
+
 ## [8.16.0](https://github.com/snakemake/snakemake/compare/v8.15.2...v8.16.0) (2024-07-09)
 
 
