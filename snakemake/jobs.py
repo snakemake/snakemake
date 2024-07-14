@@ -10,6 +10,7 @@ import base64
 import tempfile
 import json
 import shutil
+import time
 
 from itertools import chain, filterfalse
 from operator import attrgetter
@@ -1106,75 +1107,87 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         error=False,
         ignore_missing_output=False,
     ):
-        if self.dag.is_edit_notebook_job(self):
-            # No postprocessing necessary, we have just created the skeleton notebook and
-            # execution will anyway stop afterwards.
-            return
+        begin_time = time.perf_counter()
 
-        shared_input_output = (
-            SharedFSUsage.INPUT_OUTPUT
-            in self.dag.workflow.storage_settings.shared_fs_usage
-        )
-        wait_for_local = (
-            SharedFSUsage.STORAGE_LOCAL_COPIES
-            in self.dag.workflow.storage_settings.shared_fs_usage
-        )
-        if (
-            self.dag.workflow.exec_mode == ExecMode.SUBPROCESS
-            or shared_input_output
-            or (self.dag.workflow.remote_exec and not shared_input_output)
-            or self.is_local
-        ):
-            if not error and handle_touch:
-                self.dag.handle_touch(self)
-            if handle_log:
-                await self.dag.handle_log(self)
-            if not error:
-                await self.dag.check_and_touch_output(
-                    self,
-                    wait=self.dag.workflow.execution_settings.latency_wait,
-                    ignore_missing_output=ignore_missing_output,
-                    # storage not yet handled, just require the local files
-                    wait_for_local=True,
-                )
-            self.dag.unshadow_output(self, only_log=error)
+        async with asyncio.TaskGroup() as tg:
+            if self.dag.is_edit_notebook_job(self):
+                # No postprocessing necessary, we have just created the skeleton notebook and
+                # execution will anyway stop afterwards.
+                return
 
+            shared_input_output = (
+                SharedFSUsage.INPUT_OUTPUT
+                in self.dag.workflow.storage_settings.shared_fs_usage
+            )
+            wait_for_local = (
+                SharedFSUsage.STORAGE_LOCAL_COPIES
+                in self.dag.workflow.storage_settings.shared_fs_usage
+            )
             if (
-                not error
-                and self.rule.is_template_engine
-                and not is_flagged(self.output[0], "temp")
+                self.dag.workflow.exec_mode == ExecMode.SUBPROCESS
+                or shared_input_output
+                or (self.dag.workflow.remote_exec and not shared_input_output)
+                or self.is_local
             ):
-                # TODO also check if consumers are executed on the same node
-                check_template_output(self)
+                if not error and handle_touch:
+                    self.dag.handle_touch(self)
+                if handle_log:
+                    tg.create_task(self.dag.handle_log(self))
+                if not error:
+                    tg.create_task(
+                        self.dag.check_and_touch_output(
+                            self,
+                            wait=self.dag.workflow.execution_settings.latency_wait,
+                            ignore_missing_output=ignore_missing_output,
+                            # storage not yet handled, just require the local files
+                            wait_for_local=True,
+                        )
+                    )
+                self.dag.unshadow_output(self, only_log=error)
 
-            await self.dag.handle_storage(
-                self, store_in_storage=store_in_storage, store_only_log=error
-            )
-            if not error:
-                self.dag.handle_protected(self)
-        elif not shared_input_output and not wait_for_local and not error:
-            expanded_output = list(self.output)
-            if self.benchmark:
-                expanded_output.append(self.benchmark)
-            await wait_for_files(
-                expanded_output,
-                wait_for_local=False,
-                latency_wait=self.dag.workflow.execution_settings.latency_wait,
-                ignore_pipe_or_service=True,
-            )
-        if not error:
-            try:
-                await self.dag.workflow.persistence.finished(self)
-            except IOError as e:
-                raise WorkflowError(
-                    "Error recording metadata for finished job "
-                    "({}). Please ensure write permissions for the "
-                    "directory {}".format(e, self.dag.workflow.persistence.path)
+                if (
+                    not error
+                    and self.rule.is_template_engine
+                    and not is_flagged(self.output[0], "temp")
+                ):
+                    # TODO also check if consumers are executed on the same node
+                    check_template_output(self)
+
+                tg.create_task(
+                    self.dag.handle_storage(
+                        self, store_in_storage=store_in_storage, store_only_log=error
+                    )
                 )
+                if not error:
+                    self.dag.handle_protected(self)
+            elif not shared_input_output and not wait_for_local and not error:
+                expanded_output = list(self.output)
+                if self.benchmark:
+                    expanded_output.append(self.benchmark)
+                tg.create_task(
+                    wait_for_files(
+                        expanded_output,
+                        wait_for_local=False,
+                        latency_wait=self.dag.workflow.execution_settings.latency_wait,
+                        ignore_pipe_or_service=True,
+                    )
+                )
+            if not error:
+                try:
+                    tg.create_task(self.dag.workflow.persistence.finished(self))
+                except IOError as e:
+                    raise WorkflowError(
+                        "Error recording metadata for finished job "
+                        "({}). Please ensure write permissions for the "
+                        "directory {}".format(e, self.dag.workflow.persistence.path)
+                    )
 
-        if error and not self.dag.workflow.execution_settings.keep_incomplete:
-            await self.cleanup()
-            self.dag.workflow.persistence.cleanup(self)
+            if error and not self.dag.workflow.execution_settings.keep_incomplete:
+                tg.create_task(self.cleanup())
+                self.dag.workflow.persistence.cleanup(self)
+
+        end_time = time.perf_counter()
+        logger.debug(f"postprocess of job {self.name} took {end_time - begin_time:.3f}")
 
     @property
     def name(self):
