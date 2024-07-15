@@ -1194,6 +1194,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             reason = self.reason(job)
             noinitreason = not reason
 
+            reason.missing_output.update(
+                [f async for f in job.missing_output(job.output) if not f.is_temp]
+            )
             if is_forced(job):
                 reason.forced = True
             elif job in self.targetjobs:
