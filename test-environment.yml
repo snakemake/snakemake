@@ -43,6 +43,8 @@ dependencies:
   - environment-modules
   - nbformat
   - toposort >=1.10
+  - mamba
+  - micromamba
   - crc32c
   - requests-mock
   - peppy
