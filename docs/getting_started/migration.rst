@@ -506,6 +506,7 @@ Moreover, some options have been renamed:
                         snakemake --cluster 'qsub -pe threaded {threads}'.
                         (default: None)
      -  --cluster-generic-submit-cmd VALUE
+        (Requires the cluster-generic plugin)
      -
                         Command for submitting jobs (default:
                         <dataclasses._MISSING_TYPE object at 0x7fc423088680>)
@@ -523,6 +524,7 @@ Moreover, some options have been renamed:
                         the job was successful, 'failed' if the job failed and
                         'running' if the job still runs. (default: None)
      - --cluster-generic-status-cmd VALUE
+       (Requires the cluster-generic plugin)
      -
                         Command for retrieving job status (default:
                         <dataclasses._MISSING_TYPE object at 0x7fc423088680>)
@@ -533,6 +535,7 @@ Moreover, some options have been renamed:
                         running jobs. The command will be passed a single
                         argument, the job id. (default: None)
      - --cluster-generic-cancel-cmd VALUE
+       (Requires the cluster-generic plugin)
      -
                         Command for cancelling jobs. Expected to take one or
                         more jobids as arguments. (default:
@@ -544,6 +547,7 @@ Moreover, some options have been renamed:
                         --cluster-cancel command, defaults to 1000. (default:
                         1000)
      - --cluster-generic-cancel-nargs VALUE
+       (Requires the cluster-generic plugin)
      -
                         Number of jobids to pass to cancel_cmd. If more are
                         given, cancel_cmd will be called multiple times.
@@ -556,6 +560,7 @@ Moreover, some options have been renamed:
                         cluster execution. Only active when --cluster is given
                         as well. (default: None)
      - --cluster-generic-sidecar-cmd VALUE
+       (Requires the cluster-generic plugin)
      -
                         Command for sidecar process. (default:
                         <dataclasses._MISSING_TYPE object at 0x7fc423088680>)
