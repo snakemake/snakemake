@@ -1,5 +1,5 @@
 .. _Miniconda: https://conda.pydata.org/miniconda.html
-.. _Mambaforge: https://github.com/conda-forge/miniforge#mambaforge
+.. _Miniforge: https://github.com/conda-forge/miniforge
 .. _Mamba: https://github.com/mamba-org/mamba
 .. _Conda: https://conda.pydata.org
 
@@ -23,12 +23,12 @@ because it also enables Snakemake to :ref:`handle software dependencies of your
 workflow <integrated_package_management>`.
 
 First, you need to install a Conda-based Python3 distribution.
-The recommended choice is Mambaforge_ which not only provides the required Python and Conda commands, 
+The recommended choice is Miniforge_ which not only provides the required Python and Conda commands, 
 but also includes Mamba_ an extremely fast and robust replacement for the Conda_ package manager which is highly recommended.
 The default conda solver is a bit slow and sometimes has issues with `selecting the latest package releases <https://github.com/conda/conda/issues/9905>`_. 
 Therefore, we recommend to in any case use Mamba_.
 
-In case you don't use Mambaforge_ you can always install Mamba_ into any other Conda-based Python distribution with
+In case you don't use Miniforge_ you can always install Mamba_ into any other Conda-based Python distribution with
 
 .. code-block:: console
 
