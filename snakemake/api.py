@@ -351,6 +351,7 @@ class WorkflowApi(ApiBase):
         True if any lints were printed
         """
         workflow = self._get_workflow(check_envvars=False)
+        self._workflow_store = workflow
         workflow.include(
             self.snakefile, overwrite_default_target=True, print_compilation=False
         )
