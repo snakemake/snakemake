@@ -8,10 +8,18 @@ from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 
 class RuleLinter(Linter):
     def item_desc_plain(self, rule):
-        return f"rule {rule.name} (line {rule.lineno}, {rule.snakefile})"
+        lineno = self.get_lineno(rule)
+        return f"rule {rule.name} (line {lineno}, {rule.snakefile})"
 
     def item_desc_json(self, rule):
-        return {"rule": rule.name, "line": rule.lineno, "snakefile": rule.snakefile}
+        lineno = self.get_lineno(rule)
+        return {"rule": rule.name, "line": lineno, "snakefile": rule.snakefile}
+
+    def get_lineno(self, rule):
+        linemaps = self.workflow.linemaps
+        if linemaps and rule.snakefile in linemaps:
+            return linemaps[rule.snakefile][rule.lineno]
+        return rule.lineno
 
     def lint_params_prefix(self, rule):
         for param, value in rule.params.items():
