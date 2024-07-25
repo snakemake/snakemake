@@ -2044,6 +2044,18 @@ def test_issue1256():
     assert "line 9" in stderr
 
 
+def test_issue2574():
+    snakefile = os.path.join(dpath("test_issue2574"), "Snakefile")
+    configfile = os.path.join(dpath("test_issue2574"), "config.yaml")
+    p = subprocess.Popen(f"snakemake -s {snakefile} --configfile {configfile} --lint",
+        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    stderr = stderr.decode()
+    assert p.returncode == 1
+    assert "KeyError" in stderr
+    assert "line 2," in stderr
+
+
 def test_resource_string_in_cli_or_profile():
     test_path = dpath("test_resource_string_in_cli_or_profile")
     profile = os.path.join(test_path, "profiles")
