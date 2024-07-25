@@ -1,0 +1,4 @@
+configfile: "config.yaml"
+X = config["unexisting_key"]
+
+print(1)
