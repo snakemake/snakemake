@@ -59,6 +59,7 @@ dependencies:
   - nodejs # for cwltool
   - immutables
   - conda
+  - cryptography <43 # See GitHub issue 2988
   - pip
   - pip:
       - cwltool
