@@ -21,7 +21,7 @@ dependencies:
   - pysftp
   - requests
   - responses
-  - numpy
+  - numpy < 2
   - appdirs
   - pytools
   - docutils
