@@ -1479,6 +1479,13 @@ def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), deployment_method={DeploymentMethod.CONDA})
 
 
+def test_jupyter_notebook_nbconvert():
+    run(
+        dpath("test_jupyter_notebook_nbconvert"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
+
+
 def test_jupyter_notebook_draft():
     from snakemake.settings.types import NotebookEditMode
 
