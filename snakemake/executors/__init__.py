@@ -1374,12 +1374,14 @@ class GenericClusterExecutor(ClusterExecutor):
                 self.active_jobs = list()
                 still_running = list()
             # logger.debug("Checking status of {} jobs.".format(len(active_jobs)))
+            release_callbacks = set()
             for active_job in active_jobs:
                 async with self.status_rate_limiter:
                     status = job_status(active_job)
 
                     if status == success:
-                        active_job.callback(active_job.job)
+                        active_job.callback(active_job.job, release = False)
+                        release_callbacks.add(active_job.callback)
                     elif status == failed:
                         self.print_job_error(
                             active_job.job,
@@ -1393,6 +1395,8 @@ class GenericClusterExecutor(ClusterExecutor):
                         active_job.error_callback(active_job.job)
                     else:
                         still_running.append(active_job)
+            for callback in release_callbacks:
+                callback(None, release = True)
             async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
             await sleep()

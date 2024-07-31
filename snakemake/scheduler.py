@@ -669,7 +669,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     logger.job_finished(jobid=job.jobid)
                 self.progress()
 
-            self.dag.finish(job, update_dynamic=self.update_dynamic)
+        self.dag.finish(self._tofinish, update_dynamic=self.update_dynamic)
         self._tofinish.clear()
 
     def _error_jobs(self):
@@ -703,10 +703,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 value = self.calc_resource(name, value)
                 self.resources[name] += value
 
-    def _proceed(self, job):
+    def _proceed(self, job, release=True):
         """Do stuff after job is finished."""
         with self._lock:
-            self._tofinish.append(job)
+            if job is not None:
+                self._tofinish.append(job)
 
             if self.dryrun:
                 if len(self.running) - len(self._tofinish) - len(self._toerror) <= 0:
@@ -716,7 +717,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     self._open_jobs.release()
             else:
                 # go on scheduling if there is any free core
-                self._open_jobs.release()
+                if release:
+                    self._open_jobs.release()
 
     def _error(self, job):
         with self._lock:

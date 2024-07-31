@@ -623,6 +623,8 @@ class Persistence(PersistenceExecutorInterface):
         self._read_record = self._read_record_uncached
         self._incomplete_cache = False
 
+    def activate_cache(self):
+        self._read_record = self._read_record_cached
 
 def _bool_or_gen(func, job, file=None):
     if file is None:
