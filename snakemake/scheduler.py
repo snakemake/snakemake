@@ -669,7 +669,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     logger.job_finished(jobid=job.jobid)
                 self.progress()
 
-            self.dag.finish(job, update_dynamic=self.update_dynamic)
+        self.dag.finish(self._tofinish, update_dynamic=self.update_dynamic)
         self._tofinish.clear()
 
     def _error_jobs(self):

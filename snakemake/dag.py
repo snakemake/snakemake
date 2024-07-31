@@ -1621,24 +1621,26 @@ class DAG(DAGExecutorInterface):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
 
-        self._running.remove(job)
+        jobs = []
+        for job_ in job:
+            self._running.remove(job_)
 
-        # turn off this job's Reason
-        if job.is_group():
-            for j in job:
-                self.reason(j).mark_finished()
-        else:
-            self.reason(job).mark_finished()
+            # turn off this job's Reason
+            if job_.is_group():
+                for j in job_:
+                     self.reason(j).mark_finished()
+            else:
+                self.reason(job_).mark_finished()
 
-        try:
-            self._ready_jobs.remove(job)
-        except KeyError:
-            pass
+            try:
+                self._ready_jobs.remove(job_)
+            except KeyError:
+                pass
 
-        if job.is_group():
-            jobs = job
-        else:
-            jobs = [job]
+            if job_.is_group():
+                jobs.extend(job_)
+            else:
+                jobs.append(job_)
 
         self._finished.update(jobs)
 
