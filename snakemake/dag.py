@@ -1435,7 +1435,14 @@ class DAG(DAGExecutorInterface):
         if update_needrun:
             self.update_container_imgs()
             self.update_conda_envs()
-            self.update_needrun()
+            try:
+                self.workflow.iocache.active = True
+                self.workflow.persistence.activate_cache()
+                self.update_needrun()
+            finally:
+                self.workflow.iocache.deactivate()
+                self.workflow.persistence.deactivate_cache()
+
         self.update_priority()
         self.handle_pipes_and_services()
         self.update_groups()
