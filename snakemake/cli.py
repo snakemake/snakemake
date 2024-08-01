@@ -241,7 +241,16 @@ def parse_config(entries):
     """Parse config from args."""
     import yaml
 
-    yaml_base_load = lambda s: yaml.load(s, Loader=yaml.loader.BaseLoader)
+    class SafeLoaderTimestamp(yaml.SafeLoader):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.add_constructor("tag:yaml.org,2002:timestamp", self.construct_yaml_str)
+        
+        @staticmethod
+        def construct_yaml_str(loader, node):
+            return loader.construct_scalar(node)
+
+    yaml_base_load = lambda s: yaml.load(s, Loader=SafeLoaderTimestamp)
     parsers = [int, float, _bool_parser, yaml_base_load, str]
     config = dict()
     if entries:
