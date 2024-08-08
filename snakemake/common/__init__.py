@@ -21,6 +21,30 @@ from snakemake._version import get_versions
 
 from snakemake_interface_common.exceptions import WorkflowError
 
+
+# Temporary silencing of noisy deprecation warning
+# The next few lines till the import can be removed once either
+# of the following issues are resolved:
+# - https://github.com/piskvorky/smart_open/issues/831
+# - https://github.com/paramiko/paramiko/issues/2419
+# See https://github.com/snakemake/snakemake/issues/3004
+try:
+    # Cryptography is an optional snakemake dependency
+    # Hence need to handle the case where it is not installed
+    from cryptography.utils import CryptographyDeprecationWarning
+    import warnings
+    context_manager = warnings.catch_warnings(action="ignore", category=CryptographyDeprecationWarning)
+except ImportError:
+    from contextlib import nullcontext
+    context_manager = nullcontext()
+
+with context_manager:
+    # End of temporary silencing
+    # Deindent the following once the above issues are resolved
+    # Or move the import back to where it is needed
+    from smart_open import parse_uri
+
+
 __version__ = get_versions()["version"]
 del get_versions
 
@@ -123,8 +147,6 @@ def is_local_file(path_or_uri):
 
 
 def parse_uri(path_or_uri):
-    from smart_open import parse_uri
-
     try:
         return parse_uri(path_or_uri)
     except NotImplementedError as e:
@@ -147,8 +169,6 @@ def smart_join(base, path, abspath=False):
             return os.path.abspath(full)
         return full
     else:
-        from smart_open import parse_uri
-
         uri = parse_uri(f"{base}/{path}")
         if not ON_WINDOWS:
             # Norm the path such that it does not contain any ../,
