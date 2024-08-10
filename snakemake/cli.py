@@ -871,7 +871,7 @@ def get_argument_parser(profiles=None):
         choices=lp_solvers,
         help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
-    
+
     group_exec.add_argument(
         "--conda-base-path",
         help="Path of conda base installation (home of conda, mamba, activate) (internal use only).",
@@ -1701,15 +1701,19 @@ def get_argument_parser(profiles=None):
         "--deploy-sources",
         nargs=2,
         metavar=("QUERY", "CHECKSUM"),
-        help=help_internal("Deploy sources archive from given storage provider query to the current "
-        "working subdirectory and control for archive checksum to proceed."),
+        help=help_internal(
+            "Deploy sources archive from given storage provider query to the current "
+            "working subdirectory and control for archive checksum to proceed."
+        ),
     )
     group_internal.add_argument(
         "--target-jobs",
         nargs="+",
         parse_func=parse_target_jobs_cli_args,
         default=set(),
-        help=help_internal("Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "),
+        help=help_internal(
+            "Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
+        ),
     )
     group_internal.add_argument(
         "--mode",
@@ -1718,7 +1722,6 @@ def get_argument_parser(profiles=None):
         type=ExecMode.parse_choice,
         help=help_internal("Set execution mode of Snakemake."),
     )
-
 
     # Add namespaced arguments to parser for each plugin
     _get_executor_plugin_registry().register_cli_args(parser)
