@@ -2,12 +2,16 @@
 Tests for Snakemake’s API
 """
 
+import time
 from snakemake.api import snakemake
 import asyncio
 import sys
 import tempfile
 import os.path
 from textwrap import dedent
+
+from snakemake.scheduler import JobRateLimiter
+from snakemake.settings.types import MaxJobsPerTimespan
 
 
 def test_keep_logger():
@@ -115,3 +119,21 @@ def test_lockexception():
         except LockException as e:
             return True
         assert False
+
+
+def test_job_rate_limiter():
+    rate_limiter = JobRateLimiter(MaxJobsPerTimespan.parse_choice("10/1h"))
+
+    rate_limiter.register_jobs(5)
+    assert rate_limiter.get_free_jobs() == 5
+
+    rate_limiter.register_jobs(5)
+    assert rate_limiter.get_free_jobs() == 0
+
+    rate_limiter = JobRateLimiter(MaxJobsPerTimespan.parse_choice("9/1s"))
+
+    rate_limiter.register_jobs(4)
+    assert rate_limiter.get_free_jobs() == 5
+
+    time.sleep(1)
+    assert rate_limiter.get_free_jobs() == 9
