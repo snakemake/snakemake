@@ -27,7 +27,7 @@ from snakemake.logging import logger
 
 from fractions import Fraction
 
-from snakemake.settings.types import MaxJobsPerTimeUnit, MaxJobsPerTimespan
+from snakemake.settings.types import MaxJobsPerTimespan
 
 registry = ExecutorPluginRegistry()
 
