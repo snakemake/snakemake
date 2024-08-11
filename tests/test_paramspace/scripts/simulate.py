@@ -1,2 +1,4 @@
+import json
+
 with open(snakemake.output[0], "w") as out:
-    print(snakemake.params.simulation, file=out)
+    json.dump(snakemake.params.simulation, out)
