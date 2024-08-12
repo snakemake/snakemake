@@ -816,6 +816,7 @@ class JobRateLimiter:
         self._jobs.extend(repeat(currtime, n_jobs))
 
     def get_free_jobs(self):
+        # get the index of the last element that is older than the timespan
         index = bisect(self._jobs, time.time() - self._limit.timespan)
         # remove the first index elements from the deque
         for _ in range(index):
