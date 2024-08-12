@@ -3,18 +3,15 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import asyncio
 from bisect import bisect
 from collections import defaultdict
 import math
 import os, signal, sys
 import threading
 
-from functools import partial
 from itertools import chain, accumulate, repeat
 from contextlib import ContextDecorator
 import time
-from typing import Optional
 
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -24,8 +21,6 @@ from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.logging import logger
-
-from fractions import Fraction
 
 from snakemake.settings.types import MaxJobsPerTimespan
 
@@ -132,17 +127,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     logger,
                 )
             )
-
-        from throttler import Throttler
-
-        if not self.dryrun:
-            max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
-            self.rate_limiter = Throttler(
-                rate_limit=max_jobs_frac.numerator, period=max_jobs_frac.denominator
-            )
-        else:
-            # essentially no rate limit
-            self.rate_limiter = DummyRateLimiter()
 
         # Choose job selector (greedy or ILP)
         self._job_selector = self.job_selector_greedy
