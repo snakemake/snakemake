@@ -4,7 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from bisect import bisect
-from collections import defaultdict
+from collections import defaultdict, deque
 import math
 import os, signal, sys
 import threading
@@ -807,8 +807,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
 
 class JobRateLimiter:
-    from collections import deque
-
     def __init__(self, limit: MaxJobsPerTimespan):
         self._limit: MaxJobsPerTimespan = limit
         self._jobs = deque()
