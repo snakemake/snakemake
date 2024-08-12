@@ -1693,6 +1693,7 @@ def get_argument_parser(profiles=None):
 
     def help_internal(text):
         return f"Internal use only: {text}"
+
     group_internal = parser.add_argument_group("INTERNAL")
     group_internal.add_argument(
         "--scheduler-solver-path",
