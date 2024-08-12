@@ -1691,7 +1691,8 @@ def get_argument_parser(profiles=None):
         "fallback for rules which don't define environment modules.",
     )
 
-    help_internal = lambda text: f"Internal use only: {text}"
+    def help_internal(text):
+        return f"Internal use only: {text}"
     group_internal = parser.add_argument_group("INTERNAL")
     group_internal.add_argument(
         "--scheduler-solver-path",
