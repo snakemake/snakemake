@@ -1,7 +1,7 @@
 import os
 import sys
 import pytest
-from pathlib import Path
+from contextlib import suppress
 
 from snakemake.common import ON_WINDOWS
 from snakemake.utils import find_bash_on_windows
@@ -65,7 +65,5 @@ def s3_storage():
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
     )
-    try:
+    with suppress(Exception):
         s3c.Bucket(bucket).delete()
-    except Exception:
-        pass
