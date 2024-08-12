@@ -55,6 +55,7 @@ from snakemake.settings.types import (
     DeploymentSettings,
     ExecutionSettings,
     GroupSettings,
+    MaxJobsPerTimespan,
     NotebookEditMode,
     OutputSettings,
     PreemptibleRules,
@@ -1337,14 +1338,14 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--max-jobs-per-timespan",
-        type=str,
+        type=MaxJobsPerTimespan.parse_choice,
         help="Maximal number of job submissions/executions per timespan. Format: <number><timespan>, e.g. 50/1m or 0.5/1s.",
     )
     group_behavior.add_argument(
         "--max-jobs-per-second",
-        type=float,
-        help="Maximal number of job submissions/executions per second, "
-        "fractions allowed. Deprecated in favor of --max-jobs-per-timespan.",
+        type=int,
+        help="Maximal number of job submissions/executions per second. "
+        "Deprecated in favor of --max-jobs-per-timespan.",
     )
     group_behavior.add_argument(
         "--max-status-checks-per-second",
