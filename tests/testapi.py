@@ -5,7 +5,6 @@ Tests for Snakemake’s API
 import time
 from snakemake.api import snakemake
 import asyncio
-import sys
 import tempfile
 import os.path
 from textwrap import dedent

@@ -4,9 +4,13 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+import shutil
 import sys
 import subprocess as sp
 from pathlib import Path
+import tempfile
+
+import pytest
 from snakemake.resources import DefaultResources, GroupResources
 from snakemake.settings.enums import RerunTrigger
 
@@ -14,10 +18,10 @@ from snakemake.shell import shell
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import *
+from .common import run, dpath, connected
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
-from snakemake_interface_executor_plugins.settings import DeploymentMethod
+from snakemake_interface_executor_plugins.settings import DeploymentMethod, SharedFSUsage
 
 
 def test_list_untracked():
@@ -972,7 +976,7 @@ def test_global_resource_limits_limit_scheduling_of_groups():
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if not l == "\n"]
+        lines = [l for l in f.readlines() if l != "\n"]
     assert len(lines) == 1
     shutil.rmtree(tmp)
 
@@ -1018,7 +1022,7 @@ def test_resources_can_be_overwritten_as_global():
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if not l == "\n"]
+        lines = [l for l in f.readlines() if l != "\n"]
     assert len(lines) == 1
     shutil.rmtree(tmp)
 
@@ -1720,7 +1724,7 @@ def test_modules_ruledeps_inheritance():
 @skip_on_windows
 def test_issue1331():
     # not guaranteed to fail, so let's try multiple times
-    for i in range(10):
+    for _ in range(10):
         run(dpath("test_issue1331"), cores=4)
 
 
@@ -1984,7 +1988,7 @@ def test_runtime_conversion_from_workflow_profile():
     run(
         test_path,
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake -c1",
+        shellcmd="snakemake -c1",
     )
 
 
@@ -2026,13 +2030,13 @@ def test_script_pre_py39():
 
 def test_issue1256():
     snakefile = os.path.join(dpath("test_issue1256"), "Snakefile")
-    p = subprocess.Popen(
+    p = sp.Popen(
         f"snakemake -s {snakefile}",
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
     )
-    stdout, stderr = p.communicate()
+    _, stderr = p.communicate()
     stderr = stderr.decode()
     assert p.returncode == 1
     assert "SyntaxError" in stderr
