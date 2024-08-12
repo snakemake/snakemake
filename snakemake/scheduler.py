@@ -807,9 +807,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
 
 class JobRateLimiter:
+    from collections import deque
+
     def __init__(self, limit: MaxJobsPerTimespan):
         self._limit: MaxJobsPerTimespan = limit
-        self._jobs = []
+        self._jobs = deque()
 
     def register_jobs(self, n_jobs: int):
         currtime = time.time()
