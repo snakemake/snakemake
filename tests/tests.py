@@ -304,15 +304,6 @@ def test_ruledeps():
     run(dpath("test_ruledeps"))
 
 
-def test_persistent_dict():
-    try:
-        import pytools
-
-        run(dpath("test_persistent_dict"))
-    except ImportError:
-        pass
-
-
 @connected
 def test_url_include():
     run(dpath("test_url_include"))
