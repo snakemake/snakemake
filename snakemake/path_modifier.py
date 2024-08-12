@@ -34,9 +34,16 @@ class PathModifier:
                 self.trie[prefix] = replacement
 
     def modify(self, path, property=None):
-        if get_flag_value(path, PATH_MODIFIER_FLAG) is self:
-            logger.debug(f"Flag PATH_MODIFIER_FLAG found in file {path}")
+        if get_flag_value(path, PATH_MODIFIER_FLAG):
+            logger.debug(
+                f"Not modifying path of file {path}, as it has already been modified"
+            )
             # Path has been modified before and is reused now, no need to modify again.
+            return path
+
+        if get_flag_value(path, "local"):
+            logger.debug(f"Not modifying path of file {path}, as it is local")
+            # File is local
             return path
 
         modified_path = self.apply_default_storage(self.replace_prefix(path, property))
@@ -54,7 +61,7 @@ class PathModifier:
                     self.replace_prefix(modified_path.flags["multiext"], property)
                 )
         # Flag the path as modified and return.
-        modified_path = flag(modified_path, PATH_MODIFIER_FLAG, self)
+        modified_path = flag(modified_path, PATH_MODIFIER_FLAG)
         return modified_path
 
     def replace_prefix(self, path, property=None):
@@ -125,7 +132,9 @@ class PathModifier:
                 f"Error applying default storage provider {provider}. "
                 "Make sure to provide a valid --default-storage-prefix "
                 "(see https://snakemake.github.io/snakemake-plugin-catalog/plugins/"
-                "storage/{provider}.html). {validation_res}",
+                f"storage/{provider}.html). "
+                "Usually, the storage provider requires a scheme in the prefix, "
+                f"like 's3://' in case of the s3 storage provider. {validation_res}",
             )
         return flag_with_storage_object(path, storage_object)
 

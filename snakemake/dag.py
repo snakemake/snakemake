@@ -21,7 +21,7 @@ from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
-from snakemake.settings import DeploymentMethod
+from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
@@ -34,7 +34,7 @@ from snakemake.common import (
     group_into_chunks,
     is_local_file,
 )
-from snakemake.settings import RerunTrigger
+from snakemake.settings.types import RerunTrigger
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,
@@ -66,11 +66,11 @@ from snakemake.jobs import (
     JobFactory,
     Reason,
 )
-from snakemake.settings import SharedFSUsage
+from snakemake.settings.types import SharedFSUsage
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
-from snakemake.settings import ChangeType, Batch
+from snakemake.settings.types import ChangeType, Batch
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
@@ -433,6 +433,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                 f.remove(remove_non_empty_dir=True, only_local=True)
                             )
                             cleaned.add(f)
+
+    async def sanitize_local_storage_copies(self):
+        """Remove local copies of storage files that will be recreated in this run."""
+        async with asyncio.TaskGroup() as tg:
+            async for job in self.needrun_jobs:
+                if not self.finished(job):
+                    for f in job.output:
+                        if f.is_storage and f.exists_local():
+                            tg.create_task(
+                                f.remove(remove_non_empty_dir=True, only_local=True)
+                            )
 
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
@@ -979,16 +990,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             except RecursionError as e:
                 raise WorkflowError(
                     e,
-                    "If building the DAG exceeds the recursion limit, "
-                    "this is likely due to a cyclic dependency."
-                    "E.g. you might have a sequence of rules that "
-                    "can generate their own input. Try to make "
-                    "the output files more specific. "
-                    "A common pattern is to have different prefixes "
-                    "in the output files of different rules."
-                    + f"\nProblematic file pattern: {file}"
-                    if file
-                    else "",
+                    (
+                        "If building the DAG exceeds the recursion limit, "
+                        "this is likely due to a cyclic dependency."
+                        "E.g. you might have a sequence of rules that "
+                        "can generate their own input. Try to make "
+                        "the output files more specific. "
+                        "A common pattern is to have different prefixes "
+                        "in the output files of different rules."
+                        + f"\nProblematic file pattern: {file}"
+                        if file
+                        else ""
+                    ),
                 )
         if not producers:
             if cycles:
@@ -1593,6 +1606,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.cleanup()
         self.update_jobids()
         if update_needrun:
+            # cleanup local storage copies of files that will be created by jobs
+            # this is important to ensure that there are no outdated local copies
+            # that misguide e.g. params functions.
+            self.sanitize_local_storage_copies()
             self.update_container_imgs()
             self.update_conda_envs()
             await self.update_needrun()

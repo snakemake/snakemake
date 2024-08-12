@@ -3,10 +3,11 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import argparse
+import dataclasses
 import os
 import re
 import sys
-from argparse import ArgumentDefaultsHelpFormatter
 from functools import partial
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -46,7 +47,7 @@ from snakemake.resources import (
     eval_resource_expression,
     parse_resources,
 )
-from snakemake.settings import (
+from snakemake.settings.types import (
     ChangeType,
     ConfigSettings,
     DAGSettings,
@@ -329,6 +330,27 @@ def get_profile_dir(profile: str) -> (Path, Path):
                 return profile_candidate, profile_candidate / config_file
 
 
+class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
+    """Help message formatter which adds default values to argument help.
+
+    Like argparse.ArgumentDefaultsHelpFormatter, but doesn't print
+    None/dataclasses._MISSING_TYPE/etc.
+    """
+
+    def _get_help_string(self, action):
+        if (
+            (
+                action.option_strings
+                or action.nargs in [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
+            )
+            and action.default not in (None, "", set(), argparse.SUPPRESS)
+            and not isinstance(action.default, dataclasses._MISSING_TYPE)
+        ):
+            return action.help + " (default: %(default)s)"
+        else:
+            return action.help
+
+
 def get_argument_parser(profiles=None):
     """Generate and return argument parser."""
     from snakemake.profiles import ProfileConfigFileParser
@@ -487,13 +509,13 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--local-cores",
         action="store",
-        default=available_cpu_count(),
         metavar="N",
         type=int,
         help=(
             "In cluster/cloud mode, use at most N cores of the host machine in parallel "
             "(default: number of CPU cores of the host). The cores are used to execute "
-            "local rules. This option is ignored when not in cluster/cloud mode."
+            "local rules. This option is ignored when not in cluster/cloud mode. "
+            "(default: <available CPU count>)"
         ),
     )
     group_exec.add_argument(
@@ -1397,7 +1419,7 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--local-storage-prefix",
         default=".snakemake/storage",
-        type=expandvars(Path),
+        type=maybe_base64(expandvars(Path)),
         help="Specify prefix for storing local copies of storage files and folders. "
         "By default, this is a hidden subfolder in the workdir. It can however be "
         "freely chosen, e.g. in order to store those files on a local scratch disk. "
@@ -1405,7 +1427,7 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
-        type=expandvars(Path),
+        type=maybe_base64(expandvars(Path)),
         help="Specify prefix for storing local copies of storage files and folders in "
         "case of remote jobs (e.g. cluster or cloud jobs). This may differ from "
         "--local-storage-prefix. If not set, uses value of --local-storage-prefix. "
@@ -1676,6 +1698,7 @@ def get_argument_parser(profiles=None):
         "--singularity-args",
         default="",
         metavar="ARGS",
+        parse_func=maybe_base64(str),
         help="Pass additional args to apptainer/singularity.",
     )
 
@@ -1881,8 +1904,13 @@ def args_to_api(args, parser):
         if executor_plugin.common_settings.local_exec:
             # use --jobs as an alias for --cores
             args.cores = args.jobs
+            args.jobs = None
         elif executor_plugin.common_settings.dryrun_exec:
             args.cores = 1
+            args.jobs = None
+
+    if args.cores is None:
+        args.cores = available_cpu_count()
 
     # start profiler if requested
     if args.runtime_profile:

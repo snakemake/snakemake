@@ -22,10 +22,11 @@ import tarfile
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
-from snakemake import api, settings
+from snakemake import api
 from snakemake.common import ON_WINDOWS
 from snakemake.report.html_reporter import ReportSettings
 from snakemake.resources import ResourceScopes
+from snakemake.settings import types as settings
 
 
 def dpath(path):
@@ -227,6 +228,7 @@ def run(
     storage_provider_settings=None,
     shared_fs_usage=None,
     benchmark_extended=False,
+    apptainer_args="",
 ):
     """
     Test the Snakefile in the path.
@@ -366,6 +368,7 @@ def run(
                         conda_frontend=conda_frontend,
                         conda_prefix=conda_prefix,
                         deployment_method=deployment_method,
+                        apptainer_args=apptainer_args,
                     ),
                     snakefile=Path(original_snakefile if no_tmpdir else snakefile),
                     workdir=Path(path if no_tmpdir else tmpdir),

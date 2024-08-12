@@ -1,6 +1,97 @@
 # Changelog
 
 
+## [8.16.0](https://github.com/snakemake/snakemake/compare/v8.15.2...v8.16.0) (2024-07-09)
+
+
+### Features
+
+* added snakemake.script.snakemake for type hinting ([#2917](https://github.com/snakemake/snakemake/issues/2917)) ([c85fb4b](https://github.com/snakemake/snakemake/commit/c85fb4b34ce983cb916bcce361d958d466ee1d07))
+
+
+### Documentation
+
+* use note directive to align with the capabilities of the used theme ([#2950](https://github.com/snakemake/snakemake/issues/2950)) ([fe27405](https://github.com/snakemake/snakemake/commit/fe274055dbd4663d7185114bc4f77ac862f8c7b3))
+
+## [8.15.2](https://github.com/snakemake/snakemake/compare/v8.15.1...v8.15.2) (2024-07-05)
+
+
+### Bug Fixes
+
+* ensure that envvars in local storage prefix are not prematurely expanded by the shell ([#2943](https://github.com/snakemake/snakemake/issues/2943)) ([da50f27](https://github.com/snakemake/snakemake/commit/da50f27102e0aa761aa6ff724efe785af7a58b3a))
+* fix circular import ([9e7d56f](https://github.com/snakemake/snakemake/commit/9e7d56f48d6048d8138c718eb577f65e157b42d2))
+
+## [8.15.1](https://github.com/snakemake/snakemake/compare/v8.15.0...v8.15.1) (2024-07-04)
+
+
+### Bug Fixes
+
+* implement support for --touch on remote storage (if the storage provider supports it) ([#2941](https://github.com/snakemake/snakemake/issues/2941)) ([567094d](https://github.com/snakemake/snakemake/commit/567094d63242d6a885328d40f66bcd98204411a1))
+
+## [8.15.0](https://github.com/snakemake/snakemake/compare/v8.14.0...v8.15.0) (2024-07-04)
+
+
+### Features
+
+* add `can_transfer_local_files` to executor plugin interface ([#2921](https://github.com/snakemake/snakemake/issues/2921)) ([85a6774](https://github.com/snakemake/snakemake/commit/85a6774542b110e16b9e56407a99995046eccfe1))
+
+
+### Bug Fixes
+
+* duplicate wildcards ([#2937](https://github.com/snakemake/snakemake/issues/2937)) ([5b6cc02](https://github.com/snakemake/snakemake/commit/5b6cc0283646a413ba8b9f71dea610faa3128f96))
+* handling of missing attributes in input/output/params lists that have been guarded against misuse (sort, index) ([#2928](https://github.com/snakemake/snakemake/issues/2928)) ([1b75087](https://github.com/snakemake/snakemake/commit/1b75087fa10cfcfb06e41a6286cb51d10df3ee3f))
+* improve error message in case of invalid default storage prefix ([3c1065c](https://github.com/snakemake/snakemake/commit/3c1065c9b441928f2d390b568a7e9f854256ad41))
+* include more context to syntax errors when rule parsing fails ([#2924](https://github.com/snakemake/snakemake/issues/2924)) ([#2926](https://github.com/snakemake/snakemake/issues/2926)) ([3ecffcc](https://github.com/snakemake/snakemake/commit/3ecffccc7ea6df042765b82fe9f02a45b4daf727))
+* parse f-string as-is from source ([#2930](https://github.com/snakemake/snakemake/issues/2930)) ([39fc8f7](https://github.com/snakemake/snakemake/commit/39fc8f71ce196008e938d5c549f4077cffc7682a))
+* sanitize old local storage copies before evaluating params or resource functions ([#2939](https://github.com/snakemake/snakemake/issues/2939)) ([e3075dd](https://github.com/snakemake/snakemake/commit/e3075ddd4d9829df4732c80b372a249809710f95))
+* suppress printing of non-constant or uninteresting defaults in --help ([#2936](https://github.com/snakemake/snakemake/issues/2936)) ([69add30](https://github.com/snakemake/snakemake/commit/69add3046a929dd7a3b5dc67d67b886dfde757ed))
+
+
+### Documentation
+
+* fix code block formatting ([#2929](https://github.com/snakemake/snakemake/issues/2929)) ([54a6461](https://github.com/snakemake/snakemake/commit/54a646144521d7799b7f810d6f5ee138ac25ca68))
+* fix signature display ([bdd732d](https://github.com/snakemake/snakemake/commit/bdd732d1f98d0af0362115f74baa728bfc976851))
+
+## [8.14.0](https://github.com/snakemake/snakemake/compare/v8.13.0...v8.14.0) (2024-06-11)
+
+
+### Features
+
+* add flag to mark files where path should not be modified ([#2888](https://github.com/snakemake/snakemake/issues/2888)) ([d142b46](https://github.com/snakemake/snakemake/commit/d142b46200df0e1d03b4de3ec7aafd9cdf714588))
+* support per rule shell exec setting via resources ([#2862](https://github.com/snakemake/snakemake/issues/2862)) ([ab8d2dd](https://github.com/snakemake/snakemake/commit/ab8d2ddc38b610b0bf5b2e5368cfaf349921470a))
+
+
+### Documentation
+
+* update FAQ - recommend ensure function for failing on empty output ([#2910](https://github.com/snakemake/snakemake/issues/2910)) ([b035071](https://github.com/snakemake/snakemake/commit/b03507119806f1ada71f950086256c4fe63eb754))
+
+## [8.13.0](https://github.com/snakemake/snakemake/compare/v8.12.0...v8.13.0) (2024-06-05)
+
+
+### Features
+
+* support for default value specification when using lookup helper function ([#2907](https://github.com/snakemake/snakemake/issues/2907)) ([08e88e2](https://github.com/snakemake/snakemake/commit/08e88e27f9e5ddcd5d9ebce7f79f45436262fddc))
+
+
+### Documentation
+
+* add badge for bioconda version ([#2902](https://github.com/snakemake/snakemake/issues/2902)) ([3f01348](https://github.com/snakemake/snakemake/commit/3f01348cda9040adc7af6c8173f9108343edde10))
+
+## [8.12.0](https://github.com/snakemake/snakemake/compare/v8.11.6...v8.12.0) (2024-05-27)
+
+
+### Features
+
+* Include parameters in extended benchmarks ([#2887](https://github.com/snakemake/snakemake/issues/2887)) ([31a9c9b](https://github.com/snakemake/snakemake/commit/31a9c9bdb3147fe9c1f9144a584af389ec49720e))
+
+
+### Bug Fixes
+
+* fix corner case bug in input function exception handling ([#2895](https://github.com/snakemake/snakemake/issues/2895)) ([fc24292](https://github.com/snakemake/snakemake/commit/fc24292f14fd5f8bb00412c32568645cfbf5d2fa))
+* fix quoting issues when passing complex apptainer args to spawned jobs ([#2898](https://github.com/snakemake/snakemake/issues/2898)) ([b07e2e0](https://github.com/snakemake/snakemake/commit/b07e2e07aaf7b9bd6fa6368e274f08028cdcea4e))
+* properly restrict scheduler if --jobs/-j is used (in contrast to --cores) in local execution ([#2897](https://github.com/snakemake/snakemake/issues/2897)) ([6a276bb](https://github.com/snakemake/snakemake/commit/6a276bb25cc36d32285a196e0876e2b15040a863))
+* typo in workflow specific profile default location ([#2878](https://github.com/snakemake/snakemake/issues/2878)) ([74627d3](https://github.com/snakemake/snakemake/commit/74627d3f07f549600dc8ad226a545f44191141e0))
+
 ## [8.11.6](https://github.com/snakemake/snakemake/compare/v8.11.5...v8.11.6) (2024-05-17)
 
 
@@ -1307,7 +1398,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ### Bug Fixes
 
-* fixed bug in needrun computation of jobs downsteam of checkpoints ([#1704](https://www.github.com/snakemake/snakemake/issues/1704)) ([c634b78](https://www.github.com/snakemake/snakemake/commit/c634b78b4d7c4f6ef59e46c94162893e42de6f73))
+* fixed bug in needrun computation of jobs downstream of checkpoints ([#1704](https://www.github.com/snakemake/snakemake/issues/1704)) ([c634b78](https://www.github.com/snakemake/snakemake/commit/c634b78b4d7c4f6ef59e46c94162893e42de6f73))
 
 ### [7.8.1](https://www.github.com/snakemake/snakemake/compare/v7.8.0...v7.8.1) (2022-05-31)
 
