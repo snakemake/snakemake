@@ -1681,7 +1681,7 @@ def test_github_issue1069():
 
 
 def test_max_jobs_per_timespan():
-    run(dpath("test01"), shellcmd="snakemake --max-jobs-per-timespan 0.5/1s --cores 3")
+    run(dpath("test01"), shellcmd="snakemake --max-jobs-per-timespan 2/1s --cores 3")
 
 
 def test_touch_pipeline_with_temp_dir():

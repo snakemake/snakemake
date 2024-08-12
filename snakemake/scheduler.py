@@ -817,5 +817,7 @@ class JobRateLimiter:
 
     def get_free_jobs(self):
         index = bisect(self._jobs, time.time() - self._limit.timespan)
-        self._jobs = self._jobs[index:]
+        # remove the first index elements from the deque
+        for _ in range(index):
+            self._jobs.popleft()
         return max(self._limit.max_jobs - len(self._jobs), 0)

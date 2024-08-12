@@ -55,7 +55,7 @@ class NotebookEditMode:
 
 
 class MaxJobsPerTimespan:
-    arg_re = re.compile(r"(?P<count>\d+)/(?P<timespan>\d*(h|m|s|ms|w|d))")
+    arg_re = re.compile(r"(?P<count>\d+)/(?P<timespan>\d+(h|m|s|ms|w|d))")
 
     def __init__(self, max_jobs: int, timespan: Optional[str] = None):
         import humanfriendly
@@ -74,7 +74,7 @@ class MaxJobsPerTimespan:
                 "Invalid max jobs per timespan definition. "
                 "Must be of the form <max_jobs>/<timespan> with <max_jobs> being an "
                 "integer, and <timespan> being an integer with "
-                "unit h, m, s ms, w, d."
+                f"unit h, m, s ms, w, d. Given instead: {arg}"
             )
         max_jobs, timespan = m.group("count"), m.group("timespan")
         max_jobs = int(max_jobs)
