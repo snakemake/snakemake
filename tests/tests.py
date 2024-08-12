@@ -1680,6 +1680,8 @@ def test_github_issue1069():
     )
 
 
+# os independent
+@skip_on_windows
 def test_max_jobs_per_timespan():
     run(dpath("test01"), shellcmd="snakemake --max-jobs-per-timespan 2/1s --cores 3")
 
