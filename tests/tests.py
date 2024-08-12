@@ -18,7 +18,7 @@ from snakemake.shell import shell
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, connected, s3_storage
+from .common import run, dpath, connected
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
 from snakemake_interface_executor_plugins.settings import (
