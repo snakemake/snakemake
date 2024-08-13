@@ -979,7 +979,7 @@ def test_global_resource_limits_limit_scheduling_of_groups():
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if l != "\n"]
+        lines = [line for line in f.readlines() if line != "\n"]
     assert len(lines) == 1
     shutil.rmtree(tmp)
 
