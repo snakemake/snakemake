@@ -372,6 +372,9 @@ class Persistence(PersistenceExecutorInterface):
             )
         )
 
+    def has_metadata(self, job):
+        return all(self.metadata(path) for path in job.output)
+
     def metadata(self, path):
         return self._read_record(self._metadata_path, path)
 

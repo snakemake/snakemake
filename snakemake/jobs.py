@@ -1635,6 +1635,7 @@ class Reason:
         "target",
         "finished",
         "cleanup_metadata_instructions",
+        "no_metadata",
     ]
 
     def __init__(self):
@@ -1655,6 +1656,7 @@ class Reason:
         self.service = False
         self.cleanup_metadata_instructions = None
         self.unfinished_queue_input = False
+        self.no_metadata = False
 
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
