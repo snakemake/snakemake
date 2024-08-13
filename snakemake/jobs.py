@@ -13,7 +13,7 @@ import shutil
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import List, Optional
+from typing import Iterable, List, Optional
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings.types import DeploymentMethod
@@ -1802,5 +1802,5 @@ class Reason:
         return v and not self.finished
 
 
-def jobs_to_rulenames(jobs: Job) -> List[str]:
+def jobs_to_rulenames(jobs: Iterable[Job]) -> List[str]:
     return sorted({job.rule.name for job in jobs})
