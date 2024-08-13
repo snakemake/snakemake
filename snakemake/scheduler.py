@@ -621,7 +621,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         except TimeoutError:
             logger.warning(
                 "Failed to solve scheduling problem with ILP solver in time (10s). "
-                "Falling back to greedy solver."
+                "Falling back to greedy solver.",
             )
             return self.job_selector_greedy(jobs)
         except pulp.apis.core.PulpSolverError:
