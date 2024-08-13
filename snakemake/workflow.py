@@ -1146,7 +1146,9 @@ class Workflow(WorkflowExecutorInterface):
 
             def log_missing_metadata_info():
                 no_metadata_jobs = [
-                    job for job in self.dag.jobs if self.dag.reason(job).no_metadata
+                    job
+                    for job in self.dag.jobs
+                    if self.dag.reason(job).no_metadata and not self.dag.needrun(job)
                 ]
                 if no_metadata_jobs:
                     logger.info(
