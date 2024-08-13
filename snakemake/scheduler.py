@@ -613,7 +613,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
         try:
 
-            async def _solve_ilp_timeout(self, prob, secs):
+            async def _solve_ilp_timeout(self, prob: pulp.LpProblem, secs: int) -> None:
                 async with timeout(secs):
                     await self._solve_ilp(prob)
 
