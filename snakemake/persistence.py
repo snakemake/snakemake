@@ -24,7 +24,7 @@ from snakemake_interface_executor_plugins.persistence import (
 
 import snakemake.exceptions
 from snakemake.logging import logger
-from snakemake.jobs import jobfiles
+from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
 from snakemake.io import is_flagged, get_flag_value
 
@@ -372,7 +372,7 @@ class Persistence(PersistenceExecutorInterface):
             )
         )
 
-    def has_metadata(self, job):
+    def has_metadata(self, job: Job) -> bool:
         return all(self.metadata(path) for path in job.output)
 
     def metadata(self, path):
