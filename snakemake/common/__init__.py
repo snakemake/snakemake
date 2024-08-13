@@ -352,4 +352,4 @@ def is_namedtuple_instance(x):
 
 
 def jobs_to_rulenames(jobs) -> List[str]:
-    return sorted(set(job.rule.name for job in jobs))
+    return sorted({job.rule.name for job in jobs})
