@@ -1800,3 +1800,7 @@ class Reason:
             or self.unfinished_queue_input
         )
         return v and not self.finished
+
+
+def jobs_to_rulenames(jobs) -> List[str]:
+    return sorted({job.rule.name for job in jobs})

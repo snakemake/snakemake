@@ -106,7 +106,6 @@ from snakemake.common import (
     Rules,
     Scatter,
     Gather,
-    jobs_to_rulenames,
     smart_join,
     NOTHING_TO_BE_DONE_MSG,
 )
@@ -127,6 +126,7 @@ from snakemake.deployment.conda import Conda
 from snakemake import api, sourcecache
 import snakemake.ioutils
 import snakemake.ioflags
+from snakemake.jobs import jobs_to_rulenames
 
 
 SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))

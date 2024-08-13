@@ -349,7 +349,3 @@ def is_namedtuple_instance(x):
     if not isinstance(f, tuple):
         return False
     return all(type(n) is str for n in f)
-
-
-def jobs_to_rulenames(jobs) -> List[str]:
-    return sorted({job.rule.name for job in jobs})
