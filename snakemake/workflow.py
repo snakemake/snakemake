@@ -1152,8 +1152,9 @@ class Workflow(WorkflowExecutorInterface):
                 ]
                 if no_metadata_jobs:
                     logger.info(
-                        "Some jobs have no recorded provenance/metadata so that they "
-                        "cannot be triggered by this information. \n"
+                        f"{len(no_metadata_jobs)} jobs have no recorded "
+                        "provenance/metadata so that they "
+                        "cannot be triggered by that. \n"
                         "Rules with missing "
                         f"metadata: {' '.join(jobs_to_rulenames(no_metadata_jobs))}"
                     )
