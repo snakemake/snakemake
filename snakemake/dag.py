@@ -1271,10 +1271,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                     )
                                 if RerunTrigger.CODE in self.workflow.rerun_triggers:
                                     reason.code_changed = any(
-                                        [
-                                            f
-                                            async for f in job.outputs_older_than_script_or_notebook()
-                                        ]
+                                        f
+                                        async for f in job.outputs_older_than_script_or_notebook()
                                     ) or any(
                                         self.workflow.persistence.code_changed(job)
                                     )
