@@ -2,6 +2,7 @@ from abc import ABC
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
+import re
 from typing import Any, Optional
 from typing import Mapping, Sequence, Set
 
@@ -51,6 +52,33 @@ class NotebookEditMode:
         if server_addr is not None:
             self.ip, self.port = server_addr.split(":")
         self.draft_only = draft_only
+
+
+class MaxJobsPerTimespan:
+    arg_re = re.compile(r"(?P<count>\d+)/(?P<timespan>\d+(h|m|s|ms|w|d))")
+
+    def __init__(self, max_jobs: int, timespan: Optional[str] = None):
+        import humanfriendly
+
+        self.max_jobs = max_jobs
+        if timespan is not None:
+            self.timespan = humanfriendly.parse_timespan(timespan)
+        else:
+            self.timespan = 1
+
+    @classmethod
+    def parse_choice(cls, arg: str):
+        m = cls.arg_re.match(arg)
+        if m is None:
+            raise WorkflowError(
+                "Invalid max jobs per timespan definition. "
+                "Must be of the form <max_jobs>/<timespan> with <max_jobs> being an "
+                "integer, and <timespan> being an integer with "
+                f"unit h, m, s ms, w, d. Given instead: {arg}"
+            )
+        max_jobs, timespan = m.group("count"), m.group("timespan")
+        max_jobs = int(max_jobs)
+        return cls(max_jobs, timespan=timespan)
 
 
 @dataclass
@@ -258,10 +286,13 @@ class SchedulingSettings(SettingsBase):
     ilp_solver: Optional[str] = None
     solver_path: Optional[Path] = None
     greediness: Optional[float] = None
-    max_jobs_per_second: int = 10
+    max_jobs_per_second: Optional[int] = None
+    max_jobs_per_timespan: Optional[MaxJobsPerTimespan] = None
 
     def __post_init__(self):
         self.greediness = self._get_greediness()
+        if self.max_jobs_per_second is not None and self.max_jobs_per_timespan is None:
+            self.max_jobs_per_timespan = MaxJobsPerTimespan(self.max_jobs_per_second)
 
     def _get_greediness(self):
         if self.greediness is None:
