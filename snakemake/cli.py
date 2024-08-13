@@ -246,7 +246,7 @@ def parse_config(entries):
     parsers = [int, float, _bool_parser, yaml_base_load, str]
     config = dict()
     if entries:
-        valid = re.compile(r"[a-zA-Z_]\w*$")
+        valid = re.compile(r"[a-zA-Z_][\w-]*\w$")
         for entry in entries:
             key, val = parse_key_value_arg(
                 entry,
