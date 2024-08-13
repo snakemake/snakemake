@@ -105,24 +105,22 @@ class AbstractJob(JobExecutorInterface):
     def _get_scheduler_resources(self):
         if self._scheduler_resources is None:
             if self.dag.workflow.local_exec or self.is_local:
-                self._scheduler_resources = Resources(
-                    fromdict={
-                        k: v
-                        for k, v in self.resources.items()
-                        if not isinstance(self.resources[k], TBDString)
-                    }
-                )
+                res_dict = {
+                    k: v
+                    for k, v in self.resources.items()
+                    if not isinstance(self.resources[k], TBDString)
+                }
             else:
-                self._scheduler_resources = Resources(
-                    fromdict={
-                        k: self.resources[k]
-                        for k in (
-                            set(self.resources.keys())
-                            - self.dag.workflow.resource_scopes.locals
-                        )
-                        if not isinstance(self.resources[k], TBDString)
-                    }
-                )
+                res_dict = {
+                    k: self.resources[k]
+                    for k in (
+                        set(self.resources.keys())
+                        - self.dag.workflow.resource_scopes.locals
+                    )
+                    if not isinstance(self.resources[k], TBDString)
+                }
+            res_dict["_job_count"] = 1
+            self._scheduler_resources = Resources(fromdict=res_dict)
         return self._scheduler_resources
 
 
