@@ -616,13 +616,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 async with timeout(secs):
                     await self._solve_ilp(prob)
             async_run(self._solve_ilp_timeout(prob, 10))
-        except TimeoutError as e:
+        except TimeoutError:
             logger.warning(
                 "Failed to solve scheduling problem with ILP solver in time (10s). "
                 "Falling back to greedy solver."
             )
             return self.job_selector_greedy(jobs)
-        except pulp.apis.core.PulpSolverError as e:
+        except pulp.apis.core.PulpSolverError:
             logger.warning(
                 "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver. "
                 "Run Snakemake with --verbose to see the full solver output for debugging the problem."
