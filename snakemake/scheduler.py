@@ -612,9 +612,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 )
 
         try:
+
             async def _solve_ilp_timeout(self, prob, secs):
                 async with timeout(secs):
                     await self._solve_ilp(prob)
+
             async_run(self._solve_ilp_timeout(prob, 10))
         except TimeoutError:
             logger.warning(
