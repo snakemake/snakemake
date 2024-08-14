@@ -7,7 +7,6 @@ dependencies:
   - mamba
   - yte
   - packaging
-  - wrapt_timeout_decorator
   - datrie
   - boto3
   - httpretty
@@ -69,3 +68,4 @@ dependencies:
       - snakemake-storage-plugin-http
       - snakemake-storage-plugin-s3
       - snakemake-storage-plugin-fs >=1.0.3
+      - wrapt_timeout_decorator
