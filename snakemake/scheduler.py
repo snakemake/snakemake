@@ -492,7 +492,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """
         import pulp
         from pulp import lpSum
-        from wrapt_timeout_decorator import timeout, TimeoutError
 
         if len(jobs) == 1:
             logger.debug(
@@ -640,6 +639,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.update_available_resources(selected_jobs)
         return selected_jobs
 
+    from wrapt_timeout_decorator import timeout
     @timeout(10)
     def _solve_ilp(self, prob):
         import pulp
