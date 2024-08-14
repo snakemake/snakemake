@@ -7,7 +7,7 @@ dependencies:
   - mamba
   - yte
   - packaging
-  - async-timeout
+  - wrapt_timeout_decorator
   - datrie
   - boto3
   - httpretty

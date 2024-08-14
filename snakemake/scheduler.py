@@ -492,7 +492,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """
         import pulp
         from pulp import lpSum
-        from async_timeout import timeout, TimeoutError
+        from wrapt_timeout_decorator import timeout, TimeoutError
 
         if len(jobs) == 1:
             logger.debug(
@@ -612,12 +612,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 )
 
         try:
-
-            async def _solve_ilp_timeout(self, prob: pulp.LpProblem, secs: int) -> None:
-                async with timeout(secs):
-                    await self._solve_ilp(prob)
-
-            async_run(self._solve_ilp_timeout(prob, 10))
+            self._solve_ilp(prob)
         except TimeoutError:
             logger.warning(
                 "Failed to solve scheduling problem with ILP solver in time (10s). "
@@ -645,6 +640,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.update_available_resources(selected_jobs)
         return selected_jobs
 
+    @timeout(10)
     def _solve_ilp(self, prob):
         import pulp
 
