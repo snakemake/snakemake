@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [8.18.0](https://github.com/snakemake/snakemake/compare/v8.17.0...v8.18.0) (2024-08-14)
+
+
+### Features
+
+* show info on missing metadata ([#3014](https://github.com/snakemake/snakemake/issues/3014)) ([e502312](https://github.com/snakemake/snakemake/commit/e502312e72ad8dd1f54424eb95a7a0951e9fac62))
+
+
+### Performance Improvements
+
+* cache mtime of scripts and notebooks ([#2965](https://github.com/snakemake/snakemake/issues/2965)) ([405a056](https://github.com/snakemake/snakemake/commit/405a056230ba20114eac6caf083953148bb6d1c1))
+
 ## [8.17.0](https://github.com/snakemake/snakemake/compare/v8.16.0...v8.17.0) (2024-08-13)
 
 
