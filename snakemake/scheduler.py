@@ -640,6 +640,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         return selected_jobs
 
     from wrapt_timeout_decorator import timeout
+
     @timeout(10)
     def _solve_ilp(self, prob):
         import pulp
