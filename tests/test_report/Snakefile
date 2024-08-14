@@ -7,7 +7,7 @@ shell.executable("bash")
 
 rule all:
     input:
-        ["fig1.svg", "testmodel.fig2.png", "test.csv", "testdir"],
+        ["fig1.svg", "fig2.svg", "testmodel.fig2.png", "test.csv", "testdir"],
 
 
 rule c:
@@ -28,10 +28,10 @@ rule a:
         expand("test.{i}.out", i=range(10)),
     output:
         report(
-            "fig1.svg",
-            caption="report/fig1.rst",
+            "{fig}.svg",
+            caption="report/{fig}.rst",
             category="Step 1",
-            labels=lambda w, params: {"type": "figure", "num": "1"},
+            labels=lambda w, params: {"type": "figure", "num": "{fig}"},
         ),
     shell:
         "sleep `shuf -i 1-3 -n 1`; cp data/fig1.svg {output}"

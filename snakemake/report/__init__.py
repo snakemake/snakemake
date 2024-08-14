@@ -552,13 +552,14 @@ async def auto_report(
                         name=report_obj.subcategory, wildcards=wildcards, job=job
                     )
                     labels = expand_labels(report_obj.labels, wildcards, job)
+                    caption = expand_report_argument(report_obj.caption, wildcards, job)
 
                     results[category][subcategory].append(
                         FileRecord(
                             path=Path(f),
                             job=job,
                             category=category,
-                            raw_caption=report_obj.caption,
+                            raw_caption=caption,
                             wildcards_overwrite=wildcards_overwrite,
                             aux_files=aux_files,
                             name_overwrite=name_overwrite,
