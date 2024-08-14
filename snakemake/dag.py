@@ -1270,9 +1270,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                         self.workflow.persistence.input_changed(job)
                                     )
                                 if RerunTrigger.CODE in self.workflow.rerun_triggers:
+                                    # The list comprehension is needed below in order to
+                                    # collect all the async generator items before
+                                    # applying any().
                                     reason.code_changed = any(
-                                        f
-                                        async for f in job.outputs_older_than_script_or_notebook()
+                                        [
+                                            f
+                                            async for f in job.outputs_older_than_script_or_notebook()
+                                        ]
                                     ) or any(
                                         self.workflow.persistence.code_changed(job)
                                     )
