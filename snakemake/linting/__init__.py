@@ -5,7 +5,12 @@ from abc import ABC, abstractmethod
 
 from snakemake.logging import logger
 
-NAME_PATTERN = "[a-zA-Z_][a-zA-Z_0-9]*"
+# (?!\\+) is a negative lookahead, which removes trailing
+# '+'s from the match. There is a minor risk, that a user
+# intentionally uses file name (parts) with a trailing '+'
+# intentionally. The regex extension _should_ allow simple
+# regexes as '\s+' in place of a tab separator to pass.
+NAME_PATTERN = "[a-zA-Z_][a-zA-Z_0-9]*(?!\\+)"
 
 
 class Linter(ABC):

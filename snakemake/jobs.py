@@ -14,7 +14,7 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Optional
+from typing import Iterable, List, Optional
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings.types import DeploymentMethod
@@ -111,24 +111,22 @@ class AbstractJob(JobExecutorInterface):
     def _get_scheduler_resources(self):
         if self._scheduler_resources is None:
             if self.dag.workflow.local_exec or self.is_local:
-                self._scheduler_resources = Resources(
-                    fromdict={
-                        k: v
-                        for k, v in self.resources.items()
-                        if not isinstance(self.resources[k], TBDString)
-                    }
-                )
+                res_dict = {
+                    k: v
+                    for k, v in self.resources.items()
+                    if not isinstance(self.resources[k], TBDString)
+                }
             else:
-                self._scheduler_resources = Resources(
-                    fromdict={
-                        k: self.resources[k]
-                        for k in (
-                            set(self.resources.keys())
-                            - self.dag.workflow.resource_scopes.locals
-                        )
-                        if not isinstance(self.resources[k], TBDString)
-                    }
-                )
+                res_dict = {
+                    k: self.resources[k]
+                    for k in (
+                        set(self.resources.keys())
+                        - self.dag.workflow.resource_scopes.locals
+                    )
+                    if not isinstance(self.resources[k], TBDString)
+                }
+            res_dict["_job_count"] = 1
+            self._scheduler_resources = Resources(fromdict=res_dict)
         return self._scheduler_resources
 
 
@@ -1643,6 +1641,7 @@ class Reason:
         "target",
         "finished",
         "cleanup_metadata_instructions",
+        "no_metadata",
     ]
 
     def __init__(self):
@@ -1663,6 +1662,7 @@ class Reason:
         self.service = False
         self.cleanup_metadata_instructions = None
         self.unfinished_queue_input = False
+        self.no_metadata = False
 
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
@@ -1806,3 +1806,7 @@ class Reason:
             or self.unfinished_queue_input
         )
         return v and not self.finished
+
+
+def jobs_to_rulenames(jobs: Iterable[Job]) -> List[str]:
+    return sorted({job.rule.name for job in jobs})
