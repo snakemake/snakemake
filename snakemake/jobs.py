@@ -89,7 +89,7 @@ def jobfiles(jobs, type):
 
 
 @functools.lru_cache
-def get_script_mtime(path):
+def get_script_mtime(path: str) -> float:
     return os.lstat(path).st_mtime
 
 
