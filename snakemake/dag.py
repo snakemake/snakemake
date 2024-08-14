@@ -1257,30 +1257,39 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             # The first pass (with depends_on_checkpoint_target == True) is not informative
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
-                            if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
-                                reason.params_changed = any(
-                                    self.workflow.persistence.params_changed(job)
-                                )
-                            if RerunTrigger.INPUT in self.workflow.rerun_triggers:
-                                reason.input_changed = any(
-                                    self.workflow.persistence.input_changed(job)
-                                )
-                            if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                                reason.code_changed = any(
-                                    [
-                                        f
-                                        async for f in job.outputs_older_than_script_or_notebook()
-                                    ]
-                                ) or any(self.workflow.persistence.code_changed(job))
-                            if (
-                                RerunTrigger.SOFTWARE_ENV
-                                in self.workflow.rerun_triggers
-                            ):
-                                reason.software_stack_changed = any(
-                                    self.workflow.persistence.conda_env_changed(job)
-                                ) or any(
-                                    self.workflow.persistence.container_changed(job)
-                                )
+
+                            if not self.workflow.persistence.has_metadata(job):
+                                reason.no_metadata = True
+                            else:
+                                if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
+                                    reason.params_changed = any(
+                                        self.workflow.persistence.params_changed(job)
+                                    )
+                                if RerunTrigger.INPUT in self.workflow.rerun_triggers:
+                                    reason.input_changed = any(
+                                        self.workflow.persistence.input_changed(job)
+                                    )
+                                if RerunTrigger.CODE in self.workflow.rerun_triggers:
+                                    # The list comprehension is needed below in order to
+                                    # collect all the async generator items before
+                                    # applying any().
+                                    reason.code_changed = any(
+                                        [
+                                            f
+                                            async for f in job.outputs_older_than_script_or_notebook()
+                                        ]
+                                    ) or any(
+                                        self.workflow.persistence.code_changed(job)
+                                    )
+                                if (
+                                    RerunTrigger.SOFTWARE_ENV
+                                    in self.workflow.rerun_triggers
+                                ):
+                                    reason.software_stack_changed = any(
+                                        self.workflow.persistence.conda_env_changed(job)
+                                    ) or any(
+                                        self.workflow.persistence.container_changed(job)
+                                    )
 
             if noinitreason and reason:
                 reason.derived = False

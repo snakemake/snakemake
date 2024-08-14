@@ -13,7 +13,7 @@ import shutil
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Optional
+from typing import Iterable, List, Optional
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings.types import DeploymentMethod
@@ -1635,6 +1635,7 @@ class Reason:
         "target",
         "finished",
         "cleanup_metadata_instructions",
+        "no_metadata",
     ]
 
     def __init__(self):
@@ -1655,6 +1656,7 @@ class Reason:
         self.service = False
         self.cleanup_metadata_instructions = None
         self.unfinished_queue_input = False
+        self.no_metadata = False
 
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
@@ -1798,3 +1800,7 @@ class Reason:
             or self.unfinished_queue_input
         )
         return v and not self.finished
+
+
+def jobs_to_rulenames(jobs: Iterable[Job]) -> List[str]:
+    return sorted({job.rule.name for job in jobs})
