@@ -68,4 +68,4 @@ dependencies:
       - snakemake-storage-plugin-http
       - snakemake-storage-plugin-s3
       - snakemake-storage-plugin-fs >=1.0.3
-      - wrapt_timeout_decorator
+      - timeout_decorator

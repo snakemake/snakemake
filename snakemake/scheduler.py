@@ -639,9 +639,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.update_available_resources(selected_jobs)
         return selected_jobs
 
-    from wrapt_timeout_decorator import timeout
+    from timeout_decorator import timeout
 
-    @timeout(10)
+    @timeout(10, timeout_exception=TimeoutError)
     def _solve_ilp(self, prob):
         import pulp
 
@@ -654,15 +654,15 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.workflow.scheduling_settings.solver_path,
                 os.environ["PATH"],
             )
-        try:
-            solver = (
-                pulp.getSolver(self.workflow.scheduling_settings.ilp_solver)
-                if self.workflow.scheduling_settings.ilp_solver
-                else pulp.apis.LpSolverDefault
-            )
-        finally:
-            os.environ["PATH"] = old_path
+        solver = (
+            pulp.getSolver(self.workflow.scheduling_settings.ilp_solver)
+            if self.workflow.scheduling_settings.ilp_solver
+            else pulp.apis.LpSolverDefault
+        )
+        os.environ["PATH"] = old_path
         solver.msg = self.workflow.output_settings.verbose
+        solver.threads = 2
+        solver.timeLimit = 10.0
         prob.solve(solver)
 
     def required_by_job(self, temp_file, job):
