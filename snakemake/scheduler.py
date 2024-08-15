@@ -614,7 +614,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         logger.debug(f"Problem is {pulp.LpStatus[status]}")
         if pulp.LpStatus[status] != "Optimal":
             if pulp.LpStatus[status] == "Not Solved":
-                logger.warning("Failed to solve scheduling problem with ILP solver in time (10s).")
+                logger.warning(
+                    "Failed to solve scheduling problem with ILP solver in time (10s)."
+                )
             elif pulp.LpStatus[status] == "Infeasible":
                 logger.warning("Failed to solve scheduling problem with ILP solver.")
 
