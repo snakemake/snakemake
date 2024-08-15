@@ -641,7 +641,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
     from timeout_decorator import timeout
 
-    @timeout(10, timeout_exception=TimeoutError)
+    @timeout(10, use_signals=False, timeout_exception=TimeoutError)
     def _solve_ilp(self, prob):
         import pulp
 
