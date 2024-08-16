@@ -10,12 +10,7 @@ def get_resource_as_string(path_or_uri):
     import requests
 
     if is_local_file(path_or_uri):
-        fpath = path_or_uri
-        if not os.path.isabs(fpath):
-            fpath = os.path.join(Path(__file__).parent, "template", path_or_uri)
-
-        with open(fpath) as file:
-            return file.read()
+        return open(Path(__file__).parent / "template" / path_or_uri).read()
     else:
         r = requests.get(path_or_uri)
         if r.status_code == requests.codes.ok:
