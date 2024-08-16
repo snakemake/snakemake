@@ -14,7 +14,8 @@ def get_resource_as_string(path_or_uri):
         if not os.path.isabs(fpath):
             fpath = os.path.join(Path(__file__).parent, "template", path_or_uri)
 
-        return open(fpath).read()
+        with open(fpath) as file:
+            return file.read()
     else:
         r = requests.get(path_or_uri)
         if r.status_code == requests.codes.ok:
