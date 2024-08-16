@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from snakemake.exceptions import WorkflowError
 import snakemake
 import sys
