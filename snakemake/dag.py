@@ -437,10 +437,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     async def sanitize_local_storage_copies(self):
         """Remove local copies of storage files that will be recreated in this run."""
         async with asyncio.TaskGroup() as tg:
-            async for job in self.needrun_jobs:
+            for job in self.needrun_jobs():
                 if not self.finished(job):
                     for f in job.output:
-                        if f.is_storage and f.exists_local():
+                        if f.is_storage and await f.exists_local():
                             tg.create_task(
                                 f.remove(remove_non_empty_dir=True, only_local=True)
                             )
@@ -1257,30 +1257,39 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             # The first pass (with depends_on_checkpoint_target == True) is not informative
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
-                            if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
-                                reason.params_changed = any(
-                                    self.workflow.persistence.params_changed(job)
-                                )
-                            if RerunTrigger.INPUT in self.workflow.rerun_triggers:
-                                reason.input_changed = any(
-                                    self.workflow.persistence.input_changed(job)
-                                )
-                            if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                                reason.code_changed = any(
-                                    [
-                                        f
-                                        async for f in job.outputs_older_than_script_or_notebook()
-                                    ]
-                                ) or any(self.workflow.persistence.code_changed(job))
-                            if (
-                                RerunTrigger.SOFTWARE_ENV
-                                in self.workflow.rerun_triggers
-                            ):
-                                reason.software_stack_changed = any(
-                                    self.workflow.persistence.conda_env_changed(job)
-                                ) or any(
-                                    self.workflow.persistence.container_changed(job)
-                                )
+
+                            if not self.workflow.persistence.has_metadata(job):
+                                reason.no_metadata = True
+                            else:
+                                if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
+                                    reason.params_changed = any(
+                                        self.workflow.persistence.params_changed(job)
+                                    )
+                                if RerunTrigger.INPUT in self.workflow.rerun_triggers:
+                                    reason.input_changed = any(
+                                        self.workflow.persistence.input_changed(job)
+                                    )
+                                if RerunTrigger.CODE in self.workflow.rerun_triggers:
+                                    # The list comprehension is needed below in order to
+                                    # collect all the async generator items before
+                                    # applying any().
+                                    reason.code_changed = any(
+                                        [
+                                            f
+                                            async for f in job.outputs_older_than_script_or_notebook()
+                                        ]
+                                    ) or any(
+                                        self.workflow.persistence.code_changed(job)
+                                    )
+                                if (
+                                    RerunTrigger.SOFTWARE_ENV
+                                    in self.workflow.rerun_triggers
+                                ):
+                                    reason.software_stack_changed = any(
+                                        self.workflow.persistence.conda_env_changed(job)
+                                    ) or any(
+                                        self.workflow.persistence.container_changed(job)
+                                    )
 
             if noinitreason and reason:
                 reason.derived = False
@@ -1609,7 +1618,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             # cleanup local storage copies of files that will be created by jobs
             # this is important to ensure that there are no outdated local copies
             # that misguide e.g. params functions.
-            self.sanitize_local_storage_copies()
+            await self.sanitize_local_storage_copies()
             self.update_container_imgs()
             self.update_conda_envs()
             await self.update_needrun()

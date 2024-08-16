@@ -356,30 +356,11 @@ On unix, you can make use of the commonly pre-installed `mail` command:
 
 In case your administrator does not provide you with a proper configuration of the sendmail framework, you can configure `mail` to work e.g. via Gmail (see `here <https://www.cyberciti.biz/tips/linux-use-gmail-as-a-smarthost.html>`_).
 
-I want to pass variables between rules. Is that possible?
----------------------------------------------------------
+I want to pass Python variables between rules. Is that possible?
+----------------------------------------------------------------
 
-Because of the cluster support and the ability to resume a workflow where you stopped last time, Snakemake in general should be used in a way that information is stored in the output files of your jobs. Sometimes it might though be handy to have a kind of persistent storage for simple values between jobs and rules. Using plain python objects like a global dict for this will not work as each job is run in a separate process by snakemake. What helps here is the `PersistentDict` from the `pytools <https://github.com/inducer/pytools>`_ package. Here is an example of a Snakemake workflow using this facility:
-
-.. code-block:: python
-
-    from pytools.persistent_dict import PersistentDict
-
-    storage = PersistentDict("mystorage")
-
-    rule a:
-        input: "test.in"
-        output: "test.out"
-        run:
-            myvar = storage.fetch("myvar")
-            # do stuff
-
-    rule b:
-        output: temp("test.in")
-        run:
-            storage.store("myvar", 3.14)
-
-Here, the output rule b has to be temp in order to ensure that ``myvar`` is stored in each run of the workflow as rule a relies on it. In other words, the `PersistentDict` is persistent between the job processes, but not between different runs of this workflow. If you need to conserve information between different runs, use output files for them.
+Because of the cluster support and the ability to resume a workflow where you stopped last time, Snakemake in general should be used in a way that information is stored in the output files of your jobs.
+A common approach to pass non file variable data between rules is to use json or parquet for writing in the one rule and reading in a consuming rule the variable shall be passed to.
 
 Why do my global variables behave strangely when I run my job on a cluster?
 ---------------------------------------------------------------------------
