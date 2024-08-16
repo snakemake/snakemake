@@ -76,7 +76,7 @@ class Package:
     def __init__(
         self, version=None, license_path=None, source_path=None, **source_paths
     ):
-        def read_source(path: Path):
+        def read_source(path: Path) -> str:
             with path.open() as file:
                 return file.read()
 
