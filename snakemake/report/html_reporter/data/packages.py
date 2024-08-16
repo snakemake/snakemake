@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from snakemake.exceptions import WorkflowError
 from snakemake.report.html_reporter.common import get_resource_as_string
 import snakemake
@@ -14,43 +15,45 @@ def get_packages():
             "Python package pygments must be installed to create reports."
         )
 
+    # packages declared here must be downloaded to the prefix share/snakemake/assets
+    # via setuptools_download in setup.cfg
     return Packages(
         {
             "snakemake": Package(
                 version=snakemake.__version__.split("+")[0],
-                license_url=os.path.join(sys.prefix, "share/snakemake/LICENSE.md"),
+                license_path="snakemake/LICENSE.md",
             ),
             "pygments": Package(
                 version=pygments.__version__,
-                license_url=os.path.join(sys.prefix, "share/pygments/LICENSE"),
+                license_path="pygments/LICENSE",
             ),
             "tailwindcss": Package(
-                license_url=os.path.join(sys.prefix, "share/tailwindcss/LICENSE"),
-                url=os.path.join(sys.prefix, "share/tailwindcss/tailwind.css")
+                license_path="tailwindcss/LICENSE",
+                source_path="tailwindcss/tailwind.css",
             ),
             "react": Package(
-                license_url=os.path.join(sys.prefix, "share/react/LICENSE"),
-                main=os.path.join(sys.prefix, "share/react/react.production.min.js"),
-                dom=os.path.join(sys.prefix, "share/react/react-dom.production.min.js"),
+                license_path="react/LICENSE",
+                main="react/react.production.min.js",
+                dom="react/react-dom.production.min.js",
             ),
             "vega": Package(
-                url=os.path.join(sys.prefix, "share/vega/vega.js"),
-                license_url=os.path.join(sys.prefix, "share/vega/LICENSE"),
+                source_path="vega/vega.js",
+                license_path="vega/LICENSE",
             ),
             "vega-lite": Package(
-                url=os.path.join(sys.prefix, "share/vega-lite/vega-lite.js"),
-                license_url=os.path.join(sys.prefix, "share/vega-lite/LICENSE"),
+                source_path="vega-lite/vega-lite.js",
+                license_path="vega-lite/LICENSE",
             ),
             "vega-embed": Package(
-                url=os.path.join(sys.prefix, "share/vega-embed/vega-embed.js"),
-                license_url=os.path.join(sys.prefix, "share/vega-embed/LICENSE"),
+                source_path="vega-embed/vega-embed.js",
+                license_path="vega-embed/LICENSE",
             ),
             "heroicons": Package(
-                license_url=os.path.join(sys.prefix, "share/heroicons/LICENSE"),
+                license_path="heroicons/LICENSE",
             ),
             "prop-types": Package(
-                url=os.path.join(sys.prefix, "share/prop-types/prop-types.min.js"),
-                license_url=os.path.join(sys.prefix, "share/prop-types/LICENSE"),
+                source_path="prop-types/prop-types.min.js",
+                license_path="prop-types/LICENSE",
             ),
         }
     )
@@ -70,13 +73,19 @@ class Packages:
 
 
 class Package:
-    def __init__(self, version=None, license_url=None, url=None, **urls):
+    def __init__(
+        self, version=None, license_path=None, source_path=None, **source_paths
+    ):
         self.version = version
-        self.license = get_resource_as_string(license_url)
-        if url is not None:
-            self.url = url
+        asset_prefix = Path(sys.prefix) / "share" / "snakemake" / "assets"
+        self.license = get_resource_as_string(asset_prefix / license_path)
+        if source_path is not None:
+            self.source = get_resource_as_string(asset_prefix / source_path)
         else:
-            self.urls = urls
+            self.sources = {
+                name: get_resource_as_string(asset_prefix / path)
+                for name, path in source_paths.items()
+            }
 
     def get_record(self):
         return {"version": self.version, "license": self.license}

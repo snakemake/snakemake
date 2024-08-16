@@ -9,7 +9,7 @@
     <meta name="author" content="">
     <title>Snakemake Report</title>
 
-    <script>{{ packages["tailwindcss"].url|get_resource_as_string }}</script>
+    <script>{{ packages["tailwindcss"].source }}</script>
     <style>{{ pygments_css|safe }}</style>
     <style>{{ "style.css"|get_resource_as_string }}</style>
 
@@ -31,12 +31,12 @@
     <div id="app">
     </div>
 
-    <script>{{packages["react"].urls["main"]|get_resource_as_string}}</script>
-    <script>{{packages["react"].urls["dom"]|get_resource_as_string}}</script>
-    <script>{{packages["prop-types"].url|get_resource_as_string}}</script>
-    <script>{{packages["vega"].url|get_resource_as_string}}</script>
-    <script>{{packages["vega-lite"].url|get_resource_as_string}}</script>
-    <script>{{packages["vega-embed"].url|get_resource_as_string}}</script>
+    <script>{{packages["react"].sources["main"]}}</script>
+    <script>{{packages["react"].sources["dom"]}}</script>
+    <script>{{packages["prop-types"].source}}</script>
+    <script>{{packages["vega"].source}}</script>
+    <script>{{packages["vega-lite"].source}}</script>
+    <script>{{packages["vega-embed"].source}}</script>
 
     <script id="workflow-desc">
     var workflow_desc = {{workflow_desc}};
