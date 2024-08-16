@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 from snakemake.exceptions import WorkflowError
-from snakemake.report.html_reporter.common import get_resource_as_string
 import snakemake
 import sys
 import os
