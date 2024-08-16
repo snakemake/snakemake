@@ -26,7 +26,7 @@ def get_packages():
             ),
             "tailwindcss": Package(
                 license_url=os.path.join(sys.prefix, "share/tailwindcss/LICENSE"),
-                url=os.path.join(sys.prefix, "share/tailwindcss/tailwind.css")
+                url=os.path.join(sys.prefix, "share/tailwindcss/tailwind.css"),
             ),
             "react": Package(
                 license_url=os.path.join(sys.prefix, "share/react/LICENSE"),
