@@ -1,13 +1,17 @@
 import os
 from pathlib import Path
+from typing import Union
 from snakemake.common import is_local_file
 from snakemake.report.common import data_uri_from_file
 
 from snakemake_interface_common.exceptions import WorkflowError
 
 
-def get_resource_as_string(path_or_uri):
+def get_resource_as_string(path_or_uri: Union[str, Path]) -> str:
     import requests
+
+    if isinstance(path_or_uri, Path):
+        path_or_uri = str(path_or_uri)
 
     if is_local_file(path_or_uri):
         fpath = path_or_uri
