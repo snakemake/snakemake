@@ -76,14 +76,19 @@ class Package:
     def __init__(
         self, version=None, license_path=None, source_path=None, **source_paths
     ):
+        def read_source(path: Path):
+            with path.open() as file:
+                return file.read()
+
         self.version = version
         asset_prefix = Path(sys.prefix) / "share" / "snakemake" / "assets"
-        self.license = get_resource_as_string(asset_prefix / license_path)
+        
+        self.license = read_source(asset_prefix / license_path)
         if source_path is not None:
-            self.source = get_resource_as_string(asset_prefix / source_path)
+            self.source = read_source(asset_prefix / source_path)
         else:
             self.sources = {
-                name: get_resource_as_string(asset_prefix / path)
+                name: read_source(asset_prefix / path)
                 for name, path in source_paths.items()
             }
 
