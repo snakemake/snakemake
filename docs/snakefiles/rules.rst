@@ -106,7 +106,7 @@ Hence wildcards can be constrained to given regular expressions.
 Here we could restrict the wildcard ``dataset`` to consist of digits only using ``\d+`` as the corresponding regular expression.
 With Snakemake 3.8.0, there are three ways to constrain wildcards.
 First, a wildcard can be constrained within the file pattern, by appending a regular expression separated by a comma 
-(you might want to use the `r` prefix for a raw string to suppress syntax issues, particularly for more complex regular expressions):
+(you might want to use the `r` prefix for a raw string to avoid having to escape backslashes, particularly for more complex regular expressions):
 
 .. code-block:: python
 
