@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [8.18.1](https://github.com/snakemake/snakemake/compare/v8.18.0...v8.18.1) (2024-08-19)
+
+
+### Bug Fixes
+
+* add assets and use local file links to allow offline reports ([#2904](https://github.com/snakemake/snakemake/issues/2904)) ([9cd94f7](https://github.com/snakemake/snakemake/commit/9cd94f71077f4f91d566daa67d54ca40e1c5b276))
+* use query from storage object in order to be able to reflect possible modifications (via StorageProvider.postprocess_query()) ([#3031](https://github.com/snakemake/snakemake/issues/3031)) ([3ddae58](https://github.com/snakemake/snakemake/commit/3ddae58e53eaf7020823a2a37145674d9a432389))
+
+
+### Documentation
+
+* clarify config file location ([6bd67d7](https://github.com/snakemake/snakemake/commit/6bd67d7b3284f054b893d72a3fc096ac711f54b4))
+
 ## [8.18.0](https://github.com/snakemake/snakemake/compare/v8.17.0...v8.18.0) (2024-08-14)
 
 
