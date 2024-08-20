@@ -1,4 +1,4 @@
-.. tutorial-additional_features:
+.. _tutorial-additional_features:
 
 Additional features
 -------------------
