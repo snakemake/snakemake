@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.18.2](https://github.com/snakemake/snakemake/compare/v8.18.1...v8.18.2) (2024-08-21)
+
+
+### Documentation
+
+* recommending raw strings to get rid of syntax warnings ([#3022](https://github.com/snakemake/snakemake/issues/3022)) ([877b3a3](https://github.com/snakemake/snakemake/commit/877b3a3172ba1b5e86ec6b10d4c5b47bf2a96407))
+* tutorial polishing ([16b1657](https://github.com/snakemake/snakemake/commit/16b16578d8bbf3d927ff26e4ff7f7434964ea38c))
+
 ## [8.18.1](https://github.com/snakemake/snakemake/compare/v8.18.0...v8.18.1) (2024-08-19)
 
 
