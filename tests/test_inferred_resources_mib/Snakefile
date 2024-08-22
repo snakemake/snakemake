@@ -1,8 +1,28 @@
 rule a:
     output:
-        "test.txt",
+        "test1.out",
     resources:
         mem="5000MB",
         disk="5000MB",
+    shell:
+        "echo {resources.mem_mib} {resources.disk_mib} > {output}"
+
+
+rule b:
+    output:
+        "test2.out",
+    resources:
+        mem="50G",
+        disk="50G",
+    shell:
+        "echo {resources.mem_mib} {resources.disk_mib} > {output}"
+
+
+rule c:
+    output:
+        "test3.out",
+    resources:
+        mem="5TB",
+        disk="5TB",
     shell:
         "echo {resources.mem_mib} {resources.disk_mib} > {output}"
