@@ -1,0 +1,8 @@
+rule a:
+    output:
+        "test.txt",
+    resources:
+        mem="5000MB",
+        disk="5000MB",
+    shell:
+        "echo {resources.mem_mib} {resources.disk_mib} > {output}"
