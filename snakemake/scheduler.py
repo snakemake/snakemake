@@ -493,9 +493,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
         import pulp
         from pulp import lpSum
 
+        logger.debug("Selecting jobs to run using ILP solver.")
+
         if len(jobs) == 1:
             logger.debug(
-                "Using greedy selector because only single job has to be scheduled."
+                "Switching to greedy selector because only one job has to be scheduled."
             )
             return self.job_selector_greedy(jobs)
 
@@ -674,6 +676,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         Args:
             jobs (list):    list of jobs
         """
+        logger.debug("Selecting jobs to run using greedy solver.")
+
         with self._lock:
             if not self.resources["_cores"]:
                 return set()
