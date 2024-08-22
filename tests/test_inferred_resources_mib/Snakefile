@@ -5,7 +5,7 @@ rule a:
         mem="5000MB",
         disk="5000MB",
     shell:
-        "echo {resources.mem_mib} {resources.disk_mib} > {output}"
+        "echo {resources.mem_mib} {resources.disk_mib} {resources.mem_mb} {resources.disk_mb} > {output}"
 
 
 rule b:
@@ -15,7 +15,7 @@ rule b:
         mem="50G",
         disk="50G",
     shell:
-        "echo {resources.mem_mib} {resources.disk_mib} > {output}"
+        "echo {resources.mem_mib} {resources.disk_mib} {resources.mem_mb} {resources.disk_mb} > {output}"
 
 
 rule c:
@@ -25,4 +25,4 @@ rule c:
         mem="5TB",
         disk="5TB",
     shell:
-        "echo {resources.mem_mib} {resources.disk_mib} > {output}"
+        "echo {resources.mem_mib} {resources.disk_mib} {resources.mem_mb} {resources.disk_mb} > {output}"
