@@ -623,7 +623,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
             logger.debug("Falling back to greedy solver.")
             return self.job_selector_greedy(jobs)
 
-        [logger.debug(f"{job}: {variable.value()}") for job, variable in scheduled_jobs.items()]
         selected_jobs = set(
             job
             for job, variable in scheduled_jobs.items()
