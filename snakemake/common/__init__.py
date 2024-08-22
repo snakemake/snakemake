@@ -57,7 +57,7 @@ def get_snakemake_searchpaths():
 
 
 def mb_to_mib(mb):
-    return int(math.ceil(mb * 0.95367431640625))
+    return int(math.ceil(mb * 1.048576))
 
 
 def parse_key_value_arg(arg, errmsg, strip_quotes=True):
