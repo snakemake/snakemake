@@ -10,10 +10,11 @@ import base64
 import tempfile
 import json
 import shutil
+import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Optional
+from typing import Iterable, List, Optional
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings.types import DeploymentMethod
@@ -87,18 +88,20 @@ def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
 
 
+@functools.lru_cache
+def get_script_mtime(path: str) -> float:
+    return os.lstat(path).st_mtime
+
+
 class AbstractJob(JobExecutorInterface):
     @abstractmethod
-    def reset_params_and_resources(self):
-        ...
+    def reset_params_and_resources(self): ...
 
     @abstractmethod
-    def get_target_spec(self):
-        ...
+    def get_target_spec(self): ...
 
     @abstractmethod
-    def products(self, include_logfiles=True):
-        ...
+    def products(self, include_logfiles=True): ...
 
     def has_products(self, include_logfiles=True):
         for _ in self.products(include_logfiles=include_logfiles):
@@ -108,24 +111,22 @@ class AbstractJob(JobExecutorInterface):
     def _get_scheduler_resources(self):
         if self._scheduler_resources is None:
             if self.dag.workflow.local_exec or self.is_local:
-                self._scheduler_resources = Resources(
-                    fromdict={
-                        k: v
-                        for k, v in self.resources.items()
-                        if not isinstance(self.resources[k], TBDString)
-                    }
-                )
+                res_dict = {
+                    k: v
+                    for k, v in self.resources.items()
+                    if not isinstance(self.resources[k], TBDString)
+                }
             else:
-                self._scheduler_resources = Resources(
-                    fromdict={
-                        k: self.resources[k]
-                        for k in (
-                            set(self.resources.keys())
-                            - self.dag.workflow.resource_scopes.locals
-                        )
-                        if not isinstance(self.resources[k], TBDString)
-                    }
-                )
+                res_dict = {
+                    k: self.resources[k]
+                    for k in (
+                        set(self.resources.keys())
+                        - self.dag.workflow.resource_scopes.locals
+                    )
+                    if not isinstance(self.resources[k], TBDString)
+                }
+            res_dict["_job_count"] = 1
+            self._scheduler_resources = Resources(fromdict=res_dict)
         return self._scheduler_resources
 
 
@@ -402,7 +403,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             # needed if rule is included from another subdirectory
             path = self.rule.basedir.join(path).get_path_or_uri()
         if is_local_file(path) and os.path.exists(path):
-            script_mtime = os.lstat(path).st_mtime
+            script_mtime = get_script_mtime(path)
             for f in self.output:
                 if await f.exists() and not await f.is_newer(script_mtime):
                     yield f
@@ -1031,9 +1032,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             wildcards=self.wildcards_dict,
             reason=str(self.dag.reason(self)),
             resources=self.resources,
-            priority="highest"
-            if priority == JobExecutorInterface.HIGHEST_PRIORITY
-            else priority,
+            priority=(
+                "highest"
+                if priority == JobExecutorInterface.HIGHEST_PRIORITY
+                else priority
+            ),
             threads=self.threads,
             indent=indent,
             is_checkpoint=self.rule.is_checkpoint,
@@ -1638,6 +1641,7 @@ class Reason:
         "target",
         "finished",
         "cleanup_metadata_instructions",
+        "no_metadata",
     ]
 
     def __init__(self):
@@ -1658,6 +1662,7 @@ class Reason:
         self.service = False
         self.cleanup_metadata_instructions = None
         self.unfinished_queue_input = False
+        self.no_metadata = False
 
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
@@ -1801,3 +1806,7 @@ class Reason:
             or self.unfinished_queue_input
         )
         return v and not self.finished
+
+
+def jobs_to_rulenames(jobs: Iterable[Job]) -> List[str]:
+    return sorted({job.rule.name for job in jobs})

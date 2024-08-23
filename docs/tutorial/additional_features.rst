@@ -1,4 +1,4 @@
-.. tutorial-additional_features:
+.. _tutorial-additional_features:
 
 Additional features
 -------------------
@@ -133,7 +133,7 @@ with ``envs/samtools.yaml`` defined as
   dependencies:
     - samtools =1.9
 
-.. sidebar:: Note
+.. note::
 
   The conda directive does not work in combination with ``run`` blocks, because
   they have to share their Python environment with the surrounding snakefile.
@@ -143,7 +143,11 @@ When Snakemake is executed with
 .. code:: console
 
   snakemake --software-deployment-method conda --cores 1
-  # or the short form
+
+or the short form
+
+.. code:: console
+
     snakemake --sdm conda -c 1
 
 it will automatically create required environments and
@@ -185,7 +189,7 @@ For example, the rule ``bwa_map`` could alternatively look like this:
     wrapper:
         "0.15.3/bio/bwa/mem"
 
-.. sidebar:: Note
+.. note::
 
   Updates to the Snakemake wrapper repository are automatically tested via
   `continuous integration <https://en.wikipedia.org/wiki/Continuous_integration>`_.
@@ -200,7 +204,7 @@ the required software will be automatically deployed before execution.
 Cluster or cloud execution
 :::::::::::::::::
 
-Executing jobs on a cluster or in the cloud is supported by so-called executor plugins, which are distributed and documented via the [Snakemake plugin catalog](https://snakemake.github.io/snakemake-plugin-catalog/).
+Executing jobs on a cluster or in the cloud is supported by so-called executor plugins, which are distributed and documented via the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_.
 
 Constraining wildcards
 ::::::::::::::::::::::

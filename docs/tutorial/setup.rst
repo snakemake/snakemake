@@ -55,7 +55,7 @@ However, don't install any of these this manually now, we guide you through bett
 Run tutorial for free in the cloud via Gitpod
 :::::::::::::::::::::::::::::::::::::::::::::
 
-.. sidebar:: Note
+.. note::
 
     A common thing to happen while using the development environment in GitPod is to hit ``Ctrl-s`` while in the terminal window, because you wanted to save a file in the editor window.
     This will freeze up you terminal.
@@ -190,7 +190,10 @@ This will create a folder ``data`` and a file ``environment.yaml`` in the workin
 Step 3: Creating an environment with the required software
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-First, make sure to activate the conda base environment with
+All interactions with Conda package management below can be conducted with either ``conda``, ``mamba`` or ``micromamba``.
+For the steps in the :ref:`"advanced" part of the tutorial <tutorial-advanced>`, you have to install ``mamba`` though in case you don't have it.
+
+First, make sure to activate the base environment with
 
 .. code:: console
 

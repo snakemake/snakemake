@@ -132,7 +132,9 @@ class PathModifier:
                 f"Error applying default storage provider {provider}. "
                 "Make sure to provide a valid --default-storage-prefix "
                 "(see https://snakemake.github.io/snakemake-plugin-catalog/plugins/"
-                "storage/{provider}.html). {validation_res}",
+                f"storage/{provider}.html). "
+                "Usually, the storage provider requires a scheme in the prefix, "
+                f"like 's3://' in case of the s3 storage provider. {validation_res}",
             )
         return flag_with_storage_object(path, storage_object)
 

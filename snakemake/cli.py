@@ -3,10 +3,11 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import argparse
+import dataclasses
 import os
 import re
 import sys
-from argparse import ArgumentDefaultsHelpFormatter
 from functools import partial
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -54,6 +55,7 @@ from snakemake.settings.types import (
     DeploymentSettings,
     ExecutionSettings,
     GroupSettings,
+    MaxJobsPerTimespan,
     NotebookEditMode,
     OutputSettings,
     PreemptibleRules,
@@ -244,7 +246,7 @@ def parse_config(entries):
     parsers = [int, float, _bool_parser, yaml_base_load, str]
     config = dict()
     if entries:
-        valid = re.compile(r"[a-zA-Z_]\w*$")
+        valid = re.compile(r"[a-zA-Z_][\w-]*\w$")
         for entry in entries:
             key, val = parse_key_value_arg(
                 entry,
@@ -327,6 +329,27 @@ def get_profile_dir(profile: str) -> (Path, Path):
             if config_files:
                 config_file = max(config_files, key=config_files.get)
                 return profile_candidate, profile_candidate / config_file
+
+
+class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
+    """Help message formatter which adds default values to argument help.
+
+    Like argparse.ArgumentDefaultsHelpFormatter, but doesn't print
+    None/dataclasses._MISSING_TYPE/etc.
+    """
+
+    def _get_help_string(self, action):
+        if (
+            (
+                action.option_strings
+                or action.nargs in [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
+            )
+            and action.default not in (None, "", set(), argparse.SUPPRESS)
+            and not isinstance(action.default, dataclasses._MISSING_TYPE)
+        ):
+            return action.help + " (default: %(default)s)"
+        else:
+            return action.help
 
 
 def get_argument_parser(profiles=None):
@@ -487,13 +510,13 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--local-cores",
         action="store",
-        default=available_cpu_count(),
         metavar="N",
         type=int,
         help=(
             "In cluster/cloud mode, use at most N cores of the host machine in parallel "
             "(default: number of CPU cores of the host). The cores are used to execute "
-            "local rules. This option is ignored when not in cluster/cloud mode."
+            "local rules. This option is ignored when not in cluster/cloud mode. "
+            "(default: <available CPU count>)"
         ),
     )
     group_exec.add_argument(
@@ -849,10 +872,7 @@ def get_argument_parser(profiles=None):
         choices=lp_solvers,
         help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
-    group_exec.add_argument(
-        "--scheduler-solver-path",
-        help="Set the PATH to search for scheduler solver binaries (internal use only).",
-    )
+
     group_exec.add_argument(
         "--conda-base-path",
         help="Path of conda base installation (home of conda, mamba, activate) (internal use only).",
@@ -1163,14 +1183,6 @@ def get_argument_parser(profiles=None):
         "Provenance-information based reports (e.g. --report and the "
         "--list_x_changes functions) will be empty or incomplete.",
     )
-    group_utils.add_argument(
-        "--deploy-sources",
-        nargs=2,
-        metavar=("QUERY", "CHECKSUM"),
-        help="Deploy sources archive from given storage provider query to the current "
-        "working sdirectory and control for archive checksum to proceed. Meant for "
-        "internal use only.",
-    )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
     group_output = parser.add_argument_group("OUTPUT")
@@ -1325,24 +1337,15 @@ def get_argument_parser(profiles=None):
         "lead to unexpected results otherwise.",
     )
     group_behavior.add_argument(
-        "--target-jobs",
-        nargs="+",
-        parse_func=parse_target_jobs_cli_args,
-        default=set(),
-        help="Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
-        "This is meant for internal use by Snakemake itself only.",
-    )
-    group_behavior.add_argument(
-        "--local-groupid",
-        default="local",
-        help="Name for local groupid, meant for internal use only.",
+        "--max-jobs-per-timespan",
+        type=MaxJobsPerTimespan.parse_choice,
+        help="Maximal number of job submissions/executions per timespan. Format: <number><timespan>, e.g. 50/1m or 0.5/1s.",
     )
     group_behavior.add_argument(
         "--max-jobs-per-second",
-        default=10,
-        type=float,
-        help="Maximal number of cluster/drmaa jobs per second, default is 10, "
-        "fractions allowed.",
+        type=int,
+        help="Maximal number of job submissions/executions per second. "
+        "Deprecated in favor of --max-jobs-per-timespan.",
     )
     group_behavior.add_argument(
         "--max-status-checks-per-second",
@@ -1364,13 +1367,6 @@ def get_argument_parser(profiles=None):
         default=0,
         type=int,
         help="Number of times to restart failing jobs (defaults to 0).",
-    )
-    group_behavior.add_argument(
-        "--attempt",
-        default=1,
-        type=int,
-        help="Internal use only: define the initial value of the attempt "
-        "parameter (default: 1).",
     )
     group_behavior.add_argument(
         "--wrapper-prefix",
@@ -1397,7 +1393,7 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--local-storage-prefix",
         default=".snakemake/storage",
-        type=expandvars(Path),
+        type=maybe_base64(expandvars(Path)),
         help="Specify prefix for storing local copies of storage files and folders. "
         "By default, this is a hidden subfolder in the workdir. It can however be "
         "freely chosen, e.g. in order to store those files on a local scratch disk. "
@@ -1405,7 +1401,7 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
-        type=expandvars(Path),
+        type=maybe_base64(expandvars(Path)),
         help="Specify prefix for storing local copies of storage files and folders in "
         "case of remote jobs (e.g. cluster or cloud jobs). This may differ from "
         "--local-storage-prefix. If not set, uses value of --local-storage-prefix. "
@@ -1462,11 +1458,16 @@ def get_argument_parser(profiles=None):
         "to be installed.",
     )
     group_behavior.add_argument(
-        "--mode",
-        choices=ExecMode.all(),
-        default=ExecMode.DEFAULT,
-        type=ExecMode.parse_choice,
-        help="Set execution mode of Snakemake (internal use only).",
+        "--local-groupid",
+        default="local",
+        help="Internal use only: Name for local groupid.",
+    )
+    group_behavior.add_argument(
+        "--attempt",
+        default=1,
+        type=int,
+        help="Internal use only: define the initial value of the attempt "
+        "parameter (default: 1).",
     )
     group_behavior.add_argument(
         "--show-failed-logs",
@@ -1691,6 +1692,40 @@ def get_argument_parser(profiles=None):
         "fallback for rules which don't define environment modules.",
     )
 
+    def help_internal(text):
+        return f"Internal use only: {text}"
+
+    group_internal = parser.add_argument_group("INTERNAL")
+    group_internal.add_argument(
+        "--scheduler-solver-path",
+        help=help_internal("Set the PATH to search for scheduler solver binaries."),
+    )
+    group_internal.add_argument(
+        "--deploy-sources",
+        nargs=2,
+        metavar=("QUERY", "CHECKSUM"),
+        help=help_internal(
+            "Deploy sources archive from given storage provider query to the current "
+            "working subdirectory and control for archive checksum to proceed."
+        ),
+    )
+    group_internal.add_argument(
+        "--target-jobs",
+        nargs="+",
+        parse_func=parse_target_jobs_cli_args,
+        default=set(),
+        help=help_internal(
+            "Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
+        ),
+    )
+    group_internal.add_argument(
+        "--mode",
+        choices=ExecMode.all(),
+        default=ExecMode.DEFAULT,
+        type=ExecMode.parse_choice,
+        help=help_internal("Set execution mode of Snakemake."),
+    )
+
     # Add namespaced arguments to parser for each plugin
     _get_executor_plugin_registry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
@@ -1886,6 +1921,9 @@ def args_to_api(args, parser):
         elif executor_plugin.common_settings.dryrun_exec:
             args.cores = 1
             args.jobs = None
+
+    if args.cores is None:
+        args.cores = available_cpu_count()
 
     # start profiler if requested
     if args.runtime_profile:
@@ -2116,6 +2154,7 @@ def args_to_api(args, parser):
                                 solver_path=args.scheduler_solver_path,
                                 greediness=args.scheduler_greediness,
                                 max_jobs_per_second=args.max_jobs_per_second,
+                                max_jobs_per_timespan=args.max_jobs_per_timespan,
                             ),
                             group_settings=GroupSettings(
                                 group_components=args.group_components,
