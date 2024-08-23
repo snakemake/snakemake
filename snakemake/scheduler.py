@@ -275,11 +275,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     run = self.job_selector(needrun)
                     self._last_job_selection_empty = not run
 
-                    logger.debug(
-                        f"Selected jobs ({len(run)})"
-                        # + "\n\t".join(map(str, run))
-                    )
-                    logger.debug(f"Resources after job selection: {self.resources}")
+                    if not self._last_job_selection_empty:
+                        logger.debug(
+                            f"Selected jobs ({len(run)})"
+                            # + "\n\t".join(map(str, run))
+                        )
+                        logger.debug(f"Resources after job selection: {self.resources}")
 
                 # update running jobs
                 with self._lock:
