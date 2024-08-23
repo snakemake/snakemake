@@ -1338,6 +1338,7 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--max-jobs-per-timespan",
+        default="10/1s",
         type=MaxJobsPerTimespan.parse_choice,
         help="Maximal number of job submissions/executions per timespan. Format: <number><timespan>, e.g. 50/1m or 0.5/1s.",
     )
