@@ -70,7 +70,7 @@ def is_eof(token):
     return token.type == tokenize.ENDMARKER
 
 
-def lineno(token):
+def lineno(token: tokenize.TokenInfo):
     return token.start[0]
 
 
@@ -1296,21 +1296,23 @@ def format_tokens(tokens) -> Generator[str, None, None]:
         t_ = t
 
 
-def parse(path, workflow, linemap, overwrite_shellcmd=None, rulecount=0):
+def parse(
+    path,
+    workflow: "workflow.Workflow",
+    linemap: dict[int, int],
+    overwrite_shellcmd=None,
+    rulecount=0,
+):
     Shell.overwrite_cmd = overwrite_shellcmd
     with Snakefile(path, workflow, rulecount=rulecount) as snakefile:
         automaton = Python(snakefile)
         compilation = list()
         for t, orig_token in automaton.consume():
             l = lineno(orig_token)
-            linemap.update(
-                dict(
-                    (i, l)
-                    for i in range(
-                        snakefile.lines + 1, snakefile.lines + t.count("\n") + 1
-                    )
-                )
-            )
+            linemap |= {
+                i: l
+                for i in range(snakefile.lines + 1, snakefile.lines + t.count("\n") + 1)
+            }
             snakefile.lines += t.count("\n")
             compilation.append(t)
     join_compilation = "".join(format_tokens(compilation))
