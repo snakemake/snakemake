@@ -13,7 +13,7 @@ import subprocess
 from functools import partial
 from snakemake.common import async_run
 from snakemake.executors import change_working_directory
-from snakemake.settings import DeploymentMethod
+from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
@@ -472,6 +472,7 @@ def run_wrapper(
                 bench_record.jobid = jobid
                 bench_record.rule_name = job_rule.name
                 bench_record.wildcards = wildcards
+                bench_record.params = params
                 bench_record.resources = resources
                 bench_record.input = input
                 bench_record.threads = threads

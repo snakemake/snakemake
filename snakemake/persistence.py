@@ -24,7 +24,7 @@ from snakemake_interface_executor_plugins.persistence import (
 
 import snakemake.exceptions
 from snakemake.logging import logger
-from snakemake.jobs import jobfiles
+from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
 from snakemake.io import is_flagged, get_flag_value
 
@@ -372,6 +372,9 @@ class Persistence(PersistenceExecutorInterface):
             )
         )
 
+    def has_metadata(self, job: Job) -> bool:
+        return all(self.metadata(path) for path in job.output)
+
     def metadata(self, path):
         return self._read_record(self._metadata_path, path)
 
@@ -472,8 +475,8 @@ class Persistence(PersistenceExecutorInterface):
 
     @lru_cache()
     def _input(self, job):
-        get_path = (
-            lambda f: get_flag_value(f, "sourcecache_entry")
+        get_path = lambda f: (
+            get_flag_value(f, "sourcecache_entry")
             if is_flagged(f, "sourcecache_entry")
             else f
         )

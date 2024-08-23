@@ -1,0 +1,9 @@
+rule a:
+    output:
+        "test.out"
+    resources:
+        shell_exec="sh"
+    # image does not have bash, hence this would fail if shell_exec is not set to sh
+    container: "docker://busybox:1.33"
+    shell:
+        "echo 'hello world' > {output}"

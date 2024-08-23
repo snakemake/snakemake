@@ -4,20 +4,27 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+import shutil
 import sys
 import subprocess as sp
 from pathlib import Path
+import tempfile
+
+import pytest
 from snakemake.resources import DefaultResources, GroupResources
-from snakemake.settings import RerunTrigger
+from snakemake.settings.enums import RerunTrigger
 
 from snakemake.shell import shell
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import *
+from .common import run, dpath, connected
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
-from snakemake_interface_executor_plugins.settings import DeploymentMethod
+from snakemake_interface_executor_plugins.settings import (
+    DeploymentMethod,
+    SharedFSUsage,
+)
 
 
 def test_list_untracked():
@@ -302,15 +309,6 @@ def test_local_import():
 
 def test_ruledeps():
     run(dpath("test_ruledeps"))
-
-
-def test_persistent_dict():
-    try:
-        import pytools
-
-        run(dpath("test_persistent_dict"))
-    except ImportError:
-        pass
 
 
 @connected
@@ -762,6 +760,17 @@ def test_singularity():
 
 
 @skip_on_windows
+@connected
+def test_singularity_cluster():
+    run(
+        dpath("test_singularity"),
+        deployment_method={DeploymentMethod.APPTAINER},
+        cluster="./qsub",
+        apptainer_args="--bind /tmp:/tmp",
+    )
+
+
+@skip_on_windows
 def test_singularity_invalid():
     run(
         dpath("test_singularity"),
@@ -970,7 +979,7 @@ def test_global_resource_limits_limit_scheduling_of_groups():
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if not l == "\n"]
+        lines = [line for line in f.readlines() if line != "\n"]
     assert len(lines) == 1
     shutil.rmtree(tmp)
 
@@ -1016,7 +1025,7 @@ def test_resources_can_be_overwritten_as_global():
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if not l == "\n"]
+        lines = [line for line in f.readlines() if line != "\n"]
     assert len(lines) == 1
     shutil.rmtree(tmp)
 
@@ -1469,7 +1478,7 @@ def test_jupyter_notebook():
 
 
 def test_jupyter_notebook_draft():
-    from snakemake.settings import NotebookEditMode
+    from snakemake.settings.types import NotebookEditMode
 
     run(
         dpath("test_jupyter_notebook_draft"),
@@ -1612,6 +1621,14 @@ def test_module_no_prefixing_modified_paths():
     )
 
 
+@skip_on_windows
+def test_modules_prefix_local():
+    run(
+        dpath("test_modules_prefix_local"),
+        targets=["out_1/test_final.txt"],
+    )
+
+
 def test_module_with_script():
     run(dpath("test_module_with_script"))
 
@@ -1663,6 +1680,12 @@ def test_github_issue1069():
     )
 
 
+# os independent
+@skip_on_windows
+def test_max_jobs_per_timespan():
+    run(dpath("test01"), shellcmd="snakemake --max-jobs-per-timespan 2/1s --cores 3")
+
+
 def test_touch_pipeline_with_temp_dir():
     # Issue #1028
     run(dpath("test_touch_pipeline_with_temp_dir"), forceall=True, executor="touch")
@@ -1706,7 +1729,7 @@ def test_modules_ruledeps_inheritance():
 @skip_on_windows
 def test_issue1331():
     # not guaranteed to fail, so let's try multiple times
-    for i in range(10):
+    for _ in range(10):
         run(dpath("test_issue1331"), cores=4)
 
 
@@ -1970,7 +1993,7 @@ def test_runtime_conversion_from_workflow_profile():
     run(
         test_path,
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake -c1",
+        shellcmd="snakemake -c1",
     )
 
 
@@ -2012,13 +2035,13 @@ def test_script_pre_py39():
 
 def test_issue1256():
     snakefile = os.path.join(dpath("test_issue1256"), "Snakefile")
-    p = subprocess.Popen(
+    p = sp.Popen(
         f"snakemake -s {snakefile}",
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
     )
-    stdout, stderr = p.communicate()
+    _, stderr = p.communicate()
     stderr = stderr.decode()
     assert p.returncode == 1
     assert "SyntaxError" in stderr
@@ -2151,6 +2174,11 @@ def test_handle_storage_multi_consumers():
 @skip_on_windows  # OS agnostic
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
+
+
+@skip_on_windows
+def test_shell_exec():
+    run(dpath("test_shell_exec"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 def test_expand_list_of_functions():

@@ -26,7 +26,7 @@ The name is optional and can be left out, creating an anonymous rule. It can als
             shell: f"{tool} {{input}} > {{output}}"
 
 
-.. sidebar:: Note
+.. note::
 
     Note that any placeholders in the shell command (like ``{input}``) are always evaluated and replaced
     when the corresponding job is executed, even if they are occurring inside a comment.
@@ -37,7 +37,7 @@ Inside the shell command, all local and global variables, especially input and o
 Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 
-By default shell commands will be invoked with ``bash`` shell (unless the workflow specifies a different default shell via ``shell.executable(...)``).
+By default shell commands will be invoked with ``bash`` shell in the so-called  `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ (unless the workflow specifies something else, seesee :ref:`shell_settings`).
 
 Instead of a shell command, a rule can run some python code to generate the output:
 
@@ -69,8 +69,6 @@ Further, this combination of python and shell commands allows us to iterate over
 
     for line in shell("somecommand {output.somename}", iterable=True):
         ... # do something in python
-
-Note that shell commands in Snakemake use the bash shell in `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ by default.
 
 .. _snakefiles-wildcards:
 
@@ -107,11 +105,12 @@ It is not clear whether ``dataset=101.B`` and ``group=normal`` or ``dataset=101`
 Hence wildcards can be constrained to given regular expressions.
 Here we could restrict the wildcard ``dataset`` to consist of digits only using ``\d+`` as the corresponding regular expression.
 With Snakemake 3.8.0, there are three ways to constrain wildcards.
-First, a wildcard can be constrained within the file pattern, by appending a regular expression separated by a comma:
+First, a wildcard can be constrained within the file pattern, by appending a regular expression separated by a comma 
+(you might want to use the `r` prefix for a raw string to avoid having to escape backslashes, particularly for more complex regular expressions):
 
 .. code-block:: python
 
-    output: "{dataset,\d+}.{group}.txt"
+    output: r"{dataset,\d+}.{group}.txt"
 
 Second, a wildcard can be constrained within the rule via the keyword ``wildcard_constraints``:
 
@@ -186,7 +185,7 @@ The function has to accept a single argument that will be the wildcards object g
 Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
 By this, rules can have entirely different input files (both in form and number) depending on the inferred wildcards. E.g. you can assign input files that appear in entirely different parts of your filesystem based on some wildcard value and a dictionary that maps the wildcard value to file paths.
 
-.. sidebar:: Note
+.. note::
 
     Input functions can themselves return input functions again (this also holds for functions given to params and resources.)
     Such nested evaluation is allowed for a depth up to 10. Afterwards, an exception will be thrown.
@@ -250,7 +249,7 @@ These restrictions do not apply when using ``unpack()``.
 Helper functions for defining input and output files
 ----------------------------------------------------
 
-Snakemake provides a number of helper functions that can be used to determine input files and drastically simplify over using 
+Snakemake provides a number of helper functions that can be used to determine input files and drastically simplify over using
 :ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`_.
 Below, we will first start with describing two basic helper functions for specifying aggregations and multiple output files.
 Afterwards, we will further show a set of semantic helper functions should increase readability and simplify code (see :ref:`snakefiles-semantic-helpers`).
@@ -361,7 +360,17 @@ The lookup function
 
 The ``lookup`` function can be used to look up a value in a python mapping (e.g. a ``dict``) or a `pandas dataframe or series <https://pandas.pydata.org>`_.
 It is especially useful for looking up information based on wildcard values.
-The ``lookup`` function has the signature ``lookup(dpath: Optional[str | Callable] = None, query: Optional[str | Callable] = None, cols: Optional[List[str]] = None, within=None)``.
+The ``lookup`` function has the signature 
+
+.. code-block:: python
+
+    lookup(
+        dpath: Optional[str | Callable] = None, 
+        query: Optional[str | Callable] = None, 
+        cols: Optional[List[str]] = None, 
+        is_nrows: Optional[int], within=None
+    )
+
 The ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
 For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
 
@@ -372,9 +381,12 @@ named tuples with the column names as attributes.
 If the query results in a single row, the result is returned as a single
 named tuple with the column names as attributes.
 If the query or dpath parameter is given a function, the function will be evaluated with wildcards passed as the first argument.
+In case of dpath, if the dpath is not found, a ``LookupError`` is raised, unless a
+default fallback value is provided via the ``default`` argument (this argument is ignored in case of ``query``).
+Note: ``None`` is also a valid default value.
 
-In both cases, the result can be used by the ``expand`` or ``collect`` function,
-e.g. 
+In both cases (``dpath`` and ``query``), the result can be used by the ``expand`` or ``collect`` function,
+e.g.
 
 .. code-block:: python
 
@@ -395,7 +407,7 @@ In case your dataframe has an index, you can also access the index within the
 query, e.g. for faster, constant time lookups:
 
 .. code-block:: python
-    
+
     lookup(query="index.loc[{sample}]", within=samples)
 
 Further, it is possible to constrain the output to a list of columns, e.g.
@@ -407,10 +419,17 @@ Further, it is possible to constrain the output to a list of columns, e.g.
 or to a single column, e.g.
 
 .. code-block:: python
-    
-    lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")`.
+
+    lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")
 
 In the latter case, just a list of items in that column is returned (e.g. ``["a", "b", "c"]``).
+
+The argument ``is_nrows`` allows to test for a given number of rows in the queried dataframe.
+If it is used, lookup just returns a boolean value indicating whether the number of rows in the queried dataframe matches the given number:
+
+.. code-block:: python
+
+    lookup(query="sample == '{sample}'", within=samples, is_nrows=5)
 
 In case of a **pandas series**, the series is converted into a dataframe via
 Series.to_frame() and the same logic as for a dataframe is applied.
@@ -422,7 +441,6 @@ In case of a **python mapping**, the dpath parameter is passed to dpath.values()
 In that case, this function returns an :ref:`input function <snakefiles-input_functions>` which takes
 wildcards as its only argument and will be evaluated by Snakemake
 once the wildcard values are known if the lookup is used within an input file statement.
-.. _snakefiles-branch-function:
 
 In addition to wildcard values, dpath, query and cols may refer via the same syntax
 to auxiliary namespace arguments given to the lookup function, e.g.
@@ -437,11 +455,13 @@ to auxiliary namespace arguments given to the lookup function, e.g.
 
 This way, one can e.g. pass additional variables or chain lookups into more complex queries.
 
+.. _snakefiles-branch-function:
+
 The branch function
 """""""""""""""""""
 
 The ``branch`` function allows to choose different input files based on a given conditional.
-It has the signature 
+It has the signature
 
 .. code-block:: python
 
@@ -456,7 +476,7 @@ The ``condition`` argument has to be either a function or an expression that can
 If it is a function, it has to take wildcards as its only parameter.
 Similarly, ``then``, ``otherwise`` and the values of the ``cases`` mapping (e.g. a python ``dict``) can be such functions.
 
-If any such function is given to any of those arguments, this function returns a derived 
+If any such function is given to any of those arguments, this function returns a derived
 input function that will be evaluated once the wildcards are known (e.g. when used in the context of an input definition) (see :ref:`snakefiles-input_functions`).
 
 If ``then`` and optionally ``otherwise`` are specified, it does the following:
@@ -561,6 +581,7 @@ It can for example be used to condition some behavior in the workflow on the exi
             "cp {input} {output}"
 
 
+
 .. _snakefiles-targets:
 
 Target rules
@@ -592,6 +613,61 @@ Regardless of where this rule appears in the Snakefile, it will be the default t
 Usually, it is still recommended to keep the default target rule (and in fact all other rules that could act as optional targets) at the top of the file, such that it can be easily found.
 The ``default_target`` directive becomes particularly useful when :ref:`combining several pre-existing workflows <use_with_modules>`.
 
+.. _shell_settings:
+
+Shell settings
+--------------
+
+By default, Snakemake uses the ``bash`` shell.
+This can be overridden in two ways.
+First, by globally setting the shell executable (e.g. to zsh) via
+
+.. code-block:: python
+
+    shell.executable("/bin/zsh")
+
+Note that this is usually not recommended, as it requires others who want to use the workflow to have that shell installed.
+Second, by setting the shell executable via the :ref:`resources directive <snakefiles_resources>` of a rule, e.g.
+
+.. code-block:: python
+
+    rule a:
+        input: ...
+        output: ...
+        resources:
+            shell_exec="zsh"
+        shell:
+            "echo 'hello world' > {output}"
+
+This can be particularly important in case you use a :ref:`container image <apptainer>` for the rule which does not contain bash, e.g.
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.out"
+        resources:
+            shell_exec="sh"
+        # image does not have bash, hence this would fail if shell_exec is not set to sh
+        container: "docker://busybox:1.33"
+        shell:
+            "echo 'hello world' > {output}"
+
+Shell behavior
+~~~~~~~~~~~~~~
+
+In case of bash shell, Snakemake always uses the so-called `strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_.
+For individual rules, you can deactivate aspects of the strict mode by unsetting them at the beginning of the shell command.
+Further, it is possible to set global prefixes and suffixes for all shell commands via
+
+.. code-block:: python
+
+    shell.prefix("some prefix command;")
+    shell.suffix("; some suffix command")
+
+anywhere in your snakefile (preferably at the beginning for clarity).
+This can sometimes be useful for debugging, but is not recommended for production workflows and releases because it might hamper reproducibility and readability.
+
 .. _snakefiles-threads:
 
 Threads
@@ -607,7 +683,7 @@ Further, a rule can be given a number of threads to use, i.e.
         threads: 8
         shell: "somecommand --threads {threads} {input} {output}"
 
-.. sidebar:: Note
+.. note::
 
     On a cluster node, Snakemake uses as many cores as available on that node.
     Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node.
@@ -1020,7 +1096,7 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
         shell:
             "somecommand -o {params.prefix}"
 
-.. sidebar:: Note
+.. note::
 
     When accessing auxiliary source files (i.e. files that are located relative to the current Snakefile, e.g. some additional configuration)
     it is crucial to not manually build their path but rather rely on Snakemake's special registration for these files, see :ref:`snakefiles-aux_source_files`.
@@ -1053,17 +1129,29 @@ Python
         script:
             "scripts/script.py"
 
-.. sidebar:: Note
+.. note::
 
     It is possible to refer to wildcards and params in the script path, e.g. by specifying ``"scripts/{params.scriptname}.py"`` or ``"scripts/{wildcards.scriptname}.py"``.
 
 The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
+It is also possible to explicitly import the snakemake object in the script like ``from snakemake.script import snakemake`` to enable code completion, linting and type checking your python code in IDEs.
 
 An example external Python script could look like this:
 
 .. code-block:: python
+
+    def do_something(data_path, out_path, threads, myparam):
+        # python code
+
+    do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
+
+or using the explicit import:
+
+.. code-block:: python
+
+    from snakemake.script import snakemake
 
     def do_something(data_path, out_path, threads, myparam):
         # python code
@@ -1321,7 +1409,7 @@ variable, named as ``snakemake_<directive>``:
 Access to the ``input`` directive is facilitated through the bash associative array named ``snakemake_input``. The
 remaining directives can be found in the variable ``snakemake``.
 
-.. sidebar:: Note
+.. note::
 
     As arrays cannot be nested in Bash, use of python's ``dict`` in directives is not supported. So, adding a ``params`` key of ``data={"foo": "bar"}`` will not be reflected - ``${snakemake_params[data]}`` actually only returns ``"foo"``.
 
@@ -1445,7 +1533,7 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
         notebook:
             "notebooks/hello.py.ipynb"
 
-.. sidebar:: Note
+.. note::
 
     Consider Jupyter notebook integration as a way to get the best of both worlds.
     A modular, readable workflow definition with Snakemake, and the ability to quickly explore and plot data with Jupyter.
@@ -1457,7 +1545,7 @@ In other words, you have access to input files via ``snakemake.input`` (in the P
 Optionally it is possible to automatically store the processed notebook.
 This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
 
-.. sidebar:: Note
+.. note::
 
     It is possible to refer to wildcards and params in the notebook path, e.g. by specifying ``"notebook/{params.name}.py"`` or ``"notebook/{wildcards.name}.py"``.
 
@@ -1527,7 +1615,11 @@ For example, running
 .. code-block:: console
 
     snakemake --cores 1 --draft-notebook test.txt --software-deployment-method conda
-    # or the short form
+
+or the short form
+
+.. code-block:: console
+
     snakemake -c 1 --draft-notebook test.txt --sdm conda
 
 will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
@@ -1633,7 +1725,7 @@ A sha256 checksum can be compared as follows:
 
 .. code-block:: python
 
-    my_checksum = "u98a9cjsd98saud090923ßkpoasköf9ß32"
+    my_checksum = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
 
     rule NAME:
         output:
@@ -1743,7 +1835,7 @@ With the ``touch`` flag, Snakemake touches (i.e. creates or updates) the file ``
 Job Properties
 --------------
 
-.. sidebar:: Note
+.. note::
 
     If there are more than 100 input and/or output files for a job, ``None`` will be used instead of listing all values. This is to prevent the jobscript from becoming larger than `Slurm jobscript size limits <https://slurm.schedmd.com/slurm.conf.html#OPT_max_script_size=#>`_.
 
@@ -1943,9 +2035,11 @@ benchmarks the
 * `cpu_time`: CPU time user+system (seconds),
 
 Since version 8.11.0, it is possible to have extra benchmark metrics with the command ``--benchmark-extended``:
+
 * `jobid`: Internal job ID,
-* `rule_name`: Name of rule,
-* `wildcards`: Wildcards of this job,
+* `rule_name`: Rule name,
+* `wildcards`: Job wildcards,
+* `params`: Job parameters,
 * `threads`: Number of threads requested for this job,
 * `cpu_usage`: Total CPU load,
 * `resources`: Resources requested for this job,
@@ -1953,7 +2047,7 @@ Since version 8.11.0, it is possible to have extra benchmark metrics with the co
 
 of the command ``somecommand`` for the given output and input files.
 
-For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark tsv file (which will contain a tab-separated table of run times and memory usage in MiB).
+For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark `tsv` file (which will contain a tab-separated table of run times and memory usage in MiB).
 Per default, Snakemake executes the job once, generating one run time.
 However, the benchmark file can be annotated with the desired number of repeats, e.g.,
 
@@ -1974,7 +2068,7 @@ The resulting `tsv` file can be used as input for other rules, just like any oth
 
 Since version 8.11.0, it is also possible to have the benchmark metrics in different formats (depending on the extension); currently only the `.jsonl` extension (JSONL format; i.e. one JSON record per line) is supported and all other extensions will be treated as TSV.
 
-.. sidebar:: Note
+.. note::
 
     Note that benchmarking is only possible in a reliable fashion for subprocesses (thus for tasks run through the ``shell``, ``script``, and ``wrapper`` directive).
     In the ``run`` block, the variable ``bench_record`` is available that you can pass to ``shell()`` as ``bench_record=bench_record``.
@@ -2410,7 +2504,7 @@ Assuming that the checkpoint is named ``somestep`` as above, the output files fo
 
   checkpoints.somestep.get(sample="a").output
 
-.. sidebar:: Note
+.. note::
 
     Note that output files of checkpoints that are accessed via this mechanism should not be marked as temporary.
     Otherwise, they would require to trigger reruns of the checkpoint whenever the DAG shall be reevaluated (because they are already missing at that point).
@@ -2483,7 +2577,7 @@ To illustrate the possibilities of this mechanism, consider the following comple
 
 As can be seen, the rule aggregate uses an input function.
 
-.. sidebar:: Note
+.. note::
 
     You don't need to use the checkpoint mechanism to determine parameter or resource values of downstream rules that would be based on the output of previous rules.
     In fact, it won't even work because the checkpoint mechanism is only considered for input functions.
@@ -2770,7 +2864,7 @@ To avoid such leaks (only required if your template does something like that wit
 MPI support
 -----------
 
-Highly parallel programs may use the MPI (:ref: [message passing interface](https://en.wikipedia.org/wiki/Message_Passing_Interface)) to enable a program to span work across an individual compute node's boundary. 
+Highly parallel programs may use the MPI (:ref: [message passing interface](https://en.wikipedia.org/wiki/Message_Passing_Interface)) to enable a program to span work across an individual compute node's boundary.
 To actually use an HPC cluster with Snakemake, an [executor plugin is provided for the SLURM batch system](https://github.com/snakemake/snakemake-executor-plugin-slurm). You can find its documentation [here](https://github.com/snakemake/snakemake-executor-plugin-slurm/blob/main/docs/further.md).
 Users of different batch systems are encouraged to [provide further plugins](https://snakemake.github.io/snakemake-plugin-catalog/#contributing) and/or share their Snakemake configuration via the [Snakemake profiles project](https://github.com/Snakemake-Profiles) project.
 
