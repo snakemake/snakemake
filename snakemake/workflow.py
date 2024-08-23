@@ -17,7 +17,7 @@ import copy
 from pathlib import Path
 import tarfile
 import tempfile
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, Iterable, List, Optional, Set, Union
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     ConfigSettings,
@@ -384,7 +384,10 @@ class Workflow(WorkflowExecutorInterface):
     def use_threads(self):
         assert self.execution_settings is not None
         return (
-            self.execution_settings.use_threads
+            (
+                self.execution_settings is not None
+                and self.execution_settings.use_threads
+            )
             or (os.name not in ["posix", "nt"])
             or not self.local_exec
         )
@@ -1049,7 +1052,7 @@ class Workflow(WorkflowExecutorInterface):
     def conda_cleanup_envs(self):
         assert self.dag_settings is not None
         self._prepare_dag(
-            forceall=self.dag_settings.forceall,
+            forceall=self.dag_settings.forceall,  # True?
             ignore_incomplete=True,
             lock_warn_only=False,
         )
