@@ -713,25 +713,26 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 if await output_path.exists_local():
                     output_path.touch()
 
-        # Check whether all output files are newer than the newest input file.
-        # This catches problems with non-sychronous clocks in distributed execution.
-        newest_input_mtime, newest_input_path = max(
-            (f.mtime_local(), f) for f in job.input
-        )
-        for output_path in expanded_output:
-            output_mtime = output_path.mtime_local()
-            if output_mtime < newest_input_mtime:
-                raise WorkflowError(
-                    f"Output {output_path} has older modification time "
-                    f"({datetime.datetime.fromtimestamp(output_mtime)}) "
-                    f"than input {newest_input_path} "
-                    f"({datetime.datetime.fromtimestamp(newest_input_mtime)}). "
-                    "This could indicate a clock skew problem in your network and "
-                    "would trigger a rerun of this job in the next execution and "
-                    "should therefore be fixed on system level. "
-                    f"System time: {datetime.datetime.now()}",
-                    rule=job.rule,
-                )
+        if wait_for_local:
+            # Check whether all output files are newer than the newest input file.
+            # This catches problems with non-sychronous clocks in distributed execution.
+            newest_input_mtime, newest_input_path = max(
+                (f.mtime_local(), f) for f in job.input
+            )
+            for output_path in expanded_output:
+                output_mtime = output_path.mtime_local()
+                if output_mtime < newest_input_mtime:
+                    raise WorkflowError(
+                        f"Output {output_path} has older modification time "
+                        f"({datetime.datetime.fromtimestamp(output_mtime)}) "
+                        f"than input {newest_input_path} "
+                        f"({datetime.datetime.fromtimestamp(newest_input_mtime)}). "
+                        "This could indicate a clock skew problem in your network and "
+                        "would trigger a rerun of this job in the next execution and "
+                        "should therefore be fixed on system level. "
+                        f"System time: {datetime.datetime.now()}",
+                        rule=job.rule,
+                    )
 
     def unshadow_output(self, job, only_log=False):
         """Move files from shadow directory to real output paths."""
