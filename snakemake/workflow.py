@@ -1044,6 +1044,8 @@ class Workflow(WorkflowExecutorInterface):
         executor_settings: ExecutorSettingsBase,
         updated_files: Optional[List[str]] = None,
     ):
+        logger.host_info()
+
         from snakemake.shell import shell
 
         shell.conda_block_conflicting_envvars = (
