@@ -7,7 +7,6 @@ import copy
 import os
 import types
 import typing
-from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import collections
 from pathlib import Path
 from itertools import chain
@@ -19,8 +18,11 @@ except ImportError:  # python < 3.11
     import sre_constants
 
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_common.utils import not_iterable, lazy_property
+from snakemake_interface_common.rules import RuleInterface
 
-from snakemake.io import (
+from .path_modifier import PATH_MODIFIER_FLAG
+from .io import (
     IOFile,
     _IOFile,
     Namedlist,
@@ -43,7 +45,7 @@ from snakemake.io import (
     is_callable,
     ReportObject,
 )
-from snakemake.exceptions import (
+from .exceptions import (
     InputOpenException,
     RuleException,
     IOFileException,
@@ -53,17 +55,16 @@ from snakemake.exceptions import (
     IncompleteCheckpointException,
     is_file_not_found_error,
 )
-from snakemake.logging import logger
-from snakemake.common import (
+from .logging import logger
+from .common import (
     ON_WINDOWS,
     get_function_params,
     get_input_function_aux_params,
     mb_to_mib,
 )
-from snakemake.common.tbdstring import TBDString
-from snakemake.resources import infer_resources
-from snakemake_interface_common.utils import not_iterable, lazy_property
-from snakemake_interface_common.rules import RuleInterface
+from .common.tbdstring import TBDString
+from .resources import infer_resources
+from . import sourcecache
 
 
 class Rule(RuleInterface):
@@ -87,8 +88,8 @@ class Rule(RuleInterface):
         self.protected_output = set()
         self.touch_output = set()
         self.shadow_depth = None
-        self.resources = None
-        self.priority = 0
+        self.resources = dict()
+        self.priority: int | float = 0
         self._log = Log()
         self._benchmark = None
         self._conda_env = None
@@ -110,13 +111,13 @@ class Rule(RuleInterface):
         self.is_handover = False
         self.is_checkpoint = False
         self._restart_times = 0
-        self.basedir = None
+        self.basedir: "sourcecache.SourceFile | None" = None
         self.input_modifier = None
         self.output_modifier = None
         self.log_modifier = None
         self.benchmark_modifier = None
         self.ruleinfo = None
-        self.module_globals = None
+        self.module_globals: dict
 
     @property
     def name(self):
@@ -336,7 +337,7 @@ class Rule(RuleInterface):
         """Check ``Namedlist`` for duplicate entries and raise a ``WorkflowError``
         on problems. Does not raise if the entry is empty.
         """
-        seen = dict()
+        seen: dict = dict()
         idx = None
         for name, value in self.output._allitems():
             if name is None:
@@ -412,6 +413,7 @@ class Rule(RuleInterface):
             item = str(item.as_posix())
         if isinstance(item, str):
             if ON_WINDOWS:
+                assert os.altsep is not None
                 if isinstance(item, (_IOFile, AnnotatedString)):
                     item = item.new_from(item.replace(os.sep, os.altsep))
                 else:
@@ -607,6 +609,7 @@ class Rule(RuleInterface):
         **aux_params,
     ):
         if isinstance(func, _IOFile):
+            assert isinstance(func._file, AnnotatedString)
             func = func._file.callable
         elif isinstance(func, AnnotatedString):
             func = func.callable
@@ -734,7 +737,9 @@ class Rule(RuleInterface):
                     )
                 # Allow streamlined code with/without unpack
                 if isinstance(item, list):
-                    pairs = zip([None] * len(item), item, [_is_callable] * len(item))
+                    pairs = list(
+                        zip([None] * len(item), item, [_is_callable] * len(item))
+                    )
                 else:
                     assert isinstance(item, dict)
                     pairs = [(name, item, _is_callable) for name, item in item.items()]
@@ -790,7 +795,7 @@ class Rule(RuleInterface):
             return exception.targetfile
 
         input = InputFiles()
-        mapping = dict()
+        mapping: dict = dict()
         try:
             incomplete = self._apply_wildcards(
                 input,
@@ -1044,8 +1049,7 @@ class Rule(RuleInterface):
                             # infer mem_mib (memory in Mebibytes) as additional resource
                             resources[mib_item] = mb_to_mib(value)
 
-        resources = Resources(fromdict=resources)
-        return resources
+        return Resources(fromdict=resources)
 
     def expand_group(self, wildcards):
         """Expand the group given wildcards."""
@@ -1084,6 +1088,7 @@ class Rule(RuleInterface):
                     # Conda env file paths are considered to be relative to the directory of the Snakefile
                     # hence we adjust the path accordingly.
                     # This is not necessary in case of receiving a SourceFile.
+                    assert self.basedir is not None
                     conda_env = self.basedir.join(conda_env)
                 else:
                     # infer source file from unmodified uri or path
@@ -1092,6 +1097,7 @@ class Rule(RuleInterface):
             conda_env = CondaEnvFileSpec(conda_env, rule=self)
         else:
             conda_env = CondaEnvNameSpec(conda_env)
+            # TODO: what about enable reference to a environment folder?
 
         conda_env = conda_env.apply_wildcards(wildcards, self)
         conda_env.check()

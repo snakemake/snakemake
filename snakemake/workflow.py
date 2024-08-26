@@ -3,23 +3,25 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from dataclasses import dataclass, field
+import copy
 import hashlib
-import re
 import os
+import re
 import subprocess
 import sys
+import tarfile
+import tempfile
 from collections import OrderedDict, namedtuple
 from collections.abc import Mapping
-from itertools import filterfalse, chain
-from functools import partial
-import copy
+from dataclasses import dataclass, field
+from functools import partial, wraps
+from itertools import chain, filterfalse
 from pathlib import Path
 import tarfile
 import tempfile
-from typing import Dict, Iterable, Iterable, List, Optional, Set, Union
-from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings.types import (
+from typing import Dict, Iterable, List, Optional, Set, Union
+from .common.workdir_handler import WorkdirHandler
+from .settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
@@ -50,9 +52,9 @@ from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 
-from snakemake.logging import logger, format_resources
-from snakemake.rules import Rule, Ruleorder, RuleProxy
-from snakemake.exceptions import (
+from .logging import logger, format_resources
+from .rules import Rule, Ruleorder, RuleProxy
+from .exceptions import (
     CreateCondaEnvironmentException,
     RuleException,
     CreateRuleException,
@@ -61,11 +63,11 @@ from snakemake.exceptions import (
     WorkflowError,
     update_lineno,
 )
-from snakemake.dag import DAG, ChangeType
-from snakemake.scheduler import JobScheduler
-from snakemake.parser import parse
+from .dag import DAG, ChangeType
+from .scheduler import JobScheduler
+from .parser import parse
 import snakemake.io
-from snakemake.io import (
+from .io import (
     protected,
     temp,
     temporary,
@@ -88,17 +90,17 @@ from snakemake.io import (
     sourcecache_entry,
 )
 
-from snakemake.persistence import Persistence
-from snakemake.utils import update_config
-from snakemake.script import script
-from snakemake.notebook import notebook
-from snakemake.wrapper import wrapper
-from snakemake.cwl import cwl
-from snakemake.template_rendering import render_template
+from .persistence import Persistence
+from .utils import update_config
+from .script import script
+from .notebook import notebook
+from .wrapper import wrapper
+from .cwl import cwl
+from .template_rendering import render_template
 from snakemake_interface_common.utils import not_iterable
 
 import snakemake.wrapper
-from snakemake.common import (
+from .common import (
     ON_WINDOWS,
     async_run,
     get_appdirs,
@@ -109,27 +111,38 @@ from snakemake.common import (
     smart_join,
     NOTHING_TO_BE_DONE_MSG,
 )
-from snakemake.utils import simplify_path
-from snakemake.checkpoints import Checkpoints
-from snakemake.resources import ParsedResource, ResourceScopes
-from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
-from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
-from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
-from snakemake.ruleinfo import InOutput, RuleInfo
-from snakemake.sourcecache import (
+from .utils import simplify_path
+from .checkpoints import Checkpoints
+from .resources import ResourceScopes
+from .caching.local import OutputFileCache as LocalOutputFileCache
+from .caching.storage import OutputFileCache as StorageOutputFileCache
+from .modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
+from .ruleinfo import InOutput, RuleInfo
+from .sourcecache import (
     LocalSourceFile,
     SourceCache,
     SourceFile,
     infer_source_file,
 )
-from snakemake.deployment.conda import Conda
-from snakemake import api, sourcecache
+from .deployment.conda import Conda
+from . import api, sourcecache
 import snakemake.ioutils
 import snakemake.ioflags
-from snakemake.jobs import jobs_to_rulenames
-
+from .jobs import jobs_to_rulenames
 
 SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
+
+
+def rule_decorate(func):
+    @wraps(func)
+    def _(self: "Workflow", *n, **kw):
+        def _d(ruleinfo: RuleInfo):
+            func(self, ruleinfo, *n, **kw)
+            return ruleinfo
+
+        return _d
+
+    return _
 
 
 @dataclass
@@ -148,7 +161,7 @@ class Workflow(WorkflowExecutorInterface):
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     check_envvars: bool = True
-    cache_rules: Dict[str, str] = field(default_factory=dict)
+    cache_rules: Dict[str, str | bool] = field(default_factory=dict)
     overwrite_workdir: Optional[str | Path] = None
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
     injected_conda_envs: List = field(default_factory=list)
@@ -163,7 +176,7 @@ class Workflow(WorkflowExecutorInterface):
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
 
-        self._rules = OrderedDict()
+        self._rules: dict[str, Rule] = OrderedDict()
         self.default_target = None
         self._workdir_init = os.path.abspath(os.curdir)
         self._ruleorder = Ruleorder()
@@ -189,7 +202,7 @@ class Workflow(WorkflowExecutorInterface):
         self._scatter = dict(self.resource_settings.overwrite_scatter)
         self._resource_scopes = ResourceScopes.defaults()
         self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
-        self.modules = dict()
+        self.modules: dict[str, ModuleInfo] = dict()
         self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
 
         self._sourcecache = SourceCache(self.source_cache_path)
@@ -577,7 +590,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def add_rule(
         self,
-        name=None,
+        name: str,
         lineno=None,
         snakefile=None,
         checkpoint=False,
@@ -594,13 +607,14 @@ class Workflow(WorkflowExecutorInterface):
                 snakefile=snakefile,
             )
         rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
+        rule.is_checkpoint = checkpoint
         self._rules[rule.name] = rule
         self.modifier.rules.add(rule)
         if not is_overwrite:
             self.rule_count += 1
         if not self.default_target:
             self.default_target = rule.name
-        return name
+        return rule  # self.get_rule(name)
 
     def is_rule(self, name):
         """
@@ -991,8 +1005,9 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        from snakemake.cwl import dag_to_cwl
         import json
+
+        from snakemake.cwl import dag_to_cwl
 
         with open(path, "w") as cwl:
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
@@ -1576,14 +1591,16 @@ class Workflow(WorkflowExecutorInterface):
     def localrules(self, *rulenames):
         self._localrules.update(rulenames)
 
-    def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
+    def rule(
+        self, name: str | None = None, lineno=None, snakefile=None, checkpoint=False
+    ):
         # choose a name for an unnamed rule
         if name is None:
             name = str(len(self._rules) + 1)
 
         if self.modifier.skip_rule(name):
 
-            def decorate(ruleinfo):
+            def decorate(ruleinfo: RuleInfo):
                 # do nothing, ignore rule
                 return ruleinfo.func
 
@@ -1591,241 +1608,44 @@ class Workflow(WorkflowExecutorInterface):
 
         # Optionally let the modifier change the rulename.
         orig_name = name
-        name = self.modifier.modify_rulename(name)
-
-        name = self.add_rule(
-            name,
+        name_ = self.modifier.modify_rulename(name)
+        rule = self.add_rule(
+            name_,
             lineno,
             snakefile,
             checkpoint,
             allow_overwrite=self.modifier.allow_rule_overwrite,
         )
-        rule = self.get_rule(name)
-        rule.is_checkpoint = checkpoint
+        rule.basedir = self.current_basedir
         rule.module_globals = self.modifier.globals
+        # Register rule under its original name.
+        # Modules using this snakefile as a module, will register it additionally under their
+        # requested name.
+        self.modifier.rule_proxies._register_rule(orig_name, RuleProxy(rule))
 
-        def decorate(ruleinfo):  # type: ignore[no-redef]
-            nonlocal name
+        if checkpoint:
+            self.globals["checkpoints"].register(rule, fallback_name=orig_name)
+
+        def decorate(ruleinfo: RuleInfo):  # type: ignore[no-redef]
+            if ruleinfo.name:
+                del self._rules[rule.name]
+                rule.name = ruleinfo.name
+                self._rules[ruleinfo.name] = rule
+                name = rule.name
+            else:
+                name = name_
 
             # If requested, modify ruleinfo via the modifier.
             ruleinfo.apply_modifier(self.modifier)
 
-            if ruleinfo.wildcard_constraints:
-                rule.set_wildcard_constraints(
-                    *ruleinfo.wildcard_constraints[0],
-                    **ruleinfo.wildcard_constraints[1],
-                )
-            if ruleinfo.name:
-                rule.name = ruleinfo.name
-                del self._rules[name]
-                self._rules[ruleinfo.name] = rule
-                name = rule.name
-            if ruleinfo.input:
-                rule.input_modifier = ruleinfo.input.modifier
-                rule.set_input(*ruleinfo.input.paths, **ruleinfo.input.kwpaths)
-            if ruleinfo.output:
-                rule.output_modifier = ruleinfo.output.modifier
-                rule.set_output(*ruleinfo.output.paths, **ruleinfo.output.kwpaths)
-            if ruleinfo.params:
-                rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
-
-            def get_resource_value(value):
-                if isinstance(value, ParsedResource):
-                    return value.value
-                else:
-                    return value
-
-            # handle default resources
-            if self.resource_settings.default_resources is not None:
-                rule.resources = copy.deepcopy(
-                    self.resource_settings.default_resources.parsed
-                )
-            else:
-                rule.resources = dict()
-            # Always require one node
-            rule.resources["_nodes"] = 1
-
-            if ruleinfo.threads is not None:
-                if (
-                    not isinstance(ruleinfo.threads, int)
-                    and not isinstance(ruleinfo.threads, float)
-                    and not callable(ruleinfo.threads)
-                ):
-                    raise RuleException(
-                        "Threads value has to be an integer, float, or a callable.",
-                        rule=rule,
-                    )
-                if name not in self.resource_settings.overwrite_threads:
-                    if isinstance(ruleinfo.threads, float):
-                        ruleinfo.threads = int(ruleinfo.threads)
-                    rule.resources["_cores"] = ruleinfo.threads
-            else:
-                rule.resources["_cores"] = 1
-
-            if name in self.resource_settings.overwrite_threads:
-                rule.resources["_cores"] = get_resource_value(
-                    self.resource_settings.overwrite_threads[name]
-                )
-
-            if ruleinfo.shadow_depth:
-                if ruleinfo.shadow_depth not in (
-                    True,
-                    "shallow",
-                    "full",
-                    "minimal",
-                    "copy-minimal",
-                ):
-                    raise RuleException(
-                        "Shadow must either be 'minimal', 'copy-minimal', 'shallow', 'full', "
-                        "or True (equivalent to 'full')",
-                        rule=rule,
-                    )
-                if ruleinfo.shadow_depth is True:
-                    rule.shadow_depth = "full"
-                    logger.warning(
-                        f"Shadow is set to True in rule {rule} (equivalent to 'full'). "
-                        "It's encouraged to use the more explicit options "
-                        "'minimal|copy-minimal|shallow|full' instead."
-                    )
-                else:
-                    rule.shadow_depth = ruleinfo.shadow_depth
-
-            if ruleinfo.resources:
-                args, resources = ruleinfo.resources
-                if args:
-                    raise RuleException("Resources have to be named.")
-                if not all(
-                    map(
-                        lambda r: isinstance(r, int)
-                        or isinstance(r, str)
-                        or callable(r),
-                        resources.values(),
-                    )
-                ):
-                    raise RuleException(
-                        "Resources values have to be integers, strings, or callables (functions)",
-                        rule=rule,
-                    )
-                rule.resources.update(resources)
-            if name in self.resource_settings.overwrite_resources:
-                rule.resources.update(
-                    (resource, get_resource_value(value))
-                    for resource, value in self.resource_settings.overwrite_resources[
-                        name
-                    ].items()
-                )
-
-            if ruleinfo.priority:
-                if not isinstance(ruleinfo.priority, int) and not isinstance(
-                    ruleinfo.priority, float
-                ):
-                    raise RuleException(
-                        "Priority values have to be numeric.", rule=rule
-                    )
-                rule.priority = ruleinfo.priority
-
-            if ruleinfo.retries:
-                if not isinstance(ruleinfo.retries, int) or ruleinfo.retries < 0:
-                    raise RuleException(
-                        "Retries values have to be integers >= 0", rule=rule
-                    )
-
-            rule.restart_times = ruleinfo.retries
-
-            if ruleinfo.log:
-                rule.log_modifier = ruleinfo.log.modifier
-                rule.set_log(*ruleinfo.log.paths, **ruleinfo.log.kwpaths)
-            if ruleinfo.message:
-                rule.message = ruleinfo.message
-            if ruleinfo.benchmark:
-                rule.benchmark_modifier = ruleinfo.benchmark.modifier
-                rule.benchmark = ruleinfo.benchmark.paths
-
-            group = ruleinfo.group
-            if group is not None:
-                rule.group = group
-
-            if ruleinfo.wrapper:
-                rule.conda_env = snakemake.wrapper.get_conda_env(
-                    ruleinfo.wrapper, prefix=self.workflow_settings.wrapper_prefix
-                )
-                # TODO retrieve suitable singularity image
-
-            if ruleinfo.env_modules:
-                # If using environment modules and they are defined for the rule,
-                # ignore conda and singularity directive below.
-                # The reason is that this is likely intended in order to use
-                # a software stack specifically compiled for a particular
-                # HPC cluster.
-                invalid_rule = not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                )
-                if invalid_rule:
-                    raise RuleException(
-                        "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run or the template_engine)",
-                        rule=rule,
-                    )
-                from snakemake.deployment.env_modules import EnvModules
-
-                rule.env_modules = EnvModules(*ruleinfo.env_modules)
-
-            if ruleinfo.conda_env:
-                if not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                ):
-                    raise RuleException(
-                        "Conda environments are only allowed "
-                        "with shell, script, notebook, or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
-
-                if isinstance(ruleinfo.conda_env, Path):
-                    ruleinfo.conda_env = str(ruleinfo.conda_env)
-
-                rule.conda_env = ruleinfo.conda_env
-
-            invalid_rule = not (
-                ruleinfo.script
-                or ruleinfo.wrapper
-                or ruleinfo.shellcmd
-                or ruleinfo.notebook
+            ruleinfo.update_rule(rule)
+            ruleinfo.update_rule_settings(
+                rule,
+                resource_settings=self.resource_settings,
+                workflow_settings=self.workflow_settings,
+                container_img=self.global_container_img,
+                is_containerized=self.global_is_containerized,
             )
-            if ruleinfo.container_img:
-                if invalid_rule:
-                    raise RuleException(
-                        "Singularity directive is only allowed "
-                        "with shell, script, notebook or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
-                rule.container_img = ruleinfo.container_img
-                rule.is_containerized = ruleinfo.is_containerized
-            elif self.global_container_img:
-                if not invalid_rule and ruleinfo.container_img != False:
-                    # skip rules with run directive or empty image
-                    rule.container_img = self.global_container_img
-                    rule.is_containerized = self.global_is_containerized
-
-            rule.norun = ruleinfo.norun
-            if ruleinfo.name is not None:
-                rule.name = ruleinfo.name
-            rule.docstring = ruleinfo.docstring
-            rule.run_func = ruleinfo.func
-            rule.shellcmd = ruleinfo.shellcmd
-            rule.script = ruleinfo.script
-            rule.notebook = ruleinfo.notebook
-            rule.wrapper = ruleinfo.wrapper
-            rule.template_engine = ruleinfo.template_engine
-            rule.cwl = ruleinfo.cwl
-            rule.basedir = self.current_basedir
 
             if ruleinfo.handover:
                 if not ruleinfo.resources:
@@ -1851,7 +1671,6 @@ class Workflow(WorkflowExecutorInterface):
                     "Invalid value for cache directive. Use 'all' or 'omit-software'.",
                     rule=rule,
                 )
-
             self.cache_rules[rule.name] = (
                 "all" if ruleinfo.cache is True else ruleinfo.cache
             )
@@ -1868,45 +1687,33 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.localrule is True:
                 self._localrules.add(rule.name)
 
-            ruleinfo.func.__name__ = f"__{rule.name}"
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
-            rule_proxy = RuleProxy(rule)
-            # Register rule under its original name.
-            # Modules using this snakefile as a module, will register it additionally under their
-            # requested name.
-            self.modifier.rule_proxies._register_rule(orig_name, rule_proxy)
-
-            if checkpoint:
-                self.globals["checkpoints"].register(rule, fallback_name=orig_name)
-            rule.ruleinfo = ruleinfo
             return ruleinfo.func
 
         return decorate
 
-    def docstring(self, string):
-        def decorate(ruleinfo):
-            ruleinfo.docstring = string.strip()
-            return ruleinfo
-
-        return decorate
+    @rule_decorate
+    def docstring(self, ruleinfo: RuleInfo, string: str):
+        ruleinfo.docstring = string.strip()
 
     def input(self, *paths, **kwpaths):
-        def decorate(ruleinfo):
+        def decorate(ruleinfo: RuleInfo):
             ruleinfo.input = InOutput(paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
 
     def output(self, *paths, **kwpaths):
-        def decorate(ruleinfo):
+        def decorate(ruleinfo: RuleInfo):
             ruleinfo.output = InOutput(paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
 
     def params(self, *params, **kwparams):
-        def decorate(ruleinfo):
+
+        def decorate(ruleinfo: RuleInfo):
             ruleinfo.params = (params, kwparams)
             return ruleinfo
 
@@ -1915,7 +1722,7 @@ class Workflow(WorkflowExecutorInterface):
     def register_wildcard_constraints(
         self, *wildcard_constraints, **kwwildcard_constraints
     ):
-        def decorate(ruleinfo):
+        def decorate(ruleinfo: RuleInfo):
             ruleinfo.wildcard_constraints = (
                 wildcard_constraints,
                 kwwildcard_constraints,
@@ -1924,52 +1731,34 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
-    def cache_rule(self, cache):
-        def decorate(ruleinfo):
-            ruleinfo.cache = cache
-            return ruleinfo
+    @rule_decorate
+    def cache_rule(self, ruleinfo: RuleInfo, cache: bool):
+        ruleinfo.cache = cache
 
-        return decorate
+    @rule_decorate
+    def default_target_rule(self, ruleinfo: RuleInfo, value):
+        ruleinfo.default_target = value
 
-    def default_target_rule(self, value):
-        def decorate(ruleinfo):
-            ruleinfo.default_target = value
-            return ruleinfo
+    @rule_decorate
+    def localrule(self, ruleinfo: RuleInfo, value):
+        ruleinfo.localrule = value
 
-        return decorate
+    @rule_decorate
+    def message(self, ruleinfo: RuleInfo, message):
+        ruleinfo.message = message
 
-    def localrule(self, value):
-        def decorate(ruleinfo):
-            ruleinfo.localrule = value
-            return ruleinfo
+    @rule_decorate
+    def benchmark(self, ruleinfo: RuleInfo, benchmark):
+        ruleinfo.benchmark = InOutput(benchmark, {}, self.modifier.path_modifier)
 
-        return decorate
-
-    def message(self, message):
-        def decorate(ruleinfo):
-            ruleinfo.message = message
-            return ruleinfo
-
-        return decorate
-
-    def benchmark(self, benchmark):
-        def decorate(ruleinfo):
-            ruleinfo.benchmark = InOutput(benchmark, {}, self.modifier.path_modifier)
-            return ruleinfo
-
-        return decorate
-
-    def conda(self, conda_env):
-        def decorate(ruleinfo):
-            ruleinfo.conda_env = conda_env
-            return ruleinfo
-
-        return decorate
+    @rule_decorate
+    def conda(self, ruleinfo: RuleInfo, conda_env):
+        ruleinfo.conda_env = conda_env
 
     def global_conda(self, conda_env):
         assert self.deployment_settings is not None
         if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
-            from conda_inject import inject_env_file, PackageManager
+            from conda_inject import PackageManager, inject_env_file
 
             try:
                 package_manager = PackageManager[
@@ -2003,32 +1792,21 @@ class Workflow(WorkflowExecutorInterface):
                 )
             self.injected_conda_envs.append(env)
 
-    def container(self, container_img):
-        def decorate(ruleinfo):
-            # Explicitly set container_img to False if None is passed, indicating that
-            # no container image shall be used, also not a global one.
-            ruleinfo.container_img = (
-                container_img if container_img is not None else False
-            )
-            ruleinfo.is_containerized = False
-            return ruleinfo
+    @rule_decorate
+    def container(self, ruleinfo: RuleInfo, container_img):
+        # Explicitly set container_img to False if None is passed, indicating that
+        # no container image shall be used, also not a global one.
+        ruleinfo.container_img = container_img if container_img is not None else False
+        ruleinfo.is_containerized = False
 
-        return decorate
+    @rule_decorate
+    def containerized(self, ruleinfo: RuleInfo, container_img):
+        ruleinfo.container_img = container_img
+        ruleinfo.is_containerized = True
 
-    def containerized(self, container_img):
-        def decorate(ruleinfo):
-            ruleinfo.container_img = container_img
-            ruleinfo.is_containerized = True
-            return ruleinfo
-
-        return decorate
-
-    def envmodules(self, *env_modules):
-        def decorate(ruleinfo):
-            ruleinfo.env_modules = env_modules
-            return ruleinfo
-
-        return decorate
+    @rule_decorate
+    def envmodules(self, ruleinfo: RuleInfo, *env_modules):
+        ruleinfo.env_modules = env_modules
 
     def global_container(self, container_img):
         self.global_container_img = container_img
@@ -2038,47 +1816,32 @@ class Workflow(WorkflowExecutorInterface):
         self.global_container_img = container_img
         self.global_is_containerized = True
 
-    def threads(self, threads):
-        def decorate(ruleinfo):
-            ruleinfo.threads = threads
-            return ruleinfo
+    @rule_decorate
+    def threads(self, ruleinfo: RuleInfo, threads):
+        ruleinfo.threads = threads
 
-        return decorate
+    @rule_decorate
+    def retries(self, ruleinfo: RuleInfo, retries):
+        ruleinfo.retries = retries
 
-    def retries(self, retries):
-        def decorate(ruleinfo):
-            ruleinfo.retries = retries
-            return ruleinfo
-
-        return decorate
-
-    def shadow(self, shadow_depth):
-        def decorate(ruleinfo):
-            ruleinfo.shadow_depth = shadow_depth
-            return ruleinfo
-
-        return decorate
+    @rule_decorate
+    def shadow(self, ruleinfo: RuleInfo, shadow_depth):
+        ruleinfo.shadow_depth = shadow_depth
 
     def resources(self, *args, **resources):
-        def decorate(ruleinfo):
+        def decorate(ruleinfo: RuleInfo):
             ruleinfo.resources = (args, resources)
             return ruleinfo
 
         return decorate
 
-    def priority(self, priority):
-        def decorate(ruleinfo):
-            ruleinfo.priority = priority
-            return ruleinfo
+    @rule_decorate
+    def priority(self, ruleinfo: RuleInfo, priority):
+        ruleinfo.priority = priority
 
-        return decorate
-
-    def group(self, group):
-        def decorate(ruleinfo):
-            ruleinfo.group = group
-            return ruleinfo
-
-        return decorate
+    @rule_decorate
+    def group(self, ruleinfo: RuleInfo, group):
+        ruleinfo.group = group
 
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
@@ -2087,68 +1850,41 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
-    def handover(self, value):
-        def decorate(ruleinfo):
-            ruleinfo.handover = value
-            return ruleinfo
+    @rule_decorate
+    def handover(self, ruleinfo: RuleInfo, value):
+        ruleinfo.handover = value
 
-        return decorate
+    @rule_decorate
+    def shellcmd(self, ruleinfo: RuleInfo, cmd):
+        ruleinfo.shellcmd = cmd
 
-    def shellcmd(self, cmd):
-        def decorate(ruleinfo):
-            ruleinfo.shellcmd = cmd
-            return ruleinfo
+    @rule_decorate
+    def script(self, ruleinfo: RuleInfo, script):
+        ruleinfo.script = script
 
-        return decorate
+    @rule_decorate
+    def notebook(self, ruleinfo: RuleInfo, notebook):
+        ruleinfo.notebook = notebook
 
-    def script(self, script):
-        def decorate(ruleinfo):
-            ruleinfo.script = script
-            return ruleinfo
+    @rule_decorate
+    def wrapper(self, ruleinfo: RuleInfo, wrapper):
+        ruleinfo.wrapper = wrapper
 
-        return decorate
+    @rule_decorate
+    def template_engine(self, ruleinfo: RuleInfo, template_engine):
+        ruleinfo.template_engine = template_engine
 
-    def notebook(self, notebook):
-        def decorate(ruleinfo):
-            ruleinfo.notebook = notebook
-            return ruleinfo
+    @rule_decorate
+    def cwl(self, ruleinfo: RuleInfo, cwl):
+        ruleinfo.cwl = cwl
 
-        return decorate
+    @rule_decorate
+    def norun(self, ruleinfo: RuleInfo):
+        ruleinfo.norun = True
 
-    def wrapper(self, wrapper):
-        def decorate(ruleinfo):
-            ruleinfo.wrapper = wrapper
-            return ruleinfo
-
-        return decorate
-
-    def template_engine(self, template_engine):
-        def decorate(ruleinfo):
-            ruleinfo.template_engine = template_engine
-            return ruleinfo
-
-        return decorate
-
-    def cwl(self, cwl):
-        def decorate(ruleinfo):
-            ruleinfo.cwl = cwl
-            return ruleinfo
-
-        return decorate
-
-    def norun(self):
-        def decorate(ruleinfo):
-            ruleinfo.norun = True
-            return ruleinfo
-
-        return decorate
-
-    def name(self, name):
-        def decorate(ruleinfo):
-            ruleinfo.name = name
-            return ruleinfo
-
-        return decorate
+    @rule_decorate
+    def name(self, ruleinfo: RuleInfo, name):
+        ruleinfo.name = name
 
     def run(self, func):
         return RuleInfo(func)
@@ -2156,7 +1892,7 @@ class Workflow(WorkflowExecutorInterface):
     def module(
         self,
         name,
-        snakefile=None,
+        snakefile: str | None = None,
         meta_wrapper=None,
         config=None,
         skip_validation=False,
@@ -2176,37 +1912,39 @@ class Workflow(WorkflowExecutorInterface):
 
     def userule(
         self,
-        rules=None,
-        from_module=None,
-        exclude_rules=None,
-        name_modifier=None,
-        lineno=None,
+        rules: list[str],
+        from_module: str | None = None,
+        exclude_rules: list[str] | None = None,
+        name_modifier: str | None = None,
+        lineno: int | None = None,
     ):
-        def decorate(maybe_ruleinfo):
-            if from_module is not None:
+        if from_module is not None:
+
+            def decorate(maybe_ruleinfo):
                 try:
                     module = self.modules[from_module]
                 except KeyError:
                     raise WorkflowError(
-                        "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
-                            from_module
-                        )
+                        f"Module {from_module} has not been registered with 'module' statement"
+                        " before using it in 'use rule' statement."
                     )
                 module.use_rules(
                     rules,
                     name_modifier,
                     exclude_rules=exclude_rules,
                     ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
-                    skip_global_report_caption=self.report_text
-                    is not None,  # do not overwrite existing report text via module
+                    # do not overwrite existing report text via module
+                    skip_global_report_caption=self.report_text is not None,
                 )
-            else:
+
+        else:
+
+            def decorate(maybe_ruleinfo):
                 # local inheritance
                 if self.modifier.skip_rule(name_modifier):
                     # The parent use rule statement is specific for a different particular rule
                     # hence this local use rule statement can be skipped.
                     return
-
                 if len(rules) > 1:
                     raise WorkflowError(
                         "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."

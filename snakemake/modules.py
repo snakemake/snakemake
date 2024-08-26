@@ -6,41 +6,47 @@ __license__ = "MIT"
 from pathlib import Path
 import types
 import re
-from snakemake.common import Rules
+from .common import Rules
 
-from snakemake.exceptions import WorkflowError
-from snakemake.path_modifier import PathModifier
-from snakemake import wrapper
+from .exceptions import WorkflowError
+from .path_modifier import PathModifier
+from . import wrapper
+from . import rules
+
+from . import workflow as _workflow
 
 
-def get_name_modifier_func(rules=None, name_modifier=None, parent_modifier=None):
+def get_name_modifier_func(
+    rules: list[str] | None = None,
+    name_modifier: str | None = None,
+    parent_modifier: "WorkflowModifier | None" = None,
+):
     if name_modifier is None:
         return None
+    if parent_modifier is None:
+        parent_modifier_func = lambda rulename: rulename
     else:
-        if parent_modifier is None:
-            parent_modifier_func = lambda rulename: rulename
-        else:
-            parent_modifier_func = parent_modifier.modify_rulename
-        if "*" in name_modifier:
-            return lambda rulename: parent_modifier_func(
-                name_modifier.replace("*", rulename)
-            )
-        elif name_modifier is not None:
-            if len(rules) > 1:
-                raise SyntaxError(
-                    "Multiple rules in 'use rule' statement but name modification ('as' statement) does not contain a wildcard '*'."
-                )
-            return lambda rulename: parent_modifier_func(name_modifier)
+        parent_modifier_func = parent_modifier.modify_rulename
+    if "*" in name_modifier:
+        return lambda rulename: parent_modifier_func(
+            name_modifier.replace("*", rulename)
+        )
+    assert rules is not None
+    if len(rules) > 1:
+        raise SyntaxError(
+            "Multiple rules in 'use rule' statement but name modification ('as' statement) does not contain a wildcard '*'."
+        )
+    return lambda rulename: parent_modifier_func(name_modifier)
 
 
 class ModuleInfo:
     def __init__(
         self,
-        workflow,
+        workflow: "_workflow.Workflow",
         name,
-        snakefile=None,
+        snakefile: str | None = None,
         meta_wrapper=None,
-        config=None,
+        config: dict | None = None,
         skip_validation=False,
         replace_prefix=None,
         prefix=None,
@@ -72,7 +78,7 @@ class ModuleInfo:
 
     def use_rules(
         self,
-        rules=None,
+        rules: list[str],
         name_modifier=None,
         exclude_rules=None,
         ruleinfo=None,
@@ -126,7 +132,7 @@ class ModuleInfo:
             return self.meta_wrapper.split("/", 1)[0]
         return None
 
-    def get_rule_whitelist(self, rules):
+    def get_rule_whitelist(self, rules: list[str]):
         if "*" in rules:
             if len(rules) != 1:
                 raise SyntaxError(
@@ -140,8 +146,8 @@ class ModuleInfo:
 class WorkflowModifier:
     def __init__(
         self,
-        workflow,
-        parent_modifier=None,
+        workflow: "_workflow.Workflow",
+        parent_modifier: "WorkflowModifier | None" = None,
         globals=None,
         config=None,
         base_snakefile=None,
@@ -158,36 +164,23 @@ class WorkflowModifier:
         prefix=None,
         replace_wrapper_tag=None,
         namespace=None,
-        rule_proxies=None,
+        rule_proxies: Rules | None = None,
     ):
-        if parent_modifier is not None:
-            # init with values from parent modifier
-            self.base_snakefile = parent_modifier.base_snakefile
-            self.globals = parent_modifier.globals
-            self.skip_configfile = parent_modifier.skip_configfile
-            self.resolved_rulename_modifier = parent_modifier.resolved_rulename_modifier
-            self.local_rulename_modifier = parent_modifier.local_rulename_modifier
-            self.skip_validation = parent_modifier.skip_validation
-            self.skip_global_report_caption = parent_modifier.skip_global_report_caption
-            self.rule_whitelist = parent_modifier.rule_whitelist
-            self.rule_exclude_list = parent_modifier.rule_exclude_list
-            self.ruleinfo_overwrite = parent_modifier.ruleinfo_overwrite
-            self.allow_rule_overwrite = parent_modifier.allow_rule_overwrite
-            self.path_modifier = parent_modifier.path_modifier
-            self.replace_wrapper_tag = parent_modifier.replace_wrapper_tag
-            self.namespace = parent_modifier.namespace
-            self.wildcard_constraints = parent_modifier.wildcard_constraints
-            self.rules = parent_modifier.rules
-            self.rule_proxies = parent_modifier.rule_proxies
-        else:
+        if parent_modifier is None:
             # default settings for globals if not inheriting from parent
             self.globals = (
                 globals if globals is not None else dict(workflow.vanilla_globals)
             )
-            self.wildcard_constraints = dict()
-            self.rules = set()
+            self.wildcard_constraints: dict[str, str] = dict()
+            self.rules: set["rules.Rule"] = set()
             self.rule_proxies = rule_proxies or Rules()
             self.globals["rules"] = self.rule_proxies
+        else:
+            # init with values from parent modifier
+            self.globals = parent_modifier.globals
+            self.wildcard_constraints = parent_modifier.wildcard_constraints
+            self.rules = parent_modifier.rules
+            self.rule_proxies = parent_modifier.rule_proxies
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile
@@ -208,7 +201,7 @@ class WorkflowModifier:
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
 
-    def inherit_rule_proxies(self, child_modifier):
+    def inherit_rule_proxies(self, child_modifier: "WorkflowModifier"):
         for name, rule in child_modifier.rule_proxies._rules.items():
             if child_modifier.local_rulename_modifier is not None:
                 name = child_modifier.local_rulename_modifier(name)
@@ -219,7 +212,7 @@ class WorkflowModifier:
             self.rule_whitelist is not None and rulename not in self.rule_whitelist
         ) or (self.rule_exclude_list is not None and rulename in self.rule_exclude_list)
 
-    def modify_rulename(self, rulename):
+    def modify_rulename(self, rulename) -> str:
         if self.resolved_rulename_modifier is not None:
             return self.resolved_rulename_modifier(rulename)
         return rulename

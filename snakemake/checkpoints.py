@@ -1,6 +1,6 @@
-from snakemake.common import async_run
-from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
-from snakemake.io import checkpoint_target
+from .common import async_run
+from .exceptions import IncompleteCheckpointException, WorkflowError
+from .io import checkpoint_target
 
 
 class Checkpoints:
@@ -14,7 +14,7 @@ class Checkpoints:
         checkpoint = Checkpoint(rule, self)
         if fallback_name:
             setattr(self, fallback_name, checkpoint)
-        setattr(self, rule.name, Checkpoint(rule, self))
+        setattr(self, rule.name, checkpoint)
 
 
 class Checkpoint:
