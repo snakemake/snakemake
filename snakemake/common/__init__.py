@@ -117,6 +117,9 @@ def is_local_file(path_or_uri):
     return parse_uri(path_or_uri).scheme == "file"
 
 
+Uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
+
+
 def parse_uri(path_or_uri):
     from smart_open import parse_uri
 
@@ -129,8 +132,7 @@ def parse_uri(path_or_uri):
         # Fall back to a simple split if we encounter something which isn't supported.
         scheme, _, uri_path = path_or_uri.partition("://")
         if scheme and uri_path:
-            uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
-            return uri(scheme, uri_path)
+            return Uri(scheme, uri_path)
         else:
             raise e
 
@@ -255,9 +257,15 @@ class Rules:
         try:
             return self._rules[name]
         except KeyError:
+            avail_rules = ", ".join(self._rules) or (
+                "None\n"
+                f"If this snakefile is used as module, "
+                f"please make sure all the dependent rule "
+                f"are used from the module as well."
+            )
             raise WorkflowError(
                 f"Rule {name} is not defined in this workflow. "
-                f"Available rules: {', '.join(self._rules)}"
+                f"Available rules: {avail_rules}"
             )
 
 
