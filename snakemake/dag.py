@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import asyncio
 from builtins import ExceptionGroup
+import datetime
 import hashlib
 import html
 import os
@@ -694,9 +695,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 return True
             return not (f.is_directory ^ os.path.isdir(f))
 
-        for f in expanded_output:
-            if not correctly_flagged_with_dir(f):
-                raise ImproperOutputException(job, [f])
+        for output_path in expanded_output:
+            if not correctly_flagged_with_dir(output_path):
+                raise ImproperOutputException(job, [output_path])
 
         # Handle ensure flags
         await self.handle_ensure(job, expanded_output)
@@ -705,14 +706,32 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         # the files appear older than the input.  But we know they must be new,
         # so touch them to update timestamps. This also serves to touch outputs
         # when using the --touch flag.
-        # Note that if the input files somehow have a future date then this will
-        # not currently be spotted and the job will always be re-run.
         if not no_touch:
-            for f in expanded_output:
+            for output_path in expanded_output:
                 # This won't create normal files if missing, but will create
                 # the flag file for directories.
-                if await f.exists_local():
-                    f.touch()
+                if await output_path.exists_local():
+                    output_path.touch()
+
+        # Check whether all output files are newer than the newest input file.
+        # This catches problems with non-sychronous clocks in distributed execution.
+        newest_input_mtime, newest_input_path = max(
+            (f.mtime_local(), f) for f in job.input
+        )
+        for output_path in expanded_output:
+            output_mtime = output_path.mtime_local()
+            if output_mtime < newest_input_mtime:
+                raise WorkflowError(
+                    f"Output {output_path} has older modification time "
+                    f"({datetime.datetime.fromtimestamp(output_mtime)}) "
+                    f"than input {newest_input_path} "
+                    f"({datetime.datetime.fromtimestamp(newest_input_mtime)}). "
+                    "This could indicate a clock skew problem in your network and "
+                    "would trigger a rerun of this job in the next execution and "
+                    "should therefore be fixed on system level. "
+                    f"System time: {datetime.datetime.now()}",
+                    rule=job.rule,
+                )
 
     def unshadow_output(self, job, only_log=False):
         """Move files from shadow directory to real output paths."""
