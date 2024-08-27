@@ -1,12 +1,8 @@
 from dataclasses import dataclass
 import hashlib
-from pathlib import Path
-import shutil
 import importlib.resources
 
 import requests
-
-from snakemake.logging import logger
 
 
 @dataclass
@@ -104,6 +100,7 @@ class Assets:
         try:
             return (cls.base_path / asset_path).read_text()
         except FileNotFoundError:
+            from snakemake.logging import logger
             logger.warning(
                 f"Asset {asset_path} not found (development setup?), downloading..."
             )
