@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 import hashlib
 import importlib.resources
+from pathlib import Path
+from typing import Dict
 
 import requests
 
@@ -19,8 +21,8 @@ class Asset:
 
 
 class Assets:
-    base_path = importlib.resources.files("snakemake.assets") / "data"
-    spec = {
+    base_path: Path = importlib.resources.files("snakemake.assets") / "data"
+    spec: Dict[str, Asset] = {
         "snakemake/LICENSE.md": Asset(
             url="https://raw.githubusercontent.com/snakemake/snakemake/main/LICENSE.md",
             sha256="84a1a82b05c80637744d3fe8257235c15380efa6cc32608adf4b21f17af5d2b8",
@@ -101,6 +103,7 @@ class Assets:
             return (cls.base_path / asset_path).read_text()
         except FileNotFoundError:
             from snakemake.logging import logger
+
             logger.warning(
                 f"Asset {asset_path} not found (development setup?), downloading..."
             )
