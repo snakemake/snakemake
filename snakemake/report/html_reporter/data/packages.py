@@ -2,7 +2,8 @@ import json
 from pathlib import Path
 from snakemake.exceptions import WorkflowError
 import snakemake
-import sys
+
+from snakemake.assets import Assets
 
 
 def get_packages():
@@ -74,20 +75,14 @@ class Package:
     def __init__(
         self, version=None, license_path=None, source_path=None, **source_paths
     ):
-        def read_source(path: Path) -> str:
-            with path.open() as file:
-                return file.read()
-
         self.version = version
-        asset_prefix = Path(sys.prefix) / "share" / "snakemake" / "assets"
 
-        self.license = read_source(asset_prefix / license_path)
+        self.license = Assets.get_content(license_path)
         if source_path is not None:
-            self.source = read_source(asset_prefix / source_path)
+            self.source = Assets.get_content(source_path)
         else:
             self.sources = {
-                name: read_source(asset_prefix / path)
-                for name, path in source_paths.items()
+                name: Assets.get_content(path) for name, path in source_paths.items()
             }
 
     def get_record(self):

@@ -9,10 +9,14 @@ from setuptools import setup
 sys.path.append(os.path.dirname(__file__))
 
 import versioneer  # noqa: E402
+from snakemake.assets import Assets
 
+# download online assets
+Assets.deploy()
 
 setup(
     name="snakemake",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
+    package_data={"snakemake": ["assets/data/**/*"]},
 )
