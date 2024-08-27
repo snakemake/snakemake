@@ -1308,9 +1308,9 @@ def parse(
         automaton = Python(snakefile)
         compilation = list()
         for t, orig_token in automaton.consume():
-            l = lineno(orig_token)
+            line_number = lineno(orig_token)
             linemap |= {
-                i: l
+                i: line_number
                 for i in range(snakefile.lines + 1, snakefile.lines + t.count("\n") + 1)
             }
             snakefile.lines += t.count("\n")
