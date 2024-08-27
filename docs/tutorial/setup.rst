@@ -190,7 +190,10 @@ This will create a folder ``data`` and a file ``environment.yaml`` in the workin
 Step 3: Creating an environment with the required software
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-First, make sure to activate the conda base environment with
+All interactions with Conda package management below can be conducted with either ``conda``, ``mamba`` or ``micromamba``.
+For the steps in the :ref:`"advanced" part of the tutorial <tutorial-advanced>`, you have to install ``mamba`` though in case you don't have it.
+
+First, make sure to activate the base environment with
 
 .. code:: console
 

@@ -126,6 +126,7 @@ from snakemake.deployment.conda import Conda
 from snakemake import api, sourcecache
 import snakemake.ioutils
 import snakemake.ioflags
+from snakemake.jobs import jobs_to_rulenames
 
 
 SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
@@ -1043,6 +1044,8 @@ class Workflow(WorkflowExecutorInterface):
         executor_settings: ExecutorSettingsBase,
         updated_files: Optional[List[str]] = None,
     ):
+        logger.host_info()
+
         from snakemake.shell import shell
 
         shell.conda_block_conflicting_envvars = (
@@ -1143,6 +1146,21 @@ class Workflow(WorkflowExecutorInterface):
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
+            def log_missing_metadata_info():
+                no_metadata_jobs = [
+                    job
+                    for job in self.dag.jobs
+                    if self.dag.reason(job).no_metadata and not self.dag.needrun(job)
+                ]
+                if no_metadata_jobs:
+                    logger.info(
+                        f"{len(no_metadata_jobs)} jobs have no recorded "
+                        "provenance/metadata so that they "
+                        "cannot be triggered by that. \n"
+                        "Rules with missing "
+                        f"metadata: {' '.join(jobs_to_rulenames(no_metadata_jobs))}"
+                    )
+
             self.scheduler = JobScheduler(self, executor_plugin)
 
             if not self.dryrun:
@@ -1202,6 +1220,7 @@ class Workflow(WorkflowExecutorInterface):
                     logger.run_info("\n".join(self.dag.stats()))
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
+                    log_missing_metadata_info()
                     return
                 if self.output_settings.quiet:
                     # in case of dryrun and quiet, just print above info and exit
@@ -1230,11 +1249,7 @@ class Workflow(WorkflowExecutorInterface):
                     )
                     logger.info(
                         "Rules with provenance triggered jobs: "
-                        + ",".join(
-                            sorted(
-                                set(job.rule.name for job in provenance_triggered_jobs)
-                            )
-                        )
+                        + " ".join(jobs_to_rulenames(provenance_triggered_jobs))
                     )
                     logger.info("")
 

@@ -105,11 +105,12 @@ It is not clear whether ``dataset=101.B`` and ``group=normal`` or ``dataset=101`
 Hence wildcards can be constrained to given regular expressions.
 Here we could restrict the wildcard ``dataset`` to consist of digits only using ``\d+`` as the corresponding regular expression.
 With Snakemake 3.8.0, there are three ways to constrain wildcards.
-First, a wildcard can be constrained within the file pattern, by appending a regular expression separated by a comma:
+First, a wildcard can be constrained within the file pattern, by appending a regular expression separated by a comma 
+(you might want to use the `r` prefix for a raw string to avoid having to escape backslashes, particularly for more complex regular expressions):
 
 .. code-block:: python
 
-    output: "{dataset,\d+}.{group}.txt"
+    output: r"{dataset,\d+}.{group}.txt"
 
 Second, a wildcard can be constrained within the rule via the keyword ``wildcard_constraints``:
 
@@ -1614,7 +1615,11 @@ For example, running
 .. code-block:: console
 
     snakemake --cores 1 --draft-notebook test.txt --software-deployment-method conda
-    # or the short form
+
+or the short form
+
+.. code-block:: console
+
     snakemake -c 1 --draft-notebook test.txt --sdm conda
 
 will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
@@ -1720,7 +1725,7 @@ A sha256 checksum can be compared as follows:
 
 .. code-block:: python
 
-    my_checksum = "u98a9cjsd98saud090923ßkpoasköf9ß32"
+    my_checksum = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
 
     rule NAME:
         output:

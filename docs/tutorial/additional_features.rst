@@ -1,4 +1,4 @@
-.. tutorial-additional_features:
+.. _tutorial-additional_features:
 
 Additional features
 -------------------
@@ -143,7 +143,11 @@ When Snakemake is executed with
 .. code:: console
 
   snakemake --software-deployment-method conda --cores 1
-  # or the short form
+
+or the short form
+
+.. code:: console
+
     snakemake --sdm conda -c 1
 
 it will automatically create required environments and

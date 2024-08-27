@@ -1,4 +1,4 @@
-.. tutorial-advanced:
+.. _tutorial-advanced:
 
 Advanced: Decorating the example workflow
 -----------------------------------------
@@ -296,6 +296,8 @@ Exercise
 * Run Snakemake with the target ``mapped_reads/A.bam``. Although the file is marked as temporary, you will see that Snakemake does not delete it because it is specified as a target file.
 * Try to re-execute the whole workflow again with the dry-run option. You will see that it fails (as intended) because Snakemake cannot overwrite the protected output files.
 
+After having a look at the summary, please go on with the :ref:`"additional features" part of the tutorial <tutorial-additional_features>`.
+
 Summary
 :::::::
 
@@ -384,3 +386,5 @@ With this, the final version of our workflow in the ``Snakefile`` looks like thi
             "plots/quals.svg"
         script:
             "scripts/plot-quals.py"
+
+Now, please go on with the :ref:`"additional features" part of the tutorial <tutorial-additional_features>`.

@@ -496,6 +496,8 @@ Exercise
 * Snakemake provides handy flags for forcing re-execution of parts of the workflow. Have a look at the command line help with ``snakemake --help`` and search for the flag ``--forcerun``. Then, use this flag to re-execute the rule ``samtools_sort`` and see what happens.
 * Snakemake displays the reason for each job (under ``reason:``). Perform a dry-run that forces some rules to be reexecuted (using the ``--forcerun`` flag in combination with some rulename) to understand the decisions of Snakemake.
 
+After having a look at the summary, please go on with the :ref:`advanced part of the tutorial <tutorial-advanced>`.
+
 Summary
 :::::::
 
@@ -559,3 +561,6 @@ In total, the resulting workflow looks like this:
             "plots/quals.svg"
         script:
             "scripts/plot-quals.py"
+
+
+Now, please go on with the :ref:`advanced part of the tutorial <tutorial-advanced>`.
