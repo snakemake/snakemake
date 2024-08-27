@@ -201,6 +201,8 @@ will automatically download the requested version of the wrapper.
 Furthermore, in combination with ``--software-deployment-method conda`` (see :ref:`tutorial-conda`),
 the required software will be automatically deployed before execution.
 
+.. _tutorial-cloud:
+
 Cluster or cloud execution
 :::::::::::::::::
 
