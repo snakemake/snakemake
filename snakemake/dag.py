@@ -713,7 +713,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 if await output_path.exists_local():
                     output_path.touch()
 
-        if wait_for_local:
+        if wait_for_local and job.input:
             # Check whether all output files are newer than the newest input file.
             # This catches problems with non-sychronous clocks in distributed execution.
             newest_input_mtime, newest_input_path = max(
