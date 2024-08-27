@@ -53,7 +53,7 @@ For adding config placeholders into a shell command, Python string formatting sy
     shell:
         "mycommand {config[foo]} ..."
 
-.. _snakefiles_tabular_configuration
+.. _snakefiles_tabular_configuration:
 
 ---------------------
 Tabular configuration

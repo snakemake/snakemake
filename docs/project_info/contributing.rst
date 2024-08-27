@@ -118,7 +118,7 @@ From the base snakemake folder you call :code:`pytest` to run all the tests, or 
 
 If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
 
-.. project_info-doc_guidelines:
+.. _project_info-doc_guidelines:
 
 ------------------------
 Documentation Guidelines

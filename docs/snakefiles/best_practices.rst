@@ -19,7 +19,7 @@ Best practices
 * For publishing and distributing a Snakemake workflow, it is a good idea to stick to a :ref:`standardized structure <distribution_and_reproducibility>` that is expected by frequent users of Snakemake.
   The `Snakemake workflow catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_ automatically lists Snakemake workflows hosted on `Github <https://github.com>`_ if they follow certain `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_.
   By complying to these `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_ you can make your workflow more discoverable and even automate its usage documentation (see `"Standardized usage" <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_).
-* Configuration of a workflow should be handled via :ref:`config files <snakefiles_standard_configuration>` and, if needed, tabular configuration like sample sheets (either via :ref:`Pandas <snakefiles_tabular_configuration>` or :ref:`PEPs <snakefiles_peps>`).
+* Configuration of a workflow should be handled via :ref:`config files <snakefiles_standard_configuration>` and, if needed, tabular configuration like sample sheets (either via :ref:`Pandas <snakefiles_tabular_configuration>` or :ref:`PEPs <snakefiles-peps>`).
   Use such configuration for metadata and experiment information, **not for runtime specific configuration** like threads, resources and output folders.
   For those, just rely on Snakemake's CLI arguments like ``--set-threads``, ``--set-resources``, ``--set-default-resources``, and ``--directory``. 
   This makes workflows more readable, scalable, and portable.

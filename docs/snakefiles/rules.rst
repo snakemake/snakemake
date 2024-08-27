@@ -250,7 +250,7 @@ Helper functions for defining input and output files
 ----------------------------------------------------
 
 Snakemake provides a number of helper functions that can be used to determine input files and drastically simplify over using
-:ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`_.
+:ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`.
 Below, we will first start with describing two basic helper functions for specifying aggregations and multiple output files.
 Afterwards, we will further show a set of semantic helper functions should increase readability and simplify code (see :ref:`snakefiles-semantic-helpers`).
 
@@ -627,7 +627,7 @@ First, by globally setting the shell executable (e.g. to zsh) via
     shell.executable("/bin/zsh")
 
 Note that this is usually not recommended, as it requires others who want to use the workflow to have that shell installed.
-Second, by setting the shell executable via the :ref:`resources directive <snakefiles_resources>` of a rule, e.g.
+Second, by setting the shell executable via the :ref:`resources directive <snakefiles-resources>` of a rule, e.g.
 
 .. code-block:: python
 
