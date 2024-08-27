@@ -16,6 +16,9 @@ dependencies:
   - pip
   - pip:
     - sphinxcontrib-napoleon
+    - snakemake-interface-common >=1.17.0
+    - snakemake-interface-executor-plugins >=9.1.0
+    - snakemake-interface-storage-plugins >=3.2.3
   - sphinx-argparse
   - sphinx_rtd_theme
   - sphinxawesome-theme
