@@ -72,7 +72,7 @@ The repeated measurements occur as subsequent lines in the tab-delimited benchma
 Modularization
 ::::::::::::::
 
-In order to reuse building blocks or simply to structure large workflows, it is sometimes reasonable to **split a workflow into modules**.
+In order to reuse building blocks or simply to structure large workflows, it is sometimes reasonable to **split a workflow into multiple Snakefiles**.
 For this, Snakemake provides the ``include`` directive to include another Snakefile into the current one, e.g.:
 
 .. code:: python
@@ -80,12 +80,12 @@ For this, Snakemake provides the ``include`` directive to include another Snakef
     include: "path/to/other.smk"
 
 As can be seen, the default file extensions for snakefiles other than the main snakefile is ``.smk``.
-Alternatively, Snakemake allows to **define sub-workflows**.
-A sub-workflow refers to a working directory with a complete Snakemake workflow.
+Alternatively, Snakemake allows to **define external workflows as modules**.
+A module refers to a working directory with a complete Snakemake workflow.
 Output files of that sub-workflow can be used in the current Snakefile.
 When executing, Snakemake ensures that the output files of the sub-workflow are up-to-date before executing the current workflow.
 This mechanism is particularly useful when you want to extend a previous analysis without modifying it.
-For details about sub-workflows, see the :ref:`documentation <snakefiles-sub_workflows>`.
+For details about modules, see the :ref:`documentation <snakefiles-modules>`.
 
 
 Exercise
