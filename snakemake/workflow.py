@@ -272,11 +272,11 @@ class Workflow(WorkflowExecutorInterface):
 
     def upload_sources(self):
         assert self.storage_settings is not None
-        with tempfile.NamedTemporaryFile(suffix="snakemake-sources.tar.xz") as f:
-            self.write_source_archive(Path(f.name))
-            f.flush()
-            with open(f.name, "rb") as f1:
-                checksum = hashlib.file_digest(f1, "sha256").hexdigest()
+        with tempfile.NamedTemporaryFile(suffix="snakemake-sources.tar.xz") as tf:
+            self.write_source_archive(Path(tf.name))
+            tf.flush()
+            with open(tf.name, "rb") as f:
+                checksum = hashlib.file_digest(f, "sha256").hexdigest()
 
             prefix = self.storage_settings.default_storage_prefix
             if prefix:
@@ -286,7 +286,7 @@ class Workflow(WorkflowExecutorInterface):
             self._source_archive = SourceArchiveInfo(query, checksum)
 
             obj = self.storage_registry.default_storage_provider.object(query)
-            obj.set_local_path(Path(f.name))
+            obj.set_local_path(Path(tf.name))
             logger.info("Uploading source archive to storage provider...")
             async_run(obj.managed_store())
 
@@ -382,11 +382,9 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def use_threads(self):
+        assert self.execution_settings is not None
         return (
-            (
-                self.execution_settings is not None
-                and self.execution_settings.use_threads
-            )
+            self.execution_settings.use_threads
             or (os.name not in ["posix", "nt"])
             or not self.local_exec
         )
@@ -663,10 +661,8 @@ class Workflow(WorkflowExecutorInterface):
         """
         if isinstance(path, Path):
             path = str(path)
-        if (
-            self.storage_settings is not None
-            and self.storage_settings.default_storage_provider is not None
-        ):
+        assert self.storage_settings is not None
+        if self.storage_settings.default_storage_provider is not None:
             path = self.modifier.modify_path(path)
         return IOFile(path)
 
@@ -824,11 +820,11 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         deploy = []
-        if self.deployment_settings is not None:
-            if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
-                deploy.append("conda")
-            if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
-                deploy.append("singularity")
+        assert self.deployment_settings is not None
+        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+            deploy.append("conda")
+        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
+            deploy.append("singularity")
         unit_tests.generate(
             self.dag, path, deploy, configfiles=self.overwrite_configfiles
         )
@@ -1053,7 +1049,7 @@ class Workflow(WorkflowExecutorInterface):
     def conda_cleanup_envs(self):
         assert self.dag_settings is not None
         self._prepare_dag(
-            forceall=self.dag_settings.forceall,  # True?
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=True,
             lock_warn_only=False,
         )
