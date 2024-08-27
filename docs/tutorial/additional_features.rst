@@ -204,7 +204,7 @@ the required software will be automatically deployed before execution.
 .. _tutorial-cloud:
 
 Cluster or cloud execution
-:::::::::::::::::
+::::::::::::::::::::::::::
 
 Executing jobs on a cluster or in the cloud is supported by so-called executor plugins, which are distributed and documented via the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_.
 

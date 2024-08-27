@@ -1414,7 +1414,7 @@ remaining directives can be found in the variable ``snakemake``.
     As arrays cannot be nested in Bash, use of python's ``dict`` in directives is not supported. So, adding a ``params`` key of ``data={"foo": "bar"}`` will not be reflected - ``${snakemake_params[data]}`` actually only returns ``"foo"``.
 
 Bash Example 1
-^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -1457,7 +1457,7 @@ double-quote any variable that could contain a file name. However, `in some case
 such as ``${snakemake_params[opts]}`` in the above example.
 
 Bash Example 2
-^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
 
 .. code-block:: python
 
