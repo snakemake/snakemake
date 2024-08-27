@@ -12,7 +12,12 @@ class Asset:
 
     def get_content(self) -> bytes:
         """Get and validate asset content."""
-        content = requests.get(self.url).content
+        try:
+            response = requests.get(self.url)
+            response.raise_for_status()
+            content = response.content
+        except requests.RequestException as e:
+            raise ValueError(f"Failed to download asset {self.url}: {e}")
         if self.sha256 != hashlib.sha256(content).hexdigest():
             raise ValueError(f"Checksum mismatch when downloading asset {self.url}")
         return content
