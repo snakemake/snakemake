@@ -1081,6 +1081,8 @@ class Workflow(WorkflowExecutorInterface):
         executor_settings: ExecutorSettingsBase,
         updated_files: Optional[List[str]] = None,
     ):
+        logger.host_info()
+
         from snakemake.shell import shell
 
         assert self.deployment_settings is not None
