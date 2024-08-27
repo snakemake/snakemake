@@ -34,7 +34,7 @@ In the workflow, the configuration is accessible via the global variable `config
             expand("{sample}.{param}.output.pdf", sample=config["samples"], param=config["yourparam"])
 
 If the `configfile` statement is not used, the config variable provides an empty array.
-In addition to the `configfile` statement, config values can be overwritten via the command line or the :ref:`api_reference_snakemake`, e.g.:
+In addition to the `configfile` statement, config values can be overwritten via the command line or the `snakemake.utils API <https://snakemake-api.readthedocs.io/en/stable/api_reference/snakemake_utils.html#snakemake.utils.update_config>`__, e.g.:
 
 .. code-block:: console
 
