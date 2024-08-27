@@ -1618,6 +1618,17 @@ class Workflow(WorkflowExecutorInterface):
         )
         rule.basedir = self.current_basedir
         rule.module_globals = self.modifier.globals
+
+        # handle default resources
+        if self.resource_settings.default_resources is not None:
+            rule.resources = copy.deepcopy(
+                self.resource_settings.default_resources.parsed
+            )
+        else:
+            rule.resources = dict()
+        # Always require one node
+        rule.resources["_nodes"] = 1
+
         # Register rule under its original name.
         # Modules using this snakefile as a module, will register it additionally under their
         # requested name.
@@ -1634,6 +1645,7 @@ class Workflow(WorkflowExecutorInterface):
                 name = rule.name
             else:
                 name = name_
+            ruleinfo.func.__name__ = f"__{rule.name}"
 
             # If requested, modify ruleinfo via the modifier.
             ruleinfo.apply_modifier(self.modifier)

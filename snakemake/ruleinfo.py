@@ -4,7 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from collections import namedtuple
-from copy import copy, deepcopy
+from copy import copy
 from pathlib import Path
 
 from .settings.types import ResourceSettings, WorkflowSettings
@@ -202,7 +202,7 @@ class RuleInfo:
                     "shell, script, notebook, or wrapper directives (not with run or the template_engine)",
                     rule=rule,
                 )
-            from snakemake.deployment.env_modules import EnvModules
+            from .deployment.env_modules import EnvModules
 
             rule.env_modules = EnvModules(*ruleinfo.env_modules)
         if ruleinfo.conda_env:
@@ -237,7 +237,6 @@ class RuleInfo:
         rule.wrapper = ruleinfo.wrapper
         rule.template_engine = ruleinfo.template_engine
         rule.cwl = ruleinfo.cwl
-        ruleinfo.func.__name__ = f"__{rule.name}"
         rule.ruleinfo = ruleinfo
 
     def update_rule_settings(
@@ -249,50 +248,43 @@ class RuleInfo:
         is_containerized=False,
     ):
         name = rule.name
-        if True:
-            # handle default resources
-            if resource_settings.default_resources is not None:
-                rule.resources = deepcopy(resource_settings.default_resources.parsed)
-            else:
-                rule.resources = dict()
-            # Always require one node
-            rule.resources["_nodes"] = 1
-
-            if ruleinfo.threads is not None:
-                if not isinstance(ruleinfo.threads, (int, float)) and not callable(
-                    ruleinfo.threads
-                ):
-                    raise RuleException(
-                        "Threads value has to be an integer, float, or a callable.",
-                        rule=rule,
-                    )
-                if name not in resource_settings.overwrite_threads:
-                    if isinstance(ruleinfo.threads, float):
-                        ruleinfo.threads = int(ruleinfo.threads)
-                    rule.resources["_cores"] = ruleinfo.threads
-            else:
-                rule.resources["_cores"] = 1
-
-            if name in resource_settings.overwrite_threads:
-                rule.resources["_cores"] = get_resource_value(
-                    resource_settings.overwrite_threads[name]
+        if ruleinfo.threads is not None:
+            if (
+                not isinstance(ruleinfo.threads, int)
+                and not isinstance(ruleinfo.threads, float)
+                and not callable(ruleinfo.threads)
+            ):
+                raise RuleException(
+                    "Threads value has to be an integer, float, or a callable.",
+                    rule=rule,
                 )
-            if name in resource_settings.overwrite_resources:
-                rule.resources.update(
-                    (resource, get_resource_value(value))
-                    for resource, value in resource_settings.overwrite_resources[
-                        name
-                    ].items()
-                )
+            if name not in resource_settings.overwrite_threads:
+                if isinstance(ruleinfo.threads, float):
+                    ruleinfo.threads = int(ruleinfo.threads)
+                rule.resources["_cores"] = ruleinfo.threads
+        else:
+            rule.resources["_cores"] = 1
 
-            if ruleinfo.wrapper:
-                rule.conda_env = get_conda_env(
-                    ruleinfo.wrapper, prefix=workflow_settings.wrapper_prefix
-                )
-                # TODO retrieve suitable singularity image
+        if name in resource_settings.overwrite_threads:
+            rule.resources["_cores"] = get_resource_value(
+                resource_settings.overwrite_threads[name]
+            )
+        if name in resource_settings.overwrite_resources:
+            rule.resources.update(
+                (resource, get_resource_value(value))
+                for resource, value in resource_settings.overwrite_resources[
+                    name
+                ].items()
+            )
 
-            if not ruleinfo.container_img and container_img:
-                if not ruleinfo.is_invalid and ruleinfo.container_img != False:
-                    # skip rules with run directive or empty image
-                    rule.container_img = container_img
-                    rule.is_containerized = is_containerized
+        if ruleinfo.wrapper:
+            rule.conda_env = get_conda_env(
+                ruleinfo.wrapper, prefix=workflow_settings.wrapper_prefix
+            )
+            # TODO retrieve suitable singularity image
+
+        if not ruleinfo.container_img and container_img:
+            if not ruleinfo.is_invalid and ruleinfo.container_img != False:
+                # skip rules with run directive or empty image
+                rule.container_img = container_img
+                rule.is_containerized = is_containerized

@@ -878,7 +878,9 @@ def test_group_jobs_attempts():
 
 
 def assert_resources(resources: dict, **expected_resources):
-    assert {res: resources[res] for res in expected_resources} == expected_resources
+    assert {
+        res: resources.get(res, None) for res in expected_resources
+    } == expected_resources
 
 
 @skip_on_windows
@@ -2042,10 +2044,10 @@ def test_issue1256():
         stderr=sp.PIPE,
     )
     _, stderr = p.communicate()
-    stderr = stderr.decode()
+    errstr = stderr.decode()
     assert p.returncode == 1
-    assert "SyntaxError" in stderr
-    assert "line 9" in stderr
+    assert "SyntaxError" in errstr
+    assert "line 9" in errstr
 
 
 def test_resource_string_in_cli_or_profile():
