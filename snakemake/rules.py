@@ -79,8 +79,8 @@ class Rule(RuleInterface):
         name -- the name of the rule
         """
         self.orig_name = name
-        self.modifler = modifier
-        self._name = self.modifler.modify_rulename(name)
+        self.modifier = modifier
+        self._name = self.modifier.modify_rulename(name)
         self.docstring = None
         self.message = None
         self._input = InputFiles()
@@ -125,7 +125,7 @@ class Rule(RuleInterface):
 
     @property
     def workflow(self):
-        return self.modifler.workflow
+        return self.modifier.workflow
 
     @property
     def name(self):
