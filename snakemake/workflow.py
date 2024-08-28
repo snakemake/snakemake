@@ -17,7 +17,7 @@ import copy
 from pathlib import Path
 import tarfile
 import tempfile
-from typing import Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     ConfigSettings,
@@ -148,7 +148,7 @@ class Workflow(WorkflowExecutorInterface):
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     check_envvars: bool = True
-    cache_rules: dict[str, str] = field(default_factory=dict)
+    cache_rules: Dict[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str | Path] = None
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
     injected_conda_envs: List = field(default_factory=list)
@@ -1430,7 +1430,7 @@ class Workflow(WorkflowExecutorInterface):
         self.included_stack.append(snakefile)
 
         default_target = self.default_target
-        linemap: dict[int, int] = dict()
+        linemap: Dict[int, int] = dict()
         self.linemaps[snakefile.get_path_or_uri()] = linemap
         code, rulecount = parse(
             snakefile,

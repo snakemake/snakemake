@@ -1299,7 +1299,7 @@ def format_tokens(tokens) -> Generator[str, None, None]:
 def parse(
     path,
     workflow: "workflow.Workflow",
-    linemap: dict[int, int],
+    linemap: Dict[int, int],
     overwrite_shellcmd=None,
     rulecount=0,
 ):
