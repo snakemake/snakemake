@@ -103,6 +103,8 @@ class Assets:
 
     @classmethod
     def deploy(cls) -> None:
+        # this has to work from setup.py without being able to load the snakemake
+        # modules.
         base_path = Path(__file__).parent / "data"
         for asset_path, asset in cls.spec.items():
             target_path = base_path / asset_path
@@ -113,7 +115,7 @@ class Assets:
     @classmethod
     def get_content(cls, asset_path: str) -> str:
         try:
-            return (cls.base_path / asset_path).read_text()
+            return (cls.base_path() / asset_path).read_text()
         except FileNotFoundError:
             from snakemake.logging import logger
 
@@ -124,6 +126,7 @@ class Assets:
 
     @classmethod
     def base_path(cls) -> Path:
+        # this is called from within snakemake, so we can use importlib.resources
         if cls._base_path is None:
             cls._base_path = importlib.resources.files("snakemake.assets") / "data"
         return cls._base_path
