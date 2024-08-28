@@ -14,7 +14,7 @@ import subprocess
 import tarfile
 import textwrap
 import time
-from typing import Iterable, Optional, Set, Union
+from typing import Iterable, List, Optional, Set, Union
 import uuid
 import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
@@ -53,6 +53,7 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 from snakemake.io import (
+    _IOFile,
     PeriodicityDetector,
     get_flag_value,
     is_callable,
@@ -713,16 +714,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 if await output_path.exists_local():
                     output_path.touch()
 
-        if wait_for_local and job.input:
-            # Check whether all output files are newer than the newest input file.
-            # This catches problems with non-sychronous clocks in distributed execution.
-            newest_input_mtime, newest_input_path = max(
-                [
-                    ((await f.mtime_uncached(skip_storage=True)).local(), f)
-                    for f in job.input
-                ]
-            )
+        if wait_for_local:
+            await self.check_output_mtime(job, expanded_output)
+
+    async def check_output_mtime(
+        self, job: Job, expanded_output: List[_IOFile]
+    ) -> None:
+        # Check whether all output files are newer than the newest input file.
+        # This catches problems with non-sychronous clocks in distributed execution.
+        existing_input = [
+            ((await f.mtime_uncached(skip_storage=True)).local(), f)
+            for f in job.input
+            if await f.exists_local()
+        ]
+        if existing_input:
+            newest_input_mtime, newest_input_path = max(existing_input)
             for output_path in expanded_output:
+                if not await output_path.exists_local():
+                    continue
                 output_mtime = (
                     await output_path.mtime_uncached(skip_storage=True)
                 ).local()
@@ -732,9 +741,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         f"({datetime.datetime.fromtimestamp(output_mtime)}) "
                         f"than input {newest_input_path} "
                         f"({datetime.datetime.fromtimestamp(newest_input_mtime)}). "
-                        "This could indicate a clock skew problem in your network and "
-                        "would trigger a rerun of this job in the next execution and "
-                        "should therefore be fixed on system level. "
+                        "This could indicate a clock skew problem in your network "
+                        "and would trigger a rerun of this job in the next "
+                        "execution and should therefore be fixed on system level. "
                         f"System time: {datetime.datetime.now()}",
                         rule=job.rule,
                     )
