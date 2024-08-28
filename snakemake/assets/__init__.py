@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import hashlib
 import importlib.resources
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 import urllib.request
 import urllib.error
 
@@ -33,7 +33,7 @@ class Asset:
 
 
 class Assets:
-    base_path: Path = importlib.resources.files("snakemake.assets") / "data"
+    _base_path: Optional[Path] = None
     spec: Dict[str, Asset] = {
         "snakemake/LICENSE.md": Asset(
             url="https://raw.githubusercontent.com/snakemake/snakemake/main/LICENSE.md",
@@ -103,8 +103,9 @@ class Assets:
 
     @classmethod
     def deploy(cls) -> None:
+        base_path = Path(__file__).parent / "data"
         for asset_path, asset in cls.spec.items():
-            target_path = cls.base_path / asset_path
+            target_path = base_path / asset_path
             target_path.parent.mkdir(parents=True, exist_ok=True)
             with open(target_path, "wb") as fout:
                 fout.write(asset.get_content())
@@ -120,3 +121,9 @@ class Assets:
                 f"Asset {asset_path} not found (development setup?), downloading..."
             )
             return cls.spec[asset_path].get_content().decode()
+
+    @classmethod
+    def base_path(cls) -> Path:
+        if cls._base_path is None:
+            cls._base_path = importlib.resources.files("snakemake.assets") / "data"
+        return cls._base_path

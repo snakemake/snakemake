@@ -1,6 +1,4 @@
 import json
-from pathlib import Path
-from snakemake.exceptions import WorkflowError
 import snakemake
 
 from snakemake.assets import AssetDownloadError, Assets

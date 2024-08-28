@@ -8,13 +8,13 @@ from setuptools import setup
 # when pip uses PEP 517/518 build rules.
 # https://github.com/python-versioneer/python-versioneer/issues/193
 
-
-sys.path.append(str(Path(__file__).parent))
+source_dir = Path(__file__).parent
+sys.path.append(str(source_dir))
 import versioneer  # noqa: E402
 
 # import Assets, while avoiding that the rest of snakemake is imported here before
 # setup has been called.
-sys.path.append(str(Path(__file__).parent / "snakemake"))
+sys.path.append(str(source_dir / "snakemake"))
 from assets import Assets
 
 # download online assets
