@@ -115,14 +115,14 @@ class Assets:
     @classmethod
     def get_content(cls, asset_path: str) -> str:
         try:
-            return (cls.base_path() / asset_path).read_text()
+            return (cls.base_path() / asset_path).read_text(encoding="utf-8")
         except FileNotFoundError:
             from snakemake.logging import logger
 
             logger.warning(
                 f"Asset {asset_path} not found (development setup?), downloading..."
             )
-            return cls.spec[asset_path].get_content().decode()
+            return cls.spec[asset_path].get_content().decode("utf-8")
 
     @classmethod
     def base_path(cls) -> Path:
