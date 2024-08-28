@@ -731,6 +731,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             newest_input_mtime, newest_input_path = max(existing_input)
             for output_path in expanded_output:
                 if not await output_path.exists_local():
+                    # can happen for temp files in combination with touch executor
                     continue
                 output_mtime = (
                     await output_path.mtime_uncached(skip_storage=True)
