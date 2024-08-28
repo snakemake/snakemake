@@ -3,7 +3,8 @@ from pathlib import Path
 from snakemake.exceptions import WorkflowError
 import snakemake
 
-from snakemake.assets import Assets
+from snakemake.assets import AssetDownloadError, Assets
+from snakemake_interface_common.exceptions import WorkflowError
 
 
 def get_packages():
@@ -77,13 +78,17 @@ class Package:
     ):
         self.version = version
 
-        self.license = Assets.get_content(license_path)
-        if source_path is not None:
-            self.source = Assets.get_content(source_path)
-        else:
-            self.sources = {
-                name: Assets.get_content(path) for name, path in source_paths.items()
-            }
+        try:
+            self.license = Assets.get_content(license_path)
+            if source_path is not None:
+                self.source = Assets.get_content(source_path)
+            else:
+                self.sources = {
+                    name: Assets.get_content(path)
+                    for name, path in source_paths.items()
+                }
+        except AssetDownloadError as e:
+            raise WorkflowError(e)
 
     def get_record(self):
         return {"version": self.version, "license": self.license}
