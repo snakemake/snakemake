@@ -64,38 +64,42 @@ from .common import (
 )
 from .common.tbdstring import TBDString
 from .resources import infer_resources
-from . import sourcecache
+from . import sourcecache, modules, ruleinfo
+from .deployment import env_modules
 
 
 class Rule(RuleInterface):
-    def __init__(self, name, workflow, lineno=None, snakefile=None):
+    def __init__(
+        self, name, modifier: "modules.WorkflowModifier", lineno=None, snakefile=None
+    ):
         """
         Create a rule
 
         Arguments
         name -- the name of the rule
         """
-        self._name = name
-        self.workflow = workflow
+        self.orig_name = name
+        self.modifler = modifier
+        self._name = self.modifler.modify_rulename(name)
         self.docstring = None
         self.message = None
         self._input = InputFiles()
         self._output = OutputFiles()
         self._params = Params()
-        self._wildcard_constraints = dict()
-        self.dependencies = dict()
-        self.temp_output = set()
-        self.protected_output = set()
-        self.touch_output = set()
-        self.shadow_depth = None
-        self.resources = dict()
+        self._wildcard_constraints: dict = dict()
+        self.dependencies: dict = dict()
+        self.temp_output: set = set()
+        self.protected_output: set = set()
+        self.touch_output: set = set()
+        self.shadow_depth: str | None = None
+        self.resources: dict = dict()
         self.priority: int | float = 0
         self._log = Log()
         self._benchmark = None
         self._conda_env = None
         self._container_img = None
         self.is_containerized = False
-        self.env_modules = None
+        self.env_modules: "env_modules.EnvModules | None" = None
         self._group = None
         self._wildcard_names = None
         self._lineno = lineno
@@ -116,8 +120,12 @@ class Rule(RuleInterface):
         self.output_modifier = None
         self.log_modifier = None
         self.benchmark_modifier = None
-        self.ruleinfo = None
+        self.ruleinfo: "ruleinfo.RuleInfo | None" = None
         self.module_globals: dict
+
+    @property
+    def workflow(self):
+        return self.modifler.workflow
 
     @property
     def name(self):
@@ -239,7 +247,7 @@ class Rule(RuleInterface):
             benchmark = self._update_item_wildcard_constraints(benchmark)
 
         self._benchmark = IOFile(benchmark, rule=self)
-        self.register_wildcards(self._benchmark.get_wildcard_names())
+        self.register_wildcards(self._benchmark.get_wildcard_names())  # type: ignore[attr-defined]
 
     @property
     def conda_env(self):

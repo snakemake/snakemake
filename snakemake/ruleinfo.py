@@ -9,11 +9,10 @@ from pathlib import Path
 
 from .settings.types import ResourceSettings, WorkflowSettings
 from .logging import logger
-from .rules import Rule
 from .exceptions import RuleException
 from .resources import ParsedResource
 from .wrapper import get_conda_env
-from . import modules
+from . import modules, rules
 
 InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
 
@@ -79,7 +78,6 @@ class RuleInfo:
         prefix_replacables={"input", "output", "log", "benchmark"},
     ):
         """Update this ruleinfo with the given one (used for 'use rule' overrides)."""
-        path_modifier = modifier.path_modifier
         skips = set()
 
         if modifier.ruleinfo_overwrite:
@@ -89,6 +87,7 @@ class RuleInfo:
                     if key in prefix_replacables:
                         skips.add(key)
 
+        path_modifier = modifier.path_modifier
         if path_modifier.modifies_prefixes and skips:
             # use a specialized copy of the path modifier
             path_modifier = copy(path_modifier)
@@ -108,7 +107,7 @@ class RuleInfo:
             or ruleinfo.notebook
         )
 
-    def update_rule(ruleinfo, rule: Rule):
+    def update_rule(ruleinfo, rule: "rules.Rule"):
         if ruleinfo.wildcard_constraints:
             rule.set_wildcard_constraints(
                 *ruleinfo.wildcard_constraints[0],
@@ -156,7 +155,7 @@ class RuleInfo:
                 raise RuleException("Resources have to be named.")
             if not all(
                 map(
-                    lambda r: isinstance(r, int) or isinstance(r, str) or callable(r),
+                    lambda r: isinstance(r, (int, str)) or callable(r),
                     resources.values(),
                 )
             ):
@@ -167,9 +166,7 @@ class RuleInfo:
             rule.resources.update(resources)
 
         if ruleinfo.priority:
-            if not isinstance(ruleinfo.priority, int) and not isinstance(
-                ruleinfo.priority, float
-            ):
+            if not isinstance(ruleinfo.priority, (int, float)):
                 raise RuleException("Priority values have to be numeric.", rule=rule)
             rule.priority = ruleinfo.priority
 
@@ -241,7 +238,7 @@ class RuleInfo:
 
     def update_rule_settings(
         ruleinfo,
-        rule: Rule,
+        rule: "rules.Rule",
         resource_settings=ResourceSettings(),
         workflow_settings=WorkflowSettings(),
         container_img=None,

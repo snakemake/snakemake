@@ -588,26 +588,17 @@ class Workflow(WorkflowExecutorInterface):
         self.check_cache_rules()
         self.check_localrules()
 
-    def add_rule(
-        self,
-        name: str,
-        lineno=None,
-        snakefile=None,
-        checkpoint=False,
-        allow_overwrite=False,
-    ):
+    def add_rule(self, rule: Rule, checkpoint=False, allow_overwrite=False):
         """
         Add a rule.
         """
-        is_overwrite = self.is_rule(name)
+        is_overwrite = self.is_rule(rule.name)
         if not allow_overwrite and is_overwrite:
             raise CreateRuleException(
-                f"The name {name} is already used by another rule",
-                lineno=lineno,
-                snakefile=snakefile,
+                f"The name {rule.name} is already used by another rule",
+                lineno=rule.lineno,
+                snakefile=rule.snakefile,
             )
-        rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
-        rule.is_checkpoint = checkpoint
         self._rules[rule.name] = rule
         self.modifier.rules.add(rule)
         if not is_overwrite:
@@ -1595,30 +1586,32 @@ class Workflow(WorkflowExecutorInterface):
         self, name: str | None = None, lineno=None, snakefile=None, checkpoint=False
     ):
         # choose a name for an unnamed rule
-        if name is None:
-            name = str(len(self._rules) + 1)
+        orig_name = name or str(len(self._rules) + 1)
 
-        if self.modifier.skip_rule(name):
+        if self.modifier.skip_rule(orig_name):
 
             def decorate(ruleinfo: RuleInfo):
+                self.modifier.ruleinfos[orig_name] = ruleinfo
+                ruleinfo.apply_modifier(self.modifier)
                 # do nothing, ignore rule
                 return ruleinfo.func
 
             return decorate
 
         # Optionally let the modifier change the rulename.
-        orig_name = name
-        name_ = self.modifier.modify_rulename(name)
-        rule = self.add_rule(
-            name_,
-            lineno,
-            snakefile,
-            checkpoint,
-            allow_overwrite=self.modifier.allow_rule_overwrite,
-        )
+        rule = Rule(orig_name, self.modifier, lineno=lineno, snakefile=snakefile)
+        # Register rule under its original name.
+        # Modules using this snakefile as a module, will register it additionally under their
+        # requested name.
+        self.modifier.rule_proxies._register_rule(orig_name, RuleProxy(rule))
+
+        rule.is_checkpoint = checkpoint
         rule.basedir = self.current_basedir
         rule.module_globals = self.modifier.globals
 
+        self.add_rule(
+            rule, checkpoint, allow_overwrite=self.modifier.allow_rule_overwrite
+        )
         # handle default resources
         if self.resource_settings.default_resources is not None:
             rule.resources = copy.deepcopy(
@@ -1629,27 +1622,18 @@ class Workflow(WorkflowExecutorInterface):
         # Always require one node
         rule.resources["_nodes"] = 1
 
-        # Register rule under its original name.
-        # Modules using this snakefile as a module, will register it additionally under their
-        # requested name.
-        self.modifier.rule_proxies._register_rule(orig_name, RuleProxy(rule))
-
         if checkpoint:
             self.globals["checkpoints"].register(rule, fallback_name=orig_name)
 
         def decorate(ruleinfo: RuleInfo):  # type: ignore[no-redef]
+            # If requested, modify ruleinfo via the modifier.
+            ruleinfo.apply_modifier(self.modifier)
+
             if ruleinfo.name:
                 del self._rules[rule.name]
                 rule.name = ruleinfo.name
                 self._rules[ruleinfo.name] = rule
-                name = rule.name
-            else:
-                name = name_
             ruleinfo.func.__name__ = f"__{rule.name}"
-
-            # If requested, modify ruleinfo via the modifier.
-            ruleinfo.apply_modifier(self.modifier)
-
             ruleinfo.update_rule(rule)
             ruleinfo.update_rule_settings(
                 rule,
@@ -1776,10 +1760,10 @@ class Workflow(WorkflowExecutorInterface):
                 package_manager = PackageManager[
                     self.deployment_settings.conda_frontend.upper()
                 ]
-            except KeyError:
+            except KeyError as err:
                 raise WorkflowError(
                     f"Chosen conda frontend {self.deployment_settings.conda_frontend} is not supported by conda-inject."
-                )
+                ) from err
 
             # Handle relative path
             if not isinstance(conda_env, SourceFile):
@@ -1930,39 +1914,72 @@ class Workflow(WorkflowExecutorInterface):
         name_modifier: str | None = None,
         lineno: int | None = None,
     ):
+        """
+        Decorate a function or Ruleinfo object
+
+        ```snakemake
+        use rule xxx as yyy
+        ```
+        will be compiled as:
+        ```python
+        @workflow.userule(rules=["xxx"], name_modifier="yyy")
+        def __userule_xxx___():
+            pass
+        ```
+
+        comparatively
+        ```snakemake
+        use rule xxx as yyy with:
+            params:
+                a=1,
+        ```
+        will be compiled as:
+        ```python
+        @workflow.userule(rules=["xxx"], name_modifier="yyy")
+        @workflow.params(a=1)
+        @workflow.run
+        def __userule_xxx___():
+            pass
+        ```
+        where `workflow.run(lambda: None)` return a `RuleInfo` and not a callable
+        """
         if from_module is not None:
+            try:
+                module = self.modules[from_module]
+            except KeyError as err:
+                raise WorkflowError(
+                    f"Module {from_module} has not been registered with 'module' statement"
+                    " before using it in 'use rule' statement."
+                ) from err
 
             def decorate(maybe_ruleinfo):
-                try:
-                    module = self.modules[from_module]
-                except KeyError:
-                    raise WorkflowError(
-                        f"Module {from_module} has not been registered with 'module' statement"
-                        " before using it in 'use rule' statement."
-                    )
+                ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 module.use_rules(
                     rules,
                     name_modifier,
                     exclude_rules=exclude_rules,
-                    ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
+                    ruleinfo=ruleinfo,
                     # do not overwrite existing report text via module
                     skip_global_report_caption=self.report_text is not None,
                 )
 
         else:
+            if len(rules) > 1:
+                raise WorkflowError(
+                    "'use rule' statement from rule in the same module "
+                    "must declare a single rule but multiple rules are declared."
+                )
+            # The parent use rule statement is specific for a different particular rule
+            # hence this local use rule statement can be skipped.
+            # if self.modifier.skip_rule(name_modifier):
+            import copy
+
+            orig_ruleinfo = copy.copy(self.modifier.get_ruleinfo(rules[0]))
 
             def decorate(maybe_ruleinfo):
                 # local inheritance
-                if self.modifier.skip_rule(name_modifier):
-                    # The parent use rule statement is specific for a different particular rule
-                    # hence this local use rule statement can be skipped.
-                    return
-                if len(rules) > 1:
-                    raise WorkflowError(
-                        "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."
-                    )
-                orig_rule = self._rules[self.modifier.modify_rulename(rules[0])]
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
+                ruleinfos = self.modifier.ruleinfos
                 with WorkflowModifier(
                     self,
                     parent_modifier=self.modifier,
@@ -1972,14 +1989,12 @@ class Workflow(WorkflowExecutorInterface):
                     ruleinfo_overwrite=ruleinfo,
                 ):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
-                    import copy
-
-                    orig_ruleinfo = copy.copy(orig_rule.ruleinfo)
                     self.rule(
                         name=name_modifier,
                         lineno=lineno,
                         snakefile=self.included_stack[-1],
                     )(orig_ruleinfo)
+                    ruleinfos |= self.modifier.ruleinfos
 
         return decorate
 

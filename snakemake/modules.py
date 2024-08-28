@@ -81,7 +81,7 @@ class ModuleInfo:
         rules: list[str],
         name_modifier=None,
         exclude_rules=None,
-        ruleinfo=None,
+        ruleinfo: "_workflow.RuleInfo | None" = None,
         skip_global_report_caption=False,
     ):
         snakefile = self.get_snakefile()
@@ -175,12 +175,14 @@ class WorkflowModifier:
             self.rules: set["rules.Rule"] = set()
             self.rule_proxies = rule_proxies or Rules()
             self.globals["rules"] = self.rule_proxies
+            self.ruleinfos: dict[str, "_workflow.RuleInfo"] = {}
         else:
             # init with values from parent modifier
             self.globals = parent_modifier.globals
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.rules = parent_modifier.rules
             self.rule_proxies = parent_modifier.rule_proxies
+            self.ruleinfos = parent_modifier.ruleinfos
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile
@@ -206,6 +208,11 @@ class WorkflowModifier:
             if child_modifier.local_rulename_modifier is not None:
                 name = child_modifier.local_rulename_modifier(name)
             self.rule_proxies._register_rule(name, rule)
+
+    def get_ruleinfo(self, rulename):
+        if rulename in self.ruleinfos:
+            return self.ruleinfos[rulename]
+        return self.rule_proxies._rules[rulename].rule.ruleinfo
 
     def skip_rule(self, rulename):
         return (
