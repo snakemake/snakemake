@@ -8,6 +8,7 @@ rule all:
     input:
         "test.out",
         "explicit_import.py.out",
+        "cli_args.out"
 
 
 rule:
@@ -22,3 +23,9 @@ rule:
         "explicit_import.py.out",
     script:
         "scripts/test_explicit_import.py"
+
+rule:
+    output:
+        "cli_args.out",
+    script:
+        "scripts/test_cli_args.py test"

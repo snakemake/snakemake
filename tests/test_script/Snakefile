@@ -13,6 +13,7 @@ rule all:
         "rust-manifest.out",
         "rust-outer-line-doc.out",
         "bash.out",
+        "r-cli-args.out"
 
 rule:
     input:
@@ -25,6 +26,14 @@ rule:
         "envs/r.yaml"
     script:
         "scripts/test.R"
+
+rule:
+    output:
+        txt="r-cli-args.out"
+    conda:
+        "envs/r.yaml"
+    script:
+        "scripts/test_cli_args.R test"
 
 rule:
     output:
