@@ -1137,6 +1137,7 @@ The script path is always relative to the Snakefile containing the directive (in
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
 It is also possible to explicitly import the snakemake object in the script like ``from snakemake.script import snakemake`` to enable code completion, linting and type checking your python code in IDEs.
+Command-line arguments can also be passed to scripts, they can contain wildcards and params, e.g. ``"scripts/script.py argument1 {params.argument2}"`` (Since Snakemake version XXX). Script filenames can't contain spaces, even if the names is quoted.
 
 An example external Python script could look like this:
 
