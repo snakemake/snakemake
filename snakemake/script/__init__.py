@@ -406,6 +406,7 @@ class ScriptBase(ABC):
         cleanup_scripts,
         shadow_dir,
         is_local,
+        cli_args,
     ):
         self.path = path
         self.cache_path = cache_path
@@ -432,6 +433,7 @@ class ScriptBase(ABC):
         self.cleanup_scripts = cleanup_scripts
         self.shadow_dir = shadow_dir
         self.is_local = is_local
+        self.cli_args = cli_args
 
     def evaluate(self, edit=False):
         assert not edit or self.editable
@@ -695,7 +697,10 @@ class PythonScript(ScriptBase):
             py_exec = py_exec.replace("\\", "/")
         # use the same Python as the running process or the one from the environment
         self._execute_cmd(
-            "{py_exec} {fname:q}", py_exec=py_exec, fname=fname, is_python_script=True
+            "{py_exec} {fname:q}{self.cli_args}",
+            py_exec=py_exec,
+            fname=fname,
+            is_python_script=True,
         )
 
 
@@ -830,7 +835,7 @@ class RScript(ScriptBase):
                 "remove it entirely before executing "
                 "Snakemake."
             )
-        self._execute_cmd("Rscript --vanilla {fname:q}", fname=fname)
+        self._execute_cmd("Rscript --vanilla {fname:q}{self.cli_args}", fname=fname)
 
 
 class RMarkdown(ScriptBase):
@@ -990,7 +995,7 @@ class JuliaScript(ScriptBase):
         fd.write(self.source.encode())
 
     def execute_script(self, fname, edit=False):
-        self._execute_cmd("julia {fname:q}", fname=fname)
+        self._execute_cmd("julia {fname:q}{self.cli_args}", fname=fname)
 
 
 class RustScript(ScriptBase):
@@ -1209,7 +1214,7 @@ class RustScript(ScriptBase):
         deps = self.default_dependencies()
         ftrs = self.default_features()
         self._execute_cmd(
-            "rust-script -d {deps} --features {ftrs} {fname:q} ",
+            "rust-script -d {deps} --features {ftrs} {fname:q}{self.cli_args} ",
             fname=fname,
             deps=deps,
             ftrs=ftrs,
@@ -1400,7 +1405,7 @@ class BashScript(ScriptBase):
         return "\n".join([shebang, preamble, source])
 
     def execute_script(self, fname, edit=False):
-        self._execute_cmd("bash {fname:q}", fname=fname)
+        self._execute_cmd("bash {fname:q}{self.cli_args}", fname=fname)
 
 
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
@@ -1513,6 +1518,13 @@ def script(
     if isinstance(path, Path):
         path = str(path)
 
+    path_split = path.split(" ", 1)
+    path = path_split[0]
+    if len(path_split) > 1:
+        cli_args = f" {format(path_split[1])}"
+    else:
+        cli_args = ""
+
     path, source, language, is_local, cache_path = get_source(
         path,
         SourceCache(sourcecache_path, runtime_sourcecache_path),
@@ -1559,5 +1571,6 @@ def script(
         cleanup_scripts,
         shadow_dir,
         is_local,
+        cli_args,
     )
     executor.evaluate()
