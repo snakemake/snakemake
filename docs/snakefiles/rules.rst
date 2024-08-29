@@ -250,7 +250,7 @@ Helper functions for defining input and output files
 ----------------------------------------------------
 
 Snakemake provides a number of helper functions that can be used to determine input files and drastically simplify over using
-:ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`_.
+:ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`.
 Below, we will first start with describing two basic helper functions for specifying aggregations and multiple output files.
 Afterwards, we will further show a set of semantic helper functions should increase readability and simplify code (see :ref:`snakefiles-semantic-helpers`).
 
@@ -627,7 +627,7 @@ First, by globally setting the shell executable (e.g. to zsh) via
     shell.executable("/bin/zsh")
 
 Note that this is usually not recommended, as it requires others who want to use the workflow to have that shell installed.
-Second, by setting the shell executable via the :ref:`resources directive <snakefiles_resources>` of a rule, e.g.
+Second, by setting the shell executable via the :ref:`resources directive <snakefiles-resources>` of a rule, e.g.
 
 .. code-block:: python
 
@@ -856,13 +856,13 @@ All of these resources have specific meanings understood by snakemake and are tr
   It can be given as string defining a time span or as integer defining **minutes**.
   In the former case, the time span can be defined as a string with a number followed by a unit
   (``ms``, ``s``, ``m``, ``h``, ``d``, ``w``, ``y`` for seconds, minutes, hours, days, and years, respectively).
-  The interpretation happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_timespan>`_.
+  The interpretation happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_timespan>`__.
   Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
   See :ref:`the section below <resources-remote-execution>` for more information.
 
 * ``disk`` and ``mem`` define the amount of memory and disk space needed by the job.
   They are given as strings with a number followed by a unit (``B``, ``KB``, ``MB``, ``GB``, ``TB``, ``PB``, ``KiB``, ``MiB``, ``GiB``, ``TiB``, ``PiB``).
-  The interpretation of the definition happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_size>`_.
+  The interpretation of the definition happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_size>`__.
   Alternatively, the two can be directly defined as integers via the resources ``mem_mb`` and ``disk_mb`` (to which ``disk`` and ``mem`` are also automatically translated internally).
   They are both locally scoped by default, a fact important for cluster and compute execution.
   :ref:`See below <resources-remote-execution>` for more info.
@@ -880,7 +880,7 @@ As with ``--set-resources``, this can be done dynamically, using the variables s
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
 If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
-The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
+The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`__.
 If ``--default-resources`` is specified with some definitions, but any of the above defaults (e.g. ``mem_mb``) is omitted, these are still used.
 In order to explicitly unset these defaults, assign them a value of ``None``, e.g. ``--default-resources mem_mb=None``.
 
@@ -1415,7 +1415,7 @@ remaining directives can be found in the variable ``snakemake``.
     As arrays cannot be nested in Bash, use of python's ``dict`` in directives is not supported. So, adding a ``params`` key of ``data={"foo": "bar"}`` will not be reflected - ``${snakemake_params[data]}`` actually only returns ``"foo"``.
 
 Bash Example 1
-^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -1450,7 +1450,7 @@ Bash Example 1
 
 
 If you don't add a shebang, the default ``#!/usr/bin/env bash`` will be inserted for you. A tutorial on how to use
-associative arrays can be found `here <https://www.xmodulo.com/key-value-dictionary-bash.html>`_.
+associative arrays can be found `here <https://www.xmodulo.com/key-value-dictionary-bash.html>`__.
 
 You may also have noticed the mixed use of double-quotes when accessing some variables. It is generally good practice in
 Bash to double-quote variables for which you want to `prevent word splitting <split_>`_; generally, you will want to
@@ -1458,7 +1458,7 @@ double-quote any variable that could contain a file name. However, `in some case
 such as ``${snakemake_params[opts]}`` in the above example.
 
 Bash Example 2
-^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
 
 .. code-block:: python
 

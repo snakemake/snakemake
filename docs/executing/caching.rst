@@ -22,7 +22,7 @@ For example,
 
 would instruct Snakemake to cache and reuse the results of the rules ``download_data`` and ``create_index``.
 The environment variable definition that happens in the first line (defining the location of the cache) should of course be done only once and system wide in reality.
-When Snakemake is executed without a shared filesystem (e.g., in the cloud, see :ref:`cloud`), the environment variable has to point to a location compatible with the given remote provider (e.g. an S3 or Google Storage bucket).
+When Snakemake is executed without a shared filesystem (e.g., in the cloud, see :ref:`tutorial-cloud`), the environment variable has to point to a location compatible with the given remote provider (e.g. an S3 or Google Storage bucket).
 In any case, the provided location should be shared between all workflows of your group, institute or computing environment, in order to benefit from the reuse of previously obtained intermediate results.
 
 Alternatively, rules can be marked as eligible for caching via the ``cache`` directive:
