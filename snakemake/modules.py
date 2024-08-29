@@ -6,13 +6,12 @@ __license__ = "MIT"
 from pathlib import Path
 import types
 import re
-from .common import Rules
 
+from .common import Rules
 from .exceptions import WorkflowError
 from .path_modifier import PathModifier
 from . import wrapper
 from . import rules
-
 from . import workflow as _workflow
 
 
@@ -59,6 +58,7 @@ class ModuleInfo:
         self.skip_validation = skip_validation
         self.parent_modifier = self.workflow.modifier
         self.rule_proxies = Rules()
+        self.namespace = types.ModuleType(name)
 
         if prefix is not None:
             if isinstance(prefix, Path):
@@ -75,6 +75,39 @@ class ModuleInfo:
 
         self.replace_prefix = replace_prefix
         self.prefix = prefix
+
+    def load_ruleinfos(self, skip_global_report_caption=False):
+        exclude_rules = None
+        name_modifier = None
+        ruleinfo = None
+        rules = ["*"]
+        snakefile = self.get_snakefile()
+        modifier = WorkflowModifier(
+            self.workflow,
+            config=self.config,
+            base_snakefile=snakefile,
+            skip_configfile=self.config is not None,
+            skip_validation=self.skip_validation,
+            skip_global_report_caption=skip_global_report_caption,
+            rule_exclude_list=exclude_rules,
+            rule_whitelist=[],
+            resolved_rulename_modifier=get_name_modifier_func(
+                rules, name_modifier, parent_modifier=self.parent_modifier
+            ),
+            local_rulename_modifier=get_name_modifier_func(rules, name_modifier),
+            ruleinfo_overwrite=ruleinfo,
+            allow_rule_overwrite=True,
+            namespace=self.name,
+            replace_prefix=self.replace_prefix,
+            prefix=self.prefix,
+            replace_wrapper_tag=self.get_wrapper_tag(),
+            rule_proxies=self.rule_proxies,
+        )
+        with modifier:
+            self.workflow.include(snakefile, overwrite_default_target=True)
+        if self.name:
+            self.namespace.__dict__.update(modifier.globals)
+            self.workflow.globals[modifier.namespace] = self.namespace
 
     def use_rules(
         self,
@@ -106,6 +139,7 @@ class ModuleInfo:
             replace_wrapper_tag=self.get_wrapper_tag(),
             rule_proxies=self.rule_proxies,
         )
+        # TODO: just use self.workflow.rule but NOT a complete include
         with modifier:
             self.workflow.include(snakefile, overwrite_default_target=True)
             self.parent_modifier.inherit_rule_proxies(modifier)
@@ -176,13 +210,14 @@ class WorkflowModifier:
             self.rule_proxies = rule_proxies or Rules()
             self.globals["rules"] = self.rule_proxies
             self.ruleinfos: dict[str, "_workflow.RuleInfo"] = {}
+            self.globals["_rules"] = self.ruleinfos
         else:
             # init with values from parent modifier
             self.globals = parent_modifier.globals
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.rules = parent_modifier.rules
-            self.rule_proxies = parent_modifier.rule_proxies
-            self.ruleinfos = parent_modifier.ruleinfos
+            self.rule_proxies = self.globals["rules"]
+            self.ruleinfos = self.globals["_rules"]
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile
@@ -240,7 +275,3 @@ class WorkflowModifier:
     def __exit__(self, type, value, traceback):
         # remove this modifier from the stack
         self.workflow.modifier_stack.pop()
-        if self.namespace:
-            namespace = types.ModuleType(self.namespace)
-            namespace.__dict__.update(self.globals)
-            self.workflow.globals[self.namespace] = namespace

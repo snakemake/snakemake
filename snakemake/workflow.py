@@ -1895,7 +1895,7 @@ class Workflow(WorkflowExecutorInterface):
         replace_prefix=None,
         prefix=None,
     ):
-        self.modules[name] = ModuleInfo(
+        self.modules[name] = module = ModuleInfo(
             self,
             name,
             snakefile=snakefile,
@@ -1904,6 +1904,11 @@ class Workflow(WorkflowExecutorInterface):
             skip_validation=skip_validation,
             replace_prefix=replace_prefix,
             prefix=prefix,
+        )
+        module.load_ruleinfos(
+            # do not overwrite existing report text via module
+            skip_global_report_caption=self.report_text
+            is not None,
         )
 
     def userule(
@@ -1952,6 +1957,8 @@ class Workflow(WorkflowExecutorInterface):
                     " before using it in 'use rule' statement."
                 ) from err
 
+            print(module.namespace._rules)
+
             def decorate(maybe_ruleinfo):
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 module.use_rules(
@@ -1970,14 +1977,23 @@ class Workflow(WorkflowExecutorInterface):
                     "must declare a single rule but multiple rules are declared."
                 )
             # The parent use rule statement is specific for a different particular rule
-            # hence this local use rule statement can be skipped.
-            # if self.modifier.skip_rule(name_modifier):
+            # else, we just add the rule into ruleinfo and skip it.
+            if self.modifier.skip_rule(name_modifier):
+                rule_whitelist: list | None = []
+            else:
+                rule_whitelist = None
             import copy
 
             orig_ruleinfo = copy.copy(self.modifier.get_ruleinfo(rules[0]))
 
             def decorate(maybe_ruleinfo):
                 # local inheritance
+                if rule_whitelist is not None and name_modifier is None:
+                    # assert rule_whitelist == [], "means this rule is skipped"
+                    # name_modifier is None means the rule is unnamed and will never be
+                    # refered as rules.xxx anymore.
+                    # Hense it can be ignored safely.
+                    return
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 ruleinfos = self.modifier.ruleinfos
                 with WorkflowModifier(
@@ -1986,6 +2002,7 @@ class Workflow(WorkflowExecutorInterface):
                     resolved_rulename_modifier=get_name_modifier_func(
                         rules, name_modifier, parent_modifier=self.modifier
                     ),
+                    rule_whitelist=rule_whitelist,
                     ruleinfo_overwrite=ruleinfo,
                 ):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.

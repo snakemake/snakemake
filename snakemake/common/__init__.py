@@ -259,9 +259,9 @@ class Rules:
         except KeyError:
             avail_rules = ", ".join(self._rules) or (
                 "None\n"
-                f"If this snakefile is used as module, "
-                f"please make sure all the dependent rule "
-                f"are used from the module as well."
+                "If this snakefile is used as module, "
+                "please make sure all the dependent rule "
+                "are used from the module as well."
             )
             raise WorkflowError(
                 f"Rule {name} is not defined in this workflow. "
