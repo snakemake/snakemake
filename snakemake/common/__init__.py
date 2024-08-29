@@ -315,7 +315,7 @@ def set_env(**environ):
     >>> "PLUGINS_DIR" in os.environ
     False
 
-    :type environ: dict[str, unicode]
+    :type environ: Dict[str, unicode]
     :param environ: Environment variables to set
     """
     old_environ = dict(os.environ)

@@ -287,6 +287,14 @@ class SnakemakeApi(ApiBase):
         self._cleanup()
 
 
+def _no_dag(method):
+    def _handle_no_dag(self: "WorkflowApi", *args, **kwargs):
+        self.resource_settings.cores = 1
+        return method(self, *args, **kwargs)
+
+    return _handle_no_dag
+
+
 @dataclass
 class WorkflowApi(ApiBase):
     """The workflow API.
@@ -330,13 +338,6 @@ class WorkflowApi(ApiBase):
             self,
             dag_settings=dag_settings,
         )
-
-    def _no_dag(method):
-        def _handle_no_dag(self, *args, **kwargs):
-            self.resource_settings.cores = 1
-            return method(self, *args, **kwargs)
-
-        return _handle_no_dag
 
     @_no_dag
     def lint(self, json: bool = False):
