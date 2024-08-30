@@ -283,7 +283,12 @@ class RuleInfo:
             )
             # TODO retrieve suitable singularity image
 
-        if not ruleinfo.container_img and container_img and not ruleinfo.is_invalid:
+        if (
+            not ruleinfo.container_img
+            and ruleinfo.container_img != False
+            and container_img
+            and not ruleinfo.is_invalid
+        ):
             # skip rules with run directive or empty image
             rule.container_img = container_img
             rule.is_containerized = is_containerized
