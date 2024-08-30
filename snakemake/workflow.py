@@ -1707,6 +1707,14 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
+    def log(self, *logs, **kwlogs):
+
+        def decorate(ruleinfo: RuleInfo):
+            ruleinfo.log = InOutput(logs, kwlogs, self.modifier.path_modifier)
+            return ruleinfo
+
+        return decorate
+
     def params(self, *params, **kwparams):
 
         def decorate(ruleinfo: RuleInfo):
@@ -1839,13 +1847,6 @@ class Workflow(WorkflowExecutorInterface):
     def group(self, ruleinfo: RuleInfo, group):
         ruleinfo.group = group
 
-    def log(self, *logs, **kwlogs):
-        def decorate(ruleinfo):
-            ruleinfo.log = InOutput(logs, kwlogs, self.modifier.path_modifier)
-            return ruleinfo
-
-        return decorate
-
     @rule_decorate
     def handover(self, ruleinfo: RuleInfo, value):
         ruleinfo.handover = value
@@ -1957,8 +1958,6 @@ class Workflow(WorkflowExecutorInterface):
                     " before using it in 'use rule' statement."
                 ) from err
 
-            print(module.namespace._rules)
-
             def decorate(maybe_ruleinfo):
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 module.use_rules(
@@ -1991,8 +1990,8 @@ class Workflow(WorkflowExecutorInterface):
                 if rule_whitelist is not None and name_modifier is None:
                     # assert rule_whitelist == [], "means this rule is skipped"
                     # name_modifier is None means the rule is unnamed and will never be
-                    # refered as rules.xxx anymore.
-                    # Hense it can be ignored safely.
+                    # referred as rules.xxx anymore.
+                    # Hence it can be ignored safely.
                     return
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 ruleinfos = self.modifier.ruleinfos

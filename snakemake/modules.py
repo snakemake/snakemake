@@ -103,11 +103,6 @@ class ModuleInfo:
             replace_wrapper_tag=self.get_wrapper_tag(),
             rule_proxies=self.rule_proxies,
         )
-        with modifier:
-            self.workflow.include(snakefile, overwrite_default_target=True)
-        if self.name:
-            self.namespace.__dict__.update(modifier.globals)
-            self.workflow.globals[modifier.namespace] = self.namespace
 
     def use_rules(
         self,
@@ -143,6 +138,9 @@ class ModuleInfo:
         with modifier:
             self.workflow.include(snakefile, overwrite_default_target=True)
             self.parent_modifier.inherit_rule_proxies(modifier)
+        if self.name:
+            self.namespace.__dict__.update(modifier.globals)
+            self.workflow.globals[modifier.namespace] = self.namespace
 
     def get_snakefile(self):
         if self.meta_wrapper:
