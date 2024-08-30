@@ -1,6 +1,29 @@
 # Changelog
 
 
+## [8.19.0](https://github.com/snakemake/snakemake/compare/v8.18.2...v8.19.0) (2024-08-29)
+
+
+### Features
+
+* check consistency of output file mtimes (must be newer than input files) ([#3050](https://github.com/snakemake/snakemake/issues/3050)) ([666cf62](https://github.com/snakemake/snakemake/commit/666cf6271d8dc5525dbea238bb12e496e437f316))
+* print host name when executing workflow ([#3048](https://github.com/snakemake/snakemake/issues/3048)) ([b0ff787](https://github.com/snakemake/snakemake/commit/b0ff787b10ccf809789229c65901f363cfbc7a44))
+
+
+### Bug Fixes
+
+* `mem` and `disk` inference fixes ([#3040](https://github.com/snakemake/snakemake/issues/3040)) ([7530794](https://github.com/snakemake/snakemake/commit/7530794e4a5c64309e225b80f52932b404690756))
+* avoid error accessing superclass in ioutils ([#3056](https://github.com/snakemake/snakemake/issues/3056)) ([a66a5f5](https://github.com/snakemake/snakemake/commit/a66a5f5bed1ea6c920e1b4bec0b0690566375261))
+* disable execute after print compilation ([#3041](https://github.com/snakemake/snakemake/issues/3041)) ([86ed3cd](https://github.com/snakemake/snakemake/commit/86ed3cd7144f8ac8c54d4c67fe1d6023506ba4c7))
+* download report assets upon package build such that reports become possible offline (cont. of [#2904](https://github.com/snakemake/snakemake/issues/2904)) ([#3026](https://github.com/snakemake/snakemake/issues/3026)) ([e8dad4b](https://github.com/snakemake/snakemake/commit/e8dad4bf4033b85e548cf5f8e37cb0443d6a959e))
+
+
+### Documentation
+
+* Add 'Editor integrations' section to Installation page ([#3045](https://github.com/snakemake/snakemake/issues/3045)) ([9a4006d](https://github.com/snakemake/snakemake/commit/9a4006d2e02eb64244001990f685d488756a873a))
+* Fix typo (seesee to see) ([#3037](https://github.com/snakemake/snakemake/issues/3037)) ([de201fb](https://github.com/snakemake/snakemake/commit/de201fb0740123c9d9d30b6b929600062de485ff))
+* various documentation fixes ([#3052](https://github.com/snakemake/snakemake/issues/3052)) ([b11460c](https://github.com/snakemake/snakemake/commit/b11460c0110bec6176bc44250336166602ffb2ed))
+
 ## [8.18.2](https://github.com/snakemake/snakemake/compare/v8.18.1...v8.18.2) (2024-08-21)
 
 
