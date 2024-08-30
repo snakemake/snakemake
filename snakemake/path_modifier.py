@@ -5,7 +5,14 @@ __license__ = "MIT"
 
 import os
 from snakemake.exceptions import WorkflowError
-from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
+from snakemake.io import (
+    AnnotatedStringInterface,
+    is_callable,
+    is_flagged,
+    AnnotatedString,
+    flag,
+    get_flag_value,
+)
 from snakemake.logging import logger
 
 
@@ -14,7 +21,7 @@ PATH_MODIFIER_FLAG = "path_modified"
 
 class PathModifier:
     def __init__(self, replace_prefix: dict, prefix: str, workflow):
-        self.skip_properties = set()
+        self.skip_properties: set[str] = set()
         self.workflow = workflow
 
         self.trie = None
@@ -33,7 +40,7 @@ class PathModifier:
             for prefix, replacement in replace_prefix.items():
                 self.trie[prefix] = replacement
 
-    def modify(self, path, property=None):
+    def modify(self, path, property=None) -> AnnotatedStringInterface:
         if get_flag_value(path, PATH_MODIFIER_FLAG):
             logger.debug(
                 f"Not modifying path of file {path}, as it has already been modified"

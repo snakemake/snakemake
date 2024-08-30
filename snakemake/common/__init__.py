@@ -247,6 +247,7 @@ class Rules:
 
     def __init__(self):
         self._rules = dict()
+        self._cache_rules = dict()
 
     def _register_rule(self, name, rule):
         self._rules[name] = rule
@@ -254,19 +255,18 @@ class Rules:
     def __getattr__(self, name):
         from snakemake.exceptions import WorkflowError
 
-        try:
+        if name in self._rules:
             return self._rules[name]
-        except KeyError:
-            avail_rules = ", ".join(self._rules) or (
-                "None\n"
-                "If this snakefile is used as module, "
-                "please make sure all the dependent rule "
-                "are used from the module as well."
-            )
-            raise WorkflowError(
-                f"Rule {name} is not defined in this workflow. "
-                f"Available rules: {avail_rules}"
-            )
+        avail_rules = ", ".join(self._rules) or (
+            "None\n"
+            "If this snakefile is used as module, "
+            "please make sure all the dependent rule "
+            "are used from the module as well."
+        )
+        raise WorkflowError(
+            f"Rule {name} is not defined in this workflow. "
+            f"Available rules: {avail_rules}"
+        )
 
 
 class Scatter:

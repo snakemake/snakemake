@@ -3,18 +3,22 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from collections import namedtuple
 from copy import copy
 from pathlib import Path
+from typing import NamedTuple, Sequence
 
 from .settings.types import ResourceSettings, WorkflowSettings
 from .logging import logger
 from .exceptions import RuleException
 from .resources import ParsedResource
 from .wrapper import get_conda_env
-from . import modules, rules
+from . import modules, rules, io, path_modifier
 
-InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
+
+class InOutput(NamedTuple):
+    paths: "Sequence[list | io.AnnotatedStringInterface]"
+    kwpaths: "dict[str, list | io.AnnotatedStringInterface]"
+    modifier: "path_modifier.PathModifier"
 
 
 def get_resource_value(value):
@@ -32,8 +36,9 @@ class RuleInfo:
         self.shellcmd = None
         self.name = None
         self.norun = False
-        self.input = None
-        self.output = None
+        self.input: InOutput | None = None
+        self.output: InOutput | None = None
+        self.log: InOutput | None = None
         self.params = None
         self.message = None
         self.benchmark = None
@@ -47,7 +52,6 @@ class RuleInfo:
         self.resources = None
         self.priority = None
         self.retries = None
-        self.log = None
         self.docstring = None
         self.group = None
         self.script = None
