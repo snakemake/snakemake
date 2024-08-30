@@ -479,7 +479,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:
             logger.info("Job rate limit reached, waiting for free slots.")
-            return set()
         else:
             self.resources["_job_count"] = n_free_jobs
             selected = self._job_selector(jobs)
