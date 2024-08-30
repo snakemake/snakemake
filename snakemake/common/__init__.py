@@ -11,6 +11,7 @@ import platform
 import hashlib
 import inspect
 import sys
+from typing import TYPE_CHECKING
 import uuid
 import os
 import asyncio
@@ -19,6 +20,9 @@ from pathlib import Path
 
 from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
+
+if TYPE_CHECKING:
+    from .. import modules, ruleinfo
 
 
 MIN_PY_VERSION = (3, 7)
@@ -247,7 +251,16 @@ class Rules:
 
     def __init__(self):
         self._rules = dict()
-        self._cache_rules = dict()
+        self._cache_rules: dict[
+            str,
+            tuple[
+                "modules.WorkflowModifier",
+                "ruleinfo.RuleInfo",
+                "int | None",
+                "str | None",
+                bool,
+            ],
+        ] = dict()
 
     def _register_rule(self, name, rule):
         self._rules[name] = rule
@@ -257,6 +270,8 @@ class Rules:
 
         if name in self._rules:
             return self._rules[name]
+        if name in self._cache_rules:
+            return self._rescue_register_rule(name)
         avail_rules = ", ".join(self._rules) or (
             "None\n"
             "If this snakefile is used as module, "
@@ -267,6 +282,23 @@ class Rules:
             f"Rule {name} is not defined in this workflow. "
             f"Available rules: {avail_rules}"
         )
+
+    def _rescue_register_rule(self, name):
+        modifier, ruleinfo, lineno, snakefile, checkpoint = self._cache_rules[name]
+        with modifier:
+            modifier.workflow.rule(
+                name,
+                lineno=lineno,
+                snakefile=snakefile,
+                checkpoint=checkpoint,
+                rescue=True,
+            )(ruleinfo)
+        return self._rules[name]
+
+    def get_ruleinfo(self, rulename) -> "ruleinfo.RuleInfo":
+        if rulename in self._cache_rules:
+            return self._cache_rules[rulename][1]
+        return self._rules[rulename].rule.ruleinfo
 
 
 class Scatter:

@@ -1583,16 +1583,33 @@ class Workflow(WorkflowExecutorInterface):
         self._localrules.update(rulenames)
 
     def rule(
-        self, name: str | None = None, lineno=None, snakefile=None, checkpoint=False
+        self,
+        name: str | None = None,
+        lineno=None,
+        snakefile=None,
+        checkpoint=False,
+        rescue=False,
     ):
         # choose a name for an unnamed rule
         orig_name = name or str(len(self._rules) + 1)
 
-        if self.modifier.skip_rule(orig_name):
+        if self.modifier.skip_rule(orig_name) and not rescue:
 
             def decorate(ruleinfo: RuleInfo):
-                self.modifier.ruleinfos[orig_name] = ruleinfo
-                ruleinfo.apply_modifier(self.modifier)
+                """
+                The rule is not intend to be used now.
+                However, this rule may be referred elsewhere prior it was
+                registered as a rule.
+
+                We can collect these environment, and init it as requested
+                """
+                self.modifier.rule_proxies._cache_rules[orig_name] = (
+                    self.modifier,
+                    ruleinfo,
+                    lineno,
+                    snakefile,
+                    checkpoint,
+                )
                 # do nothing, ignore rule
                 return ruleinfo.func
 
@@ -1609,9 +1626,10 @@ class Workflow(WorkflowExecutorInterface):
         rule.basedir = self.current_basedir
         rule.module_globals = self.modifier.globals
 
-        self.add_rule(
-            rule, checkpoint, allow_overwrite=self.modifier.allow_rule_overwrite
-        )
+        if not self.modifier.skip_rule(orig_name):
+            self.add_rule(
+                rule, checkpoint, allow_overwrite=self.modifier.allow_rule_overwrite
+            )
         # handle default resources
         if self.resource_settings.default_resources is not None:
             rule.resources = copy.deepcopy(
@@ -1658,34 +1676,30 @@ class Workflow(WorkflowExecutorInterface):
                 self._localrules.add(rule.name)
                 rule.is_handover = True
 
-            if ruleinfo.cache and not (
-                ruleinfo.cache is True
-                or ruleinfo.cache == "omit-software"
-                or ruleinfo.cache == "all"
-            ):
-                raise WorkflowError(
-                    "Invalid value for cache directive. Use 'all' or 'omit-software'.",
-                    rule=rule,
-                )
-            self.cache_rules[rule.name] = (
-                "all" if ruleinfo.cache is True else ruleinfo.cache
-            )
-
-            if ruleinfo.default_target is True:
-                self.default_target = rule.name
-            elif ruleinfo.default_target is not False:
-                raise WorkflowError(
-                    "Invalid argument for 'default_target:' directive. Only True allowed. "
-                    "Do not use the directive for rules that shall not be the default target. ",
-                    rule=rule,
+            if not self.modifier.skip_rule(orig_name):
+                if ruleinfo.cache not in {False, True, "omit-software", "all"}:
+                    raise WorkflowError(
+                        "Invalid value for cache directive. Use 'all' or 'omit-software'.",
+                        rule=rule,
+                    )
+                self.cache_rules[rule.name] = (
+                    "all" if ruleinfo.cache is True else ruleinfo.cache
                 )
 
-            if ruleinfo.localrule is True:
-                self._localrules.add(rule.name)
+                if ruleinfo.default_target is True:
+                    self.default_target = rule.name
+                elif ruleinfo.default_target is not False:
+                    raise WorkflowError(
+                        "Invalid argument for 'default_target:' directive. Only True allowed. "
+                        "Do not use the directive for rules that shall not be the default target. ",
+                        rule=rule,
+                    )
 
-            self.globals[ruleinfo.func.__name__] = ruleinfo.func
+                if ruleinfo.localrule is True:
+                    self._localrules.add(rule.name)
 
-            return ruleinfo.func
+                self.globals[ruleinfo.func.__name__] = ruleinfo.func
+                return ruleinfo.func
 
         return decorate
 
@@ -1983,7 +1997,7 @@ class Workflow(WorkflowExecutorInterface):
                 rule_whitelist = None
             import copy
 
-            orig_ruleinfo = copy.copy(self.modifier.get_ruleinfo(rules[0]))
+            orig_ruleinfo = copy.copy(self.modifier.rule_proxies.get_ruleinfo(rules[0]))
 
             def decorate(maybe_ruleinfo):
                 # local inheritance
@@ -1994,7 +2008,6 @@ class Workflow(WorkflowExecutorInterface):
                     # Hence it can be ignored safely.
                     return
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
-                ruleinfos = self.modifier.ruleinfos
                 with WorkflowModifier(
                     self,
                     parent_modifier=self.modifier,
@@ -2010,7 +2023,6 @@ class Workflow(WorkflowExecutorInterface):
                         lineno=lineno,
                         snakefile=self.included_stack[-1],
                     )(orig_ruleinfo)
-                    ruleinfos |= self.modifier.ruleinfos
 
         return decorate
 

@@ -24,8 +24,7 @@ class InOutput(NamedTuple):
 def get_resource_value(value):
     if isinstance(value, ParsedResource):
         return value.value
-    else:
-        return value
+    return value
 
 
 class RuleInfo:
@@ -284,8 +283,7 @@ class RuleInfo:
             )
             # TODO retrieve suitable singularity image
 
-        if not ruleinfo.container_img and container_img:
-            if not ruleinfo.is_invalid and ruleinfo.container_img != False:
-                # skip rules with run directive or empty image
-                rule.container_img = container_img
-                rule.is_containerized = is_containerized
+        if not ruleinfo.container_img and container_img and not ruleinfo.is_invalid:
+            # skip rules with run directive or empty image
+            rule.container_img = container_img
+            rule.is_containerized = is_containerized

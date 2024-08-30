@@ -205,17 +205,12 @@ class WorkflowModifier:
             )
             self.wildcard_constraints: dict[str, str] = dict()
             self.rules: set["rules.Rule"] = set()
-            self.rule_proxies = rule_proxies or Rules()
-            self.globals["rules"] = self.rule_proxies
-            self.ruleinfos: dict[str, "_workflow.RuleInfo"] = {}
-            self.globals["_rules"] = self.ruleinfos
+            self.globals["rules"] = rule_proxies or Rules()
         else:
             # init with values from parent modifier
             self.globals = parent_modifier.globals
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.rules = parent_modifier.rules
-            self.rule_proxies = self.globals["rules"]
-            self.ruleinfos = self.globals["_rules"]
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile
@@ -236,16 +231,15 @@ class WorkflowModifier:
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
 
+    @property
+    def rule_proxies(self) -> Rules:
+        return self.globals["rules"]
+
     def inherit_rule_proxies(self, child_modifier: "WorkflowModifier"):
         for name, rule in child_modifier.rule_proxies._rules.items():
             if child_modifier.local_rulename_modifier is not None:
                 name = child_modifier.local_rulename_modifier(name)
             self.rule_proxies._register_rule(name, rule)
-
-    def get_ruleinfo(self, rulename):
-        if rulename in self.ruleinfos:
-            return self.ruleinfos[rulename]
-        return self.rule_proxies._rules[rulename].rule.ruleinfo
 
     def skip_rule(self, rulename):
         return (
