@@ -30,8 +30,9 @@ def get_resource_value(value):
 class RuleInfo:
     ref_attributes = {"func", "path_modifier"}
 
-    def __init__(self, func=None):
+    def __init__(self, func=None, basedir=None):
         self.func = func
+        self.basedir = basedir
         self.shellcmd = None
         self.name = None
         self.norun = False
@@ -110,7 +111,17 @@ class RuleInfo:
             or ruleinfo.notebook
         )
 
+    def check_valid(ruleinfo, rule, feature_name=None):
+        if ruleinfo.is_invalid:
+            raise RuleException(
+                f"Using {feature_name} is only allowed with "
+                "shell, script, notebook, or wrapper directives (not with run or template_engine)",
+                rule=rule,
+            )
+
     def update_rule(ruleinfo, rule: "rules.Rule"):
+        rule.basedir = ruleinfo.basedir
+
         if ruleinfo.wildcard_constraints:
             rule.set_wildcard_constraints(
                 *ruleinfo.wildcard_constraints[0],
@@ -196,35 +207,18 @@ class RuleInfo:
             # The reason is that this is likely intended in order to use
             # a software stack specifically compiled for a particular
             # HPC cluster.
-            if ruleinfo.is_invalid:
-                raise RuleException(
-                    "envmodules directive is only allowed with "
-                    "shell, script, notebook, or wrapper directives (not with run or the template_engine)",
-                    rule=rule,
-                )
+            ruleinfo.check_valid(rule, "envmodules directive")
             from .deployment.env_modules import EnvModules
 
             rule.env_modules = EnvModules(*ruleinfo.env_modules)
         if ruleinfo.conda_env:
-            if ruleinfo.is_invalid:
-                raise RuleException(
-                    "Conda environments are only allowed "
-                    "with shell, script, notebook, or wrapper directives "
-                    "(not with run or template_engine).",
-                    rule=rule,
-                )
+            ruleinfo.check_valid(rule, "conda environment")
             if isinstance(ruleinfo.conda_env, Path):
                 ruleinfo.conda_env = str(ruleinfo.conda_env)
             rule.conda_env = ruleinfo.conda_env
 
         if ruleinfo.container_img:
-            if ruleinfo.is_invalid:
-                raise RuleException(
-                    "Singularity directive is only allowed "
-                    "with shell, script, notebook or wrapper directives "
-                    "(not with run or template_engine).",
-                    rule=rule,
-                )
+            ruleinfo.check_valid(rule, "singularity directive")
             rule.container_img = ruleinfo.container_img
             rule.is_containerized = ruleinfo.is_containerized
 

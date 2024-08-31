@@ -176,6 +176,7 @@ class Workflow(WorkflowExecutorInterface):
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
 
+        self._global_rules_count = 0
         self._rules: dict[str, Rule] = OrderedDict()
         self.default_target = None
         self._workdir_init = os.path.abspath(os.curdir)
@@ -1589,7 +1590,8 @@ class Workflow(WorkflowExecutorInterface):
         rescue=False,
     ):
         # choose a name for an unnamed rule
-        orig_name = name or str(len(self._rules) + 1)
+        self._global_rules_count += 1
+        orig_name = name or str(self._global_rules_count)
 
         if self.modifier.skip_rule(orig_name) and not rescue:
 
@@ -1621,7 +1623,6 @@ class Workflow(WorkflowExecutorInterface):
         self.modifier.rule_proxies._register_rule(orig_name, RuleProxy(rule))
 
         rule.is_checkpoint = checkpoint
-        rule.basedir = self.current_basedir
         rule.module_globals = self.modifier.globals
 
         if not self.modifier.skip_rule(orig_name):
@@ -1697,7 +1698,7 @@ class Workflow(WorkflowExecutorInterface):
                     self._localrules.add(rule.name)
 
                 self.globals[ruleinfo.func.__name__] = ruleinfo.func
-                return ruleinfo.func
+            return ruleinfo.func
 
         return decorate
 
@@ -1896,7 +1897,7 @@ class Workflow(WorkflowExecutorInterface):
         ruleinfo.name = name
 
     def run(self, func):
-        return RuleInfo(func)
+        return RuleInfo(func, self.current_basedir)
 
     def module(
         self,
@@ -2001,12 +2002,6 @@ class Workflow(WorkflowExecutorInterface):
 
             def decorate(maybe_ruleinfo):
                 # local inheritance
-                if rule_whitelist is not None and name_modifier is None:
-                    # assert rule_whitelist == [], "means this rule is skipped"
-                    # name_modifier is None means the rule is unnamed and will never be
-                    # referred as rules.xxx anymore.
-                    # Hence it can be ignored safely.
-                    return
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 with WorkflowModifier(
                     self,
