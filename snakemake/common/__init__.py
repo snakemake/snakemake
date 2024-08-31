@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import uuid
 import os
 import asyncio
-import collections
+from collections import namedtuple, OrderedDict
 from pathlib import Path
 
 from snakemake import __version__
@@ -121,7 +121,7 @@ def is_local_file(path_or_uri):
     return parse_uri(path_or_uri).scheme == "file"
 
 
-Uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
+Uri = namedtuple("Uri", ["scheme", "uri_path"])
 
 
 def parse_uri(path_or_uri):
@@ -251,7 +251,7 @@ class Rules:
 
     def __init__(self):
         self._rules = dict()
-        self._cache_rules: dict[
+        self._cache_rules: OrderedDict[
             str,
             tuple[
                 "modules.WorkflowModifier",
@@ -260,7 +260,7 @@ class Rules:
                 "str | None",
                 bool,
             ],
-        ] = dict()
+        ] = OrderedDict()
 
     def _register_rule(self, name, rule):
         self._rules[name] = rule

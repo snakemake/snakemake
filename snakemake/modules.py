@@ -184,11 +184,10 @@ class ModuleInfo:
         rule_whitelist: set[str] | None = None,
         exclude_rules: list[str] | None = None,
     ):
-        all_rules = set(self.rule_proxies._cache_rules)
         excludes = set() if exclude_rules is None else set(exclude_rules)
         if rule_whitelist is None:
-            return all_rules - excludes
-        return set(rule_whitelist) - excludes
+            return [i for i in self.rule_proxies._cache_rules if i not in excludes]
+        return [i for i in rule_whitelist if i not in excludes]
 
 
 class WorkflowModifier:
