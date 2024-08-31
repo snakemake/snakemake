@@ -1529,9 +1529,7 @@ class Workflow(WorkflowExecutorInterface):
                 update_config(self.config, c)
                 if self.config_settings.overwrite_config:
                     logger.info(
-                        "Config file {} is extended by additional config specified via the command line.".format(
-                            fp
-                        )
+                        f"Config file {fp} is extended by additional config specified via the command line."
                     )
                     update_config(self.config, self.config_settings.overwrite_config)
             elif not self.overwrite_configfiles:
@@ -1979,8 +1977,7 @@ class Workflow(WorkflowExecutorInterface):
                     name_modifier,
                     exclude_rules=exclude_rules,
                     ruleinfo=ruleinfo,
-                    # do not overwrite existing report text via module
-                    skip_global_report_caption=self.report_text is not None,
+                    lineno=lineno,
                 )
 
         else:
@@ -1991,7 +1988,10 @@ class Workflow(WorkflowExecutorInterface):
                 )
             # The parent use rule statement is specific for a different particular rule
             # else, we just add the rule into ruleinfo and skip it.
-            if self.modifier.skip_rule(name_modifier):
+            resolved_rulename = get_name_modifier_func(
+                rules, name_modifier or rules[0], parent_modifier=self.modifier
+            )(rules[0])
+            if self.modifier.skip_rule(resolved_rulename):
                 rule_whitelist: list | None = []
             else:
                 rule_whitelist = None
@@ -2011,15 +2011,12 @@ class Workflow(WorkflowExecutorInterface):
                 with WorkflowModifier(
                     self,
                     parent_modifier=self.modifier,
-                    resolved_rulename_modifier=get_name_modifier_func(
-                        rules, name_modifier, parent_modifier=self.modifier
-                    ),
                     rule_whitelist=rule_whitelist,
                     ruleinfo_overwrite=ruleinfo,
                 ):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
                     self.rule(
-                        name=name_modifier,
+                        name=resolved_rulename,
                         lineno=lineno,
                         snakefile=self.included_stack[-1],
                     )(orig_ruleinfo)
