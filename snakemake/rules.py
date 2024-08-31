@@ -486,8 +486,9 @@ class Rule(RuleInterface):
             if is_flagged(item, "report"):
                 report_obj = item.flags["report"]
                 if report_obj.caption is not None:
+                    assert self.basedir is not None
                     item.flags["report"] = ReportObject(
-                        self.workflow.current_basedir.join(report_obj.caption),
+                        self.basedir.join(report_obj.caption),
                         report_obj.category,
                         report_obj.subcategory,
                         report_obj.labels,
