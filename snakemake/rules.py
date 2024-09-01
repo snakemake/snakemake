@@ -1212,7 +1212,7 @@ class Rule(RuleInterface):
 
 class Ruleorder:
     def __init__(self):
-        self.order = list()
+        self.order: list[list[str]] = list()
 
     def add(self, *rulenames):
         """
@@ -1220,7 +1220,7 @@ class Ruleorder:
         """
         self.order.append(list(rulenames))
 
-    def compare(self, rule1, rule2):
+    def compare(self, rule1: Rule, rule2: Rule):
         """
         Return whether rule2 has a higher priority than rule1.
         """
@@ -1232,21 +1232,13 @@ class Ruleorder:
                     i = clause.index(rule1.name)
                     j = clause.index(rule2.name)
                     # rules with higher priority should have a smaller index
-                    comp = j - i
-                    if comp < 0:
-                        comp = -1
-                    elif comp > 0:
-                        comp = 1
-                    return comp
+                    return j - i
                 except ValueError:
                     pass
 
         # if no ruleorder given, prefer rule without wildcards
         wildcard_cmp = rule2.has_wildcards() - rule1.has_wildcards()
-        if wildcard_cmp != 0:
-            return wildcard_cmp
-
-        return 0
+        return wildcard_cmp
 
     def __iter__(self):
         return self.order.__iter__()

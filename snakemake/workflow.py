@@ -12,14 +12,12 @@ import sys
 import tarfile
 import tempfile
 from collections import OrderedDict, namedtuple
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import partial, wraps
 from itertools import chain, filterfalse
 from pathlib import Path
-import tarfile
-import tempfile
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Union
+
 from .common.workdir_handler import WorkdirHandler
 from .settings.types import (
     ConfigSettings,
@@ -105,7 +103,6 @@ from .common import (
     async_run,
     get_appdirs,
     is_local_file,
-    Rules,
     Scatter,
     Gather,
     smart_join,
@@ -180,7 +177,6 @@ class Workflow(WorkflowExecutorInterface):
         self._rules: dict[str, Rule] = OrderedDict()
         self.default_target = None
         self._workdir_init = os.path.abspath(os.curdir)
-        self._ruleorder = Ruleorder()
         self._localrules = set()
         self._linemaps = dict()
         self.rule_count = 0
@@ -514,9 +510,13 @@ class Workflow(WorkflowExecutorInterface):
     def globals(self):
         return self.modifier.globals
 
+    @property
+    def _ruleorder(self):
+        return self.modifier._ruleorder
+
     def lint(self, json=False):
-        from snakemake.linting.rules import RuleLinter
-        from snakemake.linting.snakefiles import SnakefileLinter
+        from .linting.rules import RuleLinter
+        from .linting.snakefiles import SnakefileLinter
 
         json_snakefile_lints, snakefile_linted = SnakefileLinter(
             self, self.included
@@ -999,7 +999,7 @@ class Workflow(WorkflowExecutorInterface):
 
         import json
 
-        from snakemake.cwl import dag_to_cwl
+        from .cwl import dag_to_cwl
 
         with open(path, "w") as cwl:
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
@@ -1007,7 +1007,7 @@ class Workflow(WorkflowExecutorInterface):
     def create_report(
         self, report_plugin: ReportPlugin, report_settings: ReportSettingsBase
     ):
-        from snakemake.report import auto_report
+        from .report import auto_report
 
         assert self.dag_settings is not None
         self._prepare_dag(
@@ -1521,7 +1521,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def configfile(self, fp):
         """Update the global config with data from the given file."""
-        from snakemake.common.configfile import load_configfile
+        from .common.configfile import load_configfile
 
         if not self.modifier.skip_configfile:
             if os.path.exists(fp):
@@ -1978,7 +1978,6 @@ class Workflow(WorkflowExecutorInterface):
                     name_modifier,
                     exclude_rules=exclude_rules,
                     ruleinfo=ruleinfo,
-                    lineno=lineno,
                 )
 
         else:

@@ -10,8 +10,7 @@ import re
 from .common import Rules
 from .exceptions import WorkflowError
 from .path_modifier import PathModifier
-from . import wrapper
-from . import rules
+from . import wrapper, rules, ruleinfo
 from . import workflow as _workflow
 
 
@@ -34,8 +33,7 @@ def get_name_modifier_func(
         return lambda rulename: parent_modifier_func(
             name_modifier.replace("*", rulename)
         )
-    assert rules is not None
-    if len(rules) > 1:
+    if rules and len(rules) > 1:
         raise SyntaxError(
             "Multiple rules in 'use rule' statement but name modification ('as' statement) does not contain a wildcard '*'."
         )
@@ -120,31 +118,35 @@ class ModuleInfo:
         name_modifier=None,
         exclude_rules=None,
         ruleinfo: "_workflow.RuleInfo | None" = None,
-        lineno=None,
     ):
         import copy
 
         snakefile = self.get_snakefile()
+        name_modifier_func = get_name_modifier_func(
+            None, name_modifier, parent_modifier=self.parent_modifier
+        )
         _old_ruleinfo, self.modifier.ruleinfo_overwrite = (
             self.modifier.ruleinfo_overwrite,
             ruleinfo,
         )
-        with self.modifier:
-            for rulename in self.get_avail_rulenames(
-                self.get_rule_whitelist(rules), exclude_rules
-            ):
-                resolved_rulename = get_name_modifier_func(
-                    [rulename],
-                    name_modifier or rulename,
-                    parent_modifier=self.parent_modifier,
-                )(rulename)
-                orig_ruleinfo = copy.copy(
-                    self.modifier.rule_proxies.get_ruleinfo(rulename)
-                )
+        for rulename in self.get_avail_rulenames(
+            self.get_rule_whitelist(rules), exclude_rules
+        ):
+            resolved_rulename = name_modifier_func(rulename)
+            modifier, ruleinfo, lineno, snakefile, checkpoint = (
+                self.rule_proxies._cache_rules[rulename]
+            )
+            orig_ruleinfo = copy.copy(self.modifier.rule_proxies.get_ruleinfo(rulename))
+            with modifier:
                 self.workflow.rule(
-                    name=resolved_rulename, lineno=lineno, snakefile=snakefile
+                    name=resolved_rulename,
+                    lineno=lineno,
+                    snakefile=snakefile,
+                    checkpoint=checkpoint,
                 )(orig_ruleinfo)
+        with self.modifier:
             self.parent_modifier.inherit_rule_proxies(self.modifier)
+            self.parent_modifier.inherit_ruleorder(self.modifier, name_modifier_func)
         self.modifier.ruleinfo_overwrite = _old_ruleinfo
 
     def get_snakefile(self):
@@ -202,10 +204,10 @@ class WorkflowModifier:
         skip_validation=False,
         skip_global_report_caption=False,
         resolved_rulename_modifier=default_modify_rulename,
-        local_rulename_modifier=None,
+        local_rulename_modifier=default_modify_rulename,
         rule_whitelist=None,
         rule_exclude_list=None,
-        ruleinfo_overwrite=None,
+        ruleinfo_overwrite: "ruleinfo.RuleInfo | None" = None,
         allow_rule_overwrite=False,
         replace_prefix=None,
         prefix=None,
@@ -248,6 +250,7 @@ class WorkflowModifier:
         self.path_modifier = PathModifier(replace_prefix, prefix, workflow)
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
+        self._ruleorder = rules.Ruleorder()
 
     @property
     def rule_proxies(self) -> Rules:
@@ -255,9 +258,22 @@ class WorkflowModifier:
 
     def inherit_rule_proxies(self, child_modifier: "WorkflowModifier"):
         for name, rule in child_modifier.rule_proxies._rules.items():
-            if child_modifier.local_rulename_modifier is not None:
-                name = child_modifier.local_rulename_modifier(name)
+            name = child_modifier.local_rulename_modifier(name)
             self.rule_proxies._register_rule(name, rule)
+
+    def inherit_ruleorder(
+        self,
+        child_modifier: "WorkflowModifier",
+        resolved_rulename=default_modify_rulename,
+    ):
+        for clause in child_modifier._ruleorder:
+            _clause: list[str] = []
+            for rulename in clause:
+                modified_rulename = resolved_rulename(rulename)
+                if modified_rulename in child_modifier.rule_proxies._rules:
+                    _clause.append(modified_rulename)
+            if len(_clause) > 1:
+                self._ruleorder.add(*_clause)
 
     def skip_rule(self, rulename):
         return (
