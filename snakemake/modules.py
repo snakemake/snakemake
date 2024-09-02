@@ -6,6 +6,7 @@ __license__ = "MIT"
 from pathlib import Path
 import types
 import re
+from copy import copy
 
 from .common import Rules
 from .exceptions import WorkflowError
@@ -61,6 +62,7 @@ class ModuleInfo:
         self.parent_modifier = self.workflow.modifier
         self.rule_proxies = Rules()
         self.namespace = types.ModuleType(name)
+        self.stack_len = 0
 
         if prefix is not None:
             if isinstance(prefix, Path):
@@ -107,10 +109,12 @@ class ModuleInfo:
         )
         with self.modifier:
             self.workflow.include(snakefile, overwrite_default_target=True)
+            self.stack_len = len(self.workflow.included_stack) + 1
         if self.name:
             self.namespace.__dict__.update(self.modifier.globals)
             self.workflow.globals[self.modifier.namespace] = self.namespace
-            self.modifier.rule_whitelist = None
+            for i in self.rule_proxies._cache_rules.values():
+                i[0].rule_whitelist = None
 
     def use_rules(
         self,
@@ -129,21 +133,10 @@ class ModuleInfo:
             self.modifier.ruleinfo_overwrite,
             ruleinfo,
         )
-        for rulename in self.get_avail_rulenames(
+        snakefile, stacks = self.avail_rules_stacks(
             self.get_rule_whitelist(rules), exclude_rules
-        ):
-            resolved_rulename = name_modifier_func(rulename)
-            modifier, ruleinfo, lineno, snakefile, checkpoint = (
-                self.rule_proxies._cache_rules[rulename]
-            )
-            orig_ruleinfo = copy.copy(self.modifier.rule_proxies.get_ruleinfo(rulename))
-            with modifier:
-                self.workflow.rule(
-                    name=resolved_rulename,
-                    lineno=lineno,
-                    snakefile=snakefile,
-                    checkpoint=checkpoint,
-                )(orig_ruleinfo)
+        )
+        self._include(snakefile, stacks, name_modifier_func, True)
         with self.modifier:
             self.parent_modifier.inherit_rule_proxies(self.modifier)
             self.parent_modifier.inherit_ruleorder(self.modifier, name_modifier_func)
@@ -181,15 +174,89 @@ class ModuleInfo:
                 return None
         return set(rules)
 
-    def get_avail_rulenames(
+    def avail_rules_stacks(
         self,
         rule_whitelist: set[str] | None = None,
         exclude_rules: list[str] | None = None,
     ):
         excludes = set() if exclude_rules is None else set(exclude_rules)
-        if rule_whitelist is None:
-            return [i for i in self.rule_proxies._cache_rules if i not in excludes]
-        return [i for i in rule_whitelist if i not in excludes]
+        rules = (
+            self.rule_proxies._cache_rules if rule_whitelist is None else rule_whitelist
+        )
+        pseudo_stacks: list[tuple[set[str | None], list[str | tuple]]] = [(set(), [])]
+        last_stack_key: tuple[str | None, int] = None, self.stack_len
+        for rulename in rules:
+            if rulename in excludes:
+                continue
+            modifier, ruleinfo_, lineno, snakefile, checkpoint, stack_len = (
+                self.rule_proxies._cache_rules[rulename]
+            )
+            if last_stack_key != (snakefile, stack_len):
+                if (
+                    last_stack_key == (None, self.stack_len)
+                    and stack_len == self.stack_len
+                ):
+                    pass
+                else:
+                    if last_stack_key[1] > stack_len:
+                        # step out from last include
+                        for p in range(stack_len, last_stack_key[1]):
+                            pseudo_stacks[-2][1].append(pseudo_stacks.pop(-1))
+                    elif last_stack_key[1] == stack_len:
+                        # a new include
+                        pseudo_stacks[-2][1].append(pseudo_stacks.pop(-1))
+                        pseudo_stacks.append((set(), []))
+                    elif last_stack_key[1] < stack_len:
+                        for p in range(last_stack_key[1], stack_len):
+                            pseudo_stacks.append((set(), []))
+                    else:
+                        raise NotImplementedError
+                last_stack_key = snakefile, stack_len
+            pseudo_stacks[-1][0].add(snakefile)
+            pseudo_stacks[-1][1].append(rulename)
+        while len(pseudo_stacks) > 1:
+            pseudo_stacks[-2][1].append(pseudo_stacks.pop(-1))
+        if len(pseudo_stacks[0][0]) > 0:
+            (included,) = pseudo_stacks[0][0]
+        else:
+            # keep consistant only, we know it isn't
+            included = self.snakefile
+        return included, pseudo_stacks[0][1]
+
+    def _include(
+        self,
+        snakefile: str | None,
+        rule_stacks: list[str | tuple],
+        name_modifier_func=default_modify_rulename,
+        overwrite_default_target=False,
+    ):
+        with _workflow._IncludeWrapper(
+            self.workflow,
+            snakefile,
+            overwrite_default_target=overwrite_default_target,
+            module_use=True,
+        ):
+            for rule_s in rule_stacks:
+                if isinstance(rule_s, tuple):
+                    if len(rule_s[0]) > 0:
+                        (included,) = rule_s[0]
+                    else:
+                        # keep consistant only, we know it isn't
+                        included = snakefile
+                    self._include(included, rule_s[1], name_modifier_func)
+                else:
+                    resolved_rulename = name_modifier_func(rule_s)
+                    modifier, ruleinfo_, lineno, snakefile, checkpoint, stack_len = (
+                        self.rule_proxies._cache_rules[rule_s]
+                    )
+                    orig_ruleinfo = copy(ruleinfo_)
+                    with modifier:
+                        self.workflow.rule(
+                            name=resolved_rulename,
+                            lineno=lineno,
+                            snakefile=snakefile,
+                            checkpoint=checkpoint,
+                        )(orig_ruleinfo)
 
 
 class WorkflowModifier:

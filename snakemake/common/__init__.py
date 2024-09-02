@@ -259,6 +259,7 @@ class Rules:
                 "int | None",
                 "str | None",
                 bool,
+                int,
             ],
         ] = OrderedDict()
 
@@ -284,7 +285,9 @@ class Rules:
         )
 
     def _rescue_register_rule(self, name):
-        modifier, ruleinfo, lineno, snakefile, checkpoint = self._cache_rules[name]
+        modifier, ruleinfo, lineno, snakefile, checkpoint, stack_len = (
+            self._cache_rules[name]
+        )
         with modifier:
             modifier.workflow.rule(
                 name,

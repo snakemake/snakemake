@@ -169,16 +169,16 @@ class Workflow(WorkflowExecutorInterface):
         """
         from snakemake.storage import StorageRegistry
 
-        self.global_resources: dict = dict(self.resource_settings.resources)
+        self.global_resources: Dict = dict(self.resource_settings.resources)
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
 
         self._global_rules_count = 0
-        self._rules: dict[str, Rule] = OrderedDict()
+        self._rules: Dict[str, Rule] = OrderedDict()
         self.default_target = None
         self._workdir_init = os.path.abspath(os.curdir)
         self._localrules = set()
-        self._linemaps = dict()
+        self._linemaps: Dict[str | None, Dict[int, int]] = dict()
         self.rule_count = 0
         self.included = []
         self.included_stack: list[SourceFile] = []
@@ -199,7 +199,7 @@ class Workflow(WorkflowExecutorInterface):
         self._scatter = dict(self.resource_settings.overwrite_scatter)
         self._resource_scopes = ResourceScopes.defaults()
         self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
-        self.modules: dict[str, ModuleInfo] = dict()
+        self.modules: Dict[str, ModuleInfo] = dict()
         self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
 
         self._sourcecache = SourceCache(self.source_cache_path)
@@ -1436,11 +1436,7 @@ class Workflow(WorkflowExecutorInterface):
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
             logger.info(f"Multiple includes of {snakefile} ignored")
             return
-        self.included.append(snakefile)
-        self.included_stack.append(snakefile)
-
-        default_target = self.default_target
-        linemap: Dict[int, int] = dict()
+        linemap: Dict = {}
         self.linemaps[snakefile.get_path_or_uri()] = linemap
         code, rulecount = parse(
             snakefile,
@@ -1461,13 +1457,10 @@ class Workflow(WorkflowExecutorInterface):
         ):
             # insert the current directory into sys.path
             # this allows to import modules from the workflow directory
-            sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
+            sys.path.insert(0, snakefile_path_or_uri)
 
-        exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
-
-        if not overwrite_default_target:
-            self.default_target = default_target
-        self.included_stack.pop()
+        with _IncludeWrapper(self, snakefile, overwrite_default_target):
+            exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
     def onstart(self, func):
         """Register onstart function."""
@@ -1607,10 +1600,10 @@ class Workflow(WorkflowExecutorInterface):
                     self.modifier,
                     ruleinfo,
                     lineno,
-                    snakefile,
+                    self.included_stack[-1],
                     checkpoint,
+                    len(self.included_stack),
                 )
-                # do nothing, ignore rule
                 return ruleinfo.func
 
             return decorate
@@ -2020,3 +2013,29 @@ class Workflow(WorkflowExecutorInterface):
     @staticmethod
     def _empty_decorator(f):
         return f
+
+
+class _IncludeWrapper:
+    def __init__(
+        self,
+        workflow: Workflow,
+        snakefile,
+        overwrite_default_target=False,
+        module_use=False,
+    ) -> None:
+        self.workflow = workflow
+        self.snakefile = snakefile
+        self.overwrite_default_target = overwrite_default_target
+        self.default_target = None
+        self.module_use = module_use
+
+    def __enter__(self):
+        if not self.module_use:
+            self.workflow.included.append(self.snakefile)
+        self.workflow.included_stack.append(self.snakefile)
+        self.default_target = self.workflow.default_target
+
+    def __exit__(self, type, value, traceback):
+        if not self.overwrite_default_target:
+            self.workflow.default_target = self.default_target
+        self.workflow.included_stack.pop()
