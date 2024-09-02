@@ -2051,11 +2051,11 @@ def test_issue1256():
 def test_issue2574():
     snakefile = os.path.join(dpath("test_issue2574"), "Snakefile")
     configfile = os.path.join(dpath("test_issue2574"), "config.yaml")
-    p = subprocess.Popen(
+    p = sp.Popen(
         f"snakemake -s {snakefile} --configfile {configfile} --lint",
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
     )
     stdout, stderr = p.communicate()
     stderr = stderr.decode()
