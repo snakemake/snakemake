@@ -3,7 +3,6 @@ import re
 import sys
 from typing import Union
 
-from snakemake.io import is_flagged
 from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 from snakemake.rules import Rule
 
