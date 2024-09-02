@@ -1247,7 +1247,7 @@ class Ruleorder:
 class RuleProxy:
     def __init__(self, rule: Rule):
         self.rule = rule
-        self._rescue=False
+        self._rescue = False
 
     @lazy_property
     def output(self):
