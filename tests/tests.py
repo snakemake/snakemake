@@ -2051,13 +2051,17 @@ def test_issue1256():
 def test_issue2574():
     snakefile = os.path.join(dpath("test_issue2574"), "Snakefile")
     configfile = os.path.join(dpath("test_issue2574"), "config.yaml")
-    p = subprocess.Popen(f"snakemake -s {snakefile} --configfile {configfile} --lint",
-        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(
+        f"snakemake -s {snakefile} --configfile {configfile} --lint",
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     stdout, stderr = p.communicate()
     stderr = stderr.decode()
     assert p.returncode == 1
     assert "KeyError" in stderr
-    assert "line 2," in stderr
+    assert "line 4," in stderr
 
 
 def test_resource_string_in_cli_or_profile():

@@ -45,7 +45,7 @@ def test_lint(lint, case):
             assert e.output.decode().strip()
             if "not_used_params" in lint.name:
                 # Check that the correct line number is reported
-                assert 'line 3' in e.output.decode().strip()
+                assert "line 3" in e.output.decode().strip()
         else:
             print(e.output.decode().strip(), file=sys.stderr)
             raise e
