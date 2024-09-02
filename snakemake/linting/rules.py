@@ -1,6 +1,7 @@
 from itertools import chain
 import re
 import sys
+from typing import Union
 
 from snakemake.io import is_flagged
 from snakemake.linting import Linter, Lint, links, NAME_PATTERN
@@ -16,7 +17,7 @@ class RuleLinter(Linter):
         lineno = self.get_lineno(rule)
         return {"rule": rule.name, "line": lineno, "snakefile": rule.snakefile}
 
-    def get_lineno(self, rule: Rule) -> int:
+    def get_lineno(self, rule: Rule) -> Union[int, None]:
         linemaps = self.workflow.linemaps
         if linemaps and rule.snakefile in linemaps:
             return linemaps[rule.snakefile][rule.lineno]
