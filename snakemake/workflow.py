@@ -1988,8 +1988,8 @@ class Workflow(WorkflowExecutorInterface):
                 rule_whitelist: list | None = []
             else:
                 rule_whitelist = None
-            import copy
 
+            # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
             orig_ruleinfo = copy.copy(self.modifier.rule_proxies.get_ruleinfo(rules[0]))
 
             def decorate(maybe_ruleinfo):
@@ -2001,7 +2001,6 @@ class Workflow(WorkflowExecutorInterface):
                     rule_whitelist=rule_whitelist,
                     ruleinfo_overwrite=ruleinfo,
                 ):
-                    # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
                     self.rule(
                         name=resolved_rulename,
                         lineno=lineno,

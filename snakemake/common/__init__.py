@@ -22,7 +22,7 @@ from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
 
 if TYPE_CHECKING:
-    from .. import modules, ruleinfo
+    from .. import modules, ruleinfo, rules
 
 
 MIN_PY_VERSION = (3, 7)
@@ -250,7 +250,7 @@ class Rules:
     """A namespace for rules so that they can be accessed via dot notation."""
 
     def __init__(self):
-        self._rules = dict()
+        self._rules: dict[str, "rules.RuleProxy"] = dict()
         self._cache_rules: OrderedDict[
             str,
             tuple[
@@ -296,9 +296,10 @@ class Rules:
                 checkpoint=checkpoint,
                 rescue=True,
             )(ruleinfo)
+        self._rules[name]._rescue = True
         return self._rules[name]
 
-    def get_ruleinfo(self, rulename) -> "ruleinfo.RuleInfo":
+    def get_ruleinfo(self, rulename):
         if rulename in self._cache_rules:
             return self._cache_rules[rulename][1]
         return self._rules[rulename].rule.ruleinfo

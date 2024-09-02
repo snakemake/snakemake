@@ -11,8 +11,9 @@ from copy import copy
 from .common import Rules
 from .exceptions import WorkflowError
 from .path_modifier import PathModifier
-from . import wrapper, rules, ruleinfo
+from . import wrapper, ruleinfo
 from . import workflow as _workflow
+from . import rules as _rules
 
 
 def default_modify_rulename(rulename: str):
@@ -107,9 +108,11 @@ class ModuleInfo:
             replace_wrapper_tag=self.get_wrapper_tag(),
             rule_proxies=self.rule_proxies,
         )
+        workflow_rules, self.workflow._rules = self.workflow._rules, {}
         with self.modifier:
             self.workflow.include(snakefile, overwrite_default_target=True)
             self.stack_len = len(self.workflow.included_stack) + 1
+        self.workflow._rules = workflow_rules
         if self.name:
             self.namespace.__dict__.update(self.modifier.globals)
             self.workflow.globals[self.modifier.namespace] = self.namespace
@@ -123,12 +126,11 @@ class ModuleInfo:
         exclude_rules=None,
         ruleinfo: "_workflow.RuleInfo | None" = None,
     ):
-        import copy
-
         snakefile = self.get_snakefile()
         name_modifier_func = get_name_modifier_func(
             None, name_modifier, parent_modifier=self.parent_modifier
         )
+        # idealy, _old_ruleinfo is None
         _old_ruleinfo, self.modifier.ruleinfo_overwrite = (
             self.modifier.ruleinfo_overwrite,
             ruleinfo,
@@ -137,8 +139,9 @@ class ModuleInfo:
             self.get_rule_whitelist(rules), exclude_rules
         )
         self._include(snakefile, stacks, name_modifier_func, True)
+        print("workflow", self.workflow._rules)
         with self.modifier:
-            self.parent_modifier.inherit_rule_proxies(self.modifier)
+            self.parent_modifier.inherit_rule_proxies(self.modifier, self.stack_len)
             self.parent_modifier.inherit_ruleorder(self.modifier, name_modifier_func)
         self.modifier.ruleinfo_overwrite = _old_ruleinfo
 
@@ -219,7 +222,7 @@ class ModuleInfo:
         if len(pseudo_stacks[0][0]) > 0:
             (included,) = pseudo_stacks[0][0]
         else:
-            # keep consistant only, we know it isn't
+            # keep consistent only, we know it isn't
             included = self.snakefile
         return included, pseudo_stacks[0][1]
 
@@ -241,7 +244,7 @@ class ModuleInfo:
                     if len(rule_s[0]) > 0:
                         (included,) = rule_s[0]
                     else:
-                        # keep consistant only, we know it isn't
+                        # keep consistent only, we know it isn't
                         included = snakefile
                     self._include(included, rule_s[1], name_modifier_func)
                 else:
@@ -288,7 +291,7 @@ class WorkflowModifier:
                 globals if globals is not None else dict(workflow.vanilla_globals)
             )
             self.wildcard_constraints: dict[str, str] = dict()
-            self.rules: set["rules.Rule"] = set()
+            self.rules: set["_rules.Rule"] = set()
             self.globals["rules"] = rule_proxies or Rules()
             if config is not None:
                 self.globals["config"] = config
@@ -317,16 +320,28 @@ class WorkflowModifier:
         self.path_modifier = PathModifier(replace_prefix, prefix, workflow)
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
-        self._ruleorder = rules.Ruleorder()
+        self._ruleorder = _rules.Ruleorder()
 
     @property
     def rule_proxies(self) -> Rules:
         return self.globals["rules"]
 
-    def inherit_rule_proxies(self, child_modifier: "WorkflowModifier"):
-        for name, rule in child_modifier.rule_proxies._rules.items():
-            name = child_modifier.local_rulename_modifier(name)
-            self.rule_proxies._register_rule(name, rule)
+    def inherit_rule_proxies(self, child_modifier: "WorkflowModifier", stack_len: int):
+        if self.rule_whitelist == []:
+            for name, rule in child_modifier.rule_proxies._rules.items():
+                if not rule._rescue:
+                    self.rule_proxies._cache_rules[name] = (  # type: ignore[assignment]
+                        self,
+                        rule.rule.ruleinfo,
+                        rule.rule.lineno,
+                        rule.rule.snakefile,
+                        rule.rule.is_checkpoint,
+                        stack_len,
+                    )
+        else:
+            for name, rule in child_modifier.rule_proxies._rules.items():
+                name = child_modifier.local_rulename_modifier(name)
+                self.rule_proxies._register_rule(name, rule)
 
     def inherit_ruleorder(
         self,
