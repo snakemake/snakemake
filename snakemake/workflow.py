@@ -51,7 +51,7 @@ from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 
 from .logging import logger, format_resources
-from .rules import Rule, Ruleorder, RuleProxy
+from .rules import Rule, RuleProxy
 from .exceptions import (
     CreateCondaEnvironmentException,
     RuleException,

@@ -126,11 +126,10 @@ class ModuleInfo:
         exclude_rules=None,
         ruleinfo: "_workflow.RuleInfo | None" = None,
     ):
-        snakefile = self.get_snakefile()
         name_modifier_func = get_name_modifier_func(
             None, name_modifier, parent_modifier=self.parent_modifier
         )
-        # idealy, _old_ruleinfo is None
+        # ideally, _old_ruleinfo is None
         _old_ruleinfo, self.modifier.ruleinfo_overwrite = (
             self.modifier.ruleinfo_overwrite,
             ruleinfo,
@@ -139,7 +138,6 @@ class ModuleInfo:
             self.get_rule_whitelist(rules), exclude_rules
         )
         self._include(snakefile, stacks, name_modifier_func, True)
-        print("workflow", self.workflow._rules)
         with self.modifier:
             self.parent_modifier.inherit_rule_proxies(self.modifier, self.stack_len)
             self.parent_modifier.inherit_ruleorder(self.modifier, name_modifier_func)
@@ -195,22 +193,20 @@ class ModuleInfo:
                 self.rule_proxies._cache_rules[rulename]
             )
             if last_stack_key != (snakefile, stack_len):
-                if (
+                if not (
                     last_stack_key == (None, self.stack_len)
                     and stack_len == self.stack_len
                 ):
-                    pass
-                else:
                     if last_stack_key[1] > stack_len:
                         # step out from last include
-                        for p in range(stack_len, last_stack_key[1]):
+                        for _p in range(stack_len, last_stack_key[1]):
                             pseudo_stacks[-2][1].append(pseudo_stacks.pop(-1))
                     elif last_stack_key[1] == stack_len:
                         # a new include
                         pseudo_stacks[-2][1].append(pseudo_stacks.pop(-1))
                         pseudo_stacks.append((set(), []))
                     elif last_stack_key[1] < stack_len:
-                        for p in range(last_stack_key[1], stack_len):
+                        for _p in range(last_stack_key[1], stack_len):
                             pseudo_stacks.append((set(), []))
                     else:
                         raise NotImplementedError
