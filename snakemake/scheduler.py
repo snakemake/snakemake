@@ -264,7 +264,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                     logger.debug(f"Resources before job selection: {self.resources}")
                     logger.debug(
-                        f"Ready jobs ({len(needrun)})"
+                        f"Ready jobs ({len(needrun)})",
                         # + "\n\t".join(map(str, needrun))
                     )
 
@@ -505,11 +505,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """
         import pulp
         from pulp import lpSum
-        from stopit import ThreadingTimeout as Timeout, TimeoutException
+
+        logger.debug("Selecting jobs to run using ILP solver.")
 
         if len(jobs) == 1:
             logger.debug(
-                "Using greedy selector because only single job has to be scheduled."
+                "Switching to greedy selector because only one job has to be scheduled."
             )
             return self.job_selector_greedy(jobs)
 
@@ -624,20 +625,17 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
                 )
 
-        try:
-            with Timeout(10, swallow_exc=False):
-                self._solve_ilp(prob)
-        except TimeoutException as e:
-            logger.warning(
-                "Failed to solve scheduling problem with ILP solver in time (10s). "
-                "Falling back to greedy solver."
-            )
-            return self.job_selector_greedy(jobs)
-        except pulp.apis.core.PulpSolverError as e:
-            logger.warning(
-                "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver. "
-                "Run Snakemake with --verbose to see the full solver output for debugging the problem."
-            )
+        status = self._solve_ilp(prob, time_limit=10)
+        logger.debug(f"Problem is {pulp.LpStatus[status]}")
+        if pulp.LpStatus[status] != "Optimal":
+            if pulp.LpStatus[status] == "Not Solved":
+                logger.warning(
+                    "Failed to solve scheduling problem with ILP solver in time (10s)."
+                )
+            elif pulp.LpStatus[status] == "Infeasible":
+                logger.warning("Failed to solve scheduling problem with ILP solver.")
+
+            logger.debug("Falling back to greedy solver.")
             return self.job_selector_greedy(jobs)
 
         selected_jobs = set(
@@ -654,7 +652,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.update_available_resources(selected_jobs)
         return selected_jobs
 
-    def _solve_ilp(self, prob):
+    def _solve_ilp(self, prob, threads=2, time_limit=10):
         import pulp
 
         old_path = os.environ["PATH"]
@@ -674,8 +672,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
             )
         finally:
             os.environ["PATH"] = old_path
+        solver.optionsDict["threads"] = threads
+        solver.timeLimit = time_limit
         solver.msg = self.workflow.output_settings.verbose
-        prob.solve(solver)
+        return prob.solve(solver)
 
     def required_by_job(self, temp_file, job):
         return 1 if temp_file in self.workflow.dag.temp_input(job) else 0
@@ -689,6 +689,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         Args:
             jobs (list):    list of jobs
         """
+        logger.debug("Selecting jobs to run using greedy solver.")
+
         with self._lock:
             if not self.resources["_cores"]:
                 return set()
