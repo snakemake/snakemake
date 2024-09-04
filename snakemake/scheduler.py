@@ -314,7 +314,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         self.run(runjobs)
                 elif not self.dryrun:
                     logger.info("Waiting for more resources.")
-                    self._schedule_reevalutation(self.job_rate_limiter.timespan)
+                    if self.job_rate_limiter is not None:
+                        # need to reevaluate because after the timespan we can
+                        # schedule more jobs again
+                        self._schedule_reevalutation(self.job_rate_limiter.timespan)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
