@@ -9,7 +9,7 @@
 * fix issues with misinterpretation of max-jobs-per-timespan and max-jobs-per-seconds ([#3067](https://github.com/snakemake/snakemake/issues/3067)) ([d82453b](https://github.com/snakemake/snakemake/commit/d82453b7e54321c817c6516fca9d9e16c03c3977))
 * pip deployment path ([#3062](https://github.com/snakemake/snakemake/issues/3062)) ([bf9305b](https://github.com/snakemake/snakemake/commit/bf9305b643ba5267285f56503809f275997d5a2e))
 * return empty set if rate limiter at max ([#3060](https://github.com/snakemake/snakemake/issues/3060)) ([4e59963](https://github.com/snakemake/snakemake/commit/4e599633d331aa4857a8994afabe0df15b4241be))
-* use wrapt_timeout_decorator, instead of stopit  ([#2938](https://github.com/snakemake/snakemake/issues/2938)) ([3b64e41](https://github.com/snakemake/snakemake/commit/3b64e414250de209a3921e44827779b1911f964a))
+* use pulps internal timeout for large scheduling problems, instead of stopit  ([#2938](https://github.com/snakemake/snakemake/issues/2938)) ([3b64e41](https://github.com/snakemake/snakemake/commit/3b64e414250de209a3921e44827779b1911f964a))
 * Wrong linenumbers reported when linting ([#2985](https://github.com/snakemake/snakemake/issues/2985)) ([3a8bd36](https://github.com/snakemake/snakemake/commit/3a8bd367f30020fb3cf7d5efe64ffc7b63548202))
 
 
