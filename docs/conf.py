@@ -40,9 +40,6 @@ extensions = [
     "myst_parser",
 ]
 
-# Suppress spurious duplicate (auto)label and header level warnings
-suppress_warnings = ["autosectionlabel.*", "myst.header"]
-
 html_css_files = ["custom.css"]
 
 # Add any paths that contain templates here, relative to this directory.
