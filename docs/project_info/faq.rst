@@ -282,6 +282,8 @@ This can be done by invoking Snakemake with the ``--forcerun`` or ``-R`` flag, f
 
 This will cause Snakemake to re-run all jobs of that rule and everything downstream (i.e. directly or indirectly depending on the rules output).
 
+.. _snakefiles-format:
+
 How should Snakefiles be formatted?
 --------------------------------------
 
@@ -296,7 +298,7 @@ Instructions for doing this are located `here
 <https://github.com/snakemake/snakemake/tree/main/misc/vim>`__.
 
 Note that you can also format Snakefiles in Vim using :ref:`snakefmt
-<How should Snakefiles be formatted?>`, with instructions located `here
+<snakefiles-format>`, with instructions located `here
 <https://github.com/snakemake/snakefmt/blob/master/docs/editor_integration.md#vim>`__!
 
 I want to import some helper functions from another python file. Is that possible?
