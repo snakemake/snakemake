@@ -62,7 +62,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.failed = set()
         self.finished_jobs = 0
         self.greediness = self.workflow.scheduling_settings.greediness
-        self.max_jobs_per_second = self.workflow.scheduling_settings.max_jobs_per_second
         self._tofinish = []
         self._toerror = []
         self.handle_job_success = True
@@ -475,6 +474,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def job_selector(self, jobs):
         # get number of free jobs to submit
         if self.job_rate_limiter is None:
+            # ensure that the job count is not restricted
+            assert self.resources["_job_count"] == sys.maxsize
             return self._job_selector(jobs)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:
