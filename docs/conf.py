@@ -35,8 +35,8 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinxarg.ext",
-    "sphinx.ext.autosectionlabel",
     "sphinx_design",
+    "sphinx_tabs.tabs",
     "myst_parser",
 ]
 
