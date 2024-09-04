@@ -186,6 +186,12 @@ Snakemake development environment via
     $ cd snakemake
     $ conda env create -f doc-environment.yml -n snakemake
 
+You will also need to install your development version of Snakemake for the docs to be built correctly
+
+.. code-block:: console
+
+    $ pip install -e .
+
 Then, the docs can be built with
 
 .. code-block:: console
