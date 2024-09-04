@@ -8,7 +8,7 @@ from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
-from snakemake import common
+from snakemake import PIP_DEPLOYMENTS_PATH
 from snakemake.io import get_flag_value, is_flagged
 from snakemake.settings.types import SharedFSUsage
 
@@ -205,7 +205,7 @@ class SpawnedJobArgsFactory:
                 self.workflow.storage_settings.default_storage_provider
             )
             precommand.append(
-                f"pip install --target '{common.PIP_DEPLOYMENTS_PATH}' {package_name}"
+                f"pip install --target '{PIP_DEPLOYMENTS_PATH}' {package_name}"
             )
 
         if (
