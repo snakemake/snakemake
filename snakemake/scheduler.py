@@ -247,10 +247,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if self.workflow.dag.has_unfinished_queue_input_jobs():
                         logger.info("Waiting for queue input...")
                         # schedule a reevaluation in 10 seconds
-                        threading.Timer(
-                            self.workflow.execution_settings.queue_input_wait_time,
-                            lambda: self._open_jobs.release(),
-                        ).start()
+                        self._schedule_reevalutation(
+                            self.workflow.execution_settings.queue_input_wait_time
+                        )
                     continue
 
                 # select jobs by solving knapsack problem (omit with dryrun)
@@ -314,12 +313,22 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         self.run(runjobs)
                 elif not self.dryrun:
                     logger.info("Waiting for more resources.")
+                    if self.job_rate_limiter is not None:
+                        # need to reevaluate because after the timespan we can
+                        # schedule more jobs again
+                        self._schedule_reevalutation(self.job_rate_limiter.timespan)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
             )
             self._executor.cancel()
             return False
+
+    def _schedule_reevalutation(self, delay: int) -> None:
+        threading.Timer(
+            delay,
+            lambda: self._open_jobs.release(),
+        ).start()
 
     def _finish_jobs(self):
         # must be called from within lock
@@ -815,6 +824,10 @@ class JobRateLimiter:
         self._limit: MaxJobsPerTimespan = limit
         self._jobs = deque()
 
+    @property
+    def timespan(self) -> int:
+        return self._limit.timespan
+
     def register_jobs(self, n_jobs: int):
         currtime = time.time()
         self._jobs.extend(repeat(currtime, n_jobs))
@@ -825,4 +838,8 @@ class JobRateLimiter:
         # remove the first index elements from the deque
         for _ in range(index):
             self._jobs.popleft()
-        return max(self._limit.max_jobs - len(self._jobs), 0)
+        n_free = max(self._limit.max_jobs - len(self._jobs), 0)
+        logger.debug(
+            f"Free jobs: {n_free}, jobs in timespan: {len(self._jobs)}, limit: {self._limit.max_jobs}, timespan: {self._limit.timespan}"
+        )
+        return n_free
