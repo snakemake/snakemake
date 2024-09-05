@@ -87,7 +87,10 @@ class QueryWildcardHandler(WildcardHandlerBase):
         if self.cols is None:
             return False
         if isinstance(self.cols, list):
-            return any(super().needs_wildcards(col) for col in self.cols)
+            return any(
+                super(QueryWildcardHandler, self).needs_wildcards(col)
+                for col in self.cols
+            )
         else:
             return super().needs_wildcards(self.cols)
 

@@ -41,7 +41,7 @@ class Persistence(PersistenceExecutorInterface):
         singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
-        path: Path = None,
+        path: Path | None = None,
     ):
         import importlib.util
 

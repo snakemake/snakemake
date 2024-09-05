@@ -1,6 +1,52 @@
 # Changelog
 
 
+## [8.19.2](https://github.com/snakemake/snakemake/compare/v8.19.1...v8.19.2) (2024-09-05)
+
+
+### Bug Fixes
+
+* add template data to setup call ([099c8e2](https://github.com/snakemake/snakemake/commit/099c8e2a4a82975a8ae1352ce7204e3cd6a3e83c))
+
+## [8.19.1](https://github.com/snakemake/snakemake/compare/v8.19.0...v8.19.1) (2024-09-04)
+
+
+### Bug Fixes
+
+* fix issues with misinterpretation of max-jobs-per-timespan and max-jobs-per-seconds ([#3067](https://github.com/snakemake/snakemake/issues/3067)) ([d82453b](https://github.com/snakemake/snakemake/commit/d82453b7e54321c817c6516fca9d9e16c03c3977))
+* pip deployment path ([#3062](https://github.com/snakemake/snakemake/issues/3062)) ([bf9305b](https://github.com/snakemake/snakemake/commit/bf9305b643ba5267285f56503809f275997d5a2e))
+* return empty set if rate limiter at max ([#3060](https://github.com/snakemake/snakemake/issues/3060)) ([4e59963](https://github.com/snakemake/snakemake/commit/4e599633d331aa4857a8994afabe0df15b4241be))
+* use pulps internal timeout for large scheduling problems, instead of stopit  ([#2938](https://github.com/snakemake/snakemake/issues/2938)) ([3b64e41](https://github.com/snakemake/snakemake/commit/3b64e414250de209a3921e44827779b1911f964a))
+* Wrong linenumbers reported when linting ([#2985](https://github.com/snakemake/snakemake/issues/2985)) ([3a8bd36](https://github.com/snakemake/snakemake/commit/3a8bd367f30020fb3cf7d5efe64ffc7b63548202))
+
+
+### Documentation
+
+* update `doc-environment.yml` file and Documentation Setup documentation ([#3058](https://github.com/snakemake/snakemake/issues/3058)) ([a540a2e](https://github.com/snakemake/snakemake/commit/a540a2ec083f403dc96246109f65f6fca91ec488))
+
+## [8.19.0](https://github.com/snakemake/snakemake/compare/v8.18.2...v8.19.0) (2024-08-29)
+
+
+### Features
+
+* check consistency of output file mtimes (must be newer than input files) ([#3050](https://github.com/snakemake/snakemake/issues/3050)) ([666cf62](https://github.com/snakemake/snakemake/commit/666cf6271d8dc5525dbea238bb12e496e437f316))
+* print host name when executing workflow ([#3048](https://github.com/snakemake/snakemake/issues/3048)) ([b0ff787](https://github.com/snakemake/snakemake/commit/b0ff787b10ccf809789229c65901f363cfbc7a44))
+
+
+### Bug Fixes
+
+* `mem` and `disk` inference fixes ([#3040](https://github.com/snakemake/snakemake/issues/3040)) ([7530794](https://github.com/snakemake/snakemake/commit/7530794e4a5c64309e225b80f52932b404690756))
+* avoid error accessing superclass in ioutils ([#3056](https://github.com/snakemake/snakemake/issues/3056)) ([a66a5f5](https://github.com/snakemake/snakemake/commit/a66a5f5bed1ea6c920e1b4bec0b0690566375261))
+* disable execute after print compilation ([#3041](https://github.com/snakemake/snakemake/issues/3041)) ([86ed3cd](https://github.com/snakemake/snakemake/commit/86ed3cd7144f8ac8c54d4c67fe1d6023506ba4c7))
+* download report assets upon package build such that reports become possible offline (cont. of [#2904](https://github.com/snakemake/snakemake/issues/2904)) ([#3026](https://github.com/snakemake/snakemake/issues/3026)) ([e8dad4b](https://github.com/snakemake/snakemake/commit/e8dad4bf4033b85e548cf5f8e37cb0443d6a959e))
+
+
+### Documentation
+
+* Add 'Editor integrations' section to Installation page ([#3045](https://github.com/snakemake/snakemake/issues/3045)) ([9a4006d](https://github.com/snakemake/snakemake/commit/9a4006d2e02eb64244001990f685d488756a873a))
+* Fix typo (seesee to see) ([#3037](https://github.com/snakemake/snakemake/issues/3037)) ([de201fb](https://github.com/snakemake/snakemake/commit/de201fb0740123c9d9d30b6b929600062de485ff))
+* various documentation fixes ([#3052](https://github.com/snakemake/snakemake/issues/3052)) ([b11460c](https://github.com/snakemake/snakemake/commit/b11460c0110bec6176bc44250336166602ffb2ed))
+
 ## [8.18.2](https://github.com/snakemake/snakemake/compare/v8.18.1...v8.18.2) (2024-08-21)
 
 

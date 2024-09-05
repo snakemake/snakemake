@@ -62,7 +62,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.failed = set()
         self.finished_jobs = 0
         self.greediness = self.workflow.scheduling_settings.greediness
-        self.max_jobs_per_second = self.workflow.scheduling_settings.max_jobs_per_second
         self._tofinish = []
         self._toerror = []
         self.handle_job_success = True
@@ -248,10 +247,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if self.workflow.dag.has_unfinished_queue_input_jobs():
                         logger.info("Waiting for queue input...")
                         # schedule a reevaluation in 10 seconds
-                        threading.Timer(
-                            self.workflow.execution_settings.queue_input_wait_time,
-                            lambda: self._open_jobs.release(),
-                        ).start()
+                        self._schedule_reevalutation(
+                            self.workflow.execution_settings.queue_input_wait_time
+                        )
                     continue
 
                 # select jobs by solving knapsack problem (omit with dryrun)
@@ -266,7 +264,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                     logger.debug(f"Resources before job selection: {self.resources}")
                     logger.debug(
-                        f"Ready jobs ({len(needrun)})"
+                        f"Ready jobs ({len(needrun)})",
                         # + "\n\t".join(map(str, needrun))
                     )
 
@@ -315,12 +313,22 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         self.run(runjobs)
                 elif not self.dryrun:
                     logger.info("Waiting for more resources.")
+                    if self.job_rate_limiter is not None:
+                        # need to reevaluate because after the timespan we can
+                        # schedule more jobs again
+                        self._schedule_reevalutation(self.job_rate_limiter.timespan)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
             )
             self._executor.cancel()
             return False
+
+    def _schedule_reevalutation(self, delay: int) -> None:
+        threading.Timer(
+            delay,
+            lambda: self._open_jobs.release(),
+        ).start()
 
     def _finish_jobs(self):
         # must be called from within lock
@@ -414,7 +422,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
     def _free_resources(self, job):
         for name, value in job.scheduler_resources.items():
-            if name in self.resources:
+            if name in self.resources and name != "_job_count":
                 value = self.calc_resource(name, value)
                 self.resources[name] += value
 
@@ -475,10 +483,15 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def job_selector(self, jobs):
         # get number of free jobs to submit
         if self.job_rate_limiter is None:
+            # ensure that the job count is not restricted
+            assert (
+                self.resources["_job_count"] == sys.maxsize
+            ), f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
             return self._job_selector(jobs)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:
             logger.info("Job rate limit reached, waiting for free slots.")
+            return set()
         else:
             self.resources["_job_count"] = n_free_jobs
             selected = self._job_selector(jobs)
@@ -492,11 +505,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """
         import pulp
         from pulp import lpSum
-        from stopit import ThreadingTimeout as Timeout, TimeoutException
+
+        logger.debug("Selecting jobs to run using ILP solver.")
 
         if len(jobs) == 1:
             logger.debug(
-                "Using greedy selector because only single job has to be scheduled."
+                "Switching to greedy selector because only one job has to be scheduled."
             )
             return self.job_selector_greedy(jobs)
 
@@ -611,20 +625,17 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
                 )
 
-        try:
-            with Timeout(10, swallow_exc=False):
-                self._solve_ilp(prob)
-        except TimeoutException as e:
-            logger.warning(
-                "Failed to solve scheduling problem with ILP solver in time (10s). "
-                "Falling back to greedy solver."
-            )
-            return self.job_selector_greedy(jobs)
-        except pulp.apis.core.PulpSolverError as e:
-            logger.warning(
-                "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver. "
-                "Run Snakemake with --verbose to see the full solver output for debugging the problem."
-            )
+        status = self._solve_ilp(prob, time_limit=10)
+        logger.debug(f"Problem is {pulp.LpStatus[status]}")
+        if pulp.LpStatus[status] != "Optimal":
+            if pulp.LpStatus[status] == "Not Solved":
+                logger.warning(
+                    "Failed to solve scheduling problem with ILP solver in time (10s)."
+                )
+            elif pulp.LpStatus[status] == "Infeasible":
+                logger.warning("Failed to solve scheduling problem with ILP solver.")
+
+            logger.debug("Falling back to greedy solver.")
             return self.job_selector_greedy(jobs)
 
         selected_jobs = set(
@@ -641,7 +652,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.update_available_resources(selected_jobs)
         return selected_jobs
 
-    def _solve_ilp(self, prob):
+    def _solve_ilp(self, prob, threads=2, time_limit=10):
         import pulp
 
         old_path = os.environ["PATH"]
@@ -661,8 +672,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
             )
         finally:
             os.environ["PATH"] = old_path
+        solver.optionsDict["threads"] = threads
+        solver.timeLimit = time_limit
         solver.msg = self.workflow.output_settings.verbose
-        prob.solve(solver)
+        return prob.solve(solver)
 
     def required_by_job(self, temp_file, job):
         return 1 if temp_file in self.workflow.dag.temp_input(job) else 0
@@ -676,6 +689,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         Args:
             jobs (list):    list of jobs
         """
+        logger.debug("Selecting jobs to run using greedy solver.")
+
         with self._lock:
             if not self.resources["_cores"]:
                 return set()
@@ -811,6 +826,10 @@ class JobRateLimiter:
         self._limit: MaxJobsPerTimespan = limit
         self._jobs = deque()
 
+    @property
+    def timespan(self) -> int:
+        return self._limit.timespan
+
     def register_jobs(self, n_jobs: int):
         currtime = time.time()
         self._jobs.extend(repeat(currtime, n_jobs))
@@ -821,4 +840,8 @@ class JobRateLimiter:
         # remove the first index elements from the deque
         for _ in range(index):
             self._jobs.popleft()
-        return max(self._limit.max_jobs - len(self._jobs), 0)
+        n_free = max(self._limit.max_jobs - len(self._jobs), 0)
+        logger.debug(
+            f"Free jobs: {n_free}, jobs in timespan: {len(self._jobs)}, limit: {self._limit.max_jobs}, timespan: {self._limit.timespan}"
+        )
+        return n_free
