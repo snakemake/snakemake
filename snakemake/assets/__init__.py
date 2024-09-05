@@ -1,3 +1,7 @@
+# This module handles the download of non python assets.
+# It should not use any modules that are not part of the standard library because it will
+# be called before the setup (and dependency deployment) of the snakemake package.
+
 from dataclasses import dataclass
 import hashlib
 import importlib.resources
@@ -5,8 +9,6 @@ from pathlib import Path
 from typing import Dict, Optional
 import urllib.request
 import urllib.error
-
-import reretry
 
 
 class AssetDownloadError(Exception):
@@ -18,21 +20,26 @@ class Asset:
     url: str
     sha256: str
 
-    @reretry.retry(tries=6, delay=1, exceptions=AssetDownloadError)
     def get_content(self) -> bytes:
         """Get and validate asset content."""
 
         req = urllib.request.Request(self.url, headers={"User-Agent": "snakemake"})
-        try:
-            resp = urllib.request.urlopen(req)
-            content = resp.read()
-        except urllib.error.URLError as e:
-            raise AssetDownloadError(f"Failed to download asset {self.url}: {e}")
-        if self.sha256 != hashlib.sha256(content).hexdigest():
-            raise AssetDownloadError(
-                f"Checksum mismatch when downloading asset {self.url}"
-            )
-        return content
+        err = None
+        for _ in range(6):
+            try:
+                resp = urllib.request.urlopen(req)
+                content = resp.read()
+            except urllib.error.URLError as e:
+                err = AssetDownloadError(f"Failed to download asset {self.url}: {e}")
+                continue
+            if self.sha256 != hashlib.sha256(content).hexdigest():
+                err = AssetDownloadError(
+                    f"Checksum mismatch when downloading asset {self.url}"
+                )
+                continue
+            return content
+        assert err is not None
+        raise err
 
 
 class Assets:
