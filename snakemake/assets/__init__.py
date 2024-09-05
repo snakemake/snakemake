@@ -119,8 +119,9 @@ class Assets:
         for asset_path, asset in cls.spec.items():
             target_path = base_path / asset_path
             target_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(target_path, "wb") as fout:
-                fout.write(asset.get_content())
+            if not target_path.exists():
+                with open(target_path, "wb") as fout:
+                    fout.write(asset.get_content())
 
     @classmethod
     def get_content(cls, asset_path: str) -> str:
