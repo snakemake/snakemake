@@ -6,6 +6,8 @@ from typing import Dict, Optional
 import urllib.request
 import urllib.error
 
+import reretry
+
 
 class AssetDownloadError(Exception):
     pass
@@ -16,6 +18,7 @@ class Asset:
     url: str
     sha256: str
 
+    @reretry.retry(tries=6, delay=1, exceptions=AssetDownloadError)
     def get_content(self) -> bytes:
         """Get and validate asset content."""
 
