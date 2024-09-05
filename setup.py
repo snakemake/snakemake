@@ -24,5 +24,10 @@ setup(
     name="snakemake",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    package_data={"snakemake": ["assets/data/**/*"]},
+    package_data={
+        "snakemake": [
+            "assets/data/**/*",
+            "report/html_reporter/template/*",
+        ]
+    },
 )
