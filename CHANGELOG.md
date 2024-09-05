@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.19.2](https://github.com/snakemake/snakemake/compare/v8.19.1...v8.19.2) (2024-09-05)
+
+
+### Bug Fixes
+
+* add template data to setup call ([099c8e2](https://github.com/snakemake/snakemake/commit/099c8e2a4a82975a8ae1352ce7204e3cd6a3e83c))
+
 ## [8.19.1](https://github.com/snakemake/snakemake/compare/v8.19.0...v8.19.1) (2024-09-04)
 
 
