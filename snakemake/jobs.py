@@ -10,14 +10,16 @@ import base64
 import tempfile
 import json
 import shutil
+import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Optional
+from typing import Iterable, List, Optional
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
-from snakemake.settings import DeploymentMethod
+from snakemake.settings.types import DeploymentMethod
 
+from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
@@ -36,12 +38,17 @@ from snakemake.io import (
     get_flag_value,
     wait_for_files,
 )
-from snakemake.settings import SharedFSUsage
+from snakemake.settings.types import SharedFSUsage
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
 from snakemake.sourcecache import infer_source_file
 from snakemake.utils import format
-from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
+from snakemake.exceptions import (
+    InputOpenException,
+    RuleException,
+    ProtectedOutputException,
+    WorkflowError,
+)
 
 from snakemake.logging import logger
 from snakemake.common import (
@@ -82,18 +89,20 @@ def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
 
 
+@functools.lru_cache
+def get_script_mtime(path: str) -> float:
+    return os.lstat(path).st_mtime
+
+
 class AbstractJob(JobExecutorInterface):
     @abstractmethod
-    def reset_params_and_resources(self):
-        ...
+    def reset_params_and_resources(self): ...
 
     @abstractmethod
-    def get_target_spec(self):
-        ...
+    def get_target_spec(self): ...
 
     @abstractmethod
-    def products(self, include_logfiles=True):
-        ...
+    def products(self, include_logfiles=True): ...
 
     def has_products(self, include_logfiles=True):
         for _ in self.products(include_logfiles=include_logfiles):
@@ -103,24 +112,22 @@ class AbstractJob(JobExecutorInterface):
     def _get_scheduler_resources(self):
         if self._scheduler_resources is None:
             if self.dag.workflow.local_exec or self.is_local:
-                self._scheduler_resources = Resources(
-                    fromdict={
-                        k: v
-                        for k, v in self.resources.items()
-                        if not isinstance(self.resources[k], TBDString)
-                    }
-                )
+                res_dict = {
+                    k: v
+                    for k, v in self.resources.items()
+                    if not isinstance(self.resources[k], TBDString)
+                }
             else:
-                self._scheduler_resources = Resources(
-                    fromdict={
-                        k: self.resources[k]
-                        for k in (
-                            set(self.resources.keys())
-                            - self.dag.workflow.resource_scopes.locals
-                        )
-                        if not isinstance(self.resources[k], TBDString)
-                    }
-                )
+                res_dict = {
+                    k: self.resources[k]
+                    for k in (
+                        set(self.resources.keys())
+                        - self.dag.workflow.resource_scopes.locals
+                    )
+                    if not isinstance(self.resources[k], TBDString)
+                }
+            res_dict["_job_count"] = 1
+            self._scheduler_resources = Resources(fromdict=res_dict)
         return self._scheduler_resources
 
 
@@ -128,7 +135,7 @@ class JobFactory:
     def __init__(self):
         self.cache = dict()
 
-    def new(
+    async def new(
         self,
         rule,
         dag,
@@ -139,16 +146,48 @@ class JobFactory:
         groupid=None,
     ):
         key = (rule.name, *sorted(wildcards_dict.items()))
+
+        async def new():
+            if update:
+                new_job = lambda: Job(
+                    rule, dag, wildcards_dict, format_wildcards, targetfile, groupid
+                )
+            else:
+                new_job = lambda: Job(
+                    rule, dag, wildcards_dict, format_wildcards, targetfile
+                )
+            obj = None
+            missing_iofiles = set()
+            while obj is None:
+                try:
+                    obj = new_job()
+                except InputOpenException as e:
+                    if e.iofile in missing_iofiles:
+                        raise WorkflowError(
+                            f"Failed to open input file even after download from remote storage: {e.iofile}. "
+                            "Has it been deleted by another process or is there a filesystem issue?",
+                        )
+                    if e.iofile.is_storage:
+                        # retrieve the missing file from storage
+                        await e.iofile.retrieve_from_storage()
+                        missing_iofiles.add(e.iofile)
+                    else:
+                        raise WorkflowError(
+                            f"Failed to open input file: {e.iofile}. Has it been deleted by another process?",
+                            rule=e.rule,
+                        )
+            return obj
+
         if update:
             # cache entry has to be replaced because job shall be constructed from scratch
-            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile, groupid)
+            obj = await new()
             self.cache[key] = obj
         else:
             try:
                 # try to get job from cache
                 obj = self.cache[key]
             except KeyError:
-                obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+                obj = await new()
                 self.cache[key] = obj
         return obj
 
@@ -330,7 +369,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     def queue_input_last_checked(self) -> float:
         return max(queue_info.last_checked or 0.0 for queue_info in self._queue_input)
 
-    def updated(self):
+    async def updated(self):
         group = self.dag.get_job_group(self)
         groupid = None
         if group is None:
@@ -339,7 +378,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         else:
             groupid = group.jobid
 
-        job = self.dag.job_factory.new(
+        job = await self.dag.job_factory.new(
             self.rule,
             self.dag,
             wildcards_dict=self.wildcards_dict,
@@ -371,7 +410,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             path = self.rule.basedir.join(path).get_path_or_uri()
 
         if is_local_file(path) and os.path.exists(path):
-            script_mtime = os.lstat(path).st_mtime
+            script_mtime = get_script_mtime(path)
             for f in self.output:
                 if await f.exists() and not await f.is_newer(script_mtime):
                     yield f
@@ -988,7 +1027,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             jobid=self.dag.jobid(self),
             msg=self.message,
             name=self.rule.name,
-            local=self.dag.workflow.is_local(self.rule),
+            # in dryrun, we don't want to display a decision whether local or not
+            # since we don't know how the user wants to execute
+            local=(
+                not self.dag.workflow.dryrun and self.dag.workflow.is_local(self.rule)
+            ),
             input=format_files(self.input, is_input=True),
             output=format_files(self.output, is_input=False),
             log=format_files(self.log, is_input=False),
@@ -996,9 +1039,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             wildcards=self.wildcards_dict,
             reason=str(self.dag.reason(self)),
             resources=self.resources,
-            priority="highest"
-            if priority == JobExecutorInterface.HIGHEST_PRIORITY
-            else priority,
+            priority=(
+                "highest"
+                if priority == JobExecutorInterface.HIGHEST_PRIORITY
+                else priority
+            ),
             threads=self.threads,
             indent=indent,
             is_checkpoint=self.rule.is_checkpoint,
@@ -1104,6 +1149,15 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     wait_for_local=True,
                 )
             self.dag.unshadow_output(self, only_log=error)
+
+            if (
+                not error
+                and self.rule.is_template_engine
+                and not is_flagged(self.output[0], "temp")
+            ):
+                # TODO also check if consumers are executed on the same node
+                check_template_output(self)
+
             await self.dag.handle_storage(
                 self, store_in_storage=store_in_storage, store_only_log=error
             )
@@ -1594,6 +1648,7 @@ class Reason:
         "target",
         "finished",
         "cleanup_metadata_instructions",
+        "no_metadata",
     ]
 
     def __init__(self):
@@ -1614,6 +1669,7 @@ class Reason:
         self.service = False
         self.cleanup_metadata_instructions = None
         self.unfinished_queue_input = False
+        self.no_metadata = False
 
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
@@ -1757,3 +1813,7 @@ class Reason:
             or self.unfinished_queue_input
         )
         return v and not self.finished
+
+
+def jobs_to_rulenames(jobs: Iterable[Job]) -> List[str]:
+    return sorted({job.rule.name for job in jobs})

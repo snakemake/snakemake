@@ -28,8 +28,7 @@ class WildcardHandlerBase(ABC):
         )
 
     @abstractmethod
-    def apply_func(self, expression, namespace=None):
-        ...
+    def apply_func(self, expression, namespace=None): ...
 
     def handle(self, expression):
         if self.needs_wildcards(expression) or any(
@@ -88,7 +87,10 @@ class QueryWildcardHandler(WildcardHandlerBase):
         if self.cols is None:
             return False
         if isinstance(self.cols, list):
-            return any(super().needs_wildcards(col) for col in self.cols)
+            return any(
+                super(QueryWildcardHandler, self).needs_wildcards(col)
+                for col in self.cols
+            )
         else:
             return super().needs_wildcards(self.cols)
 
@@ -102,12 +104,16 @@ class QueryWildcardHandler(WildcardHandlerBase):
         return self.func(expression, cols=cols, is_nrows=self.is_nrows)
 
 
+NODEFAULT = object()
+
+
 def lookup(
     dpath: Optional[str] = None,
     query: Optional[str] = None,
     cols: Optional[Union[List[str], str]] = None,
     is_nrows: Optional[int] = None,
     within=None,
+    default=NODEFAULT,
     **namespace,
 ):
     """Lookup values in a pandas dataframe, series, or python mapping (e.g. dict).
@@ -148,6 +154,9 @@ def lookup(
     to auxiliary namespace arguments given to the lookup function, e.g.
     ``lookup(query="cell_type == '{sample.cell_type}'", within=samples, sample=lookup("sample == '{sample}'", within=samples))``
     This way, one can e.g. pass additional variables or chain lookups into more complex queries.
+
+    In case of dpath, if the dpath is not found, a LookupError is raised, unless a
+    default fallback value is provided via the ``default`` argument.
     """
     error = partial(LookupError, query=query, dpath=dpath)
 
@@ -206,7 +215,9 @@ def lookup(
                 return dp.get(within, dpath)
             except ValueError:
                 return dp.values(within, dpath)
-            except KeyError as e:
+            except KeyError:
+                if default is not NODEFAULT:
+                    return default
                 raise LookupError(dpath=dpath, msg="Dpath not found.")
 
         return DpathWildcardHandler(do_dpath, **namespace).handle(dpath)

@@ -15,7 +15,7 @@ import importlib
 import tarfile
 
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
-from snakemake.settings import (
+from snakemake.settings.types import (
     ChangeType,
     GroupSettings,
     SchedulingSettings,
@@ -26,7 +26,7 @@ if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import (
+from snakemake.settings.types import (
     DAGSettings,
     DeploymentMethod,
     DeploymentSettings,
@@ -209,7 +209,7 @@ class SnakemakeApi(ApiBase):
             raise ApiError(
                 f"Error when applying default storage provider "
                 f"{storage_settings.default_storage_provider} to upload workflow "
-                "sources. {query_validity}"
+                f"sources. {query_validity}"
             )
         storage_object = provider_instance.object(query)
         async_run(storage_object.managed_retrieve())
@@ -287,6 +287,14 @@ class SnakemakeApi(ApiBase):
         self._cleanup()
 
 
+def _no_dag(method):
+    def _handle_no_dag(self: "WorkflowApi", *args, **kwargs):
+        self.resource_settings.cores = 1
+        return method(self, *args, **kwargs)
+
+    return _handle_no_dag
+
+
 @dataclass
 class WorkflowApi(ApiBase):
     """The workflow API.
@@ -331,13 +339,6 @@ class WorkflowApi(ApiBase):
             dag_settings=dag_settings,
         )
 
-    def _no_dag(method):
-        def _handle_no_dag(self, *args, **kwargs):
-            self.resource_settings.cores = 1
-            return method(self, *args, **kwargs)
-
-        return _handle_no_dag
-
     @_no_dag
     def lint(self, json: bool = False):
         """Lint the workflow.
@@ -351,6 +352,7 @@ class WorkflowApi(ApiBase):
         True if any lints were printed
         """
         workflow = self._get_workflow(check_envvars=False)
+        self._workflow_store = workflow
         workflow.include(
             self.snakefile, overwrite_default_target=True, print_compilation=False
         )
@@ -504,6 +506,7 @@ class DAGApi(ApiBase):
                 not self.workflow_api.storage_settings.default_storage_provider
                 or self.workflow_api.storage_settings.default_storage_prefix is None
             )
+            and executor_plugin.common_settings.can_transfer_local_files is False
         ):
             raise ApiError(
                 "If no shared filesystem is assumed for input and output files, a "
@@ -571,6 +574,10 @@ class DAGApi(ApiBase):
                 )
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
+
+        if executor_plugin.common_settings.touch_exec:
+            # no actual execution happening, hence we can omit any deployment
+            self.workflow_api.deployment_settings.deployment_method = frozenset()
 
         execution_settings.use_threads = (
             execution_settings.use_threads

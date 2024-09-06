@@ -37,12 +37,10 @@ def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
 
 class SourceFile(ABC):
     @abstractmethod
-    def get_path_or_uri(self):
-        ...
+    def get_path_or_uri(self): ...
 
     @abstractmethod
-    def is_persistently_cacheable(self):
-        ...
+    def is_persistently_cacheable(self): ...
 
     def get_cache_path(self):
         uri = parse_uri(self.get_path_or_uri())
@@ -53,8 +51,7 @@ class SourceFile(ABC):
         return self.__class__(path)
 
     @abstractmethod
-    def get_filename(self):
-        ...
+    def get_filename(self): ...
 
     def join(self, path):
         if isinstance(path, SourceFile):
@@ -67,8 +64,7 @@ class SourceFile(ABC):
 
     @property
     @abstractmethod
-    def is_local(self):
-        ...
+    def is_local(self): ...
 
     def __hash__(self):
         return self.get_path_or_uri().__hash__()
@@ -353,7 +349,9 @@ class SourceCache:
         if runtime_cache_path is None:
             runtime_cache_parent = self.cache_path / "runtime-cache"
             os.makedirs(runtime_cache_parent, exist_ok=True)
-            self.runtime_cache = tempfile.TemporaryDirectory(dir=runtime_cache_parent)
+            self.runtime_cache = tempfile.TemporaryDirectory(
+                dir=runtime_cache_parent, ignore_cleanup_errors=True
+            )
             self._runtime_cache_path = None
         else:
             self._runtime_cache_path = runtime_cache_path

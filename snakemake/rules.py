@@ -44,6 +44,7 @@ from snakemake.io import (
     ReportObject,
 )
 from snakemake.exceptions import (
+    InputOpenException,
     RuleException,
     IOFileException,
     WildcardError,
@@ -296,12 +297,13 @@ class Rule(RuleInterface):
             self._wildcard_names = wildcard_names
         else:
             if self.wildcard_names != wildcard_names:
-                raise SyntaxError(
+                raise RuleException(
                     "Not all output, log and benchmark files of "
                     "rule {} contain the same wildcards. "
                     "This is crucial though, in order to "
                     "avoid that two or more jobs write to the "
-                    "same file.".format(self.name)
+                    "same file.".format(self.name),
+                    rule=self,
                 )
 
     @property
@@ -504,7 +506,9 @@ class Rule(RuleInterface):
                 inoutput._add_name(name)
         elif callable(item):
             if output:
-                raise SyntaxError("Only input files can be specified as functions")
+                raise RuleException(
+                    "Only input files can be specified as functions", rule=self
+                )
             inoutput.append(item)
             if name:
                 inoutput._add_name(name)
@@ -517,8 +521,9 @@ class Rule(RuleInterface):
                     # if the list was named, make it accessible
                     inoutput._set_name(name, start, end=len(inoutput))
             except TypeError:
-                raise SyntaxError(
-                    "Input and output files have to be specified as strings or lists of strings."
+                raise RuleException(
+                    "Input and output files have to be specified as strings or lists of strings.",
+                    rule=self,
                 )
 
     @property
@@ -576,7 +581,9 @@ class Rule(RuleInterface):
                 if name:
                     self.log._set_name(name, start, end=len(self.log))
             except TypeError:
-                raise SyntaxError("Log files have to be specified as strings.")
+                raise RuleException(
+                    "Log files have to be specified as strings.", rule=self
+                )
 
     def check_wildcards(self, wildcards):
         missing_wildcards = self.wildcard_names - set(wildcards.keys())
@@ -635,6 +642,9 @@ class Rule(RuleInterface):
             except IncompleteCheckpointException as e:
                 value = incomplete_checkpoint_func(e)
                 incomplete = True
+            except InputOpenException as e:
+                e.rule = self
+                raise e
             except Exception as e:
                 if "input" in aux_params and is_file_not_found_error(
                     e, aux_params["input"]
@@ -742,9 +752,10 @@ class Rule(RuleInterface):
                         and not isinstance(item_, str)
                         and not isinstance(item_, Path)
                     ):
-                        raise WorkflowError(
+                        raise InputFunctionException(
                             f"Function did not return str or iterable of str. Encountered: {item} ({type(item)})",
                             rule=self,
+                            wildcards=wildcards,
                         )
 
                     if from_callable and path_modifier is not None and not incomplete:
@@ -1018,19 +1029,20 @@ class Rule(RuleInterface):
                     if not isinstance(value, TBDString):
                         # Infer standard resources from eventual human readable forms.
                         infer_resources(name, value, resources)
+                        value = resources[name]
 
-                        # infer additional resources
-                        for mb_item, mib_item in (
-                            ("mem_mb", "mem_mib"),
-                            ("disk_mb", "disk_mib"),
+                    # infer additional resources
+                    for mb_item, mib_item in (
+                        ("mem_mb", "mem_mib"),
+                        ("disk_mb", "disk_mib"),
+                    ):
+                        if (
+                            name == mb_item
+                            and mib_item not in self.resources.keys()
+                            and isinstance(value, int)
                         ):
-                            if (
-                                name == mb_item
-                                and mib_item not in self.resources.keys()
-                                and isinstance(value, int)
-                            ):
-                                # infer mem_mib (memory in Mebibytes) as additional resource
-                                resources[mib_item] = mb_to_mib(value)
+                            # infer mem_mib (memory in Mebibytes) as additional resource
+                            resources[mib_item] = mb_to_mib(value)
 
         resources = Resources(fromdict=resources)
         return resources
