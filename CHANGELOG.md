@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.20.1](https://github.com/snakemake/snakemake/compare/v8.20.0...v8.20.1) (2024-09-07)
+
+
+### Bug Fixes
+
+* add testcase data to package files ([#3077](https://github.com/snakemake/snakemake/issues/3077)) ([e90b098](https://github.com/snakemake/snakemake/commit/e90b09835404c3112c7c455accd2999f53653723))
+
 ## [8.20.0](https://github.com/snakemake/snakemake/compare/v8.19.3...v8.20.0) (2024-09-07)
 
 
