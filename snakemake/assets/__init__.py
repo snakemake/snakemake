@@ -118,6 +118,13 @@ class Assets:
         base_path = Path(__file__).parent / "data"
         for asset_path, asset in cls.spec.items():
             target_path = base_path / asset_path
+
+            if target_path.exists():
+                with open(target_path, "rb") as fin:
+                    # file is already present, check if it is up to date
+                    if asset.sha256 == hashlib.sha256(fin.read()).hexdigest():
+                        continue
+
             target_path.parent.mkdir(parents=True, exist_ok=True)
             with open(target_path, "wb") as fout:
                 fout.write(asset.get_content())

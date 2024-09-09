@@ -1,6 +1,29 @@
 # Changelog
 
 
+## [8.20.1](https://github.com/snakemake/snakemake/compare/v8.20.0...v8.20.1) (2024-09-07)
+
+
+### Bug Fixes
+
+* add testcase data to package files ([#3077](https://github.com/snakemake/snakemake/issues/3077)) ([e90b098](https://github.com/snakemake/snakemake/commit/e90b09835404c3112c7c455accd2999f53653723))
+
+## [8.20.0](https://github.com/snakemake/snakemake/compare/v8.19.3...v8.20.0) (2024-09-07)
+
+
+### Features
+
+* allow skipping apptainer and conda tests if not available ([#3074](https://github.com/snakemake/snakemake/issues/3074)) ([c3cd4e0](https://github.com/snakemake/snakemake/commit/c3cd4e01ad182433cbd4406f9007c167f805c0f5))
+* MANIFEST.in: include tests/ in sdist ([#3073](https://github.com/snakemake/snakemake/issues/3073)) ([e24f3fc](https://github.com/snakemake/snakemake/commit/e24f3fc3078e4cee56334e2101939dd146c8f1b3))
+
+
+### Bug Fixes
+
+* add subfolders of report template to package data ([14a8f22](https://github.com/snakemake/snakemake/commit/14a8f2244f8d602f5c2988937ed722ab24c77259))
+* Inconsistent Linting Output Formatting ([#3064](https://github.com/snakemake/snakemake/issues/3064)) ([90e51ae](https://github.com/snakemake/snakemake/commit/90e51ae68985d539ee716aa619fca6a8b625c60e))
+* retry when downloading assets ([58e41b0](https://github.com/snakemake/snakemake/commit/58e41b0f6d1e7f7a6c7e2d915ba83ea786b237ed))
+* skip asset download if files are already present ([#3076](https://github.com/snakemake/snakemake/issues/3076)) ([0d3d1e1](https://github.com/snakemake/snakemake/commit/0d3d1e1fd254e28f956243f4e01b51eb81b9a717))
+
 ## [8.19.3](https://github.com/snakemake/snakemake/compare/v8.19.2...v8.19.3) (2024-09-05)
 
 
