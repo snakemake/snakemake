@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.20.2](https://github.com/snakemake/snakemake/compare/v8.20.1...v8.20.2) (2024-09-09)
+
+
+### Bug Fixes
+
+* ensure that CLI help is formatted deterministically and set defaults are displayed properly (based on preliminary work by [@keszybz](https://github.com/keszybz)) ([#3081](https://github.com/snakemake/snakemake/issues/3081)) ([cbc2e2c](https://github.com/snakemake/snakemake/commit/cbc2e2c4086426a52f71a15384d18973ec8c9714))
+
 ## [8.20.1](https://github.com/snakemake/snakemake/compare/v8.20.0...v8.20.1) (2024-09-07)
 
 
