@@ -1,4 +1,5 @@
 import argparse
+import collections
 import dataclasses
 
 import configargparse
@@ -74,13 +75,15 @@ class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
             and action.default not in (None, "", set(), argparse.SUPPRESS)
             and not isinstance(action.default, dataclasses._MISSING_TYPE)
         ):
-            if isinstance(action.default, frozenset):
-                # ensure deterministic sorting and proper display without braces
-                # and commas
-                return (
-                    action.help
-                    + f" (default: {' '.join(sorted(map(str, action.default)))})"
-                )
+            if isinstance(action.default, collections.abc.Iterable) and not isinstance(
+                action.default, str
+            ):
+
+                if isinstance(action.default, (frozenset, set)):
+                    default = sorted(map(str, action.default))
+                else:
+                    default = map(str, action.default)
+                return action.help + f" (default: {' '.join(default)})"
             else:
                 return action.help + " (default: %(default)s)"
         else:
