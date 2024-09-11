@@ -1,23 +1,21 @@
 'use strict';
 
 function flattenList(inputList) {
-    let flattened = [];
+    const flattened = [];
 
-    inputList.forEach(item => {
+    for (const item of inputList) {
         if (typeof item === 'object' && !Array.isArray(item)) {
-            for (let key in item) {
-                if (Array.isArray(item[key])) {
-                    item[key].forEach(subItem => {
-                        flattened.push(`${key}: ${subItem}`);
-                    });
+            for (const [key, value] of Object.entries(item)) {
+                if (Array.isArray(value)) {
+                    flattened.push(...value.map(subItem => `${key}: ${subItem}`));
                 } else {
-                    flattened.push(`${key}: ${item[key]}`);
+                    flattened.push(`${key}: ${value}`);
                 }
             }
         } else {
             flattened.push(item);
         }
-    });
+    }
 
     return flattened;
 }
