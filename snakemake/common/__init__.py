@@ -17,12 +17,8 @@ import asyncio
 import collections
 from pathlib import Path
 
-from snakemake._version import get_versions
-
+from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
-
-__version__ = get_versions()["version"]
-del get_versions
 
 
 MIN_PY_VERSION = (3, 7)
@@ -46,7 +42,6 @@ SNAKEFILE_CHOICES = list(
         ),
     )
 )
-PIP_DEPLOYMENTS_PATH = ".snakemake/pip-deployments"
 
 
 def get_snakemake_searchpaths():
@@ -320,7 +315,7 @@ def set_env(**environ):
     >>> "PLUGINS_DIR" in os.environ
     False
 
-    :type environ: dict[str, unicode]
+    :type environ: Dict[str, unicode]
     :param environ: Environment variables to set
     """
     old_environ = dict(os.environ)

@@ -10,10 +10,11 @@ import base64
 import tempfile
 import json
 import shutil
+import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Optional
+from typing import Iterable, List, Optional
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings.types import DeploymentMethod
@@ -85,6 +86,11 @@ def format_files(io, is_input: bool):
 
 def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
+
+
+@functools.lru_cache
+def get_script_mtime(path: str) -> float:
+    return os.lstat(path).st_mtime
 
 
 class AbstractJob(JobExecutorInterface):
@@ -397,7 +403,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             # needed if rule is included from another subdirectory
             path = self.rule.basedir.join(path).get_path_or_uri()
         if is_local_file(path) and os.path.exists(path):
-            script_mtime = os.lstat(path).st_mtime
+            script_mtime = get_script_mtime(path)
             for f in self.output:
                 if await f.exists() and not await f.is_newer(script_mtime):
                     yield f
@@ -1635,6 +1641,7 @@ class Reason:
         "target",
         "finished",
         "cleanup_metadata_instructions",
+        "no_metadata",
     ]
 
     def __init__(self):
@@ -1655,6 +1662,7 @@ class Reason:
         self.service = False
         self.cleanup_metadata_instructions = None
         self.unfinished_queue_input = False
+        self.no_metadata = False
 
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
@@ -1798,3 +1806,7 @@ class Reason:
             or self.unfinished_queue_input
         )
         return v and not self.finished
+
+
+def jobs_to_rulenames(jobs: Iterable[Job]) -> List[str]:
+    return sorted({job.rule.name for job in jobs})

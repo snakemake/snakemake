@@ -340,27 +340,6 @@ def get_profile_dir(profile: str) -> (Path, Path):
                 return profile_candidate, profile_candidate / config_file
 
 
-class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
-    """Help message formatter which adds default values to argument help.
-
-    Like argparse.ArgumentDefaultsHelpFormatter, but doesn't print
-    None/dataclasses._MISSING_TYPE/etc.
-    """
-
-    def _get_help_string(self, action):
-        if (
-            (
-                action.option_strings
-                or action.nargs in [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
-            )
-            and action.default not in (None, "", set(), argparse.SUPPRESS)
-            and not isinstance(action.default, dataclasses._MISSING_TYPE)
-        ):
-            return action.help + " (default: %(default)s)"
-        else:
-            return action.help
-
-
 def get_argument_parser(profiles=None):
     """Generate and return argument parser."""
     from snakemake.profiles import ProfileConfigFileParser
@@ -392,7 +371,7 @@ def get_argument_parser(profiles=None):
     parser = snakemake.common.argparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
         "environment for GNU Make-like workflows.",
-        formatter_class=ArgumentDefaultsHelpFormatter,
+        formatter_class=snakemake.common.argparse.ArgumentDefaultsHelpFormatter,
         default_config_files=config_files,
         config_file_parser_class=ProfileConfigFileParser,
     )

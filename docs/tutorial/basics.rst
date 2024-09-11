@@ -392,7 +392,7 @@ Step 6: Using custom scripts
 ::::::::::::::::::::::::::::
 
 Usually, a workflow not only consists of invoking various tools, but also contains custom code to for example calculate summary statistics or create plots.
-While Snakemake also allows you to directly :ref:`write Python code inside a rule <.. _snakefiles-rules>`, it is usually reasonable to move such logic into separate scripts.
+While Snakemake also allows you to directly :ref:`write Python code inside a rule <snakefiles-external_scripts>`, it is usually reasonable to move such logic into separate scripts.
 For this purpose, Snakemake offers the ``script`` directive.
 Add the following rule to your Snakefile:
 
@@ -496,6 +496,8 @@ Exercise
 * Snakemake provides handy flags for forcing re-execution of parts of the workflow. Have a look at the command line help with ``snakemake --help`` and search for the flag ``--forcerun``. Then, use this flag to re-execute the rule ``samtools_sort`` and see what happens.
 * Snakemake displays the reason for each job (under ``reason:``). Perform a dry-run that forces some rules to be reexecuted (using the ``--forcerun`` flag in combination with some rulename) to understand the decisions of Snakemake.
 
+After having a look at the summary, please go on with the :ref:`advanced part of the tutorial <tutorial-advanced>`.
+
 Summary
 :::::::
 
@@ -559,3 +561,6 @@ In total, the resulting workflow looks like this:
             "plots/quals.svg"
         script:
             "scripts/plot-quals.py"
+
+
+Now, please go on with the :ref:`advanced part of the tutorial <tutorial-advanced>`.
