@@ -246,13 +246,13 @@ def parse_config(entries):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.add_constructor("tag:yaml.org,2002:timestamp", self.construct_yaml_str)
-        
+
         @staticmethod
         def construct_yaml_str(loader, node):
             return loader.construct_scalar(node)
 
-    yaml_base_load = lambda s: yaml.load(s, Loader=SafeLoaderTimestamp)
-    parsers = [int, float, _bool_parser, yaml_base_load, str]
+    yaml_safe_load = lambda s: yaml.load(s, Loader=SafeLoaderTimestamp)
+    parsers = [int, float, _bool_parser, yaml_safe_load, str]
     config = dict()
     if entries:
         valid = re.compile(r"[a-zA-Z_][\w-]*\w$")
