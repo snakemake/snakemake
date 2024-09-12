@@ -28,8 +28,7 @@ class WildcardHandlerBase(ABC):
         )
 
     @abstractmethod
-    def apply_func(self, expression, namespace=None):
-        ...
+    def apply_func(self, expression, namespace=None): ...
 
     def handle(self, expression):
         if self.needs_wildcards(expression) or any(
@@ -88,7 +87,10 @@ class QueryWildcardHandler(WildcardHandlerBase):
         if self.cols is None:
             return False
         if isinstance(self.cols, list):
-            return any(super().needs_wildcards(col) for col in self.cols)
+            return any(
+                super(QueryWildcardHandler, self).needs_wildcards(col)
+                for col in self.cols
+            )
         else:
             return super().needs_wildcards(self.cols)
 

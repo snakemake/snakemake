@@ -69,6 +69,16 @@ def has_zenodo_token():
     return os.environ.get("ZENODO_SANDBOX_PAT")
 
 
+def has_apptainer():
+    return (shutil.which("apptainer") is not None) or (
+        shutil.which("singularity") is not None
+    )
+
+
+def has_conda():
+    return shutil.which("conda") is not None
+
+
 gcloud = pytest.mark.skipif(
     not is_connected() or not has_gcloud_service_key(),
     reason="Skipping GCLOUD tests because not on "
@@ -86,6 +96,17 @@ connected = pytest.mark.skipif(not is_connected(), reason="no internet connectio
 
 ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
 not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
+
+apptainer = pytest.mark.skipif(
+    not has_apptainer(),
+    reason="Skipping Apptainer tests because no "
+    "apptainer/singularity executable available.",
+)
+
+conda = pytest.mark.skipif(
+    not has_conda(),
+    reason="Skipping Conda tests because no conda executable available.",
+)
 
 zenodo = pytest.mark.skipif(
     not has_zenodo_token(), reason="no ZENODO_SANDBOX_PAT provided"
@@ -125,42 +146,6 @@ def print_tree(path, exclude=None):
         subindent = " " * 4 * (level + 1)
         for f in files:
             print(f"{subindent}{f}")
-
-
-@pytest.fixture
-def s3_storage():
-    from snakemake_storage_plugin_s3 import StorageProviderSettings
-    from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
-    import uuid
-    import boto3
-
-    endpoint_url = "https://play.minio.io:9000"
-    access_key = "Q3AM3UQ867SPQQA43P2F"
-    secret_key = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
-    bucket = f"snakemake-{uuid.uuid4().hex}"
-
-    tagged_settings = TaggedSettings()
-    tagged_settings.register_settings(
-        StorageProviderSettings(
-            endpoint_url=endpoint_url,
-            access_key=access_key,
-            secret_key=secret_key,
-        )
-    )
-
-    yield f"s3://{bucket}", {"s3": tagged_settings}
-
-    # clean up using boto3
-    s3c = boto3.resource(
-        "s3",
-        endpoint_url=endpoint_url,
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-    )
-    try:
-        s3c.Bucket(bucket).delete()
-    except Exception:
-        pass
 
 
 def run(

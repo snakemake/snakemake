@@ -25,12 +25,12 @@ Snakemake 8 removes the support for three syntactical elements, which are all of
 
 In addition, we have moved the former remote provider functionality into so called :ref:`storage plugins <storage-support>`.
 Most of the old remote providers have been migrated into the new storage plugins
-(see the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_.).
+(see the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`__.).
 Two former remote providers have been migrated into Snakemake wrappers instead, namely
 the NCBI and EGA remote providers, which are now replaced by the
 `entrez/efetch <https://snakemake-wrappers.readthedocs.io/en/stable/wrappers/entrez/efetch.html>`_ and
 the `ega <https://snakemake-wrappers.readthedocs.io/en/stable/wrappers/ega/fetch.html>`_ wrappers.
-As of writing, the Snakemake storage plugin for xrootd (see `here <https://github.com/snakemake/snakemake-storage-plugin-xrootd>`_) does not yet pass the CI tests. Any help would be greatly appreciated.
+As of writing, the Snakemake storage plugin for xrootd (see `here <https://github.com/snakemake/snakemake-storage-plugin-xrootd>`__) does not yet pass the CI tests. Any help would be greatly appreciated.
 
 
 Command line interface
@@ -42,14 +42,14 @@ The command line interface of Snakemake 8 has a lot of new options which are bes
 
 Moreover, some options have been renamed:
 
-* All the execution backends have been moved into plugins. When you used e.g. ``--kubernetes`` and corresponding options before, you should now use ``--executor kubernetes`` and check the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/kubernetes.html>`_ for the new options. The same holds for all other execution backends, see `here <https://snakemake.github.io/snakemake-plugin-catalog/index.html>`_.
+* All the execution backends have been moved into plugins. When you used e.g. ``--kubernetes`` and corresponding options before, you should now use ``--executor kubernetes`` and check the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/kubernetes.html>`_ for the new options. The same holds for all other execution backends, see `here <https://snakemake.github.io/snakemake-plugin-catalog/index.html>`__.
 * The ``--use-conda`` and ``--use-singularity`` options are deprecated. Instead you should now use ``--software-deployment-method conda`` or ``--software-deployment-method apptainer`` or ``--software-deployment-method conda apptainer`` if you need both.
 * There is a new executor plugin for `Google Cloud Batch <https://cloud.google.com/batch/docs/get-started>`_.
   This is meant as a replacement for the old Google Life Sciences executor. 
   The new executor is called ``googlebatch`` and can be used with ``--executor googlebatch``. 
-  Please check out the documentation of the plugin in the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/googlebatch.html>`_. 
+  Please check out the documentation of the plugin in the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/googlebatch.html>`__. 
   Note that in principle it is fine to re-add google-lifesciences support as a plugin as well. 
-  We even have skeleton code for this `here <https://github.com/snakemake/snakemake-executor-plugin-google-lifesciences>`_. 
+  We even have skeleton code for this `here <https://github.com/snakemake/snakemake-executor-plugin-google-lifesciences>`__. 
   Any help with getting this tested and released despite the fact that google lifesciences will be shut down this year would still be valued.
 
 .. list-table:: Interface comparison
@@ -506,6 +506,7 @@ Moreover, some options have been renamed:
                         snakemake --cluster 'qsub -pe threaded {threads}'.
                         (default: None)
      -  --cluster-generic-submit-cmd VALUE
+        (Requires the cluster-generic plugin)
      -
                         Command for submitting jobs (default:
                         <dataclasses._MISSING_TYPE object at 0x7fc423088680>)
@@ -523,6 +524,7 @@ Moreover, some options have been renamed:
                         the job was successful, 'failed' if the job failed and
                         'running' if the job still runs. (default: None)
      - --cluster-generic-status-cmd VALUE
+       (Requires the cluster-generic plugin)
      -
                         Command for retrieving job status (default:
                         <dataclasses._MISSING_TYPE object at 0x7fc423088680>)
@@ -533,6 +535,7 @@ Moreover, some options have been renamed:
                         running jobs. The command will be passed a single
                         argument, the job id. (default: None)
      - --cluster-generic-cancel-cmd VALUE
+       (Requires the cluster-generic plugin)
      -
                         Command for cancelling jobs. Expected to take one or
                         more jobids as arguments. (default:
@@ -544,6 +547,7 @@ Moreover, some options have been renamed:
                         --cluster-cancel command, defaults to 1000. (default:
                         1000)
      - --cluster-generic-cancel-nargs VALUE
+       (Requires the cluster-generic plugin)
      -
                         Number of jobids to pass to cancel_cmd. If more are
                         given, cancel_cmd will be called multiple times.
@@ -556,6 +560,7 @@ Moreover, some options have been renamed:
                         cluster execution. Only active when --cluster is given
                         as well. (default: None)
      - --cluster-generic-sidecar-cmd VALUE
+       (Requires the cluster-generic plugin)
      -
                         Command for sidecar process. (default:
                         <dataclasses._MISSING_TYPE object at 0x7fc423088680>)
@@ -573,4 +578,4 @@ API
 
 The Snakemake API has been completely rewritten into a modern `dataclass <https://docs.python.org/3/library/dataclasses.html>`_ based approach.
 The traditional central ``snakemake()`` function is gone.
-For an example how to use the new API, check out the Snakemake CLI implementation `here <https://github.com/snakemake/snakemake/blob/04ec2c0262b2cb96cbcd7edbbb2596979c1703ae/snakemake/cli.py#L1767>`_.
+For an example how to use the new API, check out the Snakemake CLI implementation `here <https://github.com/snakemake/snakemake/blob/04ec2c0262b2cb96cbcd7edbbb2596979c1703ae/snakemake/cli.py#L1767>`__.

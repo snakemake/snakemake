@@ -7,7 +7,6 @@ dependencies:
   - mamba
   - yte
   - packaging
-  - stopit
   - datrie
   - boto3
   - httpretty
@@ -59,6 +58,7 @@ dependencies:
   - nodejs # for cwltool
   - immutables
   - conda
+  - paramiko >=3.4.1 # TODO remove line (paramiko is an indirect dependency), just a temporal workaround for this bug: https://github.com/paramiko/paramiko/issues/2419
   - pip
   - pip:
       - cwltool
