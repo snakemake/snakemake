@@ -69,6 +69,16 @@ def has_zenodo_token():
     return os.environ.get("ZENODO_SANDBOX_PAT")
 
 
+def has_apptainer():
+    return (shutil.which("apptainer") is not None) or (
+        shutil.which("singularity") is not None
+    )
+
+
+def has_conda():
+    return shutil.which("conda") is not None
+
+
 gcloud = pytest.mark.skipif(
     not is_connected() or not has_gcloud_service_key(),
     reason="Skipping GCLOUD tests because not on "
@@ -86,6 +96,17 @@ connected = pytest.mark.skipif(not is_connected(), reason="no internet connectio
 
 ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
 not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
+
+apptainer = pytest.mark.skipif(
+    not has_apptainer(),
+    reason="Skipping Apptainer tests because no "
+    "apptainer/singularity executable available.",
+)
+
+conda = pytest.mark.skipif(
+    not has_conda(),
+    reason="Skipping Conda tests because no conda executable available.",
+)
 
 zenodo = pytest.mark.skipif(
     not has_zenodo_token(), reason="no ZENODO_SANDBOX_PAT provided"

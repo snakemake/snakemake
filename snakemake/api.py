@@ -3,15 +3,13 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass, field
 import hashlib
 from pathlib import Path
 import sys
 from typing import Dict, List, Mapping, Optional, Set
 import os
-from functools import partial
-import importlib
 import tarfile
 
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
@@ -352,6 +350,7 @@ class WorkflowApi(ApiBase):
         True if any lints were printed
         """
         workflow = self._get_workflow(check_envvars=False)
+        self._workflow_store = workflow
         workflow.include(
             self.snakefile, overwrite_default_target=True, print_compilation=False
         )
@@ -410,6 +409,7 @@ class WorkflowApi(ApiBase):
         )
 
     def __post_init__(self):
+        self._workdir_handler = None
         super().__post_init__()
         self.snakefile = self.snakefile.absolute()
         self._workdir_handler = WorkdirHandler(self.workdir)

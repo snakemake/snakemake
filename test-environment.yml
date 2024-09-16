@@ -7,7 +7,6 @@ dependencies:
   - mamba
   - yte
   - packaging
-  - stopit
   - datrie
   - boto3
   - httpretty

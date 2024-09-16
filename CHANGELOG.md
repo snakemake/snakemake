@@ -1,6 +1,74 @@
 # Changelog
 
 
+## [8.20.3](https://github.com/snakemake/snakemake/compare/v8.20.2...v8.20.3) (2024-09-09)
+
+
+### Bug Fixes
+
+* Add --cache to general_args for jobscripts ([#3080](https://github.com/snakemake/snakemake/issues/3080)) ([884498b](https://github.com/snakemake/snakemake/commit/884498bf6d4e171c8b4cef1463f9490689f0528d))
+
+## [8.20.2](https://github.com/snakemake/snakemake/compare/v8.20.1...v8.20.2) (2024-09-09)
+
+
+### Bug Fixes
+
+* ensure that CLI help is formatted deterministically and set defaults are displayed properly (based on preliminary work by [@keszybz](https://github.com/keszybz)) ([#3081](https://github.com/snakemake/snakemake/issues/3081)) ([cbc2e2c](https://github.com/snakemake/snakemake/commit/cbc2e2c4086426a52f71a15384d18973ec8c9714))
+
+## [8.20.1](https://github.com/snakemake/snakemake/compare/v8.20.0...v8.20.1) (2024-09-07)
+
+
+### Bug Fixes
+
+* add testcase data to package files ([#3077](https://github.com/snakemake/snakemake/issues/3077)) ([e90b098](https://github.com/snakemake/snakemake/commit/e90b09835404c3112c7c455accd2999f53653723))
+
+## [8.20.0](https://github.com/snakemake/snakemake/compare/v8.19.3...v8.20.0) (2024-09-07)
+
+
+### Features
+
+* allow skipping apptainer and conda tests if not available ([#3074](https://github.com/snakemake/snakemake/issues/3074)) ([c3cd4e0](https://github.com/snakemake/snakemake/commit/c3cd4e01ad182433cbd4406f9007c167f805c0f5))
+* MANIFEST.in: include tests/ in sdist ([#3073](https://github.com/snakemake/snakemake/issues/3073)) ([e24f3fc](https://github.com/snakemake/snakemake/commit/e24f3fc3078e4cee56334e2101939dd146c8f1b3))
+
+
+### Bug Fixes
+
+* add subfolders of report template to package data ([14a8f22](https://github.com/snakemake/snakemake/commit/14a8f2244f8d602f5c2988937ed722ab24c77259))
+* Inconsistent Linting Output Formatting ([#3064](https://github.com/snakemake/snakemake/issues/3064)) ([90e51ae](https://github.com/snakemake/snakemake/commit/90e51ae68985d539ee716aa619fca6a8b625c60e))
+* retry when downloading assets ([58e41b0](https://github.com/snakemake/snakemake/commit/58e41b0f6d1e7f7a6c7e2d915ba83ea786b237ed))
+* skip asset download if files are already present ([#3076](https://github.com/snakemake/snakemake/issues/3076)) ([0d3d1e1](https://github.com/snakemake/snakemake/commit/0d3d1e1fd254e28f956243f4e01b51eb81b9a717))
+
+## [8.19.3](https://github.com/snakemake/snakemake/compare/v8.19.2...v8.19.3) (2024-09-05)
+
+
+### Bug Fixes
+
+* add subfolders of report template to package data ([14a8f22](https://github.com/snakemake/snakemake/commit/14a8f2244f8d602f5c2988937ed722ab24c77259))
+* add template data to setup call ([099c8e2](https://github.com/snakemake/snakemake/commit/099c8e2a4a82975a8ae1352ce7204e3cd6a3e83c))
+
+## [8.19.2](https://github.com/snakemake/snakemake/compare/v8.19.1...v8.19.2) (2024-09-05)
+
+
+### Bug Fixes
+
+* add template data to setup call ([099c8e2](https://github.com/snakemake/snakemake/commit/099c8e2a4a82975a8ae1352ce7204e3cd6a3e83c))
+
+## [8.19.1](https://github.com/snakemake/snakemake/compare/v8.19.0...v8.19.1) (2024-09-04)
+
+
+### Bug Fixes
+
+* fix issues with misinterpretation of max-jobs-per-timespan and max-jobs-per-seconds ([#3067](https://github.com/snakemake/snakemake/issues/3067)) ([d82453b](https://github.com/snakemake/snakemake/commit/d82453b7e54321c817c6516fca9d9e16c03c3977))
+* pip deployment path ([#3062](https://github.com/snakemake/snakemake/issues/3062)) ([bf9305b](https://github.com/snakemake/snakemake/commit/bf9305b643ba5267285f56503809f275997d5a2e))
+* return empty set if rate limiter at max ([#3060](https://github.com/snakemake/snakemake/issues/3060)) ([4e59963](https://github.com/snakemake/snakemake/commit/4e599633d331aa4857a8994afabe0df15b4241be))
+* use pulps internal timeout for large scheduling problems, instead of stopit  ([#2938](https://github.com/snakemake/snakemake/issues/2938)) ([3b64e41](https://github.com/snakemake/snakemake/commit/3b64e414250de209a3921e44827779b1911f964a))
+* Wrong linenumbers reported when linting ([#2985](https://github.com/snakemake/snakemake/issues/2985)) ([3a8bd36](https://github.com/snakemake/snakemake/commit/3a8bd367f30020fb3cf7d5efe64ffc7b63548202))
+
+
+### Documentation
+
+* update `doc-environment.yml` file and Documentation Setup documentation ([#3058](https://github.com/snakemake/snakemake/issues/3058)) ([a540a2e](https://github.com/snakemake/snakemake/commit/a540a2ec083f403dc96246109f65f6fca91ec488))
+
 ## [8.19.0](https://github.com/snakemake/snakemake/compare/v8.18.2...v8.19.0) (2024-08-29)
 
 

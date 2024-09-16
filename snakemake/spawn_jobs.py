@@ -8,7 +8,7 @@ from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
-from snakemake import common
+from snakemake import PIP_DEPLOYMENTS_PATH
 from snakemake.io import get_flag_value, is_flagged
 from snakemake.settings.types import SharedFSUsage
 
@@ -205,7 +205,7 @@ class SpawnedJobArgsFactory:
                 self.workflow.storage_settings.default_storage_provider
             )
             precommand.append(
-                f"pip install --target '{common.PIP_DEPLOYMENTS_PATH}' {package_name}"
+                f"pip install --target '{PIP_DEPLOYMENTS_PATH}' {package_name}"
             )
 
         if (
@@ -294,6 +294,7 @@ class SpawnedJobArgsFactory:
             w2a("output_settings.benchmark_extended"),
             w2a("execution_settings.latency_wait"),
             w2a("scheduling_settings.scheduler", flag="--scheduler"),
+            w2a("workflow_settings.cache"),
             local_storage_prefix,
             format_cli_arg(
                 "--scheduler-solver-path",

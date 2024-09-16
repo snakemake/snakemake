@@ -42,9 +42,6 @@ class PathModifier:
 
     def modify(self, path, property=None) -> AnnotatedStringInterface:
         if get_flag_value(path, PATH_MODIFIER_FLAG):
-            logger.debug(
-                f"Not modifying path of file {path}, as it has already been modified"
-            )
             # Path has been modified before and is reused now, no need to modify again.
             return path
 
