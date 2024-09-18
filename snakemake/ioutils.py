@@ -141,7 +141,7 @@ def lookup(
     a single column, e.g.
     ``lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")``.
     In the latter case, just a list of items in that column is returned.
-    Finally, if the interger argument ``is_nrows`` is used, this returns true
+    Finally, if the integer argument ``is_nrows`` is used, this returns true
     if there are that many rows in the query results, false otherwise.
     
     In case of a pandas series, the series is converted into a dataframe via
