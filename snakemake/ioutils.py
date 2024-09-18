@@ -143,7 +143,7 @@ def lookup(
     In the latter case, just a list of items in that column is returned.
     Finally, if the integer argument ``is_nrows`` is used, this returns true
     if there are that many rows in the query results, false otherwise.
-    
+
     In case of a pandas series, the series is converted into a dataframe via
     Series.to_frame() and the same logic as for a dataframe is applied.
 
