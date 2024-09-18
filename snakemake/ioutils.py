@@ -119,7 +119,7 @@ def lookup(
     """Lookup values in a pandas dataframe, series, or python mapping (e.g. dict).
 
     Required argument ``within`` should be a pandas dataframe or series (in which
-    case use ``query``, and optionaly ``cols`` and ``is_nrows``), or a Python
+    case use ``query``, and optionally ``cols`` and ``is_nrows``), or a Python
     mapping like a dict (in which case use the ``dpath`` argument is used).
 
     In case of a pandas dataframe (see https://pandas.pydata.org),
