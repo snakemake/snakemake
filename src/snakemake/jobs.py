@@ -89,10 +89,7 @@ def format_file(f, is_input: bool):
                 phrase = "keep remote on"
         else:
             phrase = "send to"
-        if hasattr(f.storage_object.provider, "safe_print"):
-            f_str = f.storage_object.provider.safe_print(f.storage_object.query)
-        else:
-            f_str = f.storage_object.query
+        f_str = f.storage_object.print_query
         return f"{f_str} ({phrase} storage)"
     else:
         return f
