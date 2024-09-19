@@ -101,6 +101,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
+        self._checkpoint_jobs = set()
         self._priority = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
@@ -248,9 +249,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     @property
     def checkpoint_jobs(self):
-        for job in self.needrun_jobs():
-            if job.is_checkpoint:
-                yield job
+        return self._checkpoint_jobs
 
     @property
     def finished_checkpoint_jobs(self):
@@ -1337,6 +1336,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         _n_until_ready = self._n_until_ready
 
         _needrun.clear()
+        self._checkpoint_jobs.clear()
         _n_until_ready.clear()
         self._ready_jobs.clear()
 
@@ -1415,6 +1415,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         # update _n_until_ready
         for job in _needrun:
             _n_until_ready[job] = sum(1 for dep in dependencies[job] if dep in _needrun)
+            if job.is_checkpoint:
+                self._checkpoint_jobs.add(job)
 
         # update len including finished jobs (because they have already increased the job counter)
         self._len = len(self._finished | self._needrun)
@@ -1901,6 +1903,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             jobs = [job]
 
         self._finished.update(jobs)
+        self.checkpoint_jobs.difference_update(job for job in jobs if job.is_checkpoint)
 
         updated_dag = False
         if update_checkpoint_dependencies:
@@ -1937,7 +1940,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        if not any(self.checkpoint_jobs):
+        if not self.checkpoint_jobs:
             # While there are still checkpoint jobs, we cannot safely delete
             # temp files.
             # TODO: we maybe could be more accurate and determine whether there is a
