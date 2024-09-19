@@ -6,10 +6,11 @@ __license__ = "MIT"
 import copy
 import os
 import types
-from typing import Iterable, Mapping
-from pathlib import Path
-from itertools import chain
+from collections import OrderedDict
 from functools import partial
+from itertools import chain
+from pathlib import Path
+from typing import Iterable, Mapping
 
 try:
     import re._constants as sre_constants
@@ -63,8 +64,67 @@ from .common import (
 )
 from .common.tbdstring import TBDString
 from .resources import infer_resources
-from . import sourcecache, modules, ruleinfo
+from . import modules, ruleinfo, sourcecache
 from .deployment import env_modules
+
+
+class Rules:
+    """A namespace for rules so that they can be accessed via dot notation."""
+
+    def __init__(self):
+        self._rules: dict[str, "RuleProxy"] = dict()
+        self._cache_rules: OrderedDict[
+            str,
+            tuple[
+                "modules.WorkflowModifier",
+                "ruleinfo.RuleInfo",
+                "int | None",
+                "str | None",
+                bool,
+                int,
+            ],
+        ] = OrderedDict()
+
+    def _register_rule(self, name, rule):
+        self._rules[name] = rule
+
+    def __getattr__(self, name):
+        from snakemake.exceptions import WorkflowError
+
+        if name in self._rules:
+            return self._rules[name]
+        if name in self._cache_rules:
+            return self._rescue_register_rule(name)
+        avail_rules = ", ".join(self._rules) or (
+            "None\n"
+            "If this snakefile is used as module, "
+            "please make sure all the dependent rule "
+            "are used from the module as well."
+        )
+        raise WorkflowError(
+            f"Rule {name} is not defined in this workflow. "
+            f"Available rules: {avail_rules}"
+        )
+
+    def _rescue_register_rule(self, name):
+        modifier, ruleinfo, lineno, snakefile, checkpoint, stack_len = (
+            self._cache_rules[name]
+        )
+        with modifier:
+            modifier.workflow.rule(
+                name,
+                lineno=lineno,
+                snakefile=snakefile,
+                checkpoint=checkpoint,
+                rescue=True,
+            )(ruleinfo)
+        self._rules[name]._rescue = True
+        return self._rules[name]
+
+    def get_ruleinfo(self, rulename):
+        if rulename in self._cache_rules:
+            return self._cache_rules[rulename][1]
+        return self._rules[rulename].rule.ruleinfo
 
 
 class Rule(RuleInterface):
@@ -1069,12 +1129,12 @@ class Rule(RuleInterface):
 
     def expand_conda_env(self, wildcards, params=None, input=None):
         from snakemake.common import is_local_file
-        from snakemake.sourcecache import SourceFile, infer_source_file
         from snakemake.deployment.conda import (
-            is_conda_env_file,
             CondaEnvFileSpec,
             CondaEnvNameSpec,
+            is_conda_env_file,
         )
+        from snakemake.sourcecache import SourceFile, infer_source_file
 
         conda_env = self._conda_env
         if callable(conda_env):
@@ -1287,7 +1347,7 @@ class RuleProxy:
         return self._to_iofile(self.rule.log)
 
     def _to_iofile(self, files):
-        def cleanup(f):
+        def cleanup(f: _IOFile):
             prefix = self.rule.workflow.storage_settings.default_storage_prefix
             # remove constraints and turn this into a plain string
             cleaned = strip_wildcard_constraints(f)

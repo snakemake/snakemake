@@ -8,7 +8,6 @@ import types
 import re
 from copy import copy
 
-from .common import Rules
 from .exceptions import WorkflowError
 from .path_modifier import PathModifier
 from . import wrapper, ruleinfo
@@ -16,7 +15,7 @@ from . import workflow as _workflow
 from . import rules as _rules
 
 
-def default_modify_rulename(rulename: str):
+def _default_modify_rulename(rulename: str):
     return rulename
 
 
@@ -26,9 +25,9 @@ def get_name_modifier_func(
     parent_modifier: "WorkflowModifier | None" = None,
 ):
     if name_modifier is None:
-        return default_modify_rulename
+        return _default_modify_rulename
     if parent_modifier is None:
-        parent_modifier_func = default_modify_rulename
+        parent_modifier_func = _default_modify_rulename
     else:
         parent_modifier_func = parent_modifier.modify_rulename
     if "*" in name_modifier:
@@ -61,7 +60,7 @@ class ModuleInfo:
         self.config = config
         self.skip_validation = skip_validation
         self.parent_modifier = self.workflow.modifier
-        self.rule_proxies = Rules()
+        self.rule_proxies = _rules.Rules()
         self.namespace = types.ModuleType(name)
         self.stack_len = 0
 
@@ -114,6 +113,7 @@ class ModuleInfo:
             self.stack_len = len(self.workflow.included_stack) + 1
         self.workflow._rules = workflow_rules
         if self.name:
+            # update globals in inner modules
             self.namespace.__dict__.update(self.modifier.globals)
             self.workflow.globals[self.modifier.namespace] = self.namespace
             for i in self.rule_proxies._cache_rules.values():
@@ -187,13 +187,17 @@ class ModuleInfo:
         rule_whitelist: set[str] | None = None,
         exclude_rules: list[str] | None = None,
     ):
+        """
+        Here, rules are reordered back as loaded from the module.
+        It is used to inherent correct default rule from the module.
+        """
         excludes = set() if exclude_rules is None else set(exclude_rules)
-        rules = (
+        rulenames = (
             self.rule_proxies._cache_rules if rule_whitelist is None else rule_whitelist
         )
         pseudo_stacks: list[tuple[set[str | None], list[str | tuple]]] = [(set(), [])]
         last_stack_key: tuple[str | None, int] = None, self.stack_len
-        for rulename in rules:
+        for rulename in rulenames:
             if rulename in excludes:
                 continue
             modifier, ruleinfo_, lineno, snakefile, checkpoint, stack_len = (
@@ -233,7 +237,7 @@ class ModuleInfo:
         self,
         snakefile: str | None,
         rule_stacks: list[str | tuple],
-        name_modifier_func=default_modify_rulename,
+        name_modifier_func=_default_modify_rulename,
         overwrite_default_target=False,
     ):
         with _workflow._IncludeWrapper(
@@ -266,6 +270,7 @@ class ModuleInfo:
 
 
 class WorkflowModifier:
+
     def __init__(
         self,
         workflow: "_workflow.Workflow",
@@ -276,8 +281,8 @@ class WorkflowModifier:
         skip_configfile=False,
         skip_validation=False,
         skip_global_report_caption=False,
-        resolved_rulename_modifier=default_modify_rulename,
-        local_rulename_modifier=default_modify_rulename,
+        resolved_rulename_modifier=_default_modify_rulename,
+        local_rulename_modifier=_default_modify_rulename,
         rule_whitelist=None,
         rule_exclude_list=None,
         ruleinfo_overwrite: "ruleinfo.RuleInfo | None" = None,
@@ -286,7 +291,7 @@ class WorkflowModifier:
         prefix=None,
         replace_wrapper_tag=None,
         namespace=None,
-        rule_proxies: Rules | None = None,
+        rule_proxies: "_rules.Rules | None" = None,
     ):
         if parent_modifier is None:
             # default settings for globals if not inheriting from parent
@@ -295,7 +300,7 @@ class WorkflowModifier:
             )
             self.wildcard_constraints: dict[str, str] = dict()
             self.rules: set["_rules.Rule"] = set()
-            self.globals["rules"] = rule_proxies or Rules()
+            self.globals["rules"] = rule_proxies or _rules.Rules()
             if config is not None:
                 self.globals["config"] = config
         else:
@@ -326,7 +331,7 @@ class WorkflowModifier:
         self._ruleorder = _rules.Ruleorder()
 
     @property
-    def rule_proxies(self) -> Rules:
+    def rule_proxies(self) -> "_rules.Rules":
         return self.globals["rules"]
 
     def inherit_rule_proxies(self, child_modifier: "WorkflowModifier", stack_len: int):
@@ -349,7 +354,7 @@ class WorkflowModifier:
     def inherit_ruleorder(
         self,
         child_modifier: "WorkflowModifier",
-        resolved_rulename=default_modify_rulename,
+        resolved_rulename=_default_modify_rulename,
     ):
         for clause in child_modifier._ruleorder:
             _clause: list[str] = []

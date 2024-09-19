@@ -246,65 +246,6 @@ def group_into_chunks(n, iterable):
         yield chunk
 
 
-class Rules:
-    """A namespace for rules so that they can be accessed via dot notation."""
-
-    def __init__(self):
-        self._rules: dict[str, "rules.RuleProxy"] = dict()
-        self._cache_rules: OrderedDict[
-            str,
-            tuple[
-                "modules.WorkflowModifier",
-                "ruleinfo.RuleInfo",
-                "int | None",
-                "str | None",
-                bool,
-                int,
-            ],
-        ] = OrderedDict()
-
-    def _register_rule(self, name, rule):
-        self._rules[name] = rule
-
-    def __getattr__(self, name):
-        from snakemake.exceptions import WorkflowError
-
-        if name in self._rules:
-            return self._rules[name]
-        if name in self._cache_rules:
-            return self._rescue_register_rule(name)
-        avail_rules = ", ".join(self._rules) or (
-            "None\n"
-            "If this snakefile is used as module, "
-            "please make sure all the dependent rule "
-            "are used from the module as well."
-        )
-        raise WorkflowError(
-            f"Rule {name} is not defined in this workflow. "
-            f"Available rules: {avail_rules}"
-        )
-
-    def _rescue_register_rule(self, name):
-        modifier, ruleinfo, lineno, snakefile, checkpoint, stack_len = (
-            self._cache_rules[name]
-        )
-        with modifier:
-            modifier.workflow.rule(
-                name,
-                lineno=lineno,
-                snakefile=snakefile,
-                checkpoint=checkpoint,
-                rescue=True,
-            )(ruleinfo)
-        self._rules[name]._rescue = True
-        return self._rules[name]
-
-    def get_ruleinfo(self, rulename):
-        if rulename in self._cache_rules:
-            return self._cache_rules[rulename][1]
-        return self._rules[rulename].rule.ruleinfo
-
-
 class Scatter:
     """A namespace for scatter to allow items to be accessed via dot notation."""
 
