@@ -27,6 +27,7 @@ from .io import (
     _IOFile,
     Namedlist,
     AnnotatedString,
+    contains_wildcard,
     contains_wildcard_constraints,
     update_wildcard_constraints,
     flag,
@@ -137,6 +138,9 @@ class Rules:
         return self._used[rulename].rule.ruleinfo
 
 
+_NOT_CACHED = object()
+
+
 class Rule(RuleInterface):
     def __init__(
         self, name, modifier: "modules.WorkflowModifier", lineno=None, snakefile=None
@@ -166,6 +170,7 @@ class Rule(RuleInterface):
         self._log = Log()
         self._benchmark = None
         self._conda_env = None
+        self._expanded_conda_env = _NOT_CACHED
         self._container_img = None
         self.is_containerized = False
         self.env_modules: "env_modules.EnvModules | None" = None
@@ -1138,6 +1143,9 @@ class Rule(RuleInterface):
             return self.group
 
     def expand_conda_env(self, wildcards, params=None, input=None):
+        if self._expanded_conda_env is not _NOT_CACHED:
+            return self._expanded_conda_env
+
         from snakemake.common import is_local_file
         from snakemake.deployment.conda import (
             CondaEnvFileSpec,
@@ -1147,12 +1155,18 @@ class Rule(RuleInterface):
         from snakemake.sourcecache import SourceFile, infer_source_file
 
         conda_env = self._conda_env
-        if callable(conda_env):
-            conda_env, _ = self.apply_input_function(
-                conda_env, wildcards=wildcards, params=params, input=input
-            )
-
-        if conda_env is None:
+        if conda_env is not None:
+            if not callable(conda_env):
+                cacheable = not contains_wildcard(conda_env)
+            else:
+                conda_env, _ = self.apply_input_function(
+                    conda_env, wildcards=wildcards, params=params, input=input
+                )
+                cacheable = False
+                if conda_env is None:
+                    return None
+        else:
+            self._expanded_conda_env = None
             return None
 
         if is_conda_env_file(conda_env):
@@ -1174,6 +1188,9 @@ class Rule(RuleInterface):
 
         conda_env = conda_env.apply_wildcards(wildcards, self)
         conda_env.check()
+
+        if cacheable:
+            self._expanded_conda_env = conda_env
 
         return conda_env
 
