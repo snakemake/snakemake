@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from functools import partial, wraps
 from itertools import chain, filterfalse
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Set, Union
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Union, overload
 
 from .common.workdir_handler import WorkdirHandler
 from .settings.types import (
@@ -1902,6 +1902,18 @@ class Workflow(WorkflowExecutorInterface):
         replace_prefix=None,
         prefix=None,
     ):
+        """
+        Here, module will act more like a python module, that is,
+            every rule in the module will be loaded into a cache
+                (`.modifier.rule_proxies._cache_rules`)
+                as soon as it is announced,
+            and rules are just used from the cache without get into the snakefile again.
+        When a process is loading,
+            if a rule is called from rules in the module,
+            it should be rescued from the `_cache_rules`,
+            and a temp rule will be generated and marked as `._rescue = True`.
+        After that, rules can be used from the module
+        """
         self.modules[name] = module = ModuleInfo(
             self,
             name,
@@ -1918,10 +1930,28 @@ class Workflow(WorkflowExecutorInterface):
             is not None,
         )
 
+    @overload
     def userule(
         self,
         rules: list[str],
-        from_module: str | None = None,
+        from_module: str,
+        exclude_rules: list[str] | None = None,
+        name_modifier: str | None = None,
+        lineno: int | None = None,
+    ):
+        """
+        go into `Workflow.userule`
+        useage:
+            - `use rule xxx as yyy from zzz`
+            - `use rule xxx as yyy from zzz with`
+            - `use rule * as yyy from zzz with`
+        """
+
+    @overload
+    def userule(
+        self,
+        rules: list[str],
+        from_module: None = None,
         exclude_rules: list[str] | None = None,
         name_modifier: str | None = None,
         lineno: int | None = None,
@@ -1955,6 +1985,15 @@ class Workflow(WorkflowExecutorInterface):
         ```
         where `workflow.run(lambda: None)` return a `RuleInfo` and not a callable
         """
+
+    def userule(
+        self,
+        rules: list[str],
+        from_module: str | None = None,
+        exclude_rules: list[str] | None = None,
+        name_modifier: str | None = None,
+        lineno: int | None = None,
+    ):
         if from_module is not None:
             try:
                 module = self.modules[from_module]

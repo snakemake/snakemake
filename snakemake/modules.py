@@ -126,6 +126,13 @@ class ModuleInfo:
         exclude_rules=None,
         ruleinfo: "_workflow.RuleInfo | None" = None,
     ):
+        """
+        Rules are selected from `self.rule_proxies._cache_rules`,
+            the `ruleinfo_overwrite` will be update,
+            and adjusted to the correct order as `Workflow.include`.
+        Finally,
+            avail rules and ruleorder will be parsed to the parent_modifier.
+        """
         name_modifier_func = get_name_modifier_func(
             None, name_modifier, parent_modifier=self.parent_modifier
         )
