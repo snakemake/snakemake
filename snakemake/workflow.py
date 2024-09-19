@@ -1941,7 +1941,7 @@ class Workflow(WorkflowExecutorInterface):
     ):
         """
         go into `Workflow.userule`
-        useage:
+        usage:
             - `use rule xxx as yyy from zzz`
             - `use rule xxx as yyy from zzz with`
             - `use rule * as yyy from zzz with`
