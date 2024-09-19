@@ -1580,13 +1580,12 @@ class Workflow(WorkflowExecutorInterface):
         lineno=None,
         snakefile=None,
         checkpoint=False,
-        rescue=False,
     ):
         # choose a name for an unnamed rule
         self._global_rules_count += 1
         orig_name = name or str(self._global_rules_count)
 
-        if self.modifier.skip_rule(orig_name) and not rescue:
+        if self.modifier.skip_rule(orig_name):
 
             def decorate(ruleinfo: RuleInfo):
                 """
@@ -1596,7 +1595,7 @@ class Workflow(WorkflowExecutorInterface):
 
                 We can collect these environment, and init it as requested
                 """
-                self.modifier.rule_proxies._cache_rules[orig_name] = (
+                self.modifier.rule_proxies._cached[orig_name] = (
                     self.modifier,
                     ruleinfo,
                     lineno,
@@ -1940,7 +1939,7 @@ class Workflow(WorkflowExecutorInterface):
         lineno: int | None = None,
     ):
         """
-        go into `Workflow.userule`
+        go into `ModuleInfo.userule`
         usage:
             - `use rule xxx as yyy from zzz`
             - `use rule xxx as yyy from zzz with`

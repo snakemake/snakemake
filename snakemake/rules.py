@@ -72,8 +72,7 @@ class Rules:
     """A namespace for rules so that they can be accessed via dot notation."""
 
     def __init__(self):
-        self._rules: dict[str, "RuleProxy"] = dict()
-        self._cache_rules: OrderedDict[
+        self._cached: OrderedDict[
             str,
             tuple[
                 "modules.WorkflowModifier",
@@ -84,18 +83,20 @@ class Rules:
                 int,
             ],
         ] = OrderedDict()
+        self._used: dict[str, "RuleProxy"] = {}
+        self._rescued: dict[str, "RuleProxy"] = {}
 
     def _register_rule(self, name, rule):
-        self._rules[name] = rule
+        self._used[name] = rule
 
     def __getattr__(self, name):
         from snakemake.exceptions import WorkflowError
 
-        if name in self._rules:
-            return self._rules[name]
-        if name in self._cache_rules:
+        if name in self._used:
+            return self._used[name]
+        if name in self._cached:
             return self._rescue_register_rule(name)
-        avail_rules = ", ".join(self._rules) or (
+        avail_rules = ", ".join(self._used) or (
             "None\n"
             "If this snakefile is used as module, "
             "please make sure all the dependent rule "
@@ -106,25 +107,34 @@ class Rules:
             f"Available rules: {avail_rules}"
         )
 
+    # TODO: use @contextmanager to with in modifier
     def _rescue_register_rule(self, name):
-        modifier, ruleinfo, lineno, snakefile, checkpoint, stack_len = (
-            self._cache_rules[name]
-        )
-        with modifier:
-            modifier.workflow.rule(
-                name,
-                lineno=lineno,
-                snakefile=snakefile,
-                checkpoint=checkpoint,
-                rescue=True,
-            )(ruleinfo)
-        self._rules[name]._rescue = True
-        return self._rules[name]
+        if name not in self._rescued:
+            modifier, ruleinfo, lineno, snakefile, checkpoint, stack_len = self._cached[
+                name
+            ]
+            with modifier:
+                white, modifier.rule_whitelist = modifier.rule_whitelist, None
+                exclude, modifier.rule_exclude_list = (
+                    modifier.rule_exclude_list,
+                    None,
+                )
+                self._rescued, self._used = self._used, self._rescued
+                modifier.workflow.rule(
+                    name,
+                    lineno=lineno,
+                    snakefile=snakefile,
+                    checkpoint=checkpoint,
+                )(ruleinfo)
+                modifier.rule_whitelist = white
+                modifier.rule_exclude_list = exclude
+                self._rescued, self._used = self._used, self._rescued
+        return self._rescued[name]
 
     def get_ruleinfo(self, rulename):
-        if rulename in self._cache_rules:
-            return self._cache_rules[rulename][1]
-        return self._rules[rulename].rule.ruleinfo
+        if rulename in self._cached:
+            return self._cached[rulename][1]
+        return self._used[rulename].rule.ruleinfo
 
 
 class Rule(RuleInterface):
@@ -1307,7 +1317,6 @@ class Ruleorder:
 class RuleProxy:
     def __init__(self, rule: Rule):
         self.rule = rule
-        self._rescue = False
 
     @lazy_property
     def output(self):

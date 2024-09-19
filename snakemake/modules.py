@@ -116,8 +116,8 @@ class ModuleInfo:
             # update globals in inner modules
             self.namespace.__dict__.update(self.modifier.globals)
             self.workflow.globals[self.modifier.namespace] = self.namespace
-            for i in self.rule_proxies._cache_rules.values():
-                i[0].rule_whitelist = None
+            for _modifier, *_ in self.rule_proxies._cached.values():
+                _modifier.rule_whitelist = None
 
     def use_rules(
         self,
@@ -193,7 +193,7 @@ class ModuleInfo:
         """
         excludes = set() if exclude_rules is None else set(exclude_rules)
         rulenames = (
-            self.rule_proxies._cache_rules if rule_whitelist is None else rule_whitelist
+            self.rule_proxies._cached if rule_whitelist is None else rule_whitelist
         )
         pseudo_stacks: list[tuple[set[str | None], list[str | tuple]]] = [(set(), [])]
         last_stack_key: tuple[str | None, int] = None, self.stack_len
@@ -201,7 +201,7 @@ class ModuleInfo:
             if rulename in excludes:
                 continue
             modifier, ruleinfo_, lineno, snakefile, checkpoint, stack_len = (
-                self.rule_proxies._cache_rules[rulename]
+                self.rule_proxies._cached[rulename]
             )
             if last_stack_key != (snakefile, stack_len):
                 if not (
@@ -257,7 +257,7 @@ class ModuleInfo:
                 else:
                     resolved_rulename = name_modifier_func(rule_s)
                     modifier, ruleinfo_, lineno, snakefile, checkpoint, stack_len = (
-                        self.rule_proxies._cache_rules[rule_s]
+                        self.rule_proxies._cached[rule_s]
                     )
                     orig_ruleinfo = copy(ruleinfo_)
                     with modifier:
@@ -283,7 +283,7 @@ class WorkflowModifier:
         skip_global_report_caption=False,
         resolved_rulename_modifier=_default_modify_rulename,
         local_rulename_modifier=_default_modify_rulename,
-        rule_whitelist=None,
+        rule_whitelist: list | None = None,
         rule_exclude_list=None,
         ruleinfo_overwrite: "ruleinfo.RuleInfo | None" = None,
         allow_rule_overwrite=False,
@@ -336,18 +336,17 @@ class WorkflowModifier:
 
     def inherit_rule_proxies(self, child_modifier: "WorkflowModifier", stack_len: int):
         if self.rule_whitelist == []:
-            for name, rule in child_modifier.rule_proxies._rules.items():
-                if not rule._rescue:
-                    self.rule_proxies._cache_rules[name] = (  # type: ignore[assignment]
-                        self,
-                        rule.rule.ruleinfo,
-                        rule.rule.lineno,
-                        rule.rule.snakefile,
-                        rule.rule.is_checkpoint,
-                        stack_len,
-                    )
+            for name, rule in child_modifier.rule_proxies._used.items():
+                self.rule_proxies._cached[name] = (  # type: ignore[assignment]
+                    self,
+                    rule.rule.ruleinfo,
+                    rule.rule.lineno,
+                    rule.rule.snakefile,
+                    rule.rule.is_checkpoint,
+                    stack_len,
+                )
         else:
-            for name, rule in child_modifier.rule_proxies._rules.items():
+            for name, rule in child_modifier.rule_proxies._used.items():
                 name = child_modifier.local_rulename_modifier(name)
                 self.rule_proxies._register_rule(name, rule)
 
@@ -360,7 +359,7 @@ class WorkflowModifier:
             _clause: list[str] = []
             for rulename in clause:
                 modified_rulename = resolved_rulename(rulename)
-                if modified_rulename in child_modifier.rule_proxies._rules:
+                if modified_rulename in child_modifier.rule_proxies._used:
                     _clause.append(modified_rulename)
             if len(_clause) > 1:
                 self._ruleorder.add(*_clause)
