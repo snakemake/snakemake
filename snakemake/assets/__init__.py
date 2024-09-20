@@ -54,7 +54,7 @@ class Assets:
             sha256="a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
         ),
         "tailwindcss/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/tailwindlabs/tailwindcss/master/LICENSE",
+            url="https://raw.githubusercontent.com/tailwindlabs/tailwindcss/refs/tags/v3.0.23/LICENSE",
             sha256="60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985",
         ),
         "tailwindcss/tailwind.css": Asset(
@@ -62,8 +62,8 @@ class Assets:
             sha256="8a597dc918fb62e05db23a5f810327a045a62c57cfda16646075138a6ac696fa",
         ),
         "react/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/facebook/react/main/LICENSE",
-            sha256="da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+            url="https://raw.githubusercontent.com/facebook/react/refs/tags/v18.2.0/LICENSE",
+            sha256="52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
         ),
         "react/react.production.min.js": Asset(
             url="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js",
@@ -78,15 +78,15 @@ class Assets:
             sha256="b34c43055ef5d39a093e937522955dc359fbaec6c5b0259ae2de4c9da698e9fe",
         ),
         "vega/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/vega/vega/main/LICENSE",
-            sha256="63727832aaf62004a2b249c933e327f3c90caf49e41a72f4bf436edf632cbda8",
+            url="https://raw.githubusercontent.com/vega/vega/refs/tags/v5.21.0/LICENSE",
+            sha256="b75f7ed0af20dedadf92c52bc236161bcf0d294ff2e6e34ca76403203349f71d",
         ),
         "vega-lite/vega-lite.js": Asset(
             url="https://cdnjs.cloudflare.com/ajax/libs/vega-lite/5.2.0/vega-lite.js",
             sha256="6eb7f93121cd9f44cf8640244f87c5e143f87c7a0b6cd113da4a9e41e3adf0aa",
         ),
         "vega-lite/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/vega/vega-lite/next/LICENSE",
+            url="https://raw.githubusercontent.com/vega/vega-lite/refs/tags/v5.2.0/LICENSE",
             sha256="f618900fd0d64046963b29f40590cdd1e341a2f41449f99110d82fd81fea808c",
         ),
         "vega-embed/vega-embed.js": Asset(
@@ -94,7 +94,7 @@ class Assets:
             sha256="4e546c1f86eb200333606440e92f76e2940b905757018d9672cd1708e4e6ff0a",
         ),
         "vega-embed/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/vega/vega-embed/next/LICENSE",
+            url="https://raw.githubusercontent.com/vega/vega-embed/refs/tags/v6.20.8/LICENSE",
             sha256="32df67148f0fc3db0eb9e263a7b75d07f1eb14c61955005a4a39c6918d10d137",
         ),
         "heroicons/LICENSE": Asset(
@@ -106,7 +106,7 @@ class Assets:
             sha256="4c88350517ee82aa4f3368e67ef1a453ca6636dcfa6449b4e3d6faa5c877066e",
         ),
         "prop-types/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/facebook/prop-types/main/LICENSE",
+            url="https://raw.githubusercontent.com/facebook/prop-types/refs/tags/v15.7.2/LICENSE",
             sha256="f657f99d3fb9647db92628e96007aabb46e5f04f33e49999075aab8e250ca7ce",
         ),
     }
