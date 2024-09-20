@@ -1,3 +1,7 @@
+# This module handles the download of non python assets.
+# It should not use any modules that are not part of the standard library because it will
+# be called before the setup (and dependency deployment) of the snakemake package.
+
 from dataclasses import dataclass
 import hashlib
 import importlib.resources
@@ -20,16 +24,22 @@ class Asset:
         """Get and validate asset content."""
 
         req = urllib.request.Request(self.url, headers={"User-Agent": "snakemake"})
-        try:
-            resp = urllib.request.urlopen(req)
-            content = resp.read()
-        except urllib.error.URLError as e:
-            raise AssetDownloadError(f"Failed to download asset {self.url}: {e}")
-        if self.sha256 != hashlib.sha256(content).hexdigest():
-            raise AssetDownloadError(
-                f"Checksum mismatch when downloading asset {self.url}"
-            )
-        return content
+        err = None
+        for _ in range(6):
+            try:
+                resp = urllib.request.urlopen(req)
+                content = resp.read()
+            except urllib.error.URLError as e:
+                err = AssetDownloadError(f"Failed to download asset {self.url}: {e}")
+                continue
+            if self.sha256 != hashlib.sha256(content).hexdigest():
+                err = AssetDownloadError(
+                    f"Checksum mismatch when downloading asset {self.url}"
+                )
+                continue
+            return content
+        assert err is not None
+        raise err
 
 
 class Assets:
@@ -108,6 +118,13 @@ class Assets:
         base_path = Path(__file__).parent / "data"
         for asset_path, asset in cls.spec.items():
             target_path = base_path / asset_path
+
+            if target_path.exists():
+                with open(target_path, "rb") as fin:
+                    # file is already present, check if it is up to date
+                    if asset.sha256 == hashlib.sha256(fin.read()).hexdigest():
+                        continue
+
             target_path.parent.mkdir(parents=True, exist_ok=True)
             with open(target_path, "wb") as fout:
                 fout.write(asset.get_content())

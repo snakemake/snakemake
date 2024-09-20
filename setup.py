@@ -27,7 +27,9 @@ setup(
     package_data={
         "snakemake": [
             "assets/data/**/*",
+            "report/html_reporter/template/**/*",
             "report/html_reporter/template/*",
+            "common/tests/testcases/**/*",
         ]
     },
 )
