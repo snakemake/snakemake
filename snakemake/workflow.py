@@ -1470,12 +1470,12 @@ class Workflow(WorkflowExecutorInterface):
         if not module_use:
             self.included.append(snakefile)
         self.included_stack.append(snakefile)
-        self.default_target = self.default_target
+        default_target = self.default_target
         try:
             yield
         finally:
             if not overwrite_default_target:
-                self.default_target = self.default_target
+                self.default_target = default_target
             self.included_stack.pop()
 
     def onstart(self, func):
