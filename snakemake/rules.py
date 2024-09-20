@@ -73,6 +73,8 @@ class Rules:
     """A namespace for rules so that they can be accessed via dot notation."""
 
     def __init__(self):
+        # TODO: not need to cache, just load to _rescued
+        #       but should consider stack structure
         self._cached: OrderedDict[
             str,
             tuple[
@@ -108,18 +110,12 @@ class Rules:
             f"Available rules: {avail_rules}"
         )
 
-    # TODO: use @contextmanager to with in modifier
     def _rescue_register_rule(self, name):
         if name not in self._rescued:
             modifier, ruleinfo, lineno, snakefile, checkpoint, stack_len = self._cached[
                 name
             ]
-            with modifier:
-                white, modifier.rule_whitelist = modifier.rule_whitelist, None
-                exclude, modifier.rule_exclude_list = (
-                    modifier.rule_exclude_list,
-                    None,
-                )
+            with modifier.mask_skip():
                 self._rescued, self._used = self._used, self._rescued
                 modifier.workflow.rule(
                     name,
@@ -127,8 +123,6 @@ class Rules:
                     snakefile=snakefile,
                     checkpoint=checkpoint,
                 )(ruleinfo)
-                modifier.rule_whitelist = white
-                modifier.rule_exclude_list = exclude
                 self._rescued, self._used = self._used, self._rescued
         return self._rescued[name]
 
@@ -1146,28 +1140,27 @@ class Rule(RuleInterface):
         if self._expanded_conda_env is not _NOT_CACHED:
             return self._expanded_conda_env
 
-        from snakemake.common import is_local_file
-        from snakemake.deployment.conda import (
+        conda_env = self._conda_env
+        if conda_env is None:
+            self._expanded_conda_env = None
+            return None
+        if callable(conda_env):
+            conda_env, _ = self.apply_input_function(
+                conda_env, wildcards=wildcards, params=params, input=input
+            )
+            if conda_env is None:
+                return None
+            cacheable = False
+        else:
+            cacheable = not contains_wildcard(conda_env)
+
+        from .common import is_local_file
+        from .deployment.conda import (
             CondaEnvFileSpec,
             CondaEnvNameSpec,
             is_conda_env_file,
         )
-        from snakemake.sourcecache import SourceFile, infer_source_file
-
-        conda_env = self._conda_env
-        if conda_env is not None:
-            if not callable(conda_env):
-                cacheable = not contains_wildcard(conda_env)
-            else:
-                conda_env, _ = self.apply_input_function(
-                    conda_env, wildcards=wildcards, params=params, input=input
-                )
-                cacheable = False
-                if conda_env is None:
-                    return None
-        else:
-            self._expanded_conda_env = None
-            return None
+        from .sourcecache import SourceFile, infer_source_file
 
         if is_conda_env_file(conda_env):
             if not isinstance(conda_env, SourceFile):

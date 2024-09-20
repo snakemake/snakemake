@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from contextlib import contextmanager
 import copy
 import hashlib
 import os
@@ -1459,8 +1460,23 @@ class Workflow(WorkflowExecutorInterface):
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile_path_or_uri)
 
-        with _IncludeWrapper(self, snakefile, overwrite_default_target):
+        with self._include_stack(self, snakefile, overwrite_default_target):
             exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
+
+    @contextmanager
+    def _include_stack(
+        self, snakefile, overwrite_default_target: bool, module_use=False
+    ):
+        if not module_use:
+            self.included.append(snakefile)
+        self.included_stack.append(snakefile)
+        self.default_target = self.default_target
+        try:
+            yield
+        finally:
+            if not overwrite_default_target:
+                self.default_target = self.default_target
+            self.included_stack.pop()
 
     def onstart(self, func):
         """Register onstart function."""
@@ -2050,29 +2066,3 @@ class Workflow(WorkflowExecutorInterface):
     @staticmethod
     def _empty_decorator(f):
         return f
-
-
-class _IncludeWrapper:
-    def __init__(
-        self,
-        workflow: Workflow,
-        snakefile,
-        overwrite_default_target=False,
-        module_use=False,
-    ) -> None:
-        self.workflow = workflow
-        self.snakefile = snakefile
-        self.overwrite_default_target = overwrite_default_target
-        self.default_target = None
-        self.module_use = module_use
-
-    def __enter__(self):
-        if not self.module_use:
-            self.workflow.included.append(self.snakefile)
-        self.workflow.included_stack.append(self.snakefile)
-        self.default_target = self.workflow.default_target
-
-    def __exit__(self, type, value, traceback):
-        if not self.overwrite_default_target:
-            self.workflow.default_target = self.default_target
-        self.workflow.included_stack.pop()

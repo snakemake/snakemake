@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from contextlib import contextmanager
 from pathlib import Path
 import types
 import re
@@ -107,11 +108,9 @@ class ModuleInfo:
             replace_wrapper_tag=self.get_wrapper_tag(),
             rule_proxies=self.rule_proxies,
         )
-        workflow_rules, self.workflow._rules = self.workflow._rules, {}
-        with self.modifier:
+        with self.modifier.mask_rules():
             self.workflow.include(snakefile, overwrite_default_target=True)
             self.stack_len = len(self.workflow.included_stack) + 1
-        self.workflow._rules = workflow_rules
         if self.name:
             # update globals in inner modules
             self.namespace.__dict__.update(self.modifier.globals)
@@ -240,8 +239,7 @@ class ModuleInfo:
         name_modifier_func=_default_modify_rulename,
         overwrite_default_target=False,
     ):
-        with _workflow._IncludeWrapper(
-            self.workflow,
+        with self.workflow._include_stack(
             snakefile,
             overwrite_default_target=overwrite_default_target,
             module_use=True,
@@ -336,6 +334,10 @@ class WorkflowModifier:
 
     def inherit_rule_proxies(self, child_modifier: "WorkflowModifier", stack_len: int):
         if self.rule_whitelist == []:
+            """
+            Durning module loading, may use rule from submodules.
+            Then we just need to add the "used" rule to cache only
+            """
             for name, rule in child_modifier.rule_proxies._used.items():
                 self.rule_proxies._cached[name] = (  # type: ignore[assignment]
                     self,
@@ -388,3 +390,26 @@ class WorkflowModifier:
     def __exit__(self, type, value, traceback):
         # remove this modifier from the stack
         self.workflow.modifier_stack.pop()
+
+    @contextmanager
+    def mask_rules(self):
+        workflow_rules, self.workflow._rules = self.workflow._rules, {}
+        try:
+            with self:
+                yield
+        finally:
+            self.workflow._rules = workflow_rules
+
+    @contextmanager
+    def mask_skip(self):
+        white, self.rule_whitelist = self.rule_whitelist, None
+        exclude, self.rule_exclude_list = (
+            self.rule_exclude_list,
+            None,
+        )
+        try:
+            with self:
+                yield
+        finally:
+            self.rule_whitelist = white
+            self.rule_exclude_list = exclude
