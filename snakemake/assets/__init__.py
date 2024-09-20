@@ -98,8 +98,8 @@ class Assets:
             sha256="32df67148f0fc3db0eb9e263a7b75d07f1eb14c61955005a4a39c6918d10d137",
         ),
         "heroicons/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/tailwindlabs/heroicons/master/LICENSE",
-            sha256="60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985",
+            url="https://raw.githubusercontent.com/tailwindlabs/heroicons/refs/tags/v1.0.3/LICENSE",
+            sha256="75523ddd65d9620bea09f84e89d0c373b4205a3708b8a1e9f9598a5438a3e641",
         ),
         "prop-types/prop-types.min.js": Asset(
             url="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.7.2/prop-types.min.js",
