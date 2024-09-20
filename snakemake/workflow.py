@@ -1460,7 +1460,7 @@ class Workflow(WorkflowExecutorInterface):
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile_path_or_uri)
 
-        with self._include_stack(self, snakefile, overwrite_default_target):
+        with self._include_stack(snakefile, overwrite_default_target):
             exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
     @contextmanager

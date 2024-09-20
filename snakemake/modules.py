@@ -335,7 +335,7 @@ class WorkflowModifier:
     def inherit_rule_proxies(self, child_modifier: "WorkflowModifier", stack_len: int):
         if self.rule_whitelist == []:
             """
-            Durning module loading, may use rule from submodules.
+            During module loading, may use rule from submodules.
             Then we just need to add the "used" rule to cache only
             """
             for name, rule in child_modifier.rule_proxies._used.items():
