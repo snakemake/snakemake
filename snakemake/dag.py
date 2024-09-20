@@ -481,8 +481,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             incomplete = await self.incomplete_files()
             if incomplete:
                 if self.workflow.dag_settings.force_incomplete:
-                    logger.debug("Forcing incomplete files:")
-                    logger.debug("\t" + "\n\t".join(incomplete))
                     self.forcefiles.update(incomplete)
                 else:
                     raise IncompleteFilesException(incomplete)
@@ -767,11 +765,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
             if os.path.realpath(shadow_output) == os.path.realpath(real_output):
                 continue
-            logger.debug(
-                "Moving shadow output {} to destination {}".format(
-                    shadow_output, real_output
-                )
-            )
             shutil.move(shadow_output, real_output)
         shutil.rmtree(job.shadow_dir)
 
@@ -1851,7 +1844,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 depending = list(self.depending[job])
                 all_depending.extend(depending)
         for j in all_depending:
-            logger.debug(f"Updating job {j}.")
             newjob = await j.updated()
             await self.replace_job(j, newjob, recursive=False)
             updated = True
@@ -2044,9 +2036,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         await self.update([newjob])
 
-        logger.debug(f"Replace {job} with {newjob}")
         for job_, files in depending:
-            logger.debug(f"updating depending job {job_}")
             self._dependencies[job_][newjob].update(files)
             self.depending[newjob][job_].update(files)
 
