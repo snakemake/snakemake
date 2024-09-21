@@ -898,9 +898,7 @@ def test_group_jobs_attempts():
 
 
 def assert_resources(resources: dict, **expected_resources):
-    assert {
-        res: resources.get(res) for res in expected_resources
-    } == expected_resources
+    assert {res: resources.get(res) for res in expected_resources} == expected_resources
 
 
 @skip_on_windows

@@ -380,9 +380,9 @@ class WorkflowModifier:
 
     @contextmanager
     def mask_ruleinfo(self, ruleinfo: "_workflow.RuleInfo | None" = None):
-        ruleinfo, self.ruleinfo_overwrite = self.ruleinfo_overwrite, None
+        _ruleinfo, self.ruleinfo_overwrite = self.ruleinfo_overwrite, ruleinfo
         try:
             with self:
                 yield
         finally:
-            self.ruleinfo_overwrite = ruleinfo
+            self.ruleinfo_overwrite = _ruleinfo
