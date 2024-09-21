@@ -172,11 +172,12 @@ class Assets:
             url="https://raw.githubusercontent.com/d3/d3-dsv/refs/tags/v2.0.0/LICENSE",
             sha256="8b5304265ccedbd17567aa14a0dc6b9bf4013fee44964c46aa54fdf8527d6a68",
         ),
-        # Via vega-loader
+        # Via vega-loader; also from vega-geo/src/util/contours.js, "Based on
+        # https://github.com/topojson/topojson-client/blob/v3.0.0/src/stitch.js"
         # This has its own dependency (commander 2.20.3), but it is used only
         # in the command-line tools rather than in the library that is bundled
-        # in vega.js.
-        # Dependency node-fetch 2.6.4, via vega-loader, is not used for browser builds.
+        # in vega.js. Dependency node-fetch 2.6.4, via vega-loader, is not
+        # used for browser builds.
         "topojson-client/LICENSE": Asset(
             url="https://raw.githubusercontent.com/topojson/topojson-client/refs/tags/v3.1.0/LICENSE",
             sha256="4c4d15b635e04e691825a76db7d33f7f2033b55669a7430011694f31e6c65999",
@@ -210,6 +211,100 @@ class Assets:
             sha256="27043d1a6a0e1985fde12660decbbd3b23c67de900b00609c90d4f0aa492f425",
         ),
         # End dependencies for vega, included in vega/vega.js
+        # Begin copied/derived/adapted code in vega, included in vega/vega.js
+        # From vega-util/src/lru-cache.js, "adapted from
+        # https://github.com/dominictarr/hashlru/ (MIT License)". Version 1.0.4
+        # was the current version when the function was added to vega, in
+        # commit f153863f3575bff1b42294c9cb065d80afb757ff on 2020-02-28.
+        "hashlru/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/dominictarr/hashlru/refs/tags/v1.0.4/LICENSE",
+            sha256="08e4bd7a280eaaf1fbcaad9dad1fb94412477fcdd1cf81660988303297e5e1d1",
+        ),
+        # From
+        # vega-statistics/src/regression/{poly,r-squared,pow,log,linear}.js,
+        # "Adapted from d3-regression by Harry Stevens". Version 1.2.1 was the
+        # current version when the functions were added to vega, in commit
+        # 71610e4456a3a4145435d83f8458748ba137a2a3 2019-05-10. That release was
+        # not tagged in git, so we use the corresponding commit hash.
+        "d3-regression/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/HarryStevens/d3-regression/e23d40a663dffba14b92cb42d9989de3a32894b5/LICENSE",
+            sha256="d210203f922101502894baf700b9a392e323a26e4b603ab166c57e09a6e773b5",
+        ),
+        # From vega-statistics/src/regression/poly.js, "Adapted from
+        # d3-regression by Harry Stevens [...] which was adapted from
+        # regression-js by Tom Alexander" Version 2.0.1 was the current version
+        # when the functions were added to vega, in commit
+        # 71610e4456a3a4145435d83f8458748ba137a2a3 2019-05-10.
+        "regression/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/Tom-Alexander/regression-js/refs/tags/2.0.1/LICENSE",
+            sha256="2f932f5cfb9b042cc6c0089ee8004b33e3746ffeab879341dbd453c150524307",
+        ),
+        # From vega-statistics/src/regression/loess.js, "Adapted from
+        # science.js by Jason Davies". Version 1.9.3 was the current version
+        # when the functions were added to vega, in commit
+        # 71610e4456a3a4145435d83f8458748ba137a2a3 on 2019-05-10.
+        "science/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/jasondavies/science.js/refs/tags/v1.9.3/LICENSE",
+            sha256="3bd1fdf686ffcad175daddcb36ee28599ac8f090b6cec2c7654118c8a6f3d4c9",
+        ),
+        # From src/quickselect.js in d3-array, "Based on
+        # https://github.com/mourner/quickselect". Version 2.0.0 was the
+        # current version when the file was added to d3-array, in commit
+        # d447c2a31cd6aacf54a40b22c29620f7e17bbd7e on 2018-11-10.
+        "quickselect/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/mourner/quickselect/refs/tags/v2.0.0/LICENSE",
+            sha256="597034cb7c11c916ad407344ea99a0b08e3c443a6b4421460f1d23c411c69707",
+        ),
+        # From vega-statistics/src/normal.js, "Ported from Apache Commons
+        # Math". Version 3.6.1 was the current version when this implementation
+        # of erfinv was added to vega, in commit
+        # c26050f21b0c95620f8f1a3094056716ec6c5aaa on 2019-09-26.
+        "commons-math/LICENSE.txt": Asset(
+            url="https://raw.githubusercontent.com/apache/commons-math/refs/tags/MATH_3_6_1/LICENSE.txt",
+            sha256="64f23963615950bad9ddd31569a7f09afbbe11b81d94873ffd9b1cac6081a11d",
+        ),
+        "commons-math/NOTICE.txt": Asset(
+            url="https://raw.githubusercontent.com/apache/commons-math/refs/tags/MATH_3_6_1/NOTICE.txt",
+            sha256="5495442a32bfc2b93b4a8f2c34c5c218d16cca434aa5684fb953d9419120e3fa",
+        ),
+        # From vega-expression/src/parser.js, "The following expression parser
+        # is based on Esprima (http://esprima.org/)." Unusually, the original
+        # license text is reproduced in the source file, so we could get by
+        # without a separate license file (and in fact the license file lacks
+        # the necessary copyright statement present in the code) but we add it
+        # for consistency. Version 2.2.0 was the last version of Esprima that
+        # had a copyright statement in esprima.js attributing specific
+        # individual contributors, as reproduced in the vega source.
+        "esprima/LICENSE.BSD": Asset(
+            url="https://raw.githubusercontent.com/jquery/esprima/refs/tags/2.2.0/LICENSE.BSD",
+            sha256="0e74697a68cebdcd61502c30fe80ab7f9e341d995dcd452023654d57133534b1",
+        ),
+        # From vega-scenegraph/src/path/arc.js, "Copied from Inkscape svgtopdf,
+        # thanks!" We cannot find the original implementation in Inkscape or
+        # anywhere else, so we do not add a license file for this snippet.
+        # From vega-scenegraph/src/path/parse.js, "Path parsing and rendering
+        # code adapted from fabric.js -- Thanks!" This was added in commit
+        # 82932143de7cef4187a34026689df12abaa25959 on 2018-12-20, and the
+        # current release of fabric.js at that time was 2.4.5.
+        "fabric/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/fabricjs/fabric.js/refs/tags/v2.4.5/LICENSE",
+            sha256="9f6c2cc99aa9c618df93fed7d1cf7279d4e329d92dd2ce5e96173c73ce305055",
+        ),
+        # From vega-geo/src/util/{contours,density2D}.js, "Implementation
+        # adapted from d3/d3-contour. Thanks!" When these routines were added
+        # in 0ab6b730a7e576d33d00e12063855bb132194191 on 2019-11-11, the latest
+        # version was 1.3.2.
+        "d3-contour/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-contour/refs/tags/v1.3.2/LICENSE",
+            sha256="5f5dcce265668080a60fbdc513f6f8ef21466780bcaa331e64ee39df19e63b30",
+        ),
+        # From vega-geo/src/util/contours.js, "Based on
+        # https://github.com/mbostock/shapefile/blob/v0.6.2/shp/polygon.js"
+        "shapefile/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/mbostock/shapefile/refs/tags/v0.6.2/LICENSE.txt",
+            sha256="c16529a9d5b8802982abd714a6823344e24b0cb5131596bc343927ead605d708",
+        ),
+        # End copied/derived/adapted code in vega, included in vega/vega.js
         "vega-lite/vega-lite.js": Asset(
             url="https://cdnjs.cloudflare.com/ajax/libs/vega-lite/5.2.0/vega-lite.js",
             sha256="6eb7f93121cd9f44cf8640244f87c5e143f87c7a0b6cd113da4a9e41e3adf0aa",

@@ -103,6 +103,37 @@ def get_packages():
                 license_path="delaunator/LICENSE",
             ),
             # End dependencies for vega, included in vega/vega.js
+            # Begin copied/derived/adapted code in vega, included in vega/vega.js
+            "hashlru": Package(
+                license_path="hashlru/LICENSE",
+            ),
+            "d3-regression": Package(
+                license_path="d3-regression/LICENSE",
+            ),
+            "regression": Package(
+                license_path="regression/LICENSE",
+            ),
+            "science": Package(
+                license_path="science/LICENSE",
+            ),
+            "quickselect": Package(
+                license_path="quickselect/LICENSE",
+            ),
+            "commons-math": Package(
+                license_path="commons-math/LICENSE.txt",
+                # This must be included with LICENSE.txt.
+                notice="commons-math/NOTICE.txt",
+            ),
+            "esprima": Package(
+                license_path="esprima/LICENSE.BSD",
+            ),
+            "fabric": Package(
+                license_path="fabric/LICENSE",
+            ),
+            "d3-contour": Package(
+                license_path="d3-contour/LICENSE",
+            ),
+            # End copied/derived/adapted code in vega, included in vega/vega.js
             "vega-lite": Package(
                 source_path="vega-lite/vega-lite.js",
                 license_path="vega-lite/LICENSE",
