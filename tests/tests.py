@@ -899,7 +899,7 @@ def test_group_jobs_attempts():
 
 def assert_resources(resources: dict, **expected_resources):
     assert {
-        res: resources.get(res, None) for res in expected_resources
+        res: resources.get(res) for res in expected_resources
     } == expected_resources
 
 
@@ -2103,8 +2103,8 @@ def test_issue2574():
         stdout=sp.PIPE,
         stderr=sp.PIPE,
     )
-    stdout, stderr = p.communicate()
-    stderr = stderr.decode()
+    stdout, _stderr = p.communicate()
+    stderr = _stderr.decode()
     assert p.returncode == 1
     assert "KeyError" in stderr
     assert "line 4," in stderr

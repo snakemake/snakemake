@@ -88,6 +88,8 @@ class Rules:
         ] = OrderedDict()
         self._used: dict[str, "RuleProxy"] = {}
         self._rescued: dict[str, "RuleProxy"] = {}
+        # rulename
+        self._stack: list[str | tuple[str, list]] = []
 
     def _register_rule(self, name, rule):
         self._used[name] = rule

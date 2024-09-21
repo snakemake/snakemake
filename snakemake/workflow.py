@@ -1619,6 +1619,7 @@ class Workflow(WorkflowExecutorInterface):
                     checkpoint,
                     len(self.included_stack),
                 )
+                self.modifier.rule_proxies._stack.append(orig_name)
                 return ruleinfo.func
 
             return decorate

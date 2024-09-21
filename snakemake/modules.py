@@ -109,13 +109,16 @@ class ModuleInfo:
             rule_proxies=self.rule_proxies,
         )
         with self.modifier.mask_rules():
-            self.workflow.include(snakefile, overwrite_default_target=True)
+            self.workflow.include(snakefile, overwrite_default_target=False)
             self.stack_len = len(self.workflow.included_stack) + 1
         if self.name:
             # update globals in inner modules
             self.namespace.__dict__.update(self.modifier.globals)
             self.workflow.globals[self.modifier.namespace] = self.namespace
             for _modifier, *_ in self.rule_proxies._cached.values():
+                # all rules in _cache now are defined in the module,
+                #  or used from the submodules.
+                # They cannot be skipped.
                 _modifier.rule_whitelist = None
 
     def use_rules(
@@ -135,19 +138,17 @@ class ModuleInfo:
         name_modifier_func = get_name_modifier_func(
             None, name_modifier, parent_modifier=self.parent_modifier
         )
-        # ideally, _old_ruleinfo is None
-        _old_ruleinfo, self.modifier.ruleinfo_overwrite = (
-            self.modifier.ruleinfo_overwrite,
-            ruleinfo,
-        )
-        snakefile, stacks = self.avail_rules_stacks(
-            self.get_rule_whitelist(rules), exclude_rules
-        )
-        self._include(snakefile, stacks, name_modifier_func, True)
-        with self.modifier:
-            self.parent_modifier.inherit_rule_proxies(self.modifier, self.stack_len)
-            self.parent_modifier.inherit_ruleorder(self.modifier, name_modifier_func)
-        self.modifier.ruleinfo_overwrite = _old_ruleinfo
+        avail_rules = self.get_rules(rules, exclude_rules)
+        with self.modifier.mask_ruleinfo(ruleinfo):
+            self._include(
+                avail_rules,
+                self.snakefile,
+                self.rule_proxies._stack,
+                name_modifier_func,
+                True,
+            )
+        self.parent_modifier.inherit_rule_proxies(self.modifier, self.stack_len)
+        self.parent_modifier.inherit_ruleorder(self.modifier, name_modifier_func)
 
     def get_snakefile(self):
         if self.meta_wrapper:
@@ -171,19 +172,9 @@ class ModuleInfo:
             return self.meta_wrapper.split("/", 1)[0]
         return None
 
-    def get_rule_whitelist(self, rules: list[str]):
-        if "*" in rules:
-            if len(rules) != 1:
-                raise SyntaxError(
-                    "The 'use rule' statement uses a wildcard '*' but lists multiple additional rules."
-                )
-            else:
-                return None
-        return set(rules)
-
-    def avail_rules_stacks(
+    def get_rules(
         self,
-        rule_whitelist: set[str] | None = None,
+        rule_whitelist: list[str],
         exclude_rules: list[str] | None = None,
     ):
         """
@@ -191,54 +182,29 @@ class ModuleInfo:
         It is used to inherent correct default rule from the module.
         """
         excludes = set() if exclude_rules is None else set(exclude_rules)
-        rulenames = (
-            self.rule_proxies._cached if rule_whitelist is None else rule_whitelist
-        )
-        pseudo_stacks: list[tuple[set[str | None], list[str | tuple]]] = [(set(), [])]
-        last_stack_key: tuple[str | None, int] = None, self.stack_len
-        for rulename in rulenames:
-            if rulename in excludes:
-                continue
-            modifier, ruleinfo_, lineno, snakefile, checkpoint, stack_len = (
-                self.rule_proxies._cached[rulename]
-            )
-            if last_stack_key != (snakefile, stack_len):
-                if not (
-                    last_stack_key == (None, self.stack_len)
-                    and stack_len == self.stack_len
-                ):
-                    if last_stack_key[1] > stack_len:
-                        # step out from last include
-                        for _p in range(stack_len, last_stack_key[1]):
-                            pseudo_stacks[-2][1].append(pseudo_stacks.pop(-1))
-                    elif last_stack_key[1] == stack_len:
-                        # a new include
-                        pseudo_stacks[-2][1].append(pseudo_stacks.pop(-1))
-                        pseudo_stacks.append((set(), []))
-                    elif last_stack_key[1] < stack_len:
-                        for _p in range(last_stack_key[1], stack_len):
-                            pseudo_stacks.append((set(), []))
-                    else:
-                        raise NotImplementedError
-                last_stack_key = snakefile, stack_len
-            pseudo_stacks[-1][0].add(snakefile)
-            pseudo_stacks[-1][1].append(rulename)
-        while len(pseudo_stacks) > 1:
-            pseudo_stacks[-2][1].append(pseudo_stacks.pop(-1))
-        if len(pseudo_stacks[0][0]) > 0:
-            (included,) = pseudo_stacks[0][0]
-        else:
-            # keep consistent only, we know it isn't
-            included = self.snakefile
-        return included, pseudo_stacks[0][1]
+        if "*" in rule_whitelist:
+            if len(rule_whitelist) != 1:
+                raise SyntaxError(
+                    "The 'use rule' statement uses a wildcard '*' but lists multiple additional rules."
+                )
+            return self.rule_proxies._cached.keys() - excludes
+        return set(rule_whitelist) - excludes
 
     def _include(
         self,
+        avail_rules: set[str],
         snakefile: str | None,
-        rule_stacks: list[str | tuple],
+        rule_stacks: list[str | tuple[str, list]],
         name_modifier_func=_default_modify_rulename,
         overwrite_default_target=False,
     ):
+        """
+        This include is designed for select the default_target
+         as the old version does.
+        The param `overwrite_default_target` should only be assigned as True for the base level
+
+        Each rule will be send to Workflow with it's own modifier
+        """
         with self.workflow._include_stack(
             snakefile,
             overwrite_default_target=overwrite_default_target,
@@ -246,13 +212,8 @@ class ModuleInfo:
         ):
             for rule_s in rule_stacks:
                 if isinstance(rule_s, tuple):
-                    if len(rule_s[0]) > 0:
-                        (included,) = rule_s[0]
-                    else:
-                        # keep consistent only, we know it isn't
-                        included = snakefile
-                    self._include(included, rule_s[1], name_modifier_func)
-                else:
+                    self._include(avail_rules, rule_s[0], rule_s[1], name_modifier_func)
+                elif rule_s in avail_rules:
                     resolved_rulename = name_modifier_func(rule_s)
                     modifier, ruleinfo_, lineno, snakefile, checkpoint, stack_len = (
                         self.rule_proxies._cached[rule_s]
@@ -347,6 +308,9 @@ class WorkflowModifier:
                     rule.rule.is_checkpoint,
                     stack_len,
                 )
+            self.rule_proxies._stack.append(
+                (child_modifier.base_snakefile, list(child_modifier.rule_proxies._used))
+            )
         else:
             for name, rule in child_modifier.rule_proxies._used.items():
                 name = child_modifier.local_rulename_modifier(name)
@@ -413,3 +377,12 @@ class WorkflowModifier:
         finally:
             self.rule_whitelist = white
             self.rule_exclude_list = exclude
+
+    @contextmanager
+    def mask_ruleinfo(self, ruleinfo: "_workflow.RuleInfo | None" = None):
+        ruleinfo, self.ruleinfo_overwrite = self.ruleinfo_overwrite, None
+        try:
+            with self:
+                yield
+        finally:
+            self.ruleinfo_overwrite = ruleinfo
