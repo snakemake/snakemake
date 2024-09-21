@@ -81,6 +81,135 @@ class Assets:
             url="https://raw.githubusercontent.com/vega/vega/refs/tags/v5.21.0/LICENSE",
             sha256="b75f7ed0af20dedadf92c52bc236161bcf0d294ff2e6e34ca76403203349f71d",
         ),
+        # Begin dependencies for vega, included in vega/vega.js
+        # Versions from https://github.com/vega/vega/blob/v5.21.0/yarn.lock.
+		# Via vega-crossfilter, vega-encode, vega-format,
+		# vega-functions, vega-geo, vega-regression, vega-scale, vega-statistics,
+        # vega-time, vega-transforms, vega-view; and via d3-geo (via vega-functions,
+        # vega-geo, vega-projection); and via d3-geo-projection (via vega-projection)
+		#
+        # This has its own dependency, internmap (1.0.1); however, while we can
+        # find code from vega-crossfilter and d3-array in vega.js, there does
+        # not appear to be any code from internmap after tree-shaking.
+        "d3-array/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-array/refs/tags/v2.12.1/LICENSE",
+            sha256="0747bebeb06b10954913149be9b9a8bdf6fad3e6fdcbd9f9524e7a94c13d2cea",
+        ),
+        # Via vega-format
+        "d3-format/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-format/refs/tags/v2.0.0/LICENSE",
+            sha256="7eea8533ea92bd8c32a901e89ecb0305890905bb12711449565ddff96891146d",
+        ),
+        # Via vega-format
+        "d3-time-format/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-time-format/refs/tags/v3.0.0/LICENSE",
+            sha256="7a3cb0e5055874e67db9aa2d5fe26de23204fa994ffbad198901ffe9c812a717",
+        ),
+        # Via vega-time, vega-view; and via d3-time-format (via vega-format)
+        "d3-time/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-time/refs/tags/v2.1.1/LICENSE",
+            sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+        ),
+        # Via vega-encode, vega-scale
+        "d3-interpolate/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-interpolate/refs/tags/v2.0.1/LICENSE",
+            sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+        ),
+        # Via vega-functions, vega-geo; and via d3-interpolate (via vega-encode)
+        "d3-color/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-color/refs/tags/v2.0.0/LICENSE",
+            sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+        ),
+        # Via vega-scale
+        "d3-scale/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-scale/refs/tags/v3.3.0/LICENSE",
+            sha256="7eea8533ea92bd8c32a901e89ecb0305890905bb12711449565ddff96891146d",
+        ),
+        # Via vega-expression
+        # The license file included in the NPM package does not exist directly
+        # in https://github.com/DefinitelyTyped/DefinitelyTyped, so we use an
+        # unpkg URL to reference the contents of the NPM package instead.
+        "@types-estree/LICENSE": Asset(
+            url="https://unpkg.com/@types/estree@0.0.50/LICENSE",
+            sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+        ),
+        # Via vega-force
+        "d3-force/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-force/refs/tags/v2.1.1/LICENSE",
+            sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+        ),
+        # Via d3-force (via vega-force)
+        "d3-dispatch/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-dispatch/refs/tags/v2.0.0/LICENSE",
+            sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+        ),
+        # Via d3-force (via vega-force)
+        "d3-quadtree/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-quadtree/refs/tags/v2.0.0/LICENSE",
+            sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+        ),
+        # Via vega-view; and via d3-force (via vega-force)
+        "d3-timer/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-timer/refs/tags/v2.0.0/LICENSE",
+            sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+        ),
+        # Via vega-functions, vega-geo, vega-projection (directly and via
+        # d3-geo-projection)
+        "d3-geo/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-geo/refs/tags/v2.0.2/LICENSE",
+            sha256="c3c9d41a75b64963748657932167ec4c56404b8fd557d4f89c9eeda6e2fdf39a",
+        ),
+        # Via vega-hierarchy
+        "d3-hierarchy/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-hierarchy/refs/tags/v2.0.0/LICENSE",
+            sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+        ),
+        # Via vega-loader
+        # This has its own dependencies (commander 2.20.3, iconv-lite 0.4.24,
+        # rw 1.3.3), but they are all used only in the command-line tools
+        # rather than in the library that is bundled in vega.js.
+        "d3-dsv/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-dsv/refs/tags/v2.0.0/LICENSE",
+            sha256="8b5304265ccedbd17567aa14a0dc6b9bf4013fee44964c46aa54fdf8527d6a68",
+        ),
+        # Via vega-loader
+        # This has its own dependency (commander 2.20.3), but it is used only
+        # in the command-line tools rather than in the library that is bundled
+        # in vega.js.
+        # Dependency node-fetch 2.6.4, via vega-loader, is not used for browser builds.
+        "topojson-client/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/topojson/topojson-client/refs/tags/v3.1.0/LICENSE",
+            sha256="4c4d15b635e04e691825a76db7d33f7f2033b55669a7430011694f31e6c65999",
+        ),
+        # Via vega-projection
+        # This has its own dependencies (commander 2.20.3, resolve 1.20.0), but
+        # they are all used only in the command-line tools rather than in the
+        # library that is bundled in vega.js.
+        "d3-geo-projection/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-geo-projection/refs/tags/v3.0.0/LICENSE",
+            sha256="4108a126a74cc35d4d5ae39ca5d0cc926fa7c8ec40e459a0c6d3481c69decbd8",
+        ),
+        # Via vega-scenegraph (directly and via d3-shape)
+        "d3-path/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-path/refs/tags/v2.0.0/LICENSE",
+            sha256="b8265327ab678f554800e71188b1cc6b1ff57522e292d2b1c0be66f27cf328b6",
+        ),
+        # Via vega-scenegraph
+        "d3-shape/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-shape/refs/tags/v2.1.0/LICENSE",
+            sha256="7eea8533ea92bd8c32a901e89ecb0305890905bb12711449565ddff96891146d",
+        ),
+        # Via vega-voronoi
+        "d3-delaunay/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/d3/d3-delaunay/refs/tags/v5.2.0/LICENSE",
+            sha256="d19bf35c4080eea32e098a9c8d62540ffd425611ac8dfc856a233f0357d8b02e",
+        ),
+        # Via d3-delaunay (via vega-voronoi)
+        "delaunator/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/mapbox/delaunator/refs/tags/v4.0.1/LICENSE",
+            sha256="27043d1a6a0e1985fde12660decbbd3b23c67de900b00609c90d4f0aa492f425",
+        ),
+        # End dependencies for vega, included in vega/vega.js
         "vega-lite/vega-lite.js": Asset(
             url="https://cdnjs.cloudflare.com/ajax/libs/vega-lite/5.2.0/vega-lite.js",
             sha256="6eb7f93121cd9f44cf8640244f87c5e143f87c7a0b6cd113da4a9e41e3adf0aa",

@@ -38,6 +38,71 @@ def get_packages():
                 source_path="vega/vega.js",
                 license_path="vega/LICENSE",
             ),
+            # Begin dependencies for vega, included in vega/vega.js
+            "d3-array": Package(
+                license_path="d3-array/LICENSE",
+            ),
+            "d3-format": Package(
+                license_path="d3-format/LICENSE",
+            ),
+            "d3-time-format": Package(
+                license_path="d3-time-format/LICENSE",
+            ),
+            "d3-time": Package(
+                license_path="d3-time/LICENSE",
+            ),
+            "d3-interpolate": Package(
+                license_path="d3-interpolate/LICENSE",
+            ),
+            "d3-color": Package(
+                license_path="d3-color/LICENSE",
+            ),
+            "d3-scale": Package(
+                license_path="d3-scale/LICENSE",
+            ),
+            "@types-estree": Package(
+                license_path="@types-estree/LICENSE",
+            ),
+            "d3-force": Package(
+                license_path="d3-force/LICENSE",
+            ),
+            "d3-dispatch": Package(
+                license_path="d3-dispatch/LICENSE",
+            ),
+            "d3-quadtree": Package(
+                license_path="d3-quadtree/LICENSE",
+            ),
+            "d3-timer": Package(
+                license_path="d3-timer/LICENSE",
+            ),
+            "d3-geo": Package(
+                license_path="d3-geo/LICENSE",
+            ),
+            "d3-hierarchy": Package(
+                license_path="d3-hierarchy/LICENSE",
+            ),
+            "d3-dsv": Package(
+                license_path="d3-dsv/LICENSE",
+            ),
+            "topojson-client": Package(
+                license_path="topojson-client/LICENSE",
+            ),
+            "d3-geo-projection": Package(
+                license_path="d3-geo-projection/LICENSE",
+            ),
+            "d3-path": Package(
+                license_path="d3-path/LICENSE",
+            ),
+            "d3-shape": Package(
+                license_path="d3-shape/LICENSE",
+            ),
+            "d3-delaunay": Package(
+                license_path="d3-delaunay/LICENSE",
+            ),
+            "delaunator": Package(
+                license_path="delaunator/LICENSE",
+            ),
+            # End dependencies for vega, included in vega/vega.js
             "vega-lite": Package(
                 source_path="vega-lite/vega-lite.js",
                 license_path="vega-lite/LICENSE",
