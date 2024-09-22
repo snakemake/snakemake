@@ -1616,6 +1616,7 @@ class Workflow(WorkflowExecutorInterface):
         self._global_rules_count += 1
         orig_name = name or str(self._global_rules_count)
 
+        self.modifier.include_rule_stack.append(orig_name)
         if self.modifier.skip_rule(orig_name):
 
             def decorate(ruleinfo: RuleInfo):
@@ -1634,7 +1635,6 @@ class Workflow(WorkflowExecutorInterface):
                     checkpoint,
                     len(self.included_stack),
                 )
-                self.modifier.include_rule_stack.append(orig_name)
                 return ruleinfo.func
 
             return decorate
@@ -1649,10 +1649,9 @@ class Workflow(WorkflowExecutorInterface):
         rule.is_checkpoint = checkpoint
         rule.module_globals = self.modifier.globals
 
-        if not self.modifier.skip_rule(orig_name):
-            self.add_rule(
-                rule, checkpoint, allow_overwrite=self.modifier.allow_rule_overwrite
-            )
+        self.add_rule(
+            rule, checkpoint, allow_overwrite=self.modifier.allow_rule_overwrite
+        )
         # handle default resources
         if self.resource_settings.default_resources is not None:
             rule.resources = copy.deepcopy(
@@ -1699,7 +1698,7 @@ class Workflow(WorkflowExecutorInterface):
                 self._localrules.add(rule.name)
                 rule.is_handover = True
 
-            if not self.modifier.skip_rule(orig_name):
+            if self.modifier.rule_whitelist != []:
                 if ruleinfo.cache not in {False, True, "omit-software", "all"}:
                     raise WorkflowError(
                         "Invalid value for cache directive. Use 'all' or 'omit-software'.",
@@ -2076,6 +2075,8 @@ class Workflow(WorkflowExecutorInterface):
                         lineno=lineno,
                         snakefile=self.included_stack[-1],
                     )(orig_ruleinfo)
+                # manually add this to stack
+                self.modifier.include_rule_stack.append(resolved_rulename)
 
         return decorate
 

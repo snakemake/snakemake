@@ -111,6 +111,7 @@ class Rules:
         )
 
     def _rescue_register_rule(self, name):
+        # this should only happened dunring module loading
         if name not in self._rescued:
             modifier, ruleinfo, lineno, snakefile, checkpoint, stack_len = self._cached[
                 name
@@ -124,6 +125,8 @@ class Rules:
                     checkpoint=checkpoint,
                 )(ruleinfo)
                 self._rescued, self._used = self._used, self._rescued
+                # don't add again
+                assert modifier.include_rule_stack.pop(-1) == name
         return self._rescued[name]
 
     def get_ruleinfo(self, rulename):

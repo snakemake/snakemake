@@ -139,9 +139,9 @@ class ModuleInfo:
             None, name_modifier, parent_modifier=self.parent_modifier
         )
         avail_rules = self.get_rules(rules, exclude_rules)
-        (rule_stack,) = self.modifier.include_rule_stack
+        rule_stack, *_ = self.modifier.include_rule_stack
+        assert isinstance(rule_stack, tuple)
         with self.modifier.mask_ruleinfo(ruleinfo):
-            assert isinstance(rule_stack, tuple)
             self._include(
                 avail_rules, self.snakefile, rule_stack[2], name_modifier_func, True
             )
@@ -211,7 +211,6 @@ class ModuleInfo:
             module_use=True,
         ):
             for rule_s in rule_stacks:
-                print(overwrite_default_target, rule_s)
                 if isinstance(rule_s, tuple):
                     self._include(
                         avail_rules, rule_s[0], rule_s[2], name_modifier_func, rule_s[1]
@@ -229,6 +228,7 @@ class ModuleInfo:
                             snakefile=snakefile,
                             checkpoint=checkpoint,
                         )(orig_ruleinfo)
+                    self.parent_modifier.include_rule_stack.append(resolved_rulename)
 
 
 class WorkflowModifier:
