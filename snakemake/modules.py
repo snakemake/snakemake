@@ -63,7 +63,6 @@ class ModuleInfo:
         self.parent_modifier = self.workflow.modifier
         self.rule_proxies = _rules.Rules()
         self.namespace = types.ModuleType(name)
-        self.stack_len = 0
 
         if prefix is not None:
             if isinstance(prefix, Path):
@@ -110,7 +109,6 @@ class ModuleInfo:
         )
         with self.modifier.mask_rules():
             self.workflow.include(snakefile, overwrite_default_target=False)
-            self.stack_len = len(self.workflow.included_stack) + 1
         if self.name:
             # update globals in inner modules
             self.namespace.__dict__.update(self.modifier.globals)
@@ -145,7 +143,7 @@ class ModuleInfo:
             self._include(
                 avail_rules, self.snakefile, rule_stack[2], name_modifier_func, True
             )
-        self.parent_modifier.inherit_rule_proxies(self.modifier, self.stack_len)
+        self.parent_modifier.inherit_rule_proxies(self.modifier)
         self.parent_modifier.inherit_ruleorder(self.modifier, name_modifier_func)
 
     def get_snakefile(self):
@@ -217,7 +215,7 @@ class ModuleInfo:
                     )
                 elif rule_s in avail_rules:
                     resolved_rulename = name_modifier_func(rule_s)
-                    modifier, ruleinfo_, lineno, snakefile, checkpoint, stack_len = (
+                    modifier, ruleinfo_, lineno, snakefile, checkpoint = (
                         self.rule_proxies._cached[rule_s]
                     )
                     orig_ruleinfo = copy(ruleinfo_)
@@ -298,8 +296,12 @@ class WorkflowModifier:
     def rule_proxies(self) -> "_rules.Rules":
         return self.globals["rules"]
 
-    def inherit_rule_proxies(self, child_modifier: "WorkflowModifier", stack_len: int):
-        if self.rule_whitelist == []:
+    @property
+    def is_loading(self):
+        return self.rule_whitelist == []
+
+    def inherit_rule_proxies(self, child_modifier: "WorkflowModifier"):
+        if self.is_loading:
             """
             During module loading, may use rule from submodules.
             Then we just need to add the "used" rule to cache only
@@ -311,7 +313,6 @@ class WorkflowModifier:
                     rule.rule.lineno,
                     rule.rule.snakefile,
                     rule.rule.is_checkpoint,
-                    stack_len,
                 )
         else:
             for name, rule in child_modifier.rule_proxies._used.items():

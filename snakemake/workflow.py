@@ -1472,7 +1472,7 @@ class Workflow(WorkflowExecutorInterface):
         self.included_stack.append(snakefile)
         default_target = self.default_target
         try:
-            if self.modifier.rule_whitelist == []:
+            if self.modifier.is_loading:
                 # During module loading
                 rule_stack, self.modifier.include_rule_stack = (
                     self.modifier.include_rule_stack,
@@ -1482,7 +1482,7 @@ class Workflow(WorkflowExecutorInterface):
         finally:
             if not overwrite_default_target:
                 self.default_target = default_target
-            if self.modifier.rule_whitelist == []:
+            if self.modifier.is_loading:
                 rule_stack.append(
                     (
                         snakefile,
@@ -1617,7 +1617,7 @@ class Workflow(WorkflowExecutorInterface):
         orig_name = name or str(self._global_rules_count)
 
         self.modifier.include_rule_stack.append(orig_name)
-        if self.modifier.skip_rule(orig_name):
+        if self.modifier.is_loading:
 
             def decorate(ruleinfo: RuleInfo):
                 """
@@ -1633,7 +1633,6 @@ class Workflow(WorkflowExecutorInterface):
                     lineno,
                     self.included_stack[-1],
                     checkpoint,
-                    len(self.included_stack),
                 )
                 return ruleinfo.func
 
@@ -1698,15 +1697,16 @@ class Workflow(WorkflowExecutorInterface):
                 self._localrules.add(rule.name)
                 rule.is_handover = True
 
-            if self.modifier.rule_whitelist != []:
-                if ruleinfo.cache not in {False, True, "omit-software", "all"}:
+            if not self.modifier.is_loading:
+                if ruleinfo.cache is True:
+                    self.cache_rules[rule.name] = "all"
+                elif ruleinfo.cache in {False, "omit-software", "all"}:
+                    self.cache_rules[rule.name] = ruleinfo.cache
+                else:
                     raise WorkflowError(
                         "Invalid value for cache directive. Use 'all' or 'omit-software'.",
                         rule=rule,
                     )
-                self.cache_rules[rule.name] = (
-                    "all" if ruleinfo.cache is True else ruleinfo.cache
-                )
 
                 if ruleinfo.default_target is True:
                     self.default_target = rule.name

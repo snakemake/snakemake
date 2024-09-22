@@ -83,7 +83,6 @@ class Rules:
                 "int | None",
                 "str | None",
                 bool,
-                int,
             ],
         ] = OrderedDict()
         self._used: dict[str, "RuleProxy"] = {}
@@ -113,9 +112,7 @@ class Rules:
     def _rescue_register_rule(self, name):
         # this should only happened dunring module loading
         if name not in self._rescued:
-            modifier, ruleinfo, lineno, snakefile, checkpoint, stack_len = self._cached[
-                name
-            ]
+            modifier, ruleinfo, lineno, snakefile, checkpoint = self._cached[name]
             with modifier.mask_skip():
                 self._rescued, self._used = self._used, self._rescued
                 modifier.workflow.rule(
@@ -380,10 +377,10 @@ class Rule(RuleInterface):
             if self.wildcard_names != wildcard_names:
                 raise RuleException(
                     "Not all output, log and benchmark files of "
-                    "rule {} contain the same wildcards. "
+                    f"rule {self.name} contain the same wildcards. "
                     "This is crucial though, in order to "
                     "avoid that two or more jobs write to the "
-                    "same file.".format(self.name),
+                    "same file.",
                     rule=self,
                 )
 
