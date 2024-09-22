@@ -1472,10 +1472,25 @@ class Workflow(WorkflowExecutorInterface):
         self.included_stack.append(snakefile)
         default_target = self.default_target
         try:
+            if self.modifier.rule_whitelist == []:
+                # During module loading
+                rule_stack, self.modifier.include_rule_stack = (
+                    self.modifier.include_rule_stack,
+                    [],
+                )
             yield
         finally:
             if not overwrite_default_target:
                 self.default_target = default_target
+            if self.modifier.rule_whitelist == []:
+                rule_stack.append(
+                    (
+                        snakefile,
+                        overwrite_default_target,
+                        self.modifier.include_rule_stack,
+                    )
+                )
+                self.modifier.include_rule_stack = rule_stack
             self.included_stack.pop()
 
     def onstart(self, func):
@@ -1619,7 +1634,7 @@ class Workflow(WorkflowExecutorInterface):
                     checkpoint,
                     len(self.included_stack),
                 )
-                self.modifier.rule_proxies._stack.append(orig_name)
+                self.modifier.include_rule_stack.append(orig_name)
                 return ruleinfo.func
 
             return decorate

@@ -139,13 +139,11 @@ class ModuleInfo:
             None, name_modifier, parent_modifier=self.parent_modifier
         )
         avail_rules = self.get_rules(rules, exclude_rules)
+        (rule_stack,) = self.modifier.include_rule_stack
         with self.modifier.mask_ruleinfo(ruleinfo):
+            assert isinstance(rule_stack, tuple)
             self._include(
-                avail_rules,
-                self.snakefile,
-                self.rule_proxies._stack,
-                name_modifier_func,
-                True,
+                avail_rules, self.snakefile, rule_stack[2], name_modifier_func, True
             )
         self.parent_modifier.inherit_rule_proxies(self.modifier, self.stack_len)
         self.parent_modifier.inherit_ruleorder(self.modifier, name_modifier_func)
@@ -194,14 +192,16 @@ class ModuleInfo:
         self,
         avail_rules: set[str],
         snakefile: str | None,
-        rule_stacks: list[str | tuple[str, list]],
+        rule_stacks: list[str | tuple[str, bool, list]],
         name_modifier_func=_default_modify_rulename,
         overwrite_default_target=False,
     ):
         """
-        This include is designed for select the default_target
-         as the old version does.
-        The param `overwrite_default_target` should only be assigned as True for the base level
+        By default,
+        only rules defined in the base snakefile will be considered for default_target.
+        However, those defined in the base module snakefile will be considered as well.
+        To keep this feature,
+        the param `overwrite_default_target` should only be assigned as True for the base level
 
         Each rule will be send to Workflow with it's own modifier
         """
@@ -211,8 +211,11 @@ class ModuleInfo:
             module_use=True,
         ):
             for rule_s in rule_stacks:
+                print(overwrite_default_target, rule_s)
                 if isinstance(rule_s, tuple):
-                    self._include(avail_rules, rule_s[0], rule_s[1], name_modifier_func)
+                    self._include(
+                        avail_rules, rule_s[0], rule_s[2], name_modifier_func, rule_s[1]
+                    )
                 elif rule_s in avail_rules:
                     resolved_rulename = name_modifier_func(rule_s)
                     modifier, ruleinfo_, lineno, snakefile, checkpoint, stack_len = (
@@ -229,7 +232,6 @@ class ModuleInfo:
 
 
 class WorkflowModifier:
-
     def __init__(
         self,
         workflow: "_workflow.Workflow",
@@ -288,6 +290,9 @@ class WorkflowModifier:
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
         self._ruleorder = _rules.Ruleorder()
+        # if is string, that is the rule defined in the base snakefile
+        # else are those in each `included` snakefile
+        self.include_rule_stack: list[str | tuple[str, bool, list]] = []
 
     @property
     def rule_proxies(self) -> "_rules.Rules":
@@ -308,9 +313,6 @@ class WorkflowModifier:
                     rule.rule.is_checkpoint,
                     stack_len,
                 )
-            self.rule_proxies._stack.append(
-                (child_modifier.base_snakefile, list(child_modifier.rule_proxies._used))
-            )
         else:
             for name, rule in child_modifier.rule_proxies._used.items():
                 name = child_modifier.local_rulename_modifier(name)
