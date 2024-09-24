@@ -1856,9 +1856,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         shared_input_output = (
             SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
         )
-        if (
-            self.workflow.is_main_process and shared_input_output
-        ) or self.workflow.remote_exec:
+        if not self.workflow.dryrun and (
+            (self.workflow.is_main_process and shared_input_output)
+            or self.workflow.remote_exec
+        ):
             await self.retrieve_storage_inputs()
 
     def register_running(self, jobs):
