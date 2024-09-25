@@ -12,7 +12,7 @@ checkpoint foo:
     output:
         storage("fs/test.txt")
     shell:
-        "echo 'test' > test.txt"
+        "echo 'test' > {output}"
 
 
 rule bar:
