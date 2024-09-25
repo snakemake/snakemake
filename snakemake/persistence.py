@@ -27,6 +27,7 @@ from snakemake.logging import logger
 from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
 from snakemake.io import is_flagged, get_flag_value
+from snakemake_interface_common.exceptions import WorkflowError
 
 
 UNREPRESENTABLE = object()
@@ -259,11 +260,20 @@ class Persistence(PersistenceExecutorInterface):
         ):
             removed = False
             if os.path.exists(address):
-                shutil.rmtree(address)
+                try:
+                    shutil.rmtree(address)
+                except Exception as e:
+                    raise WorkflowError(f"Failed to remove conda env {address}: {e}")
                 removed = True
             yaml_path = Path(address).with_suffix(".yaml")
             if yaml_path.exists():
-                yaml_path.unlink()
+                try:
+                    yaml_path.unlink()
+                except Exception as e:
+                    raise WorkflowError(
+                        f"Failed to remove conda env yaml {yaml_path}: {e}"
+                    )
+
                 removed = True
             if removed:
                 logger.info(f"Removed conda env {address}")
