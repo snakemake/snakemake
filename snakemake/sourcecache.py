@@ -25,6 +25,7 @@ from snakemake.common import (
 )
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.common.git import split_git_path
+from snakemake.logging import logger
 
 
 def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
@@ -370,7 +371,7 @@ class SourceCache:
 
     def exists(self, source_file):
         try:
-            self._cache(source_file)
+            self._cache(source_file, retries=1)
         except Exception:
             return False
         return True
@@ -391,15 +392,15 @@ class SourceCache:
             # check runtime cache
             return Path(self.runtime_cache_path) / file_cache_path
 
-    def _cache(self, source_file: SourceFile):
+    def _cache(self, source_file: SourceFile, retries: int = 3):
         cache_entry = self._cache_entry(source_file)
         if not cache_entry.exists():
-            self._do_cache(source_file, cache_entry)
+            self._do_cache(source_file, cache_entry, retries=retries)
         return cache_entry
 
-    def _do_cache(self, source_file, cache_entry: Path):
+    def _do_cache(self, source_file, cache_entry: Path, retries: int = 3):
         # open from origin
-        with self._open_local_or_remote(source_file, "rb") as source:
+        with self._open_local_or_remote(source_file, "rb", retries=retries) as source:
             cache_entry.parent.mkdir(parents=True, exist_ok=True)
             tmp_source = tempfile.NamedTemporaryFile(
                 prefix=str(cache_entry),
@@ -424,14 +425,21 @@ class SourceCache:
             # as mtime.
             os.utime(cache_entry, times=(mtime, mtime))
 
-    def _open_local_or_remote(self, source_file: SourceFile, mode, encoding=None):
+    def _open_local_or_remote(
+        self, source_file: SourceFile, mode, encoding=None, retries: int = 3
+    ):
         from reretry.api import retry_call
 
         if source_file.is_local:
             return self._open(source_file, mode, encoding=encoding)
         else:
             return retry_call(
-                self._open, [source_file, mode, encoding], tries=3, delay=3, backoff=2
+                self._open,
+                [source_file, mode, encoding],
+                tries=retries,
+                delay=3,
+                backoff=2,
+                logger=logger,
             )
 
     def _open(self, source_file: SourceFile, mode, encoding=None):
