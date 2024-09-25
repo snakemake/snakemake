@@ -9,6 +9,7 @@ import sys
 import subprocess as sp
 from pathlib import Path
 import tempfile
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from snakemake.resources import DefaultResources, GroupResources
@@ -1465,6 +1466,11 @@ def test_output_file_cache_storage(s3_storage):
         default_storage_prefix=prefix,
         storage_provider_settings=settings,
     )
+
+
+@patch("snakemake.io._IOFile.retrieve_from_storage", AsyncMock(side_effect=Exception))
+def test_storage_noretrieve_dryrun():
+    run(dpath("test_storage_noretrieve_dryrun"), executor="dryrun")
 
 
 def test_multiext():
