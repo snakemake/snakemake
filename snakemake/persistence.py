@@ -254,13 +254,19 @@ class Persistence(PersistenceExecutorInterface):
 
     def conda_cleanup_envs(self):
         # cleanup envs
-        in_use = set(env.hash[:8] for env in self.dag.conda_envs.values())
-        for d in os.listdir(self.conda_env_path):
-            if len(d) >= 8 and d[:8] not in in_use:
-                if os.path.isdir(os.path.join(self.conda_env_path, d)):
-                    shutil.rmtree(os.path.join(self.conda_env_path, d))
-                else:
-                    os.remove(os.path.join(self.conda_env_path, d))
+        for address in set(
+            env.address for env in self.dag.conda_envs.values() if not env.is_named
+        ):
+            removed = False
+            if os.path.exists(address):
+                shutil.rmtree(address)
+                removed = True
+            yaml_path = Path(address).with_suffix(".yaml")
+            if yaml_path.exists():
+                yaml_path.unlink()
+                removed = True
+            if removed:
+                logger.info(f"Removed conda env {address}")
 
         # cleanup env archives
         in_use = set(env.content_hash for env in self.dag.conda_envs.values())
