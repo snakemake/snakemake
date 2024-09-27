@@ -118,6 +118,10 @@ def lookup(
 ):
     """Lookup values in a pandas dataframe, series, or python mapping (e.g. dict).
 
+    Required argument ``within`` should be a pandas dataframe or series (in which
+    case use ``query``, and optionally ``cols`` and ``is_nrows``), or a Python
+    mapping like a dict (in which case use the ``dpath`` argument is used).
+
     In case of a pandas dataframe (see https://pandas.pydata.org),
     the query parameter is passed to DataFrame.query().
     If the query results in multiple rows, the result is returned as a list of
@@ -137,13 +141,17 @@ def lookup(
     a single column, e.g.
     ``lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")``.
     In the latter case, just a list of items in that column is returned.
-
+    Finally, if the integer argument ``is_nrows`` is used, this returns true
+    if there are that many rows in the query results, false otherwise.
 
     In case of a pandas series, the series is converted into a dataframe via
     Series.to_frame() and the same logic as for a dataframe is applied.
 
-    In case of a python mapping, the dpath parameter is passed to dpath.values()
-    (see https://github.com/dpath-maintainers/dpath-python).
+    In case of a python mapping, the ``dpath`` parameter is passed to
+    ``dpath.values()`` (see https://github.com/dpath-maintainers/dpath-python),
+    and the ``query``, ``cols``, and ``is_nrows`` arguments are ignored. If the
+    dpath is not found, a ``LookupError`` is raised, unless a default fallback
+    value is provided via the ``default`` argument.
 
     Query, dpath and cols may contain wildcards (e.g. {sample}).
     In that case, this function returns a Snakemake input function which takes
@@ -154,9 +162,6 @@ def lookup(
     to auxiliary namespace arguments given to the lookup function, e.g.
     ``lookup(query="cell_type == '{sample.cell_type}'", within=samples, sample=lookup("sample == '{sample}'", within=samples))``
     This way, one can e.g. pass additional variables or chain lookups into more complex queries.
-
-    In case of dpath, if the dpath is not found, a LookupError is raised, unless a
-    default fallback value is provided via the ``default`` argument.
     """
     error = partial(LookupError, query=query, dpath=dpath)
 

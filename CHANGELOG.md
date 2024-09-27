@@ -1,6 +1,66 @@
 # Changelog
 
 
+## [8.20.5](https://github.com/snakemake/snakemake/compare/v8.20.4...v8.20.5) (2024-09-25)
+
+
+### Bug Fixes
+
+* fixed check for remote conda env pinning and post-deploy files; fixed conda env cleanup ([#3103](https://github.com/snakemake/snakemake/issues/3103)) ([4d0a7e9](https://github.com/snakemake/snakemake/commit/4d0a7e9b0e56592aeda16d4961fd6acb1aabcca6))
+* omit storage downloads during dryrun in workflows with checkpoints ([#3100](https://github.com/snakemake/snakemake/issues/3100)) ([151216a](https://github.com/snakemake/snakemake/commit/151216a64d7b19ceabab400b8f345d3e02d442ab))
+
+## [8.20.4](https://github.com/snakemake/snakemake/compare/v8.20.3...v8.20.4) (2024-09-20)
+
+
+### Bug Fixes
+
+* cache conda envs to fix performance regression introduced in https://github.com/snakemake/snakemake/pull/1300 ([#3093](https://github.com/snakemake/snakemake/issues/3093)) ([66600c4](https://github.com/snakemake/snakemake/commit/66600c4a293446f5fdfff25075f5844fb2d720f2))
+* Flatten conda pip dependencies for report rule info ([#3085](https://github.com/snakemake/snakemake/issues/3085)) ([56a1f20](https://github.com/snakemake/snakemake/commit/56a1f207ecf8343deab2b1583709fc9effc0ffb1))
+* improve runtime complexity of post-job checkpoint handling ([#3096](https://github.com/snakemake/snakemake/issues/3096)) ([ba30781](https://github.com/snakemake/snakemake/commit/ba307816220c4313f82c0362fd6f00e783972569))
+
+
+### Documentation
+
+* Clarify the lookup function docstring ([#3091](https://github.com/snakemake/snakemake/issues/3091)) ([94177d5](https://github.com/snakemake/snakemake/commit/94177d5043bb5b15bf507c470374cdef9e8fe78f))
+* Update lookup signature ([#3090](https://github.com/snakemake/snakemake/issues/3090)) ([655d6a1](https://github.com/snakemake/snakemake/commit/655d6a121642d781ea44b93bd21d1f4a36f80c36))
+
+## [8.20.3](https://github.com/snakemake/snakemake/compare/v8.20.2...v8.20.3) (2024-09-09)
+
+
+### Bug Fixes
+
+* Add --cache to general_args for jobscripts ([#3080](https://github.com/snakemake/snakemake/issues/3080)) ([884498b](https://github.com/snakemake/snakemake/commit/884498bf6d4e171c8b4cef1463f9490689f0528d))
+
+## [8.20.2](https://github.com/snakemake/snakemake/compare/v8.20.1...v8.20.2) (2024-09-09)
+
+
+### Bug Fixes
+
+* ensure that CLI help is formatted deterministically and set defaults are displayed properly (based on preliminary work by [@keszybz](https://github.com/keszybz)) ([#3081](https://github.com/snakemake/snakemake/issues/3081)) ([cbc2e2c](https://github.com/snakemake/snakemake/commit/cbc2e2c4086426a52f71a15384d18973ec8c9714))
+
+## [8.20.1](https://github.com/snakemake/snakemake/compare/v8.20.0...v8.20.1) (2024-09-07)
+
+
+### Bug Fixes
+
+* add testcase data to package files ([#3077](https://github.com/snakemake/snakemake/issues/3077)) ([e90b098](https://github.com/snakemake/snakemake/commit/e90b09835404c3112c7c455accd2999f53653723))
+
+## [8.20.0](https://github.com/snakemake/snakemake/compare/v8.19.3...v8.20.0) (2024-09-07)
+
+
+### Features
+
+* allow skipping apptainer and conda tests if not available ([#3074](https://github.com/snakemake/snakemake/issues/3074)) ([c3cd4e0](https://github.com/snakemake/snakemake/commit/c3cd4e01ad182433cbd4406f9007c167f805c0f5))
+* MANIFEST.in: include tests/ in sdist ([#3073](https://github.com/snakemake/snakemake/issues/3073)) ([e24f3fc](https://github.com/snakemake/snakemake/commit/e24f3fc3078e4cee56334e2101939dd146c8f1b3))
+
+
+### Bug Fixes
+
+* add subfolders of report template to package data ([14a8f22](https://github.com/snakemake/snakemake/commit/14a8f2244f8d602f5c2988937ed722ab24c77259))
+* Inconsistent Linting Output Formatting ([#3064](https://github.com/snakemake/snakemake/issues/3064)) ([90e51ae](https://github.com/snakemake/snakemake/commit/90e51ae68985d539ee716aa619fca6a8b625c60e))
+* retry when downloading assets ([58e41b0](https://github.com/snakemake/snakemake/commit/58e41b0f6d1e7f7a6c7e2d915ba83ea786b237ed))
+* skip asset download if files are already present ([#3076](https://github.com/snakemake/snakemake/issues/3076)) ([0d3d1e1](https://github.com/snakemake/snakemake/commit/0d3d1e1fd254e28f956243f4e01b51eb81b9a717))
+
 ## [8.19.3](https://github.com/snakemake/snakemake/compare/v8.19.2...v8.19.3) (2024-09-05)
 
 

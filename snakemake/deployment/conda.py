@@ -4,7 +4,6 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
-from pathlib import Path
 import re
 from snakemake.sourcecache import (
     LocalGitFile,
@@ -96,25 +95,49 @@ class Env:
             container_img=self._container_img, frontend=self.frontend, check=True
         )
 
-    @lazy_property
-    def pin_file(self):
-        pin_file = Path(self.file.get_path_or_uri()).with_suffix(
-            f".{self.conda.platform}.pin.txt"
-        )
-
-        if pin_file.exists():
-            return infer_source_file(pin_file)
+    def _path_or_uri_prefix(self):
+        prefix = self.file.get_path_or_uri()
+        if prefix.endswith(".yaml") or prefix.endswith(".yml"):
+            prefix = prefix.rsplit(".", 1)[0]
+            return prefix
         else:
             return None
 
     @lazy_property
+    def pin_file(self):
+        return self._get_aux_file(
+            f".{self.conda.platform}.pin.txt",
+            "Omitting search for pin file "
+            "(https://snakemake.readthedocs.io/en/stable/snakefiles/"
+            "deployment.html#freezing-environments-to-exactly-pinned-packages).",
+        )
+
+    @lazy_property
     def post_deploy_file(self):
+        return self._get_aux_file(
+            ".post-deploy.sh",
+            "Omitting search for post-deploy script "
+            "(https://snakemake.readthedocs.io/en/stable/snakefiles/"
+            "deployment.html#providing-post-deployment-scripts).",
+        )
+
+    def _get_aux_file(self, suffix: str, omit_msg: str):
         if self.file:
-            deploy_file = Path(self.file.get_path_or_uri()).with_suffix(
-                ".post-deploy.sh"
-            )
-            if deploy_file.exists():
-                return infer_source_file(deploy_file)
+            prefix = self._path_or_uri_prefix()
+            if prefix is None:
+                logger.warning(
+                    f"Conda environment file {self.file.get_path_or_uri()} does not end "
+                    f"on .yaml or .yml. {omit_msg}"
+                )
+                return None
+            aux_file = f"{prefix}{suffix}"
+            aux_file = infer_source_file(aux_file)
+            if self.workflow.sourcecache.exists(aux_file):
+                return aux_file
+            else:
+                return None
+        else:
+            return None
 
     def _get_content(self):
         if self.is_named:
@@ -576,7 +599,7 @@ class Env:
                     else:
                         out = create_env(env_file, filetype="yaml")
 
-                # Execute post-deplay script if present
+                # Execute post-deploy script if present
                 if deploy_file:
                     target_deploy_file = env_path + ".post-deploy.sh"
                     shutil.copy(deploy_file, target_deploy_file)
@@ -602,6 +625,8 @@ class Env:
             os.remove(tmp_env_file)
         if tmp_deploy_file:
             os.remove(tmp_deploy_file)
+        if tmp_pin_file:
+            os.remove(tmp_pin_file)
 
         return env_path
 

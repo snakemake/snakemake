@@ -101,6 +101,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
+        self._checkpoint_jobs = set()
         self._priority = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
@@ -248,9 +249,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     @property
     def checkpoint_jobs(self):
-        for job in self.needrun_jobs():
-            if job.is_checkpoint:
-                yield job
+        return self._checkpoint_jobs
 
     @property
     def finished_checkpoint_jobs(self):
@@ -482,8 +481,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             incomplete = await self.incomplete_files()
             if incomplete:
                 if self.workflow.dag_settings.force_incomplete:
-                    logger.debug("Forcing incomplete files:")
-                    logger.debug("\t" + "\n\t".join(incomplete))
                     self.forcefiles.update(incomplete)
                 else:
                     raise IncompleteFilesException(incomplete)
@@ -768,11 +765,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
             if os.path.realpath(shadow_output) == os.path.realpath(real_output):
                 continue
-            logger.debug(
-                "Moving shadow output {} to destination {}".format(
-                    shadow_output, real_output
-                )
-            )
             shutil.move(shadow_output, real_output)
         shutil.rmtree(job.shadow_dir)
 
@@ -1337,6 +1329,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         _n_until_ready = self._n_until_ready
 
         _needrun.clear()
+        self._checkpoint_jobs.clear()
         _n_until_ready.clear()
         self._ready_jobs.clear()
 
@@ -1415,6 +1408,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         # update _n_until_ready
         for job in _needrun:
             _n_until_ready[job] = sum(1 for dep in dependencies[job] if dep in _needrun)
+            if job.is_checkpoint:
+                self._checkpoint_jobs.add(job)
 
         # update len including finished jobs (because they have already increased the job counter)
         self._len = len(self._finished | self._needrun)
@@ -1849,7 +1844,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 depending = list(self.depending[job])
                 all_depending.extend(depending)
         for j in all_depending:
-            logger.debug(f"Updating job {j}.")
             newjob = await j.updated()
             await self.replace_job(j, newjob, recursive=False)
             updated = True
@@ -1862,9 +1856,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         shared_input_output = (
             SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
         )
-        if (
-            self.workflow.is_main_process and shared_input_output
-        ) or self.workflow.remote_exec:
+        if not self.workflow.dryrun and (
+            (self.workflow.is_main_process and shared_input_output)
+            or self.workflow.remote_exec
+        ):
             await self.retrieve_storage_inputs()
 
     def register_running(self, jobs):
@@ -1901,6 +1896,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             jobs = [job]
 
         self._finished.update(jobs)
+        self.checkpoint_jobs.difference_update(job for job in jobs if job.is_checkpoint)
 
         updated_dag = False
         if update_checkpoint_dependencies:
@@ -1937,7 +1933,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        if not any(self.checkpoint_jobs):
+        if not self.checkpoint_jobs:
             # While there are still checkpoint jobs, we cannot safely delete
             # temp files.
             # TODO: we maybe could be more accurate and determine whether there is a
@@ -2041,9 +2037,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         await self.update([newjob])
 
-        logger.debug(f"Replace {job} with {newjob}")
         for job_, files in depending:
-            logger.debug(f"updating depending job {job_}")
             self._dependencies[job_][newjob].update(files)
             self.depending[newjob][job_].update(files)
 

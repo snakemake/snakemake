@@ -294,6 +294,7 @@ class SpawnedJobArgsFactory:
             w2a("output_settings.benchmark_extended"),
             w2a("execution_settings.latency_wait"),
             w2a("scheduling_settings.scheduler", flag="--scheduler"),
+            w2a("workflow_settings.cache"),
             local_storage_prefix,
             format_cli_arg(
                 "--scheduler-solver-path",
