@@ -450,11 +450,8 @@ class ColorizingTextHandler(_logging.StreamHandler):
             return self.handle_dag_debug(msg)
         elif level == "run_info":
             return self.handle_run_info(msg)
-        elif level == "debug":
+        else:
             return msg["msg"]
-
-        # Default to inherited format for any other log level
-        return super().format(record)
 
     def decorate(self, record, message):
         """
