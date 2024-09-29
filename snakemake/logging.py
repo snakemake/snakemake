@@ -447,16 +447,16 @@ class DefaultFormatter(_logging.Formatter):
     def handle_dag_debug(self, msg):
         """Format for dag_debug log."""
         output = []
-        if self.debug_dag:
-            if "file" in msg:
-                output.append(
-                    f"file {msg['file']}:\n    {msg['msg']}\n{textwrap.indent(str(msg['exception']), '    ')}"
-                )
-            else:
-                job = msg["job"]
-                output.append(
-                    f"{msg['status']} job {job.rule.name}\n    wildcards: {format_wildcards(job.wildcards)}"
-                )
+
+        if "file" in msg:
+            output.append(
+                f"file {msg['file']}:\n    {msg['msg']}\n{textwrap.indent(str(msg['exception']), '    ')}"
+            )
+        else:
+            job = msg["job"]
+            output.append(
+                f"{msg['status']} job {job.rule.name}\n    wildcards: {format_wildcards(job.wildcards)}"
+            )
         return "\n".join(output)
 
     def format_job_info(self, msg):
@@ -600,6 +600,57 @@ class DefaultFormatter(_logging.Formatter):
         return fmt(fraction)
 
 
+class DefaultFilter:
+    def __init__(
+        self,
+        quiet,
+        debug_dag,
+    ) -> None:
+        self.quiet = quiet
+        self.debug_dag = debug_dag
+
+    def is_quiet_about(self, msg_type: str):
+        from snakemake.settings.enums import Quietness
+
+        return (
+            Quietness.ALL in self.quiet
+            or Quietness.parse_choice(msg_type) in self.quiet
+        )
+
+    def filter(self, record):
+        if self.is_quiet_about("all"):
+            return False
+
+        msg = record.msg
+        level = msg.get("level", "INFO").lower()
+
+        # Respect quiet mode filtering
+        quietness_map = {
+            "job_info": "rules",
+            "group_info": "rules",
+            "job_error": "rules",
+            "group_error": "rules",
+            "progress": "progress",
+            "shellcmd": "progress",  # or other quietness types
+            "job_finished": "progress",
+            "resources_info": "progress",
+            "run_info": "progress",
+            "host": "host",
+            "info": "progress",
+        }
+
+        # Check quietness for specific levels and skip accordingly
+        if level in quietness_map:
+            if self.is_quiet_about(quietness_map[level]):
+                return False
+
+        # Handle dag_debug specifically
+        if level == "dag_debug" and not self.debug_dag:
+            return False
+
+        return True
+
+
 class ColorizingTextHandler(_logging.StreamHandler):
     """
     Custom handler that combines colorization and Snakemake-specific formatting.
@@ -663,36 +714,9 @@ class ColorizingTextHandler(_logging.StreamHandler):
         """
         with self._output_lock:
             try:
-                if self.is_quiet_about("all"):
-                    return
 
-                msg = record.msg
-                level = msg.get("level", "INFO").lower()
+                level = record.msg.get("level", "INFO").lower()
 
-                # Respect quiet mode filtering
-                quietness_map = {
-                    "job_info": "rules",
-                    "group_info": "rules",
-                    "job_error": "rules",
-                    "group_error": "rules",
-                    "progress": "progress",
-                    "shellcmd": "progress",  # or other quietness types
-                    "job_finished": "progress",
-                    "resources_info": "progress",
-                    "run_info": "progress",
-                    "host": "host",
-                    "info": "progress",
-                }
-
-                # Check quietness for specific levels and skip accordingly
-                if level in quietness_map:
-                    if self.is_quiet_about(quietness_map[level]):
-                        return
-
-                # Handle dag_debug specifically
-                if level == "dag_debug" and not self.debug_dag:
-                    return
-                # respect logging level in handler, so that other handlers get all logs.
                 if level == "job_info":
                     if not self.last_msg_was_job_info:
                         self.stream.write(
@@ -778,8 +802,16 @@ class Logger:
                     + ".snakemake.log",
                 )
             )
+            formatter = DefaultFormatter(
+                printreason=self.printreason,
+                show_failed_logs=self.show_failed_logs,
+                printshellmds=self.printshellcmds,
+            )
+            filter = DefaultFilter(quiet=self.quiet, debug_dag=self.debug_dag)
 
             self.logfile_handler = _logging.FileHandler(self.logfile)
+            self.logfile_handler.setFormatter(formatter)
+            self.logfile_handler.addFilter(filter)
             self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
@@ -979,7 +1011,9 @@ def setup_logger(
         show_failed_logs=show_failed_logs,
         printshellmds=printshellcmds,
     )
+    filter = DefaultFilter(quiet=quiet, debug_dag=debug_dag)
     stream_handler.setFormatter(formatter)
+    stream_handler.addFilter(filter)
     stream_handler.setLevel(_logging.DEBUG if debug else _logging.INFO)
     logger.set_stream_handler(stream_handler)
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
