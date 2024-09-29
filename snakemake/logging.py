@@ -320,7 +320,6 @@ CUSTOM_LEVEL_MAP = {
     # Add other custom levels as needed
 }
 
-
 class ColorizingTextHandler(_logging.StreamHandler):
     """
     Custom handler that combines colorization and Snakemake-specific formatting.
@@ -359,6 +358,7 @@ class ColorizingTextHandler(_logging.StreamHandler):
         self.debug_dag = debug_dag
         self._output_lock = threading.Lock()
         self.nocolor = nocolor or not self.can_color_tty(mode)
+        self.mode = mode
 
     def can_color_tty(self, mode):
         """
@@ -387,13 +387,38 @@ class ColorizingTextHandler(_logging.StreamHandler):
                 level = msg.get("level", "INFO").lower()
 
                 # Respect quiet mode filtering
-                if self.is_quiet_about(level):
-                    return
+                quietness_map = {
+                    "job_info": "rules",
+                    "group_info": "rules",
+                    "job_error": "rules",
+                    "group_error": "rules",
+                    "progress": "progress",
+                    "shellcmd": "progress",  # or other quietness types
+                    "job_finished": "progress",
+                    "resources_info": "progress",
+                    "run_info": "progress",
+                    "host": "host",
+                    "info": "progress",
+                }
+
+                # Check quietness for specific levels and skip accordingly
+                if level in quietness_map:
+                    if self.is_quiet_about(quietness_map[level]):
+                        return
 
                 # Handle dag_debug specifically
                 if level == "dag_debug" and not self.debug_dag:
                     return
                 # respect logging level in handler, so that other handlers get all logs.
+                if level == "job_info":
+                    if not self.last_msg_was_job_info:
+                        self.stream.write(
+                            "\n"
+                        )  # Add a blank line before a new job_info message
+                    self.last_msg_was_job_info = True
+                else:
+                    # Reset flag if the message is not a 'job_info'
+                    self.last_msg_was_job_info = False
                 formatted_message = self.format(record)
 
                 # Apply color to the formatted message
@@ -407,11 +432,13 @@ class ColorizingTextHandler(_logging.StreamHandler):
             except Exception as e:
                 self.handleError(record)
 
-    def is_quiet_about(self, msg_type):
-        """
-        Check if a message type should be suppressed based on quiet settings.
-        """
-        return msg_type in self.quiet or "all" in self.quiet
+    def is_quiet_about(self, msg_type: str):
+        from snakemake.settings.enums import Quietness
+
+        return (
+            Quietness.ALL in self.quiet
+            or Quietness.parse_choice(msg_type) in self.quiet
+        )
 
     def format(self, record):
         """
@@ -487,10 +514,7 @@ class ColorizingTextHandler(_logging.StreamHandler):
 
     def handle_run_info(self, msg):
         """Format the run_info log messages."""
-
-        if not self.is_quiet_about("progress"):
-            return msg["msg"]  # Log the message directly
-        return ""
+        return msg["msg"]  # Log the message directly
 
     def handle_host(self, msg):
         """Format for host log."""
@@ -499,8 +523,6 @@ class ColorizingTextHandler(_logging.StreamHandler):
     def handle_job_info(self, msg):
         """Format for job_info log."""
         output = []
-        if not self.last_msg_was_job_info:
-            output.append("")
 
         output.append(self.timestamp())
         if msg["msg"]:
@@ -514,16 +536,16 @@ class ColorizingTextHandler(_logging.StreamHandler):
             output.append("DAG of jobs will be updated after completion.")
         if msg["is_handover"]:
             output.append("Handing over execution to foreign system...")
-
-        # output.append("")
-        self.last_msg_was_job_info = True
+        output.append("")
         return "\n".join(output)
 
     def handle_group_info(self, msg):
         """Format for group_info log."""
-        return (
+        msg = (
             f"{self.timestamp()} group job {msg['groupid']} (jobs in lexicogr. order):"
         )
+
+        return msg
 
     def handle_job_error(self, msg):
         """Format for job_error log."""
@@ -707,11 +729,6 @@ class ColorizingTextHandler(_logging.StreamHandler):
         """Helper method to format the timestamp."""
         return f"[{time.asctime()}]"
 
-    def is_quiet_about(self, msg_type):
-        """Stub method to mimic quietness checks."""
-        # Assuming a method to check if logging should be quiet for a given message type
-        return False
-
     def format_percentage(self, done, total):
         """Helper method to format percentage."""
         if done == total:
@@ -797,7 +814,7 @@ class Logger:
         # Map custom levels to standard Python logging levels
         log_level = {
             "debug": _logging.DEBUG,
-            "info": _logging.INFO,
+            "info": _logging.WARNING,
             "warning": _logging.WARNING,
             "error": _logging.ERROR,
             "critical": _logging.CRITICAL,
@@ -935,14 +952,30 @@ def setup_logger(
     show_failed_logs=False,
     dryrun=False,
 ):
-    quiet_set = quiet if isinstance(quiet, set) else set()
+    from snakemake.settings.types import Quietness
+
+    if mode is None:
+        mode = get_default_exec_mode()
+
+    if quiet is None:
+        # not quiet at all
+        quiet = set()
+    elif isinstance(quiet, bool):
+        if quiet:
+            quiet = {Quietness.PROGRESS, Quietness.RULES}
+        else:
+            quiet = set()
+    elif not isinstance(quiet, set):
+        raise ValueError(
+            "Unsupported value provided for quiet mode (either bool, None or set allowed)."
+        )
 
     stream_handler = ColorizingTextHandler(
         logger=logger,
         printreason=printreason,
         show_failed_logs=show_failed_logs,
         nocolor=nocolor,
-        quiet=quiet_set,
+        quiet=quiet,
         debug_dag=debug_dag,
         stream=sys.stdout if stdout else sys.stderr,
         mode=mode,
@@ -952,7 +985,7 @@ def setup_logger(
     logger.set_stream_handler(stream_handler)
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
 
-    logger.quiet = quiet_set
+    logger.quiet = quiet
     logger.printshellcmds = printshellcmds
     logger.printreason = printreason
     logger.debug_dag = debug_dag
