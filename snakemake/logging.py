@@ -671,22 +671,12 @@ class ColorizingTextHandler(_logging.StreamHandler):
 
     def __init__(
         self,
-        logger,
-        printreason=False,
-        show_failed_logs=False,
         nocolor=False,
         stream=sys.stderr,
         mode=None,
-        quiet=None,
-        debug_dag=False,
     ):
         super().__init__(stream=stream)
-        self.logger = logger
-        self.printreason = printreason
-        self.show_failed_logs = show_failed_logs
         self.last_msg_was_job_info = False
-        self.quiet = quiet or set()  # Quiet config
-        self.debug_dag = debug_dag
         self._output_lock = threading.Lock()
         self.nocolor = nocolor or not self.can_color_tty(mode)
         self.mode = mode
@@ -788,6 +778,9 @@ class Logger:
         self.show_failed_logs = False
         self.logfile_handler = None
         self.dryrun = False
+        self.level = 0
+        self.default_formatter = None
+        self.default_filter = None
 
     def setup_logfile(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
@@ -802,16 +795,11 @@ class Logger:
                     + ".snakemake.log",
                 )
             )
-            formatter = DefaultFormatter(
-                printreason=self.printreason,
-                show_failed_logs=self.show_failed_logs,
-                printshellmds=self.printshellcmds,
-            )
-            filter = DefaultFilter(quiet=self.quiet, debug_dag=self.debug_dag)
 
             self.logfile_handler = _logging.FileHandler(self.logfile)
-            self.logfile_handler.setFormatter(formatter)
-            self.logfile_handler.addFilter(filter)
+            self.logfile_handler.setFormatter(self.default_formatter)
+            self.logfile_handler.addFilter(self.default_filter)
+            self.logfile_handler.setLevel(self.level)
             self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
@@ -821,15 +809,19 @@ class Logger:
             self.logger.removeHandler(self.logfile_handler)
             self.logfile_handler.close()
 
-    def set_stream_handler(self, stream_handler):
+    def set_stream_handler(self, stream_handler: _logging.Handler):
         """Set the stream handler, replacing any existing one."""
         if self.stream_handler is not None:
             self.logger.removeHandler(self.stream_handler)
         self.stream_handler = stream_handler
+        stream_handler.setFormatter(self.default_formatter)
+        stream_handler.addFilter(self.default_filter)
+        stream_handler.setLevel(self.level)
         self.logger.addHandler(stream_handler)
 
     def set_level(self, level):
         """Set the logging level."""
+        self.level = level
         self.logger.setLevel(level)
 
     def handler(self, msg):
@@ -874,15 +866,6 @@ class Logger:
         )
 
         self.logger.handle(record)
-
-    def is_quiet_about(self, msg_type):
-        """Helper method to determine if logging should be quiet for a given message type."""
-        from snakemake.settings.enums import Quietness
-
-        return (
-            Quietness.ALL in self.quiet
-            or Quietness.parse_choice(msg_type) in self.quiet
-        )
 
     # Logging methods for various log levels
     def info(self, msg, indent=False):
@@ -997,12 +980,7 @@ def setup_logger(
         )
 
     stream_handler = ColorizingTextHandler(
-        logger=logger,
-        printreason=printreason,
-        show_failed_logs=show_failed_logs,
         nocolor=nocolor,
-        quiet=quiet,
-        debug_dag=debug_dag,
         stream=sys.stdout if stdout else sys.stderr,
         mode=mode,
     )
@@ -1012,9 +990,8 @@ def setup_logger(
         printshellmds=printshellcmds,
     )
     filter = DefaultFilter(quiet=quiet, debug_dag=debug_dag)
-    stream_handler.setFormatter(formatter)
-    stream_handler.addFilter(filter)
-    stream_handler.setLevel(_logging.DEBUG if debug else _logging.INFO)
+    logger.default_formatter = formatter
+    logger.default_filter = filter
     logger.set_stream_handler(stream_handler)
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
     logger.quiet = quiet
