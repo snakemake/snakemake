@@ -22,68 +22,6 @@ def get_default_exec_mode():
     return ExecMode.DEFAULT
 
 
-# class ColorizingStreamHandler(_logging.StreamHandler):
-#     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
-#     RESET_SEQ = "\033[0m"
-#     COLOR_SEQ = "\033[%dm"
-#     BOLD_SEQ = "\033[1m"
-
-#     colors = {
-#         "WARNING": YELLOW,
-#         "INFO": GREEN,
-#         "DEBUG": BLUE,
-#         "CRITICAL": MAGENTA,
-#         "ERROR": RED,
-#     }
-
-#     def __init__(self, nocolor=False, stream=sys.stderr, mode=None):
-#         super().__init__(stream=stream)
-
-#         if mode is None:
-#             mode = get_default_exec_mode()
-
-#         self._output_lock = threading.Lock()
-
-#         self.nocolor = nocolor or not self.can_color_tty(mode)
-
-#     def can_color_tty(self, mode):
-#         from snakemake_interface_executor_plugins.settings import ExecMode
-
-#         if "TERM" in os.environ and os.environ["TERM"] == "dumb":
-#             return False
-#         if mode == ExecMode.SUBPROCESS:
-#             return True
-#         return self.is_tty and not platform.system() == "Windows"
-
-#     @property
-#     def is_tty(self):
-#         isatty = getattr(self.stream, "isatty", None)
-#         return isatty and isatty()
-
-#     def emit(self, record):
-#         with self._output_lock:
-#             try:
-#                 self.format(record)  # add the message to the record
-#                 self.stream.write(self.decorate(record))
-#                 self.stream.write(getattr(self, "terminator", "\n"))
-#                 self.flush()
-#             except BrokenPipeError as e:
-#                 raise e
-#             except (KeyboardInterrupt, SystemExit):
-#                 # ignore any exceptions in these cases as any relevant messages have been printed before
-#                 pass
-#             except Exception as e:
-#                 self.handleError(record)
-
-#     def decorate(self, record):
-#         message = record.getMessage()
-#         message = [message]
-#         if not self.nocolor and record.levelname in self.colors:
-#             message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
-#             message.append(self.RESET_SEQ)
-#         return "".join(message)
-
-
 class SlackLogger:
     def __init__(self):
         from slack_sdk import WebClient
@@ -600,6 +538,50 @@ class DefaultFormatter(_logging.Formatter):
         return fmt(fraction)
 
 
+def format_dict(dict_like, omit_keys=None, omit_values=None):
+    from snakemake.io import Namedlist
+
+    omit_keys = omit_keys or []
+    omit_values = omit_values or []
+
+    if isinstance(dict_like, Namedlist):
+        items = dict_like.items()
+    elif isinstance(dict_like, dict):
+        items = dict_like.items()
+    else:
+        raise ValueError(
+            "bug: format_dict applied to something neither a dict nor a Namedlist"
+        )
+    return ", ".join(
+        f"{name}={value}"
+        for name, value in items
+        if name not in omit_keys and value not in omit_values
+    )
+
+
+format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
+format_wildcards = format_dict
+
+
+def format_resource_names(resources, omit_resources="_cores _nodes".split()):
+    return ", ".join(name for name in resources if name not in omit_resources)
+
+
+def format_percentage(done, total):
+    """Format percentage from given fraction while avoiding superfluous precision."""
+    if done == total:
+        return "100%"
+    if done == 0:
+        return "0%"
+    precision = 0
+    fraction = done / total
+    fmt_precision = "{{:.{}%}}".format
+    fmt = lambda fraction: fmt_precision(precision).format(fraction)
+    while fmt(fraction) == "100%" or fmt(fraction) == "0%":
+        precision += 1
+    return fmt(fraction)
+
+
 class DefaultFilter:
     def __init__(
         self,
@@ -749,16 +731,6 @@ class ColorizingTextHandler(_logging.StreamHandler):
             message.append(self.RESET_SEQ)
 
         return "".join(message)
-
-
-def format_resources(resources):
-    """Helper method to format resources."""
-    return ", ".join(f"{key}={value}" for key, value in resources.items())
-
-
-def format_wildcards(wildcards):
-    """Helper method to format wildcards."""
-    return ", ".join(f"{key}={value}" for key, value in wildcards.items())
 
 
 class Logger:
