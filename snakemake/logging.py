@@ -304,141 +304,13 @@ class WMSLogger:
         response = requests.post(url, data=server_info, headers=self._headers)
         self.check_response(response, "/update_workflow_status")
 
-CUSTOM_LEVEL_MAP = {
-    "run_info": "INFO",
-    "resources_info": "WARNING",
-    "progress": "INFO",
-    "job_info": "INFO",
-    "group_info": "INFO",
-    "job_error": "ERROR",
-    "group_error": "ERROR",
-    "shellcmd": "INFO",
-    "job_finished": "INFO",
-    "rule_info": "INFO",
-    "dag_debug": "DEBUG",
-    "job_stats": "WARNING",
-    # Add other custom levels as needed
-}
 
-class ColorizingTextHandler(_logging.StreamHandler):
-    """
-    Custom handler that combines colorization and Snakemake-specific formatting.
-    """
-
-    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
-    RESET_SEQ = "\033[0m"
-    COLOR_SEQ = "\033[%dm"
-    BOLD_SEQ = "\033[1m"
-
-    colors = {
-        "WARNING": YELLOW,
-        "INFO": GREEN,
-        "DEBUG": BLUE,
-        "CRITICAL": MAGENTA,
-        "ERROR": RED,
-    }
-
-    def __init__(
-        self,
-        logger,
-        printreason=False,
-        show_failed_logs=False,
-        nocolor=False,
-        stream=sys.stderr,
-        mode=None,
-        quiet=None,
-        debug_dag=False,
-    ):
-        super().__init__(stream=stream)
-        self.logger = logger
+class DefaultFormatter(_logging.Formatter):
+    def __init__(self, printreason=False, show_failed_logs=False, printshellmds=False):
         self.printreason = printreason
         self.show_failed_logs = show_failed_logs
+        self.printshellcmds = printshellmds
         self.last_msg_was_job_info = False
-        self.quiet = quiet or set()  # Quiet config
-        self.debug_dag = debug_dag
-        self._output_lock = threading.Lock()
-        self.nocolor = nocolor or not self.can_color_tty(mode)
-        self.mode = mode
-
-    def can_color_tty(self, mode):
-        """
-        Check if the terminal supports colors.
-        """
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
-        if "TERM" in os.environ and os.environ["TERM"] == "dumb":
-            return False
-        if mode == ExecMode.SUBPROCESS:
-            return True
-        return self.is_tty and not platform.system() == "Windows"
-
-    @property
-    def is_tty(self):
-        isatty = getattr(self.stream, "isatty", None)
-        return isatty and isatty()
-
-    def emit(self, record):
-        """
-        Emit a log message with custom formatting and color.
-        """
-        with self._output_lock:
-            try:
-                msg = record.msg
-                level = msg.get("level", "INFO").lower()
-
-                # Respect quiet mode filtering
-                quietness_map = {
-                    "job_info": "rules",
-                    "group_info": "rules",
-                    "job_error": "rules",
-                    "group_error": "rules",
-                    "progress": "progress",
-                    "shellcmd": "progress",  # or other quietness types
-                    "job_finished": "progress",
-                    "resources_info": "progress",
-                    "run_info": "progress",
-                    "host": "host",
-                    "info": "progress",
-                }
-
-                # Check quietness for specific levels and skip accordingly
-                if level in quietness_map:
-                    if self.is_quiet_about(quietness_map[level]):
-                        return
-
-                # Handle dag_debug specifically
-                if level == "dag_debug" and not self.debug_dag:
-                    return
-                # respect logging level in handler, so that other handlers get all logs.
-                if level == "job_info":
-                    if not self.last_msg_was_job_info:
-                        self.stream.write(
-                            "\n"
-                        )  # Add a blank line before a new job_info message
-                    self.last_msg_was_job_info = True
-                else:
-                    # Reset flag if the message is not a 'job_info'
-                    self.last_msg_was_job_info = False
-                formatted_message = self.format(record)
-
-                # Apply color to the formatted message
-                self.stream.write(self.decorate(record, formatted_message))
-                self.stream.write(getattr(self, "terminator", "\n"))
-                self.flush()
-            except BrokenPipeError as e:
-                raise e
-            except (KeyboardInterrupt, SystemExit):
-                pass  # Ignore exceptions for these cases
-            except Exception as e:
-                self.handleError(record)
-
-    def is_quiet_about(self, msg_type: str):
-        from snakemake.settings.enums import Quietness
-
-        return (
-            Quietness.ALL in self.quiet
-            or Quietness.parse_choice(msg_type) in self.quiet
-        )
 
     def format(self, record):
         """
@@ -446,9 +318,6 @@ class ColorizingTextHandler(_logging.StreamHandler):
         """
         msg = record.msg
         level = msg.get("level", "INFO")  # Default to "INFO" if level not in message
-
-        if self.is_quiet_about("all"):
-            return ""
 
         # Call specific handlers based on the log level
         if level == "info":
@@ -479,19 +348,6 @@ class ColorizingTextHandler(_logging.StreamHandler):
             return self.handle_run_info(msg)
         else:
             return msg["msg"]
-
-    def decorate(self, record, message):
-        """
-        Add color to the log message based on its level.
-        """
-        message = [message]  # Treat the formatted message as a list
-
-        # Use record.levelname to apply color if applicable
-        if not self.nocolor and record.levelname in self.colors:
-            message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
-            message.append(self.RESET_SEQ)
-
-        return "".join(message)
 
     def handle_info(self, msg):
         """
@@ -573,7 +429,7 @@ class ColorizingTextHandler(_logging.StreamHandler):
 
     def handle_shellcmd(self, msg):
         """Format for shellcmd log."""
-        if self.logger.printshellcmds:
+        if self.printshellcmds:
             return msg["msg"]
         return ""
 
@@ -744,6 +600,143 @@ class ColorizingTextHandler(_logging.StreamHandler):
         return fmt(fraction)
 
 
+class ColorizingTextHandler(_logging.StreamHandler):
+    """
+    Custom handler that combines colorization and Snakemake-specific formatting.
+    """
+
+    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
+    RESET_SEQ = "\033[0m"
+    COLOR_SEQ = "\033[%dm"
+    BOLD_SEQ = "\033[1m"
+
+    colors = {
+        "WARNING": YELLOW,
+        "INFO": GREEN,
+        "DEBUG": BLUE,
+        "CRITICAL": MAGENTA,
+        "ERROR": RED,
+    }
+
+    def __init__(
+        self,
+        logger,
+        printreason=False,
+        show_failed_logs=False,
+        nocolor=False,
+        stream=sys.stderr,
+        mode=None,
+        quiet=None,
+        debug_dag=False,
+    ):
+        super().__init__(stream=stream)
+        self.logger = logger
+        self.printreason = printreason
+        self.show_failed_logs = show_failed_logs
+        self.last_msg_was_job_info = False
+        self.quiet = quiet or set()  # Quiet config
+        self.debug_dag = debug_dag
+        self._output_lock = threading.Lock()
+        self.nocolor = nocolor or not self.can_color_tty(mode)
+        self.mode = mode
+
+    def can_color_tty(self, mode):
+        """
+        Check if the terminal supports colors.
+        """
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
+        if "TERM" in os.environ and os.environ["TERM"] == "dumb":
+            return False
+        if mode == ExecMode.SUBPROCESS:
+            return True
+        return self.is_tty and not platform.system() == "Windows"
+
+    @property
+    def is_tty(self):
+        isatty = getattr(self.stream, "isatty", None)
+        return isatty and isatty()
+
+    def emit(self, record):
+        """
+        Emit a log message with custom formatting and color.
+        """
+        with self._output_lock:
+            try:
+                if self.is_quiet_about("all"):
+                    return
+
+                msg = record.msg
+                level = msg.get("level", "INFO").lower()
+
+                # Respect quiet mode filtering
+                quietness_map = {
+                    "job_info": "rules",
+                    "group_info": "rules",
+                    "job_error": "rules",
+                    "group_error": "rules",
+                    "progress": "progress",
+                    "shellcmd": "progress",  # or other quietness types
+                    "job_finished": "progress",
+                    "resources_info": "progress",
+                    "run_info": "progress",
+                    "host": "host",
+                    "info": "progress",
+                }
+
+                # Check quietness for specific levels and skip accordingly
+                if level in quietness_map:
+                    if self.is_quiet_about(quietness_map[level]):
+                        return
+
+                # Handle dag_debug specifically
+                if level == "dag_debug" and not self.debug_dag:
+                    return
+                # respect logging level in handler, so that other handlers get all logs.
+                if level == "job_info":
+                    if not self.last_msg_was_job_info:
+                        self.stream.write(
+                            "\n"
+                        )  # Add a blank line before a new job_info message
+                    self.last_msg_was_job_info = True
+                else:
+                    # Reset flag if the message is not a 'job_info'
+                    self.last_msg_was_job_info = False
+                formatted_message = self.format(record)
+
+                # Apply color to the formatted message
+                self.stream.write(self.decorate(record, formatted_message))
+                self.stream.write(getattr(self, "terminator", "\n"))
+                self.flush()
+            except BrokenPipeError as e:
+                raise e
+            except (KeyboardInterrupt, SystemExit):
+                pass  # Ignore exceptions for these cases
+            except Exception as e:
+                self.handleError(record)
+
+    def is_quiet_about(self, msg_type: str):
+        from snakemake.settings.enums import Quietness
+
+        return (
+            Quietness.ALL in self.quiet
+            or Quietness.parse_choice(msg_type) in self.quiet
+        )
+
+    def decorate(self, record, message):
+        """
+        Add color to the log message based on its level.
+        """
+        message = [message]  # Treat the formatted message as a list
+
+        # Use record.levelname to apply color if applicable
+        if not self.nocolor and record.levelname in self.colors:
+            message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
+            message.append(self.RESET_SEQ)
+
+        return "".join(message)
+
+
 def format_resources(resources):
     """Helper method to format resources."""
     return ", ".join(f"{key}={value}" for key, value in resources.items())
@@ -755,6 +748,7 @@ def format_wildcards(wildcards):
 
 
 class Logger:
+
     def __init__(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
@@ -980,11 +974,15 @@ def setup_logger(
         stream=sys.stdout if stdout else sys.stderr,
         mode=mode,
     )
-
+    formatter = DefaultFormatter(
+        printreason=printreason,
+        show_failed_logs=show_failed_logs,
+        printshellmds=printshellcmds,
+    )
+    stream_handler.setFormatter(formatter)
     stream_handler.setLevel(_logging.DEBUG if debug else _logging.INFO)
     logger.set_stream_handler(stream_handler)
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
-
     logger.quiet = quiet
     logger.printshellcmds = printshellcmds
     logger.printreason = printreason
