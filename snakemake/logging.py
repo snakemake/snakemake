@@ -462,7 +462,7 @@ class DefaultFormatter(_logging.Formatter):
             output.append(f"    {item[0]}: {item[1]}")
 
         if self.show_failed_logs and msg["log"]:
-            output.extend(self.show_logs(msg["log"]))
+            output.extend(show_logs(msg["log"]))
 
         return output
 
@@ -496,29 +496,6 @@ class DefaultFormatter(_logging.Formatter):
 
         return output
 
-    def show_logs(self, logs):
-        """Helper method to show logs."""
-        for f in logs:
-            try:
-                content = open(f, "r").read()
-            except FileNotFoundError:
-                yield f"Logfile {f} not found."
-                return
-            except UnicodeDecodeError:
-                yield f"Logfile {f} is not a text file."
-                return
-            lines = content.splitlines()
-            logfile_header = f"Logfile {f}:"
-            if not lines:
-                logfile_header += " empty file"
-                yield logfile_header
-                return
-            yield logfile_header
-            max_len = min(max(max(len(l) for l in lines), len(logfile_header)), 80)
-            yield "=" * max_len
-            yield from lines
-            yield "=" * max_len
-
     def timestamp(self):
         """Helper method to format the timestamp."""
         return f"[{time.asctime()}]"
@@ -536,6 +513,30 @@ class DefaultFormatter(_logging.Formatter):
         while fmt(fraction) == "100%" or fmt(fraction) == "0%":
             precision += 1
         return fmt(fraction)
+
+
+def show_logs(logs):
+    """Helper method to show logs."""
+    for f in logs:
+        try:
+            content = open(f, "r").read()
+        except FileNotFoundError:
+            yield f"Logfile {f} not found."
+            return
+        except UnicodeDecodeError:
+            yield f"Logfile {f} is not a text file."
+            return
+        lines = content.splitlines()
+        logfile_header = f"Logfile {f}:"
+        if not lines:
+            logfile_header += " empty file"
+            yield logfile_header
+            return
+        yield logfile_header
+        max_len = min(max(max(len(l) for l in lines), len(logfile_header)), 80)
+        yield "=" * max_len
+        yield from lines
+        yield "=" * max_len
 
 
 def format_dict(dict_like, omit_keys=None, omit_values=None):
