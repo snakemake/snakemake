@@ -244,10 +244,11 @@ class WMSLogger:
 
 
 class DefaultFormatter(_logging.Formatter):
-    def __init__(self, printreason=False, show_failed_logs=False, printshellmds=False):
+
+    def __init__(self, printreason=False, show_failed_logs=False, printshellcmds=False):
         self.printreason = printreason
         self.show_failed_logs = show_failed_logs
-        self.printshellcmds = printshellmds
+        self.printshellcmds = printshellcmds
         self.last_msg_was_job_info = False
 
     def format(self, record):
