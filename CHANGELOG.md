@@ -1,6 +1,29 @@
 # Changelog
 
 
+## [8.20.5](https://github.com/snakemake/snakemake/compare/v8.20.4...v8.20.5) (2024-09-25)
+
+
+### Bug Fixes
+
+* fixed check for remote conda env pinning and post-deploy files; fixed conda env cleanup ([#3103](https://github.com/snakemake/snakemake/issues/3103)) ([4d0a7e9](https://github.com/snakemake/snakemake/commit/4d0a7e9b0e56592aeda16d4961fd6acb1aabcca6))
+* omit storage downloads during dryrun in workflows with checkpoints ([#3100](https://github.com/snakemake/snakemake/issues/3100)) ([151216a](https://github.com/snakemake/snakemake/commit/151216a64d7b19ceabab400b8f345d3e02d442ab))
+
+## [8.20.4](https://github.com/snakemake/snakemake/compare/v8.20.3...v8.20.4) (2024-09-20)
+
+
+### Bug Fixes
+
+* cache conda envs to fix performance regression introduced in https://github.com/snakemake/snakemake/pull/1300 ([#3093](https://github.com/snakemake/snakemake/issues/3093)) ([66600c4](https://github.com/snakemake/snakemake/commit/66600c4a293446f5fdfff25075f5844fb2d720f2))
+* Flatten conda pip dependencies for report rule info ([#3085](https://github.com/snakemake/snakemake/issues/3085)) ([56a1f20](https://github.com/snakemake/snakemake/commit/56a1f207ecf8343deab2b1583709fc9effc0ffb1))
+* improve runtime complexity of post-job checkpoint handling ([#3096](https://github.com/snakemake/snakemake/issues/3096)) ([ba30781](https://github.com/snakemake/snakemake/commit/ba307816220c4313f82c0362fd6f00e783972569))
+
+
+### Documentation
+
+* Clarify the lookup function docstring ([#3091](https://github.com/snakemake/snakemake/issues/3091)) ([94177d5](https://github.com/snakemake/snakemake/commit/94177d5043bb5b15bf507c470374cdef9e8fe78f))
+* Update lookup signature ([#3090](https://github.com/snakemake/snakemake/issues/3090)) ([655d6a1](https://github.com/snakemake/snakemake/commit/655d6a121642d781ea44b93bd21d1f4a36f80c36))
+
 ## [8.20.3](https://github.com/snakemake/snakemake/compare/v8.20.2...v8.20.3) (2024-09-09)
 
 

@@ -368,10 +368,12 @@ The ``lookup`` function has the signature
         dpath: Optional[str | Callable] = None, 
         query: Optional[str | Callable] = None, 
         cols: Optional[List[str]] = None, 
-        is_nrows: Optional[int], within=None
+        is_nrows: Optional[int],
+        within=None,
+        default=NODEFAULT
     )
 
-The ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
+The required ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
 For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
 
 In case of a pandas dataframe,
