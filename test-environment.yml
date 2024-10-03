@@ -41,7 +41,6 @@ dependencies:
   - pulp >=2.3.1
   - environment-modules
   - nbformat
-  - toposort >=1.10
   - crc32c
   - requests-mock
   - peppy

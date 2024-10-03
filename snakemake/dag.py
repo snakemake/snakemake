@@ -2742,7 +2742,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         yield ""
 
     def toposorted(self, jobs=None, inherit_pipe_dependencies=False):
-        from toposort import toposort
+        def graphlib_toposort(graph):
+            from graphlib import TopologicalSorter
+            sorter = TopologicalSorter(graph)
+            sorter.prepare()
+            sorted = list()
+            while sorter.is_active():
+                ready=set()
+                for task in sorter.get_ready():
+                    ready.update(str(task))
+                    sorter.done(task)
+                sorted.append(ready)
+            return sorted
 
         if jobs is None:
             jobs = set(self.jobs)
@@ -2777,7 +2788,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 deps = self._dependencies[job]
             dependencies[job] = {dep for dep in deps if dep in jobs}
 
-        toposorted = toposort(dependencies)
+        toposorted = graphlib_toposort(dependencies)
 
         # Within each toposort layer, entries should be sorted so that pipe jobs are
         # listed order of dependence, i.e. dependent jobs before depending jobs
