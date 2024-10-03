@@ -2744,11 +2744,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def toposorted(self, jobs=None, inherit_pipe_dependencies=False):
         def graphlib_toposort(graph):
             from graphlib import TopologicalSorter
+
             sorter = TopologicalSorter(graph)
             sorter.prepare()
             sorted = list()
             while sorter.is_active():
-                ready=set()
+                ready = set()
                 for task in sorter.get_ready():
                     ready.update(str(task))
                     sorter.done(task)
