@@ -2805,7 +2805,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for group in pipe_groups.values():
                 sorted_layer.extend(
                     chain.from_iterable(
-                        toposort(
+                        graphlib_toposort(
                             {
                                 job: {
                                     dep
