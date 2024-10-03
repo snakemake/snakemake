@@ -2790,7 +2790,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 deps = self._dependencies[job]
             dependencies[job] = {dep for dep in deps if dep in jobs}
 
-        toposorted = self.toposort(dependencies)
+        toposorted = toposort(dependencies)
 
         # Within each toposort layer, entries should be sorted so that pipe jobs are
         # listed order of dependence, i.e. dependent jobs before depending jobs
@@ -2806,7 +2806,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for group in pipe_groups.values():
                 sorted_layer.extend(
                     chain.from_iterable(
-                        self.toposort(
+                        toposort(
                             {
                                 job: {
                                     dep
