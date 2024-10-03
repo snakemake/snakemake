@@ -77,6 +77,21 @@ from snakemake.settings.types import ChangeType, Batch
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
 
+def toposort(graph):
+    from graphlib import TopologicalSorter
+
+    sorter = TopologicalSorter(graph)
+    sorter.prepare()
+    sorted = list()
+    while sorter.is_active():
+        ready = set()
+        for task in sorter.get_ready():
+            ready.add(task)
+            sorter.done(task)
+        sorted.append(ready)
+    return sorted
+
+
 class DAG(DAGExecutorInterface, DAGReportInterface):
     """Directed acyclic graph of jobs."""
 
@@ -2742,20 +2757,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         yield ""
 
     def toposorted(self, jobs=None, inherit_pipe_dependencies=False):
-        def graphlib_toposort(graph):
-            from graphlib import TopologicalSorter
-
-            sorter = TopologicalSorter(graph)
-            sorter.prepare()
-            sorted = list()
-            while sorter.is_active():
-                ready = set()
-                for task in sorter.get_ready():
-                    ready.add(task)
-                    sorter.done(task)
-                sorted.append(ready)
-            return sorted
-
         if jobs is None:
             jobs = set(self.jobs)
 
@@ -2789,7 +2790,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 deps = self._dependencies[job]
             dependencies[job] = {dep for dep in deps if dep in jobs}
 
-        toposorted = graphlib_toposort(dependencies)
+        toposorted = self.toposort(dependencies)
 
         # Within each toposort layer, entries should be sorted so that pipe jobs are
         # listed order of dependence, i.e. dependent jobs before depending jobs
@@ -2805,7 +2806,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for group in pipe_groups.values():
                 sorted_layer.extend(
                     chain.from_iterable(
-                        graphlib_toposort(
+                        self.toposort(
                             {
                                 job: {
                                     dep

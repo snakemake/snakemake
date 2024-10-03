@@ -1,0 +1,4 @@
+from snakemake.dag import toposort
+
+graph = {"job4": ["job2", "job3"], "job3": ["job1"], "job2": ["job1"]}
+assert toposort(graph) == [{'job1'}, {'job2', 'job3'}, {'job4'}]
