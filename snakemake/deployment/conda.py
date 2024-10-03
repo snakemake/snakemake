@@ -502,7 +502,7 @@ class Env:
                             "--quiet",
                             "--no-shortcuts" if ON_WINDOWS else "",
                             "--yes",
-                            "--no-default-packages",
+                            "--no-default-packages" if (self.frontend == "mamba") else "",
                             f"--prefix '{env_path}'",
                         ]
                         + packages
@@ -545,7 +545,7 @@ class Env:
                             + [
                                 "create",
                                 "--quiet",
-                                "--no-default-packages",
+                                "--no-default-packages" if (self.frontend == "mamba") else "",
                                 f'--file "{target_env_file}"',
                                 f'--prefix "{env_path}"',
                             ]
