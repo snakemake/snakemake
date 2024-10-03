@@ -2751,7 +2751,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             while sorter.is_active():
                 ready = set()
                 for task in sorter.get_ready():
-                    ready.update(str(task))
+                    ready.add(task)
                     sorter.done(task)
                 sorted.append(ready)
             return sorted
