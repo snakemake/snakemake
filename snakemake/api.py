@@ -635,7 +635,7 @@ class DAGApi(ApiBase):
         reporter: str -- report plugin to use (default: html)
         """
 
-        report_plugin_registry = _get_report_plugin_registry()
+        report_plugin_registry = ReportPluginRegistry()
         report_plugin = report_plugin_registry.get_plugin(reporter)
 
         if report_settings is not None:
@@ -767,12 +767,3 @@ class DAGApi(ApiBase):
         path: Path -- The path to the CWL file.
         """
         self.workflow_api._workflow.export_to_cwl(path=path)
-
-
-def _get_report_plugin_registry():
-    from snakemake.report import html_reporter
-
-    registry = ReportPluginRegistry()
-    registry.register_plugin("html", html_reporter)
-
-    return registry

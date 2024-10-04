@@ -17,6 +17,7 @@ from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
+from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
 import snakemake.common.argparse
 from snakemake import logging
@@ -1708,7 +1709,7 @@ def get_argument_parser(profiles=None):
     # Add namespaced arguments to parser for each plugin
     ExecutorPluginRegistry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
-    _get_report_plugin_registry().register_cli_args(parser)
+    ReportPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1886,7 +1887,7 @@ def args_to_api(args, parser):
     }
 
     if args.reporter:
-        report_plugin = _get_report_plugin_registry().get_plugin(args.reporter)
+        report_plugin = ReportPluginRegistry().get_plugin(args.reporter)
         report_settings = report_plugin.get_settings(args)
     else:
         report_plugin = None
