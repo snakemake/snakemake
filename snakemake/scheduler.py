@@ -130,7 +130,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # Choose job selector
         if self.workflow.scheduling_settings.scheduler == "naive":
             self._job_selector = self.job_selector_naive
-        if self.workflow.scheduling_settings.scheduler == "greedier":
+        elif self.workflow.scheduling_settings.scheduler == "greedier":
             self._job_selector = self.job_selector_greedier
         elif self.workflow.scheduling_settings.scheduler == "greedy":
             self._job_selector = self.job_selector_greedy
@@ -749,8 +749,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
             if not self.resources["_cores"]:
                 return set()
 
-            # Maximum number of jobs/cores/processes, i.e., upper limit of how many jobs we want.
-            n = min(self.resources["_cores"], self.resources["_nodes"])
+            # Linear interpolation between selecting from all jobs (greedines == 0) to a subset of
+            # maximum number of jobs/cores/processes (greediness 1)
+            n = (1 - self.greediness) * len(jobs) + self.greediness * min(self.resources["_cores"], self.resources["_nodes"])
             logger.debug(f"Finding the best {n} jobs to submit.")
 
             # Iterate all jobs, keeping the n most rewarding ones in a heap.
@@ -759,7 +760,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             for idx, job in enumerate(jobs):
                 # Store the reward as the first element of a tuple (used for sorting), and job name
                 # as second element, to keep track.
-                if n == 0 or len(heap) < n:
+                if len(heap) < n:
                     # If the heap is not full (or not limited), push the current reward.
                     heapq.heappush(heap, (rewards[idx], job))
                 else:
@@ -798,7 +799,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 # If limits not yet exceeded, add job.
                 if not exhausted_some_res:
                     # Update total resources
-                    for i in range(len(res)):
+                    for i in range(len(max_glob_res)):
                         used_res[i] += job_res[i]
                     solution.add(job)
 
@@ -828,10 +829,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 # Check resources
                 exhausted_some_res = False
                 for i in range(len(max_glob_res)):
-                    # Update total resources
-                    used_res[i] += job_res[i]
                     # Check if exceeds max
-                    if used_res[i] > max_glob_res[i]:
+                    if used_res[i] + job_res[i] > max_glob_res[i]:
                         exhausted_some_res = True
                         break
 
@@ -839,6 +838,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 if exhausted_some_res:
                     break
                 else:
+                    # Update total resources
+                    for i in range(len(max_glob_res)):
+                        used_res[i] += job_res[i]
                     solution.add(job)
 
             # Now we have the list of job names that we need.
