@@ -263,7 +263,21 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         job.reset_params_and_resources()
 
                     logger.debug(f"Resources before job selection: {self.resources}")
-                    logger.debug(f"Ready jobs: {len(needrun)}")
+
+                    # Subsample jobs to be run (to speedup solver)
+                    n_total_needrun = len(needrun)
+                    solver_max_jobs = int(
+                        os.environ.get("SNAKEMAKE_SOLVER_MAX_JOBS", sys.maxsize)
+                    )
+                    if n_total_needrun > solver_max_jobs:
+                        import random
+
+                        needrun = set(random.sample(tuple(needrun), k=solver_max_jobs))
+                        logger.debug(
+                            f"Ready subsampled jobs: {len(needrun)} (out of {n_total_needrun})"
+                        )
+                    else:
+                        logger.debug(f"Ready jobs: {n_total_needrun}")
 
                     if not self._last_job_selection_empty:
                         logger.info("Select jobs to execute...")
@@ -506,7 +520,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
             if not self.resources["_cores"]:
                 return set()
 
-            # assert self.resources["_cores"] > 0
             scheduled_jobs = {
                 job: pulp.LpVariable(
                     f"job_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
