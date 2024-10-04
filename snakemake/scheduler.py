@@ -270,9 +270,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         os.environ.get("SNAKEMAKE_SOLVER_MAX_JOBS", sys.maxsize)
                     )
                     if n_total_needrun > solver_max_jobs:
-                        import random
-
-                        needrun = set(random.sample(tuple(needrun), k=solver_max_jobs))
+                        needrun = set(
+                            sorted(needrun, key=lambda job: job.priority, reverse=True)[:solver_max_jobs]
+                        )
                         logger.debug(
                             f"Ready subsampled jobs: {len(needrun)} (out of {n_total_needrun})"
                         )
