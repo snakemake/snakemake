@@ -446,6 +446,20 @@ def test_omitfrom():
     )  # wildcard rule
 
 
+def test_anyof():
+    run(dpath("test_anyof"), shouldfail=True)
+
+    run(
+        dpath("test_anyof"),
+        any_of=[
+            "leveltwo_first",  # rule name (can't be made)
+            "leveltwo_second.txt",  # file name (can't be made)
+            "independent",  # rule name (can be made)
+            "test2.second",  # file name (can be made)
+        ],
+    )
+
+
 def test_nonstr_params():
     run(dpath("test_nonstr_params"))
 

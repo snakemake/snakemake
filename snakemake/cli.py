@@ -789,6 +789,19 @@ def get_argument_parser(profiles=None):
         ),
     )
     group_exec.add_argument(
+        "--any-of",
+        "-A",
+        nargs="+",
+        metavar="TARGET",
+        parse_func=set,
+        default=set(),
+        help=(
+            "Perform the execution or creation of any of the given rules or files "
+            "that are possible to do even if some of the given rules or files cannot "
+            "be processed at this time."
+        ),
+    )
+    group_exec.add_argument(
         "--rerun-incomplete",
         "--ri",
         action="store_true",
@@ -2022,6 +2035,7 @@ def args_to_api(args, parser):
                             forcerun=args.forcerun,
                             until=args.until,
                             omit_from=args.omit_from,
+                            any_of=args.any_of,
                             force_incomplete=args.rerun_incomplete,
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,

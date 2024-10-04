@@ -1,0 +1,50 @@
+# Similar to the snakemake file for test_omitfrom and test_until,
+# except that the levelone rule has been removed, so leveltwo_* and levelthree
+# can't be made. But independent and the wildcards can.
+# zeroth_wildcard rule is also removed, but this directory will have 'test2.txt'
+# so that the rule can be partly executed if test2.final is specified as --any-of
+rule all:
+    input:
+        "levelthree.txt",
+        "independent.txt",
+        expand("test{num}.final", num=[1, 2])
+
+
+rule leveltwo_first:
+    input: "missing.txt"
+    output: "leveltwo_first.txt"
+    shell: "cp -f {input} {output}"
+
+rule leveltwo_second:
+    input: "missing.txt"
+    output: "leveltwo_second.txt"
+    shell: "cp -f {input} {output}"
+
+rule levelthree:
+    input:
+        rules.leveltwo_first.output,
+        rules.leveltwo_second.output
+    output: "levelthree.txt"
+    shell: "cat {input} > {output}"
+
+rule independent:
+    output: "independent.txt"
+    shell: "touch {output}"
+
+###### Wildcard Rules #######
+
+rule first_wildcard:
+    input: 'test{num}.txt'
+    output: 'test{num}.first'
+    shell: 'cp -f {input} {output}'
+
+rule second_wildcard:
+    input: 'test{num}.first'
+    output: 'test{num}.second'
+    shell: 'cp -f {input} {output}'
+
+rule final_wildcard:
+    input: 'test{num}.second'
+    output: 'test{num}.final'
+    shell: 'cp -f {input} {output}'
+
