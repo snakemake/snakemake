@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Set
 
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
@@ -21,7 +22,6 @@ import snakemake.common.argparse
 from snakemake import logging
 from snakemake.api import (
     SnakemakeApi,
-    _get_executor_plugin_registry,
     _get_report_plugin_registry,
     resolve_snakefile,
 )
@@ -709,7 +709,7 @@ def get_argument_parser(profiles=None):
         "--executor",
         "-e",
         help="Specify a custom executor, available via an executor plugin: snakemake_executor_<name>",
-        choices=_get_executor_plugin_registry().plugins.keys(),
+        choices=ExecutorPluginRegistry().plugins.keys(),
     )
     group_exec.add_argument(
         "--forceall",
@@ -1706,7 +1706,7 @@ def get_argument_parser(profiles=None):
     )
 
     # Add namespaced arguments to parser for each plugin
-    _get_executor_plugin_registry().register_cli_args(parser)
+    ExecutorPluginRegistry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
     _get_report_plugin_registry().register_cli_args(parser)
     return parser
@@ -1877,7 +1877,7 @@ def args_to_api(args, parser):
         args.report_html_path = args.report
         args.report_html_stylesheet_path = args.report_stylesheet
 
-    executor_plugin = _get_executor_plugin_registry().get_plugin(args.executor)
+    executor_plugin = ExecutorPluginRegistry().get_plugin(args.executor)
     executor_settings = executor_plugin.get_settings(args)
 
     storage_provider_settings = {

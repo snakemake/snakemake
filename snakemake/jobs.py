@@ -1245,6 +1245,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     ]
 
     def __init__(self, id, jobs, global_resources):
+        breakpoint()
         self.groupid = id
         self._jobs = jobs
         self.global_resources = global_resources
