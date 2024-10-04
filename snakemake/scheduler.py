@@ -271,7 +271,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     )
                     if n_total_needrun > solver_max_jobs:
                         needrun = set(
-                            sorted(needrun, key=lambda job: job.priority, reverse=True)[:solver_max_jobs]
+                            sorted(needrun, key=lambda job: job.priority, reverse=True)[
+                                :solver_max_jobs
+                            ]
                         )
                         logger.debug(
                             f"Ready subsampled jobs: {len(needrun)} (out of {n_total_needrun})"
