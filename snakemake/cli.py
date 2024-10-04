@@ -818,10 +818,12 @@ def get_argument_parser(profiles=None):
         "--scheduler",
         default="greedy" if recommended_lp_solver not in lp_solvers else "ilp",
         nargs="?",
-        choices=["ilp", "greedy"],
+        choices=["ilp", "greedy", "greedier", "naive"],
         help=(
-            "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
-            "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
+            "Specifies if jobs are selected by solving an ILP, a greedy, a greedier, or a naive algorithm. "
+            "The ILP scheduler aims to reduce runtime and HDD usage by best possible use of resources. "
+            "The greedy, greedier and naive algorithms aim at reducing the scheduler runtime at the expense of "
+            "increasing sub-optimal solutions (but usefull if dealing with 100s of thousand of similar jobs)."
         ),
     )
     group_exec.add_argument(
