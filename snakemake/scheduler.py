@@ -742,6 +742,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
     def job_selector_greedier(self, jobs):
         import heapq
+
         logger.debug("Selecting jobs to run using greedier solver.")
 
         with self._lock:

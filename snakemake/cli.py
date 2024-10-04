@@ -823,7 +823,7 @@ def get_argument_parser(profiles=None):
             "Specifies if jobs are selected by solving an ILP, a greedy, a greedier, or a naive algorithm. "
             "The ILP scheduler aims to reduce runtime and HDD usage by best possible use of resources. "
             "The greedy, greedier and naive algorithms aim at reducing the scheduler runtime at the expense of "
-            "increasing sub-optimal solutions (but usefull if dealing with 100s of thousand of similar jobs)."
+            "increasing sub-optimal solutions (but useful if dealing with 100s of thousand of similar jobs)."
         ),
     )
     group_exec.add_argument(
