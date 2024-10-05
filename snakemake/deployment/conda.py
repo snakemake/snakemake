@@ -502,7 +502,12 @@ class Env:
                             "--quiet",
                             "--no-shortcuts" if ON_WINDOWS else "",
                             "--yes",
-                            "--no-default-packages" if (self.frontend != "mamba") else "",
+                            (
+                                "--no-default-packages"
+                                if self.frontend != "mamba"
+                                or not self.mamba_version.startswith("2")
+                                else ""
+                            ),
                             f"--prefix '{env_path}'",
                         ]
                         + packages
@@ -545,7 +550,12 @@ class Env:
                             + [
                                 "create",
                                 "--quiet",
-                                "--no-default-packages" if (self.frontend != "mamba") else "",
+                                (
+                                    "--no-default-packages"
+                                    if self.frontend != "mamba"
+                                    or not self.mamba_version.startswith("2")
+                                    else ""
+                                ),
                                 f'--file "{target_env_file}"',
                                 f'--prefix "{env_path}"',
                             ]
@@ -830,6 +840,17 @@ class Conda:
         env_address = env_address.replace("\\", "/")
 
         return f'"{activate}" "{env_address}"&&{cmd}'
+
+    @property
+    def mamba_version(self) -> str:
+        if not is_mamba_available():
+            return ""
+        try:
+            version = subprocess.check_output(["mamba", "--version"]).decode().strip()
+            return version.split()[-1]
+        except subprocess.CalledProcessError:
+            logger.debug("Could not determine mamba version.")
+            return ""
 
 
 def is_mamba_available():
