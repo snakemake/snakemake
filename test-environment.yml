@@ -52,6 +52,8 @@ dependencies:
   - tabulate
   - reretry
   - graphviz
+  - pygraphviz
+  - networkx
   - humanfriendly
   - throttler
   - dpath
