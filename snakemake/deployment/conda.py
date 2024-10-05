@@ -859,10 +859,7 @@ class Conda:
                 )
             else:
                 version = version_matches[0]
-            if Version(version) < Version("2.0.0"):
-                return True
-            else:
-                return False
+            return Version(version) < Version("2.0.0")
 
 
 def is_mamba_available():
