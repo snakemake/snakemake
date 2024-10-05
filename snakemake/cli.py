@@ -3,12 +3,9 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import argparse
-import dataclasses
 import os
 import re
 import sys
-from functools import partial
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import Set
@@ -23,7 +20,6 @@ import snakemake.common.argparse
 from snakemake import logging
 from snakemake.api import (
     SnakemakeApi,
-    _get_report_plugin_registry,
     resolve_snakefile,
 )
 from snakemake.common import (
@@ -40,7 +36,6 @@ from snakemake.exceptions import (
     ResourceScopesException,
     print_exception,
 )
-from snakemake.io import flag
 from snakemake.resources import (
     DefaultResources,
     ParsedResource,
