@@ -505,7 +505,7 @@ class Env:
                             (
                                 "--no-default-packages"
                                 if self.frontend != "mamba"
-                                or not self.mamba_version.startswith("2")
+                                or self._check_mamba_version()
                                 else ""
                             ),
                             f"--prefix '{env_path}'",
@@ -553,7 +553,7 @@ class Env:
                                 (
                                     "--no-default-packages"
                                     if self.frontend != "mamba"
-                                    or not self.mamba_version.startswith("2")
+                                    or self._check_mamba_version()
                                     else ""
                                 ),
                                 f'--file "{target_env_file}"',
@@ -841,16 +841,28 @@ class Conda:
 
         return f'"{activate}" "{env_address}"&&{cmd}'
 
-    @property
-    def mamba_version(self) -> str:
+    def _check_mamba_version(self) -> bool:
+        """Check if mamba version is < 2.0.0."""
+        from snakemake.shell import shell
+        from packaging.version import Version
+
         if not is_mamba_available():
-            return ""
-        try:
-            version = subprocess.check_output(["mamba", "--version"]).decode().strip()
-            return version.split()[-1]
-        except subprocess.CalledProcessError:
-            logger.debug("Could not determine mamba version.")
-            return ""
+            return False
+        else:
+            version = shell.check_output(
+                self._get_cmd("mamba --version"), stderr=subprocess.PIPE, text=True
+            )
+            version_matches = re.findall(r"\d+.\d+.\d+", version)
+            if len(version_matches) != 1:
+                raise WorkflowError(
+                    f"Unable to determine mamba version. 'mamba --version' returned {version}"
+                )
+            else:
+                version = version_matches[0]
+            if Version(version) < Version("2.0.0"):
+                return True
+            else:
+                return False
 
 
 def is_mamba_available():
