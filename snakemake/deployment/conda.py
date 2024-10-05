@@ -497,7 +497,7 @@ class Env:
                     # install packages manually from env archive
                     cmd = " ".join(
                         [
-                            "conda",
+                            self.frontend,
                             "create",
                             "--quiet",
                             "--no-shortcuts" if ON_WINDOWS else "",
