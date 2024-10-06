@@ -3,5 +3,7 @@ rule compress_vcf:
         "test.vcf"
     output:
         "test.vcf.gz"
+    params:
+        extra="-Oz"
     wrapper:
-        "0.42.0/bio/vcf/compress"
+        "v4.6.0/bio/bcftools/view"
