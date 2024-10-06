@@ -25,6 +25,7 @@ import threading
 import shutil
 from abc import ABC, abstractmethod
 
+from packaging.version import Version
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
@@ -374,6 +375,21 @@ class Env:
             text=True,
         )
 
+    def _create_env_args(self, mode: str):
+        args = [
+            "--quiet",
+            "--no-shortcuts" if ON_WINDOWS else "",
+        ]
+
+        if mode != "yaml":
+            args.append("--yes")
+        if self.conda.frontend == "conda" or (
+            self.conda.frontend == "mamba"
+            and self.conda.frontend_version < Version("2.0.0")
+        ):
+            args.append("--no-default-packages")
+        return args
+
     def create(self, dryrun=False):
         """Create the conda environment."""
         from snakemake.shell import shell
@@ -499,12 +515,9 @@ class Env:
                         [
                             self.frontend,
                             "create",
-                            "--quiet",
-                            "--no-shortcuts" if ON_WINDOWS else "",
-                            "--yes",
-                            "--no-default-packages",
                             f"--prefix '{env_path}'",
                         ]
+                        + self._create_env_args(mode="archive")
                         + packages
                     )
                     if self._container_img:
@@ -534,22 +547,18 @@ class Env:
                         )
 
                         subcommand = [self.frontend]
-                        yes_flag = ["--yes"]
                         if filetype == "yaml":
                             subcommand.append("env")
-                            yes_flag = []
 
                         cmd = (
                             strict_priority
                             + subcommand
                             + [
                                 "create",
-                                "--quiet",
-                                "--no-default-packages",
                                 f'--file "{target_env_file}"',
                                 f'--prefix "{env_path}"',
                             ]
-                            + yes_flag
+                            + self._create_env_args(mode=filetype)
                         )
                         cmd = " ".join(cmd)
                         if self._container_img:
@@ -692,6 +701,8 @@ class Conda:
                     raise ValueError("Frontend must be specified if check is True.")
                 self._check()
 
+            self.frontend_version = self._get_version(self.frontend)
+
     @property
     def is_initialized(self):
         return hasattr(self, "prefix_path")
@@ -766,21 +777,31 @@ class Conda:
                 "Unable to check conda installation:\n" + e.stderr.decode()
             )
 
-    def _check_version(self):
+    def _get_version(self, frontend: str) -> Version:
         from snakemake.shell import shell
-        from packaging.version import Version
 
         version = shell.check_output(
-            self._get_cmd("conda --version"), stderr=subprocess.PIPE, text=True
+            self._get_cmd(f"{frontend} --version"), stderr=subprocess.PIPE, text=True
         )
+
+        def parse_version(version_matches):
+            return Version(version_matches[0])
+
         version_matches = re.findall(r"\d+.\d+.\d+", version)
         if len(version_matches) != 1:
+            if frontend == "mamba":
+                version_matches = re.findall(r"mamba (\d+.\d+.\d+)", version)
+                if len(version_matches) == 1:
+                    return parse_version(version_matches)
             raise WorkflowError(
-                f"Unable to determine conda version. 'conda --version' returned {version}"
+                f"Unable to determine conda version. '{frontend} --version' returned:\n{version}"
             )
         else:
-            version = version_matches[0]
-        if Version(version) < Version("4.2"):
+            return parse_version(version_matches)
+
+    def _check_version(self):
+        version = self._get_version("conda")
+        if version < Version("4.2"):
             raise CreateCondaEnvironmentException(
                 f"Conda must be version 4.2 or later, found version {version}."
             )
