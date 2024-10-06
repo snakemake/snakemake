@@ -787,11 +787,10 @@ class Conda:
 
         def parse_version(version_matches):
             return Version(version_matches[0])
-
-        version_matches = re.findall(r"\d+.\d+.\d+", version)
+        version_matches = re.findall(r"\d+\.\d+\.\d+", version)
         if len(version_matches) != 1:
             if frontend == "mamba":
-                version_matches = re.findall(r"mamba (\d+.\d+.\d+)", version)
+                version_matches = re.findall(r"mamba (\d+\.\d+\.\d+)", version)
                 if len(version_matches) == 1:
                     return parse_version(version_matches)
             raise WorkflowError(
