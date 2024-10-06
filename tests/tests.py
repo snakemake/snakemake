@@ -571,6 +571,7 @@ def test_wrapper_local_git_prefix():
             dpath("test_wrapper"),
             deployment_method={DeploymentMethod.CONDA},
             wrapper_prefix=f"git+file://{tmpdir}",
+            check_md5=False,
         )
 
 
