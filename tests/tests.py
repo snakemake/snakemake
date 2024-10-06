@@ -548,7 +548,11 @@ def test_conda_cmd_exe():
 @conda
 def test_wrapper():
     # don't compare md5 because bcftools inserts a date into the header
-    run(dpath("test_wrapper"), deployment_method={DeploymentMethod.CONDA}, check_md5=False)
+    run(
+        dpath("test_wrapper"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
 
 
 @skip_on_windows  # wrappers are for linux and macos only
