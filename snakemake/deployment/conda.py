@@ -45,6 +45,10 @@ from snakemake.io import (
 from snakemake_interface_common.utils import lazy_property
 
 
+def get_env_setup_done_flag_file(env_path: Path) -> Path:
+    return env_path.with_suffix(".env_setup_done")
+
+
 class CondaCleanupMode(Enum):
     tarballs = "tarballs"
     cache = "cache"
@@ -461,7 +465,7 @@ class Env:
                 # env should be present in the container
                 return env_path
 
-        setup_done_flag = Path(f"{env_path}.env_setup_done")
+        setup_done_flag = get_env_setup_done_flag_file(Path(env_path))
 
         # Check for broken environment
         if os.path.exists(env_path) and not setup_done_flag.exists():
