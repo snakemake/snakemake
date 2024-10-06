@@ -76,6 +76,9 @@ class Env:
         if env_name is not None:
             assert env_file is None, "bug: both env_file and env_name specified"
 
+        assert (
+            workflow.deployment_settings.conda_frontend is not None
+        ), f"bug: conda_frontend must be set (deployment settings: {workflow.deployment_settings})"
         self.frontend = workflow.deployment_settings.conda_frontend
         self.workflow = workflow
 
