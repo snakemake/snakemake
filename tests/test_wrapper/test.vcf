@@ -1,4 +1,5 @@
 ##fileformat=VCFv4.1
+##contig=<ID=19,length=62435964>
 ##INFO=<ID=S1,Number=1,Type=String,Description="Single INFO string">
 ##INFO=<ID=N1,Number=1,Type=Integer,Description="Single INFO integer">
 ##INFO=<ID=F1,Number=1,Type=Float,Description="Single INFO float">
