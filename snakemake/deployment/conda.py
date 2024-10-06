@@ -378,8 +378,9 @@ class Env:
     def _create_env_args(self, mode: str):
         args = [
             "--quiet",
-            "--no-shortcuts" if ON_WINDOWS else "",
         ]
+        if ON_WINDOWS:
+            args.append("--no-shortcuts")
 
         if mode != "yaml":
             args.append("--yes")
