@@ -3,6 +3,8 @@ rule compress_vcf:
         "test.vcf"
     output:
         "test.vcf.gz"
+    log:
+        "test.log"
     params:
         extra="-Oz"
     wrapper:
