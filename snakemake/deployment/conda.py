@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+from pathlib import Path
 import re
 from snakemake.sourcecache import (
     LocalGitFile,
@@ -460,10 +461,10 @@ class Env:
                 # env should be present in the container
                 return env_path
 
+        setup_done_flag = Path(f"{env_path}.env_setup_done")
+
         # Check for broken environment
-        if os.path.exists(
-            os.path.join(env_path, "env_setup_start")
-        ) and not os.path.exists(os.path.join(env_path, "env_setup_done")):
+        if os.path.exists(env_path) and not setup_done_flag.exists():
             if dryrun:
                 logger.info(
                     "Incomplete Conda environment {} will be recreated.".format(
@@ -490,11 +491,6 @@ class Env:
             logger.info(f"Creating conda environment {self.file.simplify_path()}...")
             env_archive = self.archive_file
             try:
-                # Touch "start" flag file
-                os.makedirs(env_path, exist_ok=True)
-                with open(os.path.join(env_path, "env_setup_start"), "a") as f:
-                    pass
-
                 # Check if env archive exists. Use that if present.
                 if os.path.exists(env_archive):
                     logger.info("Installing archived conda packages.")
@@ -616,7 +612,7 @@ class Env:
                     self.execute_deployment_script(env_file, target_deploy_file)
 
                 # Touch "done" flag file
-                with open(os.path.join(env_path, "env_setup_done"), "a") as f:
+                with open(setup_done_flag, "w") as _:
                     pass
 
                 logger.debug(out)
@@ -641,7 +637,7 @@ class Env:
         return env_path
 
     @classmethod
-    def get_singularity_envvars(self):
+    def get_singularity_envvars(cls):
         return {"CONDA_PKGS_DIRS": f"/tmp/conda/{uuid.uuid4()}"}
 
     def __hash__(self):
