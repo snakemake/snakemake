@@ -384,7 +384,7 @@ class Env:
         args = [
             "--quiet",
         ]
-        if ON_WINDOWS:
+        if mode == "archive" and ON_WINDOWS:
             args.append("--no-shortcuts")
 
         if mode != "yaml":
