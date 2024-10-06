@@ -696,13 +696,14 @@ class Conda:
 
             self.platform = self.info["platform"]
 
+            self.frontend_version = None
             # check conda installation
             if check:
                 if frontend is None:
                     raise ValueError("Frontend must be specified if check is True.")
                 self._check()
 
-            self.frontend_version = self._get_version(self.frontend)
+                self.frontend_version = self._get_version(self.frontend)
 
     @property
     def is_initialized(self):
