@@ -389,6 +389,8 @@ class Env:
 
         if mode != "yaml":
             args.append("--yes")
+
+        assert self.conda.frontend_version is not None
         if self.conda.frontend == "conda" or (
             self.conda.frontend == "mamba"
             and self.conda.frontend_version < Version("2.0.0")
