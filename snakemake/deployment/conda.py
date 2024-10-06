@@ -681,7 +681,8 @@ class Conda:
     def __init__(
         self, container_img=None, prefix_path=None, frontend=None, check=False
     ):
-        if not self.is_initialized:  # avoid superfluous init calls
+        # avoid superfluous init calls
+        if not self.is_initialized or (check and self.frontend_version is None):
             from snakemake.deployment import singularity
             from snakemake.shell import shell
 
