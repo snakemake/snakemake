@@ -451,6 +451,12 @@ def test_anyof():
 
     run(
         dpath("test_anyof"),
+        targets=[
+            "leveltwo_first",
+            "leveltwo_second.txt",
+            "independent",
+            "test2.second",
+        ],
         any_of=[
             "leveltwo_first",  # rule name (can't be made)
             "leveltwo_second.txt",  # file name (can't be made)
