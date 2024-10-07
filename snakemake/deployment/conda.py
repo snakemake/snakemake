@@ -403,7 +403,7 @@ class Env:
                     tmp.write(self.content_deploy)
                     deploy_file = tmp.name
                     tmp_deploy_file = tmp.name
-            if self.pin_file:
+            if self.pin_file and not dryrun:
                 with tempfile.NamedTemporaryFile(delete=False, suffix="pin.txt") as tmp:
                     tmp.write(self.content_pin)
                     pin_file = tmp.name
@@ -411,7 +411,8 @@ class Env:
         else:
             env_file = env_file.get_path_or_uri()
             deploy_file = self.post_deploy_file
-            pin_file = self.pin_file
+            if not dryrun:
+                pin_file = self.pin_file
 
         env_path = self.address
 
