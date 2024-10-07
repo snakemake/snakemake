@@ -3,13 +3,6 @@
 # can't be made. But independent and the wildcards can.
 # zeroth_wildcard rule is also removed, but this directory will have 'test2.txt'
 # so that the rule can be partly executed if test2.final is specified as --any-of
-rule all:
-    input:
-        "levelthree.txt",
-        "independent.txt",
-        expand("test{num}.final", num=[1, 2])
-
-
 rule leveltwo_first:
     input: "missing.txt"
     output: "leveltwo_first.txt"

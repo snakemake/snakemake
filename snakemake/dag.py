@@ -187,31 +187,59 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     async def init(self, progress=False):
         """Initialise the DAG."""
         for job in [await self.rule2job(rule) for rule in self.targetrules]:
-            job = await self.update([job], progress=progress, create_inventory=True)
-            self.targetjobs.add(job)
+            try:
+                job = await self.update([job], progress=progress, create_inventory=True)
+                self.targetjobs.add(job)
+            except (
+                MissingInputException,
+                CyclicGraphException,
+                PeriodicWildcardError,
+                WorkflowError,
+            ):
+                if not self.in_anyof(job):
+                    raise
 
         for file in self.targetfiles:
-            job = await self.update(
-                await self.file2jobs(file),
-                file=file,
-                progress=progress,
-                create_inventory=True,
-            )
-            self.targetjobs.add(job)
+            tmpjob = await self.file2jobs(file)
+            try:
+                job = await self.update(
+                    tmpjob,
+                    file=file,
+                    progress=progress,
+                    create_inventory=True,
+                )
+                self.targetjobs.add(job)
+            except (
+                MissingInputException,
+                CyclicGraphException,
+                PeriodicWildcardError,
+                WorkflowError,
+            ):
+                if not self.in_anyof(tmpjob[0]):
+                    raise
 
         for spec in self.workflow.dag_settings.target_jobs:
-            job = await self.update(
-                [
-                    await self.new_job(
-                        self.workflow.get_rule(spec.rulename),
-                        wildcards_dict=spec.wildcards_dict,
-                    )
-                ],
-                progress=progress,
-                create_inventory=True,
+            tmpjob = await self.new_job(
+                self.workflow.get_rule(spec.rulename),
+                wildcards_dict=spec.wildcards_dict,
             )
-            self.targetjobs.add(job)
-            self.forcefiles.update(job.output)
+
+            try:
+                job = await self.update(
+                    [ tmpjob ],
+                    progress=progress,
+                    create_inventory=True,
+                )
+                self.targetjobs.add(job)
+                self.forcefiles.update(job.output)
+            except (
+                MissingInputException,
+                CyclicGraphException,
+                PeriodicWildcardError,
+                WorkflowError,
+            ):
+                if not self.in_anyof(tmpjob):
+                    raise
 
         self.cleanup()
 
