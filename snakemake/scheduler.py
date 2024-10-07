@@ -751,7 +751,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
             # Linear interpolation between selecting from all jobs (greedines == 0) to a subset of
             # the maximum number of jobs/cores/processes (greediness 1)
-            n = int((1 - self.greediness) * len(jobs) + self.greediness * min(self.resources["_cores"], self.resources["_nodes"]))
+            n = int(
+                (1 - self.greediness) * len(jobs)
+                + self.greediness
+                * min(self.resources["_cores"], self.resources["_nodes"])
+            )
             logger.debug(f"Finding the best {n} jobs to submit.")
 
             # Iterate all jobs, keeping the n most rewarding ones in a heap.
@@ -789,12 +793,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 assert len(job_res) == len(max_glob_res)
 
                 # Check resources
-                exhausted_some_res = False
-                for i in range(len(max_glob_res)):
-                    # Check if exceeds max
-                    if used_res[i] + job_res[i] > max_glob_res[i]:
-                        exhausted_some_res = True
-                        break
+                exhausted_some_res = any(used_res[i] + job_res[i] >= res[i] for i in range(len(res)))
 
                 # If limits not yet exceeded
                 if not exhausted_some_res:
