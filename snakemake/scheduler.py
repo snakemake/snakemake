@@ -793,7 +793,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 assert len(job_res) == len(max_glob_res)
 
                 # Check resources
-                exhausted_some_res = any(used_res[i] + job_res[i] >= res[i] for i in range(len(res)))
+                exhausted_some_res = any(
+                    used_res[i] + job_res[i] >= res[i] for i in range(len(res))
+                )
 
                 # If limits not yet exceeded
                 if not exhausted_some_res:
