@@ -160,7 +160,7 @@ def run(
     nodes=None,
     set_pythonpath=True,
     cleanup=True,
-    conda_frontend="mamba",
+    conda_frontend="conda",
     config=dict(),
     targets=set(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),

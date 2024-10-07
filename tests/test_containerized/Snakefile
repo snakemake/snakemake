@@ -1,4 +1,4 @@
-containerized: "docker://quay.io/snakemake/containerize-testimage:1.0"
+containerized: "docker://snakemake/containerize-testimage:1.2"
 
 rule a:
     output:
