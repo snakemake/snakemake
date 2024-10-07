@@ -1,9 +1,26 @@
 shell.executable("bash")
 
+
 rule a:
     output:
-        "test.out"
+        "test.out",
     params:
-        test=1
+        test=1,
     shell:
         "echo {params.test} > {output}"
+
+
+def b():
+    return rules.a.params.test
+
+
+rule c:
+    output:
+        touch("module-c.txt"),
+
+
+use rule c as c1 with:
+    output:
+        "module-c1.txt",
+    params:
+        c1=1,

@@ -3,23 +3,42 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from collections import namedtuple
 from copy import copy
+from pathlib import Path
+from typing import NamedTuple, Sequence
+
+from .settings.types import ResourceSettings, WorkflowSettings
+from .logging import logger
+from .exceptions import RuleException
+from .resources import ParsedResource
+from .wrapper import get_conda_env
+from . import modules, rules, io, path_modifier
 
 
-InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
+class InOutput(NamedTuple):
+    paths: "Sequence[list | io.AnnotatedStringInterface]"
+    kwpaths: "dict[str, list | io.AnnotatedStringInterface]"
+    modifier: "path_modifier.PathModifier"
+
+
+def get_resource_value(value):
+    if isinstance(value, ParsedResource):
+        return value.value
+    return value
 
 
 class RuleInfo:
     ref_attributes = {"func", "path_modifier"}
 
-    def __init__(self, func=None):
+    def __init__(self, func=None, basedir=None):
         self.func = func
+        self.basedir = basedir
         self.shellcmd = None
         self.name = None
         self.norun = False
-        self.input = None
-        self.output = None
+        self.input: InOutput | None = None
+        self.output: InOutput | None = None
+        self.log: InOutput | None = None
         self.params = None
         self.message = None
         self.benchmark = None
@@ -33,7 +52,6 @@ class RuleInfo:
         self.resources = None
         self.priority = None
         self.retries = None
-        self.log = None
         self.docstring = None
         self.group = None
         self.script = None
@@ -59,10 +77,11 @@ class RuleInfo:
         return ruleinfo
 
     def apply_modifier(
-        self, modifier, prefix_replacables={"input", "output", "log", "benchmark"}
+        self,
+        modifier: "modules.WorkflowModifier",
+        prefix_replacables={"input", "output", "log", "benchmark"},
     ):
         """Update this ruleinfo with the given one (used for 'use rule' overrides)."""
-        path_modifier = modifier.path_modifier
         skips = set()
 
         if modifier.ruleinfo_overwrite:
@@ -72,6 +91,7 @@ class RuleInfo:
                     if key in prefix_replacables:
                         skips.add(key)
 
+        path_modifier = modifier.path_modifier
         if path_modifier.modifies_prefixes and skips:
             # use a specialized copy of the path modifier
             path_modifier = copy(path_modifier)
@@ -81,3 +101,188 @@ class RuleInfo:
 
         # modify wrapper if requested
         self.wrapper = modifier.modify_wrapper_uri(self.wrapper)
+
+    @property
+    def is_invalid(ruleinfo):
+        return not (
+            ruleinfo.script
+            or ruleinfo.wrapper
+            or ruleinfo.shellcmd
+            or ruleinfo.notebook
+        )
+
+    def check_valid(ruleinfo, rule, feature_name=None):
+        if ruleinfo.is_invalid:
+            raise RuleException(
+                f"Using {feature_name} is only allowed with "
+                "shell, script, notebook, or wrapper directives (not with run or template_engine)",
+                rule=rule,
+            )
+
+    def update_rule(ruleinfo, rule: "rules.Rule"):
+        rule.basedir = ruleinfo.basedir
+
+        if ruleinfo.wildcard_constraints:
+            rule.set_wildcard_constraints(
+                *ruleinfo.wildcard_constraints[0],
+                **ruleinfo.wildcard_constraints[1],
+            )
+        if ruleinfo.input:
+            rule.input_modifier = ruleinfo.input.modifier
+            rule.set_input(*ruleinfo.input.paths, **ruleinfo.input.kwpaths)
+        if ruleinfo.output:
+            rule.output_modifier = ruleinfo.output.modifier
+            rule.set_output(*ruleinfo.output.paths, **ruleinfo.output.kwpaths)
+        if ruleinfo.log:
+            rule.log_modifier = ruleinfo.log.modifier
+            rule.set_log(*ruleinfo.log.paths, **ruleinfo.log.kwpaths)
+        if ruleinfo.params:
+            rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
+
+        if ruleinfo.shadow_depth:
+            if ruleinfo.shadow_depth not in (
+                True,
+                "shallow",
+                "full",
+                "minimal",
+                "copy-minimal",
+            ):
+                raise RuleException(
+                    "Shadow must either be 'minimal', 'copy-minimal', 'shallow', 'full', "
+                    "or True (equivalent to 'full')",
+                    rule=rule,
+                )
+            if ruleinfo.shadow_depth is True:
+                rule.shadow_depth = "full"
+                logger.warning(
+                    f"Shadow is set to True in rule {rule} (equivalent to 'full'). "
+                    "It's encouraged to use the more explicit options "
+                    "'minimal|copy-minimal|shallow|full' instead."
+                )
+            else:
+                rule.shadow_depth = ruleinfo.shadow_depth
+
+        if ruleinfo.resources:
+            resources: dict
+            args, resources = ruleinfo.resources
+            if args:
+                raise RuleException("Resources have to be named.")
+            if not all(
+                map(
+                    lambda r: isinstance(r, (int, str)) or callable(r),
+                    resources.values(),
+                )
+            ):
+                raise RuleException(
+                    "Resources values have to be integers, strings, or callables (functions)",
+                    rule=rule,
+                )
+            rule.resources.update(resources)
+
+        if ruleinfo.priority:
+            if not isinstance(ruleinfo.priority, (int, float)):
+                raise RuleException("Priority values have to be numeric.", rule=rule)
+            rule.priority = ruleinfo.priority
+
+        if ruleinfo.retries:
+            if not isinstance(ruleinfo.retries, int) or ruleinfo.retries < 0:
+                raise RuleException(
+                    "Retries values have to be integers >= 0", rule=rule
+                )
+        rule.restart_times = ruleinfo.retries
+
+        if ruleinfo.message:
+            rule.message = ruleinfo.message
+        if ruleinfo.benchmark:
+            rule.benchmark_modifier = ruleinfo.benchmark.modifier
+            rule.benchmark = ruleinfo.benchmark.paths
+
+        group = ruleinfo.group
+        if group is not None:
+            rule.group = group
+
+        if ruleinfo.env_modules:
+            # If using environment modules and they are defined for the rule,
+            # ignore conda and singularity directive below.
+            # The reason is that this is likely intended in order to use
+            # a software stack specifically compiled for a particular
+            # HPC cluster.
+            ruleinfo.check_valid(rule, "envmodules directive")
+            from .deployment.env_modules import EnvModules
+
+            rule.env_modules = EnvModules(*ruleinfo.env_modules)
+        if ruleinfo.conda_env:
+            ruleinfo.check_valid(rule, "conda environment")
+            if isinstance(ruleinfo.conda_env, Path):
+                ruleinfo.conda_env = str(ruleinfo.conda_env)
+            rule.conda_env = ruleinfo.conda_env
+
+        if ruleinfo.container_img:
+            ruleinfo.check_valid(rule, "singularity directive")
+            rule.container_img = ruleinfo.container_img
+            rule.is_containerized = ruleinfo.is_containerized
+
+        rule.norun = ruleinfo.norun
+        rule.docstring = ruleinfo.docstring
+        rule.run_func = ruleinfo.func
+        rule.shellcmd = ruleinfo.shellcmd
+        rule.script = ruleinfo.script
+        rule.notebook = ruleinfo.notebook
+        rule.wrapper = ruleinfo.wrapper
+        rule.template_engine = ruleinfo.template_engine
+        rule.cwl = ruleinfo.cwl
+        rule.ruleinfo = ruleinfo
+
+    def update_rule_settings(
+        ruleinfo,
+        rule: "rules.Rule",
+        resource_settings=ResourceSettings(),
+        workflow_settings=WorkflowSettings(),
+        container_img=None,
+        is_containerized=False,
+    ):
+        name = rule.name
+        if ruleinfo.threads is not None:
+            if (
+                not isinstance(ruleinfo.threads, int)
+                and not isinstance(ruleinfo.threads, float)
+                and not callable(ruleinfo.threads)
+            ):
+                raise RuleException(
+                    "Threads value has to be an integer, float, or a callable.",
+                    rule=rule,
+                )
+            if name not in resource_settings.overwrite_threads:
+                if isinstance(ruleinfo.threads, float):
+                    ruleinfo.threads = int(ruleinfo.threads)
+                rule.resources["_cores"] = ruleinfo.threads
+        else:
+            rule.resources["_cores"] = 1
+
+        if name in resource_settings.overwrite_threads:
+            rule.resources["_cores"] = get_resource_value(
+                resource_settings.overwrite_threads[name]
+            )
+        if name in resource_settings.overwrite_resources:
+            rule.resources.update(
+                (resource, get_resource_value(value))
+                for resource, value in resource_settings.overwrite_resources[
+                    name
+                ].items()
+            )
+
+        if ruleinfo.wrapper:
+            rule.conda_env = get_conda_env(
+                ruleinfo.wrapper, prefix=workflow_settings.wrapper_prefix
+            )
+            # TODO retrieve suitable singularity image
+
+        if (
+            not ruleinfo.container_img
+            and ruleinfo.container_img != False
+            and container_img
+            and not ruleinfo.is_invalid
+        ):
+            # skip rules with run directive or empty image
+            rule.container_img = container_img
+            rule.is_containerized = is_containerized
