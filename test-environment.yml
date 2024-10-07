@@ -4,7 +4,6 @@ channels:
   - nodefaults
 dependencies:
   - python >=3.11
-  - mamba
   - yte
   - packaging
   - datrie

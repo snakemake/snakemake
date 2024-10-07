@@ -69,8 +69,6 @@ class Env:
         self.name = env_name
         if env_name is not None:
             assert env_file is None, "bug: both env_file and env_name specified"
-
-        self.frontend = workflow.deployment_settings.conda_frontend
         self.workflow = workflow
 
         self._container_img = container_img
@@ -91,9 +89,7 @@ class Env:
 
     @lazy_property
     def conda(self):
-        return Conda(
-            container_img=self._container_img, frontend=self.frontend, check=True
-        )
+        return Conda(container_img=self._container_img, check=True)
 
     def _path_or_uri_prefix(self):
         prefix = self.file.get_path_or_uri()
@@ -533,7 +529,7 @@ class Env:
                             else []
                         )
 
-                        subcommand = [self.frontend]
+                        subcommand = ["conda"]
                         yes_flag = ["--yes"]
                         if filetype == "yaml":
                             subcommand.append("env")
@@ -654,7 +650,7 @@ class Conda:
     instances = dict()
     lock = threading.Lock()
 
-    def __new__(cls, container_img=None, prefix_path=None, frontend=None, check=False):
+    def __new__(cls, container_img=None, prefix_path=None, check=False):
         with cls.lock:
             if container_img not in cls.instances:
                 inst = super().__new__(cls)
@@ -663,9 +659,7 @@ class Conda:
             else:
                 return cls.instances[container_img]
 
-    def __init__(
-        self, container_img=None, prefix_path=None, frontend=None, check=False
-    ):
+    def __init__(self, container_img=None, prefix_path=None, check=False):
         if not self.is_initialized:  # avoid superfluous init calls
             from snakemake.deployment import singularity
             from snakemake.shell import shell
@@ -673,7 +667,6 @@ class Conda:
             if isinstance(container_img, singularity.Image):
                 container_img = container_img.path
             self.container_img = container_img
-            self.frontend = frontend
 
             self.info = json.loads(
                 shell.check_output(self._get_cmd("conda info --json"), text=True)
@@ -688,8 +681,6 @@ class Conda:
 
             # check conda installation
             if check:
-                if frontend is None:
-                    raise ValueError("Frontend must be specified if check is True.")
                 self._check()
 
     @property
@@ -704,59 +695,46 @@ class Conda:
     def _check(self):
         from snakemake.shell import shell
 
-        frontends = ["conda"]
-        if self.frontend == "mamba":
-            frontends = ["mamba", "conda"]
+        frontend = "conda"
+        # Use type here since conda now is a function.
+        # type allows to check for both functions and regular commands.
+        if not ON_WINDOWS or shell.get_executable():
+            locate_cmd = f"type {frontend}"
+        else:
+            locate_cmd = f"where {frontend}"
 
-        for frontend in frontends:
-            # Use type here since conda now is a function.
-            # type allows to check for both functions and regular commands.
-            if not ON_WINDOWS or shell.get_executable():
-                locate_cmd = f"type {frontend}"
-            else:
-                locate_cmd = f"where {frontend}"
-
-            try:
-                shell.check_output(
-                    self._get_cmd(locate_cmd), stderr=subprocess.STDOUT, text=True
+        try:
+            shell.check_output(
+                self._get_cmd(locate_cmd), stderr=subprocess.STDOUT, text=True
+            )
+        except subprocess.CalledProcessError as e:
+            if self.container_img:
+                msg = (
+                    f"The '{frontend}' command is not "
+                    "available inside "
+                    "your singularity container "
+                    "image. Snakemake mounts "
+                    "your conda installation "
+                    "into singularity. "
+                    "Sometimes, this can fail "
+                    "because of shell restrictions. "
+                    "It has been tested to work "
+                    "with docker://ubuntu, but "
+                    "it e.g. fails with "
+                    "docker://bash "
                 )
-            except subprocess.CalledProcessError as e:
-                if self.container_img:
-                    msg = (
-                        f"The '{frontend}' command is not "
-                        "available inside "
-                        "your singularity container "
-                        "image. Snakemake mounts "
-                        "your conda installation "
-                        "into singularity. "
-                        "Sometimes, this can fail "
-                        "because of shell restrictions. "
-                        "It has been tested to work "
-                        "with docker://ubuntu, but "
-                        "it e.g. fails with "
-                        "docker://bash "
-                    )
-                else:
-                    msg = (
-                        f"The '{frontend}' command is not "
-                        "available in the "
-                        f"shell {shell.get_executable()} that will be "
-                        "used by Snakemake. You have "
-                        "to ensure that it is in your "
-                        "PATH, e.g., first activating "
-                        "the conda base environment "
-                        "with `conda activate base`."
-                    )
-                if frontend == "mamba":
-                    msg += (
-                        "The mamba package manager (https://github.com/mamba-org/mamba) is a "
-                        "fast and robust conda replacement. "
-                        "It is the recommended way of using Snakemake's conda integration. "
-                        "It can be installed with `conda install -n base -c conda-forge mamba`. "
-                        "If you still prefer to use conda, you can enforce that by setting "
-                        "`--conda-frontend conda`."
-                    )
-                raise CreateCondaEnvironmentException(msg)
+            else:
+                msg = (
+                    f"The '{frontend}' command is not "
+                    "available in the "
+                    f"shell {shell.get_executable()} that will be "
+                    "used by Snakemake. You have "
+                    "to ensure that it is in your "
+                    "PATH, e.g., first activating "
+                    "the conda base environment "
+                    "with `conda activate base`."
+                )
+            raise CreateCondaEnvironmentException(msg)
 
         try:
             self._check_version()
@@ -773,16 +751,19 @@ class Conda:
         version = shell.check_output(
             self._get_cmd("conda --version"), stderr=subprocess.PIPE, text=True
         )
-        version_matches = re.findall(r"\d+.\d+.\d+", version)
+        version_matches = re.findall(r"\d+\.\d+\.\d+", version)
         if len(version_matches) != 1:
             raise WorkflowError(
                 f"Unable to determine conda version. 'conda --version' returned {version}"
             )
         else:
             version = version_matches[0]
-        if Version(version) < Version("4.2"):
+        if Version(version) < Version("24.9.1"):
             raise CreateCondaEnvironmentException(
-                f"Conda must be version 4.2 or later, found version {version}."
+                f"Conda must be version 24.9.1 or later, found version {version}. "
+                "Please update conda to the latest version. "
+                "Note that you can also install conda into the snakemake environment "
+                "without modifying your main conda installation."
             )
 
     def _check_condarc(self):
@@ -802,9 +783,10 @@ class Conda:
         if res["get"].get("channel_priority") != "strict":
             logger.warning(
                 "Your conda installation is not configured to use strict channel priorities. "
-                "This is however crucial for having robust and correct environments (for details, "
+                "This is however important for having robust and correct environments (for details, "
                 "see https://conda-forge.org/docs/user/tipsandtricks.html). "
-                "Please consider to configure strict priorities by executing 'conda config --set channel_priority strict'."
+                "Please consider to configure strict priorities by executing "
+                "'conda config --set channel_priority strict'."
             )
 
     def bin_path(self):
@@ -830,10 +812,6 @@ class Conda:
         env_address = env_address.replace("\\", "/")
 
         return f'"{activate}" "{env_address}"&&{cmd}'
-
-
-def is_mamba_available():
-    return shutil.which("mamba") is not None
 
 
 class CondaEnvSpec(ABC):

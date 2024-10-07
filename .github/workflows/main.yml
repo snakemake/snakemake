@@ -59,11 +59,11 @@ jobs:
           sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment-${{ matrix.py_ver }}.yml
 
       - name: Setup snakemke environment
-        uses: mamba-org/setup-micromamba@v1
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          miniforge-version: latest
           environment-file: test-environment-${{ matrix.py_ver }}.yml
           environment-name: snakemake
-          cache-environment: true
 
       - name: Install snakemake from source
         shell: bash -el {0}
@@ -144,13 +144,12 @@ jobs:
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line, end="")
 
-      - name: Setup snakemake environment
-        uses: mamba-org/setup-micromamba@v1
+      - name: Setup snakemke environment
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          miniforge-version: latest
           environment-file: test-environment.yml
           environment-name: snakemake
-          init-shell: powershell
-          cache-environment: true
 
       - name: Install snakemake from source
         run: |
