@@ -43,6 +43,9 @@ from snakemake.io import (
 from snakemake_interface_common.utils import lazy_property
 
 
+MIN_CONDA_VER = "24.7.1"
+
+
 class CondaCleanupMode(Enum):
     tarballs = "tarballs"
     cache = "cache"
@@ -758,9 +761,9 @@ class Conda:
             )
         else:
             version = version_matches[0]
-        if Version(version) < Version("24.9.1"):
+        if Version(version) < Version(MIN_CONDA_VER):
             raise CreateCondaEnvironmentException(
-                f"Conda must be version 24.9.1 or later, found version {version}. "
+                f"Conda must be version {MIN_CONDA_VER} or later, found version {version}. "
                 "Please update conda to the latest version. "
                 "Note that you can also install conda into the snakemake environment "
                 "without modifying your main conda installation."
