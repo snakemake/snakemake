@@ -58,7 +58,7 @@ jobs:
           cp test-environment.yml test-environment-${{ matrix.py_ver }}.yml
           sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment-${{ matrix.py_ver }}.yml
 
-      - name: Setup snakemke environment
+      - name: Setup snakemake environment
         uses: conda-incubator/setup-miniconda@v3
         with:
           miniforge-version: latest
