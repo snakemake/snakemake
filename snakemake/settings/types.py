@@ -249,7 +249,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
     conda_base_path: Optional[Path] = None
-    conda_frontend: str = "mamba"
+    conda_frontend: str = "conda"
     conda_not_block_search_path_envvars: bool = False
     apptainer_args: str = ""
     apptainer_prefix: Optional[Path] = None
@@ -259,10 +259,21 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         self.deployment_method.add(method)
 
     def __post_init__(self):
+        from snakemake.logging import logger
+
         if self.apptainer_prefix is None:
             self.apptainer_prefix = os.environ.get("APPTAINER_CACHEDIR", None)
         self.apptainer_prefix = expand_vars_and_user(self.apptainer_prefix)
         self.conda_prefix = expand_vars_and_user(self.conda_prefix)
+        if self.conda_frontend != "conda":
+            logger.warning(
+                "Support for alternative conda frontends has been deprecated in "
+                "favor of simpler support and code base. "
+                "This should not cause issues since current conda releases rely on "
+                "fast solving via libmamba. "
+                f"Ignoring the alternative conda frontend setting ({self.conda_frontend})."
+            )
+            self.conda_frontend = "conda"
 
 
 @dataclass

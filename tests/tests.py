@@ -12,6 +12,7 @@ import tempfile
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from snakemake.deployment.conda import get_env_setup_done_flag_file
 from snakemake.resources import DefaultResources, GroupResources
 from snakemake.settings.enums import RerunTrigger
 
@@ -495,7 +496,7 @@ def test_conda_create_envs_only():
         (p for p in Path(tmpdir, ".snakemake", "conda").iterdir() if p.is_dir()), None
     )
     assert env_dir is not None
-    assert Path(env_dir, "env_setup_done").exists()
+    assert get_env_setup_done_flag_file(Path(env_dir)).exists()
     shutil.rmtree(tmpdir)
 
 
