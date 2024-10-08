@@ -201,12 +201,13 @@ class SpawnedJobArgsFactory:
             executor_common_settings.auto_deploy_default_storage_provider
             and self.workflow.storage_settings.default_storage_provider is not None
         ):
-            package_name = StoragePluginRegistry().get_plugin_package_name(
-                self.workflow.storage_settings.default_storage_provider
+            packages_to_install = set(
+                StoragePluginRegistry().get_plugin_package_name(pkg)
+                for pkg in self.workflow.storage_provider_settings.keys()
             )
-            precommand.append(
-                f"pip install --target '{PIP_DEPLOYMENTS_PATH}' {package_name}"
-            )
+            pkgs = " ".join(packages_to_install)
+
+            precommand.append(f"pip install --target '{PIP_DEPLOYMENTS_PATH}' {pkgs}")
 
         if (
             SharedFSUsage.SOURCES not in self.workflow.storage_settings.shared_fs_usage
