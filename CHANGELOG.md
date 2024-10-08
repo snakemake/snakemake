@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.20.6](https://github.com/snakemake/snakemake/compare/v8.20.5...v8.20.6) (2024-10-07)
+
+
+### Bug Fixes
+
+* rely on conda &gt;24.7.1 for conda env deployment and deprecate mamba support ([#3121](https://github.com/snakemake/snakemake/issues/3121)) ([9ece2db](https://github.com/snakemake/snakemake/commit/9ece2dbc57cec5a77ce909839b4c786be8e76ae1))
+
 ## [8.20.5](https://github.com/snakemake/snakemake/compare/v8.20.4...v8.20.5) (2024-09-25)
 
 
