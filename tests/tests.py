@@ -763,8 +763,9 @@ def test_run_namedlist():
 
 def test_profile():
     run(dpath("test_profile"))
-    
+
     from snakemake.profiles import ProfileConfigFileParser
+
     grouped_profile = Path(dpath("test_profile")) / "config.yaml"
     with grouped_profile.open("r") as f:
         parser = ProfileConfigFileParser()
