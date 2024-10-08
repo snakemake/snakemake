@@ -778,10 +778,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
             # up until we reach the limit for any resource.
 
             # Max resource capacities
-            max_glob_res = [self.resources[name] for name in self.global_resources]
+            global_res = [self.resources[name] for name in self.global_resources]
 
             # Used resources, in the same order as self.global_resources.
-            used_res = [0] * len(max_glob_res)
+            used_res = [0] * len(global_res)
 
             # Iterate max_sorted, picking the last (most rewarding) element at a time,
             # until we have either picked all elements, or exhausted a resource.
@@ -790,17 +790,17 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 # Get the next best job and its resources.
                 reward, job = max_sorted.pop()
                 job_res = self.job_weight(job)
-                assert len(job_res) == len(max_glob_res)
+                assert len(job_res) == len(global_res)
 
                 # Check resources
                 exhausted_some_res = any(
-                    used_res[i] + job_res[i] >= res[i] for i in range(len(res))
+                    used_res[i] + job_res[i] >= global_res[i] for i in range(len(global_res))
                 )
 
                 # If limits not yet exceeded
                 if not exhausted_some_res:
                     # Update total resources
-                    for i in range(len(max_glob_res)):
+                    for i in range(len(global_res)):
                         used_res[i] += job_res[i]
                     # Add job
                     solution.add(job)
@@ -816,31 +816,28 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 return set()
 
             # Max resource capacities
-            max_glob_res = [self.resources[name] for name in self.global_resources]
+            global_res = [self.resources[name] for name in self.global_resources]
 
             # Used resources, in the same order as self.global_resources.
-            used_res = [0] * len(max_glob_res)
+            used_res = [0] * len(global_res)
 
             # Iterate jobs, until we have either picked all elements, or exhausted a resource.
             solution = set()
             for job in jobs:
                 job_res = self.job_weight(job)
-                assert len(job_res) == len(max_glob_res)
+                assert len(job_res) == len(global_res)
 
                 # Check resources
-                exhausted_some_res = False
-                for i in range(len(max_glob_res)):
-                    # Check if exceeds max
-                    if used_res[i] + job_res[i] > max_glob_res[i]:
-                        exhausted_some_res = True
-                        break
+                exhausted_some_res = any(
+                    used_res[i] + job_res[i] >= global_res[i] for i in range(len(global_res))
+                )
 
                 # Check if limits exceeded
                 if exhausted_some_res:
                     break
                 else:
                     # Update total resources
-                    for i in range(len(max_glob_res)):
+                    for i in range(len(global_res)):
                         used_res[i] += job_res[i]
                     # Add job
                     solution.add(job)
