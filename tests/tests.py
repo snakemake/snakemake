@@ -763,6 +763,14 @@ def test_run_namedlist():
 
 def test_profile():
     run(dpath("test_profile"))
+    
+    from snakemake.profiles import ProfileConfigFileParser
+    grouped_profile = Path(dpath("test_profile")) / "config.yaml"
+    with grouped_profile.open("r") as f:
+        parser = ProfileConfigFileParser()
+        result = parser.parse(f)
+        assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
+        assert result["group-components"] == list(["grp1=5"])
 
 
 @skip_on_windows
