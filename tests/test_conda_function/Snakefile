@@ -1,7 +1,7 @@
 def conda_func(wildcards, params):
     env_name = f"{params.name_prefix}-test-env-{wildcards.version}"
     shell(
-        f"mamba create -y -n {env_name} -c conda-forge --override-channels ripgrep=={wildcards.version}"
+        f"conda create -y -n {env_name} -c conda-forge --override-channels ripgrep=={wildcards.version}"
     )
     return env_name
 
