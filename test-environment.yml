@@ -4,7 +4,6 @@ channels:
   - nodefaults
 dependencies:
   - python >=3.11
-  - mamba
   - yte
   - packaging
   - datrie
@@ -43,7 +42,7 @@ dependencies:
   - nbformat
   - crc32c
   - requests-mock
-  - peppy
+  - peppy =0.40.5 # TODO remove constraint once this is fixed: https://github.com/pepkit/peppy/issues/496
   - eido
   - glpk
   - smart_open
