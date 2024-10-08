@@ -794,7 +794,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                 # Check resources
                 exhausted_some_res = any(
-                    used_res[i] + job_res[i] >= global_res[i] for i in range(len(global_res))
+                    used_res[i] + job_res[i] >= global_res[i]
+                    for i in range(len(global_res))
                 )
 
                 # If limits not yet exceeded
@@ -829,7 +830,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                 # Check resources
                 exhausted_some_res = any(
-                    used_res[i] + job_res[i] >= global_res[i] for i in range(len(global_res))
+                    used_res[i] + job_res[i] >= global_res[i]
+                    for i in range(len(global_res))
                 )
 
                 # Check if limits exceeded
