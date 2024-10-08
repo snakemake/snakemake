@@ -8,9 +8,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
     def parse(self, stream):
         # taken from configargparse and modified to add special handling for key-value pairs
         import yte
-        import pdb
 
-        pdb.set_trace()
         profile_dir = Path(stream.name).parent
         try:
             parsed_obj = yte.process_yaml(stream, require_use_yte=True)
