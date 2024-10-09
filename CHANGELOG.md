@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.20.7](https://github.com/snakemake/snakemake/compare/v8.20.6...v8.20.7) (2024-10-09)
+
+
+### Bug Fixes
+
+* install conda in container image ([#3127](https://github.com/snakemake/snakemake/issues/3127)) ([afa7bad](https://github.com/snakemake/snakemake/commit/afa7bad1a72118dc609f1499560c0847edc36413))
+* remote pre-command not installing all required storage plugins ([#3116](https://github.com/snakemake/snakemake/issues/3116)) ([d829bb7](https://github.com/snakemake/snakemake/commit/d829bb7a57380354b3b4785d0755268ea1bf55d0))
+
 ## [8.20.6](https://github.com/snakemake/snakemake/compare/v8.20.5...v8.20.6) (2024-10-07)
 
 
