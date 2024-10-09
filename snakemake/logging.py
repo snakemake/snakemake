@@ -22,68 +22,6 @@ def get_default_exec_mode():
     return ExecMode.DEFAULT
 
 
-class ColorizingStreamHandler(_logging.StreamHandler):
-    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
-    RESET_SEQ = "\033[0m"
-    COLOR_SEQ = "\033[%dm"
-    BOLD_SEQ = "\033[1m"
-
-    colors = {
-        "WARNING": YELLOW,
-        "INFO": GREEN,
-        "DEBUG": BLUE,
-        "CRITICAL": MAGENTA,
-        "ERROR": RED,
-    }
-
-    def __init__(self, nocolor=False, stream=sys.stderr, mode=None):
-        super().__init__(stream=stream)
-
-        if mode is None:
-            mode = get_default_exec_mode()
-
-        self._output_lock = threading.Lock()
-
-        self.nocolor = nocolor or not self.can_color_tty(mode)
-
-    def can_color_tty(self, mode):
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
-        if "TERM" in os.environ and os.environ["TERM"] == "dumb":
-            return False
-        if mode == ExecMode.SUBPROCESS:
-            return True
-        return self.is_tty and not platform.system() == "Windows"
-
-    @property
-    def is_tty(self):
-        isatty = getattr(self.stream, "isatty", None)
-        return isatty and isatty()
-
-    def emit(self, record):
-        with self._output_lock:
-            try:
-                self.format(record)  # add the message to the record
-                self.stream.write(self.decorate(record))
-                self.stream.write(getattr(self, "terminator", "\n"))
-                self.flush()
-            except BrokenPipeError as e:
-                raise e
-            except (KeyboardInterrupt, SystemExit):
-                # ignore any exceptions in these cases as any relevant messages have been printed before
-                pass
-            except Exception as e:
-                self.handleError(record)
-
-    def decorate(self, record):
-        message = record.message
-        message = [message]
-        if not self.nocolor and record.levelname in self.colors:
-            message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
-            message.append(self.RESET_SEQ)
-        return "".join(message)
-
-
 class SlackLogger:
     def __init__(self):
         from slack_sdk import WebClient
@@ -305,378 +243,301 @@ class WMSLogger:
         self.check_response(response, "/update_workflow_status")
 
 
-class Logger:
-    def __init__(self):
-        from snakemake_interface_executor_plugins.settings import ExecMode
+class DefaultFormatter(_logging.Formatter):
 
-        self.logger = _logging.getLogger(__name__)
-        self.log_handler = [self.text_handler]
-        self.stream_handler = None
-        self.printshellcmds = False
-        self.printreason = False
-        self.debug_dag = False
-        self.quiet = set()
-        self.logfile = None
+    def __init__(self, printreason=False, show_failed_logs=False, printshellcmds=False):
+        self.printreason = printreason
+        self.show_failed_logs = show_failed_logs
+        self.printshellcmds = printshellcmds
         self.last_msg_was_job_info = False
-        self.mode = ExecMode.DEFAULT
-        self.show_failed_logs = False
-        self.logfile_handler = None
-        self.dryrun = False
 
-    def setup_logfile(self):
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
-        if self.mode == ExecMode.DEFAULT and not self.dryrun:
-            os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
-            self.logfile = os.path.abspath(
-                os.path.join(
-                    ".snakemake",
-                    "log",
-                    datetime.datetime.now().isoformat().replace(":", "")
-                    + ".snakemake.log",
-                )
-            )
-
-            self.logfile_handler = _logging.FileHandler(self.logfile)
-            self.logger.addHandler(self.logfile_handler)
-
-    def cleanup(self):
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
-        if self.mode == ExecMode.DEFAULT and self.logfile_handler is not None:
-            self.logger.removeHandler(self.logfile_handler)
-            self.logfile_handler.close()
-        self.log_handler = [self.text_handler]
-
-    def get_logfile(self):
-        if self.logfile is not None:
-            self.logfile_handler.flush()
-        return self.logfile
-
-    def handler(self, msg):
-        msg["timestamp"] = time.time()
-        for handler in self.log_handler:
-            handler(msg)
-
-    def set_stream_handler(self, stream_handler):
-        if self.stream_handler is not None:
-            self.logger.removeHandler(self.stream_handler)
-        self.stream_handler = stream_handler
-        self.logger.addHandler(stream_handler)
-
-    def set_level(self, level):
-        self.logger.setLevel(level)
-
-    def logfile_hint(self):
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
-        if self.mode == ExecMode.DEFAULT and not self.dryrun:
-            logfile = self.get_logfile()
-            self.info(f"Complete log: {os.path.relpath(logfile)}")
-
-    def location(self, msg):
-        callerframerecord = inspect.stack()[1]
-        frame = callerframerecord[0]
-        info = inspect.getframeinfo(frame)
-        self.debug(
-            "{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info)
-        )
-
-    def info(self, msg, indent=False):
-        self.handler(dict(level="info", msg=msg, indent=indent))
-
-    def warning(self, msg, *fmt_items):
-        if fmt_items:
-            msg = msg % fmt_items
-        self.handler(dict(level="warning", msg=msg))
-
-    def debug(self, msg):
-        self.handler(dict(level="debug", msg=msg))
-
-    def error(self, msg):
-        self.handler(dict(level="error", msg=msg))
-
-    def progress(self, done=None, total=None):
-        self.handler(dict(level="progress", done=done, total=total))
-
-    def resources_info(self, msg):
-        self.handler(dict(level="resources_info", msg=msg))
-
-    def run_info(self, msg):
-        self.handler(dict(level="run_info", msg=msg))
-
-    def group_info(self, **msg):
-        msg["level"] = "group_info"
-        self.handler(msg)
-
-    def job_info(self, **msg):
-        msg["level"] = "job_info"
-        self.handler(msg)
-
-    def job_error(self, **msg):
-        msg["level"] = "job_error"
-        self.handler(msg)
-
-    def group_error(self, **msg):
-        msg["level"] = "group_error"
-        self.handler(msg)
-
-    def dag_debug(self, msg):
-        self.handler(dict(level="dag_debug", **msg))
-
-    def shellcmd(self, msg, indent=False):
-        if msg is not None:
-            msg = dict(level="shellcmd", msg=msg)
-            msg["indent"] = indent
-            self.handler(msg)
-
-    def job_finished(self, **msg):
-        msg["level"] = "job_finished"
-        self.handler(msg)
-
-    def rule_info(self, **msg):
-        msg["level"] = "rule_info"
-        self.handler(msg)
-
-    def d3dag(self, **msg):
-        msg["level"] = "d3dag"
-        self.handler(msg)
-
-    def host_info(self):
-        self.handler(dict(level="host"))
-
-    def is_quiet_about(self, msg_type: str):
-        from snakemake.settings.enums import Quietness
-
-        return (
-            Quietness.ALL in self.quiet
-            or Quietness.parse_choice(msg_type) in self.quiet
-        )
-
-    def text_handler(self, msg):
-        """The default snakemake log handler.
-
-        Prints the output to the console.
-
-        Args:
-            msg (dict):     the log message dictionary
+    def format(self, record):
         """
-        if self.is_quiet_about("all"):
-            # do not log anything
-            return
+        Override format method to format Snakemake-specific log messages.
+        """
+        msg = record.msg
+        level = msg.get("level", "INFO")  # Default to "INFO" if level not in message
 
-        def job_info(msg):
-            def format_item(item, omit=None, valueformat=str):
-                value = msg[item]
-                if value != omit:
-                    return f"    {item}: {valueformat(value)}"
-
-            yield "{}{} {}:".format(
-                "local" if msg["local"] else "",
-                "checkpoint" if msg["is_checkpoint"] else "rule",
-                msg["name"],
-            )
-            for item in ["input", "output", "log"]:
-                fmt = format_item(item, omit=[], valueformat=", ".join)
-                if fmt != None:
-                    yield fmt
-
-            singleitems = ["jobid", "benchmark"]
-            if self.printreason:
-                singleitems.append("reason")
-            for item in singleitems:
-                fmt = format_item(item, omit=None)
-                if fmt != None:
-                    yield fmt
-
-            wildcards = format_wildcards(msg["wildcards"])
-            if wildcards:
-                yield f"    wildcards: {wildcards}"
-
-            for item, omit in zip("priority threads".split(), [0, 1]):
-                fmt = format_item(item, omit=omit)
-                if fmt != None:
-                    yield fmt
-
-            resources = format_resources(msg["resources"])
-            if resources:
-                yield f"    resources: {resources}"
-
-        def show_logs(logs):
-            for f in logs:
-                try:
-                    content = open(f, "r").read()
-                except FileNotFoundError:
-                    yield f"Logfile {f} not found."
-                    return
-                except UnicodeDecodeError:
-                    yield f"Logfile {f} is not a text file."
-                    return
-                lines = content.splitlines()
-                logfile_header = f"Logfile {f}:"
-                if not lines:
-                    logfile_header += " empty file"
-                    yield logfile_header
-                    return
-                yield logfile_header
-                # take the length of the longest line, but limit to max 80
-                max_len = min(max(max(len(l) for l in lines), len(logfile_header)), 80)
-                yield "=" * max_len
-                yield from lines
-                yield "=" * max_len
-
-        def indent(item):
-            if msg.get("indent"):
-                return f"    {item}"
-            else:
-                return item
-
-        def timestamp():
-            self.logger.info(indent(f"[{time.asctime()}]"))
-
-        level = msg["level"]
-
-        if level == "host" and not self.is_quiet_about("host"):
-            self.logger.info(f"host: {platform.node()}")
-        elif level == "job_info" and not self.is_quiet_about("rules"):
-            if not self.last_msg_was_job_info:
-                self.logger.info("")
-            timestamp()
-            if msg["msg"] is not None:
-                self.logger.info(indent("Job {}: {}".format(msg["jobid"], msg["msg"])))
-                if self.printreason:
-                    self.logger.info(indent("Reason: {}".format(msg["reason"])))
-            else:
-                self.logger.info("\n".join(map(indent, job_info(msg))))
-            if msg["is_checkpoint"]:
-                self.logger.warning(
-                    indent("DAG of jobs will be updated after completion.")
-                )
-            if msg["is_handover"]:
-                self.logger.warning("Handing over execution to foreign system...")
-            self.logger.info("")
-
-            self.last_msg_was_job_info = True
-        elif level == "group_info" and not self.is_quiet_about("rules"):
-            timestamp()
-            msg = "group job {} (jobs in lexicogr. order):".format(msg["groupid"])
-            if not self.last_msg_was_job_info:
-                msg = "\n" + msg
-            self.logger.info(msg)
+        # Call specific handlers based on the log level
+        if level == "info":
+            return self.format_info(msg)
+        elif level == "host":
+            return self.format_host(msg)
+        elif level == "job_info":
+            return self.format_job_info(msg)
+        elif level == "group_info":
+            return self.format_group_info(msg)
         elif level == "job_error":
-
-            def job_error():
-                yield "Error in rule {}:".format(msg["name"])
-                if msg["msg"]:
-                    yield "    message: {}".format(msg["msg"])
-                yield "    jobid: {}".format(msg["jobid"])
-                if msg["input"]:
-                    yield "    input: {}".format(", ".join(msg["input"]))
-                if msg["output"]:
-                    yield "    output: {}".format(", ".join(msg["output"]))
-                if msg["log"]:
-                    yield "    log: {} (check log file(s) for error details)".format(
-                        ", ".join(msg["log"])
-                    )
-                if msg["conda_env"]:
-                    yield "    conda-env: {}".format(msg["conda_env"])
-                if msg["shellcmd"]:
-                    yield "    shell:\n        {}\n        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)".format(
-                        msg["shellcmd"]
-                    )
-
-                for item in msg["aux"].items():
-                    yield "    {}: {}".format(*item)
-
-                if self.show_failed_logs and msg["log"]:
-                    yield from show_logs(msg["log"])
-
-                yield ""
-
-            timestamp()
-            self.logger.error("\n".join(map(indent, job_error())))
+            return self.format_job_error(msg)
         elif level == "group_error":
-
-            def group_error():
-                yield f"Error in group {msg['groupid']}:"
-                if msg["msg"]:
-                    yield f"    message: {msg['msg']}"
-                if msg["aux_logs"]:
-                    yield f"    log: {', '.join(msg['aux_logs'])} (check log file(s) for error details)"
-                yield "    jobs:"
-                for info in msg["job_error_info"]:
-                    yield f"        rule {info['name']}:"
-                    yield f"            jobid: {info['jobid']}"
-                    if info["output"]:
-                        yield f"            output: {', '.join(info['output'])}"
-                    if info["log"]:
-                        yield f"            log: {', '.join(info['log'])} (check log file(s) for error details)"
-                logs = msg["aux_logs"] + [
-                    f for info in msg["job_error_info"] for f in info["log"]
-                ]
-                if self.show_failed_logs and logs:
-                    yield from show_logs(logs)
-                yield ""
-
-            timestamp()
-            self.logger.error("\n".join(group_error()))
+            return self.format_group_error(msg)
+        elif level == "progress":
+            return self.format_progress(msg)
+        elif level == "job_finished":
+            return self.format_job_finished(msg)
+        elif level == "shellcmd":
+            return self.format_shellcmd(msg)
+        elif level == "rule_info":
+            return self.format_rule_info(msg)
+        elif level == "d3dag":
+            return self.format_d3dag(msg)
+        elif level == "dag_debug":
+            return self.format_dag_debug(msg)
+        elif level == "run_info":
+            return self.format_run_info(msg)
         else:
-            if level == "info" and not self.is_quiet_about("progress"):
-                self.logger.warning(msg["msg"])
-            if level == "warning":
-                self.logger.critical(msg["msg"])
-            elif level == "error":
-                self.logger.error(msg["msg"])
-            elif level == "debug":
-                self.logger.debug(msg["msg"])
-            elif level == "resources_info" and not self.is_quiet_about("progress"):
-                self.logger.warning(msg["msg"])
-            elif level == "run_info" and not self.is_quiet_about("progress"):
-                self.logger.warning(msg["msg"])
-            elif level == "progress" and not self.is_quiet_about("progress"):
-                done = msg["done"]
-                total = msg["total"]
-                self.logger.info(
-                    "{} of {} steps ({}) done".format(
-                        done, total, format_percentage(done, total)
-                    )
-                )
-            elif level == "shellcmd":
-                if self.printshellcmds:
-                    self.logger.warning(indent(msg["msg"]))
-            elif level == "job_finished" and not self.is_quiet_about("progress"):
-                timestamp()
-                self.logger.info("Finished job {}.".format(msg["jobid"]))
-                pass
-            elif level == "rule_info":
-                self.logger.info(msg["name"])
-                if msg["docstring"]:
-                    self.logger.info("    " + msg["docstring"])
-            elif level == "d3dag":
-                print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
-            elif level == "dag_debug":
-                if self.debug_dag:
-                    if "file" in msg:
-                        self.logger.warning(
-                            "file {file}:\n    {msg}\n{exception}".format(
-                                file=msg["file"],
-                                msg=msg["msg"],
-                                exception=textwrap.indent(
-                                    str(msg["exception"]), "    "
-                                ),
-                            )
-                        )
-                    else:
-                        job = msg["job"]
-                        self.logger.warning(
-                            "{status} job {name}\n    wildcards: {wc}".format(
-                                status=msg["status"],
-                                name=job.rule.name,
-                                wc=format_wildcards(job.wildcards),
-                            )
-                        )
+            return msg["msg"]
 
-            self.last_msg_was_job_info = False
+    def format_info(self, msg):
+        """
+        Format 'info' level messages.
+        """
+        output = []
+
+        # Check if 'indent' is specified
+        indent = "    " if msg.get("indent", False) else ""
+
+        # Split the message by lines in case it's multiline
+        lines = msg["msg"].split("\n")
+
+        # Apply indentation to each line
+        for line in lines:
+            output.append(f"{indent}{line}")
+
+        # Return the formatted message as a single string with newlines
+        return "\n".join(output)
+
+    def format_run_info(self, msg):
+        """Format the run_info log messages."""
+        return msg["msg"]  # Log the message directly
+
+    def format_host(self, msg):
+        """Format for host log."""
+        return f"host: {platform.node()}"
+
+    def format_job_info(self, msg):
+        """Format for job_info log."""
+        output = []
+
+        output.append(self.timestamp())
+        if msg["msg"]:
+            output.append(f"Job {msg['jobid']}: {msg['msg']}")
+            if self.printreason:
+                output.append(f"Reason: {msg['reason']}")
+        else:
+            output.append("\n".join(self._format_job_info(msg)))
+
+        if msg["is_checkpoint"]:
+            output.append("DAG of jobs will be updated after completion.")
+        if msg["is_handover"]:
+            output.append("Handing over execution to foreign system...")
+        output.append("")
+        return "\n".join(output)
+
+    def format_group_info(self, msg):
+        """Format for group_info log."""
+        msg = (
+            f"{self.timestamp()} group job {msg['groupid']} (jobs in lexicogr. order):"
+        )
+
+        return msg
+
+    def format_job_error(self, msg):
+        """Format for job_error log."""
+        output = []
+        output.append(self.timestamp())
+        output.append("\n".join(self._format_job_error(msg)))
+        return "\n".join(output)
+
+    def format_group_error(self, msg):
+        """Format for group_error log."""
+        output = []
+        output.append(self.timestamp())
+        output.append("\n".join(self._format_group_error(msg)))
+        return "\n".join(output)
+
+    def format_progress(self, msg):
+        """Format for progress log."""
+        done = msg["done"]
+        total = msg["total"]
+        return f"{done} of {total} steps ({self._format_percentage(done, total)}) done"
+
+    def format_job_finished(self, msg):
+        """Format for job_finished log."""
+        return f"{self.timestamp()} Finished job {msg['jobid']}."
+
+    def format_shellcmd(self, msg):
+        """Format for shellcmd log."""
+        if self.printshellcmds:
+            return msg["msg"]
+        return ""
+
+    def format_rule_info(self, msg):
+        """Format for rule_info log."""
+        output = [msg["name"]]
+        if msg["docstring"]:
+            output.append(f"    {msg['docstring']}")
+        return "\n".join(output)
+
+    def format_d3dag(self, msg):
+        """Format for d3dag log."""
+        return json.dumps({"nodes": msg["nodes"], "links": msg["edges"]})
+
+    def format_dag_debug(self, msg):
+        """Format for dag_debug log."""
+        output = []
+
+        if "file" in msg:
+            output.append(
+                f"file {msg['file']}:\n    {msg['msg']}\n{textwrap.indent(str(msg['exception']), '    ')}"
+            )
+        else:
+            job = msg["job"]
+            output.append(
+                f"{msg['status']} job {job.rule.name}\n    wildcards: {format_wildcards(job.wildcards)}"
+            )
+        return "\n".join(output)
+
+    def _format_job_info(self, msg):
+        """Helper method to format job info details."""
+
+        def format_item(item, omit=None, valueformat=str):
+            value = msg[item]
+            if value != omit:
+                return f"    {item}: {valueformat(value)}"
+
+        output = [
+            f"{'local' if msg['local'] else ''}{'checkpoint' if msg['is_checkpoint'] else 'rule'} {msg['name']}:"
+        ]
+        for item in ["input", "output", "log"]:
+            fmt = format_item(item, omit=[], valueformat=", ".join)
+            if fmt:
+                output.append(fmt)
+
+        singleitems = ["jobid", "benchmark"]
+        if self.printreason:
+            singleitems.append("reason")
+        for item in singleitems:
+            fmt = format_item(item, omit=None)
+            if fmt:
+                output.append(fmt)
+
+        wildcards = format_wildcards(msg["wildcards"])
+        if wildcards:
+            output.append(f"    wildcards: {wildcards}")
+
+        for item, omit in zip("priority threads".split(), [0, 1]):
+            fmt = format_item(item, omit=omit)
+            if fmt:
+                output.append(fmt)
+
+        resources = format_resources(msg["resources"])
+        if resources:
+            output.append(f"    resources: {resources}")
+
+        return output
+
+    def _format_job_error(self, msg):
+        """Helper method to format job error details."""
+        output = [f"Error in rule {msg['name']}:"]
+
+        if msg["msg"]:
+            output.append(f"    message: {msg['msg']}")
+        output.append(f"    jobid: {msg['jobid']}")
+        if msg["input"]:
+            output.append(f"    input: {', '.join(msg['input'])}")
+        if msg["output"]:
+            output.append(f"    output: {', '.join(msg['output'])}")
+        if msg["log"]:
+            output.append(
+                f"    log: {', '.join(msg['log'])} (check log file(s) for error details)"
+            )
+        if msg["conda_env"]:
+            output.append(f"    conda-env: {msg['conda_env']}")
+        if msg["shellcmd"]:
+            output.append(
+                f"    shell:\n        {msg['shellcmd']}\n        (command exited with non-zero exit code)"
+            )
+
+        for item in msg["aux"].items():
+            output.append(f"    {item[0]}: {item[1]}")
+
+        if self.show_failed_logs and msg["log"]:
+            output.extend(show_logs(msg["log"]))
+
+        return output
+
+    def _format_group_error(self, msg):
+        """Helper method to format group error details."""
+        output = [f"Error in group {msg['groupid']}:"]
+
+        if msg["msg"]:
+            output.append(f"    message: {msg['msg']}")
+        if msg["aux_logs"]:
+            output.append(
+                f"    log: {', '.join(msg['aux_logs'])} (check log file(s) for error details)"
+            )
+
+        output.append("    jobs:")
+        for info in msg["job_error_info"]:
+            output.append(f"        rule {info['name']}:")
+            output.append(f"            jobid: {info['jobid']}")
+            if info["output"]:
+                output.append(f"            output: {', '.join(info['output'])}")
+            if info["log"]:
+                output.append(
+                    f"            log: {', '.join(info['log'])} (check log file(s) for error details)"
+                )
+
+        logs = msg["aux_logs"] + [
+            f for info in msg["job_error_info"] for f in info["log"]
+        ]
+        if self.show_failed_logs and logs:
+            output.extend(self.show_logs(logs))
+
+        return output
+
+    def timestamp(self):
+        """Helper method to format the timestamp."""
+        return f"[{time.asctime()}]"
+
+    def _format_percentage(self, done, total):
+        """Helper method to format percentage."""
+        if done == total:
+            return "100%"
+        if done == 0:
+            return "0%"
+        precision = 0
+        fraction = done / total
+        fmt_precision = "{{:.{}%}}".format
+        fmt = lambda fraction: fmt_precision(precision).format(fraction)
+        while fmt(fraction) == "100%" or fmt(fraction) == "0%":
+            precision += 1
+        return fmt(fraction)
+
+
+def show_logs(logs):
+    """Helper method to show logs."""
+    for f in logs:
+        try:
+            content = open(f, "r").read()
+        except FileNotFoundError:
+            yield f"Logfile {f} not found."
+            return
+        except UnicodeDecodeError:
+            yield f"Logfile {f} is not a text file."
+            return
+        lines = content.splitlines()
+        logfile_header = f"Logfile {f}:"
+        if not lines:
+            logfile_header += " empty file"
+            yield logfile_header
+            return
+        yield logfile_header
+        max_len = min(max(max(len(l) for l in lines), len(logfile_header)), 80)
+        yield "=" * max_len
+        yield from lines
+        yield "=" * max_len
 
 
 def format_dict(dict_like, omit_keys=None, omit_values=None):
@@ -723,8 +584,343 @@ def format_percentage(done, total):
     return fmt(fraction)
 
 
-logger = Logger()
+class DefaultFilter:
+    def __init__(
+        self,
+        quiet,
+        debug_dag,
+    ) -> None:
+        self.quiet = quiet
+        self.debug_dag = debug_dag
 
+    def is_quiet_about(self, msg_type: str):
+        from snakemake.settings.enums import Quietness
+
+        return (
+            Quietness.ALL in self.quiet
+            or Quietness.parse_choice(msg_type) in self.quiet
+        )
+
+    def filter(self, record):
+        if self.is_quiet_about("all"):
+            return False
+
+        msg = record.msg
+        level = msg.get("level", "INFO").lower()
+
+        # Respect quiet mode filtering
+        quietness_map = {
+            "job_info": "rules",
+            "group_info": "rules",
+            "job_error": "rules",
+            "group_error": "rules",
+            "progress": "progress",
+            "shellcmd": "progress",  # or other quietness types
+            "job_finished": "progress",
+            "resources_info": "progress",
+            "run_info": "progress",
+            "host": "host",
+            "info": "progress",
+        }
+
+        # Check quietness for specific levels and skip accordingly
+        if level in quietness_map:
+            if self.is_quiet_about(quietness_map[level]):
+                return False
+
+        # Handle dag_debug specifically
+        if level == "dag_debug" and not self.debug_dag:
+            return False
+
+        return True
+
+
+class ColorizingTextHandler(_logging.StreamHandler):
+    """
+    Custom handler that combines colorization and Snakemake-specific formatting.
+    """
+
+    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
+    RESET_SEQ = "\033[0m"
+    COLOR_SEQ = "\033[%dm"
+    BOLD_SEQ = "\033[1m"
+
+    colors = {
+        "WARNING": YELLOW,
+        "INFO": GREEN,
+        "DEBUG": BLUE,
+        "CRITICAL": MAGENTA,
+        "ERROR": RED,
+    }
+
+    def __init__(
+        self,
+        nocolor=False,
+        stream=sys.stderr,
+        mode=None,
+    ):
+        super().__init__(stream=stream)
+        self.last_msg_was_job_info = False
+        self._output_lock = threading.Lock()
+        self.nocolor = nocolor or not self.can_color_tty(mode)
+        self.mode = mode
+
+    def can_color_tty(self, mode):
+        """
+        Check if the terminal supports colors.
+        """
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
+        if "TERM" in os.environ and os.environ["TERM"] == "dumb":
+            return False
+        if mode == ExecMode.SUBPROCESS:
+            return True
+        return self.is_tty and not platform.system() == "Windows"
+
+    @property
+    def is_tty(self):
+        isatty = getattr(self.stream, "isatty", None)
+        return isatty and isatty()
+
+    def emit(self, record):
+        """
+        Emit a log message with custom formatting and color.
+        """
+        with self._output_lock:
+            try:
+
+                level = record.msg.get("level", "INFO").lower()
+
+                if level == "job_info":
+                    if not self.last_msg_was_job_info:
+                        self.stream.write(
+                            "\n"
+                        )  # Add a blank line before a new job_info message
+                    self.last_msg_was_job_info = True
+                else:
+                    # Reset flag if the message is not a 'job_info'
+                    self.last_msg_was_job_info = False
+                formatted_message = self.format(record)
+
+                # Apply color to the formatted message
+                self.stream.write(self.decorate(record, formatted_message))
+                self.stream.write(getattr(self, "terminator", "\n"))
+                self.flush()
+            except BrokenPipeError as e:
+                raise e
+            except (KeyboardInterrupt, SystemExit):
+                pass  # Ignore exceptions for these cases
+            except Exception as e:
+                self.handleError(record)
+
+    def is_quiet_about(self, msg_type: str):
+        from snakemake.settings.enums import Quietness
+
+        return (
+            Quietness.ALL in self.quiet
+            or Quietness.parse_choice(msg_type) in self.quiet
+        )
+
+    def decorate(self, record, message):
+        """
+        Add color to the log message based on its level.
+        """
+        message = [message]  # Treat the formatted message as a list
+
+        # Use record.levelname to apply color if applicable
+        if not self.nocolor and record.levelname in self.colors:
+            message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
+            message.append(self.RESET_SEQ)
+
+        return "".join(message)
+
+
+class Logger:
+
+    def __init__(self):
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
+        self.logger = _logging.getLogger(__name__)
+        self.stream_handler = None
+        self.printshellcmds = False
+        self.printreason = False
+        self.debug_dag = False
+        self.quiet = set()
+        self.logfile = None
+        self.last_msg_was_job_info = False
+        self.mode = ExecMode.DEFAULT
+        self.show_failed_logs = False
+        self.logfile_handler = None
+        self.dryrun = False
+        self.level = 0
+        self.default_formatter = None
+        self.default_filter = None
+
+    def setup_logfile(self):
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
+        if self.mode == ExecMode.DEFAULT and not self.dryrun:
+            os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
+            self.logfile = os.path.abspath(
+                os.path.join(
+                    ".snakemake",
+                    "log",
+                    datetime.datetime.now().isoformat().replace(":", "")
+                    + ".snakemake.log",
+                )
+            )
+
+            self.logfile_handler = _logging.FileHandler(self.logfile)
+            self.logfile_handler.setFormatter(self.default_formatter)
+            self.logfile_handler.addFilter(self.default_filter)
+            self.logfile_handler.setLevel(self.level)
+            self.logger.addHandler(self.logfile_handler)
+
+    def cleanup(self):
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
+        if self.mode == ExecMode.DEFAULT and self.logfile_handler is not None:
+            self.logger.removeHandler(self.logfile_handler)
+            self.logfile_handler.close()
+
+    def set_stream_handler(self, stream_handler: _logging.Handler):
+        """Set the stream handler, replacing any existing one."""
+        if self.stream_handler is not None:
+            self.logger.removeHandler(self.stream_handler)
+        self.stream_handler = stream_handler
+        stream_handler.setFormatter(self.default_formatter)
+        stream_handler.addFilter(self.default_filter)
+        stream_handler.setLevel(self.level)
+        self.logger.addHandler(stream_handler)
+
+    def set_level(self, level):
+        """Set the logging level."""
+        self.level = level
+        self.logger.setLevel(level)
+
+    def handler(self, msg):
+        """Send the message to the logger."""
+        # Get the custom log level from the message
+        custom_level = msg.get("level", "info").lower()
+
+        # Map custom levels to standard Python logging levels
+        log_level = {
+            "debug": _logging.DEBUG,
+            "info": _logging.WARNING,
+            "warning": _logging.WARNING,
+            "error": _logging.ERROR,
+            "critical": _logging.CRITICAL,
+            "run_info": _logging.WARNING,
+            "job_info": _logging.INFO,
+            "group_info": _logging.INFO,
+            "job_error": _logging.ERROR,
+            "group_error": _logging.ERROR,
+            "progress": _logging.INFO,
+            "job_finished": _logging.INFO,
+            "shellcmd": _logging.INFO,
+            "rule_info": _logging.INFO,
+            "dag_debug": (
+                _logging.WARNING if self.debug_dag else _logging.DEBUG
+            ),  # bump debug_dag to warning if we want it
+            "resources_info": _logging.WARNING,
+            "host": _logging.INFO,
+            "job_stats": _logging.WARNING,
+        }.get(
+            custom_level, _logging.INFO
+        )  # Default to INFO if not recognized
+
+        record = self.logger.makeRecord(
+            name=self.logger.name,
+            level=log_level,
+            fn="",
+            lno=0,
+            msg=msg,
+            args=(),
+            exc_info=None,
+        )
+
+        self.logger.handle(record)
+
+    # Logging methods for various log levels
+    def info(self, msg, indent=False):
+        self.handler(dict(level="info", msg=msg, indent=indent))
+
+    def warning(self, msg, *fmt_items):
+        if fmt_items:
+            msg = msg % fmt_items
+        self.handler(dict(level="warning", msg=msg))
+
+    def debug(self, msg):
+        self.handler(dict(level="debug", msg=msg))
+
+    def error(self, msg):
+        self.handler(dict(level="error", msg=msg))
+
+    def progress(self, done=None, total=None):
+        self.handler(dict(level="progress", done=done, total=total))
+
+    def resources_info(self, msg):
+        self.handler(dict(level="resources_info", msg=msg))
+
+    def run_info(self, msg):
+        self.handler(dict(level="run_info", msg=msg))
+
+    def group_info(self, **msg):
+        msg["level"] = "group_info"
+        self.handler(msg)
+
+    def job_info(self, **msg):
+        msg["level"] = "job_info"
+        self.handler(msg)
+
+    def job_error(self, **msg):
+        msg["level"] = "job_error"
+        self.handler(msg)
+
+    def group_error(self, **msg):
+        msg["level"] = "group_error"
+        self.handler(msg)
+
+    def shellcmd(self, msg, indent=False):
+        if msg is not None:
+            msg = dict(level="shellcmd", msg=msg)
+            msg["indent"] = indent
+            self.handler(msg)
+
+    def job_finished(self, **msg):
+        msg["level"] = "job_finished"
+        self.handler(msg)
+
+    def rule_info(self, **msg):
+        msg["level"] = "rule_info"
+        self.handler(msg)
+
+    def d3dag(self, **msg):
+        msg["level"] = "d3dag"
+        self.handler(msg)
+
+    def dag_debug(self, msg):
+        self.handler(dict(level="dag_debug", **msg))
+
+    def host_info(self):
+        self.handler(dict(level="host"))
+
+    def logfile_hint(self):
+        """Log the logfile location if applicable."""
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
+        if self.mode == ExecMode.DEFAULT and not self.dryrun:
+            logfile = self.get_logfile()
+            self.info(f"Complete log: {os.path.relpath(logfile)}")
+
+    def get_logfile(self):
+        """Get the path to the logfile."""
+        if self.logfile is not None:
+            self.logfile_handler.flush()
+        return self.logfile
+
+
+logger = Logger()
 
 def setup_logger(
     handler=[],
@@ -757,14 +953,19 @@ def setup_logger(
             "Unsupported value provided for quiet mode (either bool, None or set allowed)."
         )
 
-    logger.log_handler.extend(handler)
-
-    # console output only if no custom logger was specified
-    stream_handler = ColorizingStreamHandler(
+    stream_handler = ColorizingTextHandler(
         nocolor=nocolor,
         stream=sys.stdout if stdout else sys.stderr,
         mode=mode,
     )
+    formatter = DefaultFormatter(
+        printreason=printreason,
+        show_failed_logs=show_failed_logs,
+        printshellmds=printshellcmds,
+    )
+    filter = DefaultFilter(quiet=quiet, debug_dag=debug_dag)
+    logger.default_formatter = formatter
+    logger.default_filter = filter
     logger.set_stream_handler(stream_handler)
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
     logger.quiet = quiet

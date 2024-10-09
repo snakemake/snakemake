@@ -82,7 +82,7 @@ class Executor(RealExecutor):
         return sys.executable
 
     def additional_general_args(self):
-        return "--quiet progress rules"
+        return "--quiet progress rules host"
 
     def get_job_args(self, job: JobExecutorInterface, **kwargs):
         return f"{super().get_job_args(job, **kwargs)}"
