@@ -783,11 +783,14 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
             # Linear interpolation between selecting from all jobs (greedines == 0) to a subset of
             # the maximum number of jobs/cores/processes (greediness 1)
-            n = int(
-                (1 - self.greediness) * len(jobs)
-                + self.greediness
-                * min(self.resources["_cores"], self.resources["_nodes"])
-            ) + 1
+            n = (
+                int(
+                    (1 - self.greediness) * len(jobs)
+                    + self.greediness
+                    * min(self.resources["_cores"], self.resources["_nodes"])
+                )
+                + 1
+            )
             logger.debug(f"Building heap of {n} jobs.")
 
             # Iterate all jobs, keeping the n most rewarding ones in a heap.
@@ -822,15 +825,19 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
             # Linear interpolation between selecting from all jobs (greedines == 0) to a subset of
             # the maximum number of jobs/cores/processes (greediness 1)
-            n = int(
-                (1 - self.greediness) * len(jobs)
-                + self.greediness
-                * min(self.resources["_cores"], self.resources["_nodes"])
-            ) + 1
+            n = (
+                int(
+                    (1 - self.greediness) * len(jobs)
+                    + self.greediness
+                    * min(self.resources["_cores"], self.resources["_nodes"])
+                )
+                + 1
+            )
             logger.debug(f"Selecting from top {n} jobs.")
 
             # Select jobs until we reach the limit for any resource.
             from itertools import islice
+
             solution = self._job_selector_greedier(set(islice(jobs, n)))
 
             self.update_available_resources(solution)
