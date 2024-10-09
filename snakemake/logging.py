@@ -253,42 +253,42 @@ class DefaultFormatter(_logging.Formatter):
 
     def format(self, record):
         """
-        Override format method to handle Snakemake-specific log messages.
+        Override format method to format Snakemake-specific log messages.
         """
         msg = record.msg
         level = msg.get("level", "INFO")  # Default to "INFO" if level not in message
 
         # Call specific handlers based on the log level
         if level == "info":
-            return self.handle_info(msg)
+            return self.format_info(msg)
         elif level == "host":
-            return self.handle_host(msg)
+            return self.format_host(msg)
         elif level == "job_info":
-            return self.handle_job_info(msg)
+            return self.format_job_info(msg)
         elif level == "group_info":
-            return self.handle_group_info(msg)
+            return self.format_group_info(msg)
         elif level == "job_error":
-            return self.handle_job_error(msg)
+            return self.format_job_error(msg)
         elif level == "group_error":
-            return self.handle_group_error(msg)
+            return self.format_group_error(msg)
         elif level == "progress":
-            return self.handle_progress(msg)
+            return self.format_progress(msg)
         elif level == "job_finished":
-            return self.handle_job_finished(msg)
+            return self.format_job_finished(msg)
         elif level == "shellcmd":
-            return self.handle_shellcmd(msg)
+            return self.format_shellcmd(msg)
         elif level == "rule_info":
-            return self.handle_rule_info(msg)
+            return self.format_rule_info(msg)
         elif level == "d3dag":
-            return self.handle_d3dag(msg)
+            return self.format_d3dag(msg)
         elif level == "dag_debug":
-            return self.handle_dag_debug(msg)
+            return self.format_dag_debug(msg)
         elif level == "run_info":
-            return self.handle_run_info(msg)
+            return self.format_run_info(msg)
         else:
             return msg["msg"]
 
-    def handle_info(self, msg):
+    def format_info(self, msg):
         """
         Format 'info' level messages.
         """
@@ -307,15 +307,15 @@ class DefaultFormatter(_logging.Formatter):
         # Return the formatted message as a single string with newlines
         return "\n".join(output)
 
-    def handle_run_info(self, msg):
+    def format_run_info(self, msg):
         """Format the run_info log messages."""
         return msg["msg"]  # Log the message directly
 
-    def handle_host(self, msg):
+    def format_host(self, msg):
         """Format for host log."""
         return f"host: {platform.node()}"
 
-    def handle_job_info(self, msg):
+    def format_job_info(self, msg):
         """Format for job_info log."""
         output = []
 
@@ -325,7 +325,7 @@ class DefaultFormatter(_logging.Formatter):
             if self.printreason:
                 output.append(f"Reason: {msg['reason']}")
         else:
-            output.append("\n".join(self.format_job_info(msg)))
+            output.append("\n".join(self._format_job_info(msg)))
 
         if msg["is_checkpoint"]:
             output.append("DAG of jobs will be updated after completion.")
@@ -334,7 +334,7 @@ class DefaultFormatter(_logging.Formatter):
         output.append("")
         return "\n".join(output)
 
-    def handle_group_info(self, msg):
+    def format_group_info(self, msg):
         """Format for group_info log."""
         msg = (
             f"{self.timestamp()} group job {msg['groupid']} (jobs in lexicogr. order):"
@@ -342,48 +342,48 @@ class DefaultFormatter(_logging.Formatter):
 
         return msg
 
-    def handle_job_error(self, msg):
+    def format_job_error(self, msg):
         """Format for job_error log."""
         output = []
         output.append(self.timestamp())
-        output.append("\n".join(self.format_job_error(msg)))
+        output.append("\n".join(self._format_job_error(msg)))
         return "\n".join(output)
 
-    def handle_group_error(self, msg):
+    def format_group_error(self, msg):
         """Format for group_error log."""
         output = []
         output.append(self.timestamp())
-        output.append("\n".join(self.format_group_error(msg)))
+        output.append("\n".join(self._format_group_error(msg)))
         return "\n".join(output)
 
-    def handle_progress(self, msg):
+    def format_progress(self, msg):
         """Format for progress log."""
         done = msg["done"]
         total = msg["total"]
-        return f"{done} of {total} steps ({self.format_percentage(done, total)}) done"
+        return f"{done} of {total} steps ({self._format_percentage(done, total)}) done"
 
-    def handle_job_finished(self, msg):
+    def format_job_finished(self, msg):
         """Format for job_finished log."""
         return f"{self.timestamp()} Finished job {msg['jobid']}."
 
-    def handle_shellcmd(self, msg):
+    def format_shellcmd(self, msg):
         """Format for shellcmd log."""
         if self.printshellcmds:
             return msg["msg"]
         return ""
 
-    def handle_rule_info(self, msg):
+    def format_rule_info(self, msg):
         """Format for rule_info log."""
         output = [msg["name"]]
         if msg["docstring"]:
             output.append(f"    {msg['docstring']}")
         return "\n".join(output)
 
-    def handle_d3dag(self, msg):
+    def format_d3dag(self, msg):
         """Format for d3dag log."""
         return json.dumps({"nodes": msg["nodes"], "links": msg["edges"]})
 
-    def handle_dag_debug(self, msg):
+    def format_dag_debug(self, msg):
         """Format for dag_debug log."""
         output = []
 
@@ -398,7 +398,7 @@ class DefaultFormatter(_logging.Formatter):
             )
         return "\n".join(output)
 
-    def format_job_info(self, msg):
+    def _format_job_info(self, msg):
         """Helper method to format job info details."""
 
         def format_item(item, omit=None, valueformat=str):
@@ -437,7 +437,7 @@ class DefaultFormatter(_logging.Formatter):
 
         return output
 
-    def format_job_error(self, msg):
+    def _format_job_error(self, msg):
         """Helper method to format job error details."""
         output = [f"Error in rule {msg['name']}:"]
 
@@ -467,7 +467,7 @@ class DefaultFormatter(_logging.Formatter):
 
         return output
 
-    def format_group_error(self, msg):
+    def _format_group_error(self, msg):
         """Helper method to format group error details."""
         output = [f"Error in group {msg['groupid']}:"]
 
@@ -501,7 +501,7 @@ class DefaultFormatter(_logging.Formatter):
         """Helper method to format the timestamp."""
         return f"[{time.asctime()}]"
 
-    def format_percentage(self, done, total):
+    def _format_percentage(self, done, total):
         """Helper method to format percentage."""
         if done == total:
             return "100%"
