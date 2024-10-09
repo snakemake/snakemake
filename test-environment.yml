@@ -40,7 +40,6 @@ dependencies:
   - pulp >=2.3.1
   - environment-modules
   - nbformat
-  - toposort >=1.10
   - crc32c
   - requests-mock
   - peppy =0.40.5 # TODO remove constraint once this is fixed: https://github.com/pepkit/peppy/issues/496
