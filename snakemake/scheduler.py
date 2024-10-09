@@ -740,6 +740,38 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self.update_available_resources(solution)
             return solution
 
+    def _job_selector_greedier(self, jobs):
+        # Max resource capacities
+        global_res = [self.resources[name] for name in self.global_resources]
+
+        # Used resources, in the same order as self.global_resources.
+        used_res = [0] * len(global_res)
+
+        # Iterate jobs, picking the last element at a time, until all elements
+        # have been picked, or resources exhausted
+        solution = set()
+        while jobs:
+            # Get next job
+            job = jobs.pop()
+            job_res = self.job_weight(job)
+            assert len(job_res) == len(global_res)
+
+            # Check resources
+            exhausted_some_res = any(
+                used_res[i] + job_res[i] >= global_res[i]
+                for i in range(len(global_res))
+            )
+
+            # If limits not yet exceeded
+            if not exhausted_some_res:
+                # Update total resources
+                for i in range(len(global_res)):
+                    used_res[i] += job_res[i]
+                # Add job
+                solution.add(job)
+
+        return solution
+
     def job_selector_greedier(self, jobs):
         import heapq
 
@@ -755,8 +787,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 (1 - self.greediness) * len(jobs)
                 + self.greediness
                 * min(self.resources["_cores"], self.resources["_nodes"])
-            )
-            logger.debug(f"Finding the best {n} jobs to submit.")
+            ) + 1
+            logger.debug(f"Building heap of {n} jobs.")
 
             # Iterate all jobs, keeping the n most rewarding ones in a heap.
             heap = []
@@ -771,40 +803,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     # If the heap is full, replace the smallest element if the new reward is better.
                     heapq.heappushpop(heap, (rewards[idx], job))
             # Revert heap
-            max_sorted = [heapq.heappop(heap) for i in range(len(heap))]
+            max_sorted = [heapq.heappop(heap)[1] for i in range(len(heap))]
             logger.debug(f"Jobs heap: {max_sorted}")
 
             # We have a list of `n` jobs, sorted ascending by their reward. Select best solution
             # up until we reach the limit for any resource.
-
-            # Max resource capacities
-            global_res = [self.resources[name] for name in self.global_resources]
-
-            # Used resources, in the same order as self.global_resources.
-            used_res = [0] * len(global_res)
-
-            # Iterate max_sorted, picking the last (most rewarding) element at a time,
-            # until we have either picked all elements, or exhausted a resource.
-            solution = set()
-            while max_sorted:
-                # Get the next best job and its resources.
-                reward, job = max_sorted.pop()
-                job_res = self.job_weight(job)
-                assert len(job_res) == len(global_res)
-
-                # Check resources
-                exhausted_some_res = any(
-                    used_res[i] + job_res[i] >= global_res[i]
-                    for i in range(len(global_res))
-                )
-
-                # If limits not yet exceeded
-                if not exhausted_some_res:
-                    # Update total resources
-                    for i in range(len(global_res)):
-                        used_res[i] += job_res[i]
-                    # Add job
-                    solution.add(job)
+            solution = self._job_selector_greedier(max_sorted)
 
             self.update_available_resources(solution)
             return solution
@@ -816,33 +820,18 @@ class JobScheduler(JobSchedulerExecutorInterface):
             if not self.resources["_cores"]:
                 return set()
 
-            # Max resource capacities
-            global_res = [self.resources[name] for name in self.global_resources]
+            # Linear interpolation between selecting from all jobs (greedines == 0) to a subset of
+            # the maximum number of jobs/cores/processes (greediness 1)
+            n = int(
+                (1 - self.greediness) * len(jobs)
+                + self.greediness
+                * min(self.resources["_cores"], self.resources["_nodes"])
+            ) + 1
+            logger.debug(f"Selecting from top {n} jobs.")
 
-            # Used resources, in the same order as self.global_resources.
-            used_res = [0] * len(global_res)
-
-            # Iterate jobs, until we have either picked all elements, or exhausted a resource.
-            solution = set()
-            for job in jobs:
-                job_res = self.job_weight(job)
-                assert len(job_res) == len(global_res)
-
-                # Check resources
-                exhausted_some_res = any(
-                    used_res[i] + job_res[i] >= global_res[i]
-                    for i in range(len(global_res))
-                )
-
-                # Check if limits exceeded
-                if exhausted_some_res:
-                    break
-                else:
-                    # Update total resources
-                    for i in range(len(global_res)):
-                        used_res[i] += job_res[i]
-                    # Add job
-                    solution.add(job)
+            # Select jobs until we reach the limit for any resource.
+            from itertools import islice
+            solution = self._job_selector_greedier(set(islice(jobs, n)))
 
             self.update_available_resources(solution)
             return solution
