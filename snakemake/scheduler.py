@@ -127,9 +127,14 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 )
             )
 
-        # Choose job selector (greedy or ILP)
-        self._job_selector = self.job_selector_greedy
-        if self.workflow.scheduling_settings.scheduler == "ilp":
+        # Choose job selector
+        if self.workflow.scheduling_settings.scheduler == "naive":
+            self._job_selector = self.job_selector_naive
+        elif self.workflow.scheduling_settings.scheduler == "greedier":
+            self._job_selector = self.job_selector_greedier
+        elif self.workflow.scheduling_settings.scheduler == "greedy":
+            self._job_selector = self.job_selector_greedy
+        elif self.workflow.scheduling_settings.scheduler == "ilp":
             import pulp
 
             if pulp.apis.LpSolverDefault is None:
@@ -687,18 +692,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
             E = set(range(n))  # jobs still free to select
             u = [1] * n
             a = list(map(self.job_weight, jobs))  # resource usage of jobs
-
-            async def rewards():
-                return [await self.job_reward(job) for job in jobs]
-
-            c = async_run(rewards())  # job rewards
-
-            def calc_reward():
-                return [c_j * y_j for c_j, y_j in zip(c, y)]
-
             b = [
                 self.resources[name] for name in self.global_resources
             ]  # resource capacities
+            c = async_run(self.jobs_rewards(jobs))  # job rewards
+
+            def calc_reward():
+                return [c_j * y_j for c_j, y_j in zip(c, y)]
 
             while True:
                 # Step 2: compute effective capacities
@@ -737,6 +737,108 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     break
 
             solution = set(job for job, sel in zip(jobs, x) if sel)
+            self.update_available_resources(solution)
+            return solution
+
+    def _job_selector_greedier(self, jobs):
+        # Max resource capacities
+        global_res = [self.resources[name] for name in self.global_resources]
+
+        # Used resources, in the same order as self.global_resources.
+        used_res = [0] * len(global_res)
+
+        # Iterate jobs, picking the last element at a time, until all elements
+        # have been picked, or resources exhausted
+        solution = set()
+        while jobs:
+            # Get next job
+            job = jobs.pop()
+            job_res = self.job_weight(job)
+            assert len(job_res) == len(global_res)
+
+            # Check resources
+            exhausted_some_res = any(
+                used_res[i] + job_res[i] >= global_res[i]
+                for i in range(len(global_res))
+            )
+
+            # If limits not yet exceeded
+            if not exhausted_some_res:
+                # Update total resources
+                for i in range(len(global_res)):
+                    used_res[i] += job_res[i]
+                # Add job
+                solution.add(job)
+
+        return solution
+
+    def job_selector_greedier(self, jobs):
+        import heapq
+
+        logger.debug("Selecting jobs to run using greedier solver.")
+
+        with self._lock:
+            if not self.resources["_cores"]:
+                return set()
+
+            # Linear interpolation between selecting from all jobs (greedines == 0) to a subset of
+            # the maximum number of jobs/cores/processes (greediness 1)
+            n = (
+                int(
+                    (1 - self.greediness) * len(jobs)
+                    + self.greediness
+                    * min(self.resources["_cores"], self.resources["_nodes"])
+                )
+                + 1
+            )
+            logger.debug(f"Building heap of {n} jobs.")
+
+            # Iterate all jobs, keeping the n most rewarding ones in a heap.
+            heap = []
+            rewards = async_run(self.jobs_rewards(jobs))
+            for idx, job in enumerate(jobs):
+                # Store the reward as the first element of a tuple (used for sorting), and job name
+                # as second element, to keep track.
+                if len(heap) < n:
+                    # If the heap is not full (or not limited), push the current reward.
+                    heapq.heappush(heap, (rewards[idx], job))
+                else:
+                    # If the heap is full, replace the smallest element if the new reward is better.
+                    heapq.heappushpop(heap, (rewards[idx], job))
+            # Revert heap
+            max_sorted = [heapq.heappop(heap)[1] for i in range(len(heap))]
+            logger.debug(f"Jobs heap: {max_sorted}")
+
+            # We have a list of `n` jobs, sorted ascending by their reward. Select best solution
+            # up until we reach the limit for any resource.
+            solution = self._job_selector_greedier(max_sorted)
+
+            self.update_available_resources(solution)
+            return solution
+
+    def job_selector_naive(self, jobs):
+        logger.debug("Selecting jobs to run using naive solver.")
+
+        with self._lock:
+            if not self.resources["_cores"]:
+                return set()
+
+            # Linear interpolation between selecting from all jobs (greedines == 0) to a subset of
+            # the maximum number of jobs/cores/processes (greediness 1)
+            n = (
+                int(
+                    (1 - self.greediness) * len(jobs)
+                    + self.greediness
+                    * min(self.resources["_cores"], self.resources["_nodes"])
+                )
+                + 1
+            )
+            logger.debug(f"Selecting from top {n} jobs.")
+
+            # Select jobs until we reach the limit for any resource.
+            from itertools import islice
+
+            solution = self._job_selector_greedier(set(islice(jobs, n)))
 
             self.update_available_resources(solution)
             return solution
@@ -802,6 +904,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # file.
 
         return (job.priority, temp_size, input_size)
+
+    async def jobs_rewards(self, jobs):
+        return [await self.job_reward(job) for job in jobs]
 
     def progress(self):
         """Display the progress."""
