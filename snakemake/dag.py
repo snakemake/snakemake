@@ -449,7 +449,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
         for env in self.conda_envs.values():
-            if (not dryrun or not quiet) and not env.is_named:
+            if (not dryrun or not quiet) and not env.is_externally_managed:
                 env.create(self.workflow.dryrun)
 
     def update_container_imgs(self):
