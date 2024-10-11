@@ -94,6 +94,7 @@ class JupyterNotebook(ScriptBase):
                 fname_out=fname_out,
                 fname=fname,
                 additional_envvars={"IPYTHONDIR": tmp},
+                is_python_script=True,
             )
 
             if edit:
