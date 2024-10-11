@@ -1,14 +1,25 @@
 shell.executable("bash")
 
+
 module test:
-    snakefile: "module-test/Snakefile"
+    snakefile:
+        "module-test/Snakefile"
 
 
-use rule * from test as test_*
+use rule c1 from test as test_xc1
 
 
 use rule a from test as test_* with:
     output:
-        "test2.out"
+        "test2.out",
     params:
-        test=2
+        test=2,
+
+
+use rule test_a as test2_* with:
+    params:
+        k=3,
+
+
+assert test.b() == 1
+assert rules.test2_test_a.params.k == 3

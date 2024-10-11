@@ -11,14 +11,18 @@ import platform
 import hashlib
 import inspect
 import sys
+from typing import TYPE_CHECKING
 import uuid
 import os
 import asyncio
-import collections
+from collections import namedtuple, OrderedDict
 from pathlib import Path
 
 from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
+
+if TYPE_CHECKING:
+    from .. import modules, ruleinfo, rules
 
 
 MIN_PY_VERSION = (3, 7)
@@ -117,6 +121,9 @@ def is_local_file(path_or_uri):
     return parse_uri(path_or_uri).scheme == "file"
 
 
+Uri = namedtuple("Uri", ["scheme", "uri_path"])
+
+
 def parse_uri(path_or_uri):
     from smart_open import parse_uri
 
@@ -129,8 +136,7 @@ def parse_uri(path_or_uri):
         # Fall back to a simple split if we encounter something which isn't supported.
         scheme, _, uri_path = path_or_uri.partition("://")
         if scheme and uri_path:
-            uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
-            return uri(scheme, uri_path)
+            return Uri(scheme, uri_path)
         else:
             raise e
 
@@ -238,27 +244,6 @@ def group_into_chunks(n, iterable):
         if not chunk:
             return
         yield chunk
-
-
-class Rules:
-    """A namespace for rules so that they can be accessed via dot notation."""
-
-    def __init__(self):
-        self._rules = dict()
-
-    def _register_rule(self, name, rule):
-        self._rules[name] = rule
-
-    def __getattr__(self, name):
-        from snakemake.exceptions import WorkflowError
-
-        try:
-            return self._rules[name]
-        except KeyError:
-            raise WorkflowError(
-                f"Rule {name} is not defined in this workflow. "
-                f"Available rules: {', '.join(self._rules)}"
-            )
 
 
 class Scatter:
