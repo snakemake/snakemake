@@ -192,12 +192,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 self.targetjobs.add(job)
             except (
                 MissingInputException,
-                CyclicGraphException,
-                PeriodicWildcardError,
                 WorkflowError,
             ):
                 if not self.in_anyof(job):
                     raise
+                else:
+                    logger.info("Skipping optional target %s because it could not be executed", job)
 
         for file in self.targetfiles:
             tmpjob = await self.file2jobs(file)
@@ -211,12 +211,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 self.targetjobs.add(job)
             except (
                 MissingInputException,
-                CyclicGraphException,
-                PeriodicWildcardError,
                 WorkflowError,
             ):
                 if not self.in_anyof(tmpjob[0]):
                     raise
+                else:
+                    logger.info("Skipping optional target file %s because it could not be created", file)
 
         for spec in self.workflow.dag_settings.target_jobs:
             tmpjob = await self.new_job(
@@ -226,7 +226,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
             try:
                 job = await self.update(
-                    [ tmpjob ],
+                    [tmpjob],
                     progress=progress,
                     create_inventory=True,
                 )
@@ -234,12 +234,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 self.forcefiles.update(job.output)
             except (
                 MissingInputException,
-                CyclicGraphException,
-                PeriodicWildcardError,
                 WorkflowError,
             ):
                 if not self.in_anyof(tmpjob):
                     raise
+                else:
+                    logger.info("Skipping optional job %s because it could not be executed", tmpjob)
 
         self.cleanup()
 
@@ -1475,10 +1475,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def omitfrom_jobs(self):
         """Returns a generator of jobs specified by omitfromjobs."""
         return (job for job in self.jobs if self.in_omitfrom(job))
-
-    def anyof_jobs(self):
-        """Returns a generator of jobs specified by anyofjobs."""
-        return (job for job in self.jobs if self.in_anyof(job))
 
     def downstream_of_omitfrom(self):
         """Returns the downstream of --omit-from rules or files and themselves."""

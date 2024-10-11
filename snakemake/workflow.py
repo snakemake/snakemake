@@ -747,7 +747,9 @@ class Workflow(WorkflowExecutorInterface):
                 filterfalse(Rule.has_wildcards, anyofrules),
             )
         )
-        targetfiles = set(chain(files(targets), priorityfiles, forcefiles, untilfiles, anyoffiles))
+        targetfiles = set(
+            chain(files(targets), priorityfiles, forcefiles, untilfiles, anyoffiles)
+        )
 
         if ON_WINDOWS:
             targetfiles = set(tf.replace(os.sep, os.altsep) for tf in targetfiles)
