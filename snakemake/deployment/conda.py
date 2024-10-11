@@ -162,11 +162,16 @@ class Env:
         if self.name or self.dir:
             from snakemake.shell import shell
 
-            content = shell.check_output(
-                f"conda env export {self.address_argument}",
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
+            try:
+                content = shell.check_output(
+                    f"conda env export {self.address_argument}",
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as e:
+                raise WorkflowError(
+                    f"Error exporting conda environment {self.address_argument}:\n{e.output}"
+                )
             return content.encode()
         else:
             return self.workflow.sourcecache.open(self.file, "rb").read()
