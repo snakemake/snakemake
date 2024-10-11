@@ -81,6 +81,13 @@ jobs:
           sudo apt-get update
           sudo apt install -y stress git wget openmpi-bin libopenmpi-dev apptainer
 
+      # See https://github.com/apptainer/apptainer/pull/2262
+      - name: Disable apparmor namespace restrictions for apptainer
+        run: |
+          sudo sh -c 'echo kernel.apparmor_restrict_unprivileged_userns=0 \
+              >/etc/sysctl.d/90-disable-userns-restrictions.conf'
+          sudo sysctl -p /etc/sysctl.d/90-disable-userns-restrictions.conf
+
       - name: Test local
         env:
           CI: true
