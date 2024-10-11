@@ -1095,23 +1095,22 @@ class Rule(RuleInterface):
 
         spec_type = CondaEnvSpecType.from_spec(conda_env)
 
-        match spec_type:
-            case CondaEnvSpecType.FILE:
-                if not isinstance(conda_env, SourceFile):
-                    if is_local_file(conda_env) and not os.path.isabs(conda_env):
-                        # Conda env file paths are considered to be relative to the directory of the Snakefile
-                        # hence we adjust the path accordingly.
-                        # This is not necessary in case of receiving a SourceFile.
-                        conda_env = self.basedir.join(conda_env)
-                    else:
-                        # infer source file from unmodified uri or path
-                        conda_env = infer_source_file(conda_env)
+        if spec_type is CondaEnvSpecType.FILE:
+            if not isinstance(conda_env, SourceFile):
+                if is_local_file(conda_env) and not os.path.isabs(conda_env):
+                    # Conda env file paths are considered to be relative to the directory of the Snakefile
+                    # hence we adjust the path accordingly.
+                    # This is not necessary in case of receiving a SourceFile.
+                    conda_env = self.basedir.join(conda_env)
+                else:
+                    # infer source file from unmodified uri or path
+                    conda_env = infer_source_file(conda_env)
 
-                conda_env = CondaEnvFileSpec(conda_env, rule=self)
-            case CondaEnvSpecType.NAME:
-                conda_env = CondaEnvNameSpec(conda_env)
-            case CondaEnvSpecType.DIR:
-                conda_env = CondaEnvDirSpec(conda_env, rule=self)
+            conda_env = CondaEnvFileSpec(conda_env, rule=self)
+        elif spec_type is CondaEnvSpecType.NAME:
+            conda_env = CondaEnvNameSpec(conda_env)
+        elif spec_type is CondaEnvSpecType.DIR:
+            conda_env = CondaEnvDirSpec(conda_env, rule=self)
 
         conda_env = conda_env.apply_wildcards(wildcards, self)
         conda_env.check()

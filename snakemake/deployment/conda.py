@@ -142,6 +142,7 @@ class Env:
     def _get_aux_file(self, suffix: str, omit_msg: str):
         if self.file:
             prefix = self._path_or_uri_prefix()
+            # TODO handle LocalGitFile properly
             if prefix is None:
                 logger.warning(
                     f"Conda environment file {self.file.get_path_or_uri()} does not end "
@@ -985,9 +986,13 @@ class CondaEnvSpecType(Enum):
     @classmethod
     def from_spec(cls, spec: Union[str, SourceFile, Path]):
         if isinstance(spec, SourceFile):
-            spec = spec.get_path_or_uri()
-        if isinstance(spec, Path):
+            if isinstance(spec, LocalSourceFile):
+                spec = spec.get_path_or_uri()
+            else:
+                spec = spec.get_filename()
+        elif isinstance(spec, Path):
             spec = str(spec)
+
         if spec.endswith(".yaml") or spec.endswith(".yml"):
             return cls.FILE
         elif is_local_file(spec) and os.path.isdir(spec):
