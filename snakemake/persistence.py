@@ -256,7 +256,9 @@ class Persistence(PersistenceExecutorInterface):
     def conda_cleanup_envs(self):
         # cleanup envs
         for address in set(
-            env.address for env in self.dag.conda_envs.values() if not env.is_named
+            env.address
+            for env in self.dag.conda_envs.values()
+            if not env.is_externally_managed
         ):
             removed = False
             if os.path.exists(address):

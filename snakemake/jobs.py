@@ -520,9 +520,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
         if self.conda_env_spec:
-            if self.conda_env.is_named:
+            if self.conda_env.is_externally_managed:
                 raise WorkflowError(
-                    "Workflow archives cannot be created for workflows using named conda environments."
+                    "Workflow archives cannot be created for workflows using externally managed conda environments."
                     "Please use paths to YAML files for all your conda directives.",
                     rule=self.rule,
                 )
@@ -1083,10 +1083,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             DeploymentMethod.CONDA
             in self.dag.workflow.deployment_settings.deployment_method
             and self.conda_env
-            and not self.conda_env.is_named
+            and not self.conda_env.is_externally_managed
             and not self.conda_env.is_containerized
         ):
-            # Named or containerized envs are not present on the host FS,
+            # Managed or containerized envs are not present on the host FS,
             # hence we don't need to wait for them.
             wait_for_files.append(self.conda_env.address)
         return wait_for_files
@@ -1397,7 +1397,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 DeploymentMethod.CONDA
                 in self.dag.workflow.deployment_settings.deployment_method
                 and job.conda_env
-                and not job.conda_env.is_named
+                and not job.conda_env.is_externally_managed
             ):
                 wait_for_files.append(job.conda_env.address)
         return wait_for_files

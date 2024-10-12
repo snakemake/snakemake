@@ -1023,7 +1023,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         print("environment", "container", "location", sep="\t")
         for env in set(job.conda_env for job in self.dag.jobs):
-            if env and not env.is_named:
+            if env and not env.is_externally_managed:
                 print(
                     env.file.simplify_path(),
                     env.container_img_url or "",

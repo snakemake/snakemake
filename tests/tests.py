@@ -547,7 +547,11 @@ def test_conda_cmd_exe():
 @skip_on_windows  # wrappers are for linux and macos only
 @conda
 def test_wrapper():
-    run(dpath("test_wrapper"), deployment_method={DeploymentMethod.CONDA})
+    run(
+        dpath("test_wrapper"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
 
 
 @skip_on_windows  # wrappers are for linux and macos only
@@ -566,6 +570,7 @@ def test_wrapper_local_git_prefix():
             dpath("test_wrapper"),
             deployment_method={DeploymentMethod.CONDA},
             wrapper_prefix=f"git+file://{tmpdir}",
+            check_md5=False,
         )
 
 

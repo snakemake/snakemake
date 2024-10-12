@@ -28,7 +28,7 @@ def containerize(workflow, dag):
 
     envs = sorted(
         set(
-            job.conda_env_spec.get_conda_env(workflow, env_dir=CONDA_ENV_PATH)
+            job.conda_env_spec.get_conda_env(workflow, envs_dir=CONDA_ENV_PATH)
             for job in dag.jobs
             if job.conda_env_spec is not None
         ),
