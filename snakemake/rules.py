@@ -1072,9 +1072,10 @@ class Rule(RuleInterface):
         from snakemake.common import is_local_file
         from snakemake.sourcecache import SourceFile, infer_source_file
         from snakemake.deployment.conda import (
-            is_conda_env_file,
             CondaEnvFileSpec,
             CondaEnvNameSpec,
+            CondaEnvDirSpec,
+            CondaEnvSpecType,
         )
 
         conda_env = self._conda_env
@@ -1092,7 +1093,9 @@ class Rule(RuleInterface):
             self._expanded_conda_env = None
             return None
 
-        if is_conda_env_file(conda_env):
+        spec_type = CondaEnvSpecType.from_spec(conda_env)
+
+        if spec_type is CondaEnvSpecType.FILE:
             if not isinstance(conda_env, SourceFile):
                 if is_local_file(conda_env) and not os.path.isabs(conda_env):
                     # Conda env file paths are considered to be relative to the directory of the Snakefile
@@ -1104,8 +1107,10 @@ class Rule(RuleInterface):
                     conda_env = infer_source_file(conda_env)
 
             conda_env = CondaEnvFileSpec(conda_env, rule=self)
-        else:
+        elif spec_type is CondaEnvSpecType.NAME:
             conda_env = CondaEnvNameSpec(conda_env)
+        elif spec_type is CondaEnvSpecType.DIR:
+            conda_env = CondaEnvDirSpec(conda_env, rule=self)
 
         conda_env = conda_env.apply_wildcards(wildcards, self)
         conda_env.check()
