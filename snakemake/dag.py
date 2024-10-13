@@ -77,6 +77,21 @@ from snakemake.settings.types import ChangeType, Batch
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
 
+def toposort(graph):
+    from graphlib import TopologicalSorter
+
+    sorter = TopologicalSorter(graph)
+    sorter.prepare()
+    sorted = list()
+    while sorter.is_active():
+        ready = set()
+        for task in sorter.get_ready():
+            ready.add(task)
+            sorter.done(task)
+        sorted.append(ready)
+    return sorted
+
+
 class DAG(DAGExecutorInterface, DAGReportInterface):
     """Directed acyclic graph of jobs."""
 
@@ -2742,8 +2757,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         yield ""
 
     def toposorted(self, jobs=None, inherit_pipe_dependencies=False):
-        from toposort import toposort
-
         if jobs is None:
             jobs = set(self.jobs)
 

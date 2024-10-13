@@ -2280,3 +2280,7 @@ def test_checkpoint_open():
         default_storage_provider="fs",
         default_storage_prefix="storage",
     )
+
+
+def test_toposort():
+    run(dpath("test_toposort"), check_results=False, executor="dryrun")
