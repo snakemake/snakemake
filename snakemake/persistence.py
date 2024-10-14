@@ -718,8 +718,7 @@ class ParamsChange:
             return (
                 "Union of exclusive params before and now across all output: "
                 f"{fmt_set(self.only_old, 'before')} "
-                f"{fmt_set(self.only_old, 'now')} "
+                f"{fmt_set(self.only_new, 'now')} "
             )
-
 
 NO_PARAMS_CHANGE = ParamsChange()
