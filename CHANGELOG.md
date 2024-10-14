@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [8.23.0](https://github.com/snakemake/snakemake/compare/v8.22.0...v8.23.0) (2024-10-14)
+
+
+### Features
+
+* More robust parameter and code change detection and transparent reporting of detected changes ([#3140](https://github.com/snakemake/snakemake/issues/3140)) ([576f588](https://github.com/snakemake/snakemake/commit/576f58868975e6763648224dc17191273049f971)). For setups using remote storage, this will lead to missing metadata records because the key used for storing the metadata is now the remote storage query instead of the path to the local copy. The reason is that the latter can be user-specific and therefore previously could have let led to e.g. different rerun behavior for different users.
+
+
+### Documentation
+
+* update installation docs to reflect changes in conda ecosystem ([#3141](https://github.com/snakemake/snakemake/issues/3141)) ([e83b8aa](https://github.com/snakemake/snakemake/commit/e83b8aaeac65711c327a5c86f82e231af33cfbf8))
+
 ## [8.22.0](https://github.com/snakemake/snakemake/compare/v8.21.0...v8.22.0) (2024-10-13)
 
 
