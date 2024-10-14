@@ -4,7 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 import shutil
 import pickle
@@ -688,8 +688,8 @@ def pickle_code(code):
 
 @dataclass
 class ParamsChange:
-    only_old: Optional[Set[Any]] = None
-    only_new: Optional[Set[Any]] = None
+    only_old: Set[Any] = field(default_factory=set)
+    only_new: Set[Any] = field(default_factory=set)
 
     def __bool__(self):
         return bool(self.only_old or self.only_new)
@@ -708,10 +708,17 @@ class ParamsChange:
         if not self:
             return "No params change"
         else:
+
+            def fmt_set(s, label):
+                if s:
+                    return f"{label}: {','.join(s)}"
+                else:
+                    return f"{label}: <nothing exclusive>"
+
             return (
                 "Union of exclusive params before and now across all output: "
-                f"before: {','.join(self.only_old)} "
-                f"now: {','.join(self.only_new)}"
+                f"{fmt_set(self.only_old, 'before')} "
+                f"{fmt_set(self.only_old, 'now')} "
             )
 
 
