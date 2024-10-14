@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from snakemake.deployment.conda import get_env_setup_done_flag_file
+from snakemake.persistence import Persistence
 from snakemake.resources import DefaultResources, GroupResources
 from snakemake.settings.enums import RerunTrigger
 
@@ -261,6 +262,13 @@ def test_report_display_code():
 
 def test_params():
     run(dpath("test_params"))
+
+
+def test_params_outdated_code(mocker):
+    spy = mocker.spy(Persistence, "has_outdated_metadata")
+
+    run(dpath("test_params_outdated_code"))
+    assert spy.spy_return == True
 
 
 def test_same_wildcard():

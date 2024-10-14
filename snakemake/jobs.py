@@ -1642,15 +1642,18 @@ class Reason:
         "finished",
         "cleanup_metadata_instructions",
         "no_metadata",
+        "outdated_metadata",
     ]
 
     def __init__(self):
+        from snakemake.persistence import NO_PARAMS_CHANGE
+
         self.finished = False
         self._updated_input = None
         self._updated_input_run = None
         self._missing_output = None
         self._incomplete_output = None
-        self.params_changed = False
+        self.params_changed = NO_PARAMS_CHANGE
         self.code_changed = False
         self.software_stack_changed = False
         self.input_changed = False
@@ -1663,6 +1666,7 @@ class Reason:
         self.cleanup_metadata_instructions = None
         self.unfinished_queue_input = False
         self.no_metadata = False
+        self.outdated_metadata = False
 
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
@@ -1778,7 +1782,9 @@ class Reason:
                 if self.code_changed:
                     s.append("Code has changed since last execution")
                 if self.params_changed:
-                    s.append("Params have changed since last execution")
+                    s.append(
+                        f"Params have changed since last execution: {self.params_changed}"
+                    )
                 if self.software_stack_changed:
                     s.append(
                         "Software environment definition has changed since last execution"
