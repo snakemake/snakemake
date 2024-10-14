@@ -961,7 +961,7 @@ def setup_logger(
     formatter = DefaultFormatter(
         printreason=printreason,
         show_failed_logs=show_failed_logs,
-        printshellmds=printshellcmds,
+        printshellcmds=printshellcmds,
     )
     filter = DefaultFilter(quiet=quiet, debug_dag=debug_dag)
     logger.default_formatter = formatter
