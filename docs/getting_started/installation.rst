@@ -2,6 +2,7 @@
 .. _Miniforge: https://github.com/conda-forge/miniforge
 .. _Mamba: https://github.com/mamba-org/mamba
 .. _Conda: https://conda.pydata.org
+.. _PyPi: https://pypi.org/project/snakemake/
 
 
 .. _getting_started-installation:
@@ -10,7 +11,7 @@
 Installation
 ============
 
-Snakemake is available on PyPi as well as through Bioconda and also from source code.
+Snakemake is available on PyPi_ as well as through Conda_ and also from source code.
 You can use one of the following ways for installing Snakemake.
 
 .. _conda-install:
@@ -23,16 +24,10 @@ because it also enables Snakemake to :ref:`handle software dependencies of your
 workflow <integrated_package_management>`.
 
 First, you need to install a Conda-based Python3 distribution.
-The recommended choice is Miniforge_ which not only provides the required Python and Conda commands,
-but also includes Mamba_ an extremely fast and robust replacement for the Conda_ package manager which is highly recommended.
-The default conda solver is a bit slow and sometimes has issues with `selecting the latest package releases <https://github.com/conda/conda/issues/9905>`_.
-Therefore, we recommend to in any case use Mamba_.
+The recommended choice is Miniforge_.
 
-In case you don't use Miniforge_ you can always install Mamba_ into any other Conda-based Python distribution with
-
-.. code-block:: console
-
-    $ conda install -n base -c conda-forge mamba
+Of course, any other conda-based package manager can be used as well, e.g. Pixi_, Mamba_ or Micromamba_.
+Note however that for the :ref:`conda integration <integrated_package_management>` of Snakemake, for now it requires the `conda` command to be installed in the root environment or in the same environment as Snakemake itself.
 
 Full installation
 -----------------
@@ -41,14 +36,14 @@ Snakemake can be installed with all goodies needed to run in any environment and
 
 .. code-block:: console
 
-    $ mamba create -c conda-forge -c bioconda -n snakemake snakemake
+    $ conda create -c conda-forge -c bioconda -n snakemake snakemake
 
 from the `Bioconda <https://bioconda.github.io>`_ channel.
 This will install snakemake into an isolated software environment, that has to be activated with
 
 .. code-block:: console
 
-    $ mamba activate snakemake
+    $ conda activate snakemake
     $ snakemake --help
 
 Installing into isolated environments is best practice in order to avoid side effects with other packages.
@@ -61,27 +56,28 @@ However, it is easy to combine Snakemake installation with other channels, e.g.,
 
 .. code-block:: console
 
-    $ mamba activate base
-    $ mamba create -n some-env -c conda-forge bioconda::snakemake ...
+    $ conda activate base
+    $ conda create -n some-env -c conda-forge bioconda::snakemake ...
 
 Installation via pip
 ====================
 
-Instead of conda, snakemake can be installed with pip.
-However, note that snakemake has non-python dependencies, such that the pip based installation has a limited functionality if those dependencies are not manually installed in addition.
+Instead of conda, snakemake can be installed with pip:
 
-A list of Snakemake's dependencies can be found within its `meta.yaml conda recipe <https://bioconda.github.io/recipes/snakemake/README.html>`_.
+.. code-block:: console
+
+    $ pip install snakemake
 
 
 Installation of a development version via pip
 =============================================
 
-If you want to quickly try out an unreleased version from the snakemake repository (which you cannot get via bioconda, yet), for example to check whether a bug fix works for you workflow, you can get the current state of the main branch with:
+If you want to quickly try out an unreleased version from the snakemake repository (which you cannot get via e.g. bioconda or PyPi_, yet), for example to check whether a bug fix works for you workflow, you can get the current state of the main branch with:
 
 .. code-block:: console
 
-    $ mamba create --only-deps -n snakemake-dev snakemake
-    $ mamba activate snakemake-dev
+    $ conda create --only-deps -n snakemake-dev snakemake
+    $ conda activate snakemake-dev
     $ pip install git+https://github.com/snakemake/snakemake
 
 You can also install the current state of another branch or the repository state at a particular commit.
