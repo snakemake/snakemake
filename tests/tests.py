@@ -266,7 +266,7 @@ def test_params():
 
 def test_params_outdated_code(mocker):
     spy = mocker.spy(Persistence, "has_outdated_metadata")
-    
+
     run(dpath("test_params_outdated_code"))
     assert spy.spy_return == True
 
