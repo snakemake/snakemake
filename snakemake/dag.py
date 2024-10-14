@@ -1304,7 +1304,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                 reason.no_metadata = True
                             else:
                                 if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
-                                    reason.params_changed = any(
+                                    reason.params_changed = (
                                         self.workflow.persistence.params_changed(job)
                                     )
                                 if RerunTrigger.INPUT in self.workflow.rerun_triggers:

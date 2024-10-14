@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+from dataclasses import dataclass
 import os
 import shutil
 import pickle
@@ -16,12 +17,13 @@ from functools import lru_cache
 from itertools import count
 from pathlib import Path
 from contextlib import contextmanager
-from typing import Optional
+from typing import Any, Optional, Set
 
 from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
 )
 
+from snakemake.common.tbdstring import TBDString
 import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles, Job
@@ -439,7 +441,17 @@ class Persistence(PersistenceExecutorInterface):
 
     def params_changed(self, job, file=None):
         """Yields output files with changed params or bool if file given."""
-        return _bool_or_gen(self._params_changed, job, file=file)
+        files = [file] if file is not None else job.output
+
+        changes = NO_PARAMS_CHANGE
+        new = set(self._params(job))
+
+        for outfile in files:
+            recorded = self.params(outfile)
+            if recorded is not None:
+                old = set(recorded)
+                changes |= ParamsChange(only_old=old - new, only_new=new - old)
+        return changes
 
     def conda_env_changed(self, job, file=None):
         """Yields output files with changed conda env or bool if file given."""
@@ -458,11 +470,6 @@ class Persistence(PersistenceExecutorInterface):
         assert file is not None
         recorded = self.input(file)
         return recorded is not None and recorded != self._input(job)
-
-    def _params_changed(self, job, file=None):
-        assert file is not None
-        recorded = self.params(file)
-        return recorded is not None and recorded != self._params(job)
 
     def _conda_env_changed(self, job, file=None):
         assert file is not None
@@ -505,23 +512,27 @@ class Persistence(PersistenceExecutorInterface):
         return sorted(job.log)
 
     def _serialize_param_builtin(self, param):
-        if param is None or isinstance(
-            param,
-            (
-                int,
-                float,
-                bool,
-                str,
-                complex,
-                range,
-                list,
-                tuple,
-                dict,
-                set,
-                frozenset,
-                bytes,
-                bytearray,
-            ),
+        if (
+            param is None
+            or isinstance(
+                param,
+                (
+                    int,
+                    float,
+                    bool,
+                    str,
+                    complex,
+                    range,
+                    list,
+                    tuple,
+                    dict,
+                    set,
+                    frozenset,
+                    bytes,
+                    bytearray,
+                ),
+            )
+            and param is not TBDString
         ):
             return repr(param)
         else:
@@ -673,3 +684,35 @@ def pickle_code(code):
         for const in code.co_consts
     ]
     return pickle.dumps((code.co_code, code.co_varnames, consts, code.co_names))
+
+
+@dataclass
+class ParamsChange:
+    only_old: Optional[Set[Any]] = None
+    only_new: Optional[Set[Any]] = None
+
+    def __bool__(self):
+        return bool(self.only_old or self.only_new)
+
+    def __or__(self, other):
+        if not self:
+            return other
+        if not other:
+            return self
+        return ParamsChange(
+            only_old=self.only_old | other.only_old,
+            only_new=self.only_new | other.only_new,
+        )
+
+    def __str__(self):
+        if not self:
+            return "No params change"
+        else:
+            return (
+                "Union of exclusive params before and now across all output: "
+                f"before: {','.join(self.only_old)} "
+                f"now: {','.join(self.only_new)}"
+            )
+
+
+NO_PARAMS_CHANGE = ParamsChange()
