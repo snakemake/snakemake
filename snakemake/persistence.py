@@ -28,7 +28,7 @@ import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
-from snakemake.io import is_flagged, get_flag_value
+from snakemake.io import _IOFile, is_flagged, get_flag_value
 from snakemake_interface_common.exceptions import WorkflowError
 
 
@@ -660,7 +660,10 @@ class Persistence(PersistenceExecutorInterface):
             self._max_len = os.pathconf(subject, "PC_NAME_MAX")
         return self._max_len
 
-    def _record_path(self, subject, id):
+    def _record_path(self, subject, id: _IOFile):
+        assert isinstance(id, _IOFile)
+        id = id.storage_object.query if id.is_storage else id
+
         max_len = (
             self._fetch_max_len(subject) if os.name == "posix" else 255
         )  # maximum NTFS and FAT32 filename length
