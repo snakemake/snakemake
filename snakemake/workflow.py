@@ -1185,37 +1185,6 @@ class Workflow(WorkflowExecutorInterface):
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
-            def log_missing_metadata_info():
-                no_metadata_jobs = [
-                    job
-                    for job in self.dag.jobs
-                    if self.dag.reason(job).no_metadata and not self.dag.needrun(job)
-                ]
-                if no_metadata_jobs:
-                    logger.info(
-                        f"{len(no_metadata_jobs)} jobs have no recorded "
-                        "provenance/metadata so that they "
-                        "cannot be triggered by that. \n"
-                        "Rules with missing "
-                        f"metadata: {' '.join(jobs_to_rulenames(no_metadata_jobs))}"
-                    )
-
-            def log_outdated_metadata_info():
-                outdated_metadata_jobs = [
-                    job
-                    for job in self.dag.jobs
-                    if self.dag.reason(job).outdated_metadata
-                    and not self.dag.needrun(job)
-                ]
-                if outdated_metadata_jobs:
-                    logger.info(
-                        f"{len(outdated_metadata_jobs)} jobs have outdated "
-                        "provenance/metadata so that it "
-                        "in part cannot be used to trigger re-runs. \n"
-                        "Rules with outdated "
-                        f"metadata: {' '.join(jobs_to_rulenames(outdated_metadata_jobs))}"
-                    )
-
             self.scheduler = JobScheduler(self, executor_plugin)
 
             if not self.dryrun:
@@ -1273,12 +1242,12 @@ class Workflow(WorkflowExecutorInterface):
                 # the dryrun case
                 if len(self.dag):
                     logger.run_info("\n".join(self.dag.stats()))
-                    log_missing_metadata_info()
-                    log_outdated_metadata_info()
+                    self.log_missing_metadata_info()
+                    self.log_outdated_metadata_info()
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
-                    log_missing_metadata_info()
-                    log_outdated_metadata_info()
+                    self.log_missing_metadata_info()
+                    self.log_outdated_metadata_info()
                     return
                 if self.output_settings.quiet:
                     # in case of dryrun and quiet, just print above info and exit
@@ -1357,6 +1326,36 @@ class Workflow(WorkflowExecutorInterface):
                     self._onerror(logger.get_logfile())
                 logger.logfile_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
+
+    def log_missing_metadata_info(self):
+        no_metadata_jobs = [
+            job
+            for job in self.dag.jobs
+            if self.dag.reason(job).no_metadata and not self.dag.needrun(job)
+        ]
+        if no_metadata_jobs:
+            logger.info(
+                f"{len(no_metadata_jobs)} jobs have no recorded "
+                "provenance/metadata so that they "
+                "cannot be triggered by that. \n"
+                "Rules with missing "
+                f"metadata: {' '.join(jobs_to_rulenames(no_metadata_jobs))}"
+            )
+
+    def log_outdated_metadata_info(self):
+        outdated_metadata_jobs = [
+            job
+            for job in self.dag.jobs
+            if self.dag.reason(job).outdated_metadata and not self.dag.needrun(job)
+        ]
+        if outdated_metadata_jobs:
+            logger.info(
+                f"{len(outdated_metadata_jobs)} jobs have outdated "
+                "provenance/metadata so that it "
+                "in part cannot be used to trigger re-runs. \n"
+                "Rules with outdated "
+                f"metadata: {' '.join(jobs_to_rulenames(outdated_metadata_jobs))}"
+            )
 
     @property
     def current_basedir(self):
