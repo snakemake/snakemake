@@ -1301,35 +1301,26 @@ class Workflow(WorkflowExecutorInterface):
                 logger.logfile_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
 
-    def log_missing_metadata_info(self):
-        no_metadata_jobs = [
+    def log_metadata_info(self, metadata_attr, description):
+        jobs = [
             job
             for job in self.dag.jobs
-            if self.dag.reason(job).no_metadata and not self.dag.needrun(job)
+            if getattr(self.dag.reason(job), metadata_attr)
+            and not self.dag.needrun(job)
         ]
-        if no_metadata_jobs:
+        if jobs:
             logger.info(
-                f"{len(no_metadata_jobs)} jobs have no recorded "
-                "provenance/metadata so that they "
-                "cannot be triggered by that. \n"
-                "Rules with missing "
-                f"metadata: {' '.join(jobs_to_rulenames(no_metadata_jobs))}"
+                f"{len(jobs)} jobs have {description} "
+                "provenance/metadata so that it in part "
+                "cannot be used to trigger re-runs.\n"
+                f"Rules with {description} metadata: {' '.join(jobs_to_rulenames(jobs))}"
             )
 
+    def log_missing_metadata_info(self):
+        self.log_metadata_info("no_metadata", "missing")
+
     def log_outdated_metadata_info(self):
-        outdated_metadata_jobs = [
-            job
-            for job in self.dag.jobs
-            if self.dag.reason(job).outdated_metadata and not self.dag.needrun(job)
-        ]
-        if outdated_metadata_jobs:
-            logger.info(
-                f"{len(outdated_metadata_jobs)} jobs have outdated "
-                "provenance/metadata so that it "
-                "in part cannot be used to trigger re-runs. \n"
-                "Rules with outdated "
-                f"metadata: {' '.join(jobs_to_rulenames(outdated_metadata_jobs))}"
-            )
+        self.log_metadata_info("outdated_metadata", "outdated")
 
     def log_provenance_info(self):
         provenance_triggered_jobs = [
