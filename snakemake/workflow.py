@@ -1200,6 +1200,22 @@ class Workflow(WorkflowExecutorInterface):
                         f"metadata: {' '.join(jobs_to_rulenames(no_metadata_jobs))}"
                     )
 
+            def log_outdated_metadata_info():
+                outdated_metadata_jobs = [
+                    job
+                    for job in self.dag.jobs
+                    if self.dag.reason(job).outdated_metadata
+                    and not self.dag.needrun(job)
+                ]
+                if outdated_metadata_jobs:
+                    logger.info(
+                        f"{len(outdated_metadata_jobs)} jobs have outdated "
+                        "provenance/metadata so that it "
+                        "in part cannot be used to trigger re-runs. \n"
+                        "Rules with outdated "
+                        f"metadata: {' '.join(jobs_to_rulenames(outdated_metadata_jobs))}"
+                    )
+
             self.scheduler = JobScheduler(self, executor_plugin)
 
             if not self.dryrun:
@@ -1257,9 +1273,12 @@ class Workflow(WorkflowExecutorInterface):
                 # the dryrun case
                 if len(self.dag):
                     logger.run_info("\n".join(self.dag.stats()))
+                    log_missing_metadata_info()
+                    log_outdated_metadata_info()
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
                     log_missing_metadata_info()
+                    log_outdated_metadata_info()
                     return
                 if self.output_settings.quiet:
                     # in case of dryrun and quiet, just print above info and exit

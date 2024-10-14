@@ -33,6 +33,7 @@ from snakemake_interface_common.exceptions import WorkflowError
 
 
 UNREPRESENTABLE = object()
+RECORD_FORMAT_VERSION = 3
 
 
 class Persistence(PersistenceExecutorInterface):
@@ -325,6 +326,7 @@ class Persistence(PersistenceExecutorInterface):
             self._record(
                 self._metadata_path,
                 {
+                    "record_format_version": RECORD_FORMAT_VERSION,
                     "code": code,
                     "rule": job.rule.name,
                     "input": input,
@@ -395,6 +397,12 @@ class Persistence(PersistenceExecutorInterface):
     def has_metadata(self, job: Job) -> bool:
         return all(self.metadata(path) for path in job.output)
 
+    def has_outdated_metadata(self, job: Job) -> bool:
+        return any(
+            self.metadata(path).get("record_format_version", 0) < RECORD_FORMAT_VERSION
+            for path in job.output
+        )
+
     def metadata(self, path):
         return self._read_record(self._metadata_path, path)
 
@@ -415,6 +423,9 @@ class Persistence(PersistenceExecutorInterface):
 
     def code(self, path):
         return self.metadata(path).get("code")
+
+    def record_format_version(self, path):
+        return self.metadata(path).get("record_format_version")
 
     def conda_env(self, path):
         return self.metadata(path).get("conda_env")
@@ -463,6 +474,10 @@ class Persistence(PersistenceExecutorInterface):
 
     def _code_changed(self, job, file=None):
         assert file is not None
+        fmt_version = self.record_format_version(file)
+        if fmt_version is not None and fmt_version < 3:
+            # no reliable code stored
+            return False
         recorded = self.code(file)
         return recorded is not None and recorded != self._code(job.rule)
 
@@ -490,8 +505,11 @@ class Persistence(PersistenceExecutorInterface):
 
     @lru_cache()
     def _code(self, rule):
-        code = rule.run_func.__code__
-        return b64encode(pickle_code(code)).decode()
+        # We only consider shell commands for now.
+        # Plain python code rules are hard to capture because the pickling of the code
+        # can change with different python versions.
+        # Scripts and notebooks are triggered by changes in the script mtime.
+        return rule.shellcmd if rule.shellcmd is not None else None
 
     @lru_cache()
     def _conda_env(self, job):
@@ -676,14 +694,6 @@ def _bool_or_gen(func, job, file=None):
         return (f for f in job.output if func(job, file=f))
     else:
         return func(job, file=file)
-
-
-def pickle_code(code):
-    consts = [
-        (pickle_code(const) if type(const) == type(code) else const)
-        for const in code.co_consts
-    ]
-    return pickle.dumps((code.co_code, code.co_varnames, consts, code.co_names))
 
 
 @dataclass
