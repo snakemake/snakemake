@@ -48,6 +48,15 @@ This will install snakemake into an isolated software environment, that has to b
 
 Installing into isolated environments is best practice in order to avoid side effects with other packages.
 
+Minimal installation
+--------------------
+
+A minimal version with only the necessary requirements can be installed with
+
+.. code-block:: console
+
+    $ conda create -c conda-forge -c bioconda -n snakemake snakemake-minimal
+
 Notes on Bioconda as a package source
 -------------------------------------
 
