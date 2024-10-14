@@ -6,7 +6,7 @@
 
 ### Features
 
-* more robust parameter and code change detection and transparent reporting of detected changes ([#3140](https://github.com/snakemake/snakemake/issues/3140)) ([576f588](https://github.com/snakemake/snakemake/commit/576f58868975e6763648224dc17191273049f971))
+* More robust parameter and code change detection and transparent reporting of detected changes ([#3140](https://github.com/snakemake/snakemake/issues/3140)) ([576f588](https://github.com/snakemake/snakemake/commit/576f58868975e6763648224dc17191273049f971)). For setups using remote storage, this will lead to missing metadata records because the key used for storing the metadata is now the remote storage query instead of the path to the local copy. The reason is that the latter can be user-specific and therefore previously could have let led to e.g. different rerun behavior for different users.
 
 
 ### Documentation
