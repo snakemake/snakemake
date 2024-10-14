@@ -1279,6 +1279,8 @@ class Workflow(WorkflowExecutorInterface):
                         + " ".join(jobs_to_rulenames(provenance_triggered_jobs))
                     )
                     logger.info("")
+                self.log_missing_metadata_info()
+                self.log_outdated_metadata_info()
 
             has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
 
