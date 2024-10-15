@@ -806,7 +806,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     # If the heap is full, replace the smallest element if the new reward is better.
                     heapq.heappushpop(heap, (rewards[idx], job))
             # Revert heap
-            max_sorted = [heapq.heappop(heap)[1] for i in range(len(heap))]
+            max_sorted = [heapq.heappop(heap)[1] for i in range(n)]
             logger.debug(f"Jobs heap: {max_sorted}")
 
             # We have a list of `n` jobs, sorted ascending by their reward. Select best solution
