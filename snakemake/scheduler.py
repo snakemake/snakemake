@@ -62,6 +62,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.failed = set()
         self.finished_jobs = 0
         self.greediness = self.workflow.scheduling_settings.greediness
+        self.subsample = self.workflow.scheduling_settings.subsample
         self._tofinish = []
         self._toerror = []
         self.handle_job_success = True
@@ -266,15 +267,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                     # Subsample jobs to be run (to speedup solver)
                     n_total_needrun = len(needrun)
-                    solver_max_jobs = int(
-                        os.environ.get("SNAKEMAKE_SOLVER_MAX_JOBS", sys.maxsize)
-                    )
-                    if n_total_needrun > solver_max_jobs:
-                        needrun = set(
-                            sorted(needrun, key=lambda job: job.priority, reverse=True)[
-                                :solver_max_jobs
-                            ]
-                        )
+                    if self.subsample and n_total_needrun > self.subsample:
+                        import random
+
+                        needrun = set(random.sample(tuple(needrun), k=self.subsample))
                         logger.debug(
                             f"Ready subsampled jobs: {len(needrun)} (out of {n_total_needrun})"
                         )

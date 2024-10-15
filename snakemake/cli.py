@@ -1420,6 +1420,17 @@ def get_argument_parser(profiles=None):
         "quality.",
     )
     group_behavior.add_argument(
+        "--scheduler-subsample",
+        "--subsample",
+        type=int,
+        default=None,
+        help="Number of jobs to be considered for scheduling. If number of ready "
+        "jobs is greater than this value, this number of jobs is randomly choosen "
+        "for scheduling; if number of ready jobs is lower, this option has no "
+        "effect. This can be usefull on very large DAGs, where the scheduler can "
+        "take some time selecting which jobs to run.",
+    )
+    group_behavior.add_argument(
         "--no-hooks",
         action="store_true",
         help="Do not invoke onstart, onsuccess or onerror hooks after execution.",
