@@ -1421,7 +1421,6 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--scheduler-subsample",
-        "--subsample",
         type=int,
         default=None,
         help="Number of jobs to be considered for scheduling. If number of ready "
@@ -2143,6 +2142,7 @@ def args_to_api(args, parser):
                                 ilp_solver=args.scheduler_ilp_solver,
                                 solver_path=args.scheduler_solver_path,
                                 greediness=args.scheduler_greediness,
+                                subsample=args.scheduler_subsample,
                                 max_jobs_per_second=args.max_jobs_per_second,
                                 max_jobs_per_timespan=args.max_jobs_per_timespan,
                             ),
