@@ -520,9 +520,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
         if self.conda_env_spec:
-            if self.conda_env.is_named:
+            if self.conda_env.is_externally_managed:
                 raise WorkflowError(
-                    "Workflow archives cannot be created for workflows using named conda environments."
+                    "Workflow archives cannot be created for workflows using externally managed conda environments."
                     "Please use paths to YAML files for all your conda directives.",
                     rule=self.rule,
                 )
@@ -1083,10 +1083,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             DeploymentMethod.CONDA
             in self.dag.workflow.deployment_settings.deployment_method
             and self.conda_env
-            and not self.conda_env.is_named
+            and not self.conda_env.is_externally_managed
             and not self.conda_env.is_containerized
         ):
-            # Named or containerized envs are not present on the host FS,
+            # Managed or containerized envs are not present on the host FS,
             # hence we don't need to wait for them.
             wait_for_files.append(self.conda_env.address)
         return wait_for_files
@@ -1397,7 +1397,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 DeploymentMethod.CONDA
                 in self.dag.workflow.deployment_settings.deployment_method
                 and job.conda_env
-                and not job.conda_env.is_named
+                and not job.conda_env.is_externally_managed
             ):
                 wait_for_files.append(job.conda_env.address)
         return wait_for_files
@@ -1642,15 +1642,18 @@ class Reason:
         "finished",
         "cleanup_metadata_instructions",
         "no_metadata",
+        "outdated_metadata",
     ]
 
     def __init__(self):
+        from snakemake.persistence import NO_PARAMS_CHANGE
+
         self.finished = False
         self._updated_input = None
         self._updated_input_run = None
         self._missing_output = None
         self._incomplete_output = None
-        self.params_changed = False
+        self.params_changed = NO_PARAMS_CHANGE
         self.code_changed = False
         self.software_stack_changed = False
         self.input_changed = False
@@ -1663,6 +1666,7 @@ class Reason:
         self.cleanup_metadata_instructions = None
         self.unfinished_queue_input = False
         self.no_metadata = False
+        self.outdated_metadata = False
 
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
@@ -1778,7 +1782,9 @@ class Reason:
                 if self.code_changed:
                     s.append("Code has changed since last execution")
                 if self.params_changed:
-                    s.append("Params have changed since last execution")
+                    s.append(
+                        f"Params have changed since last execution: {self.params_changed}"
+                    )
                 if self.software_stack_changed:
                     s.append(
                         "Software environment definition has changed since last execution"

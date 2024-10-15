@@ -1,6 +1,44 @@
 # Changelog
 
 
+## [8.23.0](https://github.com/snakemake/snakemake/compare/v8.22.0...v8.23.0) (2024-10-14)
+
+
+### Features
+
+* More robust parameter and code change detection and transparent reporting of detected changes ([#3140](https://github.com/snakemake/snakemake/issues/3140)) ([576f588](https://github.com/snakemake/snakemake/commit/576f58868975e6763648224dc17191273049f971)). For setups using remote storage, this will lead to missing metadata records because the key used for storing the metadata is now the remote storage query instead of the path to the local copy. The reason is that the latter can be user-specific and therefore previously could have let led to e.g. different rerun behavior for different users.
+
+
+### Documentation
+
+* update installation docs to reflect changes in conda ecosystem ([#3141](https://github.com/snakemake/snakemake/issues/3141)) ([e83b8aa](https://github.com/snakemake/snakemake/commit/e83b8aaeac65711c327a5c86f82e231af33cfbf8))
+
+## [8.22.0](https://github.com/snakemake/snakemake/compare/v8.21.0...v8.22.0) (2024-10-13)
+
+
+### Features
+
+* switch from toposort to graphlib ([#3109](https://github.com/snakemake/snakemake/issues/3109)) ([91e875d](https://github.com/snakemake/snakemake/commit/91e875d43fcb1cff247f82c743f9e2216ad328d7))
+
+
+### Bug Fixes
+
+* configfile `group` and `group-components` were not being registered ([#3135](https://github.com/snakemake/snakemake/issues/3135)) ([4397c7d](https://github.com/snakemake/snakemake/commit/4397c7d343289da5c6b2902249e3d78db5ac301e))
+* remove paramiko dependency as issue has been fixed ([#3110](https://github.com/snakemake/snakemake/issues/3110)) ([1b43250](https://github.com/snakemake/snakemake/commit/1b43250782aaf92910001e6c2db924969956b103))
+
+## [8.21.0](https://github.com/snakemake/snakemake/compare/v8.20.7...v8.21.0) (2024-10-12)
+
+
+### Features
+
+* support for specifying conda envs as directories ([#3132](https://github.com/snakemake/snakemake/issues/3132)) ([c54c95d](https://github.com/snakemake/snakemake/commit/c54c95d62b5395d78ab26297e0b84fc3f24dd017))
+
+
+### Bug Fixes
+
+* better error handling in evaluate function ([#3129](https://github.com/snakemake/snakemake/issues/3129)) ([04fb97f](https://github.com/snakemake/snakemake/commit/04fb97ff8b10fafdaf668368cb29e468d5bc07a4))
+* notebook execution for apptainer ([#3131](https://github.com/snakemake/snakemake/issues/3131)) ([2e382c4](https://github.com/snakemake/snakemake/commit/2e382c48122c53712fd8db21ff06ca0e6c877e60))
+
 ## [8.20.7](https://github.com/snakemake/snakemake/compare/v8.20.6...v8.20.7) (2024-10-09)
 
 

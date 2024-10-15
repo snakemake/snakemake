@@ -1,0 +1,13 @@
+
+"""
+This is a test for the params syntax.
+"""
+shell.executable("bash")
+
+rule:
+	input: "somedir/test.out"
+
+rule:
+	params: lambda wildcards: "-f", dir="{dir}"
+	output: "{dir}/test.out"
+	shell: "rm -r {params.dir}; mkdir -p {params.dir}; touch {params[0]} {output}"

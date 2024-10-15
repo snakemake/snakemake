@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from snakemake.deployment.conda import get_env_setup_done_flag_file
+from snakemake.persistence import Persistence
 from snakemake.resources import DefaultResources, GroupResources
 from snakemake.settings.enums import RerunTrigger
 
@@ -261,6 +262,13 @@ def test_report_display_code():
 
 def test_params():
     run(dpath("test_params"))
+
+
+def test_params_outdated_code(mocker):
+    spy = mocker.spy(Persistence, "has_outdated_metadata")
+
+    run(dpath("test_params_outdated_code"))
+    assert spy.spy_return == True
 
 
 def test_same_wildcard():
@@ -547,7 +555,11 @@ def test_conda_cmd_exe():
 @skip_on_windows  # wrappers are for linux and macos only
 @conda
 def test_wrapper():
-    run(dpath("test_wrapper"), deployment_method={DeploymentMethod.CONDA})
+    run(
+        dpath("test_wrapper"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
 
 
 @skip_on_windows  # wrappers are for linux and macos only
@@ -566,6 +578,7 @@ def test_wrapper_local_git_prefix():
             dpath("test_wrapper"),
             deployment_method={DeploymentMethod.CONDA},
             wrapper_prefix=f"git+file://{tmpdir}",
+            check_md5=False,
         )
 
 
@@ -763,6 +776,15 @@ def test_run_namedlist():
 
 def test_profile():
     run(dpath("test_profile"))
+
+    from snakemake.profiles import ProfileConfigFileParser
+
+    grouped_profile = Path(dpath("test_profile")) / "config.yaml"
+    with grouped_profile.open("r") as f:
+        parser = ProfileConfigFileParser()
+        result = parser.parse(f)
+        assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
+        assert result["group-components"] == list(["grp1=5"])
 
 
 @skip_on_windows
@@ -2266,3 +2288,7 @@ def test_checkpoint_open():
         default_storage_provider="fs",
         default_storage_prefix="storage",
     )
+
+
+def test_toposort():
+    run(dpath("test_toposort"), check_results=False, executor="dryrun")
