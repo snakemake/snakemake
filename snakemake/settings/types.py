@@ -317,7 +317,7 @@ class SchedulingSettings(SettingsBase):
     def _check(self):
         if not (0 < self.greedyness <= 1.0):
             raise ApiError("greediness must be >0 and <=1")
-        if not (self.subsample > 0):
+        if self.subsample and self.subsample < 1:
             raise ApiError("subsample must be >0")
 
 
