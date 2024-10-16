@@ -243,8 +243,52 @@ class WMSLogger:
         self.check_response(response, "/update_workflow_status")
 
 
-class DefaultFormatter(_logging.Formatter):
+# Helper functions for logging
+def format_dict(dict_like, omit_keys=None, omit_values=None):
+    from snakemake.io import Namedlist
 
+    omit_keys = omit_keys or []
+    omit_values = omit_values or []
+
+    if isinstance(dict_like, Namedlist):
+        items = dict_like.items()
+    elif isinstance(dict_like, dict):
+        items = dict_like.items()
+    else:
+        raise ValueError(
+            "bug: format_dict applied to something neither a dict nor a Namedlist"
+        )
+    return ", ".join(
+        f"{name}={value}"
+        for name, value in items
+        if name not in omit_keys and value not in omit_values
+    )
+
+
+format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
+format_wildcards = format_dict
+
+
+def format_resource_names(resources, omit_resources="_cores _nodes".split()):
+    return ", ".join(name for name in resources if name not in omit_resources)
+
+
+def format_percentage(done, total):
+    """Format percentage from given fraction while avoiding superfluous precision."""
+    if done == total:
+        return "100%"
+    if done == 0:
+        return "0%"
+    precision = 0
+    fraction = done / total
+    fmt_precision = "{{:.{}%}}".format
+    fmt = lambda fraction: fmt_precision(precision).format(fraction)
+    while fmt(fraction) == "100%" or fmt(fraction) == "0%":
+        precision += 1
+    return fmt(fraction)
+
+
+class DefaultFormatter(_logging.Formatter):
     def __init__(self, printreason=False, show_failed_logs=False, printshellcmds=False):
         self.printreason = printreason
         self.show_failed_logs = show_failed_logs
@@ -256,7 +300,9 @@ class DefaultFormatter(_logging.Formatter):
         Override format method to format Snakemake-specific log messages.
         """
         msg = record.msg
-        level = msg.get("level", "INFO")  # Default to "INFO" if level not in message
+        level = msg.get(
+            "level", "INFO"
+        ).lower()  # Default to "INFO" if level not in message
 
         # Call specific handlers based on the log level
         if level == "info":
@@ -360,7 +406,7 @@ class DefaultFormatter(_logging.Formatter):
         """Format for progress log."""
         done = msg["done"]
         total = msg["total"]
-        return f"{done} of {total} steps ({self._format_percentage(done, total)}) done"
+        return f"{done} of {total} steps ({format_percentage(done, total)}) done"
 
     def format_job_finished(self, msg):
         """Format for job_finished log."""
@@ -501,20 +547,6 @@ class DefaultFormatter(_logging.Formatter):
         """Helper method to format the timestamp."""
         return f"[{time.asctime()}]"
 
-    def _format_percentage(self, done, total):
-        """Helper method to format percentage."""
-        if done == total:
-            return "100%"
-        if done == 0:
-            return "0%"
-        precision = 0
-        fraction = done / total
-        fmt_precision = "{{:.{}%}}".format
-        fmt = lambda fraction: fmt_precision(precision).format(fraction)
-        while fmt(fraction) == "100%" or fmt(fraction) == "0%":
-            precision += 1
-        return fmt(fraction)
-
 
 def show_logs(logs):
     """Helper method to show logs."""
@@ -538,50 +570,6 @@ def show_logs(logs):
         yield "=" * max_len
         yield from lines
         yield "=" * max_len
-
-
-def format_dict(dict_like, omit_keys=None, omit_values=None):
-    from snakemake.io import Namedlist
-
-    omit_keys = omit_keys or []
-    omit_values = omit_values or []
-
-    if isinstance(dict_like, Namedlist):
-        items = dict_like.items()
-    elif isinstance(dict_like, dict):
-        items = dict_like.items()
-    else:
-        raise ValueError(
-            "bug: format_dict applied to something neither a dict nor a Namedlist"
-        )
-    return ", ".join(
-        f"{name}={value}"
-        for name, value in items
-        if name not in omit_keys and value not in omit_values
-    )
-
-
-format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
-format_wildcards = format_dict
-
-
-def format_resource_names(resources, omit_resources="_cores _nodes".split()):
-    return ", ".join(name for name in resources if name not in omit_resources)
-
-
-def format_percentage(done, total):
-    """Format percentage from given fraction while avoiding superfluous precision."""
-    if done == total:
-        return "100%"
-    if done == 0:
-        return "0%"
-    precision = 0
-    fraction = done / total
-    fmt_precision = "{{:.{}%}}".format
-    fmt = lambda fraction: fmt_precision(precision).format(fraction)
-    while fmt(fraction) == "100%" or fmt(fraction) == "0%":
-        precision += 1
-    return fmt(fraction)
 
 
 class DefaultFilter:
@@ -688,7 +676,6 @@ class ColorizingTextHandler(_logging.StreamHandler):
         """
         with self._output_lock:
             try:
-
                 level = record.msg.get("level", "INFO").lower()
 
                 if level == "job_info":
@@ -736,20 +723,14 @@ class ColorizingTextHandler(_logging.StreamHandler):
 
 
 class Logger:
-
     def __init__(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
         self.logger = _logging.getLogger(__name__)
         self.stream_handler = None
-        self.printshellcmds = False
-        self.printreason = False
         self.debug_dag = False
-        self.quiet = set()
         self.logfile = None
-        self.last_msg_was_job_info = False
         self.mode = ExecMode.DEFAULT
-        self.show_failed_logs = False
         self.logfile_handler = None
         self.dryrun = False
         self.level = 0
@@ -774,6 +755,7 @@ class Logger:
             self.logfile_handler.setFormatter(self.default_formatter)
             self.logfile_handler.addFilter(self.default_filter)
             self.logfile_handler.setLevel(self.level)
+            self.logfile_handler.name = "DefaultLogFileHandler"
             self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
@@ -825,9 +807,7 @@ class Logger:
             "resources_info": _logging.WARNING,
             "host": _logging.INFO,
             "job_stats": _logging.WARNING,
-        }.get(
-            custom_level, _logging.INFO
-        )  # Default to INFO if not recognized
+        }.get(custom_level, _logging.INFO)  # Default to INFO if not recognized
 
         record = self.logger.makeRecord(
             name=self.logger.name,
@@ -922,6 +902,7 @@ class Logger:
 
 logger = Logger()
 
+
 def setup_logger(
     handler=[],
     quiet=False,
@@ -936,18 +917,20 @@ def setup_logger(
     dryrun=False,
 ):
     from snakemake.settings.types import Quietness
+    from snakemake_interface_executor_plugins.settings import ExecMode
 
     if mode is None:
         mode = get_default_exec_mode()
 
     if quiet is None:
-        # not quiet at all
         quiet = set()
+
     elif isinstance(quiet, bool):
         if quiet:
             quiet = {Quietness.PROGRESS, Quietness.RULES}
         else:
             quiet = set()
+
     elif not isinstance(quiet, set):
         raise ValueError(
             "Unsupported value provided for quiet mode (either bool, None or set allowed)."
@@ -958,6 +941,7 @@ def setup_logger(
         stream=sys.stdout if stdout else sys.stderr,
         mode=mode,
     )
+    stream_handler.name = "DefaultStreamHandler"
     formatter = DefaultFormatter(
         printreason=printreason,
         show_failed_logs=show_failed_logs,
@@ -966,8 +950,13 @@ def setup_logger(
     filter = DefaultFilter(quiet=quiet, debug_dag=debug_dag)
     logger.default_formatter = formatter
     logger.default_filter = filter
-    logger.set_stream_handler(stream_handler)
-    logger.set_level(_logging.DEBUG if debug else _logging.INFO)
+
+    if mode == ExecMode.SUBPROCESS:
+        logger.set_stream_handler(_logging.NullHandler())
+    else:
+        logger.set_stream_handler(stream_handler)
+        logger.set_level(_logging.DEBUG if debug else _logging.INFO)
+
     logger.quiet = quiet
     logger.printshellcmds = printshellcmds
     logger.printreason = printreason
