@@ -475,7 +475,7 @@ class Persistence(PersistenceExecutorInterface):
     def _code_changed(self, job, file=None):
         assert file is not None
         fmt_version = self.record_format_version(file)
-        if fmt_version is not None and fmt_version < 3:
+        if fmt_version is None or fmt_version < 3:
             # no reliable code stored
             return False
         recorded = self.code(file)
