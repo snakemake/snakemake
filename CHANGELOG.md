@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.23.1](https://github.com/snakemake/snakemake/compare/v8.23.0...v8.23.1) (2024-10-16)
+
+
+### Bug Fixes
+
+* fix bug in code change detection leading to spurious code change reporting when relying on older snakemake metadata ([#3144](https://github.com/snakemake/snakemake/issues/3144)) ([922d6e8](https://github.com/snakemake/snakemake/commit/922d6e863ec6b7d92f53f02845c68f5374380edd))
+
 ## [8.23.0](https://github.com/snakemake/snakemake/compare/v8.22.0...v8.23.0) (2024-10-14)
 
 
