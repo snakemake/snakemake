@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [8.23.2](https://github.com/snakemake/snakemake/compare/v8.23.1...v8.23.2) (2024-10-17)
+
+
+### Bug Fixes
+
+* more robust handling of input metadata that avoids storing user or typoe specific local paths, and properly handles pipe or service files ([#3150](https://github.com/snakemake/snakemake/issues/3150)) ([756dc70](https://github.com/snakemake/snakemake/commit/756dc7045f8c2159da981d7000271ff87e8b0d10))
+
+
+### Documentation
+
+* Fix missing spaces in CLI help text ([#3146](https://github.com/snakemake/snakemake/issues/3146)) ([6416c36](https://github.com/snakemake/snakemake/commit/6416c3616b3628a389093e1e023707dff2b992a6))
+
 ## [8.23.1](https://github.com/snakemake/snakemake/compare/v8.23.0...v8.23.1) (2024-10-16)
 
 
