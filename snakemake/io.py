@@ -677,7 +677,7 @@ class _IOFile(str, AnnotatedStringInterface):
             logger.info("Finished upload.")
 
     def prepare(self):
-        dirpath = os.path.dirname(self.file)
+        dirpath = self.file if self.is_directory else os.path.dirname(self.file)
         if len(dirpath) > 0:
             try:
                 os.makedirs(dirpath, exist_ok=True)
