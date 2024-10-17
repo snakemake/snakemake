@@ -536,6 +536,7 @@ class Persistence(PersistenceExecutorInterface):
                         if is_flagged(f, "sourcecache_entry")
                         else f
                     )
+
         return sorted(get_paths())
 
     @lru_cache()
