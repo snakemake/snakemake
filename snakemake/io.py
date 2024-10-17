@@ -1121,6 +1121,32 @@ def temp(value):
     return flag(value, "temp")
 
 
+class Derived:
+    pass
+
+
+class DerivedStr(str):
+    pass
+
+
+class DerivedPath(Path):
+    pass
+
+
+def derived(value: Union[str, Path]):
+    """Mark a value as derived from other rule properties like input or output files.
+    This can be used to ensure that certain params do not trigger reruns when they change.
+    """
+    if isinstance(value, str):
+        return DerivedStr(value)
+    elif isinstance(value, Path):
+        return DerivedPath(value)
+    else:
+        raise WorkflowError(
+            f"Values marked with derived flag must be a string or a Path, given {value} {type(value)}."
+        )
+
+
 @dataclass
 class QueueInfo:
     queue: queue.Queue
