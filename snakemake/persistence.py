@@ -7,7 +7,6 @@ import asyncio
 from dataclasses import dataclass, field
 import os
 import shutil
-import pickle
 import json
 import stat
 import tempfile
@@ -33,7 +32,7 @@ from snakemake_interface_common.exceptions import WorkflowError
 
 
 UNREPRESENTABLE = object()
-RECORD_FORMAT_VERSION = 3
+RECORD_FORMAT_VERSION = 4
 
 
 class Persistence(PersistenceExecutorInterface):
@@ -483,6 +482,10 @@ class Persistence(PersistenceExecutorInterface):
 
     def _input_changed(self, job, file=None):
         assert file is not None
+        fmt_version = self.record_format_version(file)
+        if fmt_version is None or fmt_version < 4:
+            # no reliable input stored
+            return False
         recorded = self.input(file)
         return recorded is not None and recorded != self._input(job)
 
@@ -518,12 +521,22 @@ class Persistence(PersistenceExecutorInterface):
 
     @lru_cache()
     def _input(self, job):
-        get_path = lambda f: (
-            get_flag_value(f, "sourcecache_entry")
-            if is_flagged(f, "sourcecache_entry")
-            else f
-        )
-        return sorted(get_path(f) for f in job.input)
+        def get_paths():
+            for f in job.input:
+                if f.is_storage:
+                    yield f.storage_object.query
+                elif is_flagged(f, "pipe"):
+                    yield "<pipe>"
+                elif is_flagged(f, "service"):
+                    yield "<service>"
+                else:
+                    yield (
+                        # get the true path instead of the cache path
+                        get_flag_value(f, "sourcecache_entry")
+                        if is_flagged(f, "sourcecache_entry")
+                        else f
+                    )
+        return sorted(get_paths())
 
     @lru_cache()
     def _log(self, job):
