@@ -1423,10 +1423,10 @@ def get_argument_parser(profiles=None):
         "--scheduler-subsample",
         type=int,
         default=None,
-        help="Number of jobs to be considered for scheduling. If number of ready "
-        "jobs is greater than this value, this number of jobs is randomly chosen "
-        "for scheduling; if number of ready jobs is lower, this option has no "
-        "effect. This can be useful on very large DAGs, where the scheduler can "
+        help="Set the number of jobs to be considered for scheduling. If number "
+        "of ready jobs is greater than this value, this number of jobs is randomly "
+        "chosen for scheduling; if number of ready jobs is lower, this option has "
+        "no effect. This can be useful on very large DAGs, where the scheduler can "
         "take some time selecting which jobs to run.",
     )
     group_behavior.add_argument(
