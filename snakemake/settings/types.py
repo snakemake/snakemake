@@ -317,8 +317,9 @@ class SchedulingSettings(SettingsBase):
     def _check(self):
         if not (0 <= self.greediness <= 1.0):
             raise ApiError("greediness must be >=0 and <=1")
-        if self.subsample and self.subsample < 1:
-            raise ApiError("subsample must be >0")
+        if self.subsample:
+            if not isinstance(self.subsample, int) or self.subsample < 1:
+                raise ApiError("subsample must be a positive integer")
 
 
 @dataclass
