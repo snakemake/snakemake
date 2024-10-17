@@ -1092,7 +1092,7 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
         input:
             ...
         params:
-            prefix=lambda wildcards, output: output[0][:-4]
+            prefix=lambda wildcards, output: derived(output[0][:-4])
         output:
             "somedir/{sample}.csv"
         shell:
@@ -1108,6 +1108,9 @@ to get the same effect as above. Note that in contrast to the ``input`` directiv
 From the Python perspective, they can be seen as optional keyword arguments without a default value.
 Their order does not matter, apart from the fact that ``wildcards`` has to be the first argument.
 In the example above, this allows you to derive the prefix name from the output file.
+
+**Importantly** we here mark the derived path with ``derived()``.
+This denotes that the value is derived from another property of the rule (here the output file) and does not trigger reruns when changing (since the original value change is trigger enough).
 
 .. _snakefiles-external_scripts:
 

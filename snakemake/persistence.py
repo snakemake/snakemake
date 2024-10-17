@@ -12,8 +12,8 @@ import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
-from functools import lru_cache
-from itertools import count
+from functools import lru_cache, partial
+from itertools import chain, count
 from pathlib import Path
 from contextlib import contextmanager
 from typing import Any, Optional, Set
@@ -27,7 +27,7 @@ import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
-from snakemake.io import _IOFile, is_flagged, get_flag_value
+from snakemake.io import _IOFile, Derived, is_flagged, get_flag_value
 from snakemake_interface_common.exceptions import WorkflowError
 
 
@@ -543,7 +543,7 @@ class Persistence(PersistenceExecutorInterface):
     def _log(self, job):
         return sorted(job.log)
 
-    def _serialize_param_builtin(self, param):
+    def _serialize_param_builtin(self, param, job):
         if (
             param is None
             or isinstance(
@@ -566,23 +566,25 @@ class Persistence(PersistenceExecutorInterface):
             )
             and param is not TBDString
         ):
+            if isinstance(param, Derived):
+                return UNREPRESENTABLE
             return repr(param)
         else:
             return UNREPRESENTABLE
 
-    def _serialize_param_pandas(self, param):
+    def _serialize_param_pandas(self, param, job):
         import pandas as pd
 
         if isinstance(param, (pd.DataFrame, pd.Series, pd.Index)):
             return repr(pd.util.hash_pandas_object(param).tolist())
-        return self._serialize_param_builtin(param)
+        return self._serialize_param_builtin(param, job)
 
     @lru_cache()
     def _params(self, job):
         return sorted(
             filter(
                 lambda p: p is not UNREPRESENTABLE,
-                map(self._serialize_param, job.params),
+                map(partial(self._serialize_param, job=job), job.params),
             )
         )
 

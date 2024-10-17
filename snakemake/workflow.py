@@ -66,6 +66,7 @@ from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
 from snakemake.io import (
+    derived,
     protected,
     temp,
     temporary,
@@ -212,6 +213,7 @@ class Workflow(WorkflowExecutorInterface):
         _globals["gitlab"] = sourcecache.GitlabFile
         _globals["gitfile"] = sourcecache.LocalGitFile
         _globals["storage"] = self._storage_registry
+        _globals["derived"] = derived
         snakemake.ioutils.register_in_globals(_globals)
         snakemake.ioflags.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
