@@ -289,7 +289,7 @@ class SchedulingSettings(SettingsBase):
     ilp_solver:
         Set solver for ilp scheduler.
     greediness:
-        Set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
+        Set the greediness of scheduling. This value, between 0 and 1, determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
     subsample:
         Set the number of jobs to be considered for scheduling. If number of ready jobs is greater than this value, this number of jobs is randomly chosen for scheduling; if number of ready jobs is lower, this option has no effect. This can be useful on very large DAGs, where the scheduler can take some time selecting which jobs to run."
     """
@@ -315,8 +315,8 @@ class SchedulingSettings(SettingsBase):
             return self.greediness
 
     def _check(self):
-        if not (0 < self.greedyness <= 1.0):
-            raise ApiError("greediness must be >0 and <=1")
+        if not (0 <= self.greediness <= 1.0):
+            raise ApiError("greediness must be >=0 and <=1")
         if self.subsample and self.subsample < 1:
             raise ApiError("subsample must be >0")
 
