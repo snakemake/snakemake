@@ -846,7 +846,7 @@ class Rule(RuleInterface):
         return input, mapping, dependencies, incomplete
 
     @classmethod
-    def _is_deriving_function(func):
+    def _is_deriving_function(cls, func):
         if is_callable(func):
             func_params = get_function_params(func)
             return (
