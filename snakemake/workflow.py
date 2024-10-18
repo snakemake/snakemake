@@ -736,15 +736,20 @@ class Workflow(WorkflowExecutorInterface):
         untilfiles = set(files(self.dag_settings.until))
         omitrules = set(rules(self.dag_settings.omit_from))
         omitfiles = set(files(self.dag_settings.omit_from))
+        anyofrules = set(rules(self.dag_settings.any_of))
+        anyoffiles = set(files(self.dag_settings.any_of))
         targetrules = set(
             chain(
                 rules(targets),
                 filterfalse(Rule.has_wildcards, priorityrules),
                 filterfalse(Rule.has_wildcards, forcerules),
                 filterfalse(Rule.has_wildcards, untilrules),
+                filterfalse(Rule.has_wildcards, anyofrules),
             )
         )
-        targetfiles = set(chain(files(targets), priorityfiles, forcefiles, untilfiles))
+        targetfiles = set(
+            chain(files(targets), priorityfiles, forcefiles, untilfiles, anyoffiles)
+        )
 
         if ON_WINDOWS:
             targetfiles = set(tf.replace(os.sep, os.altsep) for tf in targetfiles)
@@ -779,6 +784,8 @@ class Workflow(WorkflowExecutorInterface):
             untilrules=untilrules,
             omitfiles=omitfiles,
             omitrules=omitrules,
+            anyoffiles=anyoffiles,
+            anyofrules=anyofrules,
             ignore_incomplete=ignore_incomplete,
         )
 
