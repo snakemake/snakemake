@@ -696,6 +696,7 @@ class Rule(RuleInterface):
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
         groupid=None,
+        non_derived_items: typing.List[typing.Any] = None,
     ):
         incomplete = False
         if aux_params is None:
@@ -705,6 +706,7 @@ class Rule(RuleInterface):
             start = len(newitems)
             is_unpack = is_flagged(item, "unpack")
             _is_callable = is_callable(item)
+            is_derived = False
 
             if _is_callable:
                 if omit_callable:
@@ -717,6 +719,8 @@ class Rule(RuleInterface):
                     groupid=groupid,
                     **aux_params,
                 )
+                if non_derived_items is not None:
+                    is_derived = self._is_deriving_function(item)
 
             if is_unpack and not incomplete:
                 if not allow_unpack:
@@ -739,14 +743,22 @@ class Rule(RuleInterface):
                     )
                 # Allow streamlined code with/without unpack
                 if isinstance(item, list):
-                    pairs = zip([None] * len(item), item, [_is_callable] * len(item))
+                    apply_results = zip(
+                        [None] * len(item),
+                        item,
+                        [_is_callable] * len(item),
+                        [is_derived] * len(item),
+                    )
                 else:
                     assert isinstance(item, dict)
-                    pairs = [(name, item, _is_callable) for name, item in item.items()]
+                    apply_results = [
+                        (name, item, _is_callable, is_derived)
+                        for name, item in item.items()
+                    ]
             else:
-                pairs = [(name, item, _is_callable)]
+                apply_results = [(name, item, _is_callable, is_derived)]
 
-            for name, item, from_callable in pairs:
+            for name, item, from_callable, is_derived in apply_results:
                 is_iterable = True
                 if not_iterable(item) or no_flattening:
                     item = [item]
@@ -770,6 +782,8 @@ class Rule(RuleInterface):
 
                     concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
+                    if not is_derived and non_derived_items is not None:
+                        non_derived_items.append(concrete)
                     if mapping is not None:
                         mapping[concrete] = olditem
 
@@ -831,6 +845,18 @@ class Rule(RuleInterface):
 
         return input, mapping, dependencies, incomplete
 
+    @classmethod
+    def _is_deriving_function(cls, func):
+        if is_callable(func):
+            func_params = get_function_params(func)
+            return (
+                "input" in func_params
+                or "output" in func_params
+                or "threads" in func_params
+                or "resources" in func_params
+            )
+        return False
+
     def expand_params(self, wildcards, input, output, job, omit_callable=False):
         def concretize_param(p, wildcards, is_from_callable):
             if not is_from_callable:
@@ -862,6 +888,7 @@ class Rule(RuleInterface):
         threads = lambda: job.resources._cores
 
         params = Params()
+        non_derived_params = []
         try:
             # When applying wildcards to params, the return type need not be
             # a string, so the check is disabled.
@@ -882,6 +909,7 @@ class Rule(RuleInterface):
                     "threads": threads,
                 },
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
+                non_derived_items=non_derived_params,
             )
         except WildcardError as e:
             raise WildcardError(
@@ -894,7 +922,7 @@ class Rule(RuleInterface):
                 str(e),
                 rule=self,
             )
-        return params
+        return params, non_derived_params
 
     def expand_output(self, wildcards):
         output = OutputFiles(o.apply_wildcards(wildcards) for o in self.output)
