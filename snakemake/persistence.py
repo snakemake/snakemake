@@ -12,7 +12,7 @@ import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
-from functools import lru_cache
+from functools import lru_cache, partial
 from itertools import count
 from pathlib import Path
 from contextlib import contextmanager
@@ -454,6 +454,12 @@ class Persistence(PersistenceExecutorInterface):
         files = [file] if file is not None else job.output
 
         changes = NO_PARAMS_CHANGE
+
+        fmt_version = self.record_format_version(file)
+        if fmt_version is None or fmt_version < 4:
+            # no reliable params stored
+            return changes
+
         new = set(self._params(job))
 
         for outfile in files:
@@ -543,11 +549,11 @@ class Persistence(PersistenceExecutorInterface):
     def _log(self, job):
         return sorted(job.log)
 
-    def _serialize_param_builtin(self, param):
+    def _serialize_param_builtin(self, value: Any):
         if (
-            param is None
+            value is None
             or isinstance(
-                param,
+                value,
                 (
                     int,
                     float,
@@ -564,25 +570,25 @@ class Persistence(PersistenceExecutorInterface):
                     bytearray,
                 ),
             )
-            and param is not TBDString
+            and value is not TBDString
         ):
-            return repr(param)
+            return repr(value)
         else:
             return UNREPRESENTABLE
 
-    def _serialize_param_pandas(self, param):
+    def _serialize_param_pandas(self, value: Any):
         import pandas as pd
 
-        if isinstance(param, (pd.DataFrame, pd.Series, pd.Index)):
-            return repr(pd.util.hash_pandas_object(param).tolist())
-        return self._serialize_param_builtin(param)
+        if isinstance(value, (pd.DataFrame, pd.Series, pd.Index)):
+            return repr(pd.util.hash_pandas_object(value).tolist())
+        return self._serialize_param_builtin(value)
 
     @lru_cache()
-    def _params(self, job):
+    def _params(self, job: Job):
         return sorted(
             filter(
                 lambda p: p is not UNREPRESENTABLE,
-                map(self._serialize_param, job.params),
+                (self._serialize_param(value) for value in job.non_derived_params),
             )
         )
 

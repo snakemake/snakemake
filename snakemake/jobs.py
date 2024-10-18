@@ -222,6 +222,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         "_params_and_resources_resetted",
         "_queue_input",
         "_aux_resources",
+        "_non_derived_params",
     ]
 
     def __init__(
@@ -275,6 +276,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self._inputsize = None
         self._is_updated = False
         self._params_and_resources_resetted = False
+        self._non_derived_params = None
 
         self._attempt = self.dag.workflow.attempt
         self._aux_resources = dict()
@@ -419,10 +421,19 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     @property
     def params(self):
         if self._params is None:
-            self._params = self.rule.expand_params(
-                self.wildcards_dict, self.input, self.output, self
-            )
+            self._expand_params()
         return self._params
+
+    @property
+    def non_derived_params(self):
+        if self._non_derived_params is None:
+            self._expand_params()
+        return self._non_derived_params
+
+    def _expand_params(self):
+        self._params, self._non_derived_params = self.rule.expand_params(
+            self.wildcards_dict, self.input, self.output, self
+        )
 
     @property
     def log(self):
