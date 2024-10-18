@@ -848,13 +848,12 @@ class Rule(RuleInterface):
     def _is_deriving_function(func):
         if is_callable(func):
             func_params = get_function_params(func)
-            if (
+            return (
                 "input" in func_params
                 or "output" in func_params
                 or "threads" in func_params
                 or "resources" in func_params
-            ):
-                return True
+            )
         return False
 
     def expand_params(self, wildcards, input, output, job, omit_callable=False):
