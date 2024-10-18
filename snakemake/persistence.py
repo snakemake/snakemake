@@ -12,7 +12,7 @@ import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
-from functools import lru_cache, partial
+from functools import lru_cache
 from itertools import count
 from pathlib import Path
 from contextlib import contextmanager
