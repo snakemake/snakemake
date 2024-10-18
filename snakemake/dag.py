@@ -1302,38 +1302,38 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
-                            else:
-                                if self.workflow.persistence.has_outdated_metadata(job):
-                                    reason.outdated_metadata = True
-                                if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
-                                    reason.params_changed = (
-                                        self.workflow.persistence.params_changed(job)
-                                    )
-                                if RerunTrigger.INPUT in self.workflow.rerun_triggers:
-                                    reason.input_changed = any(
-                                        self.workflow.persistence.input_changed(job)
-                                    )
-                                if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                                    # The list comprehension is needed below in order to
-                                    # collect all the async generator items before
-                                    # applying any().
-                                    reason.code_changed = any(
-                                        [
-                                            f
-                                            async for f in job.outputs_older_than_script_or_notebook()
-                                        ]
-                                    ) or any(
-                                        self.workflow.persistence.code_changed(job)
-                                    )
-                                if (
-                                    RerunTrigger.SOFTWARE_ENV
-                                    in self.workflow.rerun_triggers
-                                ):
-                                    reason.software_stack_changed = any(
-                                        self.workflow.persistence.conda_env_changed(job)
-                                    ) or any(
-                                        self.workflow.persistence.container_changed(job)
-                                    )
+
+                            if self.workflow.persistence.has_outdated_metadata(job):
+                                reason.outdated_metadata = True
+                            if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
+                                reason.params_changed = (
+                                    self.workflow.persistence.params_changed(job)
+                                )
+                            if RerunTrigger.INPUT in self.workflow.rerun_triggers:
+                                reason.input_changed = any(
+                                    self.workflow.persistence.input_changed(job)
+                                )
+                            if RerunTrigger.CODE in self.workflow.rerun_triggers:
+                                # The list comprehension is needed below in order to
+                                # collect all the async generator items before
+                                # applying any().
+                                reason.code_changed = any(
+                                    [
+                                        f
+                                        async for f in job.outputs_older_than_script_or_notebook()
+                                    ]
+                                ) or any(
+                                    self.workflow.persistence.code_changed(job)
+                                )
+                            if (
+                                RerunTrigger.SOFTWARE_ENV
+                                in self.workflow.rerun_triggers
+                            ):
+                                reason.software_stack_changed = any(
+                                    self.workflow.persistence.conda_env_changed(job)
+                                ) or any(
+                                    self.workflow.persistence.container_changed(job)
+                                )
 
             if noinitreason and reason:
                 reason.derived = False
