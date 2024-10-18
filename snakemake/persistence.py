@@ -455,14 +455,13 @@ class Persistence(PersistenceExecutorInterface):
 
         changes = NO_PARAMS_CHANGE
 
-        fmt_version = self.record_format_version(file)
-        if fmt_version is None or fmt_version < 4:
-            # no reliable params stored
-            return changes
-
         new = set(self._params(job))
 
         for outfile in files:
+            fmt_version = self.record_format_version(outfile)
+            if fmt_version is None or fmt_version < 4:
+                # no reliable params stored
+                continue
             recorded = self.params(outfile)
             if recorded is not None:
                 old = set(recorded)
