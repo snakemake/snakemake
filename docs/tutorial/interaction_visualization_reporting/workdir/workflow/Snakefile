@@ -12,6 +12,8 @@ rule get_data:
         "resources/data/cars.tsv"
     conda:
         "envs/download.yaml"
+    log:
+        notebook="logs/get_data.ipynb"
     notebook:
         "notebooks/get_data.py.ipynb"
 
@@ -27,7 +29,7 @@ rule plot_with_r:
             caption="report/horsepower_vs_mpg.rst",
         ),
     log:
-        notebook="logs/plot_horsepower_vs_mpg.ggplot.ipynb"
+        notebook="logs/plot_horsepower_vs_mpg.r.ipynb"
     conda:
         "envs/rstats.yaml"
     notebook:
@@ -45,7 +47,7 @@ rule plot_with_python:
             caption="report/horsepower_vs_mpg.rst",
         ),
     log:
-        notebook="logs/plot_horsepower_vs_mpg.altair.ipynb"
+        notebook="logs/plot_horsepower_vs_mpg.py.ipynb"
     conda:
         "envs/pystats.yaml"
     notebook:
