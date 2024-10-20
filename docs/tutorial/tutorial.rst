@@ -1,8 +1,8 @@
 .. _tutorial:
 
-==================
-Snakemake Tutorial
-==================
+=====================
+Tutorial: General use
+=====================
 
 .. _Snakemake: https://snakemake.readthedocs.io
 .. _GNU Make: https://www.gnu.org/software/make

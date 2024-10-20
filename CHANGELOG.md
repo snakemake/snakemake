@@ -7,7 +7,7 @@
 ### Bug Fixes
 
 * ignore derived parameters when storing job metadata and inferring rerun necessity of jobs (this gets rid of spurious triggers caused by e.g. changed resources, threads, remote storage configuration) ([#3154](https://github.com/snakemake/snakemake/issues/3154)) ([73ce212](https://github.com/snakemake/snakemake/commit/73ce212d89275a320f0488918029197ea4850163))
-* more robust handling of input metadata that avoids storing user or typoe specific local paths, and properly handles pipe or service files ([#3150](https://github.com/snakemake/snakemake/issues/3150)) ([756dc70](https://github.com/snakemake/snakemake/commit/756dc7045f8c2159da981d7000271ff87e8b0d10))
+* more robust handling of input metadata that avoids storing user or type specific local paths, and properly handles pipe or service files ([#3150](https://github.com/snakemake/snakemake/issues/3150)) ([756dc70](https://github.com/snakemake/snakemake/commit/756dc7045f8c2159da981d7000271ff87e8b0d10))
 
 
 ### Documentation

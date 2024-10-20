@@ -63,13 +63,14 @@ class JupyterNotebook(ScriptBase):
         import nbformat
 
         fname_out = self.log.get("notebook", None)
-        if fname_out is None or edit:
-            output_parameter = ""
-        else:
-            fname_out = os.path.join(os.getcwd(), fname_out)
-            output_parameter = "--output {fname_out:q}"
 
         with tempfile.TemporaryDirectory() as tmp:
+            if fname_out is None or edit:
+                output_parameter = f"--output '{tmp}/notebook.ipynb'"
+            else:
+                fname_out = os.path.abspath(fname_out)
+                output_parameter = "--output {fname_out:q}"
+
             if edit is not None:
                 assert not edit.draft_only
                 logger.info("Opening notebook for editing.")
