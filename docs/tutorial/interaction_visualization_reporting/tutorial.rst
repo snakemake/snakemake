@@ -14,7 +14,7 @@ This is particularly useful for the last mile of data analysis, where results ob
 Moreover, via its :ref:`reporting <snakefiles-reports>` capabilities, Snakemake can be used to generate reproducible reports that contain the results of a data analysis pipeline, the code that was used to generate them, and the environment in which the pipeline was executed.
 The latter integrates well with Datavzrd_, a tool for generating interactive views of tabular data.
 
-In this short tutorial, we bring all these capabilities together in order to demonstrate how Snakemake enables last mile data analysis without loosing reproducibility, adaptability, and transparency.
+In this short tutorial, we bring all these capabilities together in order to demonstrate how Snakemake enables last mile data analysis without losing reproducibility, adaptability, and transparency.
 The tutorial assumes that you already know how to write Snakemake workflows in general, at least by having conducted the entire :ref:`general tutorial <tutorial>`.
 For simplicity, this tutorial does not use any :ref:`wildcards <snakefiles-wildcards>`, which render both the notebook integration and Snakemake's last mile capabilities even more powerful.
 
