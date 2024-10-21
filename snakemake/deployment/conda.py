@@ -693,9 +693,15 @@ class Conda:
                 container_img = container_img.path
             self.container_img = container_img
 
-            self.info = json.loads(
-                shell.check_output(self._get_cmd("conda info --json"), text=True)
-            )
+            try:
+                self.info = json.loads(
+                    shell.check_output(self._get_cmd("conda info --json"), text=True)
+                )
+            except subprocess.CalledProcessError as e:
+                raise WorkflowError(
+                    "Error running conda info. "
+                    f"Is conda installed and accessible? Error: {e}"
+                )
 
             if prefix_path is None or container_img is not None:
                 self.prefix_path = self.info["conda_prefix"]
