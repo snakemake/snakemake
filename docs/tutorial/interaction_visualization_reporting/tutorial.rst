@@ -328,7 +328,7 @@ In this case, we define one view on the dataset (in principle there can be multi
 For each column of the table, we specify how it shall be visualized (as a link, as tick or heatmap plot).
 Beyond these, Datavzrd offers a lot more possibilities, including the ability to publish `spells <https://datavzrd.github.io/docs/spells.html>`__ with custom visualizations for common column types.
 
-Step 6: Adding default targets
+Step 5: Adding default targets
 ------------------------------
 
 While we have so far generated each output file manually via the ``--edit-notebook`` option, it is time to define the default targets of our workflow.
@@ -355,7 +355,7 @@ Run the workflow with
 Since the plots are already present, Snakemake will just run the Datavzrd rule.
 Afterwards explore the Datavzrd output by opening ``results/tables/cars/index.html`` in your browser.
 
-Step 5: Reporting
+Step 6: Reporting
 -----------------
 
 At the end of the last mile, the data analysis results are usually communicated, e.g. in a scienficic manuscript or by first sending them to collaborators.
