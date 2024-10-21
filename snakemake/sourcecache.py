@@ -290,7 +290,7 @@ class GitlabFile(HostingProviderFile):
         host: str = None,
     ):
         super().__init__(repo, path, tag, branch, commit)
-        self.host = host
+        self.host = host or "gitlab.com"
         self.token = os.environ.get("GITLAB_TOKEN", "")
 
     def get_path_or_uri(self):
@@ -298,11 +298,36 @@ class GitlabFile(HostingProviderFile):
 
         auth = f"&private_token={self.token}" if self.token else ""
         return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
-            self.host or "gitlab.com",
+            self.host,
             quote(self.repo, safe=""),
             quote(self.path, safe=""),
             self.ref,
             auth,
+        )
+
+    def get_basedir(self):
+        return self.__class__(
+            repo=self.repo,
+            path=os.path.dirname(self.path),
+            tag=self.tag,
+            commit=self.commit,
+            branch=self.branch,
+            host=self.host,
+        )
+
+    def join(self, path):
+        path = os.path.normpath(f"{self.path}/{path}")
+        if ON_WINDOWS:
+            # convert back to URL separators
+            # (win specific separators are introduced by normpath above)
+            path = path.replace("\\", "/")
+        return self.__class__(
+            repo=self.repo,
+            path=path,
+            tag=self.tag,
+            commit=self.commit,
+            branch=self.branch,
+            host=self.host,
         )
 
 
