@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [8.24.0](https://github.com/snakemake/snakemake/compare/v8.23.2...v8.24.0) (2024-10-21)
+
+
+### Features
+
+* subsample jobs to speed-up scheduler ([#3112](https://github.com/snakemake/snakemake/issues/3112)) ([e10feef](https://github.com/snakemake/snakemake/commit/e10feef262324357f9219d89214e2fccb2b85752))
+
+
+### Documentation
+
+* addition of interction/visualization/reporting tutorial ([#3159](https://github.com/snakemake/snakemake/issues/3159)) ([1d94bd1](https://github.com/snakemake/snakemake/commit/1d94bd10dbbc799b70a7a1d81c659e25de5fa5e0))
+* fix tutorial step numbering ([2d7b9e9](https://github.com/snakemake/snakemake/commit/2d7b9e9402662556424e9564213f2efc9fda33c6))
+
 ## [8.23.2](https://github.com/snakemake/snakemake/compare/v8.23.1...v8.23.2) (2024-10-18)
 
 
