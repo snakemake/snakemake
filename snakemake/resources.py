@@ -654,7 +654,6 @@ def infer_resources(name, value, resources: dict):
             raise WorkflowError(
                 f"Cannot parse runtime value into minutes for setting runtime resource: {value}"
             )
-        logger.debug(f"Inferred runtime value of {parsed} minutes from {value}")
         resources["runtime"] = parsed
 
 

@@ -1030,7 +1030,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         print("environment", "container", "location", sep="\t")
         for env in set(job.conda_env for job in self.dag.jobs):
-            if env and not env.is_named:
+            if env and not env.is_externally_managed:
                 print(
                     env.file.simplify_path(),
                     env.container_img_url or "",
@@ -1192,21 +1192,6 @@ class Workflow(WorkflowExecutorInterface):
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
-            def log_missing_metadata_info():
-                no_metadata_jobs = [
-                    job
-                    for job in self.dag.jobs
-                    if self.dag.reason(job).no_metadata and not self.dag.needrun(job)
-                ]
-                if no_metadata_jobs:
-                    logger.info(
-                        f"{len(no_metadata_jobs)} jobs have no recorded "
-                        "provenance/metadata so that they "
-                        "cannot be triggered by that. \n"
-                        "Rules with missing "
-                        f"metadata: {' '.join(jobs_to_rulenames(no_metadata_jobs))}"
-                    )
-
             self.scheduler = JobScheduler(self, executor_plugin)
 
             if not self.dryrun:
@@ -1266,7 +1251,8 @@ class Workflow(WorkflowExecutorInterface):
                     logger.run_info("\n".join(self.dag.stats()))
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
-                    log_missing_metadata_info()
+                    self.log_missing_metadata_info()
+                    self.log_outdated_metadata_info()
                     return
                 if self.output_settings.quiet:
                     # in case of dryrun and quiet, just print above info and exit
@@ -1275,37 +1261,13 @@ class Workflow(WorkflowExecutorInterface):
             if not self.dryrun and not self.execution_settings.no_hooks:
                 self._onstart(logger.get_logfile())
 
-            def log_provenance_info():
-                provenance_triggered_jobs = [
-                    job
-                    for job in self.dag.needrun_jobs(exclude_finished=False)
-                    if self.dag.reason(job).is_provenance_triggered()
-                ]
-                if provenance_triggered_jobs:
-                    logger.info(
-                        "Some jobs were triggered by provenance information, "
-                        "see 'reason' section in the rule displays above.\n"
-                        "If you prefer that only modification time is used to "
-                        "determine whether a job shall be executed, use the command "
-                        "line option '--rerun-triggers mtime' (also see --help).\n"
-                        "If you are sure that a change for a certain output file (say, <outfile>) won't "
-                        "change the result (e.g. because you just changed the formatting of a script "
-                        "or environment definition), you can also wipe its metadata to skip such a trigger via "
-                        "'snakemake --cleanup-metadata <outfile>'. "
-                    )
-                    logger.info(
-                        "Rules with provenance triggered jobs: "
-                        + " ".join(jobs_to_rulenames(provenance_triggered_jobs))
-                    )
-                    logger.info("")
-
             has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
 
             try:
                 success = self.scheduler.schedule()
             except Exception as e:
                 if self.dryrun:
-                    log_provenance_info()
+                    self.log_provenance_info()
                 raise e
 
             if (
@@ -1324,7 +1286,7 @@ class Workflow(WorkflowExecutorInterface):
                     if len(self.dag):
                         logger.run_info("\n".join(self.dag.stats()))
                         self.dag.print_reasons()
-                        log_provenance_info()
+                        self.log_provenance_info()
                     logger.info("")
                     logger.info(
                         "This was a dry-run (flag -n). The order of jobs "
@@ -1345,6 +1307,53 @@ class Workflow(WorkflowExecutorInterface):
                     self._onerror(logger.get_logfile())
                 logger.logfile_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
+
+    def log_metadata_info(self, metadata_attr, description):
+        jobs = [
+            job
+            for job in self.dag.jobs
+            if getattr(self.dag.reason(job), metadata_attr)
+            and not self.dag.needrun(job)
+        ]
+        if jobs:
+            logger.info(
+                f"{len(jobs)} jobs have {description} "
+                "provenance/metadata so that it in part "
+                "cannot be used to trigger re-runs.\n"
+                f"Rules with {description} metadata: {' '.join(jobs_to_rulenames(jobs))}"
+            )
+
+    def log_missing_metadata_info(self):
+        self.log_metadata_info("no_metadata", "missing")
+
+    def log_outdated_metadata_info(self):
+        self.log_metadata_info("outdated_metadata", "outdated")
+
+    def log_provenance_info(self):
+        provenance_triggered_jobs = [
+            job
+            for job in self.dag.needrun_jobs(exclude_finished=False)
+            if self.dag.reason(job).is_provenance_triggered()
+        ]
+        if provenance_triggered_jobs:
+            logger.info(
+                "Some jobs were triggered by provenance information, "
+                "see 'reason' section in the rule displays above.\n"
+                "If you prefer that only modification time is used to "
+                "determine whether a job shall be executed, use the command "
+                "line option '--rerun-triggers mtime' (also see --help).\n"
+                "If you are sure that a change for a certain output file (say, <outfile>) won't "
+                "change the result (e.g. because you just changed the formatting of a script "
+                "or environment definition), you can also wipe its metadata to skip such a trigger via "
+                "'snakemake --cleanup-metadata <outfile>'. "
+            )
+            logger.info(
+                "Rules with provenance triggered jobs: "
+                + " ".join(jobs_to_rulenames(provenance_triggered_jobs))
+            )
+            logger.info("")
+        self.log_missing_metadata_info()
+        self.log_outdated_metadata_info()
 
     @property
     def current_basedir(self):
