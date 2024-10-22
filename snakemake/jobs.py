@@ -1121,11 +1121,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         error=False,
         ignore_missing_output=False,
     ):
-        if self.dag.is_edit_notebook_job(self):
-            # No postprocessing necessary, we have just created the skeleton notebook and
-            # execution will anyway stop afterwards.
-            return
-
         shared_input_output = (
             SharedFSUsage.INPUT_OUTPUT
             in self.dag.workflow.storage_settings.shared_fs_usage
