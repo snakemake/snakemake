@@ -292,10 +292,14 @@ class Persistence(PersistenceExecutorInterface):
         for f in job.output:
             self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
+    def remove_incomplete_marker(self, job):
+        for f in job.output:
+            self._delete_record(self._incomplete_path, f)
+
     async def finished(self, job):
+        self.remove_incomplete_marker(job)
         if not self.dag.workflow.execution_settings.keep_metadata:
-            for f in job.output:
-                self._delete_record(self._incomplete_path, f)
+            # do not store metadata if not requested
             return
 
         code = self._code(job.rule)
@@ -346,7 +350,6 @@ class Persistence(PersistenceExecutorInterface):
                 },
                 f,
             )
-            self._delete_record(self._incomplete_path, f)
 
     def cleanup(self, job):
         for f in job.output:

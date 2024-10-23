@@ -1121,6 +1121,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         error=False,
         ignore_missing_output=False,
     ):
+        if self.dag.is_draft_notebook_job(self):
+            # no output produced but have to delete incomplete marker
+            self.dag.workflow.persistence.remove_incomplete_marker(self)
+            return
+
         shared_input_output = (
             SharedFSUsage.INPUT_OUTPUT
             in self.dag.workflow.storage_settings.shared_fs_usage
