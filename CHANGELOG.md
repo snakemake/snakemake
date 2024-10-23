@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.24.1](https://github.com/snakemake/snakemake/compare/v8.24.0...v8.24.1) (2024-10-23)
+
+
+### Bug Fixes
+
+* fix bug with --edit-notebook sessions causing output files marked as incomplete, fix bug leading to missing log file after edit notebook sessions ([#3162](https://github.com/snakemake/snakemake/issues/3162)) ([19c6c0a](https://github.com/snakemake/snakemake/commit/19c6c0ab36da88adc9598ac18c20961c311eba28))
+* proper error message if conda info fails ([#3157](https://github.com/snakemake/snakemake/issues/3157)) ([4f99c20](https://github.com/snakemake/snakemake/commit/4f99c201b31ad17a9b4f3ddb5be4b80c6f6f9a1f))
+
 ## [8.24.0](https://github.com/snakemake/snakemake/compare/v8.23.2...v8.24.0) (2024-10-21)
 
 
