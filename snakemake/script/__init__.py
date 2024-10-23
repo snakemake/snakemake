@@ -759,10 +759,13 @@ class RScript(ScriptBase):
             bench_iteration = {},
             scriptdir = {},
             source = function(...){{
-                wd <- getwd()
-                setwd(snakemake@scriptdir)
-                source(...)
-                setwd(wd)
+                old_wd <- getwd()
+                on.exit(setwd(old_wd), add = TRUE)
+            
+                is_url <- grepl("^https?://", snakemake@scriptdir)
+                file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
+                if (!is_url) setwd(snakemake@scriptdir)
+                source(file)
             }}
         )
         {preamble_addendum}
@@ -869,10 +872,13 @@ class RMarkdown(ScriptBase):
             bench_iteration = {},
             scriptdir = {},
             source = function(...){{
-                wd <- getwd()
-                setwd(snakemake@scriptdir)
-                source(...)
-                setwd(wd)
+                old_wd <- getwd()
+                on.exit(setwd(old_wd), add = TRUE)
+            
+                is_url <- grepl("^https?://", snakemake@scriptdir)
+                file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
+                if (!is_url) setwd(snakemake@scriptdir)
+                source(file)
             }}
         )
 
