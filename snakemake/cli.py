@@ -1629,7 +1629,6 @@ def get_argument_parser(profiles=None):
         default="conda",
         choices=["conda", "mamba"],
         help="Choose the conda frontend for installing environments. "
-        "Mamba is much faster and highly recommended.",
     )
 
     group_singularity = parser.add_argument_group("APPTAINER/SINGULARITY")
