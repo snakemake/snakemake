@@ -31,6 +31,7 @@ from abc import ABC, abstractmethod
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import (
+    copy_permission_safe,
     is_local_file,
     parse_uri,
     ON_WINDOWS,
@@ -540,7 +541,7 @@ class Env:
                         # In addition, this allows to immediately see what an
                         # environment in .snakemake/conda contains.
                         target_env_file = env_path + f".{filetype}"
-                        shutil.copy(env_file, target_env_file)
+                        copy_permission_safe(env_file, target_env_file)
 
                         logger.info("Downloading and installing remote packages.")
 
@@ -619,7 +620,7 @@ class Env:
                 # Execute post-deploy script if present
                 if deploy_file:
                     target_deploy_file = env_path + ".post-deploy.sh"
-                    shutil.copy(deploy_file, target_deploy_file)
+                    copy_permission_safe(deploy_file, target_deploy_file)
                     self.execute_deployment_script(env_file, target_deploy_file)
 
                 # Touch "done" flag file
