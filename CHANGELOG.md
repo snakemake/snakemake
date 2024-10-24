@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [8.25.0](https://github.com/snakemake/snakemake/compare/v8.24.1...v8.25.0) (2024-10-24)
+
+
+### Features
+
+* add first 5 rules to group name (used e.g. when naming cluster/cloud jobs or logfiles) ([#3168](https://github.com/snakemake/snakemake/issues/3168)) ([5657122](https://github.com/snakemake/snakemake/commit/56571220a96afda4edf4b0578c697c9e94f8f15c))
+
+
+### Bug Fixes
+
+* use permission safe copying when hidden conda files are already present in a workdir. This avoids problems in case multiple people use the same workdir and workflow. ([#3169](https://github.com/snakemake/snakemake/issues/3169)) ([c98b2e7](https://github.com/snakemake/snakemake/commit/c98b2e7f71a391b99bffc54770654c9d74538ddf))
+
 ## [8.24.1](https://github.com/snakemake/snakemake/compare/v8.24.0...v8.24.1) (2024-10-23)
 
 
