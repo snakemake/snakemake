@@ -1528,7 +1528,10 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
     @property
     def name(self):
-        return str(self.groupid)
+        rules = sorted({job.rule.name for job in self.jobs})
+        if len(rules) > 5:
+            rules = rules[:5] + ["..."]
+        return f"{self.groupid}_{'_'.join(rules)}"
 
     def check_protected_output(self):
         for job in self.jobs:
