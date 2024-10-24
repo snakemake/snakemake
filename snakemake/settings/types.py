@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import re
-from typing import Any, Optional
+from typing import Any, List, Optional, Union
 from typing import Mapping, Sequence, Set
 
 import immutables
@@ -199,6 +199,9 @@ class DAGSettings(SettingsBase):
     allowed_rules: AnySet[str] = frozenset()
     rerun_triggers: AnySet[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
+    consider_ancient: Mapping[str, AnySet[Union[str, int]]] = field(
+        default_factory=dict
+    )
 
     def _check(self):
         if self.batch is not None and self.forceall:

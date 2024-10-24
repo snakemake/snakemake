@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from collections import defaultdict
 import os
 import re
 import sys
@@ -100,6 +101,32 @@ def parse_set_threads(args):
         "(with THREADS being a positive integer).",
         fallback=fallback,
     )
+
+
+def parse_consider_ancient(args):
+    errmsg = (
+        "Invalid --consider-ancient definition: entries have to be defined as "
+        "RULE=INPUTITEMS pairs, with INPUTITEMS being a list of input items of the "
+        "rule (given as name or index (0-based)), separated by commas."
+    )
+
+    def parse_item(item):
+        try:
+            return int(item)
+        except ValueError:
+            if item.isidentifier():
+                return item
+            else:
+                raise ValueError(f"{errmsg} (Unparsable value: {repr(item)})")
+
+    consider_ancient = defaultdict(set)
+
+    if args is not None:
+        for entry in args:
+            rule, items = parse_key_value_arg(entry, errmsg=errmsg, strip_quotes=True)
+            items = items.split(",")
+            consider_ancient[rule] = {parse_item(item) for item in items}
+    return consider_ancient
 
 
 def parse_set_resources(args):
@@ -730,6 +757,19 @@ def get_argument_parser(profiles=None):
             "output in your workflow updated."
         ),
     )
+    group_exec.add_argument(
+        "--consider-ancient",
+        metavar="RULE=INPUTITEMS",
+        nargs="+",
+        default=dict(),
+        parse_func=parse_consider_ancient,
+        help="Consider given input items of given rules as ancient, i.e. not triggering "
+        "re-runs if they are newer than the output files. "
+        "Putting this into a workflow specific profile (or specifying as argument) "
+        "allows to overrule rerun triggers caused by file modification dates where the "
+        "user knows better.",
+    )
+
     group_exec.add_argument(
         "--prioritize",
         "-P",
