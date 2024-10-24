@@ -2029,6 +2029,7 @@ def args_to_api(args, parser):
                         wrapper_prefix=args.wrapper_prefix,
                         exec_mode=args.mode,
                         cache=args.cache,
+                        consider_ancient=args.consider_ancient,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,

@@ -273,7 +273,9 @@ class Rule(RuleInterface):
         input -- the list of input files
         """
 
-        consider_ancient = self.workflow.dag_settings.consider_ancient.get(self.name)
+        consider_ancient = self.workflow.workflow_settings.consider_ancient.get(
+            self.name
+        )
 
         for i, item in enumerate(input):
             self._set_inoutput_item(item, mark_ancient=i)
