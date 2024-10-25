@@ -9,7 +9,7 @@ import re
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import Set
+from typing import List, Mapping, Optional, Set, Union
 
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -105,7 +105,7 @@ def parse_set_threads(args):
 
 def parse_consider_ancient(
     args: Optional[List[str]],
-) -> DefaultDict[str, Set[Union[str, int]]]:
+) -> Mapping[str, Set[Union[str, int]]]:
     """Parse command line arguments for marking input files as ancient.
 
     Args:
