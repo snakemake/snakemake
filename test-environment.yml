@@ -4,7 +4,6 @@ channels:
   - nodefaults
 dependencies:
   - python >=3.11
-  - mamba
   - yte
   - packaging
   - datrie
@@ -41,10 +40,9 @@ dependencies:
   - pulp >=2.3.1
   - environment-modules
   - nbformat
-  - toposort >=1.10
   - crc32c
   - requests-mock
-  - peppy
+  - peppy =0.40.5 # TODO remove constraint once this is fixed: https://github.com/pepkit/peppy/issues/496
   - eido
   - glpk
   - smart_open
@@ -58,12 +56,11 @@ dependencies:
   - nodejs # for cwltool
   - immutables
   - conda
-  - paramiko >=3.4.1 # TODO remove line (paramiko is an indirect dependency), just a temporal workaround for this bug: https://github.com/paramiko/paramiko/issues/2419
   - pip
   - pip:
       - cwltool
       - cwl-utils
-      - snakemake-interface-executor-plugins >=9.1.0
+      - snakemake-interface-executor-plugins >=9.3.1
       - snakemake-executor-plugin-cluster-generic >=1.0.9
       - snakemake-storage-plugin-http
       - snakemake-storage-plugin-s3

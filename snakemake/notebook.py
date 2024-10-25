@@ -2,6 +2,7 @@ from abc import abstractmethod
 import os
 from pathlib import Path
 import subprocess as sp
+import shutil
 import tempfile
 import re
 
@@ -90,9 +91,9 @@ class JupyterNotebook(ScriptBase):
                 )
             else:
                 if fname_out is None:
-                    output_parameter = ""
+                    output_parameter = f"--output '{tmp}/notebook.ipynb'"
                 else:
-                    fname_out = os.path.join(os.getcwd(), fname_out)
+                    fname_out = os.path.abspath(fname_out)
                     output_parameter = "--output {fname_out:q}"
                 cmd = (
                     "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
@@ -110,9 +111,14 @@ class JupyterNotebook(ScriptBase):
                 fname_out=fname_out,
                 fname=fname,
                 additional_envvars={"IPYTHONDIR": tmp},
+                is_python_script=True,
             )
 
             if edit:
+                if fname_out is not None:
+                    # store log file (executed notebook) in requested path
+                    shutil.copyfile(fname, fname_out)
+
                 logger.info("Saving modified notebook.")
                 nb = nbformat.read(fname, as_version=4)
 

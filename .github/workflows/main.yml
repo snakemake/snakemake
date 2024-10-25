@@ -58,12 +58,13 @@ jobs:
           cp test-environment.yml test-environment-${{ matrix.py_ver }}.yml
           sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment-${{ matrix.py_ver }}.yml
 
-      - name: Setup snakemke environment
-        uses: mamba-org/setup-micromamba@v1
+      - name: Setup snakemake environment
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          miniforge-version: latest
           environment-file: test-environment-${{ matrix.py_ver }}.yml
           environment-name: snakemake
-          cache-environment: true
+          auto-update-conda: true
 
       - name: Install snakemake from source
         shell: bash -el {0}
@@ -80,6 +81,13 @@ jobs:
           sudo add-apt-repository -y ppa:apptainer/ppa
           sudo apt-get update
           sudo apt install -y stress git wget openmpi-bin libopenmpi-dev apptainer
+
+      # See https://github.com/apptainer/apptainer/pull/2262
+      - name: Disable apparmor namespace restrictions for apptainer
+        run: |
+          sudo sh -c 'echo kernel.apparmor_restrict_unprivileged_userns=0 \
+              >/etc/sysctl.d/90-disable-userns-restrictions.conf'
+          sudo sysctl -p /etc/sysctl.d/90-disable-userns-restrictions.conf
 
       - name: Test local
         env:
@@ -145,12 +153,12 @@ jobs:
                   print(line, end="")
 
       - name: Setup snakemake environment
-        uses: mamba-org/setup-micromamba@v1
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          miniforge-version: latest
           environment-file: test-environment.yml
           environment-name: snakemake
-          init-shell: powershell
-          cache-environment: true
+          auto-update-conda: true
 
       - name: Install snakemake from source
         run: |
