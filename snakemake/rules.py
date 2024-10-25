@@ -274,7 +274,7 @@ class Rule(RuleInterface):
         """
 
         consider_ancient = self.workflow.workflow_settings.consider_ancient.get(
-            self.name
+            self.name, frozenset()
         )
 
         for i, item in enumerate(input):
