@@ -278,7 +278,7 @@ class Rule(RuleInterface):
         )
 
         for i, item in enumerate(input):
-            self._set_inoutput_item(item, mark_ancient=i)
+            self._set_inoutput_item(item, mark_ancient=i in consider_ancient)
         for name, item in kwinput.items():
             self._set_inoutput_item(
                 item, name=name, mark_ancient=name in consider_ancient
