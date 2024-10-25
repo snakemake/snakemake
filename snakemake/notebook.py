@@ -95,6 +95,7 @@ class JupyterNotebook(ScriptBase):
                 else:
                     fname_out = os.path.abspath(fname_out)
                     output_parameter = "--output {fname_out:q}"
+
                 cmd = (
                     "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
                     "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
