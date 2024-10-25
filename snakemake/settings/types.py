@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import re
-from typing import Any, List, Optional, Union
+from typing import Any, Optional, Union
 from typing import Mapping, Sequence, Set
 
 import immutables

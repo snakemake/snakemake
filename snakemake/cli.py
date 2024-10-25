@@ -103,14 +103,26 @@ def parse_set_threads(args):
     )
 
 
-def parse_consider_ancient(args):
+def parse_consider_ancient(args: Optional[List[str]]) -> DefaultDict[str, Set[Union[str, int]]]:
+    """Parse command line arguments for marking input files as ancient.
+    
+    Args:
+        args: List of RULE=INPUTITEMS pairs, where INPUTITEMS is a comma-separated list
+              of input item names or indices (0-based).
+    
+    Returns:
+        A mapping of rules to sets of their ancient input items.
+        
+    Raises:
+        ValueError: If the format is invalid or values cannot be parsed.
+    """
     errmsg = (
         "Invalid --consider-ancient definition: entries have to be defined as "
         "RULE=INPUTITEMS pairs, with INPUTITEMS being a list of input items of the "
         "rule (given as name or index (0-based)), separated by commas."
     )
 
-    def parse_item(item):
+    def parse_item(item: str) -> Union[str, int]:
         try:
             return int(item)
         except ValueError:
@@ -124,6 +136,8 @@ def parse_consider_ancient(args):
     if args is not None:
         for entry in args:
             rule, items = parse_key_value_arg(entry, errmsg=errmsg, strip_quotes=True)
+            if not rule.isidentifier():
+                raise ValueError(f"{errmsg} (Invalid rule name: {repr(rule)})")
             items = items.split(",")
             consider_ancient[rule] = {parse_item(item) for item in items}
     return consider_ancient
