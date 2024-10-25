@@ -129,7 +129,7 @@ def parse_consider_ancient(args: Optional[List[str]]) -> DefaultDict[str, Set[Un
             if item.isidentifier():
                 return item
             else:
-                raise ValueError(f"{errmsg} (Unparsable value: {repr(item)})") from None
+                raise ValueError(f"{errmsg} (Unparsable value: {repr(item)})")
 
     consider_ancient = defaultdict(set)
 
