@@ -238,6 +238,12 @@ def test_set_resources_complex_cli():
 def test_ancient():
     run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
+def test_ancient_cli():
+    run(
+        dpath("test_ancient_cli"),
+        shellcmd="snakemake --consider-ancient A=0 B=x",
+    )
+
 
 def test_report():
     run(
