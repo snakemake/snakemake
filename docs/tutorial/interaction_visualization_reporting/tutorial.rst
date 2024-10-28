@@ -285,11 +285,11 @@ In this case, this config file shall be stored in ``resources/datavzrd/cars.yaml
             cylinders:
               plot:
                 heatmap:
-                scale: linear
-                domain:
+                  scale: linear
+                  domain:
                     - 0
                     - 16
-                range:
+                  range:
                     # white to blue
                     - "#ffffff"
                     - "#6baed6"
