@@ -674,3 +674,40 @@ When using both apptainer and conda the idea is that inside the apptainer contai
 Some apptainer instances are set to share the system /tmp with the containers.
 This can lead to unexpected behaviour where the system /tmp gets full.
 To stop this behaviour you'd have to run apptainer with the ``--contain`` option. 
+
+
+.. _consider_ancient:
+
+Snakemake wants to rerun a rule that has been already executed, what can I do?
+------------------------------------------------------------------------------
+
+Snakemake tries to ensure consistency between input and output files.
+This is based on file modification dates (input files may not be newer than output files of the same job), as well as execution metadata like the used software stack (e.g. conda env or container image), the non-file parameters, the set of input files, and the code of the rule.
+If Snakemake wants to rerun a rule that has been already executed, it is because one of these criteria has changed and detailed information about the reasoning is given in the job description of Snakemake's output as well as in the final summary at the end of a dry-run.
+
+If your job is triggered by newer input files, but you are sure that the input files did not change on a semantic level (i.e. won't yield different results), you can mark those input files as ancient via the command line, or (usually better) via a :ref:`workflow specific profile <profiles>`.
+Let us assume you have the following rule from which such an unwanted job is triggered:
+
+.. code-block:: python
+
+    rule myrule:
+        input:
+            foo="inputfile.txt"
+        output:
+            "outputfile.txt"
+        shell:
+            "somecommand {input.foo} > {output}"
+
+In case of directly using the command line option, you can run Snakemake like this:
+
+.. code-block:: console
+
+    $ snakemake --consider-ancient myrule=foo
+
+This will mark the file ``inputfile.txt`` as ancient for the rule ``myrule``.
+If the setting shall be persisted for all upcoming runs of Snakemake, you can store it e.g. in the default workflow specific profile (``profiles/default/config.yaml``), which will be automatically considered when being present in a working directory:
+
+.. code-block:: python
+
+    consider-ancient:
+        myrule: foo
