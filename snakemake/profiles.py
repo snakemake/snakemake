@@ -53,6 +53,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                         "wms-monitor-arg",
                         "groups",
                         "group-components",
+                        "consider-ancient",
                     ):
                         result[key] = format_one_level_dict(value)
                     elif key == "set-resources":
