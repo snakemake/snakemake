@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import re
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from typing import Mapping, Sequence, Set
 
 import immutables
@@ -124,6 +124,9 @@ class WorkflowSettings(SettingsBase):
     wrapper_prefix: Optional[str] = None
     exec_mode: ExecMode = ExecMode.DEFAULT
     cache: Optional[Sequence[str]] = None
+    consider_ancient: Mapping[str, AnySet[Union[str, int]]] = field(
+        default_factory=dict
+    )
 
 
 class Batch:

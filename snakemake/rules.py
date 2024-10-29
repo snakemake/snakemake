@@ -272,10 +272,17 @@ class Rule(RuleInterface):
         Arguments
         input -- the list of input files
         """
-        for item in input:
-            self._set_inoutput_item(item)
+
+        consider_ancient = self.workflow.workflow_settings.consider_ancient.get(
+            self.name, frozenset()
+        )
+
+        for i, item in enumerate(input):
+            self._set_inoutput_item(item, mark_ancient=i in consider_ancient)
         for name, item in kwinput.items():
-            self._set_inoutput_item(item, name=name)
+            self._set_inoutput_item(
+                item, name=name, mark_ancient=name in consider_ancient
+            )
 
     @property
     def output(self):
@@ -400,7 +407,7 @@ class Rule(RuleInterface):
         except ValueError as e:
             raise WorkflowError(e, snakefile=self.snakefile, lineno=self.lineno)
 
-    def _set_inoutput_item(self, item, output=False, name=None):
+    def _set_inoutput_item(self, item, output=False, name=None, mark_ancient=False):
         """
         Set an item to be input or output.
 
@@ -462,12 +469,17 @@ class Rule(RuleInterface):
                             )
                         )
 
-            # add the rule to the dependencies
             if rule_dependency is not None:
+                # add the rule to the dependencies
                 self.dependencies[item] = rule_dependency
+
             if output:
                 item = self._update_item_wildcard_constraints(item)
+                if self.workflow.storage_settings.all_temp:
+                    # mark as temp if all output files shall be marked as temp
+                    item = flag(item, "temp")
             else:
+                # input
                 if (
                     contains_wildcard_constraints(item)
                     and self.workflow.exec_mode != ExecMode.SUBPROCESS
@@ -477,10 +489,8 @@ class Rule(RuleInterface):
                             self
                         )
                     )
-
-            if self.workflow.storage_settings.all_temp and output:
-                # mark as temp if all output files shall be marked as temp
-                item = flag(item, "temp")
+                if mark_ancient:
+                    item = flag(item, "ancient")
 
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
@@ -520,8 +530,8 @@ class Rule(RuleInterface):
         else:
             try:
                 start = len(inoutput)
-                for i in item:
-                    self._set_inoutput_item(i, output=output)
+                for subitem in item:
+                    self._set_inoutput_item(subitem, output=output)
                 if name:
                     # if the list was named, make it accessible
                     inoutput._set_name(name, start, end=len(inoutput))

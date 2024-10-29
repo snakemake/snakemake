@@ -677,7 +677,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         if not self.shadow_dir:
             return f
         f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
-        f_.clone_flags(f)
+        # The shadowed path does not need the storage object, storage will be handled
+        # after shadowing.
+        f_.clone_flags(f, skip_storage_object=True)
         return f_
 
     @property

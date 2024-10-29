@@ -30,6 +30,8 @@ We ensured that no bioinformatics knowledge is needed to understand the tutorial
 
 Also have a look at the corresponding slides_.
 
+As follow-up to this tutorial, we recommend to have a look at the :ref:`interaction, visualization and reporting tutorial <interaction_visualization_reporting_tutorial>`, which focuses on Snakemake's ability to cover the last mile of data analysis, i.e., the generation of publication ready reports and interactive visualizations.
+
 
 .. toctree::
    :maxdepth: 2
