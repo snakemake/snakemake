@@ -783,7 +783,8 @@ def get_argument_parser(profiles=None):
         "re-runs if they are newer than the output files. "
         "Putting this into a workflow specific profile (or specifying as argument) "
         "allows to overrule rerun triggers caused by file modification dates where the "
-        "user knows better.",
+        "user knows better. RULE is the name of the rule, INPUTITEMS is a comma "
+        "separated list of input items of the rule (given as name or index (0-based)).",
     )
 
     group_exec.add_argument(

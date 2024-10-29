@@ -711,3 +711,16 @@ If the setting shall be persisted for all upcoming runs of Snakemake, you can st
 
     consider-ancient:
         myrule: foo
+
+If the input file is not named (does not have something like ``foo=`` in front of it), you can instead refer it by index, i.e.:
+
+.. code-block:: console
+
+    $ snakemake --consider-ancient myrule=0
+
+Or alternatively in the profile:
+
+.. code-block:: python
+
+    consider-ancient:
+        myrule: 0
