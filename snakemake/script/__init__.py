@@ -115,32 +115,40 @@ class Snakemake:
     @property
     def params(self):
         params = io_.Params(toclone=list(self._params_store))
-        for i, value in enumerate(params):
-            param_type = self._params_types.get(i)
-            if param_type is None:
-                # nothing to convert
-                continue
-            if param_type.startswith("pd."):
-                import pandas as pd
+        try:
+            for i, value in enumerate(params):
+                param_type = self._params_types.get(i)
+                if param_type is None:
+                    # nothing to convert
+                    continue
+                if param_type.startswith("pd."):
+                    import pandas as pd
 
-                if param_type == "pd.DataFrame":
-                    params[i] = pd.DataFrame.from_dict(value)
-                elif param_type == "pd.Series":
-                    params[i] = pd.Series(value)
-            elif param_type.startswith("np."):
-                import numpy as np
+                    if param_type == "pd.DataFrame":
+                        params[i] = pd.DataFrame.from_dict(value)
+                    elif param_type == "pd.Series":
+                        params[i] = pd.Series(value)
+                elif param_type.startswith("np."):
+                    import numpy as np
 
-                if param_type == "np.ndarray":
-                    params[i] = np.array(value)
-            elif param_type.startswith("pl."):
-                import polars as pl
+                    if param_type == "np.ndarray":
+                        params[i] = np.array(value)
+                elif param_type.startswith("pl."):
+                    import polars as pl
 
-                if param_type == "pl.LazyFrame":
-                    params[i] = pl.from_dict(value).lazy()
-                elif param_type == "pl.DataFrame":
-                    params[i] = pl.from_dict(value)
-                elif param_type == "pl.Series":
-                    params[i] = pl.Series(**value)
+                    if param_type == "pl.LazyFrame":
+                        params[i] = pl.from_dict(value).lazy()
+                    elif param_type == "pl.DataFrame":
+                        params[i] = pl.from_dict(value)
+                    elif param_type == "pl.Series":
+                        params[i] = pl.Series(**value)
+        except ImportError as e:
+            raise ImportError(
+                "Failed to import required module for loading rule params. "
+                "Make sure that the respective package (numpy, pandas, polars) "
+                "is available in the software environment in which the "
+                f"script/wrapper/notebook is executed: {e}"
+            )
 
         params._take_names(self._params_store._get_names())
         return params
