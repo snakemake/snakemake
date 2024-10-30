@@ -17,7 +17,7 @@ class PathModifier:
         self.skip_properties = set()
         self.workflow = workflow
 
-        self.trie = None
+        self._prefix_replacements = None
         self.prefix = None
         assert not (prefix and replace_prefix)
         if prefix:
@@ -25,13 +25,9 @@ class PathModifier:
                 prefix += "/"
             self.prefix = prefix
         if replace_prefix:
-            import datrie
-
-            self.trie = datrie.Trie(
-                "".join(set(char for prefix in replace_prefix for char in prefix))
-            )
+            self._prefix_replacements = {}
             for prefix, replacement in replace_prefix.items():
-                self.trie[prefix] = replacement
+                self._prefix_replacements[prefix] = replacement
 
     def modify(self, path, property=None):
         if get_flag_value(path, PATH_MODIFIER_FLAG):
@@ -62,7 +58,7 @@ class PathModifier:
         return modified_path
 
     def replace_prefix(self, path, property=None):
-        if (self.trie is None and self.prefix is None) or (
+        if (self._prefix_replacements is None and self.prefix is None) or (
             property in self.skip_properties
             or os.path.isabs(path)
             or path.startswith("..")
@@ -72,8 +68,12 @@ class PathModifier:
             # no replacement
             return path
 
-        if self.trie is not None:
-            prefixes = self.trie.prefix_items(str(path))
+        if self._prefix_replacements is not None:
+            prefixes = [
+                prefix
+                for prefix in self._prefix_replacements
+                if str(path).startswith(prefix)
+            ]
             if len(prefixes) > 1:
                 # ambiguous prefixes
                 raise WorkflowError(
@@ -84,7 +84,8 @@ class PathModifier:
                 )
             elif prefixes:
                 # replace prefix
-                prefix, replacement = prefixes[0]
+                prefix = prefixes[0]
+                replacement = self._prefix_replacements[prefix]
                 return replacement + path[len(prefix) :]
             else:
                 # no matching prefix
@@ -137,4 +138,4 @@ class PathModifier:
 
     @property
     def modifies_prefixes(self):
-        return self.trie is not None
+        return self._prefix_replacements is not None
