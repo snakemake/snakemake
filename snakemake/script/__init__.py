@@ -148,15 +148,15 @@ class Snakemake:
     def _safely_store_params(self, params: io_.Params):
         try:
             import pandas as pd
-        except ImportError:
+        except ModuleNotFoundError:
             pd = None
         try:
             import numpy as np
-        except ImportError:
+        except ModuleNotFoundError:
             np = None
         try:
             import polars as pl
-        except ImportError:
+        except ModuleNotFoundError:
             pl = None
 
         self._params_store = io_.Params(toclone=list(params))
