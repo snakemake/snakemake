@@ -1,46 +1,32 @@
+from __future__ import annotations
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
-from itertools import chain
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from snakemake.rules import Rule
 
 
 class OutputIndex:
-    def __init__(self, rules):
-        import datrie
+    """Look up structure for rules, that can be queried by the output products which they create."""
 
-        def prefixes(rule):
-            return (str(o.constant_prefix()) for o in rule.products())
+    def __init__(self, rules: list[Rule]) -> None:
+        self._entries = [
+            (rule, str(o.constant_prefix()), str(o.constant_suffix()))
+            for rule in rules
+            for o in rule.products()
+        ]
 
-        def reverse_suffixes(rule):
-            return (str(o.constant_suffix())[::-1] for o in rule.products())
+    def match(self, targetfile: str) -> set[Rule]:
+        return {
+            rule
+            for rule, prefix, suffix in self._entries
+            if targetfile.startswith(prefix) and targetfile.endswith(suffix)
+        }
 
-        def calc_trie(subpatterns):
-            t = datrie.Trie("".join(p for rule in rules for p in subpatterns(rule)))
-            empty = list()
-            for rule in rules:
-                has_empty = False
-                for p in subpatterns(rule):
-                    if not p:
-                        has_empty = True
-                    if p not in t:
-                        t[p] = [rule]
-                    else:
-                        t[p].append(rule)
-                if has_empty:
-                    empty.append(rule)
-            return t, empty
-
-        self.prefix_trie, self.empty_prefix = calc_trie(prefixes)
-        self.suffix_trie, self.empty_suffix = calc_trie(reverse_suffixes)
-
-    def match(self, targetfile):
-        def match_pattern(pattern, trie, empty):
-            return chain(chain.from_iterable(trie.iter_prefix_values(pattern)), empty)
-
-        f = str(targetfile)
-        hits = set(match_pattern(f, self.prefix_trie, self.empty_prefix))
-        return hits.intersection(
-            match_pattern(f[::-1], self.suffix_trie, self.empty_suffix)
-        )
+    def match_producer(self, targetfile: str) -> set[Rule]:
+        return {rule for rule in self.match(targetfile) if rule.is_producer(targetfile)}
