@@ -117,6 +117,9 @@ class Snakemake:
         params = io_.Params(toclone=list(self._params_store))
         for i, value in enumerate(params):
             param_type = self._params_types.get(i)
+            if param_type is None:
+                # nothing to convert
+                continue
             if param_type.startswith("pd."):
                 import pandas as pd
 
