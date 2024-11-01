@@ -77,6 +77,21 @@ from snakemake.settings.types import ChangeType, Batch
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
 
+def toposort(graph):
+    from graphlib import TopologicalSorter
+
+    sorter = TopologicalSorter(graph)
+    sorter.prepare()
+    sorted = list()
+    while sorter.is_active():
+        ready = set()
+        for task in sorter.get_ready():
+            ready.add(task)
+            sorter.done(task)
+        sorted.append(ready)
+    return sorted
+
+
 class DAG(DAGExecutorInterface, DAGReportInterface):
     """Directed acyclic graph of jobs."""
 
@@ -449,7 +464,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
         for env in self.conda_envs.values():
-            if (not dryrun or not quiet) and not env.is_named:
+            if (not dryrun or not quiet) and not env.is_externally_managed:
                 env.create(self.workflow.dryrun)
 
     def update_container_imgs(self):
@@ -507,6 +522,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def is_edit_notebook_job(self, job):
         return (
             self.workflow.execution_settings.edit_notebook
+            and job.targetfile in self.targetfiles
+        )
+
+    def is_draft_notebook_job(self, job):
+        return (
+            self.workflow.execution_settings.edit_notebook
+            and self.workflow.execution_settings.edit_notebook.draft_only
             and job.targetfile in self.targetfiles
         )
 
@@ -1288,8 +1310,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
                             else:
+                                if self.workflow.persistence.has_outdated_metadata(job):
+                                    reason.outdated_metadata = True
                                 if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
-                                    reason.params_changed = any(
+                                    reason.params_changed = (
                                         self.workflow.persistence.params_changed(job)
                                     )
                                 if RerunTrigger.INPUT in self.workflow.rerun_triggers:
@@ -2742,8 +2766,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         yield ""
 
     def toposorted(self, jobs=None, inherit_pipe_dependencies=False):
-        from toposort import toposort
-
         if jobs is None:
             jobs = set(self.jobs)
 

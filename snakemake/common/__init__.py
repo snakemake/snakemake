@@ -10,6 +10,7 @@ import operator
 import platform
 import hashlib
 import inspect
+import shutil
 import sys
 import uuid
 import os
@@ -343,3 +344,15 @@ def is_namedtuple_instance(x):
     if not isinstance(f, tuple):
         return False
     return all(type(n) is str for n in f)
+
+
+def copy_permission_safe(src: str, dst: str):
+    """Copy a file to a given destination.
+
+    If destination exists, it is removed first in order to avoid permission issues when
+    the destination permissions are tried to be applied to an already existing
+    destination.
+    """
+    if os.path.exists(dst):
+        os.unlink(dst)
+    shutil.copy(src, dst)

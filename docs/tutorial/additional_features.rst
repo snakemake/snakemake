@@ -222,3 +222,5 @@ This mechanism helps to solve two kinds of ambiguity.
 * It can help to guide the regular expression based matching so that wildcards are assigned to the right parts of a file name. Consider the output file ``{sample}.{group}.txt`` and assume that the target file is ``A.1.normal.txt``. It is not clear whether ``dataset="A.1"`` and ``group="normal"`` or ``dataset="A"`` and ``group="1.normal"`` is the right assignment. Here, constraining the dataset wildcard by ``{sample,[A-Z]+}.{group}`` solves the problem.
 
 When dealing with ambiguous rules, it is best practice to first try to solve the ambiguity by using a proper file structure, for example, by separating the output files of different steps in different directories.
+
+As follow-up to this tutorial, we recommend to have a look at the :ref:`interaction, visualization and reporting tutorial <interaction_visualization_reporting_tutorial>`, which focuses on Snakemake's ability to cover the last mile of data analysis, i.e., the generation of publication ready reports and interactive visualizations.
