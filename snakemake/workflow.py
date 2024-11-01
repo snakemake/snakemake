@@ -9,6 +9,7 @@ import re
 import os
 import subprocess
 import sys
+import platform
 from collections import OrderedDict, namedtuple
 from collections.abc import Mapping
 from itertools import filterfalse, chain
@@ -50,7 +51,7 @@ from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 
-from snakemake.logging import logger, format_resources
+from snakemake.logging import logger, format_resources, logfile_hint, get_logfile
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
@@ -1077,7 +1078,10 @@ class Workflow(WorkflowExecutorInterface):
         executor_settings: ExecutorSettingsBase,
         updated_files: Optional[List[str]] = None,
     ):
-        logger.host_info()
+        logger.info(
+            f"host: {platform.node()}",
+            extra=dict(level="host", host=platform.node()),
+        )
 
         from snakemake.shell import shell
 
@@ -1195,7 +1199,10 @@ class Workflow(WorkflowExecutorInterface):
                     if shell_exec is not None:
                         logger.info(f"Using shell: {shell_exec}")
                     if not self.local_exec:
-                        logger.resources_info(f"Provided remote nodes: {self.nodes}")
+                        logger.warning(
+                            f"Provided remote nodes: {self.nodes}",
+                            extra=dict(level="resources_info", nodes=self.nodes),
+                        )
                     else:
                         if self._cores is not None:
                             warning = (
@@ -1203,17 +1210,23 @@ class Workflow(WorkflowExecutorInterface):
                                 if self._cores > 1
                                 else " (use --cores to define parallelism)"
                             )
-                            logger.resources_info(
-                                f"Provided cores: {self._cores}{warning}"
+                            logger.warning(
+                                f"Provided cores: {self._cores}{warning}",
+                                extra=dict(level="resources_info", cores=self._cores),
                             )
-                            logger.resources_info(
-                                "Rules claiming more threads will be scaled down."
+                            logger.warning(
+                                "Rules claiming more threads will be scaled down.",
+                                extra=dict(level="resources_info"),
                             )
 
                     provided_resources = format_resources(self.global_resources)
                     if provided_resources:
-                        logger.resources_info(
-                            f"Provided resources: {provided_resources}"
+                        logger.warning(
+                            f"Provided resources: {provided_resources}",
+                            extra=dict(
+                                level="resources_info",
+                                provided_resources=self.global_resources,
+                            ),
                         )
 
                     if self.local_exec and any(rule.group for rule in self.rules):
@@ -1234,14 +1247,22 @@ class Workflow(WorkflowExecutorInterface):
                         logger.info("Singularity containers: ignored")
 
                     if self.exec_mode == ExecMode.DEFAULT:
-                        logger.run_info("\n".join(self.dag.stats()))
+                        stats_msg, stats_dict = self.dag.stats()
+                        logger.warning(
+                            stats_msg,
+                            extra=dict(level="run_info", stats=stats_dict),
+                        )
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
                     return
             else:
                 # the dryrun case
                 if len(self.dag):
-                    logger.run_info("\n".join(self.dag.stats()))
+                    stats_msg, stats_dict = self.dag.stats()
+                    logger.warning(
+                        stats_msg,
+                        extra=dict(level="run_info", stats=stats_dict),
+                    )
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
                     self.log_missing_metadata_info()
@@ -1252,7 +1273,7 @@ class Workflow(WorkflowExecutorInterface):
                     return
 
             if not self.dryrun and not self.execution_settings.no_hooks:
-                self._onstart(logger.get_logfile())
+                self._onstart(get_logfile())
 
             has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
 
@@ -1277,7 +1298,11 @@ class Workflow(WorkflowExecutorInterface):
             if success:
                 if self.dryrun:
                     if len(self.dag):
-                        logger.run_info("\n".join(self.dag.stats()))
+                        stats_msg, stats_dict = self.dag.stats()
+                        logger.warning(
+                            stats_msg,
+                            extra=dict(level="run_info", stats=stats_dict),
+                        )
                         self.dag.print_reasons()
                         self.log_provenance_info()
                     logger.info("")
@@ -1292,13 +1317,13 @@ class Workflow(WorkflowExecutorInterface):
                             "jobs (e.g. adding more jobs) after their completion."
                         )
                 else:
-                    logger.logfile_hint()
+                    logfile_hint(mode=self.exec_mode, dryrun=self.dryrun)
                 if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onsuccess(logger.get_logfile())
+                    self._onsuccess(get_logfile())
             else:
                 if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onerror(logger.get_logfile())
-                logger.logfile_hint()
+                    self._onerror(get_logfile())
+                logfile_hint(mode=self.exec_mode, dryrun=self.dryrun)
                 raise WorkflowError("At least one job did not complete successfully.")
 
     def log_metadata_info(self, metadata_attr, description):

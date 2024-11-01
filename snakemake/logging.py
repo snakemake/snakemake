@@ -3,7 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import logging as _logging
+import logging
 import platform
 import time
 import datetime
@@ -14,6 +14,7 @@ import threading
 from functools import partial
 import inspect
 import textwrap
+from typing import Optional
 
 
 def get_default_exec_mode():
@@ -244,6 +245,37 @@ class WMSLogger:
 
 
 # Helper functions for logging
+
+
+def timestamp():
+    """Helper method to format the timestamp."""
+    return f"[{time.asctime()}]"
+
+
+def show_logs(logs):
+    """Helper method to show logs."""
+    for f in logs:
+        try:
+            content = open(f, "r").read()
+        except FileNotFoundError:
+            yield f"Logfile {f} not found."
+            return
+        except UnicodeDecodeError:
+            yield f"Logfile {f} is not a text file."
+            return
+        lines = content.splitlines()
+        logfile_header = f"Logfile {f}:"
+        if not lines:
+            logfile_header += " empty file"
+            yield logfile_header
+            return
+        yield logfile_header
+        max_len = min(max(max(len(l) for l in lines), len(logfile_header)), 80)
+        yield "=" * max_len
+        yield from lines
+        yield "=" * max_len
+
+
 def format_dict(dict_like, omit_keys=None, omit_values=None):
     from snakemake.io import Namedlist
 
@@ -288,7 +320,26 @@ def format_percentage(done, total):
     return fmt(fraction)
 
 
-class DefaultFormatter(_logging.Formatter):
+def get_level(record: logging.LogRecord) -> str:
+    """
+    Gets snakemake log level from a log record. If there is no snakemake log level,
+    returns the log record's level name.
+
+    Args:
+        record (logging.LogRecord)
+    Returns:
+        str: The log level
+
+    """
+    level = record.__dict__.get("level", None)
+
+    if level is None:
+        level = record.levelname
+
+    return level.lower()
+
+
+class DefaultFormatter(logging.Formatter):
     def __init__(self, printreason=False, show_failed_logs=False, printshellcmds=False):
         self.printreason = printreason
         self.show_failed_logs = show_failed_logs
@@ -299,40 +350,40 @@ class DefaultFormatter(_logging.Formatter):
         """
         Override format method to format Snakemake-specific log messages.
         """
-        msg = record.msg
-        level = msg.get(
-            "level", "INFO"
-        ).lower()  # Default to "INFO" if level not in message
 
-        # Call specific handlers based on the log level
-        if level == "info":
-            return self.format_info(msg)
-        elif level == "host":
-            return self.format_host(msg)
-        elif level == "job_info":
-            return self.format_job_info(msg)
-        elif level == "group_info":
-            return self.format_group_info(msg)
-        elif level == "job_error":
-            return self.format_job_error(msg)
-        elif level == "group_error":
-            return self.format_group_error(msg)
-        elif level == "progress":
-            return self.format_progress(msg)
-        elif level == "job_finished":
-            return self.format_job_finished(msg)
-        elif level == "shellcmd":
-            return self.format_shellcmd(msg)
-        elif level == "rule_info":
-            return self.format_rule_info(msg)
-        elif level == "d3dag":
-            return self.format_d3dag(msg)
-        elif level == "dag_debug":
-            return self.format_dag_debug(msg)
-        elif level == "run_info":
-            return self.format_run_info(msg)
-        else:
-            return msg["msg"]
+        level = get_level(record)
+        record_dict = record.__dict__.copy()
+
+        # Call specific formatters based on the log level
+        match level:
+            case "info":
+                return self.format_info(record_dict)
+            case "host":
+                return self.format_host(record_dict)
+            case "job_info":
+                return self.format_job_info(record_dict)
+            case "group_info":
+                return self.format_group_info(record_dict)
+            case "job_error":
+                return self.format_job_error(record_dict)
+            case "group_error":
+                return self.format_group_error(record_dict)
+            case "progress":
+                return self.format_progress(record_dict)
+            case "job_finished":
+                return self.format_job_finished(record_dict)
+            case "shellcmd":
+                return self.format_shellcmd(record_dict)
+            case "rule_info":
+                return self.format_rule_info(record_dict)
+            case "d3dag":
+                return self.format_d3dag(record_dict)
+            case "dag_debug":
+                return self.format_dag_debug(record_dict)
+            case "run_info":
+                return self.format_run_info(record_dict)
+            case _:
+                return record_dict["msg"]
 
     def format_info(self, msg):
         """
@@ -365,9 +416,9 @@ class DefaultFormatter(_logging.Formatter):
         """Format for job_info log."""
         output = []
 
-        output.append(self.timestamp())
-        if msg["msg"]:
-            output.append(f"Job {msg['jobid']}: {msg['msg']}")
+        output.append(timestamp())
+        if msg["rule_msg"]:
+            output.append(f"Job {msg['jobid']}: {msg['rule_msg']}")
             if self.printreason:
                 output.append(f"Reason: {msg['reason']}")
         else:
@@ -382,23 +433,21 @@ class DefaultFormatter(_logging.Formatter):
 
     def format_group_info(self, msg):
         """Format for group_info log."""
-        msg = (
-            f"{self.timestamp()} group job {msg['groupid']} (jobs in lexicogr. order):"
-        )
+        msg = f"{timestamp()} group job {msg['groupid']} (jobs in lexicogr. order):"
 
         return msg
 
     def format_job_error(self, msg):
         """Format for job_error log."""
         output = []
-        output.append(self.timestamp())
+        output.append(timestamp())
         output.append("\n".join(self._format_job_error(msg)))
         return "\n".join(output)
 
     def format_group_error(self, msg):
         """Format for group_error log."""
         output = []
-        output.append(self.timestamp())
+        output.append(timestamp())
         output.append("\n".join(self._format_group_error(msg)))
         return "\n".join(output)
 
@@ -410,7 +459,7 @@ class DefaultFormatter(_logging.Formatter):
 
     def format_job_finished(self, msg):
         """Format for job_finished log."""
-        return f"{self.timestamp()} Finished job {msg['jobid']}."
+        return f"{timestamp()} Finished job {msg['jobid']}."
 
     def format_shellcmd(self, msg):
         """Format for shellcmd log."""
@@ -420,7 +469,7 @@ class DefaultFormatter(_logging.Formatter):
 
     def format_rule_info(self, msg):
         """Format for rule_info log."""
-        output = [msg["name"]]
+        output = [msg["rule_name"]]
         if msg["docstring"]:
             output.append(f"    {msg['docstring']}")
         return "\n".join(output)
@@ -453,7 +502,7 @@ class DefaultFormatter(_logging.Formatter):
                 return f"    {item}: {valueformat(value)}"
 
         output = [
-            f"{'local' if msg['local'] else ''}{'checkpoint' if msg['is_checkpoint'] else 'rule'} {msg['name']}:"
+            f"{'local' if msg['local'] else ''}{'checkpoint' if msg['is_checkpoint'] else 'rule'} {msg['rule_name']}:"
         ]
         for item in ["input", "output", "log"]:
             fmt = format_item(item, omit=[], valueformat=", ".join)
@@ -485,10 +534,10 @@ class DefaultFormatter(_logging.Formatter):
 
     def _format_job_error(self, msg):
         """Helper method to format job error details."""
-        output = [f"Error in rule {msg['name']}:"]
+        output = [f"Error in rule {msg['rule_name']}:"]
 
         if msg["msg"]:
-            output.append(f"    message: {msg['msg']}")
+            output.append(f"    message: {msg['rule_msg']}")
         output.append(f"    jobid: {msg['jobid']}")
         if msg["input"]:
             output.append(f"    input: {', '.join(msg['input'])}")
@@ -543,34 +592,6 @@ class DefaultFormatter(_logging.Formatter):
 
         return output
 
-    def timestamp(self):
-        """Helper method to format the timestamp."""
-        return f"[{time.asctime()}]"
-
-
-def show_logs(logs):
-    """Helper method to show logs."""
-    for f in logs:
-        try:
-            content = open(f, "r").read()
-        except FileNotFoundError:
-            yield f"Logfile {f} not found."
-            return
-        except UnicodeDecodeError:
-            yield f"Logfile {f} is not a text file."
-            return
-        lines = content.splitlines()
-        logfile_header = f"Logfile {f}:"
-        if not lines:
-            logfile_header += " empty file"
-            yield logfile_header
-            return
-        yield logfile_header
-        max_len = min(max(max(len(l) for l in lines), len(logfile_header)), 80)
-        yield "=" * max_len
-        yield from lines
-        yield "=" * max_len
-
 
 class DefaultFilter:
     def __init__(
@@ -578,6 +599,8 @@ class DefaultFilter:
         quiet,
         debug_dag,
     ) -> None:
+        if quiet is None:
+            quiet = set()
         self.quiet = quiet
         self.debug_dag = debug_dag
 
@@ -593,8 +616,7 @@ class DefaultFilter:
         if self.is_quiet_about("all"):
             return False
 
-        msg = record.msg
-        level = msg.get("level", "INFO").lower()
+        level = get_level(record)
 
         # Respect quiet mode filtering
         quietness_map = {
@@ -623,7 +645,7 @@ class DefaultFilter:
         return True
 
 
-class ColorizingTextHandler(_logging.StreamHandler):
+class ColorizingTextHandler(logging.StreamHandler):
     """
     Custom handler that combines colorization and Snakemake-specific formatting.
     """
@@ -646,12 +668,19 @@ class ColorizingTextHandler(_logging.StreamHandler):
         nocolor=False,
         stream=sys.stderr,
         mode=None,
+        formatter: Optional[logging.Formatter] = None,
+        filter: Optional[logging.Filter] = None,
     ):
         super().__init__(stream=stream)
         self.last_msg_was_job_info = False
         self._output_lock = threading.Lock()
         self.nocolor = nocolor or not self.can_color_tty(mode)
         self.mode = mode
+
+        if formatter:
+            self.setFormatter(formatter)
+        if filter:
+            self.addFilter(filter)
 
     def can_color_tty(self, mode):
         """
@@ -676,7 +705,7 @@ class ColorizingTextHandler(_logging.StreamHandler):
         """
         with self._output_lock:
             try:
-                level = record.msg.get("level", "INFO").lower()
+                level = get_level(record)
 
                 if level == "job_info":
                     if not self.last_msg_was_job_info:
@@ -726,7 +755,7 @@ class Logger:
     def __init__(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
-        self.logger = _logging.getLogger(__name__)
+        self.logger = logging.getLogger("snakemake")
         self.stream_handler = None
         self.debug_dag = False
         self.logfile = None
@@ -751,7 +780,7 @@ class Logger:
                 )
             )
 
-            self.logfile_handler = _logging.FileHandler(self.logfile)
+            self.logfile_handler = logging.FileHandler(self.logfile)
             self.logfile_handler.setFormatter(self.default_formatter)
             self.logfile_handler.addFilter(self.default_filter)
             self.logfile_handler.setLevel(self.level)
@@ -765,7 +794,7 @@ class Logger:
             self.logger.removeHandler(self.logfile_handler)
             self.logfile_handler.close()
 
-    def set_stream_handler(self, stream_handler: _logging.Handler):
+    def set_stream_handler(self, stream_handler: logging.Handler):
         """Set the stream handler, replacing any existing one."""
         if self.stream_handler is not None:
             self.logger.removeHandler(self.stream_handler)
@@ -787,27 +816,27 @@ class Logger:
 
         # Map custom levels to standard Python logging levels
         log_level = {
-            "debug": _logging.DEBUG,
-            "info": _logging.WARNING,
-            "warning": _logging.WARNING,
-            "error": _logging.ERROR,
-            "critical": _logging.CRITICAL,
-            "run_info": _logging.WARNING,
-            "job_info": _logging.INFO,
-            "group_info": _logging.INFO,
-            "job_error": _logging.ERROR,
-            "group_error": _logging.ERROR,
-            "progress": _logging.INFO,
-            "job_finished": _logging.INFO,
-            "shellcmd": _logging.INFO,
-            "rule_info": _logging.INFO,
+            "debug": logging.DEBUG,
+            "info": logging.WARNING,
+            "warning": logging.WARNING,
+            "error": logging.ERROR,
+            "critical": logging.CRITICAL,
+            "run_info": logging.WARNING,
+            "job_info": logging.INFO,
+            "group_info": logging.INFO,
+            "job_error": logging.ERROR,
+            "group_error": logging.ERROR,
+            "progress": logging.INFO,
+            "job_finished": logging.INFO,
+            "shellcmd": logging.INFO,
+            "rule_info": logging.INFO,
             "dag_debug": (
-                _logging.WARNING if self.debug_dag else _logging.DEBUG
+                logging.WARNING if self.debug_dag else logging.DEBUG
             ),  # bump debug_dag to warning if we want it
-            "resources_info": _logging.WARNING,
-            "host": _logging.INFO,
-            "job_stats": _logging.WARNING,
-        }.get(custom_level, _logging.INFO)  # Default to INFO if not recognized
+            "resources_info": logging.WARNING,
+            "host": logging.INFO,
+            "job_stats": logging.WARNING,
+        }.get(custom_level, logging.INFO)  # Default to INFO if not recognized
 
         record = self.logger.makeRecord(
             name=self.logger.name,
@@ -900,12 +929,91 @@ class Logger:
         return self.logfile
 
 
-logger = Logger()
+logger = logging.getLogger(__name__)
+
+
+def remove_all_streamhandlers():
+    for h in logger.handlers:
+        if issubclass(h.__class__, logging.StreamHandler):
+            logger.removeHandler(h)
+
+
+def get_logfile() -> Optional[list[str]]:
+    logfiles = [
+        h.baseFilename for h in logger.handlers if isinstance(h, logging.FileHandler)
+    ]
+    if logfiles:
+        return logfiles
+    return None
+
+
+def logfile_hint(mode, dryrun: bool):
+    """Log the logfile location if applicable."""
+    from snakemake_interface_executor_plugins.settings import ExecMode
+
+    logfiles = get_logfile()
+
+    if mode == ExecMode.DEFAULT and not dryrun and logfiles is not None:
+        if len(logfiles) == 1:
+            logfile = logfiles[0]
+            logger.info(f"Complete log: {os.path.relpath(logfile)}")
+        else:
+            log_paths = ",".join([os.path.relpath(p) for p in logfiles])
+            logger.info(f"Complete logs: {log_paths}")
+    return logfiles
+
+
+def cleanup_logfile(mode):
+    from snakemake_interface_executor_plugins.settings import ExecMode
+
+    logfile_handlers = [
+        h for h in logger.handlers if isinstance(h, logging.FileHandler)
+    ]
+    # If mode is DEFAULT, proceed to remove and close handlers
+    if mode == ExecMode.DEFAULT and logfile_handlers:
+        for handler in logfile_handlers:
+            logger.removeHandler(handler)
+            handler.close()
+
+
+def setup_logfile(
+    mode,
+    dryrun: bool,
+    show_failed_logs: bool,
+    debug_dag: bool,
+    printshellcmds: bool,
+    quiet: set,
+    verbose: bool,
+) -> None:
+    from snakemake_interface_executor_plugins.settings import ExecMode
+
+    if mode == ExecMode.DEFAULT and not dryrun:
+        os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
+        logfile = os.path.abspath(
+            os.path.join(
+                ".snakemake",
+                "log",
+                datetime.datetime.now().isoformat().replace(":", "") + ".snakemake.log",
+            )
+        )
+
+        logfile_handler = logging.FileHandler(logfile)
+        logfile_handler.setFormatter(
+            DefaultFormatter(
+                printreason=True,
+                show_failed_logs=show_failed_logs,
+                printshellcmds=printshellcmds,
+            )
+        )
+        logfile_handler.addFilter(DefaultFilter(quiet=quiet, debug_dag=debug_dag))
+        logfile_handler.setLevel(logging.DEBUG if verbose else logging.INFO)
+        logfile_handler.name = "DefaultLogFileHandler"
+        logger.addHandler(logfile_handler)
 
 
 def setup_logger(
     handler=[],
-    quiet=False,
+    quiet=None,
     printshellcmds=False,
     printreason=True,
     debug_dag=False,
@@ -936,31 +1044,27 @@ def setup_logger(
             "Unsupported value provided for quiet mode (either bool, None or set allowed)."
         )
 
-    stream_handler = ColorizingTextHandler(
-        nocolor=nocolor,
-        stream=sys.stdout if stdout else sys.stderr,
-        mode=mode,
-    )
-    stream_handler.name = "DefaultStreamHandler"
     formatter = DefaultFormatter(
         printreason=printreason,
         show_failed_logs=show_failed_logs,
         printshellcmds=printshellcmds,
     )
     filter = DefaultFilter(quiet=quiet, debug_dag=debug_dag)
-    logger.default_formatter = formatter
-    logger.default_filter = filter
+
+    stream_handler = ColorizingTextHandler(
+        nocolor=nocolor,
+        stream=sys.stdout if stdout else sys.stderr,
+        mode=mode,
+        formatter=formatter,
+        filter=filter,
+    )
+    stream_handler.name = "DefaultStreamHandler"
 
     if mode == ExecMode.SUBPROCESS:
-        logger.set_stream_handler(_logging.NullHandler())
-    else:
-        logger.set_stream_handler(stream_handler)
-        logger.set_level(_logging.DEBUG if debug else _logging.INFO)
+        remove_all_streamhandlers()
+        logger.addHandler(logging.NullHandler())
 
-    logger.quiet = quiet
-    logger.printshellcmds = printshellcmds
-    logger.printreason = printreason
-    logger.debug_dag = debug_dag
-    logger.mode = mode
-    logger.dryrun = dryrun
-    logger.show_failed_logs = show_failed_logs
+    else:
+        remove_all_streamhandlers()
+        logger.addHandler(stream_handler)
+        logger.setLevel(logging.DEBUG if debug else logging.INFO)
