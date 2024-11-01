@@ -2,11 +2,16 @@
 # It should not use any modules that are not part of the standard library because it will
 # be called before the setup (and dependency deployment) of the snakemake package.
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import hashlib
 import importlib.resources
 from pathlib import Path
-from typing import Dict, Optional
+import shutil
+import subprocess
+import tempfile
+import textwrap
+from typing import Callable, Dict, Optional
 import urllib.request
 import urllib.error
 
@@ -17,29 +22,96 @@ class AssetDownloadError(Exception):
 
 @dataclass
 class Asset:
-    url: str
     sha256: str
+    url: Optional[str] = None
+    get_content_func: Optional[Callable] = None
 
     def get_content(self) -> bytes:
-        """Get and validate asset content."""
-
-        req = urllib.request.Request(self.url, headers={"User-Agent": "snakemake"})
-        err = None
-        for _ in range(6):
-            try:
-                resp = urllib.request.urlopen(req)
-                content = resp.read()
-            except urllib.error.URLError as e:
-                err = AssetDownloadError(f"Failed to download asset {self.url}: {e}")
-                continue
-            if self.sha256 != hashlib.sha256(content).hexdigest():
-                err = AssetDownloadError(
-                    f"Checksum mismatch when downloading asset {self.url}"
-                )
-                continue
+        if self.url is not None:
+            req = urllib.request.Request(self.url, headers={"User-Agent": "snakemake"})
+            err = None
+            for _ in range(6):
+                try:
+                    resp = urllib.request.urlopen(req)
+                    content = resp.read()
+                except urllib.error.URLError as e:
+                    err = AssetDownloadError(f"Failed to download asset {self.url}: {e}")
+                    continue
+                self.check_content(content)
+                return content
+            assert err is not None
+            raise err
+        else:
+            content = self.get_content_func()
+            self.check_content(content)
             return content
-        assert err is not None
-        raise err
+
+    def check_content(self, content: bytes) -> None:
+        if self.sha256 != hashlib.sha256(content).hexdigest():
+            raise AssetDownloadError(
+                f"Checksum mismatch when downloading asset {self.url}"
+            )
+
+
+def get_tailwind_css() -> bytes:
+    with tempfile.NamedTemporaryFile(
+        suffix=".css", mode="w"
+    ) as tmpcss, tempfile.NamedTemporaryFile(
+        suffix=".config.js", mode="w"
+    ) as tmpconfig, tempfile.NamedTemporaryFile(
+        suffix=".css", mode="rb"
+    ) as tmpout:
+        print(
+            textwrap.dedent(
+                """
+                @tailwind base;
+                @tailwind components;
+                @tailwind utilities;
+                """
+            ),
+            file=tmpcss,
+        )
+        print(
+            textwrap.dedent(
+                """
+                module.exports = {
+                    plugins: [
+                        require('@tailwindcss/typography'),
+                        require('@tailwindcss/forms'),
+                    ],
+                }
+                """
+            ),
+            file=tmpconfig,
+        )
+        tmpcss.flush()
+        tmpconfig.flush()
+        if not shutil.which("npx") or not shutil.which("npm"):
+            raise AssetDownloadError(
+                "npm and npx not found in PATH but needed for dowloading tailwindcss; "
+                "please install nodejs into your build environment"
+            )
+        subprocess.run(
+            ["npm", "install", "tailwindcss@3.0.23", "@tailwindcss/typography@0.5.10", "@tailwindcss/forms@0.4.0"],
+            check=True,
+        )
+        subprocess.run(
+            [
+                "npx",
+                "tailwindcss",
+                "build",
+                "-i",
+                tmpcss.name,
+                "-c",
+                tmpconfig.name,
+                "-o",
+                tmpout.name,
+            ],
+            check=True,
+        )
+        content = tmpout.read()
+        breakpoint()
+        return content
 
 
 class Assets:
@@ -58,7 +130,7 @@ class Assets:
             sha256="60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985",
         ),
         "tailwindcss/tailwind.css": Asset(
-            url="https://cdn.tailwindcss.com/3.0.23?plugins=forms@0.4.0,typography@0.5.2",
+            get_content_func=get_tailwind_css,
             sha256="8a597dc918fb62e05db23a5f810327a045a62c57cfda16646075138a6ac696fa",
         ),
         "react/LICENSE": Asset(
