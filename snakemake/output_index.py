@@ -35,12 +35,11 @@ class OutputIndex:
         stop_idx = bisect.bisect_right(self._entries, targetfile, key=lambda x: x[0])
         hits = set()
 
-        first = True
-        for key, entries in self._entries[:stop_idx][::-1]:
+        for index in range(stop_idx - 1, -1, -1):
+            key, entries = self._entries[index]
             if targetfile.startswith(key):
                 hits.update(rule for rule, suffix in entries if targetfile.endswith(suffix))
-                first = False
-            elif not first:
+            elif index != stop_idx - 1:
                 break
 
         return hits
