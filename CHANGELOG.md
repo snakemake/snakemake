@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.25.1](https://github.com/snakemake/snakemake/compare/v8.25.0...v8.25.1) (2024-11-01)
+
+
+### Bug Fixes
+
+* ensure correct topological order when touching group job outputs ([#3181](https://github.com/snakemake/snakemake/issues/3181)) ([5924a3e](https://github.com/snakemake/snakemake/commit/5924a3e3993cb65365536ca4d225a1eb03c2fcd9))
+* ensure version agnostic robust pickling of pandas, polars and numpy data structures passed as params to Python scripts or notebooks ([#3175](https://github.com/snakemake/snakemake/issues/3175)) ([eb11137](https://github.com/snakemake/snakemake/commit/eb1113713cbc4e9232aed6d106bec3615fa48632))
+
 ## [8.25.0](https://github.com/snakemake/snakemake/compare/v8.24.1...v8.25.0) (2024-10-29)
 
 
