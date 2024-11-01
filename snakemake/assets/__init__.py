@@ -62,7 +62,7 @@ class Assets:
         ),
         "tailwindcss/tailwind.css": Asset(
             url="https://cdn.tailwindcss.com/3.0.23?plugins=forms@0.4.0,typography@0.5.2",
-            # The tailwindcss cdn checksum is not stable. Since this is only included 
+            # The tailwindcss cdn checksum is not stable. Since this is only included
             # as CSS styles, the risk is low.
         ),
         "react/LICENSE": Asset(
