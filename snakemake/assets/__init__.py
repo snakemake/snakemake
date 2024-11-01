@@ -32,9 +32,11 @@ class Asset:
             except urllib.error.URLError as e:
                 err = AssetDownloadError(f"Failed to download asset {self.url}: {e}")
                 continue
-            if self.sha256 != hashlib.sha256(content).hexdigest():
+            content_sha = hashlib.sha256(content).hexdigest()
+            if self.sha256 != content_sha:
                 err = AssetDownloadError(
-                    f"Checksum mismatch when downloading asset {self.url}"
+                    f"Checksum mismatch when downloading asset {self.url} "
+                    f"(sha: {content_sha}). First 100 bytes:\n{content[:100].decode()}"
                 )
                 continue
             return content
