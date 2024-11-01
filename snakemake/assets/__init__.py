@@ -18,7 +18,7 @@ class AssetDownloadError(Exception):
 @dataclass
 class Asset:
     url: str
-    sha256: str
+    sha256: Optional[str] = None
 
     def get_content(self) -> bytes:
         """Get and validate asset content."""
@@ -32,13 +32,14 @@ class Asset:
             except urllib.error.URLError as e:
                 err = AssetDownloadError(f"Failed to download asset {self.url}: {e}")
                 continue
-            content_sha = hashlib.sha256(content).hexdigest()
-            if self.sha256 != content_sha:
-                err = AssetDownloadError(
-                    f"Checksum mismatch when downloading asset {self.url} "
-                    f"(sha: {content_sha}). First 100 bytes:\n{content[:100].decode()}"
-                )
-                continue
+            if self.sha256 is not None:
+                content_sha = hashlib.sha256(content).hexdigest()
+                if self.sha256 != content_sha:
+                    err = AssetDownloadError(
+                        f"Checksum mismatch when downloading asset {self.url} "
+                        f"(sha: {content_sha}). First 100 bytes:\n{content[:100].decode()}"
+                    )
+                    continue
             return content
         assert err is not None
         raise err
@@ -61,7 +62,8 @@ class Assets:
         ),
         "tailwindcss/tailwind.css": Asset(
             url="https://cdn.tailwindcss.com/3.0.23?plugins=forms@0.4.0,typography@0.5.2",
-            sha256="8a597dc918fb62e05db23a5f810327a045a62c57cfda16646075138a6ac696fa",
+            # The tailwindcss cdn checksum is not stable. Since this is only included 
+            # as CSS styles, the risk is low.
         ),
         "react/LICENSE": Asset(
             url="https://raw.githubusercontent.com/facebook/react/refs/tags/v18.2.0/LICENSE",
@@ -124,7 +126,9 @@ class Assets:
             if target_path.exists():
                 with open(target_path, "rb") as fin:
                     # file is already present, check if it is up to date
-                    if asset.sha256 == hashlib.sha256(fin.read()).hexdigest():
+                    if (asset.sha256 is not None) and (
+                        asset.sha256 == hashlib.sha256(fin.read()).hexdigest()
+                    ):
                         continue
 
             target_path.parent.mkdir(parents=True, exist_ok=True)
