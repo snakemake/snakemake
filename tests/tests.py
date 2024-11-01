@@ -469,6 +469,10 @@ def test_delete_output():
     run(dpath("test_delete_output"), cores=1)
 
 
+def test_params_pickling():
+    run(dpath("test_params_pickling"))
+
+
 def test_input_generator():
     run(dpath("test_input_generator"))
 
