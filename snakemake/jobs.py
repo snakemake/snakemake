@@ -1514,8 +1514,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     async def postprocess(self, error=False, **kwargs):
         # Iterate over jobs in toposorted order (see self.__iter__) to
         # ensure that outputs are touched in correct order.
-        async with asyncio.TaskGroup() as tg:
-            for level in self.toposorted:
+        for level in self.toposorted:
+            async with asyncio.TaskGroup() as tg:
                 for job in level:
                     # postprocessing involves touching output files (to ensure that
                     # modification times are always correct. This has to happen in
