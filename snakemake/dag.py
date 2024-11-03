@@ -1075,10 +1075,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         )
         if ambiguities and not self.workflow.execution_settings.ignore_ambiguity:
             raise AmbiguousRuleException(file, producer, ambiguities[0])
-        logger.debug("", extra=dict(level="debug_dag", status="selected", job=producer))
+        logger.debug(
+            f"Selected {producer.rule.name}",
+            extra=dict(level="debug_dag", status="selected", job=producer),
+        )
         if exceptions:
             logger.debug(
-                msg="Producer found, hence exceptions are ignored.",
+                msg=f"Producer found, hence exceptions are ignored. Exceptions: {WorkflowError(*exceptions)}",
                 extra=dict(
                     level="debug_dag",
                     file=file,
@@ -1161,7 +1164,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         raise ex
                     else:
                         logger.debug(
-                            msg="No producers found, but file is present on disk.",
+                            msg=f"No producers found, but file: {res.file} is present on disk.",
                             extra=dict(
                                 level="debug_dag",
                                 file=res.file,

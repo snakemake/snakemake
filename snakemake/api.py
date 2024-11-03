@@ -47,7 +47,7 @@ from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
-from snakemake.logging import setup_logger, logger, setup_logfile, cleanup_logfile
+from snakemake.logging import logger, logger_manager
 from snakemake.shell import shell
 from snakemake.common import (
     MIN_PY_VERSION,
@@ -158,7 +158,7 @@ class SnakemakeApi(ApiBase):
     def _cleanup(self):
         """Cleanup the workflow."""
         if not self.output_settings.keep_logger:
-            cleanup_logfile(mode=self._workflow_api.workflow_settings.exec_mode)
+            logger_manager.cleanup_logfile()
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
             if self._workflow_api._workflow_store is not None:
@@ -245,8 +245,8 @@ class SnakemakeApi(ApiBase):
         dryrun: bool = False,
     ):
         if not self.output_settings.keep_logger:
-            setup_logger(
-                handler=self.output_settings.log_handlers,
+            logger_manager.configure_logger(
+                # handler=self.output_settings.log_handlers,
                 quiet=self.output_settings.quiet,
                 nocolor=self.output_settings.nocolor,
                 debug=self.output_settings.verbose,
@@ -584,15 +584,7 @@ class DAGApi(ApiBase):
             or not executor_plugin.common_settings.local_exec
         )
 
-        self.snakemake_api.output_settings.logfile = setup_logfile(
-            mode=self.workflow_api.workflow_settings.exec_mode,
-            dryrun=executor_plugin.common_settings.dryrun_exec,
-            printshellcmds=self.snakemake_api.output_settings.printshellcmds,
-            show_failed_logs=self.snakemake_api.output_settings.show_failed_logs,
-            debug_dag=self.snakemake_api.output_settings.debug_dag,
-            quiet=self.snakemake_api.output_settings.quiet,
-            verbose=self.snakemake_api.output_settings.verbose,
-        )
+        logger_manager.setup_logfile()
 
         workflow = self.workflow_api._workflow
         workflow.execution_settings = execution_settings

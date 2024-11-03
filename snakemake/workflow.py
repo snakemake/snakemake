@@ -51,7 +51,7 @@ from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 
-from snakemake.logging import logger, format_resources, logfile_hint, get_logfile
+from snakemake.logging import logger, format_resources, logger_manager
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
@@ -1273,7 +1273,7 @@ class Workflow(WorkflowExecutorInterface):
                     return
 
             if not self.dryrun and not self.execution_settings.no_hooks:
-                self._onstart(get_logfile())
+                self._onstart(logger_manager.get_logfile())
 
             has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
 
@@ -1317,13 +1317,13 @@ class Workflow(WorkflowExecutorInterface):
                             "jobs (e.g. adding more jobs) after their completion."
                         )
                 else:
-                    logfile_hint(mode=self.exec_mode, dryrun=self.dryrun)
+                    logger_manager.logfile_hint()
                 if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onsuccess(get_logfile())
+                    self._onsuccess(logger_manager.get_logfile())
             else:
                 if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onerror(get_logfile())
-                logfile_hint(mode=self.exec_mode, dryrun=self.dryrun)
+                    self._onerror(logger_manager.get_logfile())
+                logger_manager.logfile_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
 
     def log_metadata_info(self, metadata_attr, description):

@@ -1030,7 +1030,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             else None
         )
         logger.info(
-            "Job info",
+            f" Rule: {self.rule.name}, Jobid: {self.dag.jobid(self)}",
             extra=dict(
                 level="job_info",
                 jobid=self.dag.jobid(self),
@@ -1062,7 +1062,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             ),
         )
         logger.info(
-            "Shellcmd",
+            f"Shell command: {self.shellcmd}",
             extra=dict(level="shellcmd", shellcmd=self.shellcmd, indent=indent),
         )
 
@@ -1087,7 +1087,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     def log_error(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
     ):
-        logger.error("", extra=self.get_log_error_info(msg, indent, aux_logs, **kwargs))
+        logger.error(
+            f"Error in jobid: {self.dag.jobid(self)}",
+            extra=self.get_log_error_info(msg, indent, aux_logs, **kwargs),
+        )
 
     def register(self, external_jobid: Optional[str] = None):
         self.dag.workflow.persistence.started(self, external_jobid)

@@ -2231,7 +2231,7 @@ def args_to_api(args, parser):
 
 def main(argv=None):
     """Main entry point."""
-    logging.setup_logger()
+    logging.logger_manager.configure_logger()
     try:
         parser, args = parse_args(argv)
         success = args_to_api(args, parser)
