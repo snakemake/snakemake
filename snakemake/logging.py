@@ -827,7 +827,7 @@ class LoggerManager:
             logfile_handler.name = "DefaultLogFileHandler"
             self.logger.addHandler(logfile_handler)
 
-    def update_stream_handler(
+    def add_stream_handler(
         self, stream_handler: Optional[type[logging.StreamHandler]] = None
     ):
         formatter = DefaultFormatter(
@@ -872,6 +872,7 @@ class LoggerManager:
         mode=None,
         show_failed_logs: Optional[bool] = None,
         dryrun: Optional[bool] = None,
+        handlers: list[type[logging.Handler]] = None,
     ):
         for key, value in locals().items():
             if key != "self" and value is not None:
@@ -880,9 +881,16 @@ class LoggerManager:
 
         # Update the logger settings based on the current mode
         if self.mode == ExecMode.SUBPROCESS:
-            self.update_stream_handler(logging.NullHandler())
+            self.add_stream_handler(logging.NullHandler())
         else:
-            self.update_stream_handler()
+            if handlers:
+                for h in handlers:
+                    if issubclass(logging.StreamHandler):
+                        self.add_stream_handler(h)
+                    else:
+                        self.logger.addHandler(h)
+            else:
+                self.add_stream_handler()
             self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
 
 
