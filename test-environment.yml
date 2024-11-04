@@ -66,3 +66,5 @@ dependencies:
       - snakemake-storage-plugin-http
       - snakemake-storage-plugin-s3
       - snakemake-storage-plugin-fs >=1.0.3
+      - snakemake-interface-logger-plugins == 0.1.0
+      - snakemake-logger-plugin-rich == 0.1.1
