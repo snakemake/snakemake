@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import bisect
 import os
 from snakemake.exceptions import WorkflowError
 from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
@@ -17,17 +18,14 @@ class PathModifier:
         self.skip_properties = set()
         self.workflow = workflow
 
-        self._prefix_replacements = None
         self.prefix = None
         assert not (prefix and replace_prefix)
         if prefix:
             if not prefix.endswith("/"):
                 prefix += "/"
             self.prefix = prefix
-        if replace_prefix:
-            self._prefix_replacements = {}
-            for prefix, replacement in replace_prefix.items():
-                self._prefix_replacements[prefix] = replacement
+
+        self._prefix_replacements = sorted(replace_prefix.items()) if replace_prefix else None
 
     def modify(self, path, property=None):
         if get_flag_value(path, PATH_MODIFIER_FLAG):
@@ -69,11 +67,15 @@ class PathModifier:
             return path
 
         if self._prefix_replacements is not None:
-            prefixes = [
-                prefix
-                for prefix in self._prefix_replacements
-                if str(path).startswith(prefix)
-            ]
+            prefixes = []
+            stop_idx = bisect.bisect_right(self._prefix_replacements, path, key=lambda x: x[0])
+            for index in range(stop_idx - 1, -1, -1):
+                prefix = self._prefix_replacements[index][0]
+                if str(path).startswith(prefix):
+                    prefixes.append(prefix)
+                elif index != stop_idx - 1:
+                    break
+
             if len(prefixes) > 1:
                 # ambiguous prefixes
                 raise WorkflowError(
@@ -85,7 +87,7 @@ class PathModifier:
             elif prefixes:
                 # replace prefix
                 prefix = prefixes[0]
-                replacement = self._prefix_replacements[prefix]
+                replacement = self._prefix_replacements[prefix][1]
                 return replacement + path[len(prefix) :]
             else:
                 # no matching prefix
