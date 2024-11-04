@@ -98,9 +98,6 @@ def test_match_with_empty_components(
     assert output_index.match(target) == expected
 
 
-# TODO some of these are redundant
-
-
 def test_empty_pattern_matches_everything(mocker):
     """Test that empty patterns match any filename"""
     rule = mocker.Mock(
