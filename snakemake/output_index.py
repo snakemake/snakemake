@@ -38,7 +38,9 @@ class OutputIndex:
         for index in range(stop_idx - 1, -1, -1):
             key, entries = self._entries[index]
             if targetfile.startswith(key):
-                hits.update(rule for rule, suffix in entries if targetfile.endswith(suffix))
+                hits.update(
+                    rule for rule, suffix in entries if targetfile.endswith(suffix)
+                )
             elif index != stop_idx - 1:
                 break
 
