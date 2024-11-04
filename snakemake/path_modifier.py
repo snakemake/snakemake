@@ -90,8 +90,7 @@ class PathModifier:
                 )
             elif prefixes:
                 # replace prefix
-                prefix = prefixes[0]
-                replacement = self._prefix_replacements[prefix][1]
+                prefix, replacement = prefixes[0]
                 return replacement + path[len(prefix) :]
             else:
                 # no matching prefix
