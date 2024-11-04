@@ -703,6 +703,7 @@ class ColorizingTextHandler(logging.StreamHandler):
         """
         Emit a log message with custom formatting and color.
         """
+
         with self._output_lock:
             try:
                 level = get_level(record)
@@ -755,15 +756,15 @@ class LoggerManager:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
         self.quiet = None
-        self.printshellcmds: bool = False
-        self.printreason: bool = True
-        self.debug_dag: bool = False
-        self.nocolor: bool = False
-        self.stdout: bool = False
-        self.debug: bool = False
+        self.printshellcmds = False
+        self.printreason = True
+        self.debug_dag = False
+        self.nocolor = False
+        self.stdout = False
+        self.debug = False
         self.mode = None
-        self.show_failed_logs: bool = False
-        self.dryrun: bool = False
+        self.show_failed_logs = False
+        self.dryrun = False
 
     def _get_handlers_of_type(self, handler_type: type):
         """Helper function to get all handlers of a specified type."""
@@ -828,7 +829,10 @@ class LoggerManager:
             self.logger.addHandler(logfile_handler)
 
     def add_stream_handler(
-        self, stream_handler: Optional[type[logging.StreamHandler]] = None
+        self,
+        stream_handler: Optional[logging.StreamHandler] = None,
+        use_default_filter: bool = True,
+        use_default_formatter: bool = True,
     ):
         formatter = DefaultFormatter(
             printreason=self.printreason,
@@ -840,9 +844,9 @@ class LoggerManager:
         # allow other stream handlers
         if stream_handler is not None:
             # check if passed in handler has formatter and filter
-            if not stream_handler.filters:
+            if not stream_handler.filters and use_default_filter:
                 stream_handler.addFilter(filter)
-            if not stream_handler.formatter:
+            if not stream_handler.formatter and use_default_formatter:
                 stream_handler.setFormatter(formatter)
         # fallback to default snakemake stream handler with default filterer and formatter
         else:
@@ -853,11 +857,15 @@ class LoggerManager:
                 formatter=formatter,
                 filter=filter,
             )
+        if not stream_handler.name:
             stream_handler.name = "DefaultStreamHandler"
 
         # Remove existing stream handlers and add new one
-        for h in self._get_handlers_of_type(logging.StreamHandler):
-            self.logger.removeHandler(h)
+        for h in self.logger.handlers:
+            # check if already added this based on name
+            # plugins/external handlers get added twice otherwise, see: snakemake issue #2797
+            if h.name == stream_handler.name:
+                self.logger.removeHandler(h)
         self.logger.addHandler(stream_handler)
 
     def configure_logger(
@@ -872,20 +880,40 @@ class LoggerManager:
         mode=None,
         show_failed_logs: Optional[bool] = None,
         dryrun: Optional[bool] = None,
-        handlers: list[type[logging.Handler]] = None,
+        handler: list[logging.Handler] = None,
     ):
+        from snakemake_interface_executor_plugins.settings import ExecMode
+        from snakemake_interface_logger_plugins.registry.plugin import Plugin
+
         for key, value in locals().items():
             if key != "self" and value is not None:
                 setattr(self, key, value)
-        from snakemake_interface_executor_plugins.settings import ExecMode
 
         # Update the logger settings based on the current mode
         if self.mode == ExecMode.SUBPROCESS:
             self.add_stream_handler(logging.NullHandler())
         else:
-            if handlers:
-                for h in handlers:
-                    if issubclass(logging.StreamHandler):
+            if handler:
+                for h in handler:
+                    if isinstance(h, Plugin):
+                        h = h.logger_plugin(None).create_handler(
+                            quiet=quiet,
+                            printreason=printreason,
+                            printshellcmds=printshellcmds,
+                            debug=debug,
+                            debug_dag=debug_dag,
+                            mode=mode,
+                            show_failed_logs=show_failed_logs,
+                            dryrun=dryrun,
+                            nocolor=nocolor,
+                            stdout=stdout,
+                        )
+                        self.add_stream_handler(
+                            stream_handler=h,
+                            use_default_filter=False,
+                            use_default_formatter=False,
+                        )
+                    elif getattr(h, "stream", False):
                         self.add_stream_handler(h)
                     else:
                         self.logger.addHandler(h)

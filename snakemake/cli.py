@@ -17,6 +17,8 @@ from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
+from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
+
 import snakemake.common.argparse
 from snakemake import logging
 from snakemake.api import (
@@ -1524,12 +1526,10 @@ def get_argument_parser(profiles=None):
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
     group_behavior.add_argument(
-        "--log-service",
+        "--logger",
         default=None,
-        choices=["none", "slack", "wms"],
-        help="Set a specific messaging service for logging output. "
-        "Snakemake will notify the service on errors and completed execution. "
-        "Currently slack and workflow management system (wms) are supported.",
+        choices=LoggerPluginRegistry().plugins.keys(),
+        help="Specify a custom logger, available via a logger plugin: snakemake_executor_<name>",
     )
     group_behavior.add_argument(
         "--job-deploy-sources",
@@ -1771,6 +1771,7 @@ def get_argument_parser(profiles=None):
     ExecutorPluginRegistry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
     ReportPluginRegistry().register_cli_args(parser)
+    LoggerPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1852,6 +1853,7 @@ def parse_quietness(quietness) -> Set[Quietness]:
 
 def setup_log_handlers(args, parser):
     log_handler = []
+
     if args.log_handler_script is not None:
         if not os.path.exists(args.log_handler_script):
             print(
@@ -1873,17 +1875,9 @@ def setup_log_handlers(args, parser):
             )
             sys.exit(1)
 
-    if args.log_service == "slack":
-        slack_logger = logging.SlackLogger()
-        log_handler.append(slack_logger.log_handler)
-
-    elif args.wms_monitor or args.log_service == "wms":
-        # Generate additional metadata for server
-        metadata = generate_parser_metadata(parser, args)
-        wms_logger = logging.WMSLogger(
-            args.wms_monitor, args.wms_monitor_arg, metadata=metadata
-        )
-        log_handler.append(wms_logger.log_handler)
+    if args.logger:
+        logger_plugin = LoggerPluginRegistry().get_plugin(plugin_name=args.logger)
+        log_handler.append(logger_plugin)
 
     return log_handler
 
