@@ -1059,6 +1059,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 is_checkpoint=self.rule.is_checkpoint,
                 printshellcmd=printshellcmd,
                 is_handover=self.rule.is_handover,
+                shellcmd=self.shellcmd,
             ),
         )
         logger.info(
