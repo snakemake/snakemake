@@ -525,6 +525,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             and job.targetfile in self.targetfiles
         )
 
+    def is_draft_notebook_job(self, job):
+        return (
+            self.workflow.execution_settings.edit_notebook
+            and self.workflow.execution_settings.edit_notebook.draft_only
+            and job.targetfile in self.targetfiles
+        )
+
     def get_job_group(self, job):
         return self._group.get(job)
 
@@ -1330,9 +1337,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                     in self.workflow.rerun_triggers
                                 ):
                                     reason.software_stack_changed = any(
-                                        self.workflow.persistence.conda_env_changed(job)
-                                    ) or any(
-                                        self.workflow.persistence.container_changed(job)
+                                        self.workflow.persistence.software_stack_changed(
+                                            job
+                                        )
                                     )
 
             if noinitreason and reason:

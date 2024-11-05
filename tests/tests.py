@@ -239,6 +239,13 @@ def test_ancient():
     run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
+def test_ancient_cli():
+    run(
+        dpath("test_ancient_cli"),
+        shellcmd="snakemake --consider-ancient A=0 B=x",
+    )
+
+
 def test_report():
     run(
         dpath("test_report"),
@@ -460,6 +467,10 @@ def test_nonstr_params():
 
 def test_delete_output():
     run(dpath("test_delete_output"), cores=1)
+
+
+def test_params_pickling():
+    run(dpath("test_params_pickling"))
 
 
 def test_input_generator():

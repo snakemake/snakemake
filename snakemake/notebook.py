@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import os
 from pathlib import Path
+import shutil
 import tempfile
 import re
 
@@ -65,12 +66,6 @@ class JupyterNotebook(ScriptBase):
         fname_out = self.log.get("notebook", None)
 
         with tempfile.TemporaryDirectory() as tmp:
-            if fname_out is None or edit:
-                output_parameter = f"--output '{tmp}/notebook.ipynb'"
-            else:
-                fname_out = os.path.abspath(fname_out)
-                output_parameter = "--output {fname_out:q}"
-
             if edit is not None:
                 assert not edit.draft_only
                 logger.info("Opening notebook for editing.")
@@ -79,6 +74,12 @@ class JupyterNotebook(ScriptBase):
                     "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
                 )
             else:
+                if fname_out is None:
+                    output_parameter = f"--output '{tmp}/notebook.ipynb'"
+                else:
+                    fname_out = os.path.abspath(fname_out)
+                    output_parameter = "--output {fname_out:q}"
+
                 cmd = (
                     "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
                     "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
@@ -99,6 +100,10 @@ class JupyterNotebook(ScriptBase):
             )
 
             if edit:
+                if fname_out is not None:
+                    # store log file (executed notebook) in requested path
+                    shutil.copyfile(fname, fname_out)
+
                 logger.info("Saving modified notebook.")
                 nb = nbformat.read(fname, as_version=4)
 

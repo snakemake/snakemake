@@ -677,7 +677,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         if not self.shadow_dir:
             return f
         f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
-        f_.clone_flags(f)
+        # The shadowed path does not need the storage object, storage will be handled
+        # after shadowing.
+        f_.clone_flags(f, skip_storage_object=True)
         return f_
 
     @property
@@ -1121,9 +1123,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         error=False,
         ignore_missing_output=False,
     ):
-        if self.dag.is_edit_notebook_job(self):
-            # No postprocessing necessary, we have just created the skeleton notebook and
-            # execution will anyway stop afterwards.
+        if self.dag.is_draft_notebook_job(self):
+            # no output produced but have to delete incomplete marker
+            self.dag.workflow.persistence.cleanup(self)
             return
 
         shared_input_output = (
@@ -1134,49 +1136,56 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             SharedFSUsage.STORAGE_LOCAL_COPIES
             in self.dag.workflow.storage_settings.shared_fs_usage
         )
-        if (
-            self.dag.workflow.exec_mode == ExecMode.SUBPROCESS
-            or shared_input_output
-            or (self.dag.workflow.remote_exec and not shared_input_output)
-            or self.is_local
-        ):
-            if not error and handle_touch:
-                self.dag.handle_touch(self)
-            if handle_log:
-                await self.dag.handle_log(self)
-            if not error:
-                await self.dag.check_and_touch_output(
-                    self,
-                    wait=self.dag.workflow.execution_settings.latency_wait,
-                    ignore_missing_output=ignore_missing_output,
-                    # storage not yet handled, just require the local files
-                    wait_for_local=True,
-                )
-            self.dag.unshadow_output(self, only_log=error)
-
+        try:
             if (
-                not error
-                and self.rule.is_template_engine
-                and not is_flagged(self.output[0], "temp")
+                self.dag.workflow.exec_mode == ExecMode.SUBPROCESS
+                or shared_input_output
+                or (self.dag.workflow.remote_exec and not shared_input_output)
+                or self.is_local
             ):
-                # TODO also check if consumers are executed on the same node
-                check_template_output(self)
+                if not error and handle_touch:
+                    self.dag.handle_touch(self)
+                if handle_log:
+                    await self.dag.handle_log(self)
+                if not error:
+                    await self.dag.check_and_touch_output(
+                        self,
+                        wait=self.dag.workflow.execution_settings.latency_wait,
+                        ignore_missing_output=ignore_missing_output,
+                        # storage not yet handled, just require the local files
+                        wait_for_local=True,
+                    )
+                self.dag.unshadow_output(self, only_log=error)
 
-            await self.dag.handle_storage(
-                self, store_in_storage=store_in_storage, store_only_log=error
-            )
-            if not error:
-                self.dag.handle_protected(self)
-        elif not shared_input_output and not wait_for_local and not error:
-            expanded_output = list(self.output)
-            if self.benchmark:
-                expanded_output.append(self.benchmark)
-            await wait_for_files(
-                expanded_output,
-                wait_for_local=False,
-                latency_wait=self.dag.workflow.execution_settings.latency_wait,
-                ignore_pipe_or_service=True,
-            )
+                if (
+                    not error
+                    and self.rule.is_template_engine
+                    and not is_flagged(self.output[0], "temp")
+                ):
+                    # TODO also check if consumers are executed on the same node
+                    check_template_output(self)
+
+                await self.dag.handle_storage(
+                    self, store_in_storage=store_in_storage, store_only_log=error
+                )
+                if not error:
+                    self.dag.handle_protected(self)
+            elif not shared_input_output and not wait_for_local and not error:
+                expanded_output = list(self.output)
+                if self.benchmark:
+                    expanded_output.append(self.benchmark)
+                await wait_for_files(
+                    expanded_output,
+                    wait_for_local=False,
+                    latency_wait=self.dag.workflow.execution_settings.latency_wait,
+                    ignore_pipe_or_service=True,
+                )
+
+        except Exception as e:
+            # cleanup metadata in case of any exception above
+            self.dag.workflow.persistence.cleanup(self)
+            raise e
+
         if not error:
             try:
                 await self.dag.workflow.persistence.finished(self)
@@ -1505,8 +1514,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     async def postprocess(self, error=False, **kwargs):
         # Iterate over jobs in toposorted order (see self.__iter__) to
         # ensure that outputs are touched in correct order.
-        async with asyncio.TaskGroup() as tg:
-            for level in self.toposorted:
+        for level in self.toposorted:
+            async with asyncio.TaskGroup() as tg:
                 for job in level:
                     # postprocessing involves touching output files (to ensure that
                     # modification times are always correct. This has to happen in
@@ -1521,7 +1530,10 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
     @property
     def name(self):
-        return str(self.groupid)
+        rules = sorted({job.rule.name for job in self.jobs})
+        if len(rules) > 5:
+            rules = rules[:5] + ["..."]
+        return f"{self.groupid}_{'_'.join(rules)}"
 
     def check_protected_output(self):
         for job in self.jobs:

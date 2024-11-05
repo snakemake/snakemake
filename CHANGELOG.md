@@ -1,6 +1,48 @@
 # Changelog
 
 
+## [8.25.2](https://github.com/snakemake/snakemake/compare/v8.25.1...v8.25.2) (2024-11-05)
+
+
+### Bug Fixes
+
+* include conda pinnings, conda post deploy script, and env modules for detection of software stack changes and corresponding rerun triggers ([#3184](https://github.com/snakemake/snakemake/issues/3184)) ([2aeaa46](https://github.com/snakemake/snakemake/commit/2aeaa46a06a34155ee24615d1417da103b54d14f))
+
+## [8.25.1](https://github.com/snakemake/snakemake/compare/v8.25.0...v8.25.1) (2024-11-01)
+
+
+### Bug Fixes
+
+* ensure correct topological order when touching group job outputs ([#3181](https://github.com/snakemake/snakemake/issues/3181)) ([5924a3e](https://github.com/snakemake/snakemake/commit/5924a3e3993cb65365536ca4d225a1eb03c2fcd9))
+* ensure version agnostic robust pickling of pandas, polars and numpy data structures passed as params to Python scripts or notebooks ([#3175](https://github.com/snakemake/snakemake/issues/3175)) ([eb11137](https://github.com/snakemake/snakemake/commit/eb1113713cbc4e9232aed6d106bec3615fa48632))
+
+## [8.25.0](https://github.com/snakemake/snakemake/compare/v8.24.1...v8.25.0) (2024-10-29)
+
+
+### Features
+
+* add first 5 rules to group name (used e.g. when naming cluster/cloud jobs or logfiles) ([#3168](https://github.com/snakemake/snakemake/issues/3168)) ([5657122](https://github.com/snakemake/snakemake/commit/56571220a96afda4edf4b0578c697c9e94f8f15c))
+* allow to mark input files of rules as ancient via the API or command line interface (and thereby also via workflow specific profiles). Putting this into a workflow specific profile (or specifying as argument) allows to overrule rerun triggers caused by file modification dates where the user knows better. ([#3171](https://github.com/snakemake/snakemake/issues/3171)) ([6f3aed3](https://github.com/snakemake/snakemake/commit/6f3aed321b48293b632246d29dd1bedc98e3d3b3))
+
+
+### Bug Fixes
+
+* skip storage object when cloning flags for shadowed IO ([#3174](https://github.com/snakemake/snakemake/issues/3174)) ([d733fed](https://github.com/snakemake/snakemake/commit/d733fed19c0fd4501fcd66e8528a801c978b1b53))
+* use permission safe copying when hidden conda files are already present in a workdir. This avoids problems in case multiple people use the same workdir and workflow. ([#3169](https://github.com/snakemake/snakemake/issues/3169)) ([c98b2e7](https://github.com/snakemake/snakemake/commit/c98b2e7f71a391b99bffc54770654c9d74538ddf))
+
+
+### Documentation
+
+* add tutorial references and small syntax fix ([#3172](https://github.com/snakemake/snakemake/issues/3172)) ([6bee12a](https://github.com/snakemake/snakemake/commit/6bee12afdeee1621b50c96ecca0f3b2d6c3dc140))
+
+## [8.24.1](https://github.com/snakemake/snakemake/compare/v8.24.0...v8.24.1) (2024-10-23)
+
+
+### Bug Fixes
+
+* fix bug with --edit-notebook sessions causing output files marked as incomplete, fix bug leading to missing log file after edit notebook sessions ([#3162](https://github.com/snakemake/snakemake/issues/3162)) ([19c6c0a](https://github.com/snakemake/snakemake/commit/19c6c0ab36da88adc9598ac18c20961c311eba28))
+* proper error message if conda info fails ([#3157](https://github.com/snakemake/snakemake/issues/3157)) ([4f99c20](https://github.com/snakemake/snakemake/commit/4f99c201b31ad17a9b4f3ddb5be4b80c6f6f9a1f))
+
 ## [8.24.0](https://github.com/snakemake/snakemake/compare/v8.23.2...v8.24.0) (2024-10-21)
 
 

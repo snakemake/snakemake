@@ -31,6 +31,7 @@ from abc import ABC, abstractmethod
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import (
+    copy_permission_safe,
     is_local_file,
     parse_uri,
     ON_WINDOWS,
@@ -220,32 +221,43 @@ class Env:
             if self.is_containerized:
                 self._hash = self.content_hash
             else:
-                md5hash = hashlib.md5()
+                self._hash = self._get_hash(
+                    include_location=True, include_container_img=True
+                )
+        return self._hash
+
+    @property
+    def content_hash(self):
+        if self._content_hash is None:
+            self._content_hash = self._get_hash(
+                include_location=False, include_container_img=False
+            )
+        return self._content_hash
+
+    def _get_hash(self, include_location: bool, include_container_img: bool) -> str:
+        md5hash = hashlib.md5()
+        if self.name:
+            md5hash.update(self.name.encode())
+        elif self.dir:
+            md5hash.update(self.dir.encode())
+        else:
+            if include_location:
                 # Include the absolute path of the target env dir into the hash.
                 # By this, moving the working directory around automatically
                 # invalidates all environments. This is necessary, because binaries
                 # in conda environments can contain hardcoded absolute RPATHs.
                 env_dir = os.path.realpath(self._envs_dir)
                 md5hash.update(env_dir.encode())
-                if self._container_img:
-                    md5hash.update(self._container_img.url.encode())
-                content_deploy = self.content_deploy
-                if content_deploy:
-                    md5hash.update(content_deploy)
-                md5hash.update(self.content)
-                self._hash = md5hash.hexdigest()
-        return self._hash
-
-    @property
-    def content_hash(self):
-        if self._content_hash is None:
-            md5hash = hashlib.md5()
-            md5hash.update(self.content)
+            if include_container_img and self._container_img:
+                md5hash.update(self._container_img.url.encode())
             content_deploy = self.content_deploy
             if content_deploy:
                 md5hash.update(content_deploy)
-            self._content_hash = md5hash.hexdigest()
-        return self._content_hash
+            content_pin = self.content_pin
+            if content_pin:
+                md5hash.update(content_pin)
+            md5hash.update(self.content)
+        return md5hash.hexdigest()
 
     @property
     def is_containerized(self):
@@ -540,7 +552,7 @@ class Env:
                         # In addition, this allows to immediately see what an
                         # environment in .snakemake/conda contains.
                         target_env_file = env_path + f".{filetype}"
-                        shutil.copy(env_file, target_env_file)
+                        copy_permission_safe(env_file, target_env_file)
 
                         logger.info("Downloading and installing remote packages.")
 
@@ -619,7 +631,7 @@ class Env:
                 # Execute post-deploy script if present
                 if deploy_file:
                     target_deploy_file = env_path + ".post-deploy.sh"
-                    shutil.copy(deploy_file, target_deploy_file)
+                    copy_permission_safe(deploy_file, target_deploy_file)
                     self.execute_deployment_script(env_file, target_deploy_file)
 
                 # Touch "done" flag file
@@ -693,9 +705,15 @@ class Conda:
                 container_img = container_img.path
             self.container_img = container_img
 
-            self.info = json.loads(
-                shell.check_output(self._get_cmd("conda info --json"), text=True)
-            )
+            try:
+                self.info = json.loads(
+                    shell.check_output(self._get_cmd("conda info --json"), text=True)
+                )
+            except subprocess.CalledProcessError as e:
+                raise WorkflowError(
+                    "Error running conda info. "
+                    f"Is conda installed and accessible? Error: {e}"
+                )
 
             if prefix_path is None or container_img is not None:
                 self.prefix_path = self.info["conda_prefix"]
