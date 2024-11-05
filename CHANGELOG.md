@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.25.2](https://github.com/snakemake/snakemake/compare/v8.25.1...v8.25.2) (2024-11-05)
+
+
+### Bug Fixes
+
+* include conda pinnings, conda post deploy script, and env modules for detection of software stack changes and corresponding rerun triggers ([#3184](https://github.com/snakemake/snakemake/issues/3184)) ([2aeaa46](https://github.com/snakemake/snakemake/commit/2aeaa46a06a34155ee24615d1417da103b54d14f))
+
 ## [8.25.1](https://github.com/snakemake/snakemake/compare/v8.25.0...v8.25.1) (2024-11-01)
 
 
