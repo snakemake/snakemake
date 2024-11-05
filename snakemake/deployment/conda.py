@@ -235,12 +235,12 @@ class Env:
         return self._content_hash
 
     def _get_hash(self, include_location: bool, include_container_img: bool) -> str:
-        if self.is_externally_managed:
-            md5hash = hashlib.md5()
-            md5hash.update(self.address.encode())
-            return md5hash.hexdigest()
+        md5hash = hashlib.md5()
+        if self.name:
+            md5hash.update(self.name.encode())
+        elif self.dir:
+            md5hash.update(self.dir.encode())
         else:
-            md5hash = hashlib.md5()
             if include_location:
                 # Include the absolute path of the target env dir into the hash.
                 # By this, moving the working directory around automatically
@@ -257,7 +257,7 @@ class Env:
             if content_pin:
                 md5hash.update(content_pin)
             md5hash.update(self.content)
-            return md5hash.hexdigest()
+        return md5hash.hexdigest()
 
     @property
     def is_containerized(self):
