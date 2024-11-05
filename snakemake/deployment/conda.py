@@ -229,7 +229,7 @@ class Env:
     @property
     def content_hash(self):
         if self._content_hash is None:
-            self._hash = self._get_hash(
+            self._content_hash = self._get_hash(
                 include_location=False, include_container_img=False
             )
         return self._content_hash
