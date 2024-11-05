@@ -1337,9 +1337,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                     in self.workflow.rerun_triggers
                                 ):
                                     reason.software_stack_changed = any(
-                                        self.workflow.persistence.conda_env_changed(job)
-                                    ) or any(
-                                        self.workflow.persistence.container_changed(job)
+                                        self.workflow.persistence.software_stack_changed(
+                                            job
+                                        )
                                     )
 
             if noinitreason and reason:
