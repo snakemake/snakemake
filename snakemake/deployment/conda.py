@@ -237,7 +237,7 @@ class Env:
     def _get_hash(self, include_location: bool, include_container_img: bool) -> str:
         if self.is_externally_managed:
             md5hash = hashlib.md5()
-            md5hash.update(self.address)
+            md5hash.update(self.address.encode())
             return md5hash.hexdigest()
         else:
             md5hash = hashlib.md5()
