@@ -219,7 +219,7 @@ class Env:
     def hash(self):
         if self._hash is None:
             if self.is_containerized:
-                self._hash = self._content_hash
+                self._hash = self.content_hash
             else:
                 self._hash = self._get_hash(
                     include_location=True, include_container_img=True
