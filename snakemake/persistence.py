@@ -501,8 +501,8 @@ class Persistence(PersistenceExecutorInterface):
         assert file is not None
         fmt_version = self.record_format_version(file)
         if fmt_version is None or fmt_version < 5:
-            # no reliable conda env stored (previous storage ignored pin files and
-            # aux deploy files)
+            # no reliable software stack hash stored (previous storage ignored pin files
+            # and aux deploy files of conda envs as well as env modules)
             return False
 
         recorded = self.software_stack_hash(file)
