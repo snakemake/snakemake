@@ -233,6 +233,9 @@ class Env:
                 content_deploy = self.content_deploy
                 if content_deploy:
                     md5hash.update(content_deploy)
+                content_pin = self.content_pin
+                if content_pin:
+                    md5hash.update(content_pin)
                 md5hash.update(self.content)
                 self._hash = md5hash.hexdigest()
         return self._hash
