@@ -1450,7 +1450,6 @@ class BashScript(ScriptBase):
         dicts = ["config"]
         encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
         preamble = encoder.encode_snakemake(snakemake)
-        print(preamble)
         return preamble
 
     def get_preamble(self):
