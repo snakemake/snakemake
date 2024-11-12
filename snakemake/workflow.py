@@ -1368,9 +1368,9 @@ class Workflow(WorkflowExecutorInterface):
         assert frame is not None and frame.f_back is not None
         calling_file = frame.f_back.f_code.co_filename
 
-        if (
-            self.included_stack
-            and calling_file == self.included_stack[-1].get_path_or_uri()
+        if self.included_stack and (
+            (calling_file == self.included_stack[-1].get_path_or_uri())
+            or calling_file.startswith(self.current_basedir.get_path_or_uri())
         ):
             # called from current snakefile, we can try to keep the original source
             # file annotation
