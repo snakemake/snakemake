@@ -3,12 +3,13 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from collections import defaultdict
 import os
 import re
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import Set
+from typing import List, Mapping, Optional, Set, Union
 
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -100,6 +101,48 @@ def parse_set_threads(args):
         "(with THREADS being a positive integer).",
         fallback=fallback,
     )
+
+
+def parse_consider_ancient(
+    args: Optional[List[str]],
+) -> Mapping[str, Set[Union[str, int]]]:
+    """Parse command line arguments for marking input files as ancient.
+
+    Args:
+        args: List of RULE=INPUTITEMS pairs, where INPUTITEMS is a comma-separated list
+              of input item names or indices (0-based).
+
+    Returns:
+        A mapping of rules to sets of their ancient input items.
+
+    Raises:
+        ValueError: If the format is invalid or values cannot be parsed.
+    """
+    errmsg = (
+        "Invalid --consider-ancient definition: entries have to be defined as "
+        "RULE=INPUTITEMS pairs, with INPUTITEMS being a list of input items of the "
+        "rule (given as name or index (0-based)), separated by commas."
+    )
+
+    def parse_item(item: str) -> Union[str, int]:
+        try:
+            return int(item)
+        except ValueError:
+            if item.isidentifier():
+                return item
+            else:
+                raise ValueError(f"{errmsg} (Unparsable value: {repr(item)})")
+
+    consider_ancient = defaultdict(set)
+
+    if args is not None:
+        for entry in args:
+            rule, items = parse_key_value_arg(entry, errmsg=errmsg, strip_quotes=True)
+            if not rule.isidentifier():
+                raise ValueError(f"{errmsg} (Invalid rule name: {repr(rule)})")
+            items = items.split(",")
+            consider_ancient[rule] = {parse_item(item) for item in items}
+    return consider_ancient
 
 
 def parse_set_resources(args):
@@ -730,6 +773,20 @@ def get_argument_parser(profiles=None):
             "output in your workflow updated."
         ),
     )
+    group_exec.add_argument(
+        "--consider-ancient",
+        metavar="RULE=INPUTITEMS",
+        nargs="+",
+        default=dict(),
+        parse_func=parse_consider_ancient,
+        help="Consider given input items of given rules as ancient, i.e. not triggering "
+        "re-runs if they are newer than the output files. "
+        "Putting this into a workflow specific profile (or specifying as argument) "
+        "allows to overrule rerun triggers caused by file modification dates where the "
+        "user knows better. RULE is the name of the rule, INPUTITEMS is a comma "
+        "separated list of input items of the rule (given as name or index (0-based)).",
+    )
+
     group_exec.add_argument(
         "--prioritize",
         "-P",
@@ -1415,6 +1472,16 @@ def get_argument_parser(profiles=None):
         "quality.",
     )
     group_behavior.add_argument(
+        "--scheduler-subsample",
+        type=int,
+        default=None,
+        help="Set the number of jobs to be considered for scheduling. If number "
+        "of ready jobs is greater than this value, this number of jobs is randomly "
+        "chosen for scheduling; if number of ready jobs is lower, this option has "
+        "no effect. This can be useful on very large DAGs, where the scheduler can "
+        "take some time selecting which jobs to run.",
+    )
+    group_behavior.add_argument(
         "--no-hooks",
         action="store_true",
         help="Do not invoke onstart, onsuccess or onerror hooks after execution.",
@@ -1979,6 +2046,7 @@ def args_to_api(args, parser):
                         wrapper_prefix=args.wrapper_prefix,
                         exec_mode=args.mode,
                         cache=args.cache,
+                        consider_ancient=args.consider_ancient,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
@@ -2127,6 +2195,7 @@ def args_to_api(args, parser):
                                 ilp_solver=args.scheduler_ilp_solver,
                                 solver_path=args.scheduler_solver_path,
                                 greediness=args.scheduler_greediness,
+                                subsample=args.scheduler_subsample,
                                 max_jobs_per_second=args.max_jobs_per_second,
                                 max_jobs_per_timespan=args.max_jobs_per_timespan,
                             ),
