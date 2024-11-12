@@ -23,7 +23,6 @@ class Asset:
 
     def get_content(self) -> bytes:
         """Get and validate asset content."""
-
         url = self.url.format(version=self.version) if self.version else self.url
         req = urllib.request.Request(url, headers={"User-Agent": "snakemake"})
         err = None
@@ -100,7 +99,7 @@ class Assets:
             version="5.2.0",
         ),
         "vega-lite/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/vega/vega-lite/refs/tags/{version}/LICENSE",
+            url="https://raw.githubusercontent.com/vega/vega-lite/refs/tags/v{version}/LICENSE",
             sha256="f618900fd0d64046963b29f40590cdd1e341a2f41449f99110d82fd81fea808c",
             version="5.2.0",
         ),
