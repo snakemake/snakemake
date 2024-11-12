@@ -419,7 +419,8 @@ class BashEncoder:
         for var in vars(smk):
             val = getattr(smk, var)
             if var in self.namedlists:
-                aa = f"{self.prefix}_{var.strip('_').lower()}={self.encode_namedlist(val)}"
+                suffix = "params" if var == "_params_store" else var.strip("_").lower()
+                aa = f"{self.prefix}_{suffix}={self.encode_namedlist(val)}"
                 arrays.append(aa)
             elif var in self.dicts:
                 aa = f"{self.prefix}_{var.strip('_').lower()}={self.dict_to_aa(val)}"
@@ -1438,7 +1439,14 @@ class BashScript(ScriptBase):
             scriptdir=path.get_basedir().get_path_or_uri(),
         )
 
-        namedlists = ["input", "output", "log", "resources", "wildcards", "params"]
+        namedlists = [
+            "input",
+            "output",
+            "log",
+            "resources",
+            "wildcards",
+            "_params_store",
+        ]
         dicts = ["config"]
         encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
         preamble = encoder.encode_snakemake(snakemake)
