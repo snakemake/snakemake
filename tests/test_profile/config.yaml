@@ -11,3 +11,11 @@ set-resources:
     mem_mb: max(1024*24*input.size_mb, 1)
     spam_factor: X
     double_jeopardy: attempt
+
+groups:
+  a: grp1
+  b: grp1
+  c: grp1
+
+group-components:
+  grp1: 5

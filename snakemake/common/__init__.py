@@ -10,6 +10,7 @@ import operator
 import platform
 import hashlib
 import inspect
+import shutil
 import sys
 import uuid
 import os
@@ -17,12 +18,8 @@ import asyncio
 import collections
 from pathlib import Path
 
-from snakemake._version import get_versions
-
+from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
-
-__version__ = get_versions()["version"]
-del get_versions
 
 
 MIN_PY_VERSION = (3, 7)
@@ -46,7 +43,6 @@ SNAKEFILE_CHOICES = list(
         ),
     )
 )
-PIP_DEPLOYMENTS_PATH = ".snakemake/pip-deployments"
 
 
 def get_snakemake_searchpaths():
@@ -320,7 +316,7 @@ def set_env(**environ):
     >>> "PLUGINS_DIR" in os.environ
     False
 
-    :type environ: dict[str, unicode]
+    :type environ: Dict[str, unicode]
     :param environ: Environment variables to set
     """
     old_environ = dict(os.environ)
@@ -348,3 +344,15 @@ def is_namedtuple_instance(x):
     if not isinstance(f, tuple):
         return False
     return all(type(n) is str for n in f)
+
+
+def copy_permission_safe(src: str, dst: str):
+    """Copy a file to a given destination.
+
+    If destination exists, it is removed first in order to avoid permission issues when
+    the destination permissions are tried to be applied to an already existing
+    destination.
+    """
+    if os.path.exists(dst):
+        os.unlink(dst)
+    shutil.copy(src, dst)

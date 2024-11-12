@@ -25,6 +25,7 @@ from snakemake.io import (
     _IOFile,
     Namedlist,
     AnnotatedString,
+    contains_wildcard,
     contains_wildcard_constraints,
     update_wildcard_constraints,
     flag,
@@ -66,6 +67,9 @@ from snakemake_interface_common.utils import not_iterable, lazy_property
 from snakemake_interface_common.rules import RuleInterface
 
 
+_NOT_CACHED = object()
+
+
 class Rule(RuleInterface):
     def __init__(self, name, workflow, lineno=None, snakefile=None):
         """
@@ -92,6 +96,7 @@ class Rule(RuleInterface):
         self._log = Log()
         self._benchmark = None
         self._conda_env = None
+        self._expanded_conda_env = _NOT_CACHED
         self._container_img = None
         self.is_containerized = False
         self.env_modules = None
@@ -267,10 +272,17 @@ class Rule(RuleInterface):
         Arguments
         input -- the list of input files
         """
-        for item in input:
-            self._set_inoutput_item(item)
+
+        consider_ancient = self.workflow.workflow_settings.consider_ancient.get(
+            self.name, frozenset()
+        )
+
+        for i, item in enumerate(input):
+            self._set_inoutput_item(item, mark_ancient=i in consider_ancient)
         for name, item in kwinput.items():
-            self._set_inoutput_item(item, name=name)
+            self._set_inoutput_item(
+                item, name=name, mark_ancient=name in consider_ancient
+            )
 
     @property
     def output(self):
@@ -395,7 +407,7 @@ class Rule(RuleInterface):
         except ValueError as e:
             raise WorkflowError(e, snakefile=self.snakefile, lineno=self.lineno)
 
-    def _set_inoutput_item(self, item, output=False, name=None):
+    def _set_inoutput_item(self, item, output=False, name=None, mark_ancient=False):
         """
         Set an item to be input or output.
 
@@ -457,12 +469,17 @@ class Rule(RuleInterface):
                             )
                         )
 
-            # add the rule to the dependencies
             if rule_dependency is not None:
+                # add the rule to the dependencies
                 self.dependencies[item] = rule_dependency
+
             if output:
                 item = self._update_item_wildcard_constraints(item)
+                if self.workflow.storage_settings.all_temp:
+                    # mark as temp if all output files shall be marked as temp
+                    item = flag(item, "temp")
             else:
+                # input
                 if (
                     contains_wildcard_constraints(item)
                     and self.workflow.exec_mode != ExecMode.SUBPROCESS
@@ -472,10 +489,8 @@ class Rule(RuleInterface):
                             self
                         )
                     )
-
-            if self.workflow.storage_settings.all_temp and output:
-                # mark as temp if all output files shall be marked as temp
-                item = flag(item, "temp")
+                if mark_ancient:
+                    item = flag(item, "ancient")
 
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
@@ -515,8 +530,8 @@ class Rule(RuleInterface):
         else:
             try:
                 start = len(inoutput)
-                for i in item:
-                    self._set_inoutput_item(i, output=output)
+                for subitem in item:
+                    self._set_inoutput_item(subitem, output=output)
                 if name:
                     # if the list was named, make it accessible
                     inoutput._set_name(name, start, end=len(inoutput))
@@ -691,6 +706,7 @@ class Rule(RuleInterface):
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
         groupid=None,
+        non_derived_items: typing.List[typing.Any] = None,
     ):
         incomplete = False
         if aux_params is None:
@@ -700,6 +716,7 @@ class Rule(RuleInterface):
             start = len(newitems)
             is_unpack = is_flagged(item, "unpack")
             _is_callable = is_callable(item)
+            is_derived = False
 
             if _is_callable:
                 if omit_callable:
@@ -712,6 +729,8 @@ class Rule(RuleInterface):
                     groupid=groupid,
                     **aux_params,
                 )
+                if non_derived_items is not None:
+                    is_derived = self._is_deriving_function(item)
 
             if is_unpack and not incomplete:
                 if not allow_unpack:
@@ -734,14 +753,22 @@ class Rule(RuleInterface):
                     )
                 # Allow streamlined code with/without unpack
                 if isinstance(item, list):
-                    pairs = zip([None] * len(item), item, [_is_callable] * len(item))
+                    apply_results = zip(
+                        [None] * len(item),
+                        item,
+                        [_is_callable] * len(item),
+                        [is_derived] * len(item),
+                    )
                 else:
                     assert isinstance(item, dict)
-                    pairs = [(name, item, _is_callable) for name, item in item.items()]
+                    apply_results = [
+                        (name, item, _is_callable, is_derived)
+                        for name, item in item.items()
+                    ]
             else:
-                pairs = [(name, item, _is_callable)]
+                apply_results = [(name, item, _is_callable, is_derived)]
 
-            for name, item, from_callable in pairs:
+            for name, item, from_callable, is_derived in apply_results:
                 is_iterable = True
                 if not_iterable(item) or no_flattening:
                     item = [item]
@@ -765,6 +792,8 @@ class Rule(RuleInterface):
 
                     concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
+                    if not is_derived and non_derived_items is not None:
+                        non_derived_items.append(concrete)
                     if mapping is not None:
                         mapping[concrete] = olditem
 
@@ -826,6 +855,18 @@ class Rule(RuleInterface):
 
         return input, mapping, dependencies, incomplete
 
+    @classmethod
+    def _is_deriving_function(cls, func):
+        if is_callable(func):
+            func_params = get_function_params(func)
+            return (
+                "input" in func_params
+                or "output" in func_params
+                or "threads" in func_params
+                or "resources" in func_params
+            )
+        return False
+
     def expand_params(self, wildcards, input, output, job, omit_callable=False):
         def concretize_param(p, wildcards, is_from_callable):
             if not is_from_callable:
@@ -857,6 +898,7 @@ class Rule(RuleInterface):
         threads = lambda: job.resources._cores
 
         params = Params()
+        non_derived_params = []
         try:
             # When applying wildcards to params, the return type need not be
             # a string, so the check is disabled.
@@ -877,6 +919,7 @@ class Rule(RuleInterface):
                     "threads": threads,
                 },
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
+                non_derived_items=non_derived_params,
             )
         except WildcardError as e:
             raise WildcardError(
@@ -889,7 +932,7 @@ class Rule(RuleInterface):
                 str(e),
                 rule=self,
             )
-        return params
+        return params, non_derived_params
 
     def expand_output(self, wildcards):
         output = OutputFiles(o.apply_wildcards(wildcards) for o in self.output)
@@ -1029,19 +1072,20 @@ class Rule(RuleInterface):
                     if not isinstance(value, TBDString):
                         # Infer standard resources from eventual human readable forms.
                         infer_resources(name, value, resources)
+                        value = resources[name]
 
-                        # infer additional resources
-                        for mb_item, mib_item in (
-                            ("mem_mb", "mem_mib"),
-                            ("disk_mb", "disk_mib"),
+                    # infer additional resources
+                    for mb_item, mib_item in (
+                        ("mem_mb", "mem_mib"),
+                        ("disk_mb", "disk_mib"),
+                    ):
+                        if (
+                            name == mb_item
+                            and mib_item not in self.resources.keys()
+                            and isinstance(value, int)
                         ):
-                            if (
-                                name == mb_item
-                                and mib_item not in self.resources.keys()
-                                and isinstance(value, int)
-                            ):
-                                # infer mem_mib (memory in Mebibytes) as additional resource
-                                resources[mib_item] = mb_to_mib(value)
+                            # infer mem_mib (memory in Mebibytes) as additional resource
+                            resources[mib_item] = mb_to_mib(value)
 
         resources = Resources(fromdict=resources)
         return resources
@@ -1060,24 +1104,36 @@ class Rule(RuleInterface):
             return self.group
 
     def expand_conda_env(self, wildcards, params=None, input=None):
+        if self._expanded_conda_env is not _NOT_CACHED:
+            return self._expanded_conda_env
+
         from snakemake.common import is_local_file
         from snakemake.sourcecache import SourceFile, infer_source_file
         from snakemake.deployment.conda import (
-            is_conda_env_file,
             CondaEnvFileSpec,
             CondaEnvNameSpec,
+            CondaEnvDirSpec,
+            CondaEnvSpecType,
         )
 
         conda_env = self._conda_env
-        if callable(conda_env):
-            conda_env, _ = self.apply_input_function(
-                conda_env, wildcards=wildcards, params=params, input=input
-            )
-
-        if conda_env is None:
+        if conda_env is not None:
+            if not callable(conda_env):
+                cacheable = not contains_wildcard(conda_env)
+            else:
+                conda_env, _ = self.apply_input_function(
+                    conda_env, wildcards=wildcards, params=params, input=input
+                )
+                cacheable = False
+                if conda_env is None:
+                    return None
+        else:
+            self._expanded_conda_env = None
             return None
 
-        if is_conda_env_file(conda_env):
+        spec_type = CondaEnvSpecType.from_spec(conda_env)
+
+        if spec_type is CondaEnvSpecType.FILE:
             if not isinstance(conda_env, SourceFile):
                 if is_local_file(conda_env) and not os.path.isabs(conda_env):
                     # Conda env file paths are considered to be relative to the directory of the Snakefile
@@ -1089,11 +1145,16 @@ class Rule(RuleInterface):
                     conda_env = infer_source_file(conda_env)
 
             conda_env = CondaEnvFileSpec(conda_env, rule=self)
-        else:
+        elif spec_type is CondaEnvSpecType.NAME:
             conda_env = CondaEnvNameSpec(conda_env)
+        elif spec_type is CondaEnvSpecType.DIR:
+            conda_env = CondaEnvDirSpec(conda_env, rule=self)
 
         conda_env = conda_env.apply_wildcards(wildcards, self)
         conda_env.check()
+
+        if cacheable:
+            self._expanded_conda_env = conda_env
 
         return conda_env
 

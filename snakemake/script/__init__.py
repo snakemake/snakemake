@@ -61,7 +61,7 @@ class Snakemake:
         # be pickled
         self.input = input_._plainstrings()
         self.output = output._plainstrings()
-        self.params = params
+        self._safely_store_params(params)
         self.wildcards = wildcards
         self.threads = threads
         self.resources = resources
@@ -111,6 +111,90 @@ class Snakemake:
         -------- -------- -------- ----- -----------
         """
         return _log_shell_redirect(str(self.log), stdout, stderr, append)
+
+    @property
+    def params(self):
+        params = io_.Params(toclone=list(self._params_store))
+        try:
+            for i, value in enumerate(params):
+                param_type = self._params_types.get(i)
+                if param_type is None:
+                    # nothing to convert
+                    continue
+                if param_type.startswith("pd."):
+                    import pandas as pd
+
+                    if param_type == "pd.DataFrame":
+                        params[i] = pd.DataFrame.from_dict(value)
+                    elif param_type == "pd.Series":
+                        params[i] = pd.Series(value)
+                elif param_type.startswith("np."):
+                    import numpy as np
+
+                    if param_type == "np.ndarray":
+                        params[i] = np.array(value)
+                elif param_type.startswith("pl."):
+                    import polars as pl
+
+                    if param_type == "pl.LazyFrame":
+                        params[i] = pl.from_dict(value).lazy()
+                    elif param_type == "pl.DataFrame":
+                        params[i] = pl.from_dict(value)
+                    elif param_type == "pl.Series":
+                        params[i] = pl.Series(**value)
+        except ImportError as e:
+            raise ImportError(
+                "Failed to import required module for loading rule params. "
+                "Make sure that the respective package (numpy, pandas, polars) "
+                "is available in the software environment in which the "
+                f"script/wrapper/notebook is executed: {e}"
+            )
+
+        params._take_names(self._params_store._get_names())
+        return params
+
+    def _safely_store_params(self, params: io_.Params):
+        try:
+            import pandas as pd
+        except ModuleNotFoundError:
+            pd = None
+        try:
+            import numpy as np
+        except ModuleNotFoundError:
+            np = None
+        try:
+            import polars as pl
+        except ModuleNotFoundError:
+            pl = None
+
+        self._params_store = io_.Params(toclone=list(params))
+        self._params_types = dict()
+        for i, value in enumerate(params):
+            if pd:
+                if isinstance(value, pd.DataFrame):
+                    self._params_store[i] = value.to_dict()
+                    self._params_types[i] = "pd.DataFrame"
+                elif isinstance(value, pd.Series):
+                    self._params_store[i] = value.to_dict()
+                    self._params_types[i] = "pd.Series"
+            if np and isinstance(value, np.ndarray):
+                self._params_store[i] = value.tolist()
+                self._params_types[i] = "np.ndarray"
+            if pl:
+                if isinstance(value, pl.LazyFrame):
+                    self._params_store[i] = value.collect().to_dict(as_series=False)
+                    self._params_types[i] = "pl.LazyFrame"
+                if isinstance(value, pl.DataFrame):
+                    self._params_store[i] = value.to_dict(as_series=False)
+                    self._params_types[i] = "pl.DataFrame"
+                elif isinstance(value, pl.Series):
+                    self._params_store[i] = {
+                        "name": value.name,
+                        "values": value.to_list(),
+                    }
+                    self._params_types[i] = "pl.Series"
+
+        self._params_store._take_names(params._get_names())
 
 
 def _log_shell_redirect(
@@ -335,7 +419,8 @@ class BashEncoder:
         for var in vars(smk):
             val = getattr(smk, var)
             if var in self.namedlists:
-                aa = f"{self.prefix}_{var.strip('_').lower()}={self.encode_namedlist(val)}"
+                suffix = "params" if var == "_params_store" else var.strip("_").lower()
+                aa = f"{self.prefix}_{suffix}={self.encode_namedlist(val)}"
                 arrays.append(aa)
             elif var in self.dicts:
                 aa = f"{self.prefix}_{var.strip('_').lower()}={self.dict_to_aa(val)}"
@@ -1354,7 +1439,14 @@ class BashScript(ScriptBase):
             scriptdir=path.get_basedir().get_path_or_uri(),
         )
 
-        namedlists = ["input", "output", "log", "resources", "wildcards", "params"]
+        namedlists = [
+            "input",
+            "output",
+            "log",
+            "resources",
+            "wildcards",
+            "_params_store",
+        ]
         dicts = ["config"]
         encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
         preamble = encoder.encode_snakemake(snakemake)

@@ -4,7 +4,13 @@ __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
 import sys
-from snakemake.common import __version__, PIP_DEPLOYMENTS_PATH
+
+from snakemake._version import get_versions
+
+__version__ = get_versions()["version"]
+del get_versions
+
+PIP_DEPLOYMENTS_PATH = ".snakemake/pip-deployments"
 
 sys.path.append(PIP_DEPLOYMENTS_PATH)
 
