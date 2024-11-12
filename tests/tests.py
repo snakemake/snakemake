@@ -928,6 +928,14 @@ def test_group_jobs():
 
 
 @skip_on_windows
+def test_cores_cluster():
+    run(
+        dpath("test_cores_cluster"),
+        shellcmd="snakemake --executor cluster-generic --cluster-generic-submit-cmd './qsub' --jobs 1",
+    )
+
+
+@skip_on_windows
 def test_group_jobs_attempts():
     run(dpath("test_group_jobs_attempts"), cluster="./qsub", retries=2)
 
