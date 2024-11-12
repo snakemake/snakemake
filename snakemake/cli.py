@@ -3,12 +3,13 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from collections import defaultdict
 import os
 import re
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import Set
+from typing import List, Mapping, Optional, Set, Union
 
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -100,6 +101,48 @@ def parse_set_threads(args):
         "(with THREADS being a positive integer).",
         fallback=fallback,
     )
+
+
+def parse_consider_ancient(
+    args: Optional[List[str]],
+) -> Mapping[str, Set[Union[str, int]]]:
+    """Parse command line arguments for marking input files as ancient.
+
+    Args:
+        args: List of RULE=INPUTITEMS pairs, where INPUTITEMS is a comma-separated list
+              of input item names or indices (0-based).
+
+    Returns:
+        A mapping of rules to sets of their ancient input items.
+
+    Raises:
+        ValueError: If the format is invalid or values cannot be parsed.
+    """
+    errmsg = (
+        "Invalid --consider-ancient definition: entries have to be defined as "
+        "RULE=INPUTITEMS pairs, with INPUTITEMS being a list of input items of the "
+        "rule (given as name or index (0-based)), separated by commas."
+    )
+
+    def parse_item(item: str) -> Union[str, int]:
+        try:
+            return int(item)
+        except ValueError:
+            if item.isidentifier():
+                return item
+            else:
+                raise ValueError(f"{errmsg} (Unparsable value: {repr(item)})")
+
+    consider_ancient = defaultdict(set)
+
+    if args is not None:
+        for entry in args:
+            rule, items = parse_key_value_arg(entry, errmsg=errmsg, strip_quotes=True)
+            if not rule.isidentifier():
+                raise ValueError(f"{errmsg} (Invalid rule name: {repr(rule)})")
+            items = items.split(",")
+            consider_ancient[rule] = {parse_item(item) for item in items}
+    return consider_ancient
 
 
 def parse_set_resources(args):
@@ -444,7 +487,7 @@ def get_argument_parser(profiles=None):
         metavar="FILE",
         type=Path,
         help=(
-            "The workflow definition in form of a snakefile."
+            "The workflow definition in form of a snakefile. "
             "Usually, you should not need to specify this. "
             "By default, Snakemake will search for {} "
             "beneath the current working "
@@ -466,7 +509,7 @@ def get_argument_parser(profiles=None):
             "In case of cluster/cloud execution, this argument sets the maximum number "
             "of cores requested from the cluster or cloud scheduler. (See "
             "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
-            "resources-remote-execution for more info)"
+            "resources-remote-execution for more info.) "
             "This number is available to rules via workflow.cores."
         ),
     )
@@ -511,7 +554,7 @@ def get_argument_parser(profiles=None):
             "cluster/cloud mode, this argument will also constrain the amount of "
             "resources requested from the server. (See "
             "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
-            "resources-remote-execution for more info)"
+            "resources-remote-execution for more info.)"
         ),
     )
     group_exec.add_argument(
@@ -731,6 +774,20 @@ def get_argument_parser(profiles=None):
         ),
     )
     group_exec.add_argument(
+        "--consider-ancient",
+        metavar="RULE=INPUTITEMS",
+        nargs="+",
+        default=dict(),
+        parse_func=parse_consider_ancient,
+        help="Consider given input items of given rules as ancient, i.e. not triggering "
+        "re-runs if they are newer than the output files. "
+        "Putting this into a workflow specific profile (or specifying as argument) "
+        "allows to overrule rerun triggers caused by file modification dates where the "
+        "user knows better. RULE is the name of the rule, INPUTITEMS is a comma "
+        "separated list of input items of the rule (given as name or index (0-based)).",
+    )
+
+    group_exec.add_argument(
         "--prioritize",
         "-P",
         nargs="+",
@@ -834,11 +891,11 @@ def get_argument_parser(profiles=None):
         nargs="*",
         metavar="NAME=VALUE",
         help=(
-            "If the workflow management service accepts extra arguments, provide."
-            " them in key value pairs with --wms-monitor-arg. For example, to run"
-            " an existing workflow using a wms monitor, you can provide the pair "
-            " id=12345 and the arguments will be provided to the endpoint to "
-            " first interact with the workflow"
+            "If the workflow management service accepts extra arguments, provide. "
+            "them in key value pairs with --wms-monitor-arg. For example, to run "
+            "an existing workflow using a wms monitor, you can provide the pair "
+            "id=12345 and the arguments will be provided to the endpoint to "
+            "first interact with the workflow"
         ),
     )
     group_exec.add_argument(
@@ -1037,7 +1094,7 @@ def get_argument_parser(profiles=None):
         help="Print a summary of all files created by the workflow. The "
         "has the following columns: filename, modification time, "
         "rule version, status, plan.\n"
-        "Thereby rule version contains the version"
+        "Thereby rule version contains the version "
         "the file was created with (see the version keyword of rules), and "
         "status denotes whether the file is missing, its input files are "
         "newer or if version or implementation of the rule changed since "
@@ -1071,8 +1128,7 @@ def get_argument_parser(profiles=None):
         "scripts under version control. Hence, they will be included in the archive. "
         "Further, it will add input files that are not generated by "
         "by the workflow itself and conda environments. Note that symlinks are "
-        "dereferenced. Supported "
-        "formats are .tar, .tar.gz, .tar.bz2 and .tar.xz.",
+        "dereferenced. Supported formats are .tar, .tar.gz, .tar.bz2 and .tar.xz.",
     )
     group_utils.add_argument(
         "--cleanup-metadata",
@@ -1416,6 +1472,16 @@ def get_argument_parser(profiles=None):
         "quality.",
     )
     group_behavior.add_argument(
+        "--scheduler-subsample",
+        type=int,
+        default=None,
+        help="Set the number of jobs to be considered for scheduling. If number "
+        "of ready jobs is greater than this value, this number of jobs is randomly "
+        "chosen for scheduling; if number of ready jobs is lower, this option has "
+        "no effect. This can be useful on very large DAGs, where the scheduler can "
+        "take some time selecting which jobs to run.",
+    )
+    group_behavior.add_argument(
         "--no-hooks",
         action="store_true",
         help="Do not invoke onstart, onsuccess or onerror hooks after execution.",
@@ -1454,15 +1520,15 @@ def get_argument_parser(profiles=None):
         metavar="FILE",
         default=None,
         help="Provide a custom script containing a function 'def log_handler(msg):'. "
-        "Snakemake will call this function for every logging output (given as a dictionary msg)"
+        "Snakemake will call this function for every logging output (given as a dictionary msg) "
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
     group_behavior.add_argument(
         "--log-service",
         default=None,
         choices=["none", "slack", "wms"],
-        help="Set a specific messaging service for logging output."
-        "Snakemake will notify the service on errors and completed execution."
+        help="Set a specific messaging service for logging output. "
+        "Snakemake will notify the service on errors and completed execution. "
         "Currently slack and workflow management system (wms) are supported.",
     )
     group_behavior.add_argument(
@@ -1980,6 +2046,7 @@ def args_to_api(args, parser):
                         wrapper_prefix=args.wrapper_prefix,
                         exec_mode=args.mode,
                         cache=args.cache,
+                        consider_ancient=args.consider_ancient,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
@@ -2128,6 +2195,7 @@ def args_to_api(args, parser):
                                 ilp_solver=args.scheduler_ilp_solver,
                                 solver_path=args.scheduler_solver_path,
                                 greediness=args.scheduler_greediness,
+                                subsample=args.scheduler_subsample,
                                 max_jobs_per_second=args.max_jobs_per_second,
                                 max_jobs_per_timespan=args.max_jobs_per_timespan,
                             ),

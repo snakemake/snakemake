@@ -525,6 +525,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             and job.targetfile in self.targetfiles
         )
 
+    def is_draft_notebook_job(self, job):
+        return (
+            self.workflow.execution_settings.edit_notebook
+            and self.workflow.execution_settings.edit_notebook.draft_only
+            and job.targetfile in self.targetfiles
+        )
+
     def get_job_group(self, job):
         return self._group.get(job)
 
@@ -1300,40 +1307,41 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
 
+                            # The list comprehension is needed below in order to
+                            # collect all the async generator items before
+                            # applying any().
+                            reason.code_changed = any(
+                                [
+                                    f
+                                    async for f in job.outputs_older_than_script_or_notebook()
+                                ]
+                            )
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
-
-                            if self.workflow.persistence.has_outdated_metadata(job):
-                                reason.outdated_metadata = True
-                            if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
-                                reason.params_changed = (
-                                    self.workflow.persistence.params_changed(job)
-                                )
-                            if RerunTrigger.INPUT in self.workflow.rerun_triggers:
-                                reason.input_changed = any(
-                                    self.workflow.persistence.input_changed(job)
-                                )
-                            if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                                # The list comprehension is needed below in order to
-                                # collect all the async generator items before
-                                # applying any().
-                                reason.code_changed = any(
-                                    [
-                                        f
-                                        async for f in job.outputs_older_than_script_or_notebook()
-                                    ]
-                                ) or any(
-                                    self.workflow.persistence.code_changed(job)
-                                )
-                            if (
-                                RerunTrigger.SOFTWARE_ENV
-                                in self.workflow.rerun_triggers
-                            ):
-                                reason.software_stack_changed = any(
-                                    self.workflow.persistence.conda_env_changed(job)
-                                ) or any(
-                                    self.workflow.persistence.container_changed(job)
-                                )
+                            else:
+                                if self.workflow.persistence.has_outdated_metadata(job):
+                                    reason.outdated_metadata = True
+                                if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
+                                    reason.params_changed = (
+                                        self.workflow.persistence.params_changed(job)
+                                    )
+                                if RerunTrigger.INPUT in self.workflow.rerun_triggers:
+                                    reason.input_changed = any(
+                                        self.workflow.persistence.input_changed(job)
+                                    )
+                                if RerunTrigger.CODE in self.workflow.rerun_triggers:
+                                    reason.code_changed |= any(
+                                        self.workflow.persistence.code_changed(job)
+                                    )
+                                if (
+                                    RerunTrigger.SOFTWARE_ENV
+                                    in self.workflow.rerun_triggers
+                                ):
+                                    reason.software_stack_changed = any(
+                                        self.workflow.persistence.software_stack_changed(
+                                            job
+                                        )
+                                    )
 
             if noinitreason and reason:
                 reason.derived = False
@@ -2316,11 +2324,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         node2style=lambda node: "rounded",
         node2label=lambda node: node,
     ):
-        # color rules
-        huefactor = 2 / (3 * len(self.rules))
+        # color the rules - sorting by name first gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
         rulecolor = {
             rule: "{:.2f} 0.6 0.85".format(i * huefactor)
-            for i, rule in enumerate(self.rules)
+            for i, rule in enumerate(rules)
         }
 
         # markup
@@ -2385,10 +2394,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
             )
 
-        huefactor = 2 / (3 * len(self.rules))
+        # Sorting the rules by name before assigning colors gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
         rulecolor = {
             rule: hsv_to_htmlhexrgb(i * huefactor, 0.6, 0.85)
-            for i, rule in enumerate(self.rules)
+            for i, rule in enumerate(rules)
         }
 
         def resolve_input_functions(input_files):
