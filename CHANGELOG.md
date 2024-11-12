@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [8.25.3](https://github.com/snakemake/snakemake/compare/v8.25.2...v8.25.3) (2024-11-11)
+
+
+### Bug Fixes
+
+* correctly set params in bash scripts ([#3188](https://github.com/snakemake/snakemake/issues/3188)) ([07ddab5](https://github.com/snakemake/snakemake/commit/07ddab5c97ae7f7b1a758d827dc6545df92ea644))
+* more robust inference of source path that properly respects hosting provider urls without losing release or commit information ([#3195](https://github.com/snakemake/snakemake/issues/3195)) ([bd8212b](https://github.com/snakemake/snakemake/commit/bd8212b8f1b78a704d596a9d64040a48bccc223c))
+* When generating a DAG or HTML rulegraph, use consistent colours ([#3189](https://github.com/snakemake/snakemake/issues/3189)) ([5f651d2](https://github.com/snakemake/snakemake/commit/5f651d2cd6a5964ec8b490781aeee05b1cf691a3))
+
 ## [8.25.2](https://github.com/snakemake/snakemake/compare/v8.25.1...v8.25.2) (2024-11-05)
 
 
