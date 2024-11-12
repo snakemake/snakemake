@@ -298,8 +298,6 @@ class Persistence(PersistenceExecutorInterface):
             self._delete_record(self._incomplete_path, f)
 
     async def finished(self, job):
-        self._remove_incomplete_marker(job)
-
         if not self.dag.workflow.execution_settings.keep_metadata:
             # do not store metadata if not requested
             return
@@ -354,6 +352,7 @@ class Persistence(PersistenceExecutorInterface):
                 },
                 f,
             )
+        self._remove_incomplete_marker(job)
 
     def cleanup(self, job):
         for f in job.output:
