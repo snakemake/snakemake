@@ -64,7 +64,7 @@ The quick fix for virtualenv is to temporarily deactivate the check for unbound 
 
     set +u; source /path/to/venv/bin/activate; set -u
 
-For more details on bash strict mode, see the `here <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_.
+For more details on bash strict mode, see the `here <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`__.
 
 
 My shell command fails with exit code != 0 from within a pipe, what's wrong?
@@ -293,11 +293,11 @@ How do I enable syntax highlighting in Vim for Snakefiles?
 ----------------------------------------------------------
 
 Instructions for doing this are located `here
-<https://github.com/snakemake/snakemake/tree/main/misc/vim>`_.
+<https://github.com/snakemake/snakemake/tree/main/misc/vim>`__.
 
 Note that you can also format Snakefiles in Vim using :ref:`snakefmt
 <How should Snakefiles be formatted?>`, with instructions located `here
-<https://github.com/snakemake/snakefmt/blob/master/docs/editor_integration.md#vim>`_!
+<https://github.com/snakemake/snakefmt/blob/master/docs/editor_integration.md#vim>`__!
 
 I want to import some helper functions from another python file. Is that possible?
 ----------------------------------------------------------------------------------
@@ -354,32 +354,13 @@ On unix, you can make use of the commonly pre-installed `mail` command:
     snakemake 2> snakemake.log
     mail -s "snakemake finished" youremail@provider.com < snakemake.log
 
-In case your administrator does not provide you with a proper configuration of the sendmail framework, you can configure `mail` to work e.g. via Gmail (see `here <https://www.cyberciti.biz/tips/linux-use-gmail-as-a-smarthost.html>`_).
+In case your administrator does not provide you with a proper configuration of the sendmail framework, you can configure `mail` to work e.g. via Gmail (see `here <https://www.cyberciti.biz/tips/linux-use-gmail-as-a-smarthost.html>`__).
 
-I want to pass variables between rules. Is that possible?
----------------------------------------------------------
+I want to pass Python variables between rules. Is that possible?
+----------------------------------------------------------------
 
-Because of the cluster support and the ability to resume a workflow where you stopped last time, Snakemake in general should be used in a way that information is stored in the output files of your jobs. Sometimes it might though be handy to have a kind of persistent storage for simple values between jobs and rules. Using plain python objects like a global dict for this will not work as each job is run in a separate process by snakemake. What helps here is the `PersistentDict` from the `pytools <https://github.com/inducer/pytools>`_ package. Here is an example of a Snakemake workflow using this facility:
-
-.. code-block:: python
-
-    from pytools.persistent_dict import PersistentDict
-
-    storage = PersistentDict("mystorage")
-
-    rule a:
-        input: "test.in"
-        output: "test.out"
-        run:
-            myvar = storage.fetch("myvar")
-            # do stuff
-
-    rule b:
-        output: temp("test.in")
-        run:
-            storage.store("myvar", 3.14)
-
-Here, the output rule b has to be temp in order to ensure that ``myvar`` is stored in each run of the workflow as rule a relies on it. In other words, the `PersistentDict` is persistent between the job processes, but not between different runs of this workflow. If you need to conserve information between different runs, use output files for them.
+Because of the cluster support and the ability to resume a workflow where you stopped last time, Snakemake in general should be used in a way that information is stored in the output files of your jobs.
+A common approach to pass non file variable data between rules is to use json or parquet for writing in the one rule and reading in a consuming rule the variable shall be passed to.
 
 Why do my global variables behave strangely when I run my job on a cluster?
 ---------------------------------------------------------------------------
@@ -459,6 +440,7 @@ How do I make my rule fail if an output file is empty?
 Snakemake expects shell commands to behave properly, meaning that failures should cause an exit status other than zero. If a command does not exit with a status other than zero, Snakemake assumes everything worked fine, even if output files are empty. This is because empty output files are also a reasonable tool to indicate progress where no real output was produced. However, sometimes you will have to deal with tools that do not properly report their failure with an exit status. Here, you can use the :ref:`ensure function <snakefiles_ensure>` to mark output files that should not be empty, e.g.:
 
 .. code-block:: python
+
     rule NAME:
         input:  ...
         output:
@@ -551,7 +533,7 @@ One solution is to add the following lines to your ``.bashrc`` (or similar):
         done
     }
 
-(inspired by the answer `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_).
+(inspired by the answer `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`__).
 You can then run ``gitmodtimes`` to update the modification times of all tracked files on the current branch to their last commit time in git; BE CAREFUL--this does not account for local changes that have not been committed.
 
 How do I exit a running Snakemake workflow?
@@ -683,7 +665,7 @@ Say you have forgotten how to use the various options starting ``force``, just t
 
 To activate this autocompletion permanently, put this line in ``~/.zshrc``.
 
-`Here <https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org>`_ is some further reading.
+`Here <https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org>`__ is some further reading.
 
 How can I avoid system /tmp to be used when combining apptainer and conda?
 --------------------------------------------------------------------------
@@ -692,3 +674,53 @@ When using both apptainer and conda the idea is that inside the apptainer contai
 Some apptainer instances are set to share the system /tmp with the containers.
 This can lead to unexpected behaviour where the system /tmp gets full.
 To stop this behaviour you'd have to run apptainer with the ``--contain`` option. 
+
+
+.. _consider_ancient:
+
+Snakemake wants to rerun a rule that has been already executed, what can I do?
+------------------------------------------------------------------------------
+
+Snakemake tries to ensure consistency between input and output files.
+This is based on file modification dates (input files may not be newer than output files of the same job), as well as execution metadata like the used software stack (e.g. conda env or container image), the non-file parameters, the set of input files, and the code of the rule.
+If Snakemake wants to rerun a rule that has been already executed, it is because one of these criteria has changed and detailed information about the reasoning is given in the job description of Snakemake's output as well as in the final summary at the end of a dry-run.
+
+If your job is triggered by newer input files, but you are sure that the input files did not change on a semantic level (i.e. won't yield different results), you can mark those input files as ancient via the command line, or (usually better) via a :ref:`workflow specific profile <profiles>`.
+Let us assume you have the following rule from which such an unwanted job is triggered:
+
+.. code-block:: python
+
+    rule myrule:
+        input:
+            foo="inputfile.txt"
+        output:
+            "outputfile.txt"
+        shell:
+            "somecommand {input.foo} > {output}"
+
+In case of directly using the command line option, you can run Snakemake like this:
+
+.. code-block:: console
+
+    $ snakemake --consider-ancient myrule=foo
+
+This will mark the file ``inputfile.txt`` as ancient for the rule ``myrule``.
+If the setting shall be persisted for all upcoming runs of Snakemake, you can store it e.g. in the default workflow specific profile (``profiles/default/config.yaml``), which will be automatically considered when being present in a working directory:
+
+.. code-block:: python
+
+    consider-ancient:
+        myrule: foo
+
+If the input file is not named (does not have something like ``foo=`` in front of it), you can instead refer it by index, i.e.:
+
+.. code-block:: console
+
+    $ snakemake --consider-ancient myrule=0
+
+Or alternatively in the profile:
+
+.. code-block:: python
+
+    consider-ancient:
+        myrule: 0

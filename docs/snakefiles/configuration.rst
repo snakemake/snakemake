@@ -20,6 +20,7 @@ A configuration is provided as a JSON or YAML file and can be loaded with:
 
     configfile: "path/to/config.yaml"
 
+The given path is interpreted relative to the working directory, not relative to the location of the snakefile that contains the statement.
 The config file can be used to define a dictionary of configuration parameters and their values.
 In case of YAML, the file can optionally be processed with `YTE <https://yte-template-engine.github.io>`_.
 To activate this, you have to add the top-level key ``__use_yte__ = true`` to the YAML file.
@@ -33,7 +34,7 @@ In the workflow, the configuration is accessible via the global variable `config
             expand("{sample}.{param}.output.pdf", sample=config["samples"], param=config["yourparam"])
 
 If the `configfile` statement is not used, the config variable provides an empty array.
-In addition to the `configfile` statement, config values can be overwritten via the command line or the :ref:`api_reference_snakemake`, e.g.:
+In addition to the `configfile` statement, config values can be overwritten via the command line or the `snakemake.utils API <https://snakemake-api.readthedocs.io/en/stable/api_reference/snakemake_utils.html#snakemake.utils.update_config>`__, e.g.:
 
 .. code-block:: console
 
@@ -52,7 +53,7 @@ For adding config placeholders into a shell command, Python string formatting sy
     shell:
         "mycommand {config[foo]} ..."
 
-.. _snakefiles_tabular_configuration
+.. _snakefiles_tabular_configuration:
 
 ---------------------
 Tabular configuration

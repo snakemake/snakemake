@@ -231,7 +231,7 @@ class _IOFile(str, AnnotatedStringInterface):
             self._file: str | AnnotatedString | Callable[[Namedlist], str]
             self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
-            self._wildcard_constraints: dict[str, re.Pattern] | None
+            self._wildcard_constraints: Dict[str, re.Pattern] | None
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)
@@ -1349,10 +1349,10 @@ def expand(*args, **wildcard_values):
     }
 
     def do_expand(
-        wildcard_values: dict[str, dict[str, Union[str, collections.abc.Iterable[str]]]]
+        wildcard_values: Dict[str, dict[str, Union[str, collections.abc.Iterable[str]]]]
     ):
         def flatten(
-            wildcard_values: dict[str, Union[str, collections.abc.Iterable[str]]]
+            wildcard_values: Dict[str, Union[str, collections.abc.Iterable[str]]]
         ):
             for wildcard, value in wildcard_values.items():
                 if (
