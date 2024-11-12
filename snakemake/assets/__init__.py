@@ -31,7 +31,7 @@ class Asset:
                 resp = urllib.request.urlopen(req)
                 content = resp.read()
             except urllib.error.URLError as e:
-                err = AssetDownloadError(f"Failed to download asset {self.url}: {e}")
+                err = AssetDownloadError(f"Failed to download asset {url}: {e}")
                 continue
             if self.sha256 is not None:
                 content_sha = hashlib.sha256(content).hexdigest()
