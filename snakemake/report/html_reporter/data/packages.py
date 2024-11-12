@@ -1,7 +1,8 @@
 import json
-from snakemake.exceptions import WorkflowError
-from snakemake.report.html_reporter.common import get_resource_as_string
 import snakemake
+
+from snakemake.assets import AssetDownloadError, Assets
+from snakemake_interface_common.exceptions import WorkflowError
 
 
 def get_packages():
@@ -12,50 +13,45 @@ def get_packages():
             "Python package pygments must be installed to create reports."
         )
 
+    # packages declared here must be downloaded to the prefix share/snakemake/assets
+    # via setuptools_download in setup.cfg
     return Packages(
         {
             "snakemake": Package(
                 version=snakemake.__version__.split("+")[0],
-                license_url="https://raw.githubusercontent.com/snakemake/snakemake/main/LICENSE.md",
+                license_path="snakemake/LICENSE.md",
             ),
             "pygments": Package(
                 version=pygments.__version__,
-                license_url="https://raw.githubusercontent.com/pygments/pygments/master/LICENSE",
+                license_path="pygments/LICENSE",
             ),
             "tailwindcss": Package(
-                version="3.0",
-                license_url="https://raw.githubusercontent.com/tailwindlabs/tailwindcss/master/LICENSE",
-                url="https://cdn.tailwindcss.com/3.0.23?plugins=forms@0.4.0,typography@0.5.2",
+                license_path="tailwindcss/LICENSE",
+                source_path="tailwindcss/tailwind.css",
             ),
             "react": Package(
-                version="18",
-                license_url="https://raw.githubusercontent.com/facebook/react/main/LICENSE",
-                main="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js",
-                dom="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js",
+                license_path="react/LICENSE",
+                main="react/react.production.min.js",
+                dom="react/react-dom.production.min.js",
             ),
             "vega": Package(
-                version="5.21",
-                url="https://cdnjs.cloudflare.com/ajax/libs/vega/5.21.0/vega.js",
-                license_url="https://raw.githubusercontent.com/vega/vega/main/LICENSE",
+                source_path="vega/vega.js",
+                license_path="vega/LICENSE",
             ),
             "vega-lite": Package(
-                version="5.2",
-                url="https://cdnjs.cloudflare.com/ajax/libs/vega-lite/5.2.0/vega-lite.js",
-                license_url="https://raw.githubusercontent.com/vega/vega-lite/next/LICENSE",
+                source_path="vega-lite/vega-lite.js",
+                license_path="vega-lite/LICENSE",
             ),
             "vega-embed": Package(
-                version="6.20",
-                url="https://cdnjs.cloudflare.com/ajax/libs/vega-embed/6.20.8/vega-embed.js",
-                license_url="https://raw.githubusercontent.com/vega/vega-embed/next/LICENSE",
+                source_path="vega-embed/vega-embed.js",
+                license_path="vega-embed/LICENSE",
             ),
             "heroicons": Package(
-                version="1.0.6",
-                license_url="https://raw.githubusercontent.com/tailwindlabs/heroicons/master/LICENSE",
+                license_path="heroicons/LICENSE",
             ),
             "prop-types": Package(
-                version="15.7.2",
-                url="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.7.2/prop-types.min.js",
-                license_url="https://raw.githubusercontent.com/facebook/prop-types/main/LICENSE",
+                source_path="prop-types/prop-types.min.js",
+                license_path="prop-types/LICENSE",
             ),
         }
     )
@@ -75,13 +71,22 @@ class Packages:
 
 
 class Package:
-    def __init__(self, version=None, license_url=None, url=None, **urls):
+    def __init__(
+        self, version=None, license_path=None, source_path=None, **source_paths
+    ):
         self.version = version
-        self.license = get_resource_as_string(license_url)
-        if url is not None:
-            self.url = url
-        else:
-            self.urls = urls
+
+        try:
+            self.license = Assets.get_content(license_path)
+            if source_path is not None:
+                self.source = Assets.get_content(source_path)
+            else:
+                self.sources = {
+                    name: Assets.get_content(path)
+                    for name, path in source_paths.items()
+                }
+        except AssetDownloadError as e:
+            raise WorkflowError(e)
 
     def get_record(self):
         return {"version": self.version, "license": self.license}

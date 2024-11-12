@@ -138,6 +138,7 @@ Resources
    getting_started/migration
    snakefiles/best_practices
    tutorial/tutorial
+   tutorial/interaction_visualization_reporting/tutorial
 
 .. toctree::
   :caption: Executing workflows
