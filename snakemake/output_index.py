@@ -5,10 +5,9 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
-import bisect
-from collections import defaultdict
-
 from typing import TYPE_CHECKING
+
+from snakemake.common.prefix_lookup import PrefixLookup
 
 if TYPE_CHECKING:
     from snakemake.rules import Rule
@@ -18,13 +17,13 @@ class OutputIndex:
     """Look up structure for rules, that can be queried by the output products which they create."""
 
     def __init__(self, rules: list[Rule]) -> None:
-        entries = defaultdict(list)
+        entries = []
         for rule in rules:
             for product in rule.products():
                 prefix = str(product.constant_prefix())
                 suffix = str(product.constant_suffix())
-                entries[prefix].append((rule, suffix))
-        self._entries = sorted(entries.items())
+                entries.append((prefix, (rule, suffix)))
+        self._lookup = PrefixLookup(entries=entries)
 
     def match(self, targetfile: str) -> set[Rule]:
         """Returns all rules that match the given target file, considering only the prefix and suffix up to the
@@ -32,19 +31,8 @@ class OutputIndex:
 
         To further verify the match, the returned rules should be checked with ``Rule.is_producer(targetfile)``.
         """
-        stop_idx = bisect.bisect_right(self._entries, targetfile, key=lambda x: x[0])
-        hits = set()
-
-        for index in range(stop_idx - 1, -1, -1):
-            key, entries = self._entries[index]
-            if targetfile.startswith(key):
-                hits.update(
-                    rule for rule, suffix in entries if targetfile.endswith(suffix)
-                )
-            elif index != stop_idx - 1:
-                break
-
-        return hits
+        return {rule for rule, suffix in self._lookup.match_iter(targetfile)
+                if targetfile.endswith(suffix)}
 
     def match_producer(self, targetfile: str) -> set[Rule]:
         return {rule for rule in self.match(targetfile) if rule.is_producer(targetfile)}

@@ -3,12 +3,12 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import bisect
 import os
+
+from snakemake.common.prefix_lookup import PrefixLookup
 from snakemake.exceptions import WorkflowError
 from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
 from snakemake.logging import logger
-
 
 PATH_MODIFIER_FLAG = "path_modified"
 
@@ -25,9 +25,7 @@ class PathModifier:
                 prefix += "/"
             self.prefix = prefix
 
-        self._prefix_replacements = (
-            sorted(replace_prefix.items()) if replace_prefix else None
-        )
+        self._prefix_replacements = PrefixLookup(entries=list(replace_prefix.items())) if replace_prefix else None
 
     def modify(self, path, property=None):
         if get_flag_value(path, PATH_MODIFIER_FLAG):
@@ -69,16 +67,7 @@ class PathModifier:
             return path
 
         if self._prefix_replacements is not None:
-            prefixes = []
-            stop_idx = bisect.bisect_right(
-                self._prefix_replacements, path, key=lambda x: x[0]
-            )
-            for index in range(stop_idx - 1, -1, -1):
-                prefix = self._prefix_replacements[index][0]
-                if str(path).startswith(prefix):
-                    prefixes.append(prefix)
-                elif index != stop_idx - 1:
-                    break
+            prefixes = self._prefix_replacements.match(path)
 
             if len(prefixes) > 1:
                 # ambiguous prefixes
@@ -91,7 +80,7 @@ class PathModifier:
             elif prefixes:
                 # replace prefix
                 prefix, replacement = prefixes[0]
-                return replacement + path[len(prefix) :]
+                return replacement + path[len(prefix):]
             else:
                 # no matching prefix
                 return path
@@ -142,5 +131,5 @@ class PathModifier:
         return flag_with_storage_object(path, storage_object)
 
     @property
-    def modifies_prefixes(self):
+    def modifies_prefixes(self) -> bool:
         return self._prefix_replacements is not None

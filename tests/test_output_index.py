@@ -93,7 +93,6 @@ def test_match_with_empty_components(
     request, rule_empty_suffix, rule_empty_prefix, target, expected_rules
 ):
     output_index = OutputIndex([rule_empty_suffix, rule_empty_prefix])
-    print(output_index._entries)
     expected = {request.getfixturevalue(rule) for rule in expected_rules}
     assert output_index.match(target) == expected
 
