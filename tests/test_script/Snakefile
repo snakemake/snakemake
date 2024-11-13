@@ -104,7 +104,7 @@ rule:
 rule bash:
     input:
         "test2.in",
-        named_input="test.in",
+        named="test.in",
     output:
         "bash.out"
     params:

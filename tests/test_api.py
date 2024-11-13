@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from .common import *
 
 from snakemake import api
-from snakemake import settings
+from snakemake.settings import types as settings
 import copy
 
 

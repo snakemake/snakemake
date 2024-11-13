@@ -226,15 +226,17 @@ class RuleException(Exception):
 
 class InputFunctionException(WorkflowError):
     def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
-        msg = (
+        fmt_msg = (
             "Error:\n  "
             + self.format_arg(msg)
             + "\nWildcards:\n"
             + "\n".join(f"  {name}={value}" for name, value in wildcards.items())
-            + "\nTraceback:\n"
-            + "\n".join(format_traceback(cut_traceback(msg), rule.workflow.linemaps))
         )
-        super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
+        if isinstance(msg, Exception):
+            fmt_msg += "\nTraceback:\n" + "\n".join(
+                format_traceback(cut_traceback(msg), rule.workflow.linemaps)
+            )
+        super().__init__(fmt_msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
 
 class ChildIOException(WorkflowError):
@@ -539,6 +541,12 @@ class IncompleteCheckpointException(Exception):
         from snakemake.io import checkpoint_target
 
         self.targetfile = checkpoint_target(targetfile)
+
+
+class InputOpenException(Exception):
+    def __init__(self, iofile):
+        self.iofile = iofile
+        self.rule = None
 
 
 class CacheMissException(Exception):

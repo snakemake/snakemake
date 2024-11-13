@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 
 import os
-from pathlib import Path
 import sys
 import time
 import shlex
@@ -14,7 +13,7 @@ import subprocess
 from functools import partial
 from snakemake.common import async_run
 from snakemake.executors import change_working_directory
-from snakemake.settings import DeploymentMethod
+from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
@@ -150,6 +149,7 @@ class Executor(RealExecutor):
             job.log._plainstrings(),
             benchmark,
             benchmark_repeats,
+            self.workflow.output_settings.benchmark_extended,
             conda_env,
             container_img,
             self.workflow.deployment_settings.apptainer_args,
@@ -161,9 +161,11 @@ class Executor(RealExecutor):
             self.workflow.execution_settings.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
-            self.workflow.execution_settings.edit_notebook
-            if self.dag.is_edit_notebook_job(job)
-            else None,
+            (
+                self.workflow.execution_settings.edit_notebook
+                if self.dag.is_edit_notebook_job(job)
+                else None
+            ),
             self.workflow.conda_base_path,
             job.rule.basedir,
             self.workflow.sourcecache.cache_path,
@@ -287,6 +289,7 @@ def run_wrapper(
     log,
     benchmark,
     benchmark_repeats,
+    benchmark_extended,
     conda_env,
     container_img,
     singularity_args,
@@ -464,6 +467,15 @@ def run_wrapper(
 
     if benchmark is not None:
         try:
-            write_benchmark_records(bench_records, benchmark)
+            # Add job info to (all repeats of) benchmark file
+            for bench_record in bench_records:
+                bench_record.jobid = jobid
+                bench_record.rule_name = job_rule.name
+                bench_record.wildcards = wildcards
+                bench_record.params = params
+                bench_record.resources = resources
+                bench_record.input = input
+                bench_record.threads = threads
+            write_benchmark_records(bench_records, benchmark, benchmark_extended)
         except Exception as ex:
             raise WorkflowError(ex)

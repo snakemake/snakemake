@@ -1,0 +1,7 @@
+rule a:
+    input:
+        local("input.txt"),
+    output:
+        "test_final.txt",
+    shell:
+        "cat {input} > {output}"

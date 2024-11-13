@@ -1,21 +1,22 @@
-FROM condaforge/mambaforge:latest
+FROM condaforge/miniforge3:latest
 LABEL io.github.snakemake.containerized="true"
-LABEL io.github.snakemake.conda_env_hash="d630028d41ac6564d03ea65c4edb2d271d33f36409fedab419872fe30d7df6b4"
+LABEL io.github.snakemake.conda_env_hash="cb075ce12360612250e0065299b188ea3547727b9abc02b9927671af50d26bca"
 
-# Step 1: Retrieve conda environments
+# Step 2: Retrieve conda environments
 
 # Conda environment:
 #   source: env.yaml
-#   prefix: /conda-envs/_1219696ceec39be99ff366456467efb2
+#   prefix: /conda-envs/2a132eb0d84044eaf02032bd9f9851fd
 #   channels:
-#     - bioconda
 #     - conda-forge
+#     - bioconda
+#     - nodefaults
 #   dependencies:
-#     - bcftools =1.10
-RUN mkdir -p /conda-envs/_1219696ceec39be99ff366456467efb2
-COPY env.yaml /conda-envs/_1219696ceec39be99ff366456467efb2/environment.yaml
+#     - bcftools =1.21
+RUN mkdir -p /conda-envs/2a132eb0d84044eaf02032bd9f9851fd
+COPY env.yaml /conda-envs/2a132eb0d84044eaf02032bd9f9851fd/environment.yaml
 
-# Step 2: Generate conda environments
+# Step 3: Generate conda environments
 
-RUN mamba env create --prefix /conda-envs/_1219696ceec39be99ff366456467efb2 --file /conda-envs/_1219696ceec39be99ff366456467efb2/environment.yaml && \
-    mamba clean --all -y
+RUN conda env create --prefix /conda-envs/2a132eb0d84044eaf02032bd9f9851fd --file /conda-envs/2a132eb0d84044eaf02032bd9f9851fd/environment.yaml && \
+    conda clean --all -y

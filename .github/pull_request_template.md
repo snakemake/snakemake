@@ -1,5 +1,3 @@
-### Description
-
 <!--Add a description of your PR here-->
 
 ### QC

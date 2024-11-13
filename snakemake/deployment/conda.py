@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 import re
+from typing import Union
 from snakemake.sourcecache import (
     LocalGitFile,
     LocalSourceFile,
@@ -30,6 +31,7 @@ from abc import ABC, abstractmethod
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import (
+    copy_permission_safe,
     is_local_file,
     parse_uri,
     ON_WINDOWS,
@@ -44,6 +46,13 @@ from snakemake.io import (
 from snakemake_interface_common.utils import lazy_property
 
 
+MIN_CONDA_VER = "24.7.1"
+
+
+def get_env_setup_done_flag_file(env_path: Path) -> Path:
+    return env_path.with_suffix(".env_setup_done")
+
+
 class CondaCleanupMode(Enum):
     tarballs = "tarballs"
     cache = "cache"
@@ -53,7 +62,6 @@ class CondaCleanupMode(Enum):
 
 
 class Env:
-
     """Conda environment from a given specification file."""
 
     def __init__(
@@ -62,21 +70,27 @@ class Env:
         env_file=None,
         env_name=None,
         env_dir=None,
+        envs_dir=None,
         container_img=None,
         cleanup=None,
     ):
         self.file = env_file
         if env_file is not None:
             self.file = infer_source_file(env_file)
+            assert env_name is None
+            assert env_dir is None
         self.name = env_name
         if env_name is not None:
-            assert env_file is None, "bug: both env_file and env_name specified"
-
-        self.frontend = workflow.deployment_settings.conda_frontend
+            assert env_file is None
+            assert env_dir is None
+        self.dir = env_dir
+        if env_dir is not None:
+            assert env_file is None
+            assert env_name is None
         self.workflow = workflow
 
         self._container_img = container_img
-        self._env_dir = env_dir or (
+        self._envs_dir = envs_dir or (
             containerize.CONDA_ENV_PATH
             if self.is_containerized
             else workflow.persistence.conda_env_path
@@ -91,41 +105,74 @@ class Env:
         self._cleanup = cleanup
         self._singularity_args = workflow.deployment_settings.apptainer_args
 
+    @property
+    def is_externally_managed(self):
+        """Return True if the environment is managed by the user."""
+        return self.name is not None or self.dir is not None
+
     @lazy_property
     def conda(self):
-        return Conda(
-            container_img=self._container_img, frontend=self.frontend, check=True
-        )
+        return Conda(container_img=self._container_img, check=True)
 
-    @lazy_property
-    def pin_file(self):
-        pin_file = Path(self.file.get_path_or_uri()).with_suffix(
-            f".{self.conda.platform}.pin.txt"
-        )
-
-        if pin_file.exists():
-            return infer_source_file(pin_file)
+    def _path_or_uri_prefix(self):
+        prefix = self.file.get_path_or_uri()
+        if prefix.endswith(".yaml") or prefix.endswith(".yml"):
+            prefix = prefix.rsplit(".", 1)[0]
+            return prefix
         else:
             return None
 
     @lazy_property
+    def pin_file(self):
+        return self._get_aux_file(
+            f".{self.conda.platform}.pin.txt",
+            "Omitting search for pin file "
+            "(https://snakemake.readthedocs.io/en/stable/snakefiles/"
+            "deployment.html#freezing-environments-to-exactly-pinned-packages).",
+        )
+
+    @lazy_property
     def post_deploy_file(self):
+        return self._get_aux_file(
+            ".post-deploy.sh",
+            "Omitting search for post-deploy script "
+            "(https://snakemake.readthedocs.io/en/stable/snakefiles/"
+            "deployment.html#providing-post-deployment-scripts).",
+        )
+
+    def _get_aux_file(self, suffix: str, omit_msg: str):
         if self.file:
-            deploy_file = Path(self.file.get_path_or_uri()).with_suffix(
-                ".post-deploy.sh"
-            )
-            if deploy_file.exists():
-                return infer_source_file(deploy_file)
+            prefix = self._path_or_uri_prefix()
+            # TODO handle LocalGitFile properly
+            if prefix is None:
+                logger.warning(
+                    f"Conda environment file {self.file.get_path_or_uri()} does not end "
+                    f"on .yaml or .yml. {omit_msg}"
+                )
+                return None
+            aux_file = f"{prefix}{suffix}"
+            aux_file = infer_source_file(aux_file)
+            if self.workflow.sourcecache.exists(aux_file):
+                return aux_file
+            else:
+                return None
+        else:
+            return None
 
     def _get_content(self):
-        if self.is_named:
+        if self.name or self.dir:
             from snakemake.shell import shell
 
-            content = shell.check_output(
-                f"conda env export {self.address_argument}",
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
+            try:
+                content = shell.check_output(
+                    f"conda env export {self.address_argument}",
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as e:
+                raise WorkflowError(
+                    f"Error exporting conda environment {self.address_argument}:\n{e.output}"
+                )
             return content.encode()
         else:
             return self.workflow.sourcecache.open(self.file, "rb").read()
@@ -174,42 +221,49 @@ class Env:
             if self.is_containerized:
                 self._hash = self.content_hash
             else:
-                md5hash = hashlib.md5()
-                # Include the absolute path of the target env dir into the hash.
-                # By this, moving the working directory around automatically
-                # invalidates all environments. This is necessary, because binaries
-                # in conda environments can contain hardcoded absolute RPATHs.
-                env_dir = os.path.realpath(self._env_dir)
-                md5hash.update(env_dir.encode())
-                if self._container_img:
-                    md5hash.update(self._container_img.url.encode())
-                content_deploy = self.content_deploy
-                if content_deploy:
-                    md5hash.update(content_deploy)
-                md5hash.update(self.content)
-                self._hash = md5hash.hexdigest()
+                self._hash = self._get_hash(
+                    include_location=True, include_container_img=True
+                )
         return self._hash
 
     @property
     def content_hash(self):
         if self._content_hash is None:
-            md5hash = hashlib.md5()
-            md5hash.update(self.content)
+            self._content_hash = self._get_hash(
+                include_location=False, include_container_img=False
+            )
+        return self._content_hash
+
+    def _get_hash(self, include_location: bool, include_container_img: bool) -> str:
+        md5hash = hashlib.md5()
+        if self.name:
+            md5hash.update(self.name.encode())
+        elif self.dir:
+            md5hash.update(self.dir.encode())
+        else:
+            if include_location:
+                # Include the absolute path of the target env dir into the hash.
+                # By this, moving the working directory around automatically
+                # invalidates all environments. This is necessary, because binaries
+                # in conda environments can contain hardcoded absolute RPATHs.
+                env_dir = os.path.realpath(self._envs_dir)
+                md5hash.update(env_dir.encode())
+            if include_container_img and self._container_img:
+                md5hash.update(self._container_img.url.encode())
             content_deploy = self.content_deploy
             if content_deploy:
                 md5hash.update(content_deploy)
-            self._content_hash = md5hash.hexdigest()
-        return self._content_hash
+            content_pin = self.content_pin
+            if content_pin:
+                md5hash.update(content_pin)
+            md5hash.update(self.content)
+        return md5hash.hexdigest()
 
     @property
     def is_containerized(self):
         if not self._container_img:
             return False
         return self._container_img.is_containerized
-
-    @property
-    def is_named(self):
-        return self.file is None
 
     def check_is_file_based(self):
         assert (
@@ -224,16 +278,17 @@ class Env:
         as default.
 
         """
-        if self.is_named:
+        if self.name:
             return self.name
+        elif self.dir:
+            return self.dir
         else:
-            hash = self.hash
-            env_dir = self._env_dir
+            env_dir = self._envs_dir
             get_path = lambda h: os.path.join(env_dir, h)
             hash_candidates = [
-                hash[:8],
-                hash,
-                hash
+                self.hash[:8],
+                self.hash,
+                self.hash
                 + "_",  # activate no-shortcuts behavior (so that no admin rights are needed on win)
             ]  # [0] is the old fallback hash (shortened)
             exists = [os.path.exists(get_path(h)) for h in hash_candidates]
@@ -246,7 +301,7 @@ class Env:
 
     @property
     def address_argument(self):
-        if self.is_named:
+        if self.name:
             return f"--name '{self.address}'"
         else:
             return f"--prefix '{self.address}'"
@@ -382,7 +437,7 @@ class Env:
                     tmp.write(self.content_deploy)
                     deploy_file = tmp.name
                     tmp_deploy_file = tmp.name
-            if self.pin_file:
+            if self.pin_file and not dryrun:
                 with tempfile.NamedTemporaryFile(delete=False, suffix="pin.txt") as tmp:
                     tmp.write(self.content_pin)
                     pin_file = tmp.name
@@ -390,7 +445,8 @@ class Env:
         else:
             env_file = env_file.get_path_or_uri()
             deploy_file = self.post_deploy_file
-            pin_file = self.pin_file
+            if not dryrun:
+                pin_file = self.pin_file
 
         env_path = self.address
 
@@ -421,10 +477,10 @@ class Env:
                 # env should be present in the container
                 return env_path
 
+        setup_done_flag = get_env_setup_done_flag_file(Path(env_path))
+
         # Check for broken environment
-        if os.path.exists(
-            os.path.join(env_path, "env_setup_start")
-        ) and not os.path.exists(os.path.join(env_path, "env_setup_done")):
+        if os.path.exists(env_path) and not setup_done_flag.exists():
             if dryrun:
                 logger.info(
                     "Incomplete Conda environment {} will be recreated.".format(
@@ -451,11 +507,6 @@ class Env:
             logger.info(f"Creating conda environment {self.file.simplify_path()}...")
             env_archive = self.archive_file
             try:
-                # Touch "start" flag file
-                os.makedirs(env_path, exist_ok=True)
-                with open(os.path.join(env_path, "env_setup_start"), "a") as f:
-                    pass
-
                 # Check if env archive exists. Use that if present.
                 if os.path.exists(env_archive):
                     logger.info("Installing archived conda packages.")
@@ -501,7 +552,7 @@ class Env:
                         # In addition, this allows to immediately see what an
                         # environment in .snakemake/conda contains.
                         target_env_file = env_path + f".{filetype}"
-                        shutil.copy(env_file, target_env_file)
+                        copy_permission_safe(env_file, target_env_file)
 
                         logger.info("Downloading and installing remote packages.")
 
@@ -511,7 +562,7 @@ class Env:
                             else []
                         )
 
-                        subcommand = [self.frontend]
+                        subcommand = ["conda"]
                         yes_flag = ["--yes"]
                         if filetype == "yaml":
                             subcommand.append("env")
@@ -577,14 +628,14 @@ class Env:
                     else:
                         out = create_env(env_file, filetype="yaml")
 
-                # Execute post-deplay script if present
+                # Execute post-deploy script if present
                 if deploy_file:
                     target_deploy_file = env_path + ".post-deploy.sh"
-                    shutil.copy(deploy_file, target_deploy_file)
+                    copy_permission_safe(deploy_file, target_deploy_file)
                     self.execute_deployment_script(env_file, target_deploy_file)
 
                 # Touch "done" flag file
-                with open(os.path.join(env_path, "env_setup_done"), "a") as f:
+                with open(setup_done_flag, "w") as _:
                     pass
 
                 logger.debug(out)
@@ -603,6 +654,8 @@ class Env:
             os.remove(tmp_env_file)
         if tmp_deploy_file:
             os.remove(tmp_deploy_file)
+        if tmp_pin_file:
+            os.remove(tmp_pin_file)
 
         return env_path
 
@@ -612,15 +665,19 @@ class Env:
 
     def __hash__(self):
         # this hash is only for object comparison, not for env paths
-        if self.is_named:
+        if self.name:
             return hash(self.name)
+        elif self.dir:
+            return hash(self.dir)
         else:
             return hash(self.file)
 
     def __eq__(self, other):
         if isinstance(other, Env):
-            if self.is_named:
+            if self.name:
                 return self.name == other.name
+            elif self.dir:
+                return self.dir == other.dir
             else:
                 return self.file == other.file
         return False
@@ -630,7 +687,7 @@ class Conda:
     instances = dict()
     lock = threading.Lock()
 
-    def __new__(cls, container_img=None, prefix_path=None, frontend=None, check=False):
+    def __new__(cls, container_img=None, prefix_path=None, check=False):
         with cls.lock:
             if container_img not in cls.instances:
                 inst = super().__new__(cls)
@@ -639,9 +696,7 @@ class Conda:
             else:
                 return cls.instances[container_img]
 
-    def __init__(
-        self, container_img=None, prefix_path=None, frontend=None, check=False
-    ):
+    def __init__(self, container_img=None, prefix_path=None, check=False):
         if not self.is_initialized:  # avoid superfluous init calls
             from snakemake.deployment import singularity
             from snakemake.shell import shell
@@ -649,11 +704,16 @@ class Conda:
             if isinstance(container_img, singularity.Image):
                 container_img = container_img.path
             self.container_img = container_img
-            self.frontend = frontend
 
-            self.info = json.loads(
-                shell.check_output(self._get_cmd("conda info --json"), text=True)
-            )
+            try:
+                self.info = json.loads(
+                    shell.check_output(self._get_cmd("conda info --json"), text=True)
+                )
+            except subprocess.CalledProcessError as e:
+                raise WorkflowError(
+                    "Error running conda info. "
+                    f"Is conda installed and accessible? Error: {e}"
+                )
 
             if prefix_path is None or container_img is not None:
                 self.prefix_path = self.info["conda_prefix"]
@@ -664,8 +724,6 @@ class Conda:
 
             # check conda installation
             if check:
-                if frontend is None:
-                    raise ValueError("Frontend must be specified if check is True.")
                 self._check()
 
     @property
@@ -680,59 +738,46 @@ class Conda:
     def _check(self):
         from snakemake.shell import shell
 
-        frontends = ["conda"]
-        if self.frontend == "mamba":
-            frontends = ["mamba", "conda"]
+        frontend = "conda"
+        # Use type here since conda now is a function.
+        # type allows to check for both functions and regular commands.
+        if not ON_WINDOWS or shell.get_executable():
+            locate_cmd = f"type {frontend}"
+        else:
+            locate_cmd = f"where {frontend}"
 
-        for frontend in frontends:
-            # Use type here since conda now is a function.
-            # type allows to check for both functions and regular commands.
-            if not ON_WINDOWS or shell.get_executable():
-                locate_cmd = f"type {frontend}"
-            else:
-                locate_cmd = f"where {frontend}"
-
-            try:
-                shell.check_output(
-                    self._get_cmd(locate_cmd), stderr=subprocess.STDOUT, text=True
+        try:
+            shell.check_output(
+                self._get_cmd(locate_cmd), stderr=subprocess.STDOUT, text=True
+            )
+        except subprocess.CalledProcessError as e:
+            if self.container_img:
+                msg = (
+                    f"The '{frontend}' command is not "
+                    "available inside "
+                    "your singularity container "
+                    "image. Snakemake mounts "
+                    "your conda installation "
+                    "into singularity. "
+                    "Sometimes, this can fail "
+                    "because of shell restrictions. "
+                    "It has been tested to work "
+                    "with docker://ubuntu, but "
+                    "it e.g. fails with "
+                    "docker://bash "
                 )
-            except subprocess.CalledProcessError as e:
-                if self.container_img:
-                    msg = (
-                        f"The '{frontend}' command is not "
-                        "available inside "
-                        "your singularity container "
-                        "image. Snakemake mounts "
-                        "your conda installation "
-                        "into singularity. "
-                        "Sometimes, this can fail "
-                        "because of shell restrictions. "
-                        "It has been tested to work "
-                        "with docker://ubuntu, but "
-                        "it e.g. fails with "
-                        "docker://bash "
-                    )
-                else:
-                    msg = (
-                        f"The '{frontend}' command is not "
-                        "available in the "
-                        f"shell {shell.get_executable()} that will be "
-                        "used by Snakemake. You have "
-                        "to ensure that it is in your "
-                        "PATH, e.g., first activating "
-                        "the conda base environment "
-                        "with `conda activate base`."
-                    )
-                if frontend == "mamba":
-                    msg += (
-                        "The mamba package manager (https://github.com/mamba-org/mamba) is a "
-                        "fast and robust conda replacement. "
-                        "It is the recommended way of using Snakemake's conda integration. "
-                        "It can be installed with `conda install -n base -c conda-forge mamba`. "
-                        "If you still prefer to use conda, you can enforce that by setting "
-                        "`--conda-frontend conda`."
-                    )
-                raise CreateCondaEnvironmentException(msg)
+            else:
+                msg = (
+                    f"The '{frontend}' command is not "
+                    "available in the "
+                    f"shell {shell.get_executable()} that will be "
+                    "used by Snakemake. You have "
+                    "to ensure that it is in your "
+                    "PATH, e.g., first activating "
+                    "the conda base environment "
+                    "with `conda activate base`."
+                )
+            raise CreateCondaEnvironmentException(msg)
 
         try:
             self._check_version()
@@ -749,16 +794,19 @@ class Conda:
         version = shell.check_output(
             self._get_cmd("conda --version"), stderr=subprocess.PIPE, text=True
         )
-        version_matches = re.findall(r"\d+.\d+.\d+", version)
+        version_matches = re.findall(r"\d+\.\d+\.\d+", version)
         if len(version_matches) != 1:
             raise WorkflowError(
                 f"Unable to determine conda version. 'conda --version' returned {version}"
             )
         else:
             version = version_matches[0]
-        if Version(version) < Version("4.2"):
+        if Version(version) < Version(MIN_CONDA_VER):
             raise CreateCondaEnvironmentException(
-                f"Conda must be version 4.2 or later, found version {version}."
+                f"Conda must be version {MIN_CONDA_VER} or later, found version {version}. "
+                "Please update conda to the latest version. "
+                "Note that you can also install conda into the snakemake environment "
+                "without modifying your main conda installation."
             )
 
     def _check_condarc(self):
@@ -778,9 +826,10 @@ class Conda:
         if res["get"].get("channel_priority") != "strict":
             logger.warning(
                 "Your conda installation is not configured to use strict channel priorities. "
-                "This is however crucial for having robust and correct environments (for details, "
+                "This is however important for having robust and correct environments (for details, "
                 "see https://conda-forge.org/docs/user/tipsandtricks.html). "
-                "Please consider to configure strict priorities by executing 'conda config --set channel_priority strict'."
+                "Please consider to configure strict priorities by executing "
+                "'conda config --set channel_priority strict'."
             )
 
     def bin_path(self):
@@ -808,22 +857,17 @@ class Conda:
         return f'"{activate}" "{env_address}"&&{cmd}'
 
 
-def is_mamba_available():
-    return shutil.which("mamba") is not None
-
-
 class CondaEnvSpec(ABC):
     @abstractmethod
-    def apply_wildcards(self, wildcards):
-        ...
+    def apply_wildcards(self, wildcards): ...
 
     @abstractmethod
-    def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
-        ...
+    def get_conda_env(
+        self, workflow, envs_dir=None, container_img=None, cleanup=None
+    ): ...
 
     @abstractmethod
-    def check(self):
-        ...
+    def check(self): ...
 
     @property
     def is_file(self):
@@ -831,16 +875,13 @@ class CondaEnvSpec(ABC):
 
     @property
     @abstractmethod
-    def contains_wildcard(self):
-        ...
+    def contains_wildcard(self): ...
 
     @abstractmethod
-    def __hash__(self):
-        ...
+    def __hash__(self): ...
 
     @abstractmethod
-    def __eq__(self, other):
-        ...
+    def __eq__(self, other): ...
 
 
 class CondaEnvFileSpec(CondaEnvSpec):
@@ -862,11 +903,11 @@ class CondaEnvFileSpec(CondaEnvSpec):
     def check(self):
         self.file.check()
 
-    def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
+    def get_conda_env(self, workflow, envs_dir=None, container_img=None, cleanup=None):
         return Env(
             workflow,
             env_file=self.file,
-            env_dir=env_dir,
+            envs_dir=envs_dir,
             container_img=container_img,
             cleanup=cleanup,
         )
@@ -886,6 +927,49 @@ class CondaEnvFileSpec(CondaEnvSpec):
         return self.file == other.file
 
 
+class CondaEnvDirSpec(CondaEnvSpec):
+    def __init__(self, path, rule=None):
+        if isinstance(path, SourceFile):
+            self.path = IOFile(str(path.get_path_or_uri()), rule=rule)
+        elif isinstance(path, _IOFile):
+            self.path = path
+        else:
+            self.path = IOFile(path, rule=rule)
+
+    def apply_wildcards(self, wildcards, rule):
+        filepath = self.path.apply_wildcards(wildcards)
+        if is_local_file(filepath):
+            # Normalize 'file:///my/path.yml' to '/my/path.yml'
+            filepath = parse_uri(filepath).uri_path
+        return CondaEnvDirSpec(filepath, rule)
+
+    def check(self):
+        pass
+
+    def get_conda_env(self, workflow, envs_dir=None, container_img=None, cleanup=None):
+        return Env(
+            workflow,
+            env_dir=self.path,
+            envs_dir=envs_dir,
+            container_img=container_img,
+            cleanup=cleanup,
+        )
+
+    @property
+    def is_file(self):
+        return True
+
+    @property
+    def contains_wildcard(self):
+        return contains_wildcard(self.path)
+
+    def __hash__(self):
+        return hash(self.path)
+
+    def __eq__(self, other):
+        return self.path == other.file
+
+
 class CondaEnvNameSpec(CondaEnvSpec):
     def __init__(self, name: str):
         self.name = name
@@ -893,11 +977,11 @@ class CondaEnvNameSpec(CondaEnvSpec):
     def apply_wildcards(self, wildcards, _):
         return CondaEnvNameSpec(apply_wildcards(self.name, wildcards))
 
-    def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
+    def get_conda_env(self, workflow, envs_dir=None, container_img=None, cleanup=None):
         return Env(
             workflow,
             env_name=self.name,
-            env_dir=env_dir,
+            envs_dir=envs_dir,
             container_img=container_img,
             cleanup=cleanup,
         )
@@ -917,8 +1001,24 @@ class CondaEnvNameSpec(CondaEnvSpec):
         return self.name == other.name
 
 
-def is_conda_env_file(spec):
-    if isinstance(spec, SourceFile):
-        spec = spec.get_filename()
+class CondaEnvSpecType(Enum):
+    FILE = "file"
+    NAME = "name"
+    DIR = "dir"
 
-    return spec.endswith(".yaml") or spec.endswith(".yml")
+    @classmethod
+    def from_spec(cls, spec: Union[str, SourceFile, Path]):
+        if isinstance(spec, SourceFile):
+            if isinstance(spec, LocalSourceFile):
+                spec = spec.get_path_or_uri()
+            else:
+                spec = spec.get_filename()
+        elif isinstance(spec, Path):
+            spec = str(spec)
+
+        if spec.endswith(".yaml") or spec.endswith(".yml"):
+            return cls.FILE
+        elif is_local_file(spec) and os.path.isdir(spec):
+            return cls.DIR
+        else:
+            return cls.NAME

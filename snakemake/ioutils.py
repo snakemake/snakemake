@@ -28,8 +28,7 @@ class WildcardHandlerBase(ABC):
         )
 
     @abstractmethod
-    def apply_func(self, expression, namespace=None):
-        ...
+    def apply_func(self, expression, namespace=None): ...
 
     def handle(self, expression):
         if self.needs_wildcards(expression) or any(
@@ -88,7 +87,10 @@ class QueryWildcardHandler(WildcardHandlerBase):
         if self.cols is None:
             return False
         if isinstance(self.cols, list):
-            return any(super().needs_wildcards(col) for col in self.cols)
+            return any(
+                super(QueryWildcardHandler, self).needs_wildcards(col)
+                for col in self.cols
+            )
         else:
             return super().needs_wildcards(self.cols)
 
@@ -102,15 +104,23 @@ class QueryWildcardHandler(WildcardHandlerBase):
         return self.func(expression, cols=cols, is_nrows=self.is_nrows)
 
 
+NODEFAULT = object()
+
+
 def lookup(
     dpath: Optional[str] = None,
     query: Optional[str] = None,
     cols: Optional[Union[List[str], str]] = None,
     is_nrows: Optional[int] = None,
     within=None,
+    default=NODEFAULT,
     **namespace,
 ):
     """Lookup values in a pandas dataframe, series, or python mapping (e.g. dict).
+
+    Required argument ``within`` should be a pandas dataframe or series (in which
+    case use ``query``, and optionally ``cols`` and ``is_nrows``), or a Python
+    mapping like a dict (in which case use the ``dpath`` argument is used).
 
     In case of a pandas dataframe (see https://pandas.pydata.org),
     the query parameter is passed to DataFrame.query().
@@ -131,13 +141,17 @@ def lookup(
     a single column, e.g.
     ``lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")``.
     In the latter case, just a list of items in that column is returned.
-
+    Finally, if the integer argument ``is_nrows`` is used, this returns true
+    if there are that many rows in the query results, false otherwise.
 
     In case of a pandas series, the series is converted into a dataframe via
     Series.to_frame() and the same logic as for a dataframe is applied.
 
-    In case of a python mapping, the dpath parameter is passed to dpath.values()
-    (see https://github.com/dpath-maintainers/dpath-python).
+    In case of a python mapping, the ``dpath`` parameter is passed to
+    ``dpath.values()`` (see https://github.com/dpath-maintainers/dpath-python),
+    and the ``query``, ``cols``, and ``is_nrows`` arguments are ignored. If the
+    dpath is not found, a ``LookupError`` is raised, unless a default fallback
+    value is provided via the ``default`` argument.
 
     Query, dpath and cols may contain wildcards (e.g. {sample}).
     In that case, this function returns a Snakemake input function which takes
@@ -206,7 +220,9 @@ def lookup(
                 return dp.get(within, dpath)
             except ValueError:
                 return dp.values(within, dpath)
-            except KeyError as e:
+            except KeyError:
+                if default is not NODEFAULT:
+                    return default
                 raise LookupError(dpath=dpath, msg="Dpath not found.")
 
         return DpathWildcardHandler(do_dpath, **namespace).handle(dpath)
@@ -219,9 +235,14 @@ def evaluate(expr: str):
     {wildcardname} with the wildcard value represented as a string."""
 
     def inner(wildcards):
-        return eval(
-            expr.format(**{w: repr(v) for w, v in wildcards.items()}), globals()
-        )
+        formatted = expr.format(**{w: repr(v) for w, v in wildcards.items()})
+        try:
+            return eval(formatted, globals())
+        except Exception as e:
+            raise WorkflowError(
+                f"Failed to evaluate expression {expr} with wildcards {wildcards}. Formatted expression: {formatted}",
+                e,
+            )
 
     return inner
 

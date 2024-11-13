@@ -18,7 +18,7 @@ It can be used as follows:
 
     with api.SnakemakeApi(
         settings.OutputSettings(
-            verbose=True,
+            verbose=False,
             show_failed_logs=True,
         ),
     ) as snakemake_api:
@@ -29,6 +29,7 @@ It can be used as follows:
         )
         dag_api = workflow_api.dag()
         # Go on by calling methods of the dag api.
+
 
 .. autosummary::
    :toctree: _autosummary

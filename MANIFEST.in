@@ -1,3 +1,6 @@
 include versioneer.py
 include snakemake/_version.py
 include LICENSE.md
+
+# Include tests in sdist, otherwise only tests/test*.py are included by default
+graft tests

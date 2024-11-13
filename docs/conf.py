@@ -39,7 +39,6 @@ extensions = [
     "sphinxarg.ext",
     "sphinx.ext.autosectionlabel",
     "myst_parser",
-    "sphinxawesome_theme.highlighting",
 ]
 
 html_css_files = ["custom.css"]

@@ -1,9 +1,10 @@
 import copy
-from typing import Any, List, Optional, Union
+from typing import Any, List, Mapping, Optional, Union
 from snakemake.io import flag
 from snakemake.workflow import Workflow
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
+from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
 from snakemake_interface_storage_plugins.storage_object import (
     StorageObjectWrite,
     StorageObjectRead,
@@ -35,7 +36,7 @@ class StorageRegistry:
 
     def __init__(self, workflow: Workflow):
         self.workflow = workflow
-        self._storages = dict()
+        self._storages: Mapping[str, StorageProviderBase] = dict()
         self._default_storage_provider = None
 
         if self.workflow.storage_settings.default_storage_provider is not None:
@@ -178,7 +179,7 @@ class StorageRegistry:
             query, retrieve=retrieve, keep_local=keep_local
         )
 
-        return flag_with_storage_object(query, storage_object)
+        return flag_with_storage_object(storage_object.query, storage_object)
 
 
 class StorageProviderProxy:

@@ -129,7 +129,7 @@ to perform a dry-run and
 
 to perform the actual execution.
 
-.. sidebar:: Note
+.. note::
 
     The ``--software-deployment-method`` option has a shorthand alias ``--sdm``, which we will use for brevity in the rest of this tutorial. There are two other long-form aliases ``--deployment-method`` and ``--deployment``.
 

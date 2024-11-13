@@ -62,7 +62,7 @@ The `Snakemake Wrapper Repository`_ is meant as a collaborative project and pull
 Common-Workflow-Language (CWL) support
 --------------------------------------
 
-With Snakemake 4.8.0, it is possible to refer to `CWL <https://www.commonwl.org/>`_ tool definitions in rules instead of specifying a wrapper or a plain shell command.
+With Snakemake 4.8.0, it is possible to refer to `CWL <https://www.commonwl.org/>`__ tool definitions in rules instead of specifying a wrapper or a plain shell command.
 A CWL tool definition can be used as follows.
 
 .. code-block:: python
@@ -89,7 +89,7 @@ Snakemake will execute the rule by invoking `cwltool`, which has to be available
 When using in combination with :ref:`--software-deployment-method apptainer <apptainer>` (``--sdm`` for short), Snakemake will instruct `cwltool` to execute the command via Singularity in user space.
 Otherwise, `cwltool` will in most cases use a Docker container, which requires Docker to be set up properly.
 
-The advantage is that predefined tools available via any `repository of CWL tool definitions <https://www.commonwl.org/#Repositories_of_CWL_Tools_and_Workflows>`_ can be used in any supporting workflow management system.
+The advantage is that predefined tools available via any `repository of CWL tool definitions <https://www.commonwl.org/#Repositories_of_CWL_Tools_and_Workflows>`__ can be used in any supporting workflow management system.
 In contrast to a :ref:`Snakemake wrapper <snakefiles-wrappers>`, CWL tool definitions are in general not suited to alter the behavior of a tool, e.g., by normalizing output names or special input handling.
 As you can see in comparison to the analog :ref:`wrapper declaration <snakefiles-wrappers>` above, the rule becomes slightly more verbose, because input, output, and params have to be dispatched to the specific expectations of the CWL tool definition.
 
@@ -165,8 +165,9 @@ It is possible to overwrite the global config dictionary for the module, which i
 
 In this case, any ``configfile`` statements inside the module are ignored.
 In addition, it is possible to skip any :ref:`validation <snakefiles_config_validation>` statements in the module, by specifying ``skip_validation: True`` in the module statement.
-Moreover, one can automatically move all relative input and output files of a module into a dedicated folder: by specifying ``prefix: "foo"`` in the module definition, e.g. any output file ``path/to/output.txt`` in the module would be stored under ``foo/path/to/output.txt`` instead.
+Moreover, one can automatically move all relative input and output files of a module into a dedicated folder by specifying ``prefix: "foo"`` in the module definition, e.g. any output file ``path/to/output.txt`` in the module would be stored under ``foo/path/to/output.txt`` instead.
 This becomes particularly useful when combining multiple modules, see :ref:`use_with_modules`.
+However, if you have some input files that come from outside the workflow, you can use the ``local`` flag so that their path is not modified (see :ref:`snakefiles-storage-local-files`)..
 
 Instead of using all rules, it is possible to import specific rules.
 Specific rules may even be modified before using them, via a final ``with:`` followed by a block that lists items to overwrite.

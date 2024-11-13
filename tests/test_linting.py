@@ -43,6 +43,9 @@ def test_lint(lint, case):
     except sp.CalledProcessError as e:
         if case == "negative":
             assert e.output.decode().strip()
+            if "not_used_params" in lint.name:
+                # Check that the correct line number is reported
+                assert "line 3" in e.output.decode().strip()
         else:
             print(e.output.decode().strip(), file=sys.stderr)
             raise e

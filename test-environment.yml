@@ -4,10 +4,8 @@ channels:
   - nodefaults
 dependencies:
   - python >=3.11
-  - mamba
   - yte
   - packaging
-  - stopit
   - datrie
   - boto3
   - httpretty
@@ -22,6 +20,7 @@ dependencies:
   - requests
   - responses
   - numpy
+  - polars
   - appdirs
   - pytools
   - docutils
@@ -42,10 +41,9 @@ dependencies:
   - pulp >=2.3.1
   - environment-modules
   - nbformat
-  - toposort >=1.10
   - crc32c
   - requests-mock
-  - peppy
+  - peppy =0.40.5 # TODO remove constraint once this is fixed: https://github.com/pepkit/peppy/issues/496
   - eido
   - glpk
   - smart_open
@@ -63,7 +61,7 @@ dependencies:
   - pip:
       - cwltool
       - cwl-utils
-      - snakemake-interface-executor-plugins >=9.1.0
+      - snakemake-interface-executor-plugins >=9.3.1
       - snakemake-executor-plugin-cluster-generic >=1.0.9
       - snakemake-storage-plugin-http
       - snakemake-storage-plugin-s3

@@ -1,5 +1,25 @@
 'use strict';
 
+function flattenList(inputList) {
+    const flattened = [];
+
+    for (const item of inputList) {
+        if (typeof item === 'object' && !Array.isArray(item)) {
+            for (const [key, value] of Object.entries(item)) {
+                if (Array.isArray(value)) {
+                    flattened.push(...value.map(subItem => `${key}: ${subItem}`));
+                } else {
+                    flattened.push(`${key}: ${value}`);
+                }
+            }
+        } else {
+            flattened.push(item);
+        }
+    }
+
+    return flattened;
+}
+
 class RuleInfo extends React.Component {
     static propTypes = {
         rule: PropTypes.object.isRequired,
@@ -29,7 +49,7 @@ class RuleInfo extends React.Component {
     renderSoftware() {
         let rule = rules[this.props.rule];
         if (rule.conda_env) {
-            return this.renderItems("Software", rule.conda_env.dependencies);
+            return this.renderItems("Software", flattenList(rule.conda_env.dependencies));
         } else {
             return [];
         }

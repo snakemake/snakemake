@@ -1,0 +1,2 @@
+s	h:m:s	max_rss	max_vms	max_uss	max_pss	io_in	io_out	mean_load	cpu_time	jobid	rule_name	wildcards	threads	cpu_usage	resources	input_size_mb
+1.0359	0:00:01	82.98	272.39	55.28	63.38	0.00	0.01	0.00	0.76	0	bench_run_shell	{}	1	0.00	{'_cores': 1, '_nodes': 1, 'mem_mb': 1000, 'mem_mib': 954, 'disk_mb': 1000, 'disk_mib': 954, 'tmpdir': '/tmp'}	{}

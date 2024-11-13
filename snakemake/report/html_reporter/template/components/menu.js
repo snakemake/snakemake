@@ -49,7 +49,7 @@ class Menu extends AbstractMenu {
         } else {
             let items = [e(
                 ListHeading,
-                { key: "Results", text: "Result" }
+                { key: "Results", text: "Results" }
             )];
 
             items.push(...Object.keys(categories).sort(

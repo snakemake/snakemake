@@ -52,7 +52,7 @@ Write Documentation
 Snakemake could always use more documentation, whether as part of the official vcfpy docs, in docstrings, or even on the web in blog posts, articles, and such.
 
 Snakemake uses `Sphinx <https://sphinx-doc.org>`_ for the user manual (that you are currently reading).
-See `project_info-doc_guidelines` on how the documentation reStructuredText is used.
+See :ref:`project_info-doc_guidelines` on how the documentation reStructuredText is used.
 
 
 Submit Feedback
@@ -118,7 +118,7 @@ From the base snakemake folder you call :code:`pytest` to run all the tests, or 
 
 If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
 
-.. project_info-doc_guidelines:
+.. _project_info-doc_guidelines:
 
 ------------------------
 Documentation Guidelines
@@ -185,6 +185,12 @@ Snakemake development environment via
     $ git clone git@github.com:snakemake/snakemake.git
     $ cd snakemake
     $ conda env create -f doc-environment.yml -n snakemake
+
+You will also need to install your development version of Snakemake for the docs to be built correctly
+
+.. code-block:: console
+
+    $ pip install -e .
 
 Then, the docs can be built with
 
