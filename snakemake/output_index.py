@@ -31,8 +31,11 @@ class OutputIndex:
 
         To further verify the match, the returned rules should be checked with ``Rule.is_producer(targetfile)``.
         """
-        return {rule for rule, suffix in self._lookup.match_iter(targetfile)
-                if targetfile.endswith(suffix)}
+        return {
+            rule
+            for rule, suffix in self._lookup.match_iter(targetfile)
+            if targetfile.endswith(suffix)
+        }
 
     def match_producer(self, targetfile: str) -> set[Rule]:
         return {rule for rule in self.match(targetfile) if rule.is_producer(targetfile)}

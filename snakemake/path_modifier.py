@@ -25,7 +25,11 @@ class PathModifier:
                 prefix += "/"
             self.prefix = prefix
 
-        self._prefix_replacements = PrefixLookup(entries=list(replace_prefix.items())) if replace_prefix else None
+        self._prefix_replacements = (
+            PrefixLookup(entries=list(replace_prefix.items()))
+            if replace_prefix
+            else None
+        )
 
     def modify(self, path, property=None):
         if get_flag_value(path, PATH_MODIFIER_FLAG):
@@ -80,7 +84,7 @@ class PathModifier:
             elif prefixes:
                 # replace prefix
                 prefix, replacement = prefixes[0]
-                return replacement + path[len(prefix):]
+                return replacement + path[len(prefix) :]
             else:
                 # no matching prefix
                 return path
