@@ -93,3 +93,26 @@ def test_edge_cases():
     assert lookup.match("  abc") == {1, 2, 3}
     assert lookup.match("   abc") == {1, 2, 3, 4}
     assert lookup.match("    abc") == {1, 2, 3, 4}
+
+
+def test_prefix_matching_non_consecutive():
+    """Test that demonstrates why we need to keep checking even after seeing a longer prefix,
+    when prefixes aren't consecutive (like 'ab' vs 'abbc')."""
+    lookup = PrefixLookup([
+        ("a", 1),
+        ("ab", 2),
+        ("abbcc", 3),
+        ("abbc", 4),
+        ("abbd", 5)
+    ])
+
+    # Query "abbz" process:
+    # 1. Try "abbd" (len 4) - no match, last_len = 4
+    # 2. Try "abbc" (len 4) - no match, last_len = 4
+    # 3. Try "ab" (len 2) - MATCHES, last_len = 2
+    # 4. Try "a" (len 1) - MATCHES, last_len = 1
+    result = lookup.match("abbz")
+    assert result == {1, 2}  # Matches "a" and "ab"
+
+    assert lookup.match("abbc") == {1, 2, 4}  # Matches "a", "ab", and "abbc"
+    assert lookup.match("abbcc") == {1, 2, 3, 4}  # Matches "a", "ab", "abbcc", and "abbc"
