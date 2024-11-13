@@ -68,6 +68,7 @@ Similarly, it is possible to overwrite other resource definitions in rules, via
 Both mechanisms can be particularly handy when used in combination with :ref:`non-local execution <non-local-exec>`.
 
 .. _non-local-exec:
+
 Non-local execution
 ^^^^^^^^^^^^^^^^^^^
 

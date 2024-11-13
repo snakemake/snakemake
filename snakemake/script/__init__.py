@@ -3,67 +3,65 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import collections
 import itertools
+import json
 import os
-from collections.abc import Iterable
+import pickle
+import re
+import sys
+import tempfile
+import textwrap
 import typing
+from abc import ABC, abstractmethod
+from collections.abc import Iterable
+from pathlib import Path
+from typing import List, Optional, Pattern, Tuple, Union
+from urllib.error import URLError
 
+from snakemake import io as io_
 from snakemake import sourcecache
+from snakemake.common import MIN_PY_VERSION, ON_WINDOWS, get_snakemake_searchpaths
+from snakemake.deployment import singularity
+from snakemake.exceptions import WorkflowError
+from snakemake.logging import logger
+from snakemake.shell import shell
 from snakemake.sourcecache import (
     LocalSourceFile,
     SourceCache,
     SourceFile,
     infer_source_file,
 )
-import tempfile
-import textwrap
-import sys
-import pickle
-import collections
-import re
-import json
-from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Tuple, Pattern, Union, Optional, List
-from urllib.error import URLError
-from pathlib import Path
-
 from snakemake.utils import format
-from snakemake.logging import logger
-from snakemake.exceptions import WorkflowError
-from snakemake.shell import shell
-from snakemake.common import (
-    MIN_PY_VERSION,
-    ON_WINDOWS,
-    get_snakemake_searchpaths,
-)
-from snakemake.deployment import singularity
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 PathLike = Union[str, Path, os.PathLike]
 
+# Type hint, object injected by the python preamble
+snakemake: "Snakemake"
+
 
 class Snakemake:
     def __init__(
         self,
-        input_,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
+        input_: io_.InputFiles,
+        output: io_.OutputFiles,
+        params: io_.Params,
+        wildcards: io_.Wildcards,
+        threads: int,
+        resources: io_.Resources,
+        log: io_.Log,
+        config: typing.Dict[str, typing.Any],
+        rulename: str,
         bench_iteration,
-        scriptdir=None,
+        scriptdir: typing.Optional[PathLike] = None,
     ):
         # convert input and output to plain strings as some remote objects cannot
         # be pickled
         self.input = input_._plainstrings()
         self.output = output._plainstrings()
-        self.params = params
+        self._safely_store_params(params)
         self.wildcards = wildcards
         self.threads = threads
         self.resources = resources
@@ -73,7 +71,9 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
-    def log_fmt_shell(self, stdout=True, stderr=True, append=False):
+    def log_fmt_shell(
+        self, stdout: bool = True, stderr: bool = True, append: bool = False
+    ) -> str:
         """
         Return a shell redirection string to be used in `shell()` calls
 
@@ -110,7 +110,91 @@ class Snakemake:
         any      any      any      None  ""
         -------- -------- -------- ----- -----------
         """
-        return _log_shell_redirect(self.log, stdout, stderr, append)
+        return _log_shell_redirect(str(self.log), stdout, stderr, append)
+
+    @property
+    def params(self):
+        params = io_.Params(toclone=list(self._params_store))
+        try:
+            for i, value in enumerate(params):
+                param_type = self._params_types.get(i)
+                if param_type is None:
+                    # nothing to convert
+                    continue
+                if param_type.startswith("pd."):
+                    import pandas as pd
+
+                    if param_type == "pd.DataFrame":
+                        params[i] = pd.DataFrame.from_dict(value)
+                    elif param_type == "pd.Series":
+                        params[i] = pd.Series(value)
+                elif param_type.startswith("np."):
+                    import numpy as np
+
+                    if param_type == "np.ndarray":
+                        params[i] = np.array(value)
+                elif param_type.startswith("pl."):
+                    import polars as pl
+
+                    if param_type == "pl.LazyFrame":
+                        params[i] = pl.from_dict(value).lazy()
+                    elif param_type == "pl.DataFrame":
+                        params[i] = pl.from_dict(value)
+                    elif param_type == "pl.Series":
+                        params[i] = pl.Series(**value)
+        except ImportError as e:
+            raise ImportError(
+                "Failed to import required module for loading rule params. "
+                "Make sure that the respective package (numpy, pandas, polars) "
+                "is available in the software environment in which the "
+                f"script/wrapper/notebook is executed: {e}"
+            )
+
+        params._take_names(self._params_store._get_names())
+        return params
+
+    def _safely_store_params(self, params: io_.Params):
+        try:
+            import pandas as pd
+        except ModuleNotFoundError:
+            pd = None
+        try:
+            import numpy as np
+        except ModuleNotFoundError:
+            np = None
+        try:
+            import polars as pl
+        except ModuleNotFoundError:
+            pl = None
+
+        self._params_store = io_.Params(toclone=list(params))
+        self._params_types = dict()
+        for i, value in enumerate(params):
+            if pd:
+                if isinstance(value, pd.DataFrame):
+                    self._params_store[i] = value.to_dict()
+                    self._params_types[i] = "pd.DataFrame"
+                elif isinstance(value, pd.Series):
+                    self._params_store[i] = value.to_dict()
+                    self._params_types[i] = "pd.Series"
+            if np and isinstance(value, np.ndarray):
+                self._params_store[i] = value.tolist()
+                self._params_types[i] = "np.ndarray"
+            if pl:
+                if isinstance(value, pl.LazyFrame):
+                    self._params_store[i] = value.collect().to_dict(as_series=False)
+                    self._params_types[i] = "pl.LazyFrame"
+                if isinstance(value, pl.DataFrame):
+                    self._params_store[i] = value.to_dict(as_series=False)
+                    self._params_types[i] = "pl.DataFrame"
+                elif isinstance(value, pl.Series):
+                    self._params_store[i] = {
+                        "name": value.name,
+                        "values": value.to_list(),
+                    }
+                    self._params_types[i] = "pl.Series"
+
+        self._params_store._take_names(params._get_names())
 
 
 def _log_shell_redirect(
@@ -191,7 +275,7 @@ class REncoder:
             return "TRUE" if value else "FALSE"
         elif isinstance(value, int) or isinstance(value, float):
             return str(value)
-        elif isinstance(value, collections.abc.Iterable):
+        elif isinstance(value, Iterable):
             # convert all iterables to vectors
             return cls.encode_list(value)
         else:
@@ -203,7 +287,6 @@ class REncoder:
                     return str(value)
                 elif isinstance(value, np.bool_):
                     return "TRUE" if value else "FALSE"
-
             except ImportError:
                 pass
         raise ValueError(f"Unsupported value for conversion into R: {value}")
@@ -226,7 +309,7 @@ class REncoder:
         return d
 
     @classmethod
-    def encode_namedlist(cls, namedlist):
+    def encode_namedlist(cls, namedlist: io_.Namedlist):
         positional = ", ".join(map(cls.encode_value, namedlist))
         named = cls.encode_items(namedlist.items())
         source = "list("
@@ -336,7 +419,8 @@ class BashEncoder:
         for var in vars(smk):
             val = getattr(smk, var)
             if var in self.namedlists:
-                aa = f"{self.prefix}_{var.strip('_').lower()}={self.encode_namedlist(val)}"
+                suffix = "params" if var == "_params_store" else var.strip("_").lower()
+                aa = f"{self.prefix}_{suffix}={self.encode_namedlist(val)}"
                 arrays.append(aa)
             elif var in self.dicts:
                 aa = f"{self.prefix}_{var.strip('_').lower()}={self.dict_to_aa(val)}"
@@ -471,16 +555,13 @@ class ScriptBase(ABC):
         return self.path.get_path_or_uri()
 
     @abstractmethod
-    def get_preamble(self):
-        ...
+    def get_preamble(self) -> str: ...
 
     @abstractmethod
-    def write_script(self, preamble, fd):
-        ...
+    def write_script(self, preamble, fd) -> None: ...
 
     @abstractmethod
-    def execute_script(self, fname, edit=False):
-        ...
+    def execute_script(self, fname, edit=False) -> None: ...
 
     def _execute_cmd(self, cmd, **kwargs):
         return shell(
@@ -565,14 +646,29 @@ class PythonScript(ScriptBase):
             else f"from snakemake.shell import shell; shell.executable({shell_exec});"
         )
 
-        preamble = textwrap.dedent(
-            f"""
-        ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys; sys.path.extend({repr(searchpaths)}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds}; {preamble_addendum}
-        ######## snakemake preamble end #########
-        """
+        preamble = f"""
+            import sys;
+            sys.path.extend({repr(searchpaths)});
+            import pickle;
+            from snakemake import script;
+            script.snakemake = pickle.loads({snakemake});
+            del script;
+            from snakemake.logging import logger;
+            from snakemake.script import snakemake;
+            {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds};
+            {preamble_addendum}
+            """
+        return "\n".join(
+            [
+                "######## snakemake preamble start (automatically inserted, do not edit) ########",
+                PythonScript._minify_preamble(preamble),
+                "######## snakemake preamble end #########\n",
+            ]
         )
-        return preamble
+
+    @staticmethod
+    def _minify_preamble(preamble: str) -> str:
+        return textwrap.dedent(preamble).replace("\n", "")
 
     def get_preamble(self):
         if isinstance(self.path, LocalSourceFile):
@@ -1064,11 +1160,11 @@ class RustScript(ScriptBase):
                     "use_type": "Vec<String>"
                 }},
             }});
-            
+
             pub struct Iter<'a, T>(std::slice::Iter<'a, T>);
             impl<'a, T> Iterator for Iter<'a, T> {{
                 type Item = &'a T;
-                
+
                 fn next(&mut self) -> Option<Self::Item> {{
                     self.0.next()
                 }}
@@ -1079,16 +1175,16 @@ class RustScript(ScriptBase):
                         impl IntoIterator for $s {{
                             type Item = String;
                             type IntoIter = std::vec::IntoIter<Self::Item>;
-            
+
                             fn into_iter(self) -> Self::IntoIter {{
                                 self.positional.into_iter()
                             }}
                         }}
-            
+
                         impl<'a> IntoIterator for &'a $s {{
                             type Item = &'a String;
                             type IntoIter = Iter<'a, String>;
-            
+
                             fn into_iter(self) -> Self::IntoIter {{
                                 Iter(self.positional.as_slice().into_iter())
                             }}
@@ -1096,13 +1192,13 @@ class RustScript(ScriptBase):
                     )+
                 }};
             }}
-            
+
             macro_rules! impl_index {{
                 ($($s:ty),+) => {{
                     $(
                     impl std::ops::Index<usize> for $s {{
                         type Output = String;
-            
+
                         fn index(&self, index: usize) -> &Self::Output {{
                             &self.positional[index]
                         }}
@@ -1110,11 +1206,11 @@ class RustScript(ScriptBase):
                     )+
                 }}
             }}
-            
-            
+
+
             impl_iter!(Input, Output, Wildcards, Log);
             impl_index!(Input, Output, Wildcards, Log);
-            
+
             impl Snakemake {{
                 #[allow(dead_code)]
                 fn redirect_stderr<P: AsRef<std::path::Path>>(
@@ -1129,7 +1225,7 @@ class RustScript(ScriptBase):
                         .open(path)?;
                     Ok(gag::Redirect::stderr(log)?)
                 }}
-                
+
                 #[allow(dead_code)]
                 fn redirect_stdout<P: AsRef<std::path::Path>>(
                     &self,
@@ -1144,7 +1240,7 @@ class RustScript(ScriptBase):
                     Ok(gag::Redirect::stdout(log)?)
                 }}
             }}
-            
+
             lazy_static::lazy_static! {{
                 // https://github.com/rust-lang-nursery/lazy-static.rs/issues/153
                 #[allow(non_upper_case_globals)]
@@ -1343,7 +1439,14 @@ class BashScript(ScriptBase):
             scriptdir=path.get_basedir().get_path_or_uri(),
         )
 
-        namedlists = ["input", "output", "log", "resources", "wildcards", "params"]
+        namedlists = [
+            "input",
+            "output",
+            "log",
+            "resources",
+            "wildcards",
+            "_params_store",
+        ]
         dicts = ["config"]
         encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
         preamble = encoder.encode_snakemake(snakemake)

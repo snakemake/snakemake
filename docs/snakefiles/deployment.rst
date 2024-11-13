@@ -283,7 +283,7 @@ The signature of the callable has to be ``callable(wildcards [, params] [, input
 Note that the use of distinct conda environments for different jobs from the same rule is currently not properly displayed in the generated reports.
 At the moment, only a single, random conda environment is shown.
 
-.. sidebar:: Note
+.. note::
 
    Note that conda environments can be used with the ``shell``, ``script``, ``notebook``, ``wrapper`` and ``run`` directives.
    
@@ -373,16 +373,17 @@ If no shebang line like above (``#!env bash``) is provided, the script will be e
 
 .. _conda_named_env:
 
------------------------------------------------
-Using already existing named conda environments
------------------------------------------------
+-----------------------------------------
+Using already existing conda environments
+-----------------------------------------
 
-Sometimes it can be handy to refer to an already existing named conda environment from a rule, instead of defining a new one from scratch.
+Sometimes it can be handy to refer to an already existing conda environment from a rule, instead of defining a new one from scratch.
 Importantly, one should be aware that this can **hamper reproducibility**, because the workflow then relies on this environment to be present
 **in exactly the same way** on any new system where the workflow is executed. Essentially, you will have to take care of this manually in such a case.
 Therefore, the approach using environment definition files described above is highly recommended and preferred.
+Referring to an existing environment can however be useful during development, e.g. when a certain software package is developed in parallel to a workflow that uses it.
 
-Nevertheless, in case you are still sure that you want to use an existing named environment, it can simply be put into the conda directive, e.g.
+It is possible to refer to a named environment:
 
 .. code-block:: python
 
@@ -396,12 +397,27 @@ Nevertheless, in case you are still sure that you want to use an existing named 
         script:
             "scripts/plot-stuff.R"
 
-For such a rule, Snakemake will just activate the given environment, instead of automatically deploying anything.
-Instead of using a concrete name, it is also possible to provide a name containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
+Or alternatively to the filesystem path of an environment:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "table.txt"
+        output:
+            "plots/myplot.pdf"
+        conda:
+            "/home/johannes/miniforge/envs/some-env-name"
+        script:
+            "scripts/plot-stuff.R"
+
+For any such rules, Snakemake will just activate the given environment, instead of automatically deploying anything.
+Instead of using a concrete name or path, it is also possible to provide one containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
+Finally it is also possible to use a callable which returns a ``str`` value and takes ``wildcards`` as single argument, similar to input functions.
 
 Note that Snakemake distinguishes file based environments from named ones as follows:
-if the given specification ends on ``.yaml`` or ``.yml``, Snakemake assumes it to be a path to an environment definition file; otherwise, it assumes the given specification
-to be the name of an existing environment.
+if the given specification ends on ``.yaml`` or ``.yml``, Snakemake assumes it to be a path to an environment definition file;
+otherwise, it assumes the given specification to point to an existing environment.
 
 
 .. _apptainer:
@@ -439,7 +455,7 @@ However, ``docker://`` is preferred, as other container runtimes will be support
 Defining global container images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. sidebar:: Note
+.. note::
 
    Note that apptainer integration can be used with the ``shell``, ``script``, ``wrapper`` and ``run`` directives.
    
