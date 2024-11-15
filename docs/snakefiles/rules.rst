@@ -1295,7 +1295,7 @@ The ability to execute Rust scripts is facilitated by |rust-script|_.
 As such, the script must be a valid ``rust-script`` script and ``rust-script``
 (plus OpenSSL and a C compiler toolchain, provided by Conda packages ``openssl``, ``c-compiler``, ``pkg-config``)
 must be available in the environment the rule is run in.
-The minimum required ``rust-script`` version is 0.15.0, so in the example above, the contents of ``rust.yaml`` might look like this:
+The minimum required ``rust-script`` version is 0.35.0, so in the example above, the contents of ``rust.yaml`` might look like this:
 
 .. code-block:: yaml
 
@@ -1303,7 +1303,7 @@ The minimum required ``rust-script`` version is 0.15.0, so in the example above,
       - conda-forge
       - bioconda
     dependencies:
-      - rust-script>=0.15.0
+      - rust-script>=0.35.0
       - openssl
       - c-compiler
       - pkg-config
@@ -1380,9 +1380,9 @@ In order to work, rust-script support for snakemake has some dependencies enable
 #. ``gag=1``, to enable stdout/stderr redirects
 #. ``json_typegen=0.6``, for generating rust structs from a json representation of the snakemake object
 #. ``lazy_static=1.4``, to make a ``snakemake`` instance easily accessible
-#. ``serde=1``, explicit dependency of ``json_typegen``
-#. ``serde_derive=1``, explicit dependency of ``json_typegen``
-#. ``serde_json=1``, explicit dependency of ``json_typegen``
+#. ``serde=1.0``, explicit dependency of ``json_typegen``
+#. ``serde_derive=1.0``, explicit dependency of ``json_typegen``
+#. ``serde_json=1.0``, explicit dependency of ``json_typegen``
 
 If your script uses any of these packages, you do not need to ``use`` them in your script. Trying to ``use`` them will cause a compilation error.
 
