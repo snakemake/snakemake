@@ -1995,10 +1995,10 @@ def test_github_issue1618():
 def test_conda_python_script():
     run(dpath("test_conda_python_script"), deployment_method={DeploymentMethod.CONDA})
 
+
 @conda
 def test_conda_run():
     run(dpath("test_conda_run"), deployment_method={DeploymentMethod.CONDA})
- 
 
 
 @conda
