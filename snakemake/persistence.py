@@ -353,8 +353,8 @@ class Persistence(PersistenceExecutorInterface):
                 },
                 f,
             )
-        #remove incomplete marker only after creation of metadata record.
-        #otherwise the job starttime will be missing. 
+        # remove incomplete marker only after creation of metadata record.
+        # otherwise the job starttime will be missing.
         self._remove_incomplete_marker(job)
 
     def cleanup(self, job):
