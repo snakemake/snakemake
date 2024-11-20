@@ -9,7 +9,7 @@ For example, in bioinformatics, reference genomes or annotations are downloaded,
 Since such steps are independent of the actual data or measurements that are analyzed, but still computationally or timely expensive to conduct, it has been common practice to externalize their computation and assume the presence of the resulting files before execution of a workflow.
 
 From version 5.8.0 on, Snakemake offers a way to keep those steps inside the actual analysis without requiring from redundant computations.
-By hashing all steps, parameters, software stacks (in terms of conda environments or containers), and raw input required up to a certain step in a `blockchain <https://en.wikipedia.org/wiki/Blockchain>`_, Snakemake is able to recognize **before** the computation whether a certain result is already available in a central cache on the same system.
+By hashing all steps, parameters, software stacks (in terms of conda environments or containers), and raw input required up to a certain step in a `Merkle tree <https://en.wikipedia.org/wiki/Merkle_tree>`_, Snakemake is able to recognize **before** the computation whether a certain result is already available in a central cache on the same system.
 **Note that this is explicitly intended for caching results between workflows! There is no need to use this feature to avoid redundant computations within a workflow. Snakemake does this already out of the box.**
 
 Such caching has to be explicitly activated per rule, which can be done via the command line interface.
