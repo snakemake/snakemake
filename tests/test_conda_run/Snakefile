@@ -1,9 +1,9 @@
 rule random_python_conda_script:
     output:
-        "version.txt"
+        "test.txt"
     conda:
         "test_python_env.yaml"
     params: 
-        script=srcdir('test_script.py')
+        script=workflow.source_path('test_script_run.py')
     run:
         shell("python {params.script}")
