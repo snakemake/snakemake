@@ -460,7 +460,7 @@ Defining global container images
    Note that apptainer integration can be used with the ``shell``, ``script``, ``wrapper`` and ``run`` directives.
    
    However, the ``run`` directive is a special case, as it has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself. 
-   The ``singularity`` directive for rules with a ``run`` directive therefore only affects ``shell`` function calls that are executed from within the ``run`` script.
+   The ``container`` directive for rules with a ``run`` directive therefore only affects ``shell`` function calls that are executed from within the ``run`` script.
 
 A global definition of a container image can be given:
 
