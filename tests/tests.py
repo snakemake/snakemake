@@ -413,6 +413,16 @@ def test_script_python():
     run(dpath("test_script_py"))
 
 
+@skip_on_windows
+@conda
+def test_script_rs():
+    run(
+        dpath("test_script_rs"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
+
+
 @skip_on_windows  # Test relies on perl
 def test_shadow():
     run(dpath("test_shadow"))
