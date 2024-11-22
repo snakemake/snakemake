@@ -299,6 +299,7 @@ class Persistence(PersistenceExecutorInterface):
 
     async def finished(self, job):
         if not self.dag.workflow.execution_settings.keep_metadata:
+            self._remove_incomplete_marker(job)
             # do not store metadata if not requested
             return
 
@@ -352,6 +353,8 @@ class Persistence(PersistenceExecutorInterface):
                 },
                 f,
             )
+        # remove incomplete marker only after creation of metadata record.
+        # otherwise the job starttime will be missing.
         self._remove_incomplete_marker(job)
 
     def cleanup(self, job):
