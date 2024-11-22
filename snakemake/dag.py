@@ -1337,9 +1337,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                     in self.workflow.rerun_triggers
                                 ):
                                     reason.software_stack_changed = any(
-                                        self.workflow.persistence.conda_env_changed(job)
-                                    ) or any(
-                                        self.workflow.persistence.container_changed(job)
+                                        self.workflow.persistence.software_stack_changed(
+                                            job
+                                        )
                                     )
 
             if noinitreason and reason:
@@ -2323,11 +2323,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         node2style=lambda node: "rounded",
         node2label=lambda node: node,
     ):
-        # color rules
-        huefactor = 2 / (3 * len(self.rules))
+        # color the rules - sorting by name first gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
         rulecolor = {
             rule: "{:.2f} 0.6 0.85".format(i * huefactor)
-            for i, rule in enumerate(self.rules)
+            for i, rule in enumerate(rules)
         }
 
         # markup
@@ -2392,10 +2393,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
             )
 
-        huefactor = 2 / (3 * len(self.rules))
+        # Sorting the rules by name before assigning colors gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
         rulecolor = {
             rule: hsv_to_htmlhexrgb(i * huefactor, 0.6, 0.85)
-            for i, rule in enumerate(self.rules)
+            for i, rule in enumerate(rules)
         }
 
         def resolve_input_functions(input_files):

@@ -1,6 +1,30 @@
 # Changelog
 
 
+## [8.25.3](https://github.com/snakemake/snakemake/compare/v8.25.2...v8.25.3) (2024-11-11)
+
+
+### Bug Fixes
+
+* correctly set params in bash scripts ([#3188](https://github.com/snakemake/snakemake/issues/3188)) ([07ddab5](https://github.com/snakemake/snakemake/commit/07ddab5c97ae7f7b1a758d827dc6545df92ea644))
+* more robust inference of source path that properly respects hosting provider urls without losing release or commit information ([#3195](https://github.com/snakemake/snakemake/issues/3195)) ([bd8212b](https://github.com/snakemake/snakemake/commit/bd8212b8f1b78a704d596a9d64040a48bccc223c))
+* When generating a DAG or HTML rulegraph, use consistent colours ([#3189](https://github.com/snakemake/snakemake/issues/3189)) ([5f651d2](https://github.com/snakemake/snakemake/commit/5f651d2cd6a5964ec8b490781aeee05b1cf691a3))
+
+## [8.25.2](https://github.com/snakemake/snakemake/compare/v8.25.1...v8.25.2) (2024-11-05)
+
+
+### Bug Fixes
+
+* include conda pinnings, conda post deploy script, and env modules for detection of software stack changes and corresponding rerun triggers ([#3184](https://github.com/snakemake/snakemake/issues/3184)) ([2aeaa46](https://github.com/snakemake/snakemake/commit/2aeaa46a06a34155ee24615d1417da103b54d14f))
+
+## [8.25.1](https://github.com/snakemake/snakemake/compare/v8.25.0...v8.25.1) (2024-11-01)
+
+
+### Bug Fixes
+
+* ensure correct topological order when touching group job outputs ([#3181](https://github.com/snakemake/snakemake/issues/3181)) ([5924a3e](https://github.com/snakemake/snakemake/commit/5924a3e3993cb65365536ca4d225a1eb03c2fcd9))
+* ensure version agnostic robust pickling of pandas, polars and numpy data structures passed as params to Python scripts or notebooks ([#3175](https://github.com/snakemake/snakemake/issues/3175)) ([eb11137](https://github.com/snakemake/snakemake/commit/eb1113713cbc4e9232aed6d106bec3615fa48632))
+
 ## [8.25.0](https://github.com/snakemake/snakemake/compare/v8.24.1...v8.25.0) (2024-10-29)
 
 
