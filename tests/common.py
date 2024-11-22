@@ -213,6 +213,7 @@ def run(
     storage_provider_settings=None,
     shared_fs_usage=None,
     benchmark_extended=False,
+    assume_checkpoint_safe_temp_files=False,
     apptainer_args="",
 ):
     """
@@ -369,6 +370,7 @@ def run(
                         force_incomplete=force_incomplete,
                         forceall=forceall,
                         rerun_triggers=rerun_triggers,
+                        assume_checkpoint_safe_temp_files=assume_checkpoint_safe_temp_files,
                     ),
                 )
 
