@@ -198,6 +198,7 @@ class DAGSettings(SettingsBase):
     forcerun: AnySet[str] = frozenset()
     until: AnySet[str] = frozenset()
     omit_from: AnySet[str] = frozenset()
+    any_of: AnySet[str] = frozenset()
     force_incomplete: bool = False
     allowed_rules: AnySet[str] = frozenset()
     rerun_triggers: AnySet[RerunTrigger] = RerunTrigger.all()
