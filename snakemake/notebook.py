@@ -31,7 +31,6 @@ class JupyterNotebook(ScriptBase):
     def draft(self):
         import nbformat
 
-        preamble = self.get_preamble()
         nb = nbformat.v4.new_notebook()
         self.insert_preamble_cell(preamble, nb)
 
@@ -334,6 +333,9 @@ def notebook(
 
     if edit is None:
         executor.evaluate(edit=edit)
+    elif edit.preamble_only:
+        msg = f"Preamble is:\n{executor.get_preamble()}"
+        logger.info(msg)
     elif edit.draft_only:
         executor.draft()
         msg = f"Generated skeleton notebook:\n{path} "
@@ -348,6 +350,7 @@ def notebook(
                 "\nEditing with Jupyter CLI:"
                 "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
             )
+        msg += (f"\nPreamble is:\n{executor.get_preamble()} ")
         logger.info(msg)
     elif draft:
         executor.draft_and_edit(listen=edit)
