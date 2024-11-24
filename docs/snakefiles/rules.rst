@@ -2914,8 +2914,8 @@ Note that in case of distributed, remote execution (cluster, cloud), MPI support
 Continuously updated input
 --------------------------
 
-Form Snakemake 8.2 on, it is possible to define rules that continuously accept input.
-This is useful for example for streaming data analysis.
+From Snakemake 8.2 on, it is possible to define rules that continuously accept new input files during workflow execution.
+This is useful for scenarios like streaming data analysis.
 The feature works by defining a synchronized Python queue for obtaining input files via the helper function ``from_queue``:
 
 .. code-block:: python
@@ -2926,10 +2926,14 @@ The feature works by defining a synchronized Python queue for obtaining input fi
         ...
 
 Rules with input marked as ``from_queue`` may not define any wildcards.
-The input files of the rule will be continuously updated with new items arriving in the queue.
-For any such item, the DAG ob jobs is updated, thereby potentially generating new dependencies for the rule.
+When new items arrive in the queue:
+
+1. The input files list for the rule is updated
+2. The DAG of jobs is updated, potentially generating new dependencies for the rule
+3. Any dependent rules that need to process the new input files are automatically created and executed
+
 It is required to define a finish sentinel, which is a special value that signals the end of the queue.
-Once the finish sentinel is encountered, Snakemake will consider the input file list to be complete and allow the rule to be executed once all its dependency jobs have been finished.
+Once the finish sentinel is encountered, Snakemake will allow all remaining dependent jobs to finish and complete execution of the workflow.
 
 Consider the following complete toy example:
 
