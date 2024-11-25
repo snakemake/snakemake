@@ -1521,7 +1521,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             if i > 0:
                 # Wait a bit to ensure that subsequent levels really have distinct
                 # modification times.
-                time.sleep(0.1)
+                await asyncio.sleep(0.1)
             async with asyncio.TaskGroup() as tg:
                 for job in level:
                     # postprocessing involves touching output files (to ensure that
