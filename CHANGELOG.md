@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.25.5](https://github.com/snakemake/snakemake/compare/v8.25.4...v8.25.5) (2024-11-29)
+
+
+### Bug Fixes
+
+* expand environment variables in --remote-job-local-storage-prefix within the remote job, not the main snakemake job ([#3222](https://github.com/snakemake/snakemake/issues/3222)) ([59c86a4](https://github.com/snakemake/snakemake/commit/59c86a40584724d75744d6f422466714273c9209))
+
 ## [8.25.4](https://github.com/snakemake/snakemake/compare/v8.25.3...v8.25.4) (2024-11-27)
 
 
