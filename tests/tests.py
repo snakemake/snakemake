@@ -2287,6 +2287,15 @@ def test_github_issue2732():
     run(dpath("test_github_issue2732"))
 
 
+@skip_on_windows  # OS agnostic
+def test_assume_checkpoint_safe_temp_files():
+    run(
+        dpath("test_github_issue2732"),
+        assume_checkpoint_safe_temp_files=True,
+        shouldfail=True,
+    )
+
+
 @skip_on_windows
 @apptainer
 def test_shell_exec():
