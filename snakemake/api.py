@@ -246,7 +246,7 @@ class SnakemakeApi(ApiBase):
     ):
         if not self.output_settings.keep_logger:
             logger_manager.configure_logger(
-                handler=self.output_settings.log_handlers,
+                plugins=self.output_settings.log_handlers,
                 quiet=self.output_settings.quiet,
                 nocolor=self.output_settings.nocolor,
                 debug=self.output_settings.verbose,

@@ -12,10 +12,10 @@ import os
 import json
 import threading
 from functools import partial
-import inspect
+
 import textwrap
 from typing import Optional
-
+from snakemake_interface_logger_plugins.base import LoggerPluginBase
 
 def get_default_exec_mode():
     from snakemake_interface_executor_plugins.settings import ExecMode
@@ -765,6 +765,7 @@ class LoggerManager:
         self.mode = None
         self.show_failed_logs = False
         self.dryrun = False
+        self.stream_handlers = []
 
     def _get_handlers_of_type(self, handler_type: type):
         """Helper function to get all handlers of a specified type."""
@@ -866,6 +867,13 @@ class LoggerManager:
             # plugins/external handlers get added twice otherwise, see: snakemake issue #2797
             if h.name == stream_handler.name:
                 self.logger.removeHandler(h)
+                self.stream_handlers.remove(h)
+
+        self.stream_handlers.append(stream_handler)
+        # double check we dont have more than 1 logger writing to stdout/stderr
+        # the above removing should cover this case, but we check again
+        if len(self.stream_handlers) > 1:
+            raise ValueError("More than 1 stream logger specified!")
         self.logger.addHandler(stream_handler)
 
     def configure_logger(
@@ -880,46 +888,45 @@ class LoggerManager:
         mode=None,
         show_failed_logs: Optional[bool] = None,
         dryrun: Optional[bool] = None,
-        handler: list[logging.Handler] = None,
+        plugins: list[LoggerPluginBase] = None,
     ):
         from snakemake_interface_executor_plugins.settings import ExecMode
-        from snakemake_interface_logger_plugins.registry.plugin import Plugin
 
         for key, value in locals().items():
             if key != "self" and value is not None:
                 setattr(self, key, value)
 
         # Update the logger settings based on the current mode
+        # Subproecces execMode gets nullhandler so nothing gets logged
+        # TODO: Think about if remote should be null handler too. Don't want remote logging to HTTP logger for example.
         if self.mode == ExecMode.SUBPROCESS:
             self.add_stream_handler(logging.NullHandler())
+        elif plugins:
+            for plugin in plugins:
+                handler = plugin.create_handler(
+                    quiet=quiet,
+                    printreason=printreason,
+                    printshellcmds=printshellcmds,
+                    debug=debug,
+                    debug_dag=debug_dag,
+                    mode=mode,
+                    show_failed_logs=show_failed_logs,
+                    dryrun=dryrun,
+                    nocolor=nocolor,
+                    stdout=stdout,
+                )
+                # logging.Streamhandlers (and subclasses of it) should have attr called stream
+                if getattr(handler, "stream", False):
+                    self.add_stream_handler(
+                        stream_handler=handler,
+                        use_default_filter=False,
+                        use_default_formatter=False,
+                    )
+                else:
+                    self.logger.addHandler(handler)
         else:
-            if handler:
-                for h in handler:
-                    if isinstance(h, Plugin):
-                        h = h.logger_plugin(None).create_handler(
-                            quiet=quiet,
-                            printreason=printreason,
-                            printshellcmds=printshellcmds,
-                            debug=debug,
-                            debug_dag=debug_dag,
-                            mode=mode,
-                            show_failed_logs=show_failed_logs,
-                            dryrun=dryrun,
-                            nocolor=nocolor,
-                            stdout=stdout,
-                        )
-                        self.add_stream_handler(
-                            stream_handler=h,
-                            use_default_filter=False,
-                            use_default_formatter=False,
-                        )
-                    elif getattr(h, "stream", False):
-                        self.add_stream_handler(h)
-                    else:
-                        self.logger.addHandler(h)
-            else:
-                self.add_stream_handler()
-            self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
+            self.add_stream_handler()
+        self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
 
 
 # Global logger instance

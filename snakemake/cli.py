@@ -1517,19 +1517,13 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Automatically display logs of failed jobs.",
     )
-    group_behavior.add_argument(
-        "--log-handler-script",
-        metavar="FILE",
-        default=None,
-        help="Provide a custom script containing a function 'def log_handler(msg):'. "
-        "Snakemake will call this function for every logging output (given as a dictionary msg) "
-        "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
-    )
+
     group_behavior.add_argument(
         "--logger",
-        default=None,
+        nargs="+",
+        default=[],
         choices=LoggerPluginRegistry().plugins.keys(),
-        help="Specify a custom logger, available via a logger plugin: snakemake_executor_<name>",
+        help="Specify a custom logger, available via a logger plugin: snakemake_executor_<name>. Multiple can be specified.",
     )
     group_behavior.add_argument(
         "--job-deploy-sources",
@@ -1852,34 +1846,16 @@ def parse_quietness(quietness) -> Set[Quietness]:
 
 
 def setup_log_handlers(args, parser):
-    log_handler = []
+    log_handlers = []
 
-    if args.log_handler_script is not None:
-        if not os.path.exists(args.log_handler_script):
-            print(
-                "Error: no log handler script found, {}.".format(
-                    args.log_handler_script
-                ),
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        log_script = SourceFileLoader("log", args.log_handler_script).load_module()
-        try:
-            log_handler.append(log_script.log_handler)
-        except:
-            print(
-                'Error: Invalid log handler script, {}. Expect python function "log_handler(msg)".'.format(
-                    args.log_handler_script
-                ),
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    for logger_arg in args.logger:
+        plugin = LoggerPluginRegistry().get_plugin(plugin_name=logger_arg)
+        plugin_settings = plugin.get_settings(args)
+        # logger plugin here is the subclass of LoggerPluginBase, we get handler from it in configure_logger.
+        logger_plugin = plugin.logger_plugin(plugin_settings)
+        log_handlers.append(logger_plugin)
 
-    if args.logger:
-        logger_plugin = LoggerPluginRegistry().get_plugin(plugin_name=args.logger)
-        log_handler.append(logger_plugin)
-
-    return log_handler
+    return log_handlers
 
 
 def parse_edit_notebook(args):
