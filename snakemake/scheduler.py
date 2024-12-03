@@ -32,7 +32,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. Look above for error message"
+    "Exiting because a job execution failed. Look below for error messages"
 )
 
 _ERROR_MSG_ISSUE_823 = (
@@ -214,6 +214,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         self._executor.shutdown()
                         if not user_kill:
                             logger.error(_ERROR_MSG_FINAL)
+                            for job in self.failed:
+                                logger.error(
+                                    f"Error in jobid: {self.workflow.dag.jobid(job)}",
+                                    extra=job.get_log_error_info(),
+                                )
                         return False
                     continue
 
@@ -229,6 +234,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
+                        for job in self.failed:
+                            logger.error(
+                                f"Error in jobid: {self.workflow.dag.jobid(job)}",
+                                extra=job.get_log_error_info(),
+                            )
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
                     if self.remaining_jobs and not self.keepgoing:
