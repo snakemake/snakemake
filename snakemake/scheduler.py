@@ -399,11 +399,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if job.is_group():
                         for j in job:
                             logger.info(
-                                "", extra=dict(level="job_finished", jobid=j.jobid)
+                                f"Finished jobid: {j.jobid} (Rule: {j.rule.name})",
+                                extra=dict(level="job_finished", extra=vars(j)),
                             )
                     else:
                         logger.info(
-                            "", extra=dict(level="job_finished", jobid=job.jobid)
+                            f"Finished jobid: {job.jobid} (Rule: {job.rule.name})",
+                            extra=dict(level="job_finished", extra=vars(job)),
                         )
                     self.progress()
 

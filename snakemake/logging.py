@@ -241,7 +241,7 @@ class DefaultFormatter(logging.Formatter):
 
     def format_job_finished(self, msg):
         """Format for job_finished log."""
-        return f"{timestamp()} Finished job {msg['jobid']}."
+        return f"{timestamp()} {msg["msg"]}"
 
     def format_shellcmd(self, msg):
         """Format for shellcmd log."""
