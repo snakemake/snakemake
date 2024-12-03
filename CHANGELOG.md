@@ -1,6 +1,50 @@
 # Changelog
 
 
+## [8.25.5](https://github.com/snakemake/snakemake/compare/v8.25.4...v8.25.5) (2024-11-29)
+
+
+### Bug Fixes
+
+* expand environment variables in --remote-job-local-storage-prefix within the remote job, not the main snakemake job ([#3222](https://github.com/snakemake/snakemake/issues/3222)) ([59c86a4](https://github.com/snakemake/snakemake/commit/59c86a40584724d75744d6f422466714273c9209))
+
+## [8.25.4](https://github.com/snakemake/snakemake/compare/v8.25.3...v8.25.4) (2024-11-27)
+
+
+### Bug Fixes
+
+* clean env vars in apptainer ([#3199](https://github.com/snakemake/snakemake/issues/3199)) ([76d5329](https://github.com/snakemake/snakemake/commit/76d53290a003891c5ee41f81e8eb4821c406255d))
+* ensure that intermediate files in job groups do not cause spurious mtime errors when checking for consistency with output files ([#3220](https://github.com/snakemake/snakemake/issues/3220)) ([4ba2bdf](https://github.com/snakemake/snakemake/commit/4ba2bdf5f68bb7edf6901da740bdcfc8cc3fed73))
+* Remove incomplete marker also when drop-metadata is active ([#3215](https://github.com/snakemake/snakemake/issues/3215)) ([a4f2e5c](https://github.com/snakemake/snakemake/commit/a4f2e5ced09963574d45ba5b88302c58a0b4ad90))
+* Remove incomplete marker for job finished only after metadata is written ([#3197](https://github.com/snakemake/snakemake/issues/3197)) ([6567e5f](https://github.com/snakemake/snakemake/commit/6567e5fdbb99b1a1a22a79eebdecd36216ca1868))
+* Support versioned URLs in Asset class and fix missing versions in Snakemake report ([#3203](https://github.com/snakemake/snakemake/issues/3203)) ([f086f6c](https://github.com/snakemake/snakemake/commit/f086f6c48ad43eeec222847f4d19a9fea6b6ce06))
+* update rust-script usage to recent version (v0.35.0) [#3183](https://github.com/snakemake/snakemake/issues/3183) ([#3208](https://github.com/snakemake/snakemake/issues/3208)) ([43885d7](https://github.com/snakemake/snakemake/commit/43885d7f4616a0e4db8d9e5a2bbb764e43e47fc6))
+
+
+### Documentation
+
+* clarify continuously updated input section ([#3219](https://github.com/snakemake/snakemake/issues/3219)) ([72a6994](https://github.com/snakemake/snakemake/commit/72a6994496854dad1877749416e0c64130c9fc48))
+* Fix typo in CHANGELOG.md ([#3198](https://github.com/snakemake/snakemake/issues/3198)) ([0e445ed](https://github.com/snakemake/snakemake/commit/0e445ed542bba3db3af9f66c8307857b493f5113))
+* refer to Merkle trees instead of "blockchain" in caching.rst ([#3216](https://github.com/snakemake/snakemake/issues/3216)) ([282e5d9](https://github.com/snakemake/snakemake/commit/282e5d9dcd0d345d8fc8783297831aa9daa8dc03))
+* remove twitter in favor of bluesky and mastodon ([#3217](https://github.com/snakemake/snakemake/issues/3217)) ([231c6df](https://github.com/snakemake/snakemake/commit/231c6dfa2c8ab8a118fab546015fc084ed43522b))
+* use "dictionary" not "array" wording in config docs ([#3156](https://github.com/snakemake/snakemake/issues/3156)) ([17aed41](https://github.com/snakemake/snakemake/commit/17aed4131bc946af94827560d63f0ef6bd3992c4))
+
+## [8.25.3](https://github.com/snakemake/snakemake/compare/v8.25.2...v8.25.3) (2024-11-11)
+
+
+### Bug Fixes
+
+* correctly set params in bash scripts ([#3188](https://github.com/snakemake/snakemake/issues/3188)) ([07ddab5](https://github.com/snakemake/snakemake/commit/07ddab5c97ae7f7b1a758d827dc6545df92ea644))
+* more robust inference of source path that properly respects hosting provider urls without losing release or commit information ([#3195](https://github.com/snakemake/snakemake/issues/3195)) ([bd8212b](https://github.com/snakemake/snakemake/commit/bd8212b8f1b78a704d596a9d64040a48bccc223c))
+* When generating a DAG or HTML rulegraph, use consistent colours ([#3189](https://github.com/snakemake/snakemake/issues/3189)) ([5f651d2](https://github.com/snakemake/snakemake/commit/5f651d2cd6a5964ec8b490781aeee05b1cf691a3))
+
+## [8.25.2](https://github.com/snakemake/snakemake/compare/v8.25.1...v8.25.2) (2024-11-05)
+
+
+### Bug Fixes
+
+* include conda pinnings, conda post deploy script, and env modules for detection of software stack changes and corresponding rerun triggers ([#3184](https://github.com/snakemake/snakemake/issues/3184)) ([2aeaa46](https://github.com/snakemake/snakemake/commit/2aeaa46a06a34155ee24615d1417da103b54d14f))
+
 ## [8.25.1](https://github.com/snakemake/snakemake/compare/v8.25.0...v8.25.1) (2024-11-01)
 
 

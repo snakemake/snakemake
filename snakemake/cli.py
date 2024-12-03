@@ -1434,15 +1434,13 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
-        type=maybe_base64(expandvars(Path)),
+        type=maybe_base64(Path),
         help="Specify prefix for storing local copies of storage files and folders in "
         "case of remote jobs (e.g. cluster or cloud jobs). This may differ from "
         "--local-storage-prefix. If not set, uses value of --local-storage-prefix. "
         "By default, this is a hidden subfolder in the workdir. It can however be "
         "freely chosen, e.g. in order to store those files on a local scratch disk. "
-        "Environment variables will be expanded. In case they shall be expanded only "
-        "within the remote job, mask them with a leading backslash, i.e. "
-        "\\$SLURM_JOB_ID.",
+        "Environment variables will be expanded within the remote job.",
     )
     group_behavior.add_argument(
         "--shared-fs-usage",

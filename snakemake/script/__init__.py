@@ -419,7 +419,8 @@ class BashEncoder:
         for var in vars(smk):
             val = getattr(smk, var)
             if var in self.namedlists:
-                aa = f"{self.prefix}_{var.strip('_').lower()}={self.encode_namedlist(val)}"
+                suffix = "params" if var == "_params_store" else var.strip("_").lower()
+                aa = f"{self.prefix}_{suffix}={self.encode_namedlist(val)}"
                 arrays.append(aa)
             elif var in self.dicts:
                 aa = f"{self.prefix}_{var.strip('_').lower()}={self.dict_to_aa(val)}"
@@ -1293,7 +1294,7 @@ class RustScript(ScriptBase):
         deps = self.default_dependencies()
         ftrs = self.default_features()
         self._execute_cmd(
-            "rust-script -d {deps} --features {ftrs} {fname:q} ",
+            "rust-script -d {deps} {fname:q} -- --features {ftrs}",
             fname=fname,
             deps=deps,
             ftrs=ftrs,
@@ -1312,9 +1313,9 @@ class RustScript(ScriptBase):
         return " -d ".join(
             [
                 "anyhow=1",
-                "serde_json=1",
-                "serde=1",
-                "serde_derive=1",
+                "serde_json=1.0",
+                "serde=1.0",
+                "serde_derive=1.0",
                 "lazy_static=1.4",
                 "json_typegen=0.6",
                 "gag=1",
@@ -1438,7 +1439,14 @@ class BashScript(ScriptBase):
             scriptdir=path.get_basedir().get_path_or_uri(),
         )
 
-        namedlists = ["input", "output", "log", "resources", "wildcards", "params"]
+        namedlists = [
+            "input",
+            "output",
+            "log",
+            "resources",
+            "wildcards",
+            "_params_store",
+        ]
         dicts = ["config"]
         encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
         preamble = encoder.encode_snakemake(snakemake)
