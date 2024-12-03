@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import logging
+import logging.handlers
 import platform
 import time
 import datetime
@@ -11,237 +12,18 @@ import sys
 import os
 import json
 import threading
+from queue import Queue
 from functools import partial
 
 import textwrap
 from typing import Optional
 from snakemake_interface_logger_plugins.base import LoggerPluginBase
 
+
 def get_default_exec_mode():
     from snakemake_interface_executor_plugins.settings import ExecMode
 
     return ExecMode.DEFAULT
-
-
-class SlackLogger:
-    def __init__(self):
-        from slack_sdk import WebClient
-
-        self.token = os.getenv("SLACK_TOKEN")
-        if not self.token:
-            print(
-                "The use of slack logging requires the user to set a user specific slack User OAuth token to the SLACK_TOKEN environment variable. Set this variable by 'export SLACK_TOKEN=your_token'. To generate your token please visit https://api.slack.com/authentication/token-types#user."
-            )
-            exit(-1)
-        self.slack = WebClient(self.token)
-        # Check for success
-        try:
-            auth = self.slack.auth_test().data
-        except Exception:
-            print(
-                "Slack connection failed. Please compare your provided slack token exported in the SLACK_TOKEN environment variable with your online token (app). This token can be tested at https://api.slack.com/methods/auth.test/test. A different token can be set up by 'export SLACK_TOKEN=your_token'."
-            )
-            exit(-1)
-        self.own_id = auth["user_id"]
-        self.error_occured = False
-        self.slack.chat_postMessage(
-            channel=self.own_id, text="Snakemake has connected."
-        )
-
-    def log_handler(self, msg):
-        if "error" in msg["level"] and not self.error_occured:
-            self.slack.chat_postMessage(
-                channel=self.own_id, text="At least one error occurred."
-            )
-            self.error_occured = True
-
-        if msg["level"] == "progress" and msg["done"] == msg["total"]:
-            # workflow finished
-            self.slack.chat_postMessage(channel=self.own_id, text="Workflow complete.")
-
-
-class WMSLogger:
-    def __init__(self, address=None, args=None, metadata=None):
-        """A WMS monitor is a workflow management system logger to enable
-        monitoring with something like Panoptes. The address corresponds to
-        the --wms-monitor argument, and args should be a list of key/value
-        pairs with extra arguments to send to identify the workflow. We require
-        the logging server to exist and receive creating a workflow to start
-        the run, but we don't exit with error if any updates fail, as the
-        workflow will already be running and it would not be worth stopping it.
-        """
-
-        from snakemake.resources import DefaultResources
-
-        self.address = address or "http:127.0.0.1:5000"
-        self.args = list(map(DefaultResources.decode_arg, args)) if args else []
-        self.args = {item[0]: item[1] for item in list(self.args)}
-
-        self.metadata = metadata or {}
-
-        # A token is suggested but not required, depends on server
-        self.token = os.getenv("WMS_MONITOR_TOKEN")
-        self.service_info()
-
-        # Create or retrieve the existing workflow
-        self.create_workflow()
-
-    def service_info(self):
-        """Service Info ensures that the server is running. We exit on error
-        if this isn't the case, so the function can be called in init.
-        """
-        import requests
-
-        # We first ensure that the server is running, period
-        response = requests.get(
-            f"{self.address}/api/service-info", headers=self._headers
-        )
-        if response.status_code != 200:
-            sys.stderr.write(f"Problem with server: {self.address} {os.linesep}")
-            sys.exit(-1)
-
-        # And then that it's ready to be interacted with
-        if response.json().get("status") != "running":
-            sys.stderr.write(
-                f"The status of the server {self.address} is not in 'running' mode {os.linesep}"
-            )
-            sys.exit(-1)
-
-    def create_workflow(self):
-        """Creating a workflow means pinging the wms server for a new id, or
-        if providing an argument for an existing workflow, ensuring that
-        it exists and receiving back the same identifier.
-        """
-        import requests
-
-        # Send the working directory to the server
-        workdir = (
-            os.getcwd()
-            if not self.metadata.get("directory")
-            else os.path.abspath(self.metadata["directory"])
-        )
-
-        # Prepare a request that has metadata about the job
-        metadata = {
-            "command": self.metadata.get("command"),
-            "workdir": workdir,
-        }
-
-        response = requests.get(
-            f"{self.address}/create_workflow",
-            headers=self._headers,
-            params=self.args,
-            data=metadata,
-        )
-
-        # Extract the id from the response
-        id = response.json()["id"]
-
-        # Check the response, will exit on any error
-        self.check_response(response, "/create_workflow")
-
-        # Provide server parameters to the logger
-        headers = (
-            {"Content-Type": "application/json"}
-            if self._headers is None
-            else {**self._headers, **{"Content-Type": "application/json"}}
-        )
-
-        # Send the workflow name to the server
-        response_change_workflow_name = requests.put(
-            f"{self.address }/api/workflow/{id}",
-            headers=headers,
-            data=json.dumps(self.args),
-        )
-        # Check the response, will exit on any error
-        self.check_response(response_change_workflow_name, f"/api/workflow/{id}")
-
-        # Provide server parameters to the logger
-        self.server = {"url": self.address, "id": id}
-
-    def check_response(self, response, endpoint="wms monitor request"):
-        """A helper function to take a response and check for an expected set of
-        error codes, 404 (not found), 401 (requires authorization), 403 (permission
-        denied), 500 (server error) and 200 (success).
-        """
-        status_code = response.status_code
-        # Cut out early on success
-        if status_code == 200:
-            return
-
-        if status_code == 404:
-            sys.stderr.write(f"The wms {endpoint} endpoint was not found")
-            sys.exit(-1)
-        elif status_code == 401:
-            sys.stderr.write(
-                "Authorization is required with a WMS_MONITOR_TOKEN in the environment"
-            )
-            sys.exit(-1)
-        elif status_code == 500:
-            sys.stderr.write(
-                f"There was a server error when trying to access {endpoint}"
-            )
-            sys.exit(-1)
-        elif status_code == 403:
-            sys.stderr.write("Permission is denied to %s." % endpoint)
-            sys.exit(-1)
-
-        # Any other response code is not acceptable
-        sys.stderr.write(
-            f"The {endpoint} response code {response.status_code} is not recognized."
-        )
-
-    @property
-    def _headers(self):
-        """return authenticated headers if the user has provided a token"""
-        headers = None
-        if self.token:
-            headers = {"Authorization": "Bearer %s" % self.token}
-        return headers
-
-    def _parse_message(self, msg):
-        """Given a message dictionary, we want to loop through the key, value
-        pairs and convert some attributes to strings (e.g., jobs are fine to be
-        represented as names) and return a dictionary.
-        """
-        result = {}
-        for key, value in msg.items():
-            # For a job, the name is sufficient
-            if key == "job":
-                result[key] = str(value)
-
-            # For an exception, return the name and a message
-            elif key == "exception":
-                result[key] = "{}: {}".format(
-                    msg["exception"].__class__.__name__,
-                    msg["exception"] or "Exception",
-                )
-
-            # All other fields are json serializable
-            else:
-                result[key] = value
-
-        # Return a json dumped string
-        return json.dumps(result)
-
-    def log_handler(self, msg):
-        """Custom wms server log handler.
-
-        Sends the log to the server.
-
-        Args:
-            msg (dict):    the log message dictionary
-        """
-        import requests
-
-        url = self.server["url"] + "/update_workflow_status"
-        server_info = {
-            "msg": self._parse_message(msg),
-            "timestamp": time.asctime(),
-            "id": self.server["id"],
-        }
-        response = requests.post(url, data=server_info, headers=self._headers)
-        self.check_response(response, "/update_workflow_status")
 
 
 # Helper functions for logging
@@ -765,13 +547,21 @@ class LoggerManager:
         self.mode = None
         self.show_failed_logs = False
         self.dryrun = False
-        self.stream_handlers = []
+        self.handlers = []
+        self.initialized = False
+        self.queue_listener = None
+        self.formatter = DefaultFormatter(
+            printreason=self.printreason,
+            show_failed_logs=self.show_failed_logs,
+            printshellcmds=self.printshellcmds,
+        )
+        self.filter = DefaultFilter(quiet=self.quiet, debug_dag=self.debug_dag)
 
     def _get_handlers_of_type(self, handler_type: type):
         """Helper function to get all handlers of a specified type."""
         return [
             h
-            for h in list(self.logger.handlers)
+            for h in self.handlers
             if isinstance(h, handler_type) or issubclass(type(h), handler_type)
         ]
 
@@ -797,7 +587,6 @@ class LoggerManager:
 
         if self.mode == ExecMode.DEFAULT:
             for handler in self._get_handlers_of_type(logging.FileHandler):
-                self.logger.removeHandler(handler)
                 handler.close()
 
     def setup_logfile(self):
@@ -815,19 +604,11 @@ class LoggerManager:
             )
 
             logfile_handler = logging.FileHandler(logfile)
-            logfile_handler.setFormatter(
-                DefaultFormatter(
-                    printreason=self.printreason,
-                    show_failed_logs=self.show_failed_logs,
-                    printshellcmds=self.printshellcmds,
-                )
-            )
-            logfile_handler.addFilter(
-                DefaultFilter(quiet=self.quiet, debug_dag=self.debug_dag)
-            )
+            logfile_handler.setFormatter(self.formatter)
+            logfile_handler.addFilter(self.filter)
             logfile_handler.setLevel(logging.DEBUG if self.debug else logging.INFO)
             logfile_handler.name = "DefaultLogFileHandler"
-            self.logger.addHandler(logfile_handler)
+            self.handlers.append(logfile_handler)
 
     def add_stream_handler(
         self,
@@ -835,46 +616,30 @@ class LoggerManager:
         use_default_filter: bool = True,
         use_default_formatter: bool = True,
     ):
-        formatter = DefaultFormatter(
-            printreason=self.printreason,
-            show_failed_logs=self.show_failed_logs,
-            printshellcmds=self.printshellcmds,
-        )
-        filter = DefaultFilter(quiet=self.quiet, debug_dag=self.debug_dag)
-
-        # allow other stream handlers
-        if stream_handler is not None:
-            # check if passed in handler has formatter and filter
-            if not stream_handler.filters and use_default_filter:
-                stream_handler.addFilter(filter)
-            if not stream_handler.formatter and use_default_formatter:
-                stream_handler.setFormatter(formatter)
-        # fallback to default snakemake stream handler with default filterer and formatter
-        else:
+        """
+        Adds a stream handler. Checks if one already exists by the same name before adding.
+        """
+        if stream_handler is None:
             stream_handler = ColorizingTextHandler(
                 nocolor=self.nocolor,
                 stream=sys.stdout if self.stdout else sys.stderr,
                 mode=self.mode,
-                formatter=formatter,
-                filter=filter,
             )
+        if not stream_handler.filters and use_default_filter:
+            stream_handler.addFilter(self.filter)
+        if not stream_handler.formatter and use_default_formatter:
+            stream_handler.setFormatter(self.formatter)
+
         if not stream_handler.name:
             stream_handler.name = "DefaultStreamHandler"
 
-        # Remove existing stream handlers and add new one
-        for h in self.logger.handlers:
-            # check if already added this based on name
-            # plugins/external handlers get added twice otherwise, see: snakemake issue #2797
-            if h.name == stream_handler.name:
-                self.logger.removeHandler(h)
-                self.stream_handlers.remove(h)
+        # try to prevent multiple stream handlers. may need to revisit this.
+        if not any([getattr(h, "stream", False) for h in self.handlers]):
+            self.handlers.append(stream_handler)
 
-        self.stream_handlers.append(stream_handler)
-        # double check we dont have more than 1 logger writing to stdout/stderr
-        # the above removing should cover this case, but we check again
-        if len(self.stream_handlers) > 1:
-            raise ValueError("More than 1 stream logger specified!")
-        self.logger.addHandler(stream_handler)
+    def stop(self):
+        if self.queue_listener is not None:
+            self.queue_listener.stop()
 
     def configure_logger(
         self,
@@ -892,6 +657,9 @@ class LoggerManager:
     ):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
+        if self.initialized:
+            return
+
         for key, value in locals().items():
             if key != "self" and value is not None:
                 setattr(self, key, value)
@@ -901,6 +669,8 @@ class LoggerManager:
         # TODO: Think about if remote should be null handler too. Don't want remote logging to HTTP logger for example.
         if self.mode == ExecMode.SUBPROCESS:
             self.add_stream_handler(logging.NullHandler())
+        elif self.mode == ExecMode.REMOTE:
+            self.add_stream_handler()
         elif plugins:
             for plugin in plugins:
                 handler = plugin.create_handler(
@@ -923,9 +693,20 @@ class LoggerManager:
                         use_default_formatter=False,
                     )
                 else:
-                    self.logger.addHandler(handler)
+                    self.handlers.append(handler)
         else:
             self.add_stream_handler()
+
+        q = Queue(-1)
+        self.queue_listener = logging.handlers.QueueListener(
+            q,
+            *self.handlers,
+            respect_handler_level=True,
+        )
+        self.queue_listener.start()
+        self.logger.addHandler(logging.handlers.QueueHandler(q))
+        self.initialized = True
+
         self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
 
 

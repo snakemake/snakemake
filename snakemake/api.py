@@ -163,6 +163,7 @@ class SnakemakeApi(ApiBase):
             self._workflow_api._workdir_handler.change_back()
             if self._workflow_api._workflow_store is not None:
                 self._workflow_api._workflow_store.tear_down()
+        logger_manager.stop()
 
     def deploy_sources(
         self,
