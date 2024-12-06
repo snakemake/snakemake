@@ -58,8 +58,7 @@ from snakemake_interface_report_plugins.interfaces import (
     JobRecordInterface,
     FileRecordInterface,
 )
-from pathlib import Path
-from snakemake.common import is_local_file
+from snakemake.common import get_report_id
 from snakemake.exceptions import WorkflowError
 
 
@@ -358,6 +357,7 @@ class JobRecord(JobRecordInterface):
 class FileRecord(FileRecordInterface):
     path: Path
     job: Job
+    parent_path: Optional[Path] = None
     category: Optional[str] = None
     wildcards_overwrite: Optional[Wildcards] = None
     labels: Optional[dict] = None
@@ -378,10 +378,7 @@ class FileRecord(FileRecordInterface):
         logger.info(f"Adding {self.name} ({format_size(self.size)}).")
         self.mime, _ = mime_from_file(self.path)
 
-        h = hashlib.sha256()
-        h.update(str(self.path).encode())
-
-        self.id = h.hexdigest()
+        self.id = get_report_id(self.parent_path or self.path)
         self.wildcards = logging.format_wildcards(self.raw_wildcards)
         self.params = (
             logging.format_dict(self.job.params)
@@ -440,7 +437,10 @@ class FileRecord(FileRecordInterface):
 
     @property
     def filename(self):
-        return os.path.basename(self.path)
+        if self.parent_path is None:
+            return os.path.basename(self.path)
+        else:
+            return str(self.path.relative_to(self.parent_path))
 
     @property
     def workflow(self):
@@ -542,7 +542,7 @@ async def auto_report(
                 report_obj = get_flag_value(f, "report")
 
                 def register_file(
-                    f, wildcards_overwrite=None, aux_files=None, name_overwrite=None
+                    f, parent_path=None, wildcards_overwrite=None, aux_files=None, name_overwrite=None
                 ):
                     wildcards = wildcards_overwrite or job.wildcards
                     category = Category(
@@ -556,6 +556,7 @@ async def auto_report(
                     results[category][subcategory].append(
                         FileRecord(
                             path=Path(f),
+                            parent_path=Path(parent_path) if parent_path is not None else None,
                             job=job,
                             category=category,
                             raw_caption=report_obj.caption,
@@ -603,16 +604,24 @@ async def auto_report(
                                 rule=job.rule,
                             )
 
+                        found_something = False
                         for pattern in report_obj.patterns:
                             pattern = os.path.join(f, pattern)
                             wildcards = glob_wildcards(pattern)._asdict()
+                            found_something |= len(wildcards) > 0
                             names = wildcards.keys()
                             for w in zip(*wildcards.values()):
                                 w = dict(zip(names, w))
                                 w.update(job.wildcards_dict)
                                 w = Wildcards(fromdict=w)
-                                f = apply_wildcards(pattern, w)
-                                register_file(f, wildcards_overwrite=w)
+                                subfile = apply_wildcards(pattern, w)
+                                register_file(subfile, parent_path=f, wildcards_overwrite=w)
+                        if not found_something:
+                            logger.warning(
+                                "No files found for patterns given to report marker "
+                                "in rule {job.rule.name} for output {f}. Make sure "
+                                "that the patterns are correctly specified."
+                            )
                     else:
                         raise WorkflowError(
                             "Directory marked for report but neither file patterns "
