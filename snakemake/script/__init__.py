@@ -16,9 +16,10 @@ import typing
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from pathlib import Path
-from typing import List, Optional, Pattern, Tuple, Union, Self, Dict
+from typing import List, Optional, Pattern, Tuple, Union, Dict
 from urllib.error import URLError
 import urllib.parse
+from typing import TypeVar
 
 from snakemake import io as io_
 from snakemake import sourcecache
@@ -44,11 +45,15 @@ PathLike = Union[str, Path, os.PathLike]
 snakemake: "Snakemake"
 
 
+# For compatibility with Python <3.11 where typing.Self is not available.
+ReportHrefType = TypeVar('ReportHrefType', bound='ReportHref')
+
+
 class ReportHref:
     def __init__(
         self,
         path: Union[str, Path],
-        parent: Optional[Self] = None,
+        parent: Optional[ReportHrefType] = None,
         url_args: Optional[Dict[str, str]] = None,
         anchor: Optional[str] = None,
     ):
@@ -60,19 +65,19 @@ class ReportHref:
         # ensure that path is a url compatible string
         self._path = path if isinstance(path, str) else str(path.as_posix())
         self._url_args = (
-            {key: urllib.parse.quote(str(value)) for key, value in url_args.items()}
+            {key: value for key, value in url_args.items()}
             if url_args
             else {}
         )
-        self._anchor = urllib.parse.quote(anchor) if anchor else None
+        self._anchor = anchor
 
-    def child_path(self, path: Union[str, Path]) -> Self:
+    def child_path(self, path: Union[str, Path]) -> ReportHrefType:
         return ReportHref(path, parent=self)
 
-    def url_args(self, **args: str) -> Self:
+    def url_args(self, **args: str) -> ReportHrefType:
         return ReportHref(path=self._path, parent=self._parent, url_args=args)
 
-    def anchor(self, anchor: str) -> Self:
+    def anchor(self, anchor: str) -> ReportHrefType:
         return ReportHref(
             path=self._path, parent=self._parent, url_args=self._url_args, anchor=anchor
         )
@@ -82,7 +87,7 @@ class ReportHref:
         if self._url_args:
 
             def fmt_arg(key, value):
-                return f"{key}={urllib.parse.quote(value)}"
+                return f"{key}={urllib.parse.quote(str(value))}"
 
             args = f"?{'&'.join(fmt_arg(key, value) for key, value in self._url_args.items())}"
         else:
