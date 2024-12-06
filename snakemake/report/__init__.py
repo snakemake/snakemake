@@ -542,7 +542,11 @@ async def auto_report(
                 report_obj = get_flag_value(f, "report")
 
                 def register_file(
-                    f, parent_path=None, wildcards_overwrite=None, aux_files=None, name_overwrite=None
+                    f,
+                    parent_path=None,
+                    wildcards_overwrite=None,
+                    aux_files=None,
+                    name_overwrite=None,
                 ):
                     wildcards = wildcards_overwrite or job.wildcards
                     category = Category(
@@ -556,7 +560,9 @@ async def auto_report(
                     results[category][subcategory].append(
                         FileRecord(
                             path=Path(f),
-                            parent_path=Path(parent_path) if parent_path is not None else None,
+                            parent_path=(
+                                Path(parent_path) if parent_path is not None else None
+                            ),
                             job=job,
                             category=category,
                             raw_caption=report_obj.caption,
@@ -615,7 +621,9 @@ async def auto_report(
                                 w.update(job.wildcards_dict)
                                 w = Wildcards(fromdict=w)
                                 subfile = apply_wildcards(pattern, w)
-                                register_file(subfile, parent_path=f, wildcards_overwrite=w)
+                                register_file(
+                                    subfile, parent_path=f, wildcards_overwrite=w
+                                )
                         if not found_something:
                             logger.warning(
                                 "No files found for patterns given to report marker "

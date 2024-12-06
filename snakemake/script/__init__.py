@@ -45,7 +45,13 @@ snakemake: "Snakemake"
 
 
 class ReportHref:
-    def __init__(self, path: Union[str, Path], parent: Optional[Self] = None, url_args: Optional[Dict[str, str]] = None, anchor: Optional[str] = None):
+    def __init__(
+        self,
+        path: Union[str, Path],
+        parent: Optional[Self] = None,
+        url_args: Optional[Dict[str, str]] = None,
+        anchor: Optional[str] = None,
+    ):
         self._parent = parent
         if parent is None:
             self._id = get_report_id(path)
@@ -53,23 +59,31 @@ class ReportHref:
             self._id = parent._id
         # ensure that path is a url compatible string
         self._path = path if isinstance(path, str) else str(path.as_posix())
-        self._url_args = {key: urllib.parse.quote(str(value)) for key, value in url_args.items()} if url_args else {}
+        self._url_args = (
+            {key: urllib.parse.quote(str(value)) for key, value in url_args.items()}
+            if url_args
+            else {}
+        )
         self._anchor = urllib.parse.quote(anchor) if anchor else None
 
     def child_path(self, path: Union[str, Path]) -> Self:
         return ReportHref(path, parent=self)
-    
+
     def url_args(self, **args: str) -> Self:
         return ReportHref(path=self._path, parent=self._parent, url_args=args)
-    
+
     def anchor(self, anchor: str) -> Self:
-        return ReportHref(path=self._path, parent=self._parent, url_args=self._url_args, anchor=anchor)
+        return ReportHref(
+            path=self._path, parent=self._parent, url_args=self._url_args, anchor=anchor
+        )
 
     def __str__(self) -> str:
         path = os.path.basename(self._path) if self._parent is None else self._path
         if self._url_args:
+
             def fmt_arg(key, value):
                 return f"{key}={urllib.parse.quote(value)}"
+
             args = f"?{'&'.join(fmt_arg(key, value) for key, value in self._url_args.items())}"
         else:
             args = ""

@@ -254,6 +254,7 @@ def test_report():
         check_md5=False,
     )
 
+
 def test_report_href():
     run(dpath("test_report_href"))
 
