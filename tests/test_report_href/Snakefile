@@ -3,7 +3,7 @@ rule a:
         report("test.html"),
         report(
             "subdir",
-            patterns=["{name}.html"],
+            patterns=["subdir/{name}.html"],
         )
     output:
         report(
