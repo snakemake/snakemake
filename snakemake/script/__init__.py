@@ -46,7 +46,7 @@ snakemake: "Snakemake"
 
 
 # For compatibility with Python <3.11 where typing.Self is not available.
-ReportHrefType = TypeVar('ReportHrefType', bound='ReportHref')
+ReportHrefType = TypeVar("ReportHrefType", bound="ReportHref")
 
 
 class ReportHref:
@@ -65,9 +65,7 @@ class ReportHref:
         # ensure that path is a url compatible string
         self._path = path if isinstance(path, str) else str(path.as_posix())
         self._url_args = (
-            {key: value for key, value in url_args.items()}
-            if url_args
-            else {}
+            {key: value for key, value in url_args.items()} if url_args else {}
         )
         self._anchor = anchor
 
