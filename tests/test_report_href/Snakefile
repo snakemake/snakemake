@@ -1,0 +1,13 @@
+rule a:
+    input:
+        report("test.html"),
+        report(
+            "subdir",
+            patterns=["subdir/{name}.html"],
+        )
+    output:
+        report(
+            "test2.html",
+        )
+    script:
+        "test_script.py"
