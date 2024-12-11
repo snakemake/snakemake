@@ -36,8 +36,7 @@ class TemplateRenderer(ABC):
         }
 
     @abstractmethod
-    def render(self):
-        ...
+    def render(self): ...
 
 
 def render_template(engine, input, output, params, wildcards, config, rule):

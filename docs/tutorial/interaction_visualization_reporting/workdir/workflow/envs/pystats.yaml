@@ -1,0 +1,13 @@
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python =3.11
+  - polars =1.1
+  - altair =5.3
+  - altair_saver =0.5
+  - vegafusion =1.6
+  - vegafusion-python-embed =1.6
+  - vl-convert-python =1.5
+  - notebook =7.2
+  - ipykernel =6.29
