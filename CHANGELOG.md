@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.25.6](https://github.com/snakemake/snakemake/compare/v8.25.5...v8.25.6) (2024-12-11)
+
+
+### Bug Fixes
+
+* require current yte release which contains an important bug fix for cases where numpy/pandas data is passed to templates ([#3227](https://github.com/snakemake/snakemake/issues/3227)) ([c3339da](https://github.com/snakemake/snakemake/commit/c3339da35e04d82fb872e7cabec2fa6fd6e9f15c))
+
 ## [8.25.5](https://github.com/snakemake/snakemake/compare/v8.25.4...v8.25.5) (2024-11-29)
 
 
