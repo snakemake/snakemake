@@ -35,7 +35,7 @@ def subpath(
                 f"Obtained value: {repr(path)}"
             )
         if strip_suffix is not None:
-            path = path[:-len(strip_suffix)]
+            path = path[: -len(strip_suffix)]
         if basename:
             if parent or ancestor is not None:
                 raise WorkflowError(
