@@ -43,7 +43,10 @@ def branch(
 
     def do_branch_cases(wildcards):
         res = handle_callable(condition, wildcards)
-        selected_case = cases[res]
+        try:
+            selected_case = cases[res]
+        except KeyError as e:
+            raise KeyError(f"Key {res} not found in given cases of branch function")
         return handle_callable(selected_case, wildcards)
 
     do_branch = do_branch_then_otherwise
