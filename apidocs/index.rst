@@ -60,4 +60,4 @@ If you are looking for the Snakemake user documentation (for writing workflows o
 
     api_reference/snakemake_api
     api_reference/snakemake_utils
-    api_reference/internal/modules
+    Internal API <api_reference/internal/modules>

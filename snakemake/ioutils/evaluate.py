@@ -1,5 +1,6 @@
 from snakemake_interface_common.exceptions import WorkflowError
 
+
 def evaluate(expr: str):
     """Evaluate a python expression while replacing any wildcards given as
     {wildcardname} with the wildcard value represented as a string."""

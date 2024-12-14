@@ -51,22 +51,22 @@ class RuleItemProxy:
 
         if self.name == "output":
 
-            def inner(_wildcards, output):
+            def inner(wildcards, output):
                 return _get(output)
 
         elif self.name == "input":
 
-            def inner(_wildcards, input):
+            def inner(wildcards, input):
                 return _get(input)
 
         elif self.name == "params":
 
-            def inner(_wildcards, params):
+            def inner(wildcards, params):
                 return _get(params)
 
         elif self.name == "resources":
 
-            def inner(_wildcards, resources):
+            def inner(wildcards, resources):
                 return _get(resources)
 
         else:

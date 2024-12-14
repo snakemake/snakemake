@@ -38,3 +38,5 @@ It can be used as follows:
 
    snakemake.api
    snakemake.settings
+   snakemake.settings.enums
+   snakemake.settings.types

@@ -39,9 +39,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
-    "sphinxarg.ext",
     "sphinx.ext.autosectionlabel",
-    "myst_parser",
     "sphinxawesome_theme.highlighting",
 ]
 autosummary_generate = True
