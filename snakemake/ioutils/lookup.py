@@ -172,7 +172,7 @@ def lookup(
     if query is not None:
         if isinstance(within, Mapping):
             raise error(
-                msg=f"Query parameter can only be used with pandas DataFrame or Series objects."
+                msg="Query parameter can only be used with pandas DataFrame or Series objects."
             )
 
         import pandas as pd
