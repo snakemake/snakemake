@@ -11,7 +11,7 @@ def test_subpath():
 
     assert (
         subpath(lambda wildcards, input: "test.txt", strip_suffix=".txt")(
-            Wildcards(), InputFiles()
+            Wildcards(), input=InputFiles()
         )
         == "test"
     )
