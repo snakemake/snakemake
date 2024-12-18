@@ -110,6 +110,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         untilrules=None,
         omitfiles=None,
         omitrules=None,
+        anyoffiles=None,
+        anyofrules=None,
         ignore_incomplete=False,
     ):
         self._queue_input_jobs = None
@@ -154,6 +156,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.untilfiles = set()
         self.omitrules = set()
         self.omitfiles = set()
+        self.anyofrules = set()
+        self.anyoffiles = set()
         if forceall:
             self.forcerules.update(self.rules)
         elif forcerules:
@@ -168,6 +172,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             self.omitrules.update(set(rule.name for rule in omitrules))
         if omitfiles:
             self.omitfiles.update(omitfiles)
+        if anyofrules:
+            self.anyofrules.update(set(rule.name for rule in anyofrules))
+        if anyoffiles:
+            self.anyoffiles.update(anyoffiles)
 
         self.omitforce = set()
 
@@ -194,31 +202,59 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     async def init(self, progress=False):
         """Initialise the DAG."""
         for job in [await self.rule2job(rule) for rule in self.targetrules]:
-            job = await self.update([job], progress=progress, create_inventory=True)
-            self.targetjobs.add(job)
+            try:
+                job = await self.update([job], progress=progress, create_inventory=True)
+                self.targetjobs.add(job)
+            except (
+                MissingInputException,
+                WorkflowError,
+            ):
+                if not self.in_anyof(job):
+                    raise
+                else:
+                    logger.info("Skipping optional target %s because it could not be executed", job)
 
         for file in self.targetfiles:
-            job = await self.update(
-                await self.file2jobs(file),
-                file=file,
-                progress=progress,
-                create_inventory=True,
-            )
-            self.targetjobs.add(job)
+            tmpjob = await self.file2jobs(file)
+            try:
+                job = await self.update(
+                    tmpjob,
+                    file=file,
+                    progress=progress,
+                    create_inventory=True,
+                )
+                self.targetjobs.add(job)
+            except (
+                MissingInputException,
+                WorkflowError,
+            ):
+                if not self.in_anyof(tmpjob[0]):
+                    raise
+                else:
+                    logger.info("Skipping optional target file %s because it could not be created", file)
 
         for spec in self.workflow.dag_settings.target_jobs:
-            job = await self.update(
-                [
-                    await self.new_job(
-                        self.workflow.get_rule(spec.rulename),
-                        wildcards_dict=spec.wildcards_dict,
-                    )
-                ],
-                progress=progress,
-                create_inventory=True,
+            tmpjob = await self.new_job(
+                self.workflow.get_rule(spec.rulename),
+                wildcards_dict=spec.wildcards_dict,
             )
-            self.targetjobs.add(job)
-            self.forcefiles.update(job.output)
+
+            try:
+                job = await self.update(
+                    [tmpjob],
+                    progress=progress,
+                    create_inventory=True,
+                )
+                self.targetjobs.add(job)
+                self.forcefiles.update(job.output)
+            except (
+                MissingInputException,
+                WorkflowError,
+            ):
+                if not self.in_anyof(tmpjob):
+                    raise
+                else:
+                    logger.info("Skipping optional job %s because it could not be executed", tmpjob)
 
         self.cleanup()
 
@@ -1448,6 +1484,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def in_omitfrom(self, job):
         """Return whether given job has been specified via --omit-from."""
         return job.rule.name in self.omitrules or not self.omitfiles.isdisjoint(
+            job.output
+        )
+
+    def in_anyof(self, job):
+        """Return whether given job has been specified via --any-of."""
+        return job.rule.name in self.anyofrules or not self.anyoffiles.isdisjoint(
             job.output
         )
 
