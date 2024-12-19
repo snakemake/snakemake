@@ -1,0 +1,6 @@
+rule default:
+    output:
+        "test.out",
+    run:
+        with open(output[0], "w") as f:
+            f.write("hello there")
