@@ -30,6 +30,12 @@ jobs:
         run: |
           cd docs
           make html SPHINXOPTS="-W --keep-going -n"
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: docs/_build/html/
+  
   apidocs:
     runs-on: ubuntu-latest
     steps:
@@ -49,3 +55,9 @@ jobs:
         run: |
           cd apidocs
           make html SPHINXOPTS="-W --keep-going -n"
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: apidocs-html
+          path: docs/_build/html/

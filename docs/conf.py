@@ -145,56 +145,6 @@ html_theme_options = {
     "show_prev_next": False,
 }
 html_permalinks_icon = Icons.permalinks_icon
-# html_theme_options = {
-#     "show_nav_level": 2,
-#     "header_links_before_dropdown": 0,
-#     "external_links": [
-#     {
-#         "text": "Snakemake plugin catalog",
-#         "alt": "Snakemake plugin catalog",
-#         "href": "https://snakemake.github.io/snakemake-plugin-catalog",
-#     },
-#     {
-#         "text": "Snakemake workflow catalog",
-#         "alt": "Snakemake workflow catalog",
-#         "href": "https://snakemake.github.io/snakemake-workflow-catalog",
-#     },
-#     {
-#         "text": "Snakemake wrappers",
-#         "alt": "Snakemake wrappers",
-#         "href": "https://snakemake-wrappers.readthedocs.io",
-#         },
-#     ],
-# }
-# html_theme_options = {
-#     "primary_color": "emerald",
-#     "secondary_color": "emerald",
-#     "dark_logo": "logo-snake.svg",
-#     "light_logo": "logo-snake.svg",
-#     "navigation_style": "plain",
-#     "sidebar_links": [
-#         {
-#             "text": "Snakemake plugin catalog",
-#             "alt": "Snakemake plugin catalog",
-#             "href": "https://snakemake.github.io/snakemake-plugin-catalog",
-#         },
-#         {
-#             "text": "Snakemake workflow catalog",
-#             "alt": "Snakemake workflow catalog",
-#             "href": "https://snakemake.github.io/snakemake-workflow-catalog",
-#         },
-#         {
-#             "text": "Snakemake wrappers",
-#             "alt": "Snakemake wrappers",
-#             "href": "https://snakemake-wrappers.readthedocs.io",
-#         },
-#     ],
-# }
-
-# Theme options are theme-specific and customize the look and feel of a theme
-# further.  For a list of options available for each theme, see the
-# documentation.
-# html_theme_options = {}
 
 # Add any paths that contain custom themes here, relative to this directory.
 # html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
