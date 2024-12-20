@@ -12,14 +12,6 @@ snakemake.executors.dryrun module
    :undoc-members:
    :show-inheritance:
 
-snakemake.executors.google\_lifesciences\_helper module
--------------------------------------------------------
-
-.. automodule:: snakemake.executors.google_lifesciences_helper
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 snakemake.executors.local module
 --------------------------------
 
