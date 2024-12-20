@@ -1129,7 +1129,7 @@ From the Python perspective, they can be seen as optional keyword arguments with
 Their order does not matter, apart from the fact that ``wildcards`` has to be the first argument.
 In the example above, this allows you to derive the prefix name from the output file.
 
-.. _snakefiles-plain-python:
+.. _snakefiles-plain-python-rules:
 
 Plain python rules
 ------------------
