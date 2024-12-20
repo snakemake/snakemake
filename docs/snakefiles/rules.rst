@@ -215,7 +215,7 @@ Helpers for defining rules
 --------------------------
 
 Snakemake provides a number of helpers that can be used to define rules and drastically simplify over using 
-:ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`_.
+:ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`.
 Below, we will first start with describing two basic helper functions for specifying aggregations and multiple output files.
 Afterwards, we will further show a set of semantic helper functions should increase readability and simplify code (see :ref:`snakefiles-semantic-helpers`).
 
