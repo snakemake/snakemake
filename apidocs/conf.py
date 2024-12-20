@@ -98,7 +98,7 @@ release = version
 # directories to ignore when looking for source files.
 exclude_patterns = ["_build"]
 
-nitpick_ignore = [('py:class', 'type')]
+nitpick_ignore_regex = [('py:class', r".*")]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
