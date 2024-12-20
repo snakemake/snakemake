@@ -16,27 +16,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
       - name: Setup doc dependencies
         run: |
-          pip install -f docs/requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r docs/requirements.txt
       
       - name: Build docs
         run: |
           cd docs
-          make html
-
+          make html SPHINXOPTS="-W --keep-going -n"
   apidocs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
       - name: Setup doc dependencies
         run: |
-          pip install -f apidocs/requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r apidocs/requirements.txt
           pip install -e .
       
       - name: Build docs
         run: |
           cd apidocs
-          make html
+          make html SPHINXOPTS="-W --keep-going -n"
