@@ -4,7 +4,6 @@ from typing import Callable, Optional, Union
 
 from snakemake.common import get_function_params, overwrite_function_params
 from snakemake.io import is_callable
-from snakemake_interface_common.exceptions import WorkflowError
 
 
 def subpath(
@@ -29,28 +28,32 @@ def subpath(
         if isinstance(path, Path):
             path = str(path)
         if not isinstance(path, str):
-            raise WorkflowError(
+            raise ValueError(
                 "Value passed to subpath "
                 "must be a single string or pathlib.Path (or a function returning those). "
                 f"Obtained value: {repr(path)}"
             )
         if strip_suffix is not None:
+            if not path.endswith(strip_suffix):
+                raise ValueError(
+                    f"Path {path} does not end with the specified suffix {strip_suffix}"
+                )
             path = path[: -len(strip_suffix)]
         if basename:
             if parent or ancestor is not None:
-                raise WorkflowError(
+                raise ValueError(
                     "basename cannot be used together with parent or ancestor"
                 )
             path = os.path.basename(path)
         elif parent:
             if ancestor is not None:
-                raise WorkflowError("parent cannot be used together with ancestor")
+                raise ValueError("parent cannot be used together with ancestor")
             path = os.path.dirname(path)
             if path == "":
                 path = "."
         elif ancestor is not None:
             if ancestor < 1:
-                raise WorkflowError("ancestor must be greater than 0")
+                raise ValueError("ancestor must be greater than 0")
             for _ in range(ancestor):
                 path = os.path.dirname(path)
                 if path == "":

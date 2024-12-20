@@ -565,7 +565,25 @@ can be written. If such a function is passed to e.g. a resource statement,
 Snakemake knows that this resource shall be evaluated by passing the input files in addition to the wildcards (which are always required as first argument for any such function).
 To simplify such logic for certain situations, Snakemake provides globally available objects
 ``input``, ``output``, ``resources``, and ``threads`` that can be used to replace the corresponding function definitions.
-For example, ``input.foo`` returns a function pointer that is equivalent to the pointer ``get_file_foo_from_input`` referring to the function above.
+For example, ``input.foo`` returns a function that is equivalent to ``get_file_foo_from_input`` (the function above).
+
+.. _snakefiles-subpath:
+
+Sub-path access
+"""""""""""""""
+
+In some cases, it is useful to access a sub-path of an input or output file or directory.
+For this purpose, Snakemake provides the ``subpath`` function.
+It has the signature ``subpath(path_or_func, strip_suffix=None, basename=False, parent=False, ancestor=None)``.
+If a path is given as first argument (of type ``str`` or ``pathlib.Path``), the function directly returns the sub-path of the given path.
+Thereby, the sub-path is determined depending on the other arguments.
+
+* If a ``str`` is given to ``strip_suffix``, this suffix is stripped from the path before determining the sub-path (a ``ValueError`` error is thrown if the path does not have the suffix).
+* If ``basename`` is set to ``True``, the basename of the path is returned (e.g. ``test.txt`` in case the path is ``results/test.txt``).
+* If ``parent`` is set to ``True``, the parent directory of the path is returned (e.g. ``results`` in case the path is ``results/test.txt``).
+* If ``ancestor`` is set to an integer greater than 0, the ancestor directory at the given level is returned (e.g. ``results`` in case the path is ``results/foo/test.txt`` and ``ancestor=2``).
+
+The arguments ``basename``, ``parent``, and ``ancestor`` are mutually exclusive.
 
 .. _snakefiles-targets:
 
