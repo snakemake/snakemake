@@ -147,7 +147,7 @@ Resources
 
 .. toctree::
   :caption: Executing workflows
-  :name: execution
+  :name: execution-toctree
   :hidden:
   :maxdepth: 1
 
