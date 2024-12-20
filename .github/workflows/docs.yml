@@ -6,11 +6,6 @@ on:
       - main
   pull_request:
 
-concurrency:
-  # Cancel concurrent flows on PRs
-  group: ci-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
 jobs:
   docs:
     runs-on: ubuntu-latest
