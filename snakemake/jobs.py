@@ -1143,7 +1143,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         handle_log: bool = True,
         handle_touch: bool = True,
         error: bool = False,
-        ignore_missing_output: bool = False,
+        ignore_missing_output: Union[List[_IOFile], bool] = False,
         check_output_mtime: bool = True,
     ):
         if self.dag.is_draft_notebook_job(self):
@@ -1534,6 +1534,33 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             await job.cleanup()
 
     async def postprocess(self, error=False, **kwargs):
+        def needed(job_, f):
+            # Files that are targetfiles, non-temp files, or temp files that
+            # are needed by other unfinished jobs outside of this group
+            # are still needed. Other files can be missing.
+            return (
+                f in self.dag.targetfiles
+                or not is_flagged(f, "temp")
+                or any(
+                    f in files
+                    for j, files in self.dag.depending[job_].items()
+                    if (
+                        not self.dag.finished(j)
+                        and self.dag.needrun(j)
+                        and j not in self.jobs
+                    )
+                )
+            )
+
+        # ignore missing output if the output is not needed outside of this group
+        if not kwargs.get("ignore_missing_output", False):
+            kwargs["ignore_missing_output"] = [
+                f
+                for j in self.jobs
+                for f in j.output
+                if is_flagged(f, "temp") and not needed(j, f)
+            ]
+
         # Iterate over jobs in toposorted order (see self.__iter__) to
         # ensure that outputs are touched in correct order.
         for i, level in enumerate(self.toposorted):
