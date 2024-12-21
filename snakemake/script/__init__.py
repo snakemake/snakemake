@@ -5,6 +5,10 @@ __license__ = "MIT"
 
 import collections
 import itertools
+import math
+import os
+from numbers import Integral, Real, Complex, Number
+from collections.abc import Iterable
 import json
 import os
 import pickle
@@ -259,24 +263,37 @@ class REncoder:
     def encode_numeric(cls, value):
         if value is None:
             return "as.numeric(NA)"
-        return str(value)
+        elif isinstance(value, Integral):
+            return f"{value}L"
+        elif isinstance(value, Real):
+            if value == float("inf"):
+                return "Inf"
+            elif value == float("-inf"):
+                return "-Inf"
+            elif math.isnan(value):
+                return "NaN"
+            else:
+                return f"{value}"
+        elif isinstance(value, Complex):
+            return f"{cls.encode_numeric(value.real)}+{cls.encode_numeric(value.imag)}i"
+        else:
+            raise ValueError("Value is not a proper number")
 
     @classmethod
     def encode_value(cls, value):
         if value is None:
             return "NULL"
+        elif isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        elif isinstance(value, (int, float, complex)):
+            return cls.encode_numeric(value)
         elif isinstance(value, str):
             return repr(value)
         elif isinstance(value, Path):
             return repr(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
-        elif isinstance(value, bool):
-            return "TRUE" if value else "FALSE"
-        elif isinstance(value, int) or isinstance(value, float):
-            return str(value)
-        elif isinstance(value, Iterable):
-            # convert all iterables to vectors
+        elif isinstance(value, collections.abc.Iterable):
             return cls.encode_list(value)
         else:
             # Try to convert from numpy if numpy is present
@@ -284,7 +301,7 @@ class REncoder:
                 import numpy as np
 
                 if isinstance(value, np.number):
-                    return str(value)
+                    return cls.encode_numeric(value.item())
                 elif isinstance(value, np.bool_):
                     return "TRUE" if value else "FALSE"
             except ImportError:
@@ -293,7 +310,22 @@ class REncoder:
 
     @classmethod
     def encode_list(cls, l):
-        return "c({})".format(", ".join(map(cls.encode_value, l)))
+        """Encode as vector if the type is homogeneous, otherwise use a list."""
+        is_homogeneous = False
+        if len(l) == 0:
+            # An empty list is always homogeneous
+            is_homogeneous = True
+        else:
+            # Numbers of different type can be stored in the same vector,
+            # casting without information loss is acceptable (e.g. int -> float)
+            for vector_type in (Number, bool, str, bytes):
+                if all([isinstance(e, vector_type) for e in l]):
+                    is_homogeneous = True
+
+        if is_homogeneous:
+            return "c({})".format(", ".join(map(cls.encode_value, l)))
+        else:
+            return "list({})".format(", ".join(map(cls.encode_value, l)))
 
     @classmethod
     def encode_items(cls, items):

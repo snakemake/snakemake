@@ -18,7 +18,17 @@ rule:
     output:
         txt="test.out"
     params:
-        xy=True
+        null_param=None,
+        logical_param=True,
+        integer_param=123,
+        double_param=123.0,
+        nan_param=float("NaN"),
+        inf_param=float("Inf"),
+        neginf_param=float("-Inf"),
+        complex_param=complex(1,2),
+        character_param="abc",
+        vector_param=[1, 2, 3],
+        list_param=[True, 123, "abc"],
     conda:
         "envs/r.yaml"
     script:
