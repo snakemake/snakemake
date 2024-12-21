@@ -14,6 +14,7 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
+import time
 from typing import Iterable, List, Optional
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
@@ -1117,11 +1118,12 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
 
     async def postprocess(
         self,
-        store_in_storage=True,
-        handle_log=True,
-        handle_touch=True,
-        error=False,
-        ignore_missing_output=False,
+        store_in_storage: bool = True,
+        handle_log: bool = True,
+        handle_touch: bool = True,
+        error: bool = False,
+        ignore_missing_output: bool = False,
+        check_output_mtime: bool = True,
     ):
         if self.dag.is_draft_notebook_job(self):
             # no output produced but have to delete incomplete marker
@@ -1154,6 +1156,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                         ignore_missing_output=ignore_missing_output,
                         # storage not yet handled, just require the local files
                         wait_for_local=True,
+                        check_output_mtime=check_output_mtime,
                     )
                 self.dag.unshadow_output(self, only_log=error)
 
@@ -1186,19 +1189,17 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             self.dag.workflow.persistence.cleanup(self)
             raise e
 
-        if not error:
-            try:
-                await self.dag.workflow.persistence.finished(self)
-            except IOError as e:
-                raise WorkflowError(
-                    "Error recording metadata for finished job "
-                    "({}). Please ensure write permissions for the "
-                    "directory {}".format(e, self.dag.workflow.persistence.path)
-                )
+        try:
+            await self.dag.workflow.persistence.finished(self)
+        except IOError as e:
+            raise WorkflowError(
+                "Error recording metadata for finished job "
+                "({}). Please ensure write permissions for the "
+                "directory {}".format(e, self.dag.workflow.persistence.path)
+            )
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
             await self.cleanup()
-            self.dag.workflow.persistence.cleanup(self)
 
     @property
     def name(self):
@@ -1514,13 +1515,22 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     async def postprocess(self, error=False, **kwargs):
         # Iterate over jobs in toposorted order (see self.__iter__) to
         # ensure that outputs are touched in correct order.
-        for level in self.toposorted:
+        for i, level in enumerate(self.toposorted):
+            if i > 0:
+                # Wait a bit to ensure that subsequent levels really have distinct
+                # modification times.
+                await asyncio.sleep(0.1)
             async with asyncio.TaskGroup() as tg:
                 for job in level:
                     # postprocessing involves touching output files (to ensure that
                     # modification times are always correct. This has to happen in
                     # topological order, such that they are not mixed up.
-                    tg.create_task(job.postprocess(error=error, **kwargs))
+                    # We have to disable output mtime checks here
+                    # (at least for now), because they interfere with the update of
+                    # intermediate file mtimes that might happen in previous levels.
+                    tg.create_task(
+                        job.postprocess(error=error, check_output_mtime=False, **kwargs)
+                    )
         # remove all pipe and service outputs since all jobs of this group are done and the
         # outputs are no longer needed
         for job in self.jobs:

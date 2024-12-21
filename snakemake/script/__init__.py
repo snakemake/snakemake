@@ -844,10 +844,13 @@ class RScript(ScriptBase):
             bench_iteration = {},
             scriptdir = {},
             source = function(...){{
-                wd <- getwd()
-                setwd(snakemake@scriptdir)
-                source(...)
-                setwd(wd)
+                old_wd <- getwd()
+                on.exit(setwd(old_wd), add = TRUE)
+            
+                is_url <- grepl("^https?://", snakemake@scriptdir)
+                file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
+                if (!is_url) setwd(snakemake@scriptdir)
+                source(file)
             }}
         )
         {preamble_addendum}
@@ -954,10 +957,13 @@ class RMarkdown(ScriptBase):
             bench_iteration = {},
             scriptdir = {},
             source = function(...){{
-                wd <- getwd()
-                setwd(snakemake@scriptdir)
-                source(...)
-                setwd(wd)
+                old_wd <- getwd()
+                on.exit(setwd(old_wd), add = TRUE)
+            
+                is_url <- grepl("^https?://", snakemake@scriptdir)
+                file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
+                if (!is_url) setwd(snakemake@scriptdir)
+                source(file)
             }}
         )
 
@@ -1294,7 +1300,7 @@ class RustScript(ScriptBase):
         deps = self.default_dependencies()
         ftrs = self.default_features()
         self._execute_cmd(
-            "rust-script -d {deps} --features {ftrs} {fname:q} ",
+            "rust-script -d {deps} {fname:q} -- --features {ftrs}",
             fname=fname,
             deps=deps,
             ftrs=ftrs,
@@ -1313,9 +1319,9 @@ class RustScript(ScriptBase):
         return " -d ".join(
             [
                 "anyhow=1",
-                "serde_json=1",
-                "serde=1",
-                "serde_derive=1",
+                "serde_json=1.0",
+                "serde=1.0",
+                "serde_derive=1.0",
                 "lazy_static=1.4",
                 "json_typegen=0.6",
                 "gag=1",
