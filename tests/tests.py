@@ -2319,3 +2319,10 @@ def test_checkpoint_open():
 
 def test_toposort():
     run(dpath("test_toposort"), check_results=False, executor="dryrun")
+
+
+def test_failed_intermediate():
+    path = dpath("test_failed_intermediate")
+    tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
+    run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
+    run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
