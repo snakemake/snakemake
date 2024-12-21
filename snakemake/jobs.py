@@ -1189,19 +1189,17 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             self.dag.workflow.persistence.cleanup(self)
             raise e
 
-        if not error:
-            try:
-                await self.dag.workflow.persistence.finished(self)
-            except IOError as e:
-                raise WorkflowError(
-                    "Error recording metadata for finished job "
-                    "({}). Please ensure write permissions for the "
-                    "directory {}".format(e, self.dag.workflow.persistence.path)
-                )
+        try:
+            await self.dag.workflow.persistence.finished(self)
+        except IOError as e:
+            raise WorkflowError(
+                "Error recording metadata for finished job "
+                "({}). Please ensure write permissions for the "
+                "directory {}".format(e, self.dag.workflow.persistence.path)
+            )
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
             await self.cleanup()
-            self.dag.workflow.persistence.cleanup(self)
 
     @property
     def name(self):
