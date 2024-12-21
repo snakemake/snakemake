@@ -15,7 +15,7 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Union
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings.types import DeploymentMethod
