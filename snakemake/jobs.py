@@ -625,7 +625,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             # parse wildcards and params to get the correct script name
             path = format(path, wildcards=self.wildcards, params=self.params)
         path = infer_source_file(path)
-        if is_local_file(path) and self.rule.basedir:
+        if isinstance(path, LocalSourceFile) and self.rule.basedir:
             # needed if rule is included from another subdirectory
             path = self.rule.basedir.join(path)
 
