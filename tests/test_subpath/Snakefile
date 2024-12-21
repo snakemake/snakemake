@@ -1,0 +1,11 @@
+rule all:
+    input:
+        "results/foo/bar/b.txt"
+
+rule a:
+    output:
+        test="results/foo/bar/{sample}.txt",
+    params:
+        prefix=subpath(output.test, ancestor=2)
+    shell:
+        "echo {params.prefix} > {output}"
