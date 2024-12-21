@@ -12,6 +12,8 @@ import tempfile
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from snakemake.deployment.conda import get_env_setup_done_flag_file
+from snakemake.persistence import Persistence
 from snakemake.resources import DefaultResources, GroupResources
 from snakemake.settings.enums import RerunTrigger
 
@@ -237,6 +239,17 @@ def test_ancient():
     run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
+def test_ancient_cli():
+    run(
+        dpath("test_ancient_cli"),
+        shellcmd="snakemake --consider-ancient A=0 B=x",
+    )
+
+
+def test_subpath():
+    run(dpath("test_subpath"))
+
+
 def test_report():
     run(
         dpath("test_report"),
@@ -260,6 +273,13 @@ def test_report_display_code():
 
 def test_params():
     run(dpath("test_params"))
+
+
+def test_params_outdated_metadata(mocker):
+    spy = mocker.spy(Persistence, "has_outdated_metadata")
+
+    run(dpath("test_params_outdated_code"), targets=["somedir/test.out"])
+    assert spy.spy_return == True
 
 
 def test_same_wildcard():
@@ -397,6 +417,16 @@ def test_script_python():
     run(dpath("test_script_py"))
 
 
+@skip_on_windows
+@conda
+def test_script_rs():
+    run(
+        dpath("test_script_rs"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
+
+
 @skip_on_windows  # Test relies on perl
 def test_shadow():
     run(dpath("test_shadow"))
@@ -445,12 +475,17 @@ def test_omitfrom():
     )  # wildcard rule
 
 
+@skip_on_windows  # paths are different on windows ('/' vs. '\')
 def test_nonstr_params():
-    run(dpath("test_nonstr_params"))
+    run(dpath("test_nonstr_params"), benchmark_extended=True)
 
 
 def test_delete_output():
     run(dpath("test_delete_output"), cores=1)
+
+
+def test_params_pickling():
+    run(dpath("test_params_pickling"))
 
 
 def test_input_generator():
@@ -495,7 +530,7 @@ def test_conda_create_envs_only():
         (p for p in Path(tmpdir, ".snakemake", "conda").iterdir() if p.is_dir()), None
     )
     assert env_dir is not None
-    assert Path(env_dir, "env_setup_done").exists()
+    assert get_env_setup_done_flag_file(Path(env_dir)).exists()
     shutil.rmtree(tmpdir)
 
 
@@ -546,7 +581,11 @@ def test_conda_cmd_exe():
 @skip_on_windows  # wrappers are for linux and macos only
 @conda
 def test_wrapper():
-    run(dpath("test_wrapper"), deployment_method={DeploymentMethod.CONDA})
+    run(
+        dpath("test_wrapper"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
 
 
 @skip_on_windows  # wrappers are for linux and macos only
@@ -565,6 +604,7 @@ def test_wrapper_local_git_prefix():
             dpath("test_wrapper"),
             deployment_method={DeploymentMethod.CONDA},
             wrapper_prefix=f"git+file://{tmpdir}",
+            check_md5=False,
         )
 
 
@@ -620,6 +660,8 @@ def test_format_wildcards():
 
 def test_with_parentheses():
     run(dpath("test (with parenthese's)"))
+
+    run(dpath("test_path with spaces"))
 
 
 def test_dup_out_patterns():
@@ -762,6 +804,15 @@ def test_run_namedlist():
 
 def test_profile():
     run(dpath("test_profile"))
+
+    from snakemake.profiles import ProfileConfigFileParser
+
+    grouped_profile = Path(dpath("test_profile")) / "config.yaml"
+    with grouped_profile.open("r") as f:
+        parser = ProfileConfigFileParser()
+        result = parser.parse(f)
+        assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
+        assert result["group-components"] == list(["grp1=5"])
 
 
 @skip_on_windows
@@ -2265,3 +2316,17 @@ def test_checkpoint_open():
         default_storage_provider="fs",
         default_storage_prefix="storage",
     )
+
+
+def test_toposort():
+    run(dpath("test_toposort"), check_results=False, executor="dryrun")
+
+
+@skip_on_windows  # OS agnostic
+def test_failed_intermediate():
+    # see https://github.com/snakemake/snakemake/pull/2966#issuecomment-2558133016
+    # fix was to also write job metadata (persistence.finished(job)) in case of errors
+    path = dpath("test_failed_intermediate")
+    tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
+    run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
+    run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)

@@ -77,6 +77,21 @@ from snakemake.settings.types import ChangeType, Batch
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
 
+def toposort(graph):
+    from graphlib import TopologicalSorter
+
+    sorter = TopologicalSorter(graph)
+    sorter.prepare()
+    sorted = list()
+    while sorter.is_active():
+        ready = set()
+        for task in sorter.get_ready():
+            ready.add(task)
+            sorter.done(task)
+        sorted.append(ready)
+    return sorted
+
+
 class DAG(DAGExecutorInterface, DAGReportInterface):
     """Directed acyclic graph of jobs."""
 
@@ -449,7 +464,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
         for env in self.conda_envs.values():
-            if (not dryrun or not quiet) and not env.is_named:
+            if (not dryrun or not quiet) and not env.is_externally_managed:
                 env.create(self.workflow.dryrun)
 
     def update_container_imgs(self):
@@ -507,6 +522,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def is_edit_notebook_job(self, job):
         return (
             self.workflow.execution_settings.edit_notebook
+            and job.targetfile in self.targetfiles
+        )
+
+    def is_draft_notebook_job(self, job):
+        return (
+            self.workflow.execution_settings.edit_notebook
+            and self.workflow.execution_settings.edit_notebook.draft_only
             and job.targetfile in self.targetfiles
         )
 
@@ -655,11 +677,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def check_and_touch_output(
         self,
-        job,
-        wait=3,
-        ignore_missing_output=False,
-        no_touch=False,
-        wait_for_local=True,
+        job: Job,
+        wait: int = 3,
+        ignore_missing_output: bool = False,
+        no_touch: bool = False,
+        wait_for_local: bool = True,
+        check_output_mtime: bool = True,
     ):
         """Raise exception if output files of job are missing."""
         # do not touch output in storage. This is done before by the touch executor.
@@ -711,7 +734,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 if await output_path.exists_local():
                     output_path.touch()
 
-        if wait_for_local:
+        if wait_for_local and check_output_mtime:
             await self.check_output_mtime(job, expanded_output)
 
     async def check_output_mtime(
@@ -1285,11 +1308,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
 
+                            # The list comprehension is needed below in order to
+                            # collect all the async generator items before
+                            # applying any().
+                            reason.code_changed = any(
+                                [
+                                    f
+                                    async for f in job.outputs_older_than_script_or_notebook()
+                                ]
+                            )
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
                             else:
+                                if self.workflow.persistence.has_outdated_metadata(job):
+                                    reason.outdated_metadata = True
                                 if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
-                                    reason.params_changed = any(
+                                    reason.params_changed = (
                                         self.workflow.persistence.params_changed(job)
                                     )
                                 if RerunTrigger.INPUT in self.workflow.rerun_triggers:
@@ -1297,15 +1331,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                         self.workflow.persistence.input_changed(job)
                                     )
                                 if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                                    # The list comprehension is needed below in order to
-                                    # collect all the async generator items before
-                                    # applying any().
-                                    reason.code_changed = any(
-                                        [
-                                            f
-                                            async for f in job.outputs_older_than_script_or_notebook()
-                                        ]
-                                    ) or any(
+                                    reason.code_changed |= any(
                                         self.workflow.persistence.code_changed(job)
                                     )
                                 if (
@@ -1313,9 +1339,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                     in self.workflow.rerun_triggers
                                 ):
                                     reason.software_stack_changed = any(
-                                        self.workflow.persistence.conda_env_changed(job)
-                                    ) or any(
-                                        self.workflow.persistence.container_changed(job)
+                                        self.workflow.persistence.software_stack_changed(
+                                            job
+                                        )
                                     )
 
             if noinitreason and reason:
@@ -2299,11 +2325,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         node2style=lambda node: "rounded",
         node2label=lambda node: node,
     ):
-        # color rules
-        huefactor = 2 / (3 * len(self.rules))
+        # color the rules - sorting by name first gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
         rulecolor = {
             rule: "{:.2f} 0.6 0.85".format(i * huefactor)
-            for i, rule in enumerate(self.rules)
+            for i, rule in enumerate(rules)
         }
 
         # markup
@@ -2368,10 +2395,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
             )
 
-        huefactor = 2 / (3 * len(self.rules))
+        # Sorting the rules by name before assigning colors gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
         rulecolor = {
             rule: hsv_to_htmlhexrgb(i * huefactor, 0.6, 0.85)
-            for i, rule in enumerate(self.rules)
+            for i, rule in enumerate(rules)
         }
 
         def resolve_input_functions(input_files):
@@ -2742,8 +2771,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         yield ""
 
     def toposorted(self, jobs=None, inherit_pipe_dependencies=False):
-        from toposort import toposort
-
         if jobs is None:
             jobs = set(self.jobs)
 
