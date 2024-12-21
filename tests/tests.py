@@ -246,6 +246,10 @@ def test_ancient_cli():
     )
 
 
+def test_subpath():
+    run(dpath("test_subpath"))
+
+
 def test_report():
     run(
         dpath("test_report"),

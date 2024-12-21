@@ -39,9 +39,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
-    "sphinxarg.ext",
     "sphinx.ext.autosectionlabel",
-    "myst_parser",
     "sphinxawesome_theme.highlighting",
 ]
 autosummary_generate = True
@@ -99,6 +97,13 @@ release = version
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 exclude_patterns = ["_build"]
+
+nitpick_ignore_regex = [
+    ("py:class", r".*"),
+    ("py:data", r".*"),
+    ("py:exc", r".*"),
+    ("py:obj", r".*"),
+]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
