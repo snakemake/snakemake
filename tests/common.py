@@ -237,6 +237,7 @@ def run(
 
     results_dir = join(path, "expected-results")
     original_snakefile = join(path, snakefile)
+    original_dirname = os.path.basename(os.path.dirname(original_snakefile))
     assert os.path.exists(original_snakefile)
     if check_results:
         assert os.path.exists(results_dir) and os.path.isdir(
@@ -245,7 +246,9 @@ def run(
 
     # If we need to further check results, we won't cleanup tmpdir
     tmpdir = next(tempfile._get_candidate_names())
-    tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
+    tmpdir = os.path.join(
+        tempfile.gettempdir(), f"snakemake-{original_dirname}-{tmpdir}"
+    )
     os.mkdir(tmpdir)
 
     config = dict(config)
