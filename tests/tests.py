@@ -2318,6 +2318,11 @@ def test_checkpoint_open():
     )
 
 
+@skip_on_windows  # OS agnostic
+def test_r_script_inf():
+    run(dpath("test_r_script_inf"), deployment_method={DeploymentMethod.CONDA})
+
+
 def test_toposort():
     run(dpath("test_toposort"), check_results=False, executor="dryrun")
 
