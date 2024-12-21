@@ -1,0 +1,8 @@
+rule a:
+    output:
+        "result/{sample}.txt"
+    shell:
+        "echo rule-a-{wildcards.sample} > {output}"
+
+wildcard_constraints:
+    sample = "a"

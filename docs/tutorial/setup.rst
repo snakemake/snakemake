@@ -13,7 +13,7 @@ Setup
 .. _BCFtools: https://www.htslib.org
 .. _Pandas: https://pandas.pydata.org
 .. _Miniconda: https://conda.pydata.org/miniconda.html
-.. _Mambaforge: https://github.com/conda-forge/miniforge#mambaforge
+.. _Miniforge: https://github.com/conda-forge/miniforge
 .. _Mamba: https://github.com/mamba-org/mamba
 .. _Conda: https://conda.pydata.org
 .. _Bash: https://www.tldp.org/LDP/Bash-Beginners-Guide/html
@@ -55,26 +55,30 @@ However, don't install any of these this manually now, we guide you through bett
 Run tutorial for free in the cloud via Gitpod
 :::::::::::::::::::::::::::::::::::::::::::::
 
-.. sidebar:: Note
+.. note::
 
     A common thing to happen while using the development environment in GitPod is to hit ``Ctrl-s`` while in the terminal window, because you wanted to save a file in the editor window.
     This will freeze up you terminal.
     To get it back, make sure you selected the terminal window by clicking on it and then hit ``Ctrl-q``.
 
-The easiest way to run this tutorial is to use Gitpod, which enables performing the excercises via your browser---including all required software, for free and in the cloud.
+The easiest way to run this tutorial is to use Gitpod, which enables performing the exercises via your browser---including all required software, for free and in the cloud.
 In order to do this, simply open the predefined `snakemake-tutorial GitPod workspace <https://gitpod.io/#https://github.com/snakemake/snakemake-tutorial-data>`_ in your browser.
 GitPod provides you with a `Theia development environment <https://theia-ide.org/docs>`_, which you can learn about in the linked documentation.
-Once you have a basic understanding of this environment, you can go on directy with :ref:`tutorial-basics`.
+Once you have a basic understanding of this environment, you can go on directly with :ref:`tutorial-basics`.
 
 Running the tutorial on your local machine
 ::::::::::::::::::::::::::::::::::::::::::
 
 If you prefer to run the tutorial on your local machine, please follow the steps below.
 
-The easiest way to set these prerequisites up, is to use the Mambaforge_ Python 3 distribution
-(Mambaforge_ is a Conda based distribution like Miniconda_, which however uses Mamba_ a fast and more robust replacement for the Conda_ package manager).
+The easiest way to set these prerequisites up, is to use the Miniforge_ Python 3 distribution
+(Miniforge_ is a Conda based distribution like Miniconda_, which however uses Mamba_ a fast and more robust replacement for the Conda_ package manager).
 The tutorial assumes that you are using either Linux or MacOS X.
-Both Snakemake and Mambaforge_ work also under Windows, but the Windows shell is too different to be able to provide generic examples.
+Both Snakemake and Miniforge_ work also under Windows, but the Windows shell is too different to be able to provide generic examples.
+
+**Currently, the setup currently only works for Intel based machines (x86_64), not ARM based machines like the new Apple M1/2/3 architecture.**
+This will change in the coming months. In the meantime, if you are on an ARM based Mac, you can use Rosetta to emulate an intel architecture.
+Otherwise, you can simply use the Gitpod approach outlined above.
 
 Setup on Windows
 ::::::::::::::::
@@ -114,7 +118,7 @@ If this command tells you to install an SSH client, you can follow the instructi
 Now, you can follow the steps of our tutorial from within your Linux VM.
 
 
-Step 1: Installing Mambaforge
+Step 1: Installing Miniforge
 :::::::::::::::::::::::::::::
 
 First, please **open a terminal** or make sure you are logged into your Vagrant Linux VM.
@@ -122,22 +126,22 @@ Assuming that you have a 64-bit system, on Linux, download and install Miniconda
 
 .. code:: console
 
-    $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh -o Mambaforge-Linux-x86_64.sh
-    $ bash Mambaforge-Linux-x86_64.sh
+    $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -o Miniforge3-Linux-x86_64.sh
+    $ bash Miniforge3-Linux-x86_64.sh
 
 On MacOS with x86_64 architecture, download and install with
 
 .. code:: console
 
-    $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-MacOSX-x86_64.sh -o Mambaforge-MacOSX-x86_64.sh
-    $ bash Mambaforge-MacOSX-x86_64.sh
+    $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-x86_64.sh -o Miniforge3-MacOSX-x86_64.sh
+    $ bash Miniforge3-MacOSX-x86_64.sh
 
 On MacOS with ARM/M1 architecture, download and install with
 
 .. code:: console
 
-    $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-MacOSX-arm64.sh -o Mambaforge-MacOSX-arm64.sh
-    $ bash Mambaforge-MacOSX-arm64.sh
+    $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh -o Miniforge3-MacOSX-arm64.sh
+    $ bash Miniforge3-MacOSX-arm64.sh
 
 When you are asked the question
 
@@ -146,7 +150,7 @@ When you are asked the question
     Do you wish the installer to prepend the install location to PATH ...? [yes|no]
 
 answer with **yes**.
-Along with a minimal Python 3 environment, Mambaforge contains the package manager Mamba_.
+Along with a minimal Python 3 environment, Miniforge contains the package manager Mamba_.
 After closing your current terminal and opening a **new terminal**, you can use the new ``conda`` command to install software packages and create isolated environments to, for example, use different versions of the same package.
 We will later use Conda_ to create an isolated environment with all the required software for this tutorial.
 
@@ -167,7 +171,7 @@ First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ curl -L https://github.com/snakemake/snakemake-tutorial-data/archive/v5.24.1.tar.gz -o snakemake-tutorial-data.tar.gz
+    $ curl -L https://api.github.com/repos/snakemake/snakemake-tutorial-data/tarball -o snakemake-tutorial-data.tar.gz
 
 Next we extract the data. On Linux, run
 
@@ -186,7 +190,10 @@ This will create a folder ``data`` and a file ``environment.yaml`` in the workin
 Step 3: Creating an environment with the required software
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-First, make sure to activate the conda base environment with
+All interactions with Conda package management below can be conducted with either ``conda``, ``mamba`` or ``micromamba``.
+For the steps in the :ref:`"advanced" part of the tutorial <tutorial-advanced>`, you have to install ``mamba`` though in case you don't have it.
+
+First, make sure to activate the base environment with
 
 .. code:: console
 
@@ -198,7 +205,7 @@ The ``environment.yaml`` file that you have obtained with the previous step (Ste
 
     $ mamba env create --name snakemake-tutorial --file environment.yaml
 
-If you don't have the Mamba_ command because you used a different conda distribution than Mambaforge_, you can also first install Mamba_
+If you don't have the Mamba_ command because you used a different conda distribution than Miniforge_, you can also first install Mamba_
 (which is a faster and more robust replacement for Conda_) in your base environment with
 
 .. code:: console

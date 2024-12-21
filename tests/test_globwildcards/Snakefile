@@ -1,11 +1,25 @@
+(IDS,) = glob_wildcards("test.{id}.txt")
+(IDS2,) = glob_wildcards("test_{id}_{id}.txt")
 
-IDS, = glob_wildcards("test.{id}.txt")
+assert set(IDS) == {"0", "1", "2"}
+assert set(IDS2) == {"a", "b"}
 
 
 rule all:
-	input: expand("test.{id}.out", id=IDS)
+    input:
+        expand("test.{id}.out", id=IDS),
+        expand("test_{id}.out", id=IDS2),
+
 
 rule:
-	input: "test.{id}.txt"
-	output: "test.{id}.out"
-	shell: "touch {output}"
+    input:
+        "test.{id}.txt",
+    output:
+        touch("test.{id}.out"),
+
+
+rule:
+    input:
+        "test_{id}_{id}.txt",
+    output:
+        touch("test_{id}.out"),

@@ -1,11 +1,12 @@
-import textwrap
 from itertools import groupby
 from pathlib import Path
 import shutil
 import os
+from snakemake.common import async_run
 
 from snakemake.logging import logger
 from snakemake import __version__
+from snakemake.exceptions import WorkflowError
 
 
 class RuleTest:
@@ -27,12 +28,12 @@ class RuleTest:
         return self.path / "expected"
 
 
-def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
+def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None):
     """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
     try:
-        from jinja2 import Template, Environment, PackageLoader
+        from jinja2 import Environment, PackageLoader
     except ImportError:
         raise WorkflowError(
             "Python package jinja2 must be installed to create reports."
@@ -44,7 +45,6 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
         lstrip_blocks=True,
     )
 
-    path = Path(path)
     os.makedirs(path, exist_ok=True)
 
     with open(path / "common.py", "w") as common:
@@ -63,7 +63,7 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
             )
             continue
 
-        testpath = path / "test_{}.py".format(rulename)
+        testpath = path / f"test_{rulename}.py"
 
         if testpath.exists():
             logger.info(
@@ -75,10 +75,8 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
 
         written = False
         for job in jobs:
-            if all(f.exists for f in job.input):
-                logger.info(
-                    "Generating unit test for rule {}: {}.".format(rulename, testpath)
-                )
+            if all(async_run(f.exists()) for f in job.input):
+                logger.info(f"Generating unit test for rule {rulename}: {testpath}.")
                 os.makedirs(path / rulename, exist_ok=True)
 
                 def copy_files(files, content_type):
@@ -100,7 +98,7 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
                         open(path / rulename / content_type / ".gitempty", "w").close()
 
                 copy_files(job.input, "data")
-                copy_files(job.expanded_output, "expected")
+                copy_files(job.output, "expected")
 
                 with open(testpath, "w") as test:
                     print(
