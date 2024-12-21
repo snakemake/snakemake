@@ -1553,7 +1553,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             )
 
         # ignore missing output if the output is not needed outside of this group
-        if not kwargs["ignore_missing_output"]:
+        if not kwargs.get("ignore_missing_output", False):
             kwargs["ignore_missing_output"] = [
                 f
                 for j in self.jobs
