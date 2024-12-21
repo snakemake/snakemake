@@ -7,6 +7,7 @@ import asyncio
 from collections import defaultdict
 import os
 import base64
+from pathlib import Path
 import tempfile
 import json
 import shutil
@@ -617,10 +618,13 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 rule=self.rule,
             )
 
-    def _path_to_source_file(self, path: str) -> SourceFile:
+    def _path_to_source_file(self, path: Union[str, Path]) -> SourceFile:
         """Return the path to source file referred by rule, while expanding
         wildcards and params.
         """
+        if isinstance(path, Path):
+            path = str(path)
+
         if self.wildcards is not None or self.params is not None:
             # parse wildcards and params to get the correct script name
             path = format(path, wildcards=self.wildcards, params=self.params)
