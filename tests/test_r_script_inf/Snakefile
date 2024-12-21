@@ -1,0 +1,9 @@
+rule a:
+    output:
+        "final.rst"
+    params:
+        threshold = [-float("inf"), float("inf")]
+    conda:
+        "r.yaml"
+    script:
+        "test.R"
