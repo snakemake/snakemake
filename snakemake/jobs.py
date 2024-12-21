@@ -1535,6 +1535,9 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
     async def postprocess(self, error=False, **kwargs):
         def needed(job_, f):
+            # Files that are targetfiles, non-temp files, or temp files that
+            # are needed by other unfinished jobs outside of this group
+            # are still needed. Other files can be missing.
             return (
                 f in self.dag.targetfiles
                 or not is_flagged(f, "temp")
