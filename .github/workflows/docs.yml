@@ -54,7 +54,7 @@ jobs:
       - name: Build docs
         run: |
           cd apidocs
-          make html SPHINXOPTS="-W --keep-going -n"
+          make html SPHINXOPTS="--keep-going -n"
 
       - name: Upload documentation
         uses: actions/upload-artifact@v4

@@ -35,6 +35,7 @@ It can be used as follows:
    :toctree: _autosummary
    :template: module_template.rst
    :recursive:
+   :noindex:
 
    snakemake.api
    snakemake.settings
