@@ -60,4 +60,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: apidocs-html
-          path: docs/_build/html/
+          path: apidocs/_build/html/
