@@ -1143,7 +1143,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         handle_log: bool = True,
         handle_touch: bool = True,
         error: bool = False,
-        ignore_missing_output: List[_IOFile] = False,
+        ignore_missing_output: Union[List[_IOFile], bool] = False,
         check_output_mtime: bool = True,
     ):
         if self.dag.is_draft_notebook_job(self):
@@ -1535,21 +1535,28 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
     async def postprocess(self, error=False, **kwargs):
         def needed(job_, f):
-            return f in self.dag.targetfiles or not is_flagged(f, "temp") or any(
-                f in files
-                for j, files in self.dag.depending[job_].items()
-                if (
-                    not self.dag.finished(j)
-                    and self.dag.needrun(j)
-                    and j not in self.jobs
+            return (
+                f in self.dag.targetfiles
+                or not is_flagged(f, "temp")
+                or any(
+                    f in files
+                    for j, files in self.dag.depending[job_].items()
+                    if (
+                        not self.dag.finished(j)
+                        and self.dag.needrun(j)
+                        and j not in self.jobs
+                    )
                 )
             )
 
         # ignore missing output if the output is not needed outside of this group
-        ignore_missing_output = [
-            f for j in self.jobs for f in j.output
-            if is_flagged(f, "temp") and not needed(j, f)
-        ]
+        if not kwargs["ignore_missing_output"]:
+            kwargs["ignore_missing_output"] = [
+                f
+                for j in self.jobs
+                for f in j.output
+                if is_flagged(f, "temp") and not needed(j, f)
+            ]
 
         # Iterate over jobs in toposorted order (see self.__iter__) to
         # ensure that outputs are touched in correct order.
@@ -1567,12 +1574,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                     # (at least for now), because they interfere with the update of
                     # intermediate file mtimes that might happen in previous levels.
                     tg.create_task(
-                        job.postprocess(
-                            error=error,
-                            check_output_mtime=False,
-                            ignore_missing_output=ignore_missing_output,
-                            **kwargs
-                        )
+                        job.postprocess(error=error, check_output_mtime=False, **kwargs)
                     )
         # remove all pipe and service outputs since all jobs of this group are done and the
         # outputs are no longer needed

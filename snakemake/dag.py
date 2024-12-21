@@ -679,7 +679,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self,
         job: Job,
         wait: int = 3,
-        ignore_missing_output: bool = False,
+        ignore_missing_output: Union[List[_IOFile], bool] = False,
         no_touch: bool = False,
         wait_for_local: bool = True,
         check_output_mtime: bool = True,
@@ -691,12 +691,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             expanded_output.append(job.benchmark)
 
         if isinstance(ignore_missing_output, list):
+            # limit expanded_output to files that are not in ignore_missing_output
             expanded_output = [
                 f for f in expanded_output if f not in ignore_missing_output
             ]
-            ignore_missing_output = []
+            ignore_missing_output = False
 
-        if not ignore_missing_output:
+        if not ignore_missing_output and expanded_output:
             try:
                 await wait_for_files(
                     expanded_output,
