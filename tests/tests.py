@@ -662,6 +662,7 @@ def test_with_parentheses():
 
     run(dpath("test_path with spaces"))
 
+
 def test_dup_out_patterns():
     """Duplicate output patterns should emit an error
 
