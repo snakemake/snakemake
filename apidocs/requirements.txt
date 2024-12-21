@@ -10,5 +10,3 @@ sphinxawesome-theme
 snakemake-interface-common
 snakemake-interface-executor-plugins
 snakemake-interface-storage-plugins
-flask
-pytest
