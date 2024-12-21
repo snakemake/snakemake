@@ -7,6 +7,7 @@ import asyncio
 from collections import defaultdict
 import os
 import base64
+from pathlib import Path
 import tempfile
 import json
 import shutil
@@ -15,7 +16,7 @@ import functools
 from itertools import chain, filterfalse
 from operator import attrgetter
 import time
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Union
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings.types import DeploymentMethod
@@ -42,6 +43,7 @@ from snakemake.io import (
 from snakemake.settings.types import SharedFSUsage
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
+from snakemake.sourcecache import LocalSourceFile, SourceFile, infer_source_file
 from snakemake.utils import format
 from snakemake.exceptions import (
     InputOpenException,
@@ -402,14 +404,16 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         path = self.rule.script or self.rule.notebook
         if not path:
             return
-        if self.rule.basedir:
-            # needed if rule is included from another subdirectory
-            path = self.rule.basedir.join(path).get_path_or_uri()
-        if is_local_file(path) and os.path.exists(path):
-            script_mtime = get_script_mtime(path)
-            for f in self.output:
-                if await f.exists() and not await f.is_newer(script_mtime):
-                    yield f
+
+        path: SourceFile = self._path_to_source_file(path)
+
+        if isinstance(path, LocalSourceFile):
+            path = path.get_path_or_uri()
+            if os.path.exists(path):
+                script_mtime = get_script_mtime(path)
+                for f in self.output:
+                    if await f.exists() and not await f.is_newer(script_mtime):
+                        yield f
         # TODO also handle remote file case here.
 
     def get_target_spec(self):
@@ -625,6 +629,23 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 "Unknown variable when printing shell command: {}".format(str(ex)),
                 rule=self.rule,
             )
+
+    def _path_to_source_file(self, path: Union[str, Path]) -> SourceFile:
+        """Return the path to source file referred by rule, while expanding
+        wildcards and params.
+        """
+        if isinstance(path, Path):
+            path = str(path)
+
+        if self.wildcards is not None or self.params is not None:
+            # parse wildcards and params to get the correct script name
+            path = format(path, wildcards=self.wildcards, params=self.params)
+        path = infer_source_file(path)
+        if isinstance(path, LocalSourceFile) and self.rule.basedir:
+            # needed if rule is included from another subdirectory
+            path = self.rule.basedir.join(path)
+
+        return path
 
     @property
     def is_shell(self):
