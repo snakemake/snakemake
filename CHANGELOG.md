@@ -1,6 +1,417 @@
 # Changelog
 
 
+## [8.25.5](https://github.com/snakemake/snakemake/compare/v8.25.4...v8.25.5) (2024-11-29)
+
+
+### Bug Fixes
+
+* expand environment variables in --remote-job-local-storage-prefix within the remote job, not the main snakemake job ([#3222](https://github.com/snakemake/snakemake/issues/3222)) ([59c86a4](https://github.com/snakemake/snakemake/commit/59c86a40584724d75744d6f422466714273c9209))
+
+## [8.25.4](https://github.com/snakemake/snakemake/compare/v8.25.3...v8.25.4) (2024-11-27)
+
+
+### Bug Fixes
+
+* clean env vars in apptainer ([#3199](https://github.com/snakemake/snakemake/issues/3199)) ([76d5329](https://github.com/snakemake/snakemake/commit/76d53290a003891c5ee41f81e8eb4821c406255d))
+* ensure that intermediate files in job groups do not cause spurious mtime errors when checking for consistency with output files ([#3220](https://github.com/snakemake/snakemake/issues/3220)) ([4ba2bdf](https://github.com/snakemake/snakemake/commit/4ba2bdf5f68bb7edf6901da740bdcfc8cc3fed73))
+* Remove incomplete marker also when drop-metadata is active ([#3215](https://github.com/snakemake/snakemake/issues/3215)) ([a4f2e5c](https://github.com/snakemake/snakemake/commit/a4f2e5ced09963574d45ba5b88302c58a0b4ad90))
+* Remove incomplete marker for job finished only after metadata is written ([#3197](https://github.com/snakemake/snakemake/issues/3197)) ([6567e5f](https://github.com/snakemake/snakemake/commit/6567e5fdbb99b1a1a22a79eebdecd36216ca1868))
+* Support versioned URLs in Asset class and fix missing versions in Snakemake report ([#3203](https://github.com/snakemake/snakemake/issues/3203)) ([f086f6c](https://github.com/snakemake/snakemake/commit/f086f6c48ad43eeec222847f4d19a9fea6b6ce06))
+* update rust-script usage to recent version (v0.35.0) [#3183](https://github.com/snakemake/snakemake/issues/3183) ([#3208](https://github.com/snakemake/snakemake/issues/3208)) ([43885d7](https://github.com/snakemake/snakemake/commit/43885d7f4616a0e4db8d9e5a2bbb764e43e47fc6))
+
+
+### Documentation
+
+* clarify continuously updated input section ([#3219](https://github.com/snakemake/snakemake/issues/3219)) ([72a6994](https://github.com/snakemake/snakemake/commit/72a6994496854dad1877749416e0c64130c9fc48))
+* Fix typo in CHANGELOG.md ([#3198](https://github.com/snakemake/snakemake/issues/3198)) ([0e445ed](https://github.com/snakemake/snakemake/commit/0e445ed542bba3db3af9f66c8307857b493f5113))
+* refer to Merkle trees instead of "blockchain" in caching.rst ([#3216](https://github.com/snakemake/snakemake/issues/3216)) ([282e5d9](https://github.com/snakemake/snakemake/commit/282e5d9dcd0d345d8fc8783297831aa9daa8dc03))
+* remove twitter in favor of bluesky and mastodon ([#3217](https://github.com/snakemake/snakemake/issues/3217)) ([231c6df](https://github.com/snakemake/snakemake/commit/231c6dfa2c8ab8a118fab546015fc084ed43522b))
+* use "dictionary" not "array" wording in config docs ([#3156](https://github.com/snakemake/snakemake/issues/3156)) ([17aed41](https://github.com/snakemake/snakemake/commit/17aed4131bc946af94827560d63f0ef6bd3992c4))
+
+## [8.25.3](https://github.com/snakemake/snakemake/compare/v8.25.2...v8.25.3) (2024-11-11)
+
+
+### Bug Fixes
+
+* correctly set params in bash scripts ([#3188](https://github.com/snakemake/snakemake/issues/3188)) ([07ddab5](https://github.com/snakemake/snakemake/commit/07ddab5c97ae7f7b1a758d827dc6545df92ea644))
+* more robust inference of source path that properly respects hosting provider urls without losing release or commit information ([#3195](https://github.com/snakemake/snakemake/issues/3195)) ([bd8212b](https://github.com/snakemake/snakemake/commit/bd8212b8f1b78a704d596a9d64040a48bccc223c))
+* When generating a DAG or HTML rulegraph, use consistent colours ([#3189](https://github.com/snakemake/snakemake/issues/3189)) ([5f651d2](https://github.com/snakemake/snakemake/commit/5f651d2cd6a5964ec8b490781aeee05b1cf691a3))
+
+## [8.25.2](https://github.com/snakemake/snakemake/compare/v8.25.1...v8.25.2) (2024-11-05)
+
+
+### Bug Fixes
+
+* include conda pinnings, conda post deploy script, and env modules for detection of software stack changes and corresponding rerun triggers ([#3184](https://github.com/snakemake/snakemake/issues/3184)) ([2aeaa46](https://github.com/snakemake/snakemake/commit/2aeaa46a06a34155ee24615d1417da103b54d14f))
+
+## [8.25.1](https://github.com/snakemake/snakemake/compare/v8.25.0...v8.25.1) (2024-11-01)
+
+
+### Bug Fixes
+
+* ensure correct topological order when touching group job outputs ([#3181](https://github.com/snakemake/snakemake/issues/3181)) ([5924a3e](https://github.com/snakemake/snakemake/commit/5924a3e3993cb65365536ca4d225a1eb03c2fcd9))
+* ensure version agnostic robust pickling of pandas, polars and numpy data structures passed as params to Python scripts or notebooks ([#3175](https://github.com/snakemake/snakemake/issues/3175)) ([eb11137](https://github.com/snakemake/snakemake/commit/eb1113713cbc4e9232aed6d106bec3615fa48632))
+
+## [8.25.0](https://github.com/snakemake/snakemake/compare/v8.24.1...v8.25.0) (2024-10-29)
+
+
+### Features
+
+* add first 5 rules to group name (used e.g. when naming cluster/cloud jobs or logfiles) ([#3168](https://github.com/snakemake/snakemake/issues/3168)) ([5657122](https://github.com/snakemake/snakemake/commit/56571220a96afda4edf4b0578c697c9e94f8f15c))
+* allow to mark input files of rules as ancient via the API or command line interface (and thereby also via workflow specific profiles). Putting this into a workflow specific profile (or specifying as argument) allows to overrule rerun triggers caused by file modification dates where the user knows better. ([#3171](https://github.com/snakemake/snakemake/issues/3171)) ([6f3aed3](https://github.com/snakemake/snakemake/commit/6f3aed321b48293b632246d29dd1bedc98e3d3b3))
+
+
+### Bug Fixes
+
+* skip storage object when cloning flags for shadowed IO ([#3174](https://github.com/snakemake/snakemake/issues/3174)) ([d733fed](https://github.com/snakemake/snakemake/commit/d733fed19c0fd4501fcd66e8528a801c978b1b53))
+* use permission safe copying when hidden conda files are already present in a workdir. This avoids problems in case multiple people use the same workdir and workflow. ([#3169](https://github.com/snakemake/snakemake/issues/3169)) ([c98b2e7](https://github.com/snakemake/snakemake/commit/c98b2e7f71a391b99bffc54770654c9d74538ddf))
+
+
+### Documentation
+
+* add tutorial references and small syntax fix ([#3172](https://github.com/snakemake/snakemake/issues/3172)) ([6bee12a](https://github.com/snakemake/snakemake/commit/6bee12afdeee1621b50c96ecca0f3b2d6c3dc140))
+
+## [8.24.1](https://github.com/snakemake/snakemake/compare/v8.24.0...v8.24.1) (2024-10-23)
+
+
+### Bug Fixes
+
+* fix bug with --edit-notebook sessions causing output files marked as incomplete, fix bug leading to missing log file after edit notebook sessions ([#3162](https://github.com/snakemake/snakemake/issues/3162)) ([19c6c0a](https://github.com/snakemake/snakemake/commit/19c6c0ab36da88adc9598ac18c20961c311eba28))
+* proper error message if conda info fails ([#3157](https://github.com/snakemake/snakemake/issues/3157)) ([4f99c20](https://github.com/snakemake/snakemake/commit/4f99c201b31ad17a9b4f3ddb5be4b80c6f6f9a1f))
+
+## [8.24.0](https://github.com/snakemake/snakemake/compare/v8.23.2...v8.24.0) (2024-10-21)
+
+
+### Features
+
+* subsample jobs to speed-up scheduler ([#3112](https://github.com/snakemake/snakemake/issues/3112)) ([e10feef](https://github.com/snakemake/snakemake/commit/e10feef262324357f9219d89214e2fccb2b85752))
+
+
+### Documentation
+
+* addition of interction/visualization/reporting tutorial ([#3159](https://github.com/snakemake/snakemake/issues/3159)) ([1d94bd1](https://github.com/snakemake/snakemake/commit/1d94bd10dbbc799b70a7a1d81c659e25de5fa5e0))
+* fix tutorial step numbering ([2d7b9e9](https://github.com/snakemake/snakemake/commit/2d7b9e9402662556424e9564213f2efc9fda33c6))
+
+## [8.23.2](https://github.com/snakemake/snakemake/compare/v8.23.1...v8.23.2) (2024-10-18)
+
+
+### Bug Fixes
+
+* ignore derived parameters when storing job metadata and inferring rerun necessity of jobs (this gets rid of spurious triggers caused by e.g. changed resources, threads, remote storage configuration) ([#3154](https://github.com/snakemake/snakemake/issues/3154)) ([73ce212](https://github.com/snakemake/snakemake/commit/73ce212d89275a320f0488918029197ea4850163))
+* more robust handling of input metadata that avoids storing user or type specific local paths, and properly handles pipe or service files ([#3150](https://github.com/snakemake/snakemake/issues/3150)) ([756dc70](https://github.com/snakemake/snakemake/commit/756dc7045f8c2159da981d7000271ff87e8b0d10))
+
+
+### Documentation
+
+* Fix missing spaces in CLI help text ([#3146](https://github.com/snakemake/snakemake/issues/3146)) ([6416c36](https://github.com/snakemake/snakemake/commit/6416c3616b3628a389093e1e023707dff2b992a6))
+
+## [8.23.1](https://github.com/snakemake/snakemake/compare/v8.23.0...v8.23.1) (2024-10-16)
+
+
+### Bug Fixes
+
+* fix bug in code change detection leading to spurious code change reporting when relying on older snakemake metadata ([#3144](https://github.com/snakemake/snakemake/issues/3144)) ([922d6e8](https://github.com/snakemake/snakemake/commit/922d6e863ec6b7d92f53f02845c68f5374380edd))
+
+## [8.23.0](https://github.com/snakemake/snakemake/compare/v8.22.0...v8.23.0) (2024-10-14)
+
+
+### Features
+
+* More robust parameter and code change detection and transparent reporting of detected changes ([#3140](https://github.com/snakemake/snakemake/issues/3140)) ([576f588](https://github.com/snakemake/snakemake/commit/576f58868975e6763648224dc17191273049f971)). For setups using remote storage, this will lead to missing metadata records because the key used for storing the metadata is now the remote storage query instead of the path to the local copy. The reason is that the latter can be user-specific and therefore previously could have let led to e.g. different rerun behavior for different users.
+
+
+### Documentation
+
+* update installation docs to reflect changes in conda ecosystem ([#3141](https://github.com/snakemake/snakemake/issues/3141)) ([e83b8aa](https://github.com/snakemake/snakemake/commit/e83b8aaeac65711c327a5c86f82e231af33cfbf8))
+
+## [8.22.0](https://github.com/snakemake/snakemake/compare/v8.21.0...v8.22.0) (2024-10-13)
+
+
+### Features
+
+* switch from toposort to graphlib ([#3109](https://github.com/snakemake/snakemake/issues/3109)) ([91e875d](https://github.com/snakemake/snakemake/commit/91e875d43fcb1cff247f82c743f9e2216ad328d7))
+
+
+### Bug Fixes
+
+* configfile `group` and `group-components` were not being registered ([#3135](https://github.com/snakemake/snakemake/issues/3135)) ([4397c7d](https://github.com/snakemake/snakemake/commit/4397c7d343289da5c6b2902249e3d78db5ac301e))
+* remove paramiko dependency as issue has been fixed ([#3110](https://github.com/snakemake/snakemake/issues/3110)) ([1b43250](https://github.com/snakemake/snakemake/commit/1b43250782aaf92910001e6c2db924969956b103))
+
+## [8.21.0](https://github.com/snakemake/snakemake/compare/v8.20.7...v8.21.0) (2024-10-12)
+
+
+### Features
+
+* support for specifying conda envs as directories ([#3132](https://github.com/snakemake/snakemake/issues/3132)) ([c54c95d](https://github.com/snakemake/snakemake/commit/c54c95d62b5395d78ab26297e0b84fc3f24dd017))
+
+
+### Bug Fixes
+
+* better error handling in evaluate function ([#3129](https://github.com/snakemake/snakemake/issues/3129)) ([04fb97f](https://github.com/snakemake/snakemake/commit/04fb97ff8b10fafdaf668368cb29e468d5bc07a4))
+* notebook execution for apptainer ([#3131](https://github.com/snakemake/snakemake/issues/3131)) ([2e382c4](https://github.com/snakemake/snakemake/commit/2e382c48122c53712fd8db21ff06ca0e6c877e60))
+
+## [8.20.7](https://github.com/snakemake/snakemake/compare/v8.20.6...v8.20.7) (2024-10-09)
+
+
+### Bug Fixes
+
+* install conda in container image ([#3127](https://github.com/snakemake/snakemake/issues/3127)) ([afa7bad](https://github.com/snakemake/snakemake/commit/afa7bad1a72118dc609f1499560c0847edc36413))
+* remote pre-command not installing all required storage plugins ([#3116](https://github.com/snakemake/snakemake/issues/3116)) ([d829bb7](https://github.com/snakemake/snakemake/commit/d829bb7a57380354b3b4785d0755268ea1bf55d0))
+
+## [8.20.6](https://github.com/snakemake/snakemake/compare/v8.20.5...v8.20.6) (2024-10-07)
+
+
+### Bug Fixes
+
+* rely on conda &gt;24.7.1 for conda env deployment and deprecate mamba support ([#3121](https://github.com/snakemake/snakemake/issues/3121)) ([9ece2db](https://github.com/snakemake/snakemake/commit/9ece2dbc57cec5a77ce909839b4c786be8e76ae1))
+
+## [8.20.5](https://github.com/snakemake/snakemake/compare/v8.20.4...v8.20.5) (2024-09-25)
+
+
+### Bug Fixes
+
+* fixed check for remote conda env pinning and post-deploy files; fixed conda env cleanup ([#3103](https://github.com/snakemake/snakemake/issues/3103)) ([4d0a7e9](https://github.com/snakemake/snakemake/commit/4d0a7e9b0e56592aeda16d4961fd6acb1aabcca6))
+* omit storage downloads during dryrun in workflows with checkpoints ([#3100](https://github.com/snakemake/snakemake/issues/3100)) ([151216a](https://github.com/snakemake/snakemake/commit/151216a64d7b19ceabab400b8f345d3e02d442ab))
+
+## [8.20.4](https://github.com/snakemake/snakemake/compare/v8.20.3...v8.20.4) (2024-09-20)
+
+
+### Bug Fixes
+
+* cache conda envs to fix performance regression introduced in https://github.com/snakemake/snakemake/pull/1300 ([#3093](https://github.com/snakemake/snakemake/issues/3093)) ([66600c4](https://github.com/snakemake/snakemake/commit/66600c4a293446f5fdfff25075f5844fb2d720f2))
+* Flatten conda pip dependencies for report rule info ([#3085](https://github.com/snakemake/snakemake/issues/3085)) ([56a1f20](https://github.com/snakemake/snakemake/commit/56a1f207ecf8343deab2b1583709fc9effc0ffb1))
+* improve runtime complexity of post-job checkpoint handling ([#3096](https://github.com/snakemake/snakemake/issues/3096)) ([ba30781](https://github.com/snakemake/snakemake/commit/ba307816220c4313f82c0362fd6f00e783972569))
+
+
+### Documentation
+
+* Clarify the lookup function docstring ([#3091](https://github.com/snakemake/snakemake/issues/3091)) ([94177d5](https://github.com/snakemake/snakemake/commit/94177d5043bb5b15bf507c470374cdef9e8fe78f))
+* Update lookup signature ([#3090](https://github.com/snakemake/snakemake/issues/3090)) ([655d6a1](https://github.com/snakemake/snakemake/commit/655d6a121642d781ea44b93bd21d1f4a36f80c36))
+
+## [8.20.3](https://github.com/snakemake/snakemake/compare/v8.20.2...v8.20.3) (2024-09-09)
+
+
+### Bug Fixes
+
+* Add --cache to general_args for jobscripts ([#3080](https://github.com/snakemake/snakemake/issues/3080)) ([884498b](https://github.com/snakemake/snakemake/commit/884498bf6d4e171c8b4cef1463f9490689f0528d))
+
+## [8.20.2](https://github.com/snakemake/snakemake/compare/v8.20.1...v8.20.2) (2024-09-09)
+
+
+### Bug Fixes
+
+* ensure that CLI help is formatted deterministically and set defaults are displayed properly (based on preliminary work by [@keszybz](https://github.com/keszybz)) ([#3081](https://github.com/snakemake/snakemake/issues/3081)) ([cbc2e2c](https://github.com/snakemake/snakemake/commit/cbc2e2c4086426a52f71a15384d18973ec8c9714))
+
+## [8.20.1](https://github.com/snakemake/snakemake/compare/v8.20.0...v8.20.1) (2024-09-07)
+
+
+### Bug Fixes
+
+* add testcase data to package files ([#3077](https://github.com/snakemake/snakemake/issues/3077)) ([e90b098](https://github.com/snakemake/snakemake/commit/e90b09835404c3112c7c455accd2999f53653723))
+
+## [8.20.0](https://github.com/snakemake/snakemake/compare/v8.19.3...v8.20.0) (2024-09-07)
+
+
+### Features
+
+* allow skipping apptainer and conda tests if not available ([#3074](https://github.com/snakemake/snakemake/issues/3074)) ([c3cd4e0](https://github.com/snakemake/snakemake/commit/c3cd4e01ad182433cbd4406f9007c167f805c0f5))
+* MANIFEST.in: include tests/ in sdist ([#3073](https://github.com/snakemake/snakemake/issues/3073)) ([e24f3fc](https://github.com/snakemake/snakemake/commit/e24f3fc3078e4cee56334e2101939dd146c8f1b3))
+
+
+### Bug Fixes
+
+* add subfolders of report template to package data ([14a8f22](https://github.com/snakemake/snakemake/commit/14a8f2244f8d602f5c2988937ed722ab24c77259))
+* Inconsistent Linting Output Formatting ([#3064](https://github.com/snakemake/snakemake/issues/3064)) ([90e51ae](https://github.com/snakemake/snakemake/commit/90e51ae68985d539ee716aa619fca6a8b625c60e))
+* retry when downloading assets ([58e41b0](https://github.com/snakemake/snakemake/commit/58e41b0f6d1e7f7a6c7e2d915ba83ea786b237ed))
+* skip asset download if files are already present ([#3076](https://github.com/snakemake/snakemake/issues/3076)) ([0d3d1e1](https://github.com/snakemake/snakemake/commit/0d3d1e1fd254e28f956243f4e01b51eb81b9a717))
+
+## [8.19.3](https://github.com/snakemake/snakemake/compare/v8.19.2...v8.19.3) (2024-09-05)
+
+
+### Bug Fixes
+
+* add subfolders of report template to package data ([14a8f22](https://github.com/snakemake/snakemake/commit/14a8f2244f8d602f5c2988937ed722ab24c77259))
+* add template data to setup call ([099c8e2](https://github.com/snakemake/snakemake/commit/099c8e2a4a82975a8ae1352ce7204e3cd6a3e83c))
+
+## [8.19.2](https://github.com/snakemake/snakemake/compare/v8.19.1...v8.19.2) (2024-09-05)
+
+
+### Bug Fixes
+
+* add template data to setup call ([099c8e2](https://github.com/snakemake/snakemake/commit/099c8e2a4a82975a8ae1352ce7204e3cd6a3e83c))
+
+## [8.19.1](https://github.com/snakemake/snakemake/compare/v8.19.0...v8.19.1) (2024-09-04)
+
+
+### Bug Fixes
+
+* fix issues with misinterpretation of max-jobs-per-timespan and max-jobs-per-seconds ([#3067](https://github.com/snakemake/snakemake/issues/3067)) ([d82453b](https://github.com/snakemake/snakemake/commit/d82453b7e54321c817c6516fca9d9e16c03c3977))
+* pip deployment path ([#3062](https://github.com/snakemake/snakemake/issues/3062)) ([bf9305b](https://github.com/snakemake/snakemake/commit/bf9305b643ba5267285f56503809f275997d5a2e))
+* return empty set if rate limiter at max ([#3060](https://github.com/snakemake/snakemake/issues/3060)) ([4e59963](https://github.com/snakemake/snakemake/commit/4e599633d331aa4857a8994afabe0df15b4241be))
+* use pulps internal timeout for large scheduling problems, instead of stopit  ([#2938](https://github.com/snakemake/snakemake/issues/2938)) ([3b64e41](https://github.com/snakemake/snakemake/commit/3b64e414250de209a3921e44827779b1911f964a))
+* Wrong linenumbers reported when linting ([#2985](https://github.com/snakemake/snakemake/issues/2985)) ([3a8bd36](https://github.com/snakemake/snakemake/commit/3a8bd367f30020fb3cf7d5efe64ffc7b63548202))
+
+
+### Documentation
+
+* update `doc-environment.yml` file and Documentation Setup documentation ([#3058](https://github.com/snakemake/snakemake/issues/3058)) ([a540a2e](https://github.com/snakemake/snakemake/commit/a540a2ec083f403dc96246109f65f6fca91ec488))
+
+## [8.19.0](https://github.com/snakemake/snakemake/compare/v8.18.2...v8.19.0) (2024-08-29)
+
+
+### Features
+
+* check consistency of output file mtimes (must be newer than input files) ([#3050](https://github.com/snakemake/snakemake/issues/3050)) ([666cf62](https://github.com/snakemake/snakemake/commit/666cf6271d8dc5525dbea238bb12e496e437f316))
+* print host name when executing workflow ([#3048](https://github.com/snakemake/snakemake/issues/3048)) ([b0ff787](https://github.com/snakemake/snakemake/commit/b0ff787b10ccf809789229c65901f363cfbc7a44))
+
+
+### Bug Fixes
+
+* `mem` and `disk` inference fixes ([#3040](https://github.com/snakemake/snakemake/issues/3040)) ([7530794](https://github.com/snakemake/snakemake/commit/7530794e4a5c64309e225b80f52932b404690756))
+* avoid error accessing superclass in ioutils ([#3056](https://github.com/snakemake/snakemake/issues/3056)) ([a66a5f5](https://github.com/snakemake/snakemake/commit/a66a5f5bed1ea6c920e1b4bec0b0690566375261))
+* disable execute after print compilation ([#3041](https://github.com/snakemake/snakemake/issues/3041)) ([86ed3cd](https://github.com/snakemake/snakemake/commit/86ed3cd7144f8ac8c54d4c67fe1d6023506ba4c7))
+* download report assets upon package build such that reports become possible offline (cont. of [#2904](https://github.com/snakemake/snakemake/issues/2904)) ([#3026](https://github.com/snakemake/snakemake/issues/3026)) ([e8dad4b](https://github.com/snakemake/snakemake/commit/e8dad4bf4033b85e548cf5f8e37cb0443d6a959e))
+
+
+### Documentation
+
+* Add 'Editor integrations' section to Installation page ([#3045](https://github.com/snakemake/snakemake/issues/3045)) ([9a4006d](https://github.com/snakemake/snakemake/commit/9a4006d2e02eb64244001990f685d488756a873a))
+* Fix typo (seesee to see) ([#3037](https://github.com/snakemake/snakemake/issues/3037)) ([de201fb](https://github.com/snakemake/snakemake/commit/de201fb0740123c9d9d30b6b929600062de485ff))
+* various documentation fixes ([#3052](https://github.com/snakemake/snakemake/issues/3052)) ([b11460c](https://github.com/snakemake/snakemake/commit/b11460c0110bec6176bc44250336166602ffb2ed))
+
+## [8.18.2](https://github.com/snakemake/snakemake/compare/v8.18.1...v8.18.2) (2024-08-21)
+
+
+### Documentation
+
+* recommending raw strings to get rid of syntax warnings ([#3022](https://github.com/snakemake/snakemake/issues/3022)) ([877b3a3](https://github.com/snakemake/snakemake/commit/877b3a3172ba1b5e86ec6b10d4c5b47bf2a96407))
+* tutorial polishing ([16b1657](https://github.com/snakemake/snakemake/commit/16b16578d8bbf3d927ff26e4ff7f7434964ea38c))
+
+## [8.18.1](https://github.com/snakemake/snakemake/compare/v8.18.0...v8.18.1) (2024-08-19)
+
+
+### Bug Fixes
+
+* add assets and use local file links to allow offline reports ([#2904](https://github.com/snakemake/snakemake/issues/2904)) ([9cd94f7](https://github.com/snakemake/snakemake/commit/9cd94f71077f4f91d566daa67d54ca40e1c5b276))
+* use query from storage object in order to be able to reflect possible modifications (via StorageProvider.postprocess_query()) ([#3031](https://github.com/snakemake/snakemake/issues/3031)) ([3ddae58](https://github.com/snakemake/snakemake/commit/3ddae58e53eaf7020823a2a37145674d9a432389))
+
+
+### Documentation
+
+* clarify config file location ([6bd67d7](https://github.com/snakemake/snakemake/commit/6bd67d7b3284f054b893d72a3fc096ac711f54b4))
+
+## [8.18.0](https://github.com/snakemake/snakemake/compare/v8.17.0...v8.18.0) (2024-08-14)
+
+
+### Features
+
+* show info on missing metadata ([#3014](https://github.com/snakemake/snakemake/issues/3014)) ([e502312](https://github.com/snakemake/snakemake/commit/e502312e72ad8dd1f54424eb95a7a0951e9fac62))
+
+
+### Performance Improvements
+
+* cache mtime of scripts and notebooks ([#2965](https://github.com/snakemake/snakemake/issues/2965)) ([405a056](https://github.com/snakemake/snakemake/commit/405a056230ba20114eac6caf083953148bb6d1c1))
+
+## [8.17.0](https://github.com/snakemake/snakemake/compare/v8.16.0...v8.17.0) (2024-08-13)
+
+
+### Features
+
+* fix job rate limiting with --max-jobs-per-second and introduce the more flexible --max-jobs-per-timespan ([#3010](https://github.com/snakemake/snakemake/issues/3010)) ([9c31257](https://github.com/snakemake/snakemake/commit/9c3125702a4f24261948178d25dce0a2fea27466))
+
+
+### Bug Fixes
+
+* Allow hyphens in config keys given on the command line. ([#2998](https://github.com/snakemake/snakemake/issues/2998)) ([b70c0db](https://github.com/snakemake/snakemake/commit/b70c0db30212d84d9086954c34226528830bb4d9))
+* allowing trailing '+' in name patterns ([#3002](https://github.com/snakemake/snakemake/issues/3002)) ([59150d3](https://github.com/snakemake/snakemake/commit/59150d3d7c55be7527369bdb677d8844f2e7d979))
+* print message if not yet enough resources for executing further jobs ([b8df036](https://github.com/snakemake/snakemake/commit/b8df0364658071855b3dd66193aeceb4e80d26bf))
+* unawaited coroutine sanitize_local_storage_copies ([#2972](https://github.com/snakemake/snakemake/issues/2972)) ([715c572](https://github.com/snakemake/snakemake/commit/715c57260316d2ba9c9e60f7dd4f1ed1b2a6c9f6))
+
+
+### Documentation
+
+* Change sha256 checksum in docs to more realistic example ([#2987](https://github.com/snakemake/snakemake/issues/2987)) ([16a5cf2](https://github.com/snakemake/snakemake/commit/16a5cf272959deefbe8919e6d3c8569d4b325991))
+* Make it more clear that the cluster commands now require a plugin ([#2976](https://github.com/snakemake/snakemake/issues/2976)) ([74134cf](https://github.com/snakemake/snakemake/commit/74134cff09ae2e6ff725659ee1fe1fc9322e5a70))
+* Update installation.rst to recommend Miniforge instead of Mambaforge ([#2975](https://github.com/snakemake/snakemake/issues/2975)) ([0fc7619](https://github.com/snakemake/snakemake/commit/0fc761998f31ab148bc7b1be7f33e21bab452441))
+* use plain monospace font instead of theme default that changes &gt;= into ≥ ([cc17fc1](https://github.com/snakemake/snakemake/commit/cc17fc11cf83b03f9c528bab279d9f394789fb55))
+
+## [8.16.0](https://github.com/snakemake/snakemake/compare/v8.15.2...v8.16.0) (2024-07-09)
+
+
+### Features
+
+* added snakemake.script.snakemake for type hinting ([#2917](https://github.com/snakemake/snakemake/issues/2917)) ([c85fb4b](https://github.com/snakemake/snakemake/commit/c85fb4b34ce983cb916bcce361d958d466ee1d07))
+
+
+### Documentation
+
+* use note directive to align with the capabilities of the used theme ([#2950](https://github.com/snakemake/snakemake/issues/2950)) ([fe27405](https://github.com/snakemake/snakemake/commit/fe274055dbd4663d7185114bc4f77ac862f8c7b3))
+
+## [8.15.2](https://github.com/snakemake/snakemake/compare/v8.15.1...v8.15.2) (2024-07-05)
+
+
+### Bug Fixes
+
+* ensure that envvars in local storage prefix are not prematurely expanded by the shell ([#2943](https://github.com/snakemake/snakemake/issues/2943)) ([da50f27](https://github.com/snakemake/snakemake/commit/da50f27102e0aa761aa6ff724efe785af7a58b3a))
+* fix circular import ([9e7d56f](https://github.com/snakemake/snakemake/commit/9e7d56f48d6048d8138c718eb577f65e157b42d2))
+
+## [8.15.1](https://github.com/snakemake/snakemake/compare/v8.15.0...v8.15.1) (2024-07-04)
+
+
+### Bug Fixes
+
+* implement support for --touch on remote storage (if the storage provider supports it) ([#2941](https://github.com/snakemake/snakemake/issues/2941)) ([567094d](https://github.com/snakemake/snakemake/commit/567094d63242d6a885328d40f66bcd98204411a1))
+
+## [8.15.0](https://github.com/snakemake/snakemake/compare/v8.14.0...v8.15.0) (2024-07-04)
+
+
+### Features
+
+* add `can_transfer_local_files` to executor plugin interface ([#2921](https://github.com/snakemake/snakemake/issues/2921)) ([85a6774](https://github.com/snakemake/snakemake/commit/85a6774542b110e16b9e56407a99995046eccfe1))
+
+
+### Bug Fixes
+
+* duplicate wildcards ([#2937](https://github.com/snakemake/snakemake/issues/2937)) ([5b6cc02](https://github.com/snakemake/snakemake/commit/5b6cc0283646a413ba8b9f71dea610faa3128f96))
+* handling of missing attributes in input/output/params lists that have been guarded against misuse (sort, index) ([#2928](https://github.com/snakemake/snakemake/issues/2928)) ([1b75087](https://github.com/snakemake/snakemake/commit/1b75087fa10cfcfb06e41a6286cb51d10df3ee3f))
+* improve error message in case of invalid default storage prefix ([3c1065c](https://github.com/snakemake/snakemake/commit/3c1065c9b441928f2d390b568a7e9f854256ad41))
+* include more context to syntax errors when rule parsing fails ([#2924](https://github.com/snakemake/snakemake/issues/2924)) ([#2926](https://github.com/snakemake/snakemake/issues/2926)) ([3ecffcc](https://github.com/snakemake/snakemake/commit/3ecffccc7ea6df042765b82fe9f02a45b4daf727))
+* parse f-string as-is from source ([#2930](https://github.com/snakemake/snakemake/issues/2930)) ([39fc8f7](https://github.com/snakemake/snakemake/commit/39fc8f71ce196008e938d5c549f4077cffc7682a))
+* sanitize old local storage copies before evaluating params or resource functions ([#2939](https://github.com/snakemake/snakemake/issues/2939)) ([e3075dd](https://github.com/snakemake/snakemake/commit/e3075ddd4d9829df4732c80b372a249809710f95))
+* suppress printing of non-constant or uninteresting defaults in --help ([#2936](https://github.com/snakemake/snakemake/issues/2936)) ([69add30](https://github.com/snakemake/snakemake/commit/69add3046a929dd7a3b5dc67d67b886dfde757ed))
+
+
+### Documentation
+
+* fix code block formatting ([#2929](https://github.com/snakemake/snakemake/issues/2929)) ([54a6461](https://github.com/snakemake/snakemake/commit/54a646144521d7799b7f810d6f5ee138ac25ca68))
+* fix signature display ([bdd732d](https://github.com/snakemake/snakemake/commit/bdd732d1f98d0af0362115f74baa728bfc976851))
+
+## [8.14.0](https://github.com/snakemake/snakemake/compare/v8.13.0...v8.14.0) (2024-06-11)
+
+
+### Features
+
+* add flag to mark files where path should not be modified ([#2888](https://github.com/snakemake/snakemake/issues/2888)) ([d142b46](https://github.com/snakemake/snakemake/commit/d142b46200df0e1d03b4de3ec7aafd9cdf714588))
+* support per rule shell exec setting via resources ([#2862](https://github.com/snakemake/snakemake/issues/2862)) ([ab8d2dd](https://github.com/snakemake/snakemake/commit/ab8d2ddc38b610b0bf5b2e5368cfaf349921470a))
+
+
+### Documentation
+
+* update FAQ - recommend ensure function for failing on empty output ([#2910](https://github.com/snakemake/snakemake/issues/2910)) ([b035071](https://github.com/snakemake/snakemake/commit/b03507119806f1ada71f950086256c4fe63eb754))
+
+## [8.13.0](https://github.com/snakemake/snakemake/compare/v8.12.0...v8.13.0) (2024-06-05)
+
+
+### Features
+
+* support for default value specification when using lookup helper function ([#2907](https://github.com/snakemake/snakemake/issues/2907)) ([08e88e2](https://github.com/snakemake/snakemake/commit/08e88e27f9e5ddcd5d9ebce7f79f45436262fddc))
+
+
+### Documentation
+
+* add badge for bioconda version ([#2902](https://github.com/snakemake/snakemake/issues/2902)) ([3f01348](https://github.com/snakemake/snakemake/commit/3f01348cda9040adc7af6c8173f9108343edde10))
+
 ## [8.12.0](https://github.com/snakemake/snakemake/compare/v8.11.6...v8.12.0) (2024-05-27)
 
 
@@ -1982,7 +2393,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * fix contributing executors link ([#1112](https://www.github.com/snakemake/snakemake/issues/1112)) ([4bb58d1](https://www.github.com/snakemake/snakemake/commit/4bb58d12a44f77f79d47c5443f927cb6061677f5))
 * Fix typo in file path in remote files documentation ([#1110](https://www.github.com/snakemake/snakemake/issues/1110)) ([9ce294f](https://www.github.com/snakemake/snakemake/commit/9ce294f6d5bdf72055a824ab610488a7f832a4d3))
 
-### [6.6.1](https://www.github.com/snakemake/snakemake/compare/v6.6.0...v6.6.1) (2021-07-19)
+## [6.6.1](https://www.github.com/snakemake/snakemake/compare/v6.6.0...v6.6.1) (2021-07-19)
 
 
 ### Bug Fixes
@@ -1996,14 +2407,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * Allow to mark all output files as temp with --all-temp ([#1097](https://www.github.com/snakemake/snakemake/issues/1097)) ([0ac3b38](https://www.github.com/snakemake/snakemake/commit/0ac3b3806c065d0ec3a551a5992faf30ddcf0576))
 
-### [6.5.5](https://www.github.com/snakemake/snakemake/compare/v6.5.4...v6.5.5) (2021-07-16)
+## [6.5.5](https://www.github.com/snakemake/snakemake/compare/v6.5.4...v6.5.5) (2021-07-16)
 
 
 ### Bug Fixes
 
 * dummy release ([e4dca50](https://www.github.com/snakemake/snakemake/commit/e4dca508f6cbd3427d8580ef61f274f909ec8bab))
 
-### [6.5.4](https://www.github.com/snakemake/snakemake/compare/v6.5.3...v6.5.4) (2021-07-16)
+## [6.5.4](https://www.github.com/snakemake/snakemake/compare/v6.5.3...v6.5.4) (2021-07-16)
 
 
 ### Fixes
@@ -2014,13 +2425,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * Fix syntax error in docs/conf.py and update sphinx.ext.napoleon import ([#1084](https://www.github.com/snakemake/snakemake/issues/1084)) ([3e3fac2](https://www.github.com/snakemake/snakemake/commit/3e3fac2dbd5a8abad67e252f6181ad14bcfcb711))
 * Improved pepfile (pepschema) documentation (@stolarczyk).
-### \[6.5.3\] - 2021-07-06
+
+## \[6.5.3\] - 2021-07-06
 
 -   Fixed a bug occurring when using --resources in the command line
     interface (@johanneskoester).
 -   Minor improvements in the docs (@johanneskoester).
 
-### \[6.5.2\] - 2021-07-02
+## \[6.5.2\] - 2021-07-02
 
 -   Create directory pointed to by tmpdir resource if it does not yet
     exist (@johanneskoester).
@@ -2029,7 +2441,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Bugfix for FTP remote provider (@jmeppley).
 -   Improved documentation (@corneliusroemer).
 
-### \[6.5.1\] - 2021-06-24
+## \[6.5.1\] - 2021-06-24
 
 -   Extended best practices document (@johanneskoester)
 -   Restore `-j all` behavior for local execution as a (deprecated) way
@@ -2062,7 +2474,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Fixed a bug causing container images in modules to be ignored
     (@johanneskoester).
 
-### \[6.4.1\] - 2021-05-27
+## \[6.4.1\] - 2021-05-27
 
 -   Fixed bug in `workflow.source_path()` that occurred with modules
     included from remote locations (@johanneskoester).
@@ -2114,7 +2526,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
     (@epruesse).
 -   Several improvements in the docs (@johanneskoester).
 
-### \[6.2.1\] - 2021-04-20
+## \[6.2.1\] - 2021-04-20
 
 -   Fixed a minor bug in the linter.
 
@@ -2127,7 +2539,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Fall back to greedy scheduling solver if ILP solver needs more than
     10 sec (@johanneskoester).
 
-### \[6.1.1\] - 2021-04-07
+## \[6.1.1\] - 2021-04-07
 
 -   Fixed several small bugs of the new module system (@johanneskoester,
     @dlaehnemann).
@@ -2150,26 +2562,26 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Bugfixes for the module system (@johanneskoester, @dlaehnemann).
 -   Various improvements for the tutorial.
 
-### \[6.0.5\] - 2021-03-11
+## \[6.0.5\] - 2021-03-11
 
 -   Fix bug (introduced with 6.0) when handling of HTML directories in
     report (@johanneskoester).
 
-### \[6.0.4\] - 2021-03-11
+## \[6.0.4\] - 2021-03-11
 
 -   Various textual improvements in the tutorial (@dlaehnemann).
 
-### \[6.0.3\] - 2021-03-08
+## \[6.0.3\] - 2021-03-08
 
 -   No longer use a shortened hash for naming conda environments in
     .snakemake/conda (@johanneskoester).
 -   Various little updates to the docs (@johanneskoester).
 
-### \[6.0.2\] - 2021-03-03
+## \[6.0.2\] - 2021-03-03
 
 -   Fix race condition in conda checking code (@johanneskoester).
 
-### \[6.0.1\] - 2021-03-03
+## \[6.0.1\] - 2021-03-03
 
 -   Restored Python 3.5 compatibility by removing f-strings (@mbhall88)
 -   Fix rendering issue in the docs.
@@ -2192,14 +2604,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Fixed a bug in job grouping that led to non-deterministic behavior
     (@johanneskoester).
 
-### \[5.32.2\] - 2021-02-11
+## \[5.32.2\] - 2021-02-11
 
 ### Changed
 
 -   Fixed infinite loading of results in Snakemake
     reports (@FelixMoelder)
 
-### \[5.32.1\] - 2021-02-08
+## \[5.32.1\] - 2021-02-08
 
 ### Changed
 
@@ -2216,7 +2628,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.32.0\] - 2021-01-15
 
-#### Changed
+### Changed
 
 -   Handle accidental use of GLS backend with singularity (@vsoch).
 -   Improved and extended WMS-monitor implementation (@vsoch).
@@ -2229,21 +2641,21 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Implement --no-subworkflows treatment in combination with --cluster
     (@goi42).
 
-### \[5.31.1\] - 2020-12-21
+## \[5.31.1\] - 2020-12-21
 
-#### Changed
+### Changed
 
 -   added wget again to the container image
 
 ## \[5.31.0\] - 2020-12-21
 
-#### Added
+### Added
 
 -   The `Paramspace` helper for automatically exploring parameter spaces
     given as Pandas dataframes.
 -   A new directive `name:` for setting rule names from variables.
 
-#### Changed
+### Changed
 
 -   Various small bug fixes for scheduling and checkpoint handling.
 -   Automatically block R_LIBS, PYTHONPATH, PERL5LIB, and PERLLIB when
@@ -2251,9 +2663,9 @@ As always, any pull requests with test cases and pointers to bugs are more than 
     --conda-not-block-envvars.
 -   Update container image to latest singularity.
 
-### \[5.30.2\] - 2020-12-16
+## \[5.30.2\] - 2020-12-16
 
-#### Changed
+### Changed
 
 -   Fix permission issues with jobscripts on some systems (@Phhere).
 -   Added notes on WSL to the tutorial (@RomainFeron).
@@ -2269,17 +2681,17 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.30.0\] - 2020-11-23
 
-#### Added
+### Added
 
 -   Benchmarks now also report CPU time (@natir).
 
-#### Changed
+### Changed
 
 -   Fixed a reauthentication bug in Kubernetes support (@haizi-zh).
 
 ## \[5.29.0\] - 2020-11-19
 
-#### Changed
+### Changed
 
 -   Fixed several bugs in reports and scheduler.
 -   Remove automatic (but buggy) encoding of csv/tsv files into HTML
@@ -2288,7 +2700,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.28.0\] - 2020-11-12
 
-#### Added
+### Added
 
 -   Execution backend for GA4GH TES (task execution scheduler) an
     abstraction layer for various cluster and cloud queuing systems
@@ -2296,16 +2708,16 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   script, notebook, wrapper and cwl directives now permit to use
     wildcards and params for composing paths (@johanneskoester).
 
-#### Changed
+### Changed
 
 -   Restored compatibility with Python 3.5 and 3.6 (@cclienti).
 -   Various usability bug fixes (@goi43, @johanneskoester, @dcroote).
 -   Better and more secure parsing of values when using --config
     (@bingxiao).
 
-### \[5.27.4\] - 2020-11-03
+## \[5.27.4\] - 2020-11-03
 
-#### Changed
+### Changed
 
 -   Further speed improvements for DAG computation.
 -   Fixed metadata migration errors occurring with long output file
@@ -2313,15 +2725,15 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Add WorkflowHub specifications to the docs.
 -   Fix group assignments.
 
-### \[5.27.3\] - 2020-10-30
+## \[5.27.3\] - 2020-10-30
 
-#### Changed
+### Changed
 
 -   Added missing files to source distribution.
 
-### \[5.27.2\] - 2020-10-30
+## \[5.27.2\] - 2020-10-30
 
-#### Changed
+### Changed
 
 -   DAG computation runtime has been improved by orders of magnitude, it
     is linear in the number of jobs now (@mhulsmann, @johanneskoester).
@@ -2337,13 +2749,13 @@ As always, any pull requests with test cases and pointers to bugs are more than 
     another job in the DAG creates them.
 -   Fixed --list-code-changes for included rules (@jbloom).
 
-#### Added
+### Added
 
 -   Syntax highlighting for nano (@baileythegreen).
 
-### \[5.26.1\] - 2020-10-01
+## \[5.26.1\] - 2020-10-01
 
-#### Changed
+### Changed
 
 -   Use coin ILP solver for scheduling by default (GLPK has bugs that
     can cause it to fail in certain situations).
@@ -2351,14 +2763,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.26.0\] - 2020-09-30
 
-#### Added
+### Added
 
 -   Flag --max-inventory-time for setting maximum time spend on creating
     file inventory.
 -   Flag --scheduler-ilp-solver for defining which solver to use for the
     ILP scheduler.
 
-#### Changed
+### Changed
 
 -   Fixed various bugs with the new scheduler (@FelixMoelder).
 -   Fixed bug causing certain parameters not to be passed to the cluster
@@ -2370,7 +2782,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.25.0\] - 2020-09-18
 
-#### Added
+### Added
 
 -   Simplified and more configurable support for scatter-gather
     processes (see docs).
@@ -2378,34 +2790,34 @@ As always, any pull requests with test cases and pointers to bugs are more than 
     line. This should provide a vast additional improvement to
     scalability in cluster and cloud settings.
 
-#### Changed
+### Changed
 
 -   Depend on latest pulp, thereby enable Python >=3.8 compatibility
     again.
 -   Fixes for snakefile handling in google life sciences backend
     (@vsoch).
 
-### \[5.24.2\] - 2020-09-15
+## \[5.24.2\] - 2020-09-15
 
-#### Changed
+### Changed
 
 -   Fixed a bug in the linter that caused a false warning when using
     resources in shell commands.
 
-### \[5.24.1\] - 2020-09-13
+## \[5.24.1\] - 2020-09-13
 
-#### Changed
+### Changed
 
 -   Depend on pulp \< 2.0, which includes the default coin cbc solver
     for all platforms.
 
 ## \[5.24.0\] - 2020-09-09
 
-#### Added
+### Added
 
 -   Preemtion support for google cloud backend (@vsoch).
 
-#### Changed
+### Changed
 
 -   Fixed compatibility issues in new scheduler code (@dtrodrigues and
     @johanneskoester).
@@ -2415,56 +2827,56 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.23.0\] - 2020-08-24
 
-#### Added
+### Added
 
 -   Support for workflow configuration via portable encapsulated
     projects (PEPs, <https://pep.databio.org>).
 -   A new ILP based default scheduler now ensures that temporary files
     are deleted as fast as possible (@FelixMoelder, @johanneskoester).
 
-#### Changed
+### Changed
 
 -   Fixed bug in modification date comparison for files in google
     storage (@vsoch).
 -   Various small documentation improvements (@dcroote, @erjel,
     @dlaehnemann, @goi42).
 
-### \[5.22.1\] - 2020-08-14
+## \[5.22.1\] - 2020-08-14
 
-#### Changed
+### Changed
 
 -   Fixed a missing dependency for google storage in cloud execution.
 
 ## \[5.22.0\] - 2020-08-13
 
-#### Added
+### Added
 
 -   Added short option `-T` for CLI parameter `--restart-times`
     (@mbhall88).
 
-#### Changed
+### Changed
 
 -   Various small fixes for google storage and life sciences backends
     (@vsoch).
 
 ## \[5.21.0\] - 2020-08-11
 
-#### Changed
+### Changed
 
 -   Added default-remote-provider support for Azure storage
     (@andreas-wilm).
 -   Various small bug fixes and documentation improvements.
 
-### \[5.20.1\] - 2020-07-08
+## \[5.20.1\] - 2020-07-08
 
-#### Changed
+### Changed
 
 -   Fixed a bug that caused singularity args to be not passed on
     correctly when using script or conda.
 
 ## \[5.20.0\] - 2020-07-08
 
-#### Changed
+### Changed
 
 -   Exceptions in input functions are now handled in a smarter way, by
     choosing alternative paths in the DAG if available.
@@ -2478,9 +2890,9 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Speed improvements for workdir cleanup.
 -   Allow Path objects to be passed to expand.
 
-### \[5.19.3\] - 2020-06-16
+## \[5.19.3\] - 2020-06-16
 
-#### Changed
+### Changed
 
 -   Performance improvements for DAG generation (up to 7x in the google
     cloud, anything from a little to massive in a cluster, depending on
@@ -2488,29 +2900,29 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 -   Made hardcoded bucket in google cloud executor configurable.
 -   Improved speed of --unlock command.
 
-### \[5.19.2\] - 2020-06-04
+## \[5.19.2\] - 2020-06-04
 
-#### Changed
+### Changed
 
 -   Fixed a bug in script and wrapper directives. Tried to decode a str.
 
-### \[5.19.1\] - 2020-06-03
+## \[5.19.1\] - 2020-06-03
 
-#### Changed
+### Changed
 
 -   Fixed an issue with the parameter linting code, that could cause an
     index out of bounds exception.
 
 ## \[5.19.0\] - 2020-06-02
 
-#### Added
+### Added
 
 -   The multiext function now allows arbitrary file extensions (no
     longer required to start with a "." (thanks to @jafors)
 -   The include directive can now also take a Pathlib Path object
     (thanks to @mbhall88).
 
-#### Changed
+### Changed
 
 -   Jupyter notebook integration no longer automatically starts a
     browser.
@@ -2525,14 +2937,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.18.0\] - 2020-05-21
 
-#### Added
+### Added
 
 -   Native Google Cloud support via the (despite the name generic)
     lifesciences API.
 -   Ability to optionally exchange the conda frontend to mamba (faster
     and sometimes more correct) instead of conda.
 
-#### Changed
+### Changed
 
 - Improved notebook integration experience, with various removed bugs and
   pitfalls.
@@ -2540,11 +2952,11 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.17.0\] - 2020-05-07
 
-#### Added
+### Added
 
 - --envvars flag for passing secrets to cloud executors
 
-#### Changed
+### Changed
 
 - Wider thumbnail dialogs in report.
 - Updated installation instructions.
@@ -2553,20 +2965,20 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.16.0\] - 2020-04-29
 
-#### Added
+### Added
 
 - Interactive jupyter notebook editing. Notebooks defined by rules can
   be interactively drafted and updated using snakemake --edit-notebook
   (see docs).
 
-#### Changed
+### Changed
 
 - Fixed group resource usage to occupy one cluster/cloud node.
 - Minor bug fixes.
 
 ## \[5.15.0\] - 2020-04-21
 
-#### Changed
+### Changed
 
 -   The resource directive can now take strings, e.g. for defining a GPU
     model (see docs). This will e.g. be used for upcoming updates to
@@ -2577,7 +2989,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.14.0\] - 2020-04-08
 
-#### Changed
+### Changed
 
 -   Redesigned HTML reports, with improved interface and performance.
 -   For big data, HTML reports can now be stored as ZIP, where files are
@@ -2594,71 +3006,71 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.13.0\] - 2020-03-27
 
-#### Added
+### Added
 
 - Allow to flag directories for inclusion in the report.
 
-#### Changed
+### Changed
 
 - Fixed hash computation for --cache in case of positional params
   arguments.
 - Automatically restrict thread usage of linear algebra libraries to whatever
   is specified in the rule/job.
 
-### \[5.12.3\] - 2020-03-24
+## \[5.12.3\] - 2020-03-24
 
-#### Changed
+### Changed
 
 -   Various minor bug fixes.
 
-### \[5.12.2\] - 2020-03-24
+## \[5.12.2\] - 2020-03-24
 
-#### Changed
+### Changed
 
 -   Further improved linter output.
 
-### \[5.12.1\] - 2020-03-24
+## \[5.12.1\] - 2020-03-24
 
-#### Changed
+### Changed
 
 -   Linter fixes
 
 ## \[5.12.0\] - 2020-03-24
 
-#### Changed
+### Changed
 
 -   Fixed the ability to supply functions for the thread directive.
 -   Improved error messages for caching.
 
-#### Added
+### Added
 
 -   A new "cache: true" directive that allows to annotate between
     workflow caching eligibility for rules in the workflow.
 
-### \[5.11.2\] - 2020-03-19
+## \[5.11.2\] - 2020-03-19
 
-#### Changed
+### Changed
 
 -   Fixed a spurious error message complaining about missing singularity
     image if --use-singularity is not activated.
 
-### \[5.11.1\] - 2020-03-16
+## \[5.11.1\] - 2020-03-16
 
-#### Changed
+### Changed
 
 -   Fixed a KeyError bug when executing a workflow that defines
     containers without --use-singularity.
 
 ## \[5.11.0\] - 2020-03-16
 
-#### Changed
+### Changed
 
 -   Fixes for environment modules and tibanna-based AWS execution.
 -   Fixes for --default-resources defaults.
 -   --cores is now a mandatory argument!
 -   Automatic checksum validation for google storage.
 
-#### Added
+### Added
 
 -   Azure storage authentication via SAS
 -   A generic container directive that will in the future allow for
@@ -2672,7 +3084,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 ## \[5.10.0\] - 2020-01-20
 
-#### Added
+### Added
 
 -   Jupyter notebook integration, see docs. This enables interactive
     development of certain data analysis parts (e.g. for plotting).
@@ -2683,20 +3095,20 @@ As always, any pull requests with test cases and pointers to bugs are more than 
     partial expansion by skipping wildcards for which no keywords are
     defined.
 
-#### Changed
+### Changed
 
 -   Various bug fixes, e.g. for between workflow caching and script
     execution.
 
-### \[5.9.1\] - 2019-12-20
+## \[5.9.1\] - 2019-12-20
 
-#### Changed
+### Changed
 
 -   Added a missing module.
 
 ## \[5.9.0\] - 2019-12-20
 
-#### Added
+### Added
 
 -   Support for per-rule environment module definitions to enable HPC
     specific software deployment (see docs).
@@ -2705,32 +3117,32 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 -   Allow setting threads as a function of the given cores (see docs).
 
-#### Changed
+### Changed
 
 - Various minor fixes.
 
-### \[5.8.2\] - 2019-12-16
+## \[5.8.2\] - 2019-12-16
 
-#### Added
+### Added
 
 - Implemented a `multiext` helper, allowing to define a set of output
 files that just differ by extension.
 
-#### Changed
+### Changed
 
 - Fixed a failure when caching jobs with conda environments.
 - Fixed various minor bugs.
 - Caching now allows to cache the output of rules using `multiext`.
 
-### \[5.8.1\] - 2019-11-15
+## \[5.8.1\] - 2019-11-15
 
-#### Changed
+### Changed
 
 -   Fixed a bug by adding a missing module.
 
 ## \[5.8.0\] - 2019-11-15
 
-#### Added
+### Added
 
 -   Blockchain based caching between workflows (in collaboration with
     Sven Nahnsen from QBiC), see [the
@@ -2739,24 +3151,24 @@ files that just differ by extension.
     (coming from script or wrapper directive) are not deleted (by Vanessa
     Sochat).
 
-#### Changed
+### Changed
 
 - Various bug fixes.
 
-### \[5.7.4\] - 2019-10-23
+## \[5.7.4\] - 2019-10-23
 
-#### Changed
+### Changed
 
 -   Various fixes and adaptations in the docker container image and the
     test suite.
 
-### \[5.7.1\] - 2019-10-16
+## \[5.7.1\] - 2019-10-16
 
-#### Added
+### Added
 
 - Ability to print log files of failed jobs with --show-failed-logs.
 
-#### Changed
+### Changed
 
 - Fixed bugs in tibanna executor.
 - Fixed handling of symbolic links.
@@ -2766,13 +3178,13 @@ files that just differ by extension.
 
 ## \[5.7.0\] - 2019-10-07
 
-#### Changed
+### Changed
 
 -   Fixed various corner case bugs. Many thanks to the community for
     pull requests and reporting!
 -   Container execution adapted to latest singularity.
 
-#### Added
+### Added
 
 -   First class support for Amazon cloud execution via a new
     [Tibanna backend](https://snakemake.readthedocs.io/en/v5.7.0/executable.html#executing-a-snakemake-workflow-via-tibanna-on-amazon-web-services).
@@ -2787,13 +3199,13 @@ files that just differ by extension.
 
 ## \[5.6.0\] - 2019-09-06
 
-#### Changed
+### Changed
 
 -   Fix compatibility with latest singularity versions.
 -   Various bug fixes (e.g. in cluster error handling, remote providers,
     kubernetes backend).
 
-#### Added
+### Added
 
 - Add --default-resources flag, that
   allows to define default resources for jobs (e.g. mem_mb, disk_mb), see
@@ -2803,30 +3215,30 @@ files that just differ by extension.
   `--dry-run` but both (and also `-n`) will always be accepted
   equivalently.
 
-### \[5.5.4\] - 2019-07-21
+## \[5.5.4\] - 2019-07-21
 
-#### Changed
+### Changed
 
 -   Reports now automatically include workflow code and configuration
     for improved transparency.
 
-### \[5.5.3\] - 2019-07-11
+## \[5.5.3\] - 2019-07-11
 
-#### Changed
+### Changed
 
 -   Various bug fixes.
 -   Polished reports.
 
-### \[5.5.2\] - 2019-06-25
+## \[5.5.2\] - 2019-06-25
 
-#### Changed
+### Changed
 
 -   Various minor bug fixes in reports.
 -   Speed improvements when using checkpoints.
 
-### \[5.5.1\] - 2019-06-18
+## \[5.5.1\] - 2019-06-18
 
-#### Changed
+### Changed
 
 -   Improved report interface. In particular for large files.
 -   Small TSV tables are automatically rendered as HTML with datatables.
@@ -2835,24 +3247,24 @@ files that just differ by extension.
 
 ## \[5.5.0\] - 2019-05-31
 
-#### Added
+### Added
 
 - Script directives now also support Julia.
 
-#### Changed
+### Changed
 
 - Various small bug fixes.
 
-### \[5.4.5\] - 2019-04-12
+## \[5.4.5\] - 2019-04-12
 
-#### Changed
+### Changed
 
 -   Fixed a bug with pipe output.
 -   Cleaned up error output.
 
-### \[5.4.4\] - 2019-03-22
+## \[5.4.4\] - 2019-03-22
 
-#### Changed
+### Changed
 
 -   Vastly improved performance of HTML reports generated with --report,
     via a more efficient encoding of dara-uri based download links.
@@ -2862,30 +3274,30 @@ files that just differ by extension.
 -   Updated docs.
 -   Better error handling in DRMAA executor.
 
-### \[5.4.3\] - 2019-03-11
+## \[5.4.3\] - 2019-03-11
 
-#### Changed
+### Changed
 
 -   More robust handling of conda environment activation that should
     work with all setups where the conda is available when starting
     snakemake.
 -   Fixed bugs on windows.
 
-### \[5.4.2\] - 2019-02-15
+## \[5.4.2\] - 2019-02-15
 
-#### Changed
+### Changed
 
 -   Fixed a bug where git module cannot be imported from wrapper.
 
-### \[5.4.1\] - 2019-02-14
+## \[5.4.1\] - 2019-02-14
 
-#### Added
+### Added
 
 -   Warning when R script is used in combination with conda and R_LIBS
     environment variable is set. This can cause unexpected results and
     should be avoided.
 
-#### Changed
+### Changed
 
 -   Improved quoting of paths in conda commands.
 -   Fixed various issues with checkpoints.
@@ -2895,16 +3307,16 @@ files that just differ by extension.
 
 ## \[5.4.0\] - 2018-12-18
 
-#### Added
+### Added
 
 -   Snakemake now allows for data-dependent conditional re-evaluation of
     the job DAG via checkpoints. This feature also deprecates the
     `dynamic` flag. See [the
     docs](https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#data-dependent-conditional-execution).
 
-### \[5.3.1\] - 2018-12-06
+## \[5.3.1\] - 2018-12-06
 
-#### Changed
+### Changed
 
 -   Various fixed bugs and papercuts, e.g., in group handling,
     kubernetes execution, singularity support, wrapper and script usage,
@@ -2912,26 +3324,26 @@ files that just differ by extension.
 
 ## \[5.3.0\] - 2018-09-18
 
-#### Added
+### Added
 
 -   Snakemake workflows can now be exported to CWL via the flag
     --export-cwl, see [the
     docs](https://snakemake.readthedocs.io/en/stable/executing/interoperability.html).
 
-#### Changed
+### Changed
 
 -   Fixed bug in script and wrapper execution when using
     `--use-singularity --use-conda`.
 -   Add host argument to S3RemoteProvider.
 -   Various minor bug fixes.
 
-### \[5.2.4\] - 2018-09-10
+## \[5.2.4\] - 2018-09-10
 
-#### Added
+### Added
 
 -   New command line flag --shadow-prefix
 
-#### Changed
+### Changed
 
 -   Fixed permission issue when using the script directive. This is a
     breaking change for scripts referring to files relative to the
@@ -2941,9 +3353,9 @@ files that just differ by extension.
 -   Allow URL to local git repo with wrapper directive
     (`git+file:///path/to/your/repo/path_to_file@@version`)
 
-### \[5.2.2\] - 2018-08-01
+## \[5.2.2\] - 2018-08-01
 
-#### Changed
+### Changed
 
 -   Always print timestamps, removed the --timestamps CLI option.
 -   more robust detection of conda command
@@ -2952,7 +3364,7 @@ files that just differ by extension.
 
 ## \[5.2.0\] - 2018-06-28
 
-#### Changed
+### Changed
 
 -   Directory outputs have to marked with `directory`. This ensures
     proper handling of timestamps and cleanup. This is a breaking
@@ -2966,40 +3378,40 @@ files that just differ by extension.
     of the log output.
 -   Fixed numerous small bugs and papercuts and extended documentation.
 
-### \[5.1.5\] - 2018-06-24
+## \[5.1.5\] - 2018-06-24
 
-#### Changed
+### Changed
 
 -   fixed missing version info in docker image.
 -   several minor fixes to EGA support.
 
-### \[5.1.4\] - 2018-05-28
+## \[5.1.4\] - 2018-05-28
 
-#### Added
+### Added
 
 -   Allow `category` to be set.
 
-#### Changed
+### Changed
 
 -   Various cosmetic changes to reports.
 -   Fixed encoding issues in reports.
 
-### \[5.1.3\] - 2018-05-22
+## \[5.1.3\] - 2018-05-22
 
-#### Changed
+### Changed
 
 -   Fixed various bugs in job groups, shadow directive, singularity
     directive, and more.
 
-### \[5.1.2\] - 2018-05-18
+## \[5.1.2\] - 2018-05-18
 
-#### Changed
+### Changed
 
 -   Fixed a bug in the report stylesheet.
 
 ## \[5.1.0\] - 2018-05-17
 
-#### Added
+### Added
 
 -   A new framework for self-contained HTML reports, including results,
     statistics and topology information. In future releases this will be
@@ -3009,7 +3421,7 @@ files that just differ by extension.
 -   Two new flags --cleanup-shadow and --cleanup-conda to clean up old
     unused conda and shadow data.
 
-#### Changed
+### Changed
 
 -   Benchmark repeats are now specified inside the workflow via a new
     flag repeat().
@@ -3018,7 +3430,7 @@ files that just differ by extension.
 
 ## \[5.0.0\] - 2018-05-11
 
-#### Added
+### Added
 
 -   Group jobs for reduced queuing and network overhead, in particular
     with short running jobs.
@@ -3029,15 +3441,15 @@ files that just differ by extension.
 -   Command line flag to list files in working directory that are not
     tracked by Snakemake.
 
-#### Changed
+### Changed
 
 -   Fix of --default-remote-prefix in case of input functions returning
     lists or dicts.
 -   Scheduler no longer prefers jobs with many downstream jobs.
 
-### \[4.8.1\] - 2018-04-25
+## \[4.8.1\] - 2018-04-25
 
-#### Added
+### Added
 
 -   Allow URLs for the conda directive. # Changed
 -   Various minor updates in the docs.
@@ -3053,7 +3465,7 @@ files that just differ by extension.
 
 ## \[4.8.0\] - 2018-03-13
 
-#### Added
+### Added
 
 -   Integration with CWL: the `cwl` directive allows to use CWL tool
     definitions in addition to shell commands or Snakemake wrappers.
@@ -3067,7 +3479,7 @@ files that just differ by extension.
 
 ## \[4.7.0\] - 2018-02-19
 
-#### Changed
+### Changed
 
 -   Speedups when calculating dry-runs.
 -   Speedups for workflows with many rules when calculating the DAG.
@@ -3076,7 +3488,7 @@ files that just differ by extension.
 
 ## \[4.6.0\] - 2018-02-06
 
-#### Changed
+### Changed
 
 -   Log files can now be used as input files for other rules.
 -   Adapted to changes in Kubernetes client API.
@@ -3085,16 +3497,16 @@ files that just differ by extension.
     packages from root env when using script directive together with
     conda.
 
-### \[4.5.1\] - 2018-02-01
+## \[4.5.1\] - 2018-02-01
 
-#### Added
+### Added
 
 -   Input and output files can now tag pathlib objects. # ## Changed
 -   Various minor bug fixes.
 
 ## \[4.5.0\] - 2018-01-18
 
-#### Added
+### Added
 
 -   iRODS remote provider # ## Changed
 -   Bug fix in shell usage of scripts and wrappers.
@@ -3103,12 +3515,12 @@ files that just differ by extension.
 
 ## \[4.4.0\] - 2017-12-21
 
-#### Added
+### Added
 
 -   A new shadow mode (minimal) that only symlinks input files has been
     added.
 
-#### Changed
+### Changed
 
 -   The default shell is now bash on linux and macOS. If bash is not
     installed, we fall back to sh. Previously, Snakemake used the
@@ -3120,21 +3532,21 @@ files that just differ by extension.
 -   HTTP remote provider no longer automatically unpacks gzipped files.
 -   Fixed various smaller bugs.
 
-### \[4.3.1\] - 2017-11-16
+## \[4.3.1\] - 2017-11-16
 
-#### Added
+### Added
 
 -   List all conda environments with their location on disk via
     --list-conda-envs.
 
-#### Changed
+### Changed
 
 -   Do not clean up shadow on dry-run.
 -   Allow R wrappers.
 
 ## \[4.3.0\] - 2017-10-27
 
-#### Added
+### Added
 
 -   GridFTP remote provider. This is a specialization of the GFAL remote
     provider that uses globus-url-copy to download or upload files. # ##
@@ -3147,13 +3559,13 @@ files that just differ by extension.
 
 ## \[4.2.0\] - 2017-10-10
 
-#### Added
+### Added
 
 -   Support for executing jobs in per-rule singularity images. This is
     meant as an alternative to the conda directive (see docs), providing
     even more guarantees for reproducibility.
 
-#### Changed
+### Changed
 
 -   In cluster mode, jobs that are still running after Snakemake has
     been killed are automatically resumed.
@@ -3163,7 +3575,7 @@ files that just differ by extension.
 
 ## \[4.1.0\] - 2017-09-26
 
-#### Added
+### Added
 
 -   Support for configuration profiles. Profiles allow to specify
     default options, e.g., a cluster submission command. They can be
@@ -3183,7 +3595,7 @@ files that just differ by extension.
 
 ## \[4.0.0\] - 2017-07-24
 
-#### Added
+### Added
 
 -   Cloud computing support via Kubernetes. Snakemake workflows can be
     executed transparently in the cloud, while storing input and output
@@ -3212,32 +3624,32 @@ files that just differ by extension.
     Python 3.5 at least.
 -   Various minor bug fixes (e.g. for dynamic output files).
 
-### \[3.13.3\] - 2017-06-23
+## \[3.13.3\] - 2017-06-23
 
-#### Changed
+### Changed
 
 -   Fix a followup bug in Namedlist where a single item was not returned
     as string.
 
-### \[3.13.2\] - 2017-06-20
+## \[3.13.2\] - 2017-06-20
 
-#### Changed
+### Changed
 
 -   The --wrapper-prefix flag now also affects where the corresponding
     environment definition is fetched from.
 -   Fix bug where empty output file list was recognized as containing
     duplicates (issue #574).
 
-### \[3.13.1\] - 2017-06-20
+## \[3.13.1\] - 2017-06-20
 
-#### Changed
+### Changed
 
 -   Fix --conda-prefix to be passed to all jobs.
 -   Fix cleanup issue with scripts that fail to download.
 
 ## \[3.13.0\] - 2017-06-12
 
-#### Added
+### Added
 
 -   An NCBI remote provider. By this, you can seamlessly integrate any
     NCBI resource (reference genome, gene/protein sequences, ...) as
@@ -3253,7 +3665,7 @@ files that just differ by extension.
 
 ## \[3.12.0\] - 2017-05-09
 
-#### Added
+### Added
 
 -   Support for RMarkdown (.Rmd) in script directives.
 -   New option --debug-dag that prints all decisions while building the
@@ -3262,7 +3674,7 @@ files that just differ by extension.
 -   New option --conda-prefix to specify the place where conda
     environments are stored.
 
-#### Changed
+### Changed
 
 -   Benchmark files now also include the maximal RSS and VMS size of the
     Snakemake process and all sub processes.
@@ -3270,31 +3682,31 @@ files that just differ by extension.
 -   Allow specification of DRMAA log dir.
 -   Pass cluster config to subworkflow.
 
-### \[3.11.2\] - 2017-03-15
+## \[3.11.2\] - 2017-03-15
 
-#### Changed
+### Changed
 
 -   Fixed fix handling of local URIs with the wrapper directive.
 
-### \[3.11.1\] - 2017-03-14
+## \[3.11.1\] - 2017-03-14
 
-#### Changed
+### Changed
 
 -   --touch ignores missing files
 -   Fixed handling of local URIs with the wrapper directive.
 
 ## \[3.11.0\] - 2017-03-08
 
-#### Added
+### Added
 
 -   Param functions can now also refer to threads. # ## Changed
 -   Improved tutorial and docs.
 -   Made conda integration more robust.
 -   None is converted to NULL in R scripts.
 
-### \[3.10.2\] - 2017-02-28
+## \[3.10.2\] - 2017-02-28
 
-#### Changed
+### Changed
 
 -   Improved config file handling and merging.
 -   Output files can be referred in params functions (i.e. lambda
@@ -3305,7 +3717,7 @@ files that just differ by extension.
 
 ## \[3.10.0\] - 2017-01-18
 
-#### Added
+### Added
 
 -   Workflows can now be archived to a tarball with
     `snakemake --archive my-workflow.tar.gz`. The archive contains all
@@ -3323,9 +3735,9 @@ files that just differ by extension.
 -   Scripts referred by the script directive can now use locally defined
     external python modules.
 
-### \[3.9.1\] - 2016-12-23
+## \[3.9.1\] - 2016-12-23
 
-#### Added
+### Added
 
 -   Jobs can be restarted upon failure (--restart-times). # ## Changed
 -   The docs have been restructured and improved. Now available under
@@ -3336,7 +3748,7 @@ files that just differ by extension.
 
 ## \[3.9.0\] - 2016-11-15
 
-#### Added
+### Added
 
 -   Ability to define isolated conda software environments (YAML) per
     rule. Environments will be deployed by Snakemake upon workflow
@@ -3349,16 +3761,16 @@ files that just differ by extension.
 -   Fixed pickling errors with anonymous rules and run directive.
 -   Various small bug fixes
 
-### \[3.8.2\] - 2016-09-23
+## \[3.8.2\] - 2016-09-23
 
-#### Changed
+### Changed
 
 -   Add missing import in rules.py.
 -   Use threading only in cluster jobs.
 
-### \[3.8.1\] - 2016-09-14
+## \[3.8.1\] - 2016-09-14
 
-#### Changed
+### Changed
 
 -   Snakemake now warns when using relative paths starting with "./".
 -   The option -R now also accepts an empty list of arguments.
@@ -3369,7 +3781,7 @@ files that just differ by extension.
 
 ## \[3.8.0\] - 2016-08-26
 
-#### Added
+### Added
 
 -   Wildcards can now be constrained by rule and globally via the new
     `wildcard_constraints` directive (see the
@@ -3390,7 +3802,7 @@ files that just differ by extension.
     This is useful when dealing with filenames that contain
     whitespaces.
 
-#### Changed
+### Changed
 
 -   Snakemake now deletes output files before job execution. Further, it
     touches output files after job execution. This solves various
@@ -3401,15 +3813,15 @@ files that just differ by extension.
     additional bug fixes related to remote files.
 -   Various minor bug fixes.
 
-### \[3.7.1\] - 2016-05-16
+## \[3.7.1\] - 2016-05-16
 
-#### Changed
+### Changed
 
 -   Fixed a missing import of the multiprocessing module.
 
 ## \[3.7.0\] - 2016-05-05
 
-#### Added
+### Added
 
 -   The entries in `resources` and the `threads` job attribute can now
     be callables that must return `int` values.
@@ -3427,9 +3839,9 @@ files that just differ by extension.
     input and output files. # ## Changed
 -   Fixed a bug with HTTP remote providers.
 
-### \[3.6.1\] - 2016-04-08
+## \[3.6.1\] - 2016-04-08
 
-#### Changed
+### Changed
 
 -   Work around missing RecursionError in Python \< 3.5
 -   Improved conversion of numpy and pandas data structures to R
@@ -3438,7 +3850,7 @@ files that just differ by extension.
 
 ## \[3.6.0\] - 2016-03-10
 
-#### Added
+### Added
 
 -   onstart handler, that allows to add code that shall be only executed
     before the actual workflow execution (not on dryrun).
@@ -3455,9 +3867,9 @@ files that just differ by extension.
 -   The params directive no longer converts a list `l` implicitly to
     `" ".join(l)`.
 
-### \[3.5.5\] - 2016-01-23
+## \[3.5.5\] - 2016-01-23
 
-#### Added
+### Added
 
 -   New experimental wrapper directive, which allows to refer to
     reusable [wrapper
@@ -3469,22 +3881,22 @@ files that just differ by extension.
     --omit-from). # ## Changed
 -   Fixed various bugs, e.g. with shadow jobs and --latency-wait.
 
-### \[3.5.4\] - 2015-12-04
+## \[3.5.4\] - 2015-12-04
 
-#### Changed
+### Changed
 
 -   The params directive now fully supports non-string parameters.
     Several bugs in the remote support were fixed.
 
-### \[3.5.3\] - 2015-11-24
+## \[3.5.3\] - 2015-11-24
 
-#### Changed
+### Changed
 
 -   The missing remote module was added to the package.
 
-### \[3.5.2\] - 2015-11-24
+## \[3.5.2\] - 2015-11-24
 
-#### Added
+### Added
 
 -   Support for easy integration of external R and Python scripts via
     the new [script
@@ -3495,7 +3907,7 @@ files that just differ by extension.
 -   Simon Ye has implemented support for sandboxing jobs with [shadow
     rules](https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-shadow-rules).
 
-#### Changed
+### Changed
 
 -   Manuel Holtgrewe has fixed dynamic output files in combination with
     multiple wildcards.
@@ -3509,9 +3921,9 @@ files that just differ by extension.
     Snakemake has moved from my personal bitbucket account to
     <http://snakemake.bitbucket.org>.
 
-### \[3.4.2\] - 2015-09-12
+## \[3.4.2\] - 2015-09-12
 
-#### Changed
+### Changed
 
 -   Willem Ligtenberg has reduced the memory usage of Snakemake.
 -   Per Unneberg has improved config file handling to provide a more
@@ -3529,16 +3941,16 @@ files that just differ by extension.
 -   The handling of Symlinks was improved, which made a switch to Python
     3.3 as the minimum required Python version necessary.
 
-### \[3.4.1\] - 2015-08-05
+## \[3.4.1\] - 2015-08-05
 
-#### Changed
+### Changed
 
 -   This release fixes a bug that caused named input or output files to
     always be returned as lists instead of single files.
 
 ## \[3.4\] - 2015-07-18
 
-#### Added
+### Added
 
 -   This release adds support for executing jobs on clusters in
     synchronous mode (e.g. qsub -sync). Thanks to David Alexander for
@@ -3547,7 +3959,7 @@ files that just differ by extension.
     Hesselberth).
 -   Snakemake is now available as Conda package.
 
-#### Changed
+### Changed
 
 -   Lots of bugs have been fixed. Thanks go to e.g. David Koppstein,
     Marcel Martin, John Huddleston and Tao Wen for helping with useful

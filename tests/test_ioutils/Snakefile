@@ -6,6 +6,10 @@ samples = pd.read_csv("samples.tsv", sep="\t")
 configfile: "config.yaml"
 
 
+assert lookup(dpath="does/not/exist", within=config, default=None) is None
+assert lookup(dpath="does/not/exist", within=config, default=5) == 5
+
+
 rule all:
     input:
         "results/switch~someswitch.column~sample.txt",
@@ -40,11 +44,26 @@ rule c:
         "cat {input} > {output}"
 
 
-rule d:
+rule item_access:
+    input:
+        txt="in.txt"
     output:
-        "test.txt",
-    shell:
-        "echo d > {output}"
+        txt="test.txt",
+    params:
+        output_item=output.txt,
+        output_item2=output[0],
+        input_item=input.txt,
+        mem=resources.mem,
+    resources:
+        mem="1GB",
+    run:
+        assert params.output_item == "test.txt"
+        assert params.output_item2 == "test.txt"
+        assert params.input_item == "in.txt"
+        assert resources.mem == "1GB"
+
+        with open(output[0], "w") as outfile:
+            print("d", file=outfile)
 
 
 rule e:

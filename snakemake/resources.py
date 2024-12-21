@@ -4,6 +4,7 @@ import itertools as it
 import operator as op
 import re
 import tempfile
+import math
 from typing import Any
 
 from snakemake.exceptions import (
@@ -641,7 +642,7 @@ def infer_resources(name, value, resources: dict):
             raise WorkflowError(
                 f"Cannot parse mem or disk value into size in MB for setting {inferred_name} resource: {value}"
             )
-        resources[inferred_name] = max(int(round(in_bytes / 1024 / 1024)), 1)
+        resources[inferred_name] = max(int(math.ceil(in_bytes / 1e6)), 1)
     elif (
         name == "runtime"
         and isinstance(value, str)
@@ -653,7 +654,6 @@ def infer_resources(name, value, resources: dict):
             raise WorkflowError(
                 f"Cannot parse runtime value into minutes for setting runtime resource: {value}"
             )
-        logger.debug(f"Inferred runtime value of {parsed} minutes from {value}")
         resources["runtime"] = parsed
 
 
