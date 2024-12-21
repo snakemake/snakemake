@@ -1,0 +1,50 @@
+rule all:
+    input:
+        "test3.out",
+        collect("res/{somewildcard}.out", somewildcard=["somedir1", "somedir2/subdir"])
+
+rule a:
+    output:
+        "test1.out"
+    log:
+        "a.log"
+    shell:
+        "touch {output} 2> {log}"
+
+
+rule b:
+    input:
+        "test1.out"
+    output:
+        "test2.out"
+    log:
+        "b.log"
+    threads: 2
+    shell:
+        "cp {input} {output} 2> {log}"
+
+
+rule c:
+    input:
+        "test2.out"
+    output:
+        report(
+            "test3.out",
+            caption="caption.rst",
+            category="Test",
+            subcategory="Subtest",
+            labels={"label1": "foo", "label2": "bar"},
+        )
+    log:
+        "c.log"
+    resources:
+        mem="5MB"
+    shell:
+        "cp {input} {output} 2> {log}"
+
+
+rule d:
+    output:
+        "res/{somewildcard}.out"
+    shell:
+        "touch {output}"

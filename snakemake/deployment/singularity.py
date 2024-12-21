@@ -16,7 +16,7 @@ from snakemake.common import (
 )
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
-from snakemake_interface_executor_plugins.utils import lazy_property
+from snakemake_interface_common.utils import lazy_property
 
 
 SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
@@ -127,7 +127,7 @@ def shellcmd(
     if container_workdir:
         args += f" --pwd {repr(container_workdir)}"
 
-    cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
+    cmd = "{} singularity {} exec --cleanenv --home {} {} {} {} -c '{}'".format(
         envvars,
         "--quiet --silent" if quiet else "",
         repr(os.getcwd()),
@@ -188,8 +188,8 @@ class Singularity:
         if not self.checked:
             if not shutil.which("singularity"):
                 raise WorkflowError(
-                    "The singularity command has to be "
-                    "available in order to use singularity "
+                    "The apptainer or singularity command has to be "
+                    "available in order to use apptainer/singularity "
                     "integration."
                 )
             try:

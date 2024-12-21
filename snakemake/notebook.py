@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import os
 from pathlib import Path
+import shutil
 import tempfile
 import re
 
@@ -14,13 +15,6 @@ from snakemake.utils import format
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
-
-
-class EditMode:
-    def __init__(self, server_addr=None, draft_only=False):
-        if server_addr is not None:
-            self.ip, self.port = server_addr.split(":")
-        self.draft_only = draft_only
 
 
 def get_cell_sources(source):
@@ -70,11 +64,6 @@ class JupyterNotebook(ScriptBase):
         import nbformat
 
         fname_out = self.log.get("notebook", None)
-        if fname_out is None or edit:
-            output_parameter = ""
-        else:
-            fname_out = os.path.join(os.getcwd(), fname_out)
-            output_parameter = "--output {fname_out:q}"
 
         with tempfile.TemporaryDirectory() as tmp:
             if edit is not None:
@@ -85,6 +74,12 @@ class JupyterNotebook(ScriptBase):
                     "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
                 )
             else:
+                if fname_out is None:
+                    output_parameter = f"--output '{tmp}/notebook.ipynb'"
+                else:
+                    fname_out = os.path.abspath(fname_out)
+                    output_parameter = "--output {fname_out:q}"
+
                 cmd = (
                     "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
                     "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
@@ -101,9 +96,14 @@ class JupyterNotebook(ScriptBase):
                 fname_out=fname_out,
                 fname=fname,
                 additional_envvars={"IPYTHONDIR": tmp},
+                is_python_script=True,
             )
 
             if edit:
+                if fname_out is not None:
+                    # store log file (executed notebook) in requested path
+                    shutil.copyfile(fname, fname_out)
+
                 logger.info("Saving modified notebook.")
                 nb = nbformat.read(fname, as_version=4)
 
@@ -142,12 +142,10 @@ class JupyterNotebook(ScriptBase):
             del notebook["cells"][preamble]
 
     @abstractmethod
-    def get_language_name(self):
-        ...
+    def get_language_name(self): ...
 
     @abstractmethod
-    def get_interpreter_exec(self):
-        ...
+    def get_interpreter_exec(self): ...
 
 
 class PythonJupyterNotebook(JupyterNotebook):
@@ -257,6 +255,7 @@ def notebook(
     cleanup_scripts,
     shadow_dir,
     edit,
+    sourcecache_path,
     runtime_sourcecache_path,
 ):
     """
@@ -292,7 +291,11 @@ def notebook(
 
     if not draft:
         path, source, language, is_local, cache_path = get_source(
-            path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
+            path,
+            SourceCache(sourcecache_path, runtime_sourcecache_path),
+            basedir,
+            wildcards,
+            params,
         )
     else:
         source = None

@@ -5,7 +5,7 @@ Reports
 -------
 
 From Snakemake 5.1 on, it is possible to automatically generate detailed self-contained HTML reports that encompass runtime statistics, provenance information, workflow topology and results.
-**As an example, the report of the Snakemake rolling paper can be found** `here <https://snakemake.github.io/resources/report.html>`_.
+**As an example, the report of the Snakemake rolling paper can be found** `here <https://snakemake.github.io/resources/report.html>`__.
 
 For including results into the report, the Snakefile has to be annotated with additional information.
 Each output file that shall be part of the report has to be marked with the ``report`` flag, which optionally points to a caption in `restructured text format <https://docutils.sourceforge.io/docs/user/rst/quickstart.html>`_ and allows to define a ``category`` for grouping purposes.
@@ -25,7 +25,7 @@ Consider the following example:
   rule c:
       output:
           "test.{i}.out"
-      singularity:
+      container:
           "docker://continuumio/miniconda3:4.4.10"
       conda:
           "envs/test.yaml"
@@ -71,7 +71,7 @@ In case of output files, you can access the same values as available with the :r
 When marking files for inclusion in the report, a ``category`` and a ``subcategory`` can be given, allowing to group results in of the report.
 For both, wildcards (like ``{model}`` see rule b in the example), are automatically replaced with the respective values from the corresponding job.
 
-The last rule ``d`` creates a directory with several files, here mimicing the case that it is impossible to specify exactly which files will be created while writing the workflow (e.g. it might depend on the data).
+The last rule ``d`` creates a directory with several files, here mimicking the case that it is impossible to specify exactly which files will be created while writing the workflow (e.g. it might depend on the data).
 Nevertheless, it is still possible to include those files one by one into the report by defining inclusion patterns (here ``patterns=["{name}.txt"]``) along with the report flag.
 When creating the report, Snakemake will scan the directory for files matching the given patterns and include all of them in the report.
 Wildcards in those patterns are made available in the jinja-templated caption document along with the rules wildcards in the ``snakemake.wildcards`` object.
@@ -138,7 +138,7 @@ In every ``.rst`` document, you can link to
 * any **category** panel (with ``Mycategory_``, while ``Mycategory`` is the name given for the category argument of the report flag). E.g., with above example, you could write ``see `Step 2`_`` in order to link to the section with the results that have been assigned to the category ``Step 2``.
 * any **file** marked with the report flag (with ``myfile.txt_``, while ``myfile.txt`` is the basename of the file, without any leading directories). E.g., with above example, you could write ``see fig2.png_`` in order to link to the result in the report document.
 
-For details about the hyperlink mechanism of restructured text see `here <https://docutils.sourceforge.io/docs/user/rst/quickref.html#hyperlink-targets>`_.
+For details about the hyperlink mechanism of restructured text see `here <https://docutils.sourceforge.io/docs/user/rst/quickref.html#hyperlink-targets>`__.
 
 Rendering reports
 ~~~~~~~~~~~~~~~~~
@@ -163,7 +163,7 @@ You can define an institute specific stylesheet with:
 In particular, this allows you to e.g. set a logo at the top (by using CSS to inject a background for the placeholder ``<div id="brand">``, or overwrite colors.
 For an example custom stylesheet defining the logo, see :download:`here <../../tests/test_report/custom-stylesheet.css>`.
 The report for above example can be found :download:`here <../../tests/test_report/expected-results/report.html>` (with a custom branding for the University of Duisburg-Essen).
-The full example source code can be found `here <https://github.com/snakemake/snakemake/tree/main/tests/test_report/>`_.
+The full example source code can be found `here <https://github.com/snakemake/snakemake/tree/main/tests/test_report/>`__.
 
 Note that the report can be restricted to particular jobs and results by specifying targets at the command line, analog to normal Snakemake execution.
 For example, with

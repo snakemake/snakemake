@@ -6,7 +6,7 @@ rule all:
 
 
 def check_remote(f):
-    if not f.startswith("test-remote-bucket/"):
+    if not f.startswith(".snakemake/storage/"):
         raise ValueError("Input and output are not remote files.")
 
 
@@ -73,12 +73,10 @@ rule e:
         shell("cp {input} {output}")
 
 
-# after we finish, we need to remove the pickle storing
-# the local moto "buckets" so we are starting fresh
-# next time this test is run. This file is created by
-# the moto wrapper defined in S3Mocked.py
-onsuccess:
-    shell("rm ./motoState.p")
-
-onerror:
-    shell("rm ./motoState.p")
+rule base:
+    output:
+        "test.txt"
+    log:
+        "logs/base.log"
+    shell:
+        "touch {output} 2> {log}"

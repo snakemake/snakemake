@@ -40,119 +40,11 @@ Implement Features
 Look through the Github issues for features.
 If you want to start working on an issue then please write short message on the issue tracker to prevent duplicate work.
 
-Contributing a new cluster or cloud execution backend
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Contributing a plugin
+~~~~~~~~~~~~~~~~~~~~~
 
-Execution backends are added by implementing a so-called ``Executor``.
-All executors are located in `snakemake/executors/ <https://github.com/snakemake/snakemake/tree/main/snakemake/executors>`_.
-In order to implement a new executor, you have to inherit from the class ``ClusterExecutor``.
-Below you find a skeleton
-
-.. code-block:: python
-
-    class SkeletonExecutor(ClusterExecutor):
-        def __init__(self, workflow, dag, cores,
-                 jobname="snakejob.{name}.{jobid}.sh",
-                 printreason=False,
-                 quiet=False,
-                 printshellcmds=False,
-                 latency_wait=3,
-                 local_input=None,
-                 restart_times=None,
-                 exec_job=None,
-                 assume_shared_fs=True,
-                 max_status_checks_per_second=1):
-
-            super().__init__(workflow, dag, None,
-                             jobname=jobname,
-                             printreason=printreason,
-                             quiet=quiet,
-                             printshellcmds=printshellcmds,
-                             latency_wait=latency_wait,
-                             local_input=local_input,
-                             restart_times=restart_times,
-                             assume_shared_fs=False, # if your executor relies on a shared file system, set this to True
-                             max_status_checks_per_second=max_status_checks_per_second)  # set this to a reasonable default
-
-            # add additional attributes
-
-        def shutdown(self):
-            # perform additional steps on shutdown if necessary
-            super().shutdown()
-
-        def cancel(self):
-            for job in self.active_jobs:
-                # cancel active jobs here
-                pass
-            self.shutdown()
-        
-        def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
-            """Run a list of jobs that is ready at a given point in time.
-
-            By default, this method just runs each job individually.
-            This behavior is inherited and therefore this method can be removed from the skeleton if the
-            default behavior is intended.
-            This method can be overwritten to submit many jobs in a more efficient way than one-by-one.
-
-            Note that in any case, for each job, the callback functions have to be called individually!
-            """
-            for job in jobs:
-                self.run(
-                    job,
-                    callback=callback,
-                    submit_callback=submit_callback,
-                    error_callback=error_callback,
-                )
-
-        def run(self, job,
-                callback=None,
-                submit_callback=None,
-                error_callback=None):
-            """Run an individual job or a job group.
-            """
-
-            # Necessary: perform additional executor independent steps before running the job
-            super()._run(job)
-
-            # obtain job execution command
-            exec_job = self.format_job(
-                self.exec_job, job, _quote_all=True,
-                use_threads="--force-use-threads" if not job.is_group() else "")
-
-            # submit job here, and obtain job ids from the backend
-
-            # register job as active, using your own namedtuple.
-            # The namedtuple must at least contain the attributes
-            # job, jobid, callback, error_callback.
-            self.active_jobs.append(MyJob(
-                job, jobid, callback, error_callback))
-
-        async def _wait_for_jobs(self):
-            from snakemake.executors import sleep
-            # busy wait on job completion
-            # This is only needed if your backend does not allow to use callbacks
-            # for obtaining job status.
-            while True:
-                # always use self.lock to avoid race conditions
-                async with async_lock(self.lock):
-                    if not self.wait:
-                        return
-                    active_jobs = self.active_jobs
-                    self.active_jobs = list()
-                    still_running = list()
-                for j in active_jobs:
-                    # use self.status_rate_limiter to avoid too many API calls.
-                    async with self.status_rate_limiter:
-
-                        # Retrieve status of job j from your backend via j.jobid
-                        # Handle completion and errors, calling either j.callback(j.job)
-                        # or j.error_callback(j.job)
-                        # In case of error, add job j to still_running.
-                        pass
-                async with async_lock(self.lock):
-                    self.active_jobs.extend(still_running)
-                await sleep()
-
+Currently, Snakemake supports executor plugins and storage plugins.
+The `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_ shows which plugins are available and how to contribute new ones.
 
 Write Documentation
 ===================
@@ -160,7 +52,7 @@ Write Documentation
 Snakemake could always use more documentation, whether as part of the official vcfpy docs, in docstrings, or even on the web in blog posts, articles, and such.
 
 Snakemake uses `Sphinx <https://sphinx-doc.org>`_ for the user manual (that you are currently reading).
-See `project_info-doc_guidelines` on how the documentation reStructuredText is used.
+See :ref:`project_info-doc_guidelines` on how the documentation reStructuredText is used.
 
 
 Submit Feedback
@@ -203,9 +95,9 @@ Feel free to ask questions about this if you want to contribute to Snakemake :)
 Testing Guidelines
 ------------------
 
-To ensure that you do not introduce bugs into Snakemake, you should test your code thouroughly.
+To ensure that you do not introduce bugs into Snakemake, you should test your code thoroughly.
 
-To have integration tests run automatically when commiting code changes to Github, you need to sign up on wercker.com and register a user.
+To have integration tests run automatically when committing code changes to Github, you need to sign up on wercker.com and register a user.
 
 The easiest way to run your development version of Snakemake is perhaps to go to the folder containing your local copy of Snakemake and call:
 
@@ -226,7 +118,7 @@ From the base snakemake folder you call :code:`pytest` to run all the tests, or 
 
 If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
 
-.. project_info-doc_guidelines:
+.. _project_info-doc_guidelines:
 
 ------------------------
 Documentation Guidelines
@@ -293,6 +185,12 @@ Snakemake development environment via
     $ git clone git@github.com:snakemake/snakemake.git
     $ cd snakemake
     $ conda env create -f doc-environment.yml -n snakemake
+
+You will also need to install your development version of Snakemake for the docs to be built correctly
+
+.. code-block:: console
+
+    $ pip install -e .
 
 Then, the docs can be built with
 

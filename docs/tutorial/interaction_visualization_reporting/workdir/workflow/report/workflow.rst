@@ -1,0 +1,1 @@
+Workflow illustrating Snakemake's capabilities for last mile data analysis with Jupyter, Datavzrd, and R/Python plotting libraries.

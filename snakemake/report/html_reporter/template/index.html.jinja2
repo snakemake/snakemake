@@ -1,0 +1,105 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Snakemake Report</title>
+
+    <script>{{ packages["tailwindcss"].source }}</script>
+    <style>{{ pygments_css|safe }}</style>
+    <style>{{ "style.css"|get_resource_as_string }}</style>
+
+    {% if custom_stylesheet is not none %}
+    <style>{{ custom_stylesheet }}</style>
+    {% endif %}
+</head>
+
+<body>
+
+    <div id="loading-screen">
+      <p id="loading-animation">Loading Snakemake Report...</p>
+      <p id="jswarning">Please enable Javascript in your browser to see this report.</p>
+    </div>
+    <script>
+    document.querySelector('#loading-screen #jswarning').style.display = "none";
+    </script>
+
+    <div id="app">
+    </div>
+
+    <script>{{packages["react"].sources["main"]}}</script>
+    <script>{{packages["react"].sources["dom"]}}</script>
+    <script>{{packages["prop-types"].source}}</script>
+    <script>{{packages["vega"].source}}</script>
+    <script>{{packages["vega-lite"].source}}</script>
+    <script>{{packages["vega-embed"].source}}</script>
+
+    <script id="workflow-desc">
+    var workflow_desc = {{workflow_desc}};
+    </script>
+
+    <script id="results">
+    var results = {{results}};
+    </script>
+
+    <script id="categories">
+    var categories = {{categories}};
+    </script>
+
+    <script id="rulegraph">
+    var rulegraph_spec = {{rulegraph}};
+    </script>
+
+    <script id="runtimes">
+    var runtimes_spec = {{runtimes}};
+    </script>
+
+    <script id="timeline">
+    var timeline_spec = {{timeline}};
+    </script>
+
+    <script id="rules">
+    var rules = {{rules}};
+    </script>
+
+    <script id="packages">
+    var packages = {{packages.get_json()}};
+    </script>
+
+    <script id="logo">
+    var logo_uri = "{{logo}}";
+    </script>
+
+    <script>{{"components/common.js"|get_resource_as_string}}</script>
+    <script>{{"components/list_item.js"|get_resource_as_string}}</script>
+    <script>{{"components/list_heading.js"|get_resource_as_string}}</script>
+    <script>{{"components/icon.js"|get_resource_as_string}}</script>
+    <script>{{"components/button.js"|get_resource_as_string}}</script>
+    <script>{{"components/result_view_button.js"|get_resource_as_string}}</script>
+    <script>{{"components/abstract_menu.js"|get_resource_as_string}}</script>
+    <script>{{"components/abstract_results.js"|get_resource_as_string}}</script>
+    <script>{{"components/breadcrumbs.js"|get_resource_as_string}}</script>
+    <script>{{"components/menu.js"|get_resource_as_string}}</script>
+    <script>{{"components/report_info.js"|get_resource_as_string}}</script>
+    <script>{{"components/category.js"|get_resource_as_string}}</script>
+    <script>{{"components/subcategory.js"|get_resource_as_string}}</script>
+    <script>{{"components/search_results.js"|get_resource_as_string}}</script>
+    <script>{{"components/result_info.js"|get_resource_as_string}}</script>
+    <script>{{"components/rule_graph.js"|get_resource_as_string}}</script>
+    <script>{{"components/rule_info.js"|get_resource_as_string}}</script>
+    <script>{{"components/stats.js"|get_resource_as_string}}</script>
+    <script>{{"components/content.js"|get_resource_as_string}}</script>
+    <script>{{"components/navbar.js"|get_resource_as_string}}</script>
+    <script>{{"components/app.js"|get_resource_as_string}}</script>
+
+    <script>
+    document.querySelector('#loading-screen').style.display = "none";
+    </script>
+
+</body>
+
+</html>
