@@ -2321,7 +2321,10 @@ def test_toposort():
     run(dpath("test_toposort"), check_results=False, executor="dryrun")
 
 
+@skip_on_windows  # OS agnostic
 def test_failed_intermediate():
+    # see https://github.com/snakemake/snakemake/pull/2966#issuecomment-2558133016
+    # fix was to also write job metadata (persistence.finished(job)) in case of errors
     path = dpath("test_failed_intermediate")
     tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
     run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
