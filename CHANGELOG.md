@@ -1,6 +1,27 @@
 # Changelog
 
 
+## [8.26.0](https://github.com/snakemake/snakemake/compare/v8.25.5...v8.26.0) (2024-12-23)
+
+
+### Features
+
+* add helpers for deferred input/output etc. item access ([#2927](https://github.com/snakemake/snakemake/issues/2927)) ([2cca9bc](https://github.com/snakemake/snakemake/commit/2cca9bc56b41a7410ea6696a20d4565bc32b564e))
+
+
+### Bug Fixes
+
+* convert parameters so they can be serialized ([#2925](https://github.com/snakemake/snakemake/issues/2925)) ([9e653fb](https://github.com/snakemake/snakemake/commit/9e653fb6b6257dbf40d8783dde332e5400a0a130))
+* correct formatting of R preamble ([#2425](https://github.com/snakemake/snakemake/issues/2425)) ([5380cae](https://github.com/snakemake/snakemake/commit/5380caed1a8929fc26170c5a596c1ed337200d9d))
+* fix modification checks for scripts and and notebooks containing wildcards or params in their paths ([#2751](https://github.com/snakemake/snakemake/issues/2751)) ([773568d](https://github.com/snakemake/snakemake/commit/773568d5ec0b1c51fdfe98cc5ef3d5af38751629))
+* Improved handling of missing output files in group job postprocessing, accounting for temporary files. ([#1765](https://github.com/snakemake/snakemake/issues/1765)) ([bac06ba](https://github.com/snakemake/snakemake/commit/bac06ba9e84eee07dca1e2117b1558f2cd123810))
+* mtime of script or notebook not triggering workflow without metadata ([#3148](https://github.com/snakemake/snakemake/issues/3148)) ([e8a0b83](https://github.com/snakemake/snakemake/commit/e8a0b837e1d6ca43442cbaea6d0a5fa91d7f7097))
+* Pass `host` attribute to `GitlabFile` instantiation within class methods ([#3155](https://github.com/snakemake/snakemake/issues/3155)) ([9ef52de](https://github.com/snakemake/snakemake/commit/9ef52de45b9ec8fabe0a3478b3fa046df4f91cb3))
+* problem with spaces in path ([#3236](https://github.com/snakemake/snakemake/issues/3236)) ([2d08c63](https://github.com/snakemake/snakemake/commit/2d08c6301ed0a7f56c223d54b708cf42597fe4a2))
+* require current yte release which contains an important bug fix for cases where numpy/pandas data is passed to templates ([#3227](https://github.com/snakemake/snakemake/issues/3227)) ([c3339da](https://github.com/snakemake/snakemake/commit/c3339da35e04d82fb872e7cabec2fa6fd6e9f15c))
+* rerun jobs if previously failed but rule was changed afterwards (thanks to  [@laf070810](https://github.com/laf070810) for bringing this up) ([#3237](https://github.com/snakemake/snakemake/issues/3237)) ([1dc0084](https://github.com/snakemake/snakemake/commit/1dc00847f21610842b55663377388ef8837ede7f))
+* use relpath for configfiles added to the source archive (thanks to [@sposadac](https://github.com/sposadac) for the initial solution) ([#3240](https://github.com/snakemake/snakemake/issues/3240)) ([bff3844](https://github.com/snakemake/snakemake/commit/bff384432ba7324843bb5948ee9ff528076949b5))
+
 ## [8.25.5](https://github.com/snakemake/snakemake/compare/v8.25.4...v8.25.5) (2024-11-29)
 
 
