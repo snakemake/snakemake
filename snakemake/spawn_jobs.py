@@ -224,13 +224,15 @@ class SpawnedJobArgsFactory:
             )
 
         return " && ".join(precommand)
-    
+
     def get_configfiles_arg(self):
         # If not shared FS, use relpath for the configfiles (deployed via source archive)
         # Source archive creation ensures that configfiles are in a subdir of the CWD
         # and errors otherwise.
         if SharedFSUsage.SOURCES not in self.workflow.storage_settings.shared_fs_usage:
-            configfiles = [os.path.relpath(f) for f in self.workflow.overwrite_configfiles]
+            configfiles = [
+                os.path.relpath(f) for f in self.workflow.overwrite_configfiles
+            ]
         else:
             configfiles = self.workflow.overwrite_configfiles
         if configfiles:
