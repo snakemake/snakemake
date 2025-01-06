@@ -296,8 +296,12 @@ class Workflow(WorkflowExecutorInterface):
             for f in self.dag.get_sources():
                 if f.startswith(".."):
                     logger.warning(
-                        "Ignoring source file {}. Only files relative "
-                        "to the working directory are allowed.".format(f)
+                        f"Ignoring source file {f}! Only files relative "
+                        "to the working directory are allowed. Most likely the "
+                        "spawned jobs will not properly work. Make sure to start "
+                        "the workflow from a directory below which all the sources "
+                        "are located (may be in subfolders) and also ensure that any "
+                        "config files you refer to are inside that directory."
                     )
                     continue
 

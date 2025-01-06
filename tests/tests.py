@@ -246,6 +246,10 @@ def test_ancient_cli():
     )
 
 
+def test_subpath():
+    run(dpath("test_subpath"))
+
+
 def test_report():
     run(
         dpath("test_report"),
@@ -471,8 +475,9 @@ def test_omitfrom():
     )  # wildcard rule
 
 
+@skip_on_windows  # paths are different on windows ('/' vs. '\')
 def test_nonstr_params():
-    run(dpath("test_nonstr_params"))
+    run(dpath("test_nonstr_params"), benchmark_extended=True)
 
 
 def test_delete_output():
@@ -655,6 +660,8 @@ def test_format_wildcards():
 
 def test_with_parentheses():
     run(dpath("test (with parenthese's)"))
+
+    run(dpath("test_path with spaces"))
 
 
 def test_dup_out_patterns():
@@ -1099,7 +1106,7 @@ def test_resources_can_be_overwritten_as_global():
 def test_scopes_submitted_to_cluster(mocker):
     from snakemake.spawn_jobs import SpawnedJobArgsFactory
 
-    spy = mocker.spy(SpawnedJobArgsFactory, "get_resource_scopes_args")
+    spy = mocker.spy(SpawnedJobArgsFactory, "get_resource_scopes_arg")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -2313,3 +2320,13 @@ def test_checkpoint_open():
 
 def test_toposort():
     run(dpath("test_toposort"), check_results=False, executor="dryrun")
+
+
+@skip_on_windows  # OS agnostic
+def test_failed_intermediate():
+    # see https://github.com/snakemake/snakemake/pull/2966#issuecomment-2558133016
+    # fix was to also write job metadata (persistence.finished(job)) in case of errors
+    path = dpath("test_failed_intermediate")
+    tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
+    run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
+    run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)

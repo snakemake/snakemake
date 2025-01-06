@@ -679,7 +679,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self,
         job: Job,
         wait: int = 3,
-        ignore_missing_output: bool = False,
+        ignore_missing_output: Union[List[_IOFile], bool] = False,
         no_touch: bool = False,
         wait_for_local: bool = True,
         check_output_mtime: bool = True,
@@ -690,7 +690,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if job.benchmark:
             expanded_output.append(job.benchmark)
 
-        if not ignore_missing_output:
+        if isinstance(ignore_missing_output, list):
+            # limit expanded_output to files that are not in ignore_missing_output
+            expanded_output = [
+                f for f in expanded_output if f not in ignore_missing_output
+            ]
+            ignore_missing_output = False
+
+        if not ignore_missing_output and expanded_output:
             try:
                 await wait_for_files(
                     expanded_output,
@@ -1315,6 +1322,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
 
+                            # The list comprehension is needed below in order to
+                            # collect all the async generator items before
+                            # applying any().
+                            reason.code_changed = any(
+                                [
+                                    f
+                                    async for f in job.outputs_older_than_script_or_notebook()
+                                ]
+                            )
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
                             else:
@@ -1329,15 +1345,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                         self.workflow.persistence.input_changed(job)
                                     )
                                 if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                                    # The list comprehension is needed below in order to
-                                    # collect all the async generator items before
-                                    # applying any().
-                                    reason.code_changed = any(
-                                        [
-                                            f
-                                            async for f in job.outputs_older_than_script_or_notebook()
-                                        ]
-                                    ) or any(
+                                    reason.code_changed |= any(
                                         self.workflow.persistence.code_changed(job)
                                     )
                                 if (
@@ -2906,7 +2914,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     files.add(env_path)
 
         for f in self.workflow.configfiles:
-            files.add(f)
+            files.add(os.path.relpath(f))
 
         # get git-managed files
         # TODO allow a manifest file as alternative

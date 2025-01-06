@@ -104,7 +104,8 @@ jobs:
             tests/test_schema.py \
             tests/test_linting.py \
             tests/test_executor_test_suite.py \
-            tests/test_api.py
+            tests/test_api.py \
+            tests/test_internals.py
 
       - name: Run tests/test_report/Snakefile to generate report
         shell: bash -el {0}

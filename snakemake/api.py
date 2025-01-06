@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 from abc import ABC
 from dataclasses import dataclass, field
+import functools
 import hashlib
 from pathlib import Path
 import sys
@@ -287,6 +288,7 @@ class SnakemakeApi(ApiBase):
 
 
 def _no_dag(method):
+    @functools.wraps(method)
     def _handle_no_dag(self: "WorkflowApi", *args, **kwargs):
         self.resource_settings.cores = 1
         return method(self, *args, **kwargs)
@@ -600,6 +602,7 @@ class DAGApi(ApiBase):
         )
 
     def _no_exec(method):
+        @functools.wraps(method)
         def _handle_no_exec(self, *args, **kwargs):
             self.workflow_api.resource_settings.cores = 1
             return method(self, *args, **kwargs)
