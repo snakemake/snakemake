@@ -96,7 +96,8 @@ def format_percentage(done, total):
     precision = 0
     fraction = done / total
     fmt_precision = "{{:.{}%}}".format
-    fmt = lambda fraction: fmt_precision(precision).format(fraction)
+    def fmt(fraction):
+        return fmt_precision(precision).format(fraction)
     while fmt(fraction) == "100%" or fmt(fraction) == "0%":
         precision += 1
     return fmt(fraction)
