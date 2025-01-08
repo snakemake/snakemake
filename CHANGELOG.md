@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.27.1](https://github.com/snakemake/snakemake/compare/v8.27.0...v8.27.1) (2025-01-08)
+
+
+### Documentation
+
+* fix output name ([814ee4f](https://github.com/snakemake/snakemake/commit/814ee4f9b397548a7d55337b6e0fe39d9e4f806f))
+
 ## [8.27.0](https://github.com/snakemake/snakemake/compare/v8.26.0...v8.27.0) (2025-01-08)
 
 
