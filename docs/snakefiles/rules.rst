@@ -627,7 +627,7 @@ The ``subpath`` function can be very handy in combination with :ref:`Snakemake's
         input:
             "results/something/foo.txt"
         output:
-            "results/something-else/out.txt"
+            foo="results/something-else/out.txt"
         params:
             basename=subpath(output.foo, basename=True),
             outdir=subpath(output.foo, parent=True)
