@@ -1,0 +1,36 @@
+shell.executable("bash")
+
+
+module test_a:
+    snakefile:
+        "module-test/Snakefile"
+    config:
+        ["AAA"]
+    prefix:
+        "a"
+
+
+use rule * from test_a as test_a_*
+
+
+module test_b:
+    snakefile:
+        "module-test/Snakefile"
+    config:
+        ["BBB"]
+    prefix:
+        "b"
+
+
+use rule * from test_b as test_b_*
+
+
+rule all:
+    input:
+        expand(rules.test_a_aggregate.output, sample="a"),
+        expand(rules.test_b_aggregate.output, sample="b"),
+    default_target: True
+
+
+assert test_a.some_func() == 15
+assert test_b.some_func() == 15
