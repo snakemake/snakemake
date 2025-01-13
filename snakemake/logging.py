@@ -38,7 +38,8 @@ def show_logs(logs):
     """Helper method to show logs."""
     for f in logs:
         try:
-            content = open(f, "r").read()
+            with open(f, "r") as log_file:
+                content = log_file.read()
         except FileNotFoundError:
             yield f"Logfile {f} not found."
             return
@@ -52,7 +53,7 @@ def show_logs(logs):
             yield logfile_header
             return
         yield logfile_header
-        max_len = min(max(max(len(l) for l in lines), len(logfile_header)), 80)
+        max_len = min(max(max(len(line) for line in lines), len(logfile_header)), 80)
         yield "=" * max_len
         yield from lines
         yield "=" * max_len
