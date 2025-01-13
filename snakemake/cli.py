@@ -1521,7 +1521,7 @@ def get_argument_parser(profiles=None):
         nargs="+",
         default=[],
         choices=LoggerPluginRegistry().plugins.keys(),
-        help="Specify a custom logger, available via a logger plugin: snakemake_executor_<name>. Multiple can be specified.",
+        help="Specify one or more custom loggers, available via logger plugins.",
     )
     group_behavior.add_argument(
         "--job-deploy-sources",
