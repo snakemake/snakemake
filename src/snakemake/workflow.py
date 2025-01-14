@@ -1963,11 +1963,14 @@ class Workflow(WorkflowExecutorInterface):
                     rule.shadow_depth = ruleinfo.shadow_depth
 
             if ruleinfo.priority:
-                if not isinstance(ruleinfo.priority, int) and not isinstance(
-                    ruleinfo.priority, float
+                if (
+                    not isinstance(ruleinfo.priority, int)
+                    and not isinstance(ruleinfo.priority, float)
+                    and not callable(ruleinfo.priority)
                 ):
                     raise RuleException(
-                        "Priority values have to be numeric.", rule=rule
+                        "Priority value has to be an integer, float, or a callable.",
+                        rule=rule,
                     )
                 rule.priority = ruleinfo.priority
 
