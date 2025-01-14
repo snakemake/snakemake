@@ -507,10 +507,10 @@ class ColorizingTextHandler(logging.StreamHandler):
                 self.stream.write(self.decorate(record, formatted_message))
                 self.stream.write(getattr(self, "terminator", "\n"))
                 self.flush()
-            except BrokenPipeError as e:
-                raise e
+            except BrokenPipeError:
+                raise
             except (KeyboardInterrupt, SystemExit):
-                pass  # Ignore exceptions for these cases
+                pass  # Ignore exceptions for these cases, all errors have been handled before.
             except Exception as e:
                 self.handleError(record)
 
