@@ -21,5 +21,7 @@ def register_in_globals(_globals):
             "resources": rule_item_factory("resources"),
             "threads": rule_item_factory("threads"),
             "subpath": subpath,
+            "parse_input": parse_input,
+            "extract_checksum": extract_checksum,
         }
     )
