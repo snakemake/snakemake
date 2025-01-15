@@ -1,4 +1,3 @@
-
 def parse_input(infile=None, parser=None, **kwargs):
     def inner(wildcards, input, output):
         with open(infile, "r") as fh:
