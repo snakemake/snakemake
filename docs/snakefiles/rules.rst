@@ -550,7 +550,7 @@ It can for example be used to condition some behavior in the workflow on the exi
 .. _snakefiles-semantic-helpers-parse-input:
 
 The parse_input function
-"""""""""""""""""""
+""""""""""""""""""""""""
 
 The ``parse_input`` function allows to parse an input file and return a value.
 It has the signature ``parse_input(input_item, parser, kwargs)``, with ``input_item`` being the key of an input file, ``parse`` being a callable to extract the desired information, and ``kwargs`` extra arguments passed to the parser.
@@ -573,7 +573,7 @@ It can for example be used to extract a value from inside an input file.
 .. _snakefiles-semantic-helpers-extract-checksum:
 
 The extract_checksum function
-"""""""""""""""""""
+"""""""""""""""""""""""""""""
 
 The ``extract_checksum`` function parses an input file and returns the checksum of the given file.
 It has the signature ``extract_checksum(infile, file)``, with ``infile`` being the input file, and ``file`` the filename to search for.
