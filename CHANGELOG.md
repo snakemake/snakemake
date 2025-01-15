@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.27.2](https://github.com/snakemake/snakemake/compare/v8.27.1...v8.27.2) (2025-01-15)
+
+
+### Documentation
+
+* Adds instructions for using syntax highlighting with lazy.nvim ([#3246](https://github.com/snakemake/snakemake/issues/3246)) ([7a75043](https://github.com/snakemake/snakemake/commit/7a750434a857ebc912868d36655bab4d32e7db32))
+
 ## [8.27.1](https://github.com/snakemake/snakemake/compare/v8.27.0...v8.27.1) (2025-01-08)
 
 
