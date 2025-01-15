@@ -17,6 +17,8 @@ from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
+from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
+
 import snakemake.common.argparse
 from snakemake import logging
 from snakemake.api import (
@@ -1513,21 +1515,13 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Automatically display logs of failed jobs.",
     )
+
     group_behavior.add_argument(
-        "--log-handler-script",
-        metavar="FILE",
-        default=None,
-        help="Provide a custom script containing a function 'def log_handler(msg):'. "
-        "Snakemake will call this function for every logging output (given as a dictionary msg) "
-        "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
-    )
-    group_behavior.add_argument(
-        "--log-service",
-        default=None,
-        choices=["none", "slack", "wms"],
-        help="Set a specific messaging service for logging output. "
-        "Snakemake will notify the service on errors and completed execution. "
-        "Currently slack and workflow management system (wms) are supported.",
+        "--logger",
+        nargs="+",
+        default=[],
+        choices=LoggerPluginRegistry().plugins.keys(),
+        help="Specify one or more custom loggers, available via logger plugins.",
     )
     group_behavior.add_argument(
         "--job-deploy-sources",
@@ -1769,6 +1763,7 @@ def get_argument_parser(profiles=None):
     ExecutorPluginRegistry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
     ReportPluginRegistry().register_cli_args(parser)
+    LoggerPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1849,41 +1844,16 @@ def parse_quietness(quietness) -> Set[Quietness]:
 
 
 def setup_log_handlers(args, parser):
-    log_handler = []
-    if args.log_handler_script is not None:
-        if not os.path.exists(args.log_handler_script):
-            print(
-                "Error: no log handler script found, {}.".format(
-                    args.log_handler_script
-                ),
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        log_script = SourceFileLoader("log", args.log_handler_script).load_module()
-        try:
-            log_handler.append(log_script.log_handler)
-        except:
-            print(
-                'Error: Invalid log handler script, {}. Expect python function "log_handler(msg)".'.format(
-                    args.log_handler_script
-                ),
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    log_handlers = []
 
-    if args.log_service == "slack":
-        slack_logger = logging.SlackLogger()
-        log_handler.append(slack_logger.log_handler)
+    for logger_arg in args.logger:
+        plugin = LoggerPluginRegistry().get_plugin(plugin_name=logger_arg)
+        plugin_settings = plugin.get_settings(args)
+        # logger plugin here is the subclass of LoggerPluginBase, we get handler from it in configure_logger.
+        logger_plugin = plugin.logger_plugin(plugin_settings)
+        log_handlers.append(logger_plugin)
 
-    elif args.wms_monitor or args.log_service == "wms":
-        # Generate additional metadata for server
-        metadata = generate_parser_metadata(parser, args)
-        wms_logger = logging.WMSLogger(
-            args.wms_monitor, args.wms_monitor_arg, metadata=metadata
-        )
-        log_handler.append(wms_logger.log_handler)
-
-    return log_handler
+    return log_handlers
 
 
 def parse_edit_notebook(args):
@@ -2229,7 +2199,7 @@ def args_to_api(args, parser):
 
 def main(argv=None):
     """Main entry point."""
-    logging.setup_logger()
+    logging.logger_manager.configure_logger()
     try:
         parser, args = parse_args(argv)
         success = args_to_api(args, parser)
