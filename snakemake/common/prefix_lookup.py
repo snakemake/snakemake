@@ -12,7 +12,7 @@ class PrefixLookup:
         grouped = defaultdict(list)
         for key, value in entries:
             grouped[key].append(value)
-        self._entries = sorted(grouped.items())
+        self._entries = sorted(grouped.items(), key=lambda x: x[0])
 
     def match(self, query: str) -> set[V]:
         """Returns a set of all entries which are prefixes of the given key."""
