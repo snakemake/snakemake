@@ -25,18 +25,17 @@ class PrefixLookup:
         """
         stop_idx = len(self._entries)
         while stop_idx:
-            stop_idx = bisect.bisect_right( self._entries,
-                                            query,
-                                            hi=stop_idx,
-                                            key=lambda x: x[0])
+            stop_idx = bisect.bisect_right(
+                self._entries, query, hi=stop_idx, key=lambda x: x[0]
+            )
 
-            k, entries = self._entries[stop_idx-1]
+            k, entries = self._entries[stop_idx - 1]
             if query.startswith(k):
                 for entry in entries:
                     yield entry
 
-            if not query:
-                # Prevent infinite loop if '' is first string in list
+            if not query or not k:
+                # Exit loop, if iteration has reached "" query or key
                 break
 
             query = self._common_prefix(k, query)
@@ -44,8 +43,8 @@ class PrefixLookup:
     def _common_prefix(self, s1: str, s2: str) -> str:
         """Utility function that gives the common prefix of two strings.
 
-           Except, if the strings are identical, returns the string minus one letter.
-           Behaviour is undefined if either string is empty.
+        Except, if the strings are identical, returns the string minus one letter.
+        Behaviour is undefined if either string is empty.
         """
         for i, (l1, l2) in enumerate(zip(s1, s2)):
             if l1 != l2:
