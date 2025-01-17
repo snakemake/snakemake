@@ -2242,19 +2242,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return await self.new_job(targetrule)
 
     async def file2jobs(self, targetfile, wildcards_dict=None):
-        rules = self.output_index.match(targetfile)
+        rules = self.output_index.match_producers(targetfile)
         jobs = []
         exceptions = list()
         for rule in rules:
-            if rule.is_producer(targetfile):
-                try:
-                    jobs.append(
-                        await self.new_job(
-                            rule, targetfile=targetfile, wildcards_dict=wildcards_dict
-                        )
+            try:
+                jobs.append(
+                    await self.new_job(
+                        rule, targetfile=targetfile, wildcards_dict=wildcards_dict
                     )
-                except InputFunctionException as e:
-                    exceptions.append(e)
+                )
+            except InputFunctionException as e:
+                exceptions.append(e)
         if not jobs:
             if exceptions:
                 raise exceptions[0]

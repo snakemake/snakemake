@@ -37,5 +37,6 @@ class OutputIndex:
             if targetfile.endswith(suffix)
         }
 
-    def match_producer(self, targetfile: str) -> set[Rule]:
+    def match_producers(self, targetfile: str) -> set[Rule]:
+        """Returns all rules that match and produce the given target file."""
         return {rule for rule in self.match(targetfile) if rule.is_producer(targetfile)}
