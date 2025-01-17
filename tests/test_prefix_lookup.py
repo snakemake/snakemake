@@ -115,4 +115,5 @@ def test_prefix_matching_non_consecutive():
     assert result == {1, 2}  # Matches "a" and "ab"
 
     assert lookup.match("abbc") == {1, 2, 4}  # Matches "a", "ab", and "abbc"
+    assert lookup.match("abbd") == {1, 2, 5}  # Matches "a", "ab", and "abbd"
     assert lookup.match("abbcc") == {1, 2, 3, 4}  # Matches "a", "ab", "abbcc", and "abbc"
