@@ -117,3 +117,9 @@ def test_prefix_matching_non_consecutive():
     assert lookup.match("abbc") == {1, 2, 4}  # Matches "a", "ab", and "abbc"
     assert lookup.match("abbd") == {1, 2, 5}  # Matches "a", "ab", and "abbd"
     assert lookup.match("abbcc") == {1, 2, 3, 4}  # Matches "a", "ab", "abbcc", and "abbc"
+
+
+def test_first_match_is_empty_string():
+    lookup = PrefixLookup([("", 1)])
+    matches = lookup.match("anything.txt")
+    assert matches == {1}
