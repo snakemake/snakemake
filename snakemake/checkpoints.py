@@ -7,8 +7,8 @@ class Checkpoints:
     """A namespace for checkpoints so that they can be accessed via dot notation."""
 
     def __init__(self):
-        self.future_output = None
-        self.created_output = None
+        self.future_output = set()
+        self.created_output = set()
 
     def register(self, rule, fallback_name=None):
         checkpoint = Checkpoint(rule, self)
@@ -32,7 +32,7 @@ class Checkpoint:
             )
 
         output, _ = self.rule.expand_output(wildcards)
-        if self.checkpoints.future_output is not None:
+        if self.checkpoints.future_output != set():
             for iofile in output:
                 if iofile in self.checkpoints.future_output:
                     break
