@@ -127,7 +127,7 @@ def shellcmd(
     if container_workdir:
         args += f" --pwd {repr(container_workdir)}"
 
-    cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
+    cmd = "{} singularity {} exec --cleanenv --home {} {} {} {} -c '{}'".format(
         envvars,
         "--quiet --silent" if quiet else "",
         repr(os.getcwd()),

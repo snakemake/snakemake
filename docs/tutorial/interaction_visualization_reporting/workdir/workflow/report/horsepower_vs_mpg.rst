@@ -1,0 +1,1 @@
+Visualization of the relationship between horsepower and miles per gallon (MPG) in the cars dataset.

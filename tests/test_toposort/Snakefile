@@ -1,0 +1,10 @@
+from snakemake.dag import toposort
+
+graph1 = {"job4": ["job2", "job3"], "job3": ["job1"], "job2": ["job1"]}
+assert toposort(graph1) == [{'job1'}, {'job2', 'job3'}, {'job4'}], "Basic graph toposort failed"
+
+graph2 = {}
+assert toposort(graph2) == [], "Empty graph toposort failed"
+
+graph3 = {"job1": [], "job2": []}
+assert toposort(graph3) == [{'job1', 'job2'}], "Disconnected graph toposort failed"

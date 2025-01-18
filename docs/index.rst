@@ -29,8 +29,13 @@ Snakemake
     :alt: Discord
     :target: https://discord.gg/NUdMtmr
 
-.. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow&color=%236ee7b7
-    :target: https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester
+.. image:: https://img.shields.io/badge/bluesky-follow-%23d1fae5
+   :alt: Bluesky
+   :target: https://bsky.app/profile/johanneskoester.bsky.social
+
+.. image:: https://img.shields.io/badge/mastodon-follow-%23ecfdf5
+   :alt: Mastodon
+   :target: https://fosstodon.org/@johanneskoester
 
 .. image:: https://img.shields.io/github/stars/snakemake/snakemake?style=social
     :alt: GitHub stars
@@ -72,6 +77,7 @@ Support
 * To **discuss** with other Snakemake users, use the `discord server <https://discord.gg/kHvtG6N>`_. **Please do not post questions there. Use stack overflow for questions.**
 * For **bugs and feature requests**, please use the `issue tracker <https://github.com/snakemake/snakemake/issues>`_.
 * For **contributions**, visit Snakemake on `Github <https://github.com/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
+* Check out our `code of conduct <https://github.com/snakemake/snakemake/blob/main/CODE_OF_CONDUCT.md>`_ and refer to it for requests or concerns in that direction.
 
 --------
 Citation
@@ -137,10 +143,11 @@ Resources
    getting_started/migration
    snakefiles/best_practices
    tutorial/tutorial
+   tutorial/interaction_visualization_reporting/tutorial
 
 .. toctree::
   :caption: Executing workflows
-  :name: execution
+  :name: execution-toctree
   :hidden:
   :maxdepth: 1
 

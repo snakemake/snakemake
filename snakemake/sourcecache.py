@@ -25,6 +25,7 @@ from snakemake.common import (
 )
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.common.git import split_git_path
+from snakemake.logging import logger
 
 
 def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
@@ -37,12 +38,10 @@ def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
 
 class SourceFile(ABC):
     @abstractmethod
-    def get_path_or_uri(self):
-        ...
+    def get_path_or_uri(self): ...
 
     @abstractmethod
-    def is_persistently_cacheable(self):
-        ...
+    def is_persistently_cacheable(self): ...
 
     def get_cache_path(self):
         uri = parse_uri(self.get_path_or_uri())
@@ -53,8 +52,7 @@ class SourceFile(ABC):
         return self.__class__(path)
 
     @abstractmethod
-    def get_filename(self):
-        ...
+    def get_filename(self): ...
 
     def join(self, path):
         if isinstance(path, SourceFile):
@@ -67,8 +65,7 @@ class SourceFile(ABC):
 
     @property
     @abstractmethod
-    def is_local(self):
-        ...
+    def is_local(self): ...
 
     def __hash__(self):
         return self.get_path_or_uri().__hash__()
@@ -198,6 +195,7 @@ class HostingProviderFile(SourceFile):
         tag: str = None,
         branch: str = None,
         commit: str = None,
+        host: str = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -224,6 +222,14 @@ class HostingProviderFile(SourceFile):
         self.branch = branch
         self.path = path.strip("/")
         self.token = ""
+        self.host = host
+
+        # Via __post_init__ implementing subclasses can do additional things without
+        # replicating the constructor args.
+        self.__post_init__()
+
+    def __post_init__(self):
+        pass
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
@@ -242,6 +248,7 @@ class HostingProviderFile(SourceFile):
             tag=self.tag,
             commit=self.commit,
             branch=self.branch,
+            host=self.host,
         )
 
     def join(self, path):
@@ -256,6 +263,7 @@ class HostingProviderFile(SourceFile):
             tag=self.tag,
             commit=self.commit,
             branch=self.branch,
+            host=self.host,
         )
 
     @property
@@ -264,36 +272,24 @@ class HostingProviderFile(SourceFile):
 
 
 class GithubFile(HostingProviderFile):
-    def __init__(
-        self,
-        repo: str,
-        path: str,
-        tag: str = None,
-        branch: str = None,
-        commit: str = None,
-    ):
-        super().__init__(repo, path, tag, branch, commit)
+    def __post_init__(self):
+        if self.host is not None:
+            raise WorkflowError(
+                "host keyword argument is not yet supported by GithubFile."
+            )
         self.token = os.environ.get("GITHUB_TOKEN", "")
 
     def get_path_or_uri(self):
         auth = f":{self.token}@" if self.token else ""
-        return "https://{}raw.githubusercontent.com/{}/{}/{}".format(
-            auth, self.repo, self.ref, self.path
-        )
+        # TODO find out how this URL looks like with Github enterprise server and support
+        # self.host being not none by removing the check in __post_init__
+        return f"https://{auth}raw.githubusercontent.com/{self.repo}/{self.ref}/{self.path}"
 
 
 class GitlabFile(HostingProviderFile):
-    def __init__(
-        self,
-        repo: str,
-        path: str,
-        tag: str = None,
-        branch: str = None,
-        commit: str = None,
-        host: str = None,
-    ):
-        super().__init__(repo, path, tag, branch, commit)
-        self.host = host
+    def __post_init__(self):
+        if self.host is None:
+            self.host = "gitlab.com"
         self.token = os.environ.get("GITLAB_TOKEN", "")
 
     def get_path_or_uri(self):
@@ -301,7 +297,7 @@ class GitlabFile(HostingProviderFile):
 
         auth = f"&private_token={self.token}" if self.token else ""
         return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
-            self.host or "gitlab.com",
+            self.host,
             quote(self.repo, safe=""),
             quote(self.path, safe=""),
             self.ref,
@@ -353,7 +349,9 @@ class SourceCache:
         if runtime_cache_path is None:
             runtime_cache_parent = self.cache_path / "runtime-cache"
             os.makedirs(runtime_cache_parent, exist_ok=True)
-            self.runtime_cache = tempfile.TemporaryDirectory(dir=runtime_cache_parent)
+            self.runtime_cache = tempfile.TemporaryDirectory(
+                dir=runtime_cache_parent, ignore_cleanup_errors=True
+            )
             self._runtime_cache_path = None
         else:
             self._runtime_cache_path = runtime_cache_path
@@ -372,7 +370,7 @@ class SourceCache:
 
     def exists(self, source_file):
         try:
-            self._cache(source_file)
+            self._cache(source_file, retries=1)
         except Exception:
             return False
         return True
@@ -393,15 +391,15 @@ class SourceCache:
             # check runtime cache
             return Path(self.runtime_cache_path) / file_cache_path
 
-    def _cache(self, source_file: SourceFile):
+    def _cache(self, source_file: SourceFile, retries: int = 3):
         cache_entry = self._cache_entry(source_file)
         if not cache_entry.exists():
-            self._do_cache(source_file, cache_entry)
+            self._do_cache(source_file, cache_entry, retries=retries)
         return cache_entry
 
-    def _do_cache(self, source_file, cache_entry: Path):
+    def _do_cache(self, source_file, cache_entry: Path, retries: int = 3):
         # open from origin
-        with self._open_local_or_remote(source_file, "rb") as source:
+        with self._open_local_or_remote(source_file, "rb", retries=retries) as source:
             cache_entry.parent.mkdir(parents=True, exist_ok=True)
             tmp_source = tempfile.NamedTemporaryFile(
                 prefix=str(cache_entry),
@@ -426,14 +424,21 @@ class SourceCache:
             # as mtime.
             os.utime(cache_entry, times=(mtime, mtime))
 
-    def _open_local_or_remote(self, source_file: SourceFile, mode, encoding=None):
+    def _open_local_or_remote(
+        self, source_file: SourceFile, mode, encoding=None, retries: int = 3
+    ):
         from reretry.api import retry_call
 
         if source_file.is_local:
             return self._open(source_file, mode, encoding=encoding)
         else:
             return retry_call(
-                self._open, [source_file, mode, encoding], tries=3, delay=3, backoff=2
+                self._open,
+                [source_file, mode, encoding],
+                tries=retries,
+                delay=3,
+                backoff=2,
+                logger=logger,
             )
 
     def _open(self, source_file: SourceFile, mode, encoding=None):

@@ -1,6 +1,7 @@
 [![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/snakemake/snakemake)
 [![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/snakemake/snakemake/main.yml?label=tests)](https://github.com/snakemake/snakemake/actions?query=branch%3Amain++)
 [![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=snakemake_snakemake&metric=alert_status)](https://sonarcloud.io/dashboard?id=snakemake_snakemake)
+[![Conda Version](https://img.shields.io/conda/vn/bioconda/snakemake)](https://anaconda.org/bioconda/snakemake)
 [![Bioconda](https://img.shields.io/conda/dn/bioconda/snakemake.svg?label=Bioconda)](https://bioconda.github.io/recipes/snakemake/README.html)
 [![Pypi](https://img.shields.io/pypi/pyversions/snakemake.svg)](https://pypi.org/project/snakemake)
 [![docker container status](https://img.shields.io/github/actions/workflow/status/snakemake/snakemake/docker-publish.yml?color=blue&label=docker%20container)](https://hub.docker.com/r/snakemake/snakemake)

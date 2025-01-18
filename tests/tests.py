@@ -4,20 +4,30 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+import shutil
 import sys
 import subprocess as sp
 from pathlib import Path
+import tempfile
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from snakemake.deployment.conda import get_env_setup_done_flag_file
+from snakemake.persistence import Persistence
 from snakemake.resources import DefaultResources, GroupResources
-from snakemake.settings import RerunTrigger
+from snakemake.settings.enums import RerunTrigger
 
 from snakemake.shell import shell
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import *
+from .common import run, dpath, apptainer, conda, connected
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
-from snakemake_interface_executor_plugins.settings import DeploymentMethod
+from snakemake_interface_executor_plugins.settings import (
+    DeploymentMethod,
+    SharedFSUsage,
+)
 
 
 def test_list_untracked():
@@ -229,6 +239,17 @@ def test_ancient():
     run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
+def test_ancient_cli():
+    run(
+        dpath("test_ancient_cli"),
+        shellcmd="snakemake --consider-ancient A=0 B=x",
+    )
+
+
+def test_subpath():
+    run(dpath("test_subpath"))
+
+
 def test_report():
     run(
         dpath("test_report"),
@@ -252,6 +273,13 @@ def test_report_display_code():
 
 def test_params():
     run(dpath("test_params"))
+
+
+def test_params_outdated_metadata(mocker):
+    spy = mocker.spy(Persistence, "has_outdated_metadata")
+
+    run(dpath("test_params_outdated_code"), targets=["somedir/test.out"])
+    assert spy.spy_return == True
 
 
 def test_same_wildcard():
@@ -302,15 +330,6 @@ def test_local_import():
 
 def test_ruledeps():
     run(dpath("test_ruledeps"))
-
-
-def test_persistent_dict():
-    try:
-        import pytools
-
-        run(dpath("test_persistent_dict"))
-    except ImportError:
-        pass
 
 
 @connected
@@ -385,6 +404,7 @@ def test_empty_include():
 
 
 @skip_on_windows
+@conda
 def test_script():
     run(
         dpath("test_script"),
@@ -395,6 +415,16 @@ def test_script():
 
 def test_script_python():
     run(dpath("test_script_py"))
+
+
+@skip_on_windows
+@conda
+def test_script_rs():
+    run(
+        dpath("test_script_rs"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
 
 
 @skip_on_windows  # Test relies on perl
@@ -445,12 +475,17 @@ def test_omitfrom():
     )  # wildcard rule
 
 
+@skip_on_windows  # paths are different on windows ('/' vs. '\')
 def test_nonstr_params():
-    run(dpath("test_nonstr_params"))
+    run(dpath("test_nonstr_params"), benchmark_extended=True)
 
 
 def test_delete_output():
     run(dpath("test_delete_output"), cores=1)
+
+
+def test_params_pickling():
+    run(dpath("test_params_pickling"))
 
 
 def test_input_generator():
@@ -468,10 +503,12 @@ def test_protected_symlink_output():
     run(dpath("test_protected_symlink_output"))
 
 
+@conda
 def test_conda():
     run(dpath("test_conda"), deployment_method={DeploymentMethod.CONDA})
 
 
+@conda
 def test_conda_list_envs():
     run(dpath("test_conda"), conda_list_envs=True, check_results=False)
 
@@ -493,10 +530,11 @@ def test_conda_create_envs_only():
         (p for p in Path(tmpdir, ".snakemake", "conda").iterdir() if p.is_dir()), None
     )
     assert env_dir is not None
-    assert Path(env_dir, "env_setup_done").exists()
+    assert get_env_setup_done_flag_file(Path(env_dir)).exists()
     shutil.rmtree(tmpdir)
 
 
+@conda
 def test_upstream_conda():
     run(
         dpath("test_conda"),
@@ -506,11 +544,13 @@ def test_upstream_conda():
 
 
 @skip_on_windows
+@conda
 def test_deploy_script():
     run(dpath("test_deploy_script"), deployment_method={DeploymentMethod.CONDA})
 
 
 @skip_on_windows
+@conda
 def test_deploy_hashing():
     tmpdir = run(
         dpath("test_deploy_hashing"),
@@ -520,6 +560,7 @@ def test_deploy_hashing():
     assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
 
 
+@conda
 def test_conda_custom_prefix():
     run(
         dpath("test_conda_custom_prefix"),
@@ -530,6 +571,7 @@ def test_conda_custom_prefix():
 
 
 @only_on_windows
+@conda
 def test_conda_cmd_exe():
     # Tests the conda environment activation when cmd.exe
     # is used as the shell
@@ -537,11 +579,17 @@ def test_conda_cmd_exe():
 
 
 @skip_on_windows  # wrappers are for linux and macos only
+@conda
 def test_wrapper():
-    run(dpath("test_wrapper"), deployment_method={DeploymentMethod.CONDA})
+    run(
+        dpath("test_wrapper"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
 
 
 @skip_on_windows  # wrappers are for linux and macos only
+@conda
 def test_wrapper_local_git_prefix():
     import git
 
@@ -556,6 +604,7 @@ def test_wrapper_local_git_prefix():
             dpath("test_wrapper"),
             deployment_method={DeploymentMethod.CONDA},
             wrapper_prefix=f"git+file://{tmpdir}",
+            check_md5=False,
         )
 
 
@@ -611,6 +660,8 @@ def test_format_wildcards():
 
 def test_with_parentheses():
     run(dpath("test (with parenthese's)"))
+
+    run(dpath("test_path with spaces"))
 
 
 def test_dup_out_patterns():
@@ -754,14 +805,37 @@ def test_run_namedlist():
 def test_profile():
     run(dpath("test_profile"))
 
+    from snakemake.profiles import ProfileConfigFileParser
+
+    grouped_profile = Path(dpath("test_profile")) / "config.yaml"
+    with grouped_profile.open("r") as f:
+        parser = ProfileConfigFileParser()
+        result = parser.parse(f)
+        assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
+        assert result["group-components"] == list(["grp1=5"])
+
 
 @skip_on_windows
+@apptainer
 @connected
 def test_singularity():
     run(dpath("test_singularity"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 @skip_on_windows
+@apptainer
+@connected
+def test_singularity_cluster():
+    run(
+        dpath("test_singularity"),
+        deployment_method={DeploymentMethod.APPTAINER},
+        cluster="./qsub",
+        apptainer_args="--bind /tmp:/tmp",
+    )
+
+
+@skip_on_windows
+@apptainer
 def test_singularity_invalid():
     run(
         dpath("test_singularity"),
@@ -772,6 +846,7 @@ def test_singularity_invalid():
 
 
 @skip_on_windows
+@apptainer
 def test_singularity_module_invalid():
     run(
         dpath("test_singularity_module"),
@@ -782,7 +857,9 @@ def test_singularity_module_invalid():
 
 
 @skip_on_windows
+@apptainer
 @connected
+@conda
 def test_singularity_conda():
     run(
         dpath("test_singularity_conda"),
@@ -792,12 +869,14 @@ def test_singularity_conda():
 
 
 @skip_on_windows
+@apptainer
 @connected
 def test_singularity_none():
     run(dpath("test_singularity_none"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 @skip_on_windows
+@apptainer
 @connected
 def test_singularity_global():
     run(
@@ -817,6 +896,7 @@ def test_inoutput_is_path():
     run(dpath("test_inoutput_is_path"))
 
 
+@conda
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
@@ -826,6 +906,7 @@ def test_log_input():
 
 
 @skip_on_windows
+@apptainer
 @connected
 def test_cwl_singularity():
     run(dpath("test_cwl"), deployment_method={DeploymentMethod.APPTAINER})
@@ -970,7 +1051,7 @@ def test_global_resource_limits_limit_scheduling_of_groups():
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if not l == "\n"]
+        lines = [line for line in f.readlines() if line != "\n"]
     assert len(lines) == 1
     shutil.rmtree(tmp)
 
@@ -1016,7 +1097,7 @@ def test_resources_can_be_overwritten_as_global():
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if not l == "\n"]
+        lines = [line for line in f.readlines() if line != "\n"]
     assert len(lines) == 1
     shutil.rmtree(tmp)
 
@@ -1025,7 +1106,7 @@ def test_resources_can_be_overwritten_as_global():
 def test_scopes_submitted_to_cluster(mocker):
     from snakemake.spawn_jobs import SpawnedJobArgsFactory
 
-    spy = mocker.spy(SpawnedJobArgsFactory, "get_resource_scopes_args")
+    spy = mocker.spy(SpawnedJobArgsFactory, "get_resource_scopes_arg")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1210,6 +1291,7 @@ def test_issue930():
 
 
 @skip_on_windows
+@conda
 def test_issue635():
     run(
         dpath("test_issue635"),
@@ -1259,6 +1341,7 @@ def test_issue1092():
 
 
 @skip_on_windows
+@conda
 def test_issue1093():
     run(dpath("test_issue1093"), deployment_method={DeploymentMethod.CONDA})
 
@@ -1276,6 +1359,7 @@ def test_issue1085():
 
 
 @skip_on_windows
+@apptainer
 def test_issue1083():
     run(dpath("test_issue1083"), deployment_method={DeploymentMethod.APPTAINER})
 
@@ -1367,6 +1451,7 @@ def test_github_issue52():
 
 
 @skip_on_windows
+@apptainer
 def test_github_issue78():
     run(dpath("test_github_issue78"), deployment_method={DeploymentMethod.APPTAINER})
 
@@ -1434,6 +1519,11 @@ def test_output_file_cache_storage(s3_storage):
     )
 
 
+@patch("snakemake.io._IOFile.retrieve_from_storage", AsyncMock(side_effect=Exception))
+def test_storage_noretrieve_dryrun():
+    run(dpath("test_storage_noretrieve_dryrun"), executor="dryrun")
+
+
 def test_multiext():
     run(dpath("test_multiext"))
 
@@ -1448,6 +1538,7 @@ def test_env_modules():
 
 
 @skip_on_windows
+@apptainer
 @connected
 def test_container():
     run(dpath("test_container"), deployment_method={DeploymentMethod.APPTAINER})
@@ -1464,12 +1555,14 @@ def test_string_resources():
     )
 
 
+@conda
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), deployment_method={DeploymentMethod.CONDA})
 
 
+@conda
 def test_jupyter_notebook_draft():
-    from snakemake.settings import NotebookEditMode
+    from snakemake.settings.types import NotebookEditMode
 
     run(
         dpath("test_jupyter_notebook_draft"),
@@ -1531,6 +1624,8 @@ def test_github_issue806():
 
 
 @skip_on_windows
+@apptainer
+@conda
 def test_containerized():
     run(
         dpath("test_containerized"),
@@ -1584,6 +1679,7 @@ def test_modules_specific():
 
 
 @skip_on_windows  # works in principle but the test framework modifies the target path separator
+@connected
 def test_modules_meta_wrapper():
     run(
         dpath("test_modules_meta_wrapper"),
@@ -1596,10 +1692,12 @@ def test_use_rule_same_module():
     run(dpath("test_use_rule_same_module"), targets=["test.out", "test2.out"])
 
 
+@connected
 def test_module_complex():
     run(dpath("test_module_complex"), executor="dryrun")
 
 
+@connected
 def test_module_complex2():
     run(dpath("test_module_complex2"), executor="dryrun")
 
@@ -1612,6 +1710,15 @@ def test_module_no_prefixing_modified_paths():
     )
 
 
+@skip_on_windows
+def test_modules_prefix_local():
+    run(
+        dpath("test_modules_prefix_local"),
+        targets=["out_1/test_final.txt"],
+    )
+
+
+@connected
 def test_module_with_script():
     run(dpath("test_module_with_script"))
 
@@ -1621,6 +1728,7 @@ def test_module_worfklow_namespacing():
 
 
 @skip_on_windows  # No conda-forge version of pygraphviz for windows
+@connected
 def test_module_report():
     run(
         dpath("test_module_report"),
@@ -1663,6 +1771,12 @@ def test_github_issue1069():
     )
 
 
+# os independent
+@skip_on_windows
+def test_max_jobs_per_timespan():
+    run(dpath("test01"), shellcmd="snakemake --max-jobs-per-timespan 2/1s --cores 3")
+
+
 def test_touch_pipeline_with_temp_dir():
     # Issue #1028
     run(dpath("test_touch_pipeline_with_temp_dir"), forceall=True, executor="touch")
@@ -1681,6 +1795,7 @@ def test_github_issue1158():
     run(dpath("test_github_issue1158"), cluster="./qsub.py")
 
 
+@conda
 def test_converting_path_for_r_script():
     run(
         dpath("test_converting_path_for_r_script"),
@@ -1706,16 +1821,18 @@ def test_modules_ruledeps_inheritance():
 @skip_on_windows
 def test_issue1331():
     # not guaranteed to fail, so let's try multiple times
-    for i in range(10):
+    for _ in range(10):
         run(dpath("test_issue1331"), cores=4)
 
 
 @skip_on_windows
+@conda
 def test_conda_named():
     run(dpath("test_conda_named"), deployment_method={DeploymentMethod.CONDA})
 
 
 @skip_on_windows
+@conda
 def test_conda_function():
     run(
         dpath("test_conda_function"),
@@ -1881,6 +1998,7 @@ def test_module_input_func():
 
 
 @skip_on_windows  # the testcase only has a linux-64 pin file
+@conda
 def test_conda_pin_file():
     run(dpath("test_conda_pin_file"), deployment_method={DeploymentMethod.CONDA})
 
@@ -1890,10 +2008,12 @@ def test_github_issue1618():
     run(dpath("test_github_issue1618"), cores=5)
 
 
+@conda
 def test_conda_python_script():
     run(dpath("test_conda_python_script"), deployment_method={DeploymentMethod.CONDA})
 
 
+@conda
 def test_conda_python_3_7_script():
     run(
         dpath("test_conda_python_3_7_script"),
@@ -1901,6 +2021,7 @@ def test_conda_python_3_7_script():
     )
 
 
+@conda
 def test_prebuilt_conda_script():
     sp.run(
         f"conda env create -f {dpath('test_prebuilt_conda_script/env.yaml')}",
@@ -1970,7 +2091,7 @@ def test_runtime_conversion_from_workflow_profile():
     run(
         test_path,
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake -c1",
+        shellcmd="snakemake -c1",
     )
 
 
@@ -1989,11 +2110,13 @@ def test_config_yte():
     run(dpath("test_config_yte"))
 
 
+@connected
 def test_load_metawrapper():
     run(dpath("test_load_metawrapper"), executor="dryrun")
 
 
 @skip_on_windows
+@conda
 def test_conda_global():
     run(
         dpath("test_conda_global"),
@@ -2006,25 +2129,43 @@ def test_missing_file_dryrun():
     run(dpath("test_missing_file_dryrun"), executor="dryrun", shouldfail=True)
 
 
+@conda
 def test_script_pre_py39():
     run(dpath("test_script_pre_py39"), deployment_method={DeploymentMethod.CONDA})
 
 
 def test_issue1256():
     snakefile = os.path.join(dpath("test_issue1256"), "Snakefile")
-    p = subprocess.Popen(
+    p = sp.Popen(
         f"snakemake -s {snakefile}",
         shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
     )
-    stdout, stderr = p.communicate()
+    _, stderr = p.communicate()
     stderr = stderr.decode()
     assert p.returncode == 1
     assert "SyntaxError" in stderr
     assert "line 9" in stderr
 
 
+def test_issue2574():
+    snakefile = os.path.join(dpath("test_issue2574"), "Snakefile")
+    configfile = os.path.join(dpath("test_issue2574"), "config.yaml")
+    p = sp.Popen(
+        f"snakemake -s {snakefile} --configfile {configfile} --lint",
+        shell=True,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    stderr = stderr.decode()
+    assert p.returncode == 1
+    assert "KeyError" in stderr
+    assert "line 4," in stderr
+
+
+@conda
 def test_resource_string_in_cli_or_profile():
     test_path = dpath("test_resource_string_in_cli_or_profile")
     profile = os.path.join(test_path, "profiles")
@@ -2139,8 +2280,24 @@ def test_exists():
 
 
 @skip_on_windows  # OS agnostic
+def test_handle_storage_multi_consumers():
+    run(
+        dpath("test_handle_storage_multi_consumers"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+        cores=1,
+    )
+
+
+@skip_on_windows  # OS agnostic
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
+
+
+@skip_on_windows
+@apptainer
+def test_shell_exec():
+    run(dpath("test_shell_exec"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 def test_expand_list_of_functions():
@@ -2150,3 +2307,26 @@ def test_expand_list_of_functions():
 @skip_on_windows  # OS agnostic
 def test_scheduler_sequential_all_cores():
     run(dpath("test_scheduler_sequential_all_cores"), cores=90)
+
+
+@skip_on_windows  # OS agnostic
+def test_checkpoint_open():
+    run(
+        dpath("test_checkpoint_open"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+    )
+
+
+def test_toposort():
+    run(dpath("test_toposort"), check_results=False, executor="dryrun")
+
+
+@skip_on_windows  # OS agnostic
+def test_failed_intermediate():
+    # see https://github.com/snakemake/snakemake/pull/2966#issuecomment-2558133016
+    # fix was to also write job metadata (persistence.finished(job)) in case of errors
+    path = dpath("test_failed_intermediate")
+    tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
+    run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
+    run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
