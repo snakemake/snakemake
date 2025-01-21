@@ -65,10 +65,9 @@ def format_dict(dict_like, omit_keys=None, omit_values=None):
     omit_keys = omit_keys or []
     omit_values = omit_values or []
 
-    if isinstance(dict_like, Namedlist):
+    if isinstance(dict_like, (Namedlist, dict)):
         items = dict_like.items()
-    elif isinstance(dict_like, dict):
-        items = dict_like.items()
+
     else:
         raise ValueError(
             "bug: format_dict applied to something neither a dict nor a Namedlist"
@@ -124,7 +123,12 @@ def get_level(record: logging.LogRecord) -> str:
 
 
 class DefaultFormatter(logging.Formatter):
-    def __init__(self, printreason=False, show_failed_logs=False, printshellcmds=False):
+    def __init__(
+        self,
+        printreason: bool = False,
+        show_failed_logs: bool = False,
+        printshellcmds: bool = False,
+    ):
         self.printreason = printreason
         self.show_failed_logs = show_failed_logs
         self.printshellcmds = printshellcmds
@@ -468,15 +472,30 @@ class ColorizingTextHandler(logging.StreamHandler):
 
     def can_color_tty(self, mode):
         """
-        Check if the terminal supports colors.
+        Colors are supported when:
+        1. Terminal is not "dumb"
+        2. Running in subprocess mode
+        3. Using a TTY on non-Windows systems
         """
         from snakemake_interface_executor_plugins.settings import ExecMode
 
-        if "TERM" in os.environ and os.environ["TERM"] == "dumb":
-            return False
+        # Case 1: Check if terminal is "dumb"
+        if "TERM" in os.environ:
+            if os.environ["TERM"] == "dumb":
+                return False
+
+        # Case 2: Always support colors in subprocess mode
         if mode == ExecMode.SUBPROCESS:
             return True
-        return self.is_tty and not platform.system() == "Windows"
+
+        # Case 3: Support colors on TTY except for Windows
+        is_windows = platform.system() == "Windows"
+        has_tty = self.is_tty
+
+        if has_tty and not is_windows:
+            return True
+
+        return False
 
     @property
     def is_tty(self):
