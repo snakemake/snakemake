@@ -7,8 +7,8 @@ class Checkpoints:
     """A namespace for checkpoints so that they can be accessed via dot notation."""
 
     def __init__(self):
-        self.future_output = set()
-        self.created_output = set()
+        self.future_output = None
+        self.created_output = None
 
     def register(self, rule, fallback_name=None):
         checkpoint = Checkpoint(rule, self)
@@ -32,14 +32,12 @@ class Checkpoint:
             )
 
         output, _ = self.rule.expand_output(wildcards)
-        if self.checkpoints.future_output != set():
-            for iofile in output:
-                if iofile in self.checkpoints.future_output:
-                    break
-            else:
-                return CheckpointJob(self.rule, output)
+        # If future_output is None (not yet initialized), we have not yet executed *any* checkpoint,
+        # so this one cannot be complete.
+        if self.checkpoints.future_output is None or any(iofile in self.checkpoints.future_output for iofile in output):
+            raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
 
-        raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
+        return CheckpointJob(self.rule, output)
 
 
 class CheckpointJob:
