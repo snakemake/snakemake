@@ -381,7 +381,7 @@ class OutputSettings(SettingsBase):
     debug_dag: bool = False
     verbose: bool = False
     show_failed_logs: bool = False
-    log_handlers: Sequence[object] = tuple()
+    log_handlers: Sequence[str] = tuple()
     keep_logger: bool = False
     stdout: bool = False
     benchmark_extended: bool = False
