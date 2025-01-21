@@ -34,7 +34,9 @@ class Checkpoint:
         output, _ = self.rule.expand_output(wildcards)
         # If future_output is None (not yet initialized), we have not yet executed *any* checkpoint,
         # so this one cannot be complete.
-        if self.checkpoints.future_output is None or any(iofile in self.checkpoints.future_output for iofile in output):
+        if self.checkpoints.future_output is None or any(
+            iofile in self.checkpoints.future_output for iofile in output
+        ):
             raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
 
         return CheckpointJob(self.rule, output)
