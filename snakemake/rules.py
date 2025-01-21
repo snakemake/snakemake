@@ -7,6 +7,7 @@ import copy
 import os
 import types
 import typing
+from snakemake.deployment.conda import CondaEnvTemplateSpec
 from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import collections
 from pathlib import Path
@@ -1149,6 +1150,8 @@ class Rule(RuleInterface):
             conda_env = CondaEnvNameSpec(conda_env)
         elif spec_type is CondaEnvSpecType.DIR:
             conda_env = CondaEnvDirSpec(conda_env, rule=self)
+        elif spec_type is CondaEnvSpecType.TEMPLATE:
+            conda_env = CondaEnvTemplateSpec(conda_env, rule=self)
 
         conda_env = conda_env.apply_wildcards(wildcards, self)
         conda_env.check()

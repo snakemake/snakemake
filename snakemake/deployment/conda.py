@@ -28,6 +28,7 @@ import shutil
 from abc import ABC, abstractmethod
 
 
+from yte import process_yaml
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import (
@@ -70,6 +71,7 @@ class Env:
         env_file=None,
         env_name=None,
         env_dir=None,
+        rendered_content=None,
         envs_dir=None,
         container_img=None,
         cleanup=None,
@@ -79,14 +81,22 @@ class Env:
             self.file = infer_source_file(env_file)
             assert env_name is None
             assert env_dir is None
+            assert rendered_content is None
         self.name = env_name
         if env_name is not None:
             assert env_file is None
             assert env_dir is None
+            assert rendered_content is None
         self.dir = env_dir
         if env_dir is not None:
             assert env_file is None
             assert env_name is None
+            assert rendered_content is None
+        self.rendered_content = rendered_content
+        if rendered_content is not None:
+            assert env_file is None
+            assert env_name is None
+            assert env_dir is None
         self.workflow = workflow
 
         self._container_img = container_img
@@ -174,6 +184,8 @@ class Env:
                     f"Error exporting conda environment {self.address_argument}:\n{e.output}"
                 )
             return content.encode()
+        elif self.rendered_content is not None:
+            return self.rendered_content
         else:
             return self.workflow.sourcecache.open(self.file, "rb").read()
 
@@ -859,7 +871,7 @@ class Conda:
 
 class CondaEnvSpec(ABC):
     @abstractmethod
-    def apply_wildcards(self, wildcards): ...
+    def apply_wildcards(self, wildcards, rule): ...
 
     @abstractmethod
     def get_conda_env(
@@ -885,7 +897,7 @@ class CondaEnvSpec(ABC):
 
 
 class CondaEnvFileSpec(CondaEnvSpec):
-    def __init__(self, filepath, rule=None):
+    def __init__(self, filepath, rule):
         if isinstance(filepath, SourceFile):
             self.file = IOFile(str(filepath.get_path_or_uri()), rule=rule)
         elif isinstance(filepath, _IOFile):
@@ -894,6 +906,9 @@ class CondaEnvFileSpec(CondaEnvSpec):
             self.file = IOFile(filepath, rule=rule)
 
     def apply_wildcards(self, wildcards, rule):
+        if not self.file.contains_wildcard():
+            return self
+
         filepath = self.file.apply_wildcards(wildcards)
         if is_local_file(filepath):
             # Normalize 'file:///my/path.yml' to '/my/path.yml'
@@ -927,8 +942,28 @@ class CondaEnvFileSpec(CondaEnvSpec):
         return self.file == other.file
 
 
+class CondaEnvTemplateSpec(CondaEnvSpec):
+    def __init__(self, filepath, params=None, input=None):
+        self.filepath = filepath
+        self.params = params
+        self.input = input
+    
+    def apply_wildcards(self, wildcards, _):
+        if not self.filepath.contains_wildcard():
+            return self
+        filepath = self.filepath.apply_wildcards(wildcards)
+        return CondaEnvTemplateSpec(filepath, params=self.params, input=self.input)
+
+    def get_conda_env(self, workflow, envs_dirs=None, container_img=None, cleanup=None):
+        template = self.workflow.sourcecache.open(self.filepath, "r").read()
+        self.content = process_yaml(template, variables={"params": self.params, "input": self.input})
+
+
+    
+
+
 class CondaEnvDirSpec(CondaEnvSpec):
-    def __init__(self, path, rule=None):
+    def __init__(self, path, rule):
         if isinstance(path, SourceFile):
             self.path = IOFile(str(path.get_path_or_uri()), rule=rule)
         elif isinstance(path, _IOFile):
@@ -1005,6 +1040,7 @@ class CondaEnvSpecType(Enum):
     FILE = "file"
     NAME = "name"
     DIR = "dir"
+    TEMPLATE = "template"
 
     @classmethod
     def from_spec(cls, spec: Union[str, SourceFile, Path]):
@@ -1016,6 +1052,8 @@ class CondaEnvSpecType(Enum):
         elif isinstance(spec, Path):
             spec = str(spec)
 
+        if spec.endswith(".yte.yaml") or spec.endswith(".yte.yml"):
+            return cls.TEMPLATE
         if spec.endswith(".yaml") or spec.endswith(".yml"):
             return cls.FILE
         elif is_local_file(spec) and os.path.isdir(spec):
