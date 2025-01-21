@@ -550,8 +550,8 @@ It can for example be used to condition some behavior in the workflow on the exi
 
 .. _snakefiles-rule-item-access:
 
-Rule item access
-""""""""""""""""
+Rule item access helpers
+""""""""""""""""""""""""
 
 Via functions (e.g. for :ref:`snakefiles-params` or :ref:`snakefiles-resources`) it is possible to access other items of the same rule in a deferred way, at the point in time when they are actually known.
 For this, functions like
@@ -561,11 +561,26 @@ For this, functions like
     def get_file_foo_from_input(wildcards, input):
         return input.foo
 
-can be written. If such a function is passed to e.g. a resource statement,
-Snakemake knows that this resource shall be evaluated by passing the input files in addition to the wildcards (which are always required as first argument for any such function).
+can be written.
+If such a function is passed to e.g. a params or resource statement, Snakemake knows that this resource shall be evaluated by passing the input files in addition to the wildcards (which are always required as first argument for any such function).
 To simplify such logic for certain situations, Snakemake provides globally available objects
 ``input``, ``output``, ``resources``, and ``threads`` that can be used to replace the corresponding function definitions.
-For example, ``input.foo`` returns a function that is equivalent to ``get_file_foo_from_input`` (the function above).
+For example, the global ``input.foo`` (not the one inside above function, which returns its value from the ``input`` argument of the function, which in turn is a concrete file path) returns a function that is equivalent to ``get_file_foo_from_input`` (the function above).
+Using these objects makes most sense inside of a rule definition.
+For example, it can be used to access a subpath of an input or output file or directory, see :ref:`snakefiles-subpath`.
+For example, we could write
+
+.. code-block:: python
+
+    rule a:
+        input:
+            foo="results/something/foo.txt"
+        output:
+            "results/something-else/out.txt"
+        params:
+            directory=subpath(input.foo, parent=True)
+        shell:
+            "somecommand {params.directory} {output}"
 
 .. _snakefiles-subpath:
 
@@ -603,6 +618,21 @@ If ``ancestor`` is set to an integer greater than 0, the ancestor directory at t
     subpath("results/foo/test.txt", ancestor=2) # returns "results"
 
 The arguments ``basename``, ``parent``, and ``ancestor`` are mutually exclusive.
+
+The ``subpath`` function can be very handy in combination with :ref:`Snakemake's rule item access helpers <snakefiles-rule-item-access>`, e.g.
+
+.. code-block:: python
+
+    rule a:
+        input:
+            "results/something/foo.txt"
+        output:
+            foo="results/something-else/out.txt"
+        params:
+            basename=subpath(output.foo, basename=True),
+            outdir=subpath(output.foo, parent=True)
+        shell:
+            "somecommand {input} --name {params.basename} --outdir {params.outdir}"
 
 .. _snakefiles-targets:
 

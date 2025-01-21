@@ -1,6 +1,25 @@
 # Changelog
 
 
+## [8.27.1](https://github.com/snakemake/snakemake/compare/v8.27.0...v8.27.1) (2025-01-08)
+
+
+### Documentation
+
+* fix output name ([814ee4f](https://github.com/snakemake/snakemake/commit/814ee4f9b397548a7d55337b6e0fe39d9e4f806f))
+
+## [8.27.0](https://github.com/snakemake/snakemake/compare/v8.26.0...v8.27.0) (2025-01-08)
+
+
+### Features
+
+* Add commentstring for vim plugin ([#3104](https://github.com/snakemake/snakemake/issues/3104)) ([bd0d36e](https://github.com/snakemake/snakemake/commit/bd0d36ebff352736de3adff0027d6e5611aeca50))
+
+
+### Documentation
+
+* add examples for rule item access helpers and subpath ([a0cf5a1](https://github.com/snakemake/snakemake/commit/a0cf5a1407e10d40267d88ed7b69ad85c76f101e))
+
 ## [8.26.0](https://github.com/snakemake/snakemake/compare/v8.25.5...v8.26.0) (2024-12-23)
 
 
