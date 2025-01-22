@@ -3,12 +3,15 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 import posixpath
 import re
 import os
 import shutil
 import stat
+
+import requests
 from snakemake import utils
 import tempfile
 import io
@@ -98,6 +101,19 @@ class GenericSourceFile(SourceFile):
     @property
     def is_local(self):
         return False
+
+
+class HttpFile(GenericSourceFile):
+    def mtime(self):
+        try:
+            response = requests.head(self.path_or_uri)
+            response.raise_for_status()
+            return parsedate_to_datetime(response.headers.get("last-modified")).timestamp()
+        except Exception as e:
+            logger.debug(
+                f"Failed to get or parse last-modified header for {self.path_or_uri}. {e}"
+            )
+            return None
 
 
 class LocalSourceFile(SourceFile):
@@ -334,6 +350,8 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
                 f"Failed to read source {path_or_uri} from git repo.", e
             )
         return LocalGitFile(root_path, file_path, ref=ref)
+    if path_or_uri.startswith("https://") or path_or_uri.startswith("http://"):
+        return HttpFile(path_or_uri)
     # something else
     return GenericSourceFile(path_or_uri)
 
