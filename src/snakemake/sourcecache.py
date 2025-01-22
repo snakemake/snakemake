@@ -249,7 +249,9 @@ class HostedGitRepoCheckout:
 
     def mtime(self, path: Path) -> float:
         assert not self.stale, "bug: mtime called on stale checkout"
-        commits = list(self.hosted_repo.repo.iter_commits(self.ref, paths=path, max_count=1))
+        commits = list(
+            self.hosted_repo.repo.iter_commits(self.ref, paths=path, max_count=1)
+        )
         if not commits:
             raise WorkflowError(f"No commit found for the file: {path}")
         last_commit = commits[0]
