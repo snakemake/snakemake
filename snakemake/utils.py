@@ -111,32 +111,42 @@ def validate(data, schema, set_default=True):
     if not isinstance(data, dict):
         try:
             import pandas as pd
+            import pandas as pl
+
+            records = []
+            if isinstance(data, pd.DataFrame):
+                records = data.to_dict("records")
+            elif isinstance(data, pl.DataFrame):
+                records = data.iter_rows(named=True)
+            elif isinstance(data, pl.LazyFrame):
+                # If a LazyFrame is being used, probably it is a large dataframe (so check only first 1000 records)
+                records = data.head(1000).collect().iter_rows(named=True)
+            else:
+                raise WorkflowError("Unsupported data type for validation.")
 
             recordlist = []
-            if isinstance(data, pd.DataFrame):
-                for i, record in enumerate(data.to_dict("records")):
-                    record = {k: v for k, v in record.items() if not pd.isnull(v)}
-                    try:
-                        if set_default:
-                            DefaultValidator(schema, resolver=resolver).validate(record)
-                            recordlist.append(record)
-                        else:
-                            jsonschema.validate(record, schema, resolver=resolver)
-                    except jsonschema.exceptions.ValidationError as e:
-                        raise WorkflowError(
-                            f"Error validating row {i} of data frame.", e
-                        )
-                if set_default:
-                    newdata = pd.DataFrame(recordlist, data.index)
-                    newcol = ~newdata.columns.isin(data.columns)
-                    n = len(data.columns)
-                    for col in newdata.loc[:, newcol].columns:
-                        data.insert(n, col, newdata.loc[:, col])
-                        n = n + 1
-                return
+            for i, record in enumerate(records):
+                # Exclude NULL values
+                record = {k: v for k, v in record.items() if not pd.isnull(v)}
+                try:
+                    if set_default:
+                        DefaultValidator(schema, resolver=resolver).validate(record)
+                        recordlist.append(record)
+                    else:
+                        jsonschema.validate(record, schema, resolver=resolver)
+                except jsonschema.exceptions.ValidationError as e:
+                    raise WorkflowError(f"Error validating row {i} of data frame.", e)
+            if set_default:
+                newdata = pd.DataFrame(recordlist, data.index)
+                newcol = ~newdata.columns.isin(data.columns)
+                n = len(data.columns)
+                for col in newdata.loc[:, newcol].columns:
+                    data.insert(n, col, newdata.loc[:, col])
+                    n = n + 1
+            return
         except ImportError:
             pass
-        raise WorkflowError("Unsupported data type for validation.")
+        raise WorkflowError("Error validating data frame.")
     else:
         try:
             if set_default:
