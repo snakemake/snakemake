@@ -11,10 +11,10 @@ validate(config, "config.schema.yaml")
 samples = pd.read_table(config["samples"]).set_index("sample", drop=False)
 validate(samples, "samples.schema.yaml")
 
-samples = pl.read_csv(config["samples"])
+samples = pl.read_csv(config["samples"], separator="\t")
 validate(samples, "samples.schema.yaml")
 
-samples = pl.scan_csv(config["samples"])
+samples = pl.scan_csv(config["samples"], separator="\t")
 validate(samples, "samples.schema.yaml")
 
 rule all:
