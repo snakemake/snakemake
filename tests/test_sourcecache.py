@@ -16,6 +16,7 @@ def test_github_file():
         os.path.exists(stored)
         assert str(stored).startswith(tempdir)
 
+
 def test_gitlab_file_host_propagation():
     file = GitlabFile(repo="owner/repo", path="parent/path", tag="tag", host="host.com")
 
