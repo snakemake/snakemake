@@ -108,14 +108,14 @@ class HttpFile(GenericSourceFile):
         try:
             response = requests.head(self.path_or_uri)
             response.raise_for_status()
-            return parsedate_to_datetime(
-                response.headers.get("last-modified")
-            ).timestamp()
+            mtime = response.headers.get("last-modified")
+            if mtime is not None:
+                return parsedate_to_datetime(mtime).timestamp()
         except Exception as e:
             logger.debug(
                 f"Failed to get or parse last-modified header for {self.path_or_uri}. {e}"
             )
-            return None
+        return None
 
 
 class LocalSourceFile(SourceFile):
