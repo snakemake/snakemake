@@ -1218,13 +1218,15 @@ def checkpoint_target(value):
     return flag(value, "checkpoint_target")
 
 
-def sourcecache_entry(value, orig_path_or_uri):
+def sourcecache_entry(value, orig_path_or_uri, sourcefile):
     from snakemake.sourcecache import SourceFile
 
     assert not isinstance(
         orig_path_or_uri, SourceFile
     ), "bug: sourcecache_entry should receive a path or uri, not a SourceFile"
-    return flag(value, "sourcecache_entry", orig_path_or_uri)
+    flagged = flag(value, "sourcecache_entry", orig_path_or_uri)
+    flagged = flag(flagged, "sourcefile", sourcefile)
+    return flagged
 
 
 ReportObject = collections.namedtuple(
