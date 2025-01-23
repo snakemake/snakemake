@@ -1292,16 +1292,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 if output_mintime_:
                     # Input is updated if it is newer than the oldest output file
                     # and does not have the same checksum as the one previously recorded.
-                    async def is_updated_input(f):
-                        return (
-                            await f.exists()
-                            and await f.is_newer(output_mintime_)
-                            and not await is_same_checksum(f, job)
-                        )
+                    async def updated_input():
+                        for f in job.input:
+                            if (
+                                await f.exists()
+                                and await f.is_newer(output_mintime_)
+                                and not await is_same_checksum(f, job)
+                            ):
+                                yield f
 
-                    reason.updated_input.update(
-                        await asyncio.gather(*map(is_updated_input, job.input))
-                    )
+                    reason.updated_input.update([f async for f in updated_input()])
                 if not reason.updated_input:
                     reason.unfinished_queue_input = job.has_unfinished_queue_input()
                     if not reason.unfinished_queue_input:
