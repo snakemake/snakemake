@@ -1298,6 +1298,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             and await f.is_newer(output_mintime_)
                             and not await is_same_checksum(f, job)
                         )
+
                     reason.updated_input.update(
                         await asyncio.gather(*map(is_updated_input, job.input))
                     )
