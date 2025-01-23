@@ -1254,7 +1254,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if is_forced(job):
                 reason.forced = True
             elif job in self.targetjobs:
-                # TODO find a way to handle added/removed input files here?
                 if not job.has_products(include_logfiles=False):
                     if job.input:
                         if job.rule.norun:
@@ -1326,9 +1325,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             )
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
+                            elif self.workflow.persistence.has_outdated_metadata(job):
+                                reason.outdated_metadata = True
                             else:
-                                if self.workflow.persistence.has_outdated_metadata(job):
-                                    reason.outdated_metadata = True
                                 if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
                                     reason.params_changed = (
                                         self.workflow.persistence.params_changed(job)
