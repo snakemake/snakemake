@@ -7,13 +7,14 @@ from snakemake.sourcecache import GithubFile, GitlabFile
 
 def test_github_file():
     currtime = time.time()
+    time.sleep(0.2)
     file = GithubFile(repo="snakemake/snakemake", path="README.md", tag="v8.27.1")
 
     with tempfile.TemporaryDirectory() as tempdir:
         file.cache_path = Path(tempdir)
-        assert file.mtime() < currtime
+        assert file.mtime() > currtime
         stored = file.get_path_or_uri()
-        os.path.exists(stored)
+        assert os.path.exists(stored)
         assert str(stored).startswith(tempdir)
 
 
