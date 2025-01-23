@@ -31,7 +31,6 @@ from snakemake.common import (
     get_container_image,
     parse_key_value_arg,
 )
-from snakemake.dag import Batch
 from snakemake.exceptions import (
     CliException,
     ResourceScopesException,
@@ -45,6 +44,7 @@ from snakemake.resources import (
     parse_resources,
 )
 from snakemake.settings.types import (
+    Batch,
     ChangeType,
     ConfigSettings,
     DAGSettings,
