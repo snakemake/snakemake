@@ -356,12 +356,22 @@ class HostingProviderFile(SourceFile):
         return os.path.basename(self.path)
 
     def get_path_or_uri(self):
-        checkout = self.hosted_repo.checkout(self.branch, self.commit or self.tag)
+        checkout = self._checkout()
         return checkout.source_path(self.path)
 
     def mtime(self) -> float:
-        checkout = self.hosted_repo.checkout(self.branch, self.commit or self.tag)
+        checkout = self._checkout()
         return checkout.mtime(self.path)
+
+    def _checkout(self):
+        try:
+            return self.hosted_repo.checkout(self.branch, self.commit or self.tag)
+        except Exception as e:
+            raise WorkflowError(
+                "Failed to clone/checkout git repository "
+                f"{self.host}/{self.repo} at {self.branch or self.commit or self.tag}.",
+                e,
+            )
 
     @property
     def ref(self):
