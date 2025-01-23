@@ -194,15 +194,23 @@ class HostedGitRepo:
     ) -> Self:
         repo_url = f"https://{auth}{host}/{repo}"
 
-        self.repo_clone = cache_path / repo_url
+        self.repo_clone = cache_path / host / repo
 
         self._existed_before = self.repo_clone.exists()
 
         if self._existed_before:
             self._repo = Repo(self.repo_clone)
         else:
-            logger.info(f"Cloning {repo_url} to {self.repo_clone}")
-            self._repo = Repo.clone_from(repo_url, to_path=self.repo_clone)
+            # lock-free cloning of the repository
+            logger.info(f"Cloning {host}/{repo} to {self.repo_clone}")
+            self.repo_clone.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix=f"{self.repo_clone}.") as tmpdir:
+                # the clone is not atomic, hence we do that in a temporary directory
+                Repo.clone_from(repo_url, to_path=tmpdir)
+                # move is atomic, so we can safely move the directory to the final
+                # location
+                shutil.move(tmpdir, self.repo_clone)
+            self._repo = Repo(self.repo_clone)
 
         self._checkout = None
 
