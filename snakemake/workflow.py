@@ -257,10 +257,9 @@ class Workflow(WorkflowExecutorInterface):
             # job reruns where an input file or a source file suddenly becomes newer?
             return self.snakemake_tmp_dir / "source-cache"
         else:
-            # The source cache should be shared across different users of the same
-            # workflow. Hence we have to make sure that it is in a directory that is
-            # the same for all people that run the same workflow in the same workdir.
-            return self.persistence.path / "source-cache"
+            return Path(
+                os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache")
+            )
 
     @property
     def storage_registry(self):
