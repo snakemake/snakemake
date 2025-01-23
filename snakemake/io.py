@@ -600,7 +600,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return (
             await self.exists_local()
             and not os.path.isdir(self.file)
-            and await self.size() < 100000
+            and await self.size() <= 1000000
             and not self.is_fifo()
         )
 
@@ -608,7 +608,7 @@ class _IOFile(str, AnnotatedStringInterface):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist. If force is True,
         omit eligibility check."""
-        if force or await self.is_checksum_eligible():  # less than 100000 bytes
+        if force or await self.is_checksum_eligible():  # less than 1 MB
             checksum = sha256()
             if await self.size() > 0:
                 # only read if file is bigger than zero

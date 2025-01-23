@@ -9,6 +9,7 @@ import re
 import os
 import shutil
 import stat
+from typing import Optional
 from snakemake import utils
 import tempfile
 import io
@@ -230,6 +231,12 @@ class HostingProviderFile(SourceFile):
 
     def __post_init__(self):
         pass
+
+    def mtime(self) -> Optional[float]:
+        # Intentionally None, hence causing any caching to generate an updated mtime.
+        # Switching commits/branches/refs in the same repo should cause rerun triggers
+        # if those files are used as input files for jobs and have changed checksums.
+        return None
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
