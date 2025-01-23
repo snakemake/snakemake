@@ -878,11 +878,11 @@ class _IOFile(str, AnnotatedStringInterface):
         return self._file.__hash__()
 
 
-def pretty_print_iofile(iofile: _IOFile):
-    if iofile.is_storage:
+def pretty_print_iofile(iofile: Union[_IOFile, str]) -> str:
+    if isinstance(iofile, _IOFile) and iofile.is_storage:
         return f"{iofile.storage_object.query} (storage)"
     else:
-        return iofile._file
+        return iofile
 
 
 class AnnotatedString(str, AnnotatedStringInterface):
