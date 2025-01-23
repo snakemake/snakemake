@@ -252,6 +252,9 @@ class Workflow(WorkflowExecutorInterface):
     def source_cache_path(self) -> Path:
         assert self.storage_settings is not None
         if SharedFSUsage.SOURCE_CACHE not in self.storage_settings.shared_fs_usage:
+            # TODO can this cause issues with the source cache?
+            # When regenerating it for each remote job, might that accidentally trigger
+            # job reruns where an input file or a source file suddenly becomes newer?
             return self.snakemake_tmp_dir / "source-cache"
         else:
             return Path(

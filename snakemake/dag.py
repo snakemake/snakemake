@@ -72,7 +72,7 @@ from snakemake.settings.types import SharedFSUsage
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
-from snakemake.settings.types import ChangeType, Batch
+from snakemake.settings.types import ChangeType
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
@@ -1226,7 +1226,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     # no chance to compute checksum, cannot be assumed the same
                     is_same = False
                 else:
-                    # obtain the input checksums for the given file for all output files of the job
+                    # obtain the set of input checksums for the given file for all
+                    # output files of the job
                     checksums = self.workflow.persistence.input_checksums(job, f)
                     if len(checksums) > 1:
                         # more than one checksum recorded, cannot be all the same
@@ -1287,19 +1288,21 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     )
             if not reason:
                 output_mintime_ = output_mintime.get(job)
-                updated_input = None
+                reason.updated_input.clear()
                 if output_mintime_:
-                    # Input is updated if it is newer that the oldest output file
+                    # Input is updated if it is newer than the oldest output file
                     # and does not have the same checksum as the one previously recorded.
-                    updated_input = [
-                        f
-                        for f in job.input
-                        if await f.exists()
-                        and await f.is_newer(output_mintime_)
-                        and not await is_same_checksum(f, job)
-                    ]
-                    reason.updated_input.update(updated_input)
-                if not updated_input:
+                    async def updated_input():
+                        for f in job.input:
+                            if (
+                                await f.exists()
+                                and await f.is_newer(output_mintime_)
+                                and not await is_same_checksum(f, job)
+                            ):
+                                yield f
+
+                    reason.updated_input.update([f async for f in updated_input()])
+                if not reason.updated_input:
                     reason.unfinished_queue_input = job.has_unfinished_queue_input()
                     if not reason.unfinished_queue_input:
                         # check for other changes like parameters, set of input files, or code
