@@ -256,14 +256,10 @@ class HostedGitRepoCheckout:
         self.stale = False
 
     def mtime(self, path: Path) -> float:
-        assert not self.stale, "bug: mtime called on stale checkout"
-        commits = list(
-            self.hosted_repo.repo.iter_commits(self.ref, paths=path, max_count=1)
-        )
-        if not commits:
-            raise WorkflowError(f"No commit found for the file: {path}")
-        last_commit = commits[0]
-        return last_commit.committed_datetime.timestamp()
+        # Every change in the repo is a potential change in the input, hence,
+        # the mtime is just the mtime of the file in the cloned repo.
+        # If that file is changed, the mtime is accordingly updated.
+        return os.stat(self.source_path(path)).st_mtime
 
     def source_path(self, path: Path) -> Path:
         assert not self.stale, "bug: source_path called on stale checkout"
