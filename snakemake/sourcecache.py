@@ -9,7 +9,8 @@ import re
 import os
 import shutil
 import stat
-from typing import Optional, Self
+from typing import Optional
+from typing_extensions import Self
 from snakemake import utils
 import tempfile
 import io
