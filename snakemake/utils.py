@@ -162,7 +162,7 @@ def validate(data, schema, set_default=True):
                     # Fill in None values with values from newdata
                     for i in range(data.shape[0]):
                         for j in range(data.shape[1]):
-                            if data[i, j] == None:
+                            if data[i, j] is None:
                                 data[i, j] = newdata[i, j]
                 elif isinstance(data, pl.LazyFrame):
                     logger.warning("LazyFrame does not support setting default values.")
