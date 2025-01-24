@@ -8,7 +8,11 @@ import os
 
 from snakemake.jobs import Job
 from snakemake.io import apply_wildcards
-from snakemake.exceptions import MissingOutputFileCachePathException, WorkflowError, CacheMissException
+from snakemake.exceptions import (
+    MissingOutputFileCachePathException,
+    WorkflowError,
+    CacheMissException,
+)
 from snakemake.caching.hash import ProvenanceHashMap
 from snakemake.logging import logger
 
