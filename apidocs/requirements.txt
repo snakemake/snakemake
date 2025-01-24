@@ -11,3 +11,5 @@ snakemake-interface-common
 snakemake-interface-executor-plugins
 snakemake-interface-storage-plugins
 snakemake-interface-logger-plugins
+gitpython
+typing-extensions
