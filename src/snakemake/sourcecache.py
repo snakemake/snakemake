@@ -10,7 +10,6 @@ import os
 import shutil
 import stat
 from typing import Optional
-from typing_extensions import Self
 from snakemake import utils
 import tempfile
 import io
@@ -191,8 +190,8 @@ class HostedGitRepo:
         repo: str,
         cache_path: Path,
         auth: str,
-        host: str = None,
-    ) -> Self:
+        host: str,
+    ):
         repo_url = f"https://{auth}{host}/{repo}"
 
         self.repo_clone = cache_path / host / repo
@@ -343,7 +342,7 @@ class HostingProviderFile(SourceFile):
     def hosted_repo(self) -> HostedGitRepo:
         if self._hosted_repo is None:
             self._hosted_repo = HostedGitRepo(
-                self.repo, self.cache_path, self.auth, host=self.host
+                self.repo, self.cache_path, self.auth, self.host
             )
         return self._hosted_repo
 
