@@ -13,3 +13,4 @@ snakemake-interface-storage-plugins
 snakemake-interface-report-plugins
 humanfriendly
 gitpython
+typing-extensions
