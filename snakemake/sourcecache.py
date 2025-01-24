@@ -273,12 +273,13 @@ class HostingProviderFile(SourceFile):
 
     def __init__(
         self,
-        repo: str = None,
-        path: str = None,
-        tag: str = None,
-        branch: str = None,
-        commit: str = None,
-        host: str = None,
+        repo: Optional[str] = None,
+        path: Optional[str] = None,
+        tag: Optional[str] = None,
+        branch: Optional[str] = None,
+        commit: Optional[str] = None,
+        host: Optional[str] = None,
+        cache_path: Optional[Path] = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -307,7 +308,7 @@ class HostingProviderFile(SourceFile):
         self.host = host
 
         self._hosted_repo: Optional[HostedGitRepo] = None
-        self._cache_path: Optional[Path] = None
+        self._cache_path: Optional[Path] = cache_path
 
         # Via __post_init__ implementing subclasses can do additional things without
         # replicating the constructor args.
@@ -357,7 +358,7 @@ class HostingProviderFile(SourceFile):
 
     def get_path_or_uri(self):
         checkout = self._checkout()
-        return checkout.source_path(self.path)
+        return str(checkout.source_path(self.path))
 
     def mtime(self) -> float:
         checkout = self._checkout()
@@ -385,6 +386,7 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
             host=self.host,
+            cache_path=self.cache_path,
         )
 
     def join(self, path):
@@ -400,6 +402,7 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
             host=self.host,
+            cache_path=self.cache_path,
         )
 
     @property
@@ -409,11 +412,8 @@ class HostingProviderFile(SourceFile):
 
 class GithubFile(HostingProviderFile):
     def __post_init__(self):
-        if self.host is not None:
-            raise WorkflowError(
-                "host keyword argument is not yet supported by GithubFile."
-            )
-        self.host = "github.com"
+        if self.host is None:
+            self.host = "github.com"
         self.token = os.environ.get("GITHUB_TOKEN", "")
 
     @property

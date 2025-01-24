@@ -117,6 +117,7 @@ from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
+    HostingProviderFile,
     LocalSourceFile,
     SourceCache,
     SourceFile,
@@ -1437,6 +1438,10 @@ class Workflow(WorkflowExecutorInterface):
         Include a snakefile.
         """
         basedir = self.current_basedir if self.included_stack else None
+
+        if isinstance(snakefile, HostingProviderFile):
+            snakefile.cache_path = self.sourcecache.cache_path
+
         snakefile = infer_source_file(snakefile, basedir)
 
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
