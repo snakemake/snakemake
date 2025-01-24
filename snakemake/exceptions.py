@@ -603,6 +603,10 @@ class LookupError(WorkflowError):
         super().__init__(*args)
 
 
+class MissingOutputFileCachePathException(Exception):
+    pass
+
+
 def is_file_not_found_error(exc, considered_files):
     # TODO find a better way to detect whether the input files are not present
     if isinstance(exc, FileNotFoundError) and exc.filename in considered_files:
