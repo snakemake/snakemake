@@ -2,7 +2,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - rust-script>=0.15.0
+  - rust-script>=0.35.0
   - openssl
   - c-compiler
   - pkg-config

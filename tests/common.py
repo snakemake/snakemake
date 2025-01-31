@@ -160,7 +160,7 @@ def run(
     nodes=None,
     set_pythonpath=True,
     cleanup=True,
-    conda_frontend="mamba",
+    conda_frontend="conda",
     config=dict(),
     targets=set(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
@@ -214,6 +214,7 @@ def run(
     shared_fs_usage=None,
     benchmark_extended=False,
     apptainer_args="",
+    tmpdir=None,
 ):
     """
     Test the Snakefile in the path.
@@ -237,28 +238,32 @@ def run(
 
     results_dir = join(path, "expected-results")
     original_snakefile = join(path, snakefile)
+    original_dirname = os.path.basename(os.path.dirname(original_snakefile))
     assert os.path.exists(original_snakefile)
     if check_results:
         assert os.path.exists(results_dir) and os.path.isdir(
             results_dir
         ), "{} does not exist".format(results_dir)
 
-    # If we need to further check results, we won't cleanup tmpdir
-    tmpdir = next(tempfile._get_candidate_names())
-    tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
-    os.mkdir(tmpdir)
+    if tmpdir is None:
+        # If we need to further check results, we won't cleanup tmpdir
+        tmpdir = next(tempfile._get_candidate_names())
+        tmpdir = os.path.join(
+            tempfile.gettempdir(), f"snakemake-{original_dirname}-{tmpdir}"
+        )
+        os.mkdir(tmpdir)
 
-    config = dict(config)
-
-    # copy files
-    for f in os.listdir(path):
-        copy(os.path.join(path, f), tmpdir)
+        # copy files
+        for f in os.listdir(path):
+            copy(os.path.join(path, f), tmpdir)
 
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
 
     snakemake_api = None
     exception = None
+
+    config = dict(config)
 
     # run snakemake
     if shellcmd:
