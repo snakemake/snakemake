@@ -17,6 +17,7 @@ from snakemake.persistence import Persistence
 from snakemake.resources import DefaultResources, GroupResources
 from snakemake.settings.enums import RerunTrigger
 
+from snakemake.settings.types import Batch
 from snakemake.shell import shell
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -239,6 +240,17 @@ def test_ancient():
     run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
+def test_ancient_cli():
+    run(
+        dpath("test_ancient_cli"),
+        shellcmd="snakemake --consider-ancient A=0 B=x",
+    )
+
+
+def test_subpath():
+    run(dpath("test_subpath"))
+
+
 def test_report():
     run(
         dpath("test_report"),
@@ -264,10 +276,10 @@ def test_params():
     run(dpath("test_params"))
 
 
-def test_params_outdated_code(mocker):
+def test_params_outdated_metadata(mocker):
     spy = mocker.spy(Persistence, "has_outdated_metadata")
 
-    run(dpath("test_params_outdated_code"))
+    run(dpath("test_params_outdated_code"), targets=["somedir/test.out"])
     assert spy.spy_return == True
 
 
@@ -406,6 +418,16 @@ def test_script_python():
     run(dpath("test_script_py"))
 
 
+@skip_on_windows
+@conda
+def test_script_rs():
+    run(
+        dpath("test_script_rs"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
+
+
 @skip_on_windows  # Test relies on perl
 def test_shadow():
     run(dpath("test_shadow"))
@@ -454,12 +476,17 @@ def test_omitfrom():
     )  # wildcard rule
 
 
+@skip_on_windows  # paths are different on windows ('/' vs. '\')
 def test_nonstr_params():
-    run(dpath("test_nonstr_params"))
+    run(dpath("test_nonstr_params"), benchmark_extended=True)
 
 
 def test_delete_output():
     run(dpath("test_delete_output"), cores=1)
+
+
+def test_params_pickling():
+    run(dpath("test_params_pickling"))
 
 
 def test_input_generator():
@@ -634,6 +661,8 @@ def test_format_wildcards():
 
 def test_with_parentheses():
     run(dpath("test (with parenthese's)"))
+
+    run(dpath("test_path with spaces"))
 
 
 def test_dup_out_patterns():
@@ -1078,7 +1107,7 @@ def test_resources_can_be_overwritten_as_global():
 def test_scopes_submitted_to_cluster(mocker):
     from snakemake.spawn_jobs import SpawnedJobArgsFactory
 
-    spy = mocker.spy(SpawnedJobArgsFactory, "get_resource_scopes_args")
+    spy = mocker.spy(SpawnedJobArgsFactory, "get_resource_scopes_arg")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1400,20 +1429,14 @@ def test_filegraph():
 
 
 def test_batch():
-    from snakemake.dag import Batch
-
     run(dpath("test_batch"), batch=Batch("aggregate", 1, 2))
 
 
 def test_batch_final():
-    from snakemake.dag import Batch
-
     run(dpath("test_batch_final"), batch=Batch("aggregate", 1, 1))
 
 
 def test_batch_fail():
-    from snakemake.dag import Batch
-
     run(dpath("test_batch"), batch=Batch("aggregate", 2, 2), shouldfail=True)
 
 
@@ -2292,3 +2315,13 @@ def test_checkpoint_open():
 
 def test_toposort():
     run(dpath("test_toposort"), check_results=False, executor="dryrun")
+
+
+@skip_on_windows  # OS agnostic
+def test_failed_intermediate():
+    # see https://github.com/snakemake/snakemake/pull/2966#issuecomment-2558133016
+    # fix was to also write job metadata (persistence.finished(job)) in case of errors
+    path = dpath("test_failed_intermediate")
+    tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
+    run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
+    run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)

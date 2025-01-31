@@ -5,9 +5,9 @@ __license__ = "MIT"
 
 import asyncio
 from dataclasses import dataclass, field
+import hashlib
 import os
 import shutil
-import pickle
 import json
 import stat
 import tempfile
@@ -33,7 +33,7 @@ from snakemake_interface_common.exceptions import WorkflowError
 
 
 UNREPRESENTABLE = object()
-RECORD_FORMAT_VERSION = 3
+RECORD_FORMAT_VERSION = 5
 
 
 class Persistence(PersistenceExecutorInterface):
@@ -293,10 +293,14 @@ class Persistence(PersistenceExecutorInterface):
         for f in job.output:
             self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
+    def _remove_incomplete_marker(self, job):
+        for f in job.output:
+            self._delete_record(self._incomplete_path, f)
+
     async def finished(self, job):
         if not self.dag.workflow.execution_settings.keep_metadata:
-            for f in job.output:
-                self._delete_record(self._incomplete_path, f)
+            self._remove_incomplete_marker(job)
+            # do not store metadata if not requested
             return
 
         code = self._code(job.rule)
@@ -305,6 +309,7 @@ class Persistence(PersistenceExecutorInterface):
         params = self._params(job)
         shellcmd = job.shellcmd
         conda_env = self._conda_env(job)
+        software_stack_hash = self._software_stack_hash(job)
         fallback_time = time.time()
         for f in job.output:
             rec_path = self._record_path(self._incomplete_path, f)
@@ -338,6 +343,7 @@ class Persistence(PersistenceExecutorInterface):
                     "endtime": endtime,
                     "job_hash": hash(job),
                     "conda_env": conda_env,
+                    "software_stack_hash": software_stack_hash,
                     "container_img_url": job.container_img_url,
                     "input_checksums": {
                         infile: checksum
@@ -347,7 +353,9 @@ class Persistence(PersistenceExecutorInterface):
                 },
                 f,
             )
-            self._delete_record(self._incomplete_path, f)
+        # remove incomplete marker only after creation of metadata record.
+        # otherwise the job starttime will be missing.
+        self._remove_incomplete_marker(job)
 
     def cleanup(self, job):
         for f in job.output:
@@ -455,27 +463,28 @@ class Persistence(PersistenceExecutorInterface):
         files = [file] if file is not None else job.output
 
         changes = NO_PARAMS_CHANGE
+
         new = set(self._params(job))
 
         for outfile in files:
+            fmt_version = self.record_format_version(outfile)
+            if fmt_version is None or fmt_version < 4:
+                # no reliable params stored
+                continue
             recorded = self.params(outfile)
             if recorded is not None:
                 old = set(recorded)
                 changes |= ParamsChange(only_old=old - new, only_new=new - old)
         return changes
 
-    def conda_env_changed(self, job, file=None):
-        """Yields output files with changed conda env or bool if file given."""
-        return _bool_or_gen(self._conda_env_changed, job, file=file)
-
-    def container_changed(self, job, file=None):
-        """Yields output files with changed container img or bool if file given."""
-        return _bool_or_gen(self._container_changed, job, file=file)
+    def software_stack_changed(self, job, file=None):
+        """Yields output files with changed software env or bool if file given."""
+        return _bool_or_gen(self._software_stack_changed, job, file=file)
 
     def _code_changed(self, job, file=None):
         assert file is not None
         fmt_version = self.record_format_version(file)
-        if fmt_version is not None and fmt_version < 3:
+        if fmt_version is None or fmt_version < 3:
             # no reliable code stored
             return False
         recorded = self.code(file)
@@ -483,18 +492,38 @@ class Persistence(PersistenceExecutorInterface):
 
     def _input_changed(self, job, file=None):
         assert file is not None
+        fmt_version = self.record_format_version(file)
+        if fmt_version is None or fmt_version < 4:
+            # no reliable input stored
+            return False
         recorded = self.input(file)
         return recorded is not None and recorded != self._input(job)
 
-    def _conda_env_changed(self, job, file=None):
+    def _software_stack_changed(self, job, file=None):
         assert file is not None
-        recorded = self.conda_env(file)
-        return recorded is not None and recorded != self._conda_env(job)
+        fmt_version = self.record_format_version(file)
+        if fmt_version is None or fmt_version < 5:
+            # no reliable software stack hash stored (previous storage ignored pin files
+            # and aux deploy files of conda envs as well as env modules)
+            return False
 
-    def _container_changed(self, job, file=None):
-        assert file is not None
-        recorded = self.container_img_url(file)
-        return recorded is not None and recorded != job.container_img_url
+        recorded = self.software_stack_hash(file)
+        return recorded is not None and recorded != self._software_stack_hash(job)
+
+    def software_stack_hash(self, path):
+        return self.metadata(path).get("software_stack_hash")
+
+    def _software_stack_hash(self, job):
+        # TODO move code for retrieval into software deployment plugin interface once
+        # available
+        md5hash = hashlib.md5()
+        if job.conda_env:
+            md5hash.update(job.conda_env.hash.encode())
+        if job.container_img_url:
+            md5hash.update(job.container_img_url.encode())
+        if job.env_modules:
+            md5hash.update(job.env_modules.hash.encode())
+        return md5hash.hexdigest()
 
     @contextmanager
     def noop(self, *args):
@@ -518,22 +547,33 @@ class Persistence(PersistenceExecutorInterface):
 
     @lru_cache()
     def _input(self, job):
-        get_path = lambda f: (
-            get_flag_value(f, "sourcecache_entry")
-            if is_flagged(f, "sourcecache_entry")
-            else f
-        )
-        return sorted(get_path(f) for f in job.input)
+        def get_paths():
+            for f in job.input:
+                if f.is_storage:
+                    yield f.storage_object.query
+                elif is_flagged(f, "pipe"):
+                    yield "<pipe>"
+                elif is_flagged(f, "service"):
+                    yield "<service>"
+                else:
+                    yield (
+                        # get the true path instead of the cache path
+                        get_flag_value(f, "sourcecache_entry")
+                        if is_flagged(f, "sourcecache_entry")
+                        else f
+                    )
+
+        return sorted(get_paths())
 
     @lru_cache()
     def _log(self, job):
         return sorted(job.log)
 
-    def _serialize_param_builtin(self, param):
+    def _serialize_param_builtin(self, value: Any):
         if (
-            param is None
+            value is None
             or isinstance(
-                param,
+                value,
                 (
                     int,
                     float,
@@ -550,25 +590,25 @@ class Persistence(PersistenceExecutorInterface):
                     bytearray,
                 ),
             )
-            and param is not TBDString
+            and value is not TBDString
         ):
-            return repr(param)
+            return repr(value)
         else:
             return UNREPRESENTABLE
 
-    def _serialize_param_pandas(self, param):
+    def _serialize_param_pandas(self, value: Any):
         import pandas as pd
 
-        if isinstance(param, (pd.DataFrame, pd.Series, pd.Index)):
-            return repr(pd.util.hash_pandas_object(param).tolist())
-        return self._serialize_param_builtin(param)
+        if isinstance(value, (pd.DataFrame, pd.Series, pd.Index)):
+            return repr(pd.util.hash_pandas_object(value).tolist())
+        return self._serialize_param_builtin(value)
 
     @lru_cache()
-    def _params(self, job):
+    def _params(self, job: Job):
         return sorted(
             filter(
                 lambda p: p is not UNREPRESENTABLE,
-                map(self._serialize_param, job.params),
+                (self._serialize_param(value) for value in job.non_derived_params),
             )
         )
 

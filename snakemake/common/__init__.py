@@ -10,7 +10,9 @@ import operator
 import platform
 import hashlib
 import inspect
+import shutil
 import sys
+from typing import Callable, List
 import uuid
 import os
 import asyncio
@@ -273,8 +275,22 @@ class Gather:
     pass
 
 
-def get_function_params(func):
-    return inspect.signature(func).parameters
+FUNC_OVERWRITE_PARAMS_ATTR = "_overwrite_params"
+
+
+def get_function_params(func: Callable):
+    if hasattr(func, FUNC_OVERWRITE_PARAMS_ATTR):
+        return getattr(func, FUNC_OVERWRITE_PARAMS_ATTR)
+    else:
+        return inspect.signature(func).parameters
+
+
+def overwrite_function_params(func: Callable, params: List[str]):
+    """Force function params to be the given list. Useful for functions that
+    use *args to get all parameters in dynamically created cases like in
+    snakemake.ioutils.subpath.subpath.
+    """
+    setattr(func, FUNC_OVERWRITE_PARAMS_ATTR, params)
 
 
 def get_input_function_aux_params(func, candidate_params):
@@ -343,3 +359,15 @@ def is_namedtuple_instance(x):
     if not isinstance(f, tuple):
         return False
     return all(type(n) is str for n in f)
+
+
+def copy_permission_safe(src: str, dst: str):
+    """Copy a file to a given destination.
+
+    If destination exists, it is removed first in order to avoid permission issues when
+    the destination permissions are tried to be applied to an already existing
+    destination.
+    """
+    if os.path.exists(dst):
+        os.unlink(dst)
+    shutil.copy(src, dst)

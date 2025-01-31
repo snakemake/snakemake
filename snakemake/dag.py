@@ -72,7 +72,7 @@ from snakemake.settings.types import SharedFSUsage
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
-from snakemake.settings.types import ChangeType, Batch
+from snakemake.settings.types import ChangeType
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
@@ -525,6 +525,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             and job.targetfile in self.targetfiles
         )
 
+    def is_draft_notebook_job(self, job):
+        return (
+            self.workflow.execution_settings.edit_notebook
+            and self.workflow.execution_settings.edit_notebook.draft_only
+            and job.targetfile in self.targetfiles
+        )
+
     def get_job_group(self, job):
         return self._group.get(job)
 
@@ -670,11 +677,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def check_and_touch_output(
         self,
-        job,
-        wait=3,
-        ignore_missing_output=False,
-        no_touch=False,
-        wait_for_local=True,
+        job: Job,
+        wait: int = 3,
+        ignore_missing_output: Union[List[_IOFile], bool] = False,
+        no_touch: bool = False,
+        wait_for_local: bool = True,
+        check_output_mtime: bool = True,
     ):
         """Raise exception if output files of job are missing."""
         # do not touch output in storage. This is done before by the touch executor.
@@ -682,7 +690,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if job.benchmark:
             expanded_output.append(job.benchmark)
 
-        if not ignore_missing_output:
+        if isinstance(ignore_missing_output, list):
+            # limit expanded_output to files that are not in ignore_missing_output
+            expanded_output = [
+                f for f in expanded_output if f not in ignore_missing_output
+            ]
+            ignore_missing_output = False
+
+        if not ignore_missing_output and expanded_output:
             try:
                 await wait_for_files(
                     expanded_output,
@@ -726,7 +741,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 if await output_path.exists_local():
                     output_path.touch()
 
-        if wait_for_local:
+        if wait_for_local and check_output_mtime:
             await self.check_output_mtime(job, expanded_output)
 
     async def check_output_mtime(
@@ -1211,7 +1226,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     # no chance to compute checksum, cannot be assumed the same
                     is_same = False
                 else:
-                    # obtain the input checksums for the given file for all output files of the job
+                    # obtain the set of input checksums for the given file for all
+                    # output files of the job
                     checksums = self.workflow.persistence.input_checksums(job, f)
                     if len(checksums) > 1:
                         # more than one checksum recorded, cannot be all the same
@@ -1239,7 +1255,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if is_forced(job):
                 reason.forced = True
             elif job in self.targetjobs:
-                # TODO find a way to handle added/removed input files here?
                 if not job.has_products(include_logfiles=False):
                     if job.input:
                         if job.rule.norun:
@@ -1273,19 +1288,21 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     )
             if not reason:
                 output_mintime_ = output_mintime.get(job)
-                updated_input = None
+                reason.updated_input.clear()
                 if output_mintime_:
-                    # Input is updated if it is newer that the oldest output file
+                    # Input is updated if it is newer than the oldest output file
                     # and does not have the same checksum as the one previously recorded.
-                    updated_input = [
-                        f
-                        for f in job.input
-                        if await f.exists()
-                        and await f.is_newer(output_mintime_)
-                        and not await is_same_checksum(f, job)
-                    ]
-                    reason.updated_input.update(updated_input)
-                if not updated_input:
+                    async def updated_input():
+                        for f in job.input:
+                            if (
+                                await f.exists()
+                                and await f.is_newer(output_mintime_)
+                                and not await is_same_checksum(f, job)
+                            ):
+                                yield f
+
+                    reason.updated_input.update([f async for f in updated_input()])
+                if not reason.updated_input:
                     reason.unfinished_queue_input = job.has_unfinished_queue_input()
                     if not reason.unfinished_queue_input:
                         # check for other changes like parameters, set of input files, or code
@@ -1300,11 +1317,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
 
+                            # The list comprehension is needed below in order to
+                            # collect all the async generator items before
+                            # applying any().
+                            reason.code_changed = any(
+                                [
+                                    f
+                                    async for f in job.outputs_older_than_script_or_notebook()
+                                ]
+                            )
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
+                            elif self.workflow.persistence.has_outdated_metadata(job):
+                                reason.outdated_metadata = True
                             else:
-                                if self.workflow.persistence.has_outdated_metadata(job):
-                                    reason.outdated_metadata = True
                                 if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
                                     reason.params_changed = (
                                         self.workflow.persistence.params_changed(job)
@@ -1314,15 +1340,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                         self.workflow.persistence.input_changed(job)
                                     )
                                 if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                                    # The list comprehension is needed below in order to
-                                    # collect all the async generator items before
-                                    # applying any().
-                                    reason.code_changed = any(
-                                        [
-                                            f
-                                            async for f in job.outputs_older_than_script_or_notebook()
-                                        ]
-                                    ) or any(
+                                    reason.code_changed |= any(
                                         self.workflow.persistence.code_changed(job)
                                     )
                                 if (
@@ -1330,9 +1348,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                     in self.workflow.rerun_triggers
                                 ):
                                     reason.software_stack_changed = any(
-                                        self.workflow.persistence.conda_env_changed(job)
-                                    ) or any(
-                                        self.workflow.persistence.container_changed(job)
+                                        self.workflow.persistence.software_stack_changed(
+                                            job
+                                        )
                                     )
 
             if noinitreason and reason:
@@ -2316,11 +2334,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         node2style=lambda node: "rounded",
         node2label=lambda node: node,
     ):
-        # color rules
-        huefactor = 2 / (3 * len(self.rules))
+        # color the rules - sorting by name first gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
         rulecolor = {
             rule: "{:.2f} 0.6 0.85".format(i * huefactor)
-            for i, rule in enumerate(self.rules)
+            for i, rule in enumerate(rules)
         }
 
         # markup
@@ -2385,10 +2404,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
             )
 
-        huefactor = 2 / (3 * len(self.rules))
+        # Sorting the rules by name before assigning colors gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
         rulecolor = {
             rule: hsv_to_htmlhexrgb(i * huefactor, 0.6, 0.85)
-            for i, rule in enumerate(self.rules)
+            for i, rule in enumerate(rules)
         }
 
         def resolve_input_functions(input_files):
@@ -2888,7 +2909,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     files.add(env_path)
 
         for f in self.workflow.configfiles:
-            files.add(f)
+            files.add(os.path.relpath(f))
 
         # get git-managed files
         # TODO allow a manifest file as alternative
