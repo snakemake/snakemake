@@ -1,3 +1,4 @@
+from snakemake.logging import format_dict
 from snakemake_interface_common.exceptions import WorkflowError
 
 
@@ -11,7 +12,7 @@ def evaluate(expr: str):
             return eval(formatted, globals())
         except Exception as e:
             raise WorkflowError(
-                f"Failed to evaluate expression {expr} with wildcards {wildcards}. "
+                f"Failed to evaluate expression {expr} with wildcards {format_dict(wildcards)}. "
                 f"Formatted expression: {formatted}",
                 e,
             )
