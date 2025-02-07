@@ -9,10 +9,8 @@ rule all:
         "test.html",
         "rel_source.out",
         "julia.out",
-        "rust.out",
-        "rust-manifest.out",
-        "rust-outer-line-doc.out",
         "bash.out",
+
 
 rule:
     input:
@@ -20,17 +18,29 @@ rule:
     output:
         txt="test.out"
     params:
-        xy=True
+        null_param=None,
+        logical_param=True,
+        integer_param=123,
+        double_param=123.0,
+        nan_param=float("NaN"),
+        inf_param=float("Inf"),
+        neginf_param=float("-Inf"),
+        complex_param=complex(1,2),
+        character_param="abc",
+        vector_param=[1, 2, 3],
+        list_param=[True, 123, "abc"],
     conda:
         "envs/r.yaml"
     script:
         "scripts/test.R"
+
 
 rule:
     output:
         "test.in"
     script:
         Path("scripts/test.py")
+
 
 rule:
     output:
@@ -42,6 +52,7 @@ rule:
     script:
         "scripts/test.Rmd"
 
+
 rule:
     output:
         "rel_source.out"
@@ -49,6 +60,7 @@ rule:
         "envs/r.yaml"
     script:
         "scripts/rel_source.R"
+
 
 rule:
     input:
@@ -63,48 +75,11 @@ rule:
     script:
         "scripts/test.jl"
 
-rule:
-    input:
-        "test.in",
-        "test2.in",
-        ["test.in", "test2.in"],
-        named_input="test.in",
-    output:
-        "rust.out",
-    params:
-        integer=123
-    conda:
-        "envs/rust.yaml"
-    script:
-        "scripts/test.rs"
-
-rule:
-    output:
-        "rust-manifest.out",
-    params:
-        keep="-"
-    conda:
-        "envs/rust.yaml"
-    log:
-        "rust-manifest.log"
-    script:
-        "scripts/test-manifest.rs"
-
-rule:
-    output:
-        "rust-outer-line-doc.out",
-    params:
-        keep="-",
-    conda:
-        "envs/rust.yaml"
-    script:
-        "scripts/test-outer-line-doc.rs"
-
 
 rule bash:
     input:
         "test2.in",
-        named_input="test.in",
+        named="test.in",
     output:
         "bash.out"
     params:

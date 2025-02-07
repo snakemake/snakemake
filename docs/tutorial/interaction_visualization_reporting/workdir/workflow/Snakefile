@@ -1,0 +1,72 @@
+report: "report/workflow.rst"
+
+rule all:
+    input:
+        "results/plots/horsepower_vs_mpg.ggplot.svg",
+        "results/plots/horsepower_vs_mpg.altair.html",
+        "results/tables/cars",
+
+
+rule get_data:
+    output:
+        "resources/data/cars.tsv"
+    conda:
+        "envs/download.yaml"
+    log:
+        notebook="logs/get_data.ipynb"
+    notebook:
+        "notebooks/get_data.py.ipynb"
+
+
+rule plot_with_r:
+    input:
+        "resources/data/cars.tsv"
+    output:
+        report(
+            "results/plots/horsepower_vs_mpg.ggplot.svg",
+            category="Plots",
+            labels={"plot": "horsepower_vs_mpg", "approach": "ggplot"},
+            caption="report/horsepower_vs_mpg.rst",
+        ),
+    log:
+        notebook="logs/plot_horsepower_vs_mpg.r.ipynb"
+    conda:
+        "envs/rstats.yaml"
+    notebook:
+        "notebooks/plot_horsepower_vs_mpg.r.ipynb"
+
+
+rule plot_with_python:
+    input:
+        "resources/data/cars.tsv"
+    output:
+        report(
+            "results/plots/horsepower_vs_mpg.altair.html",
+            category="Plots",
+            labels={"plot": "horsepower_vs_mpg", "approach": "altair"},
+            caption="report/horsepower_vs_mpg.rst",
+        ),
+    log:
+        notebook="logs/plot_horsepower_vs_mpg.py.ipynb"
+    conda:
+        "envs/pystats.yaml"
+    notebook:
+        "notebooks/plot_horsepower_vs_mpg.py.ipynb"
+
+
+rule view_with_datavzrd:
+    input:
+        config=workflow.source_path("resources/datavzrd/cars.yaml"),
+        table="resources/data/cars.tsv",
+    output:
+        report(
+            directory("results/tables/cars"),
+            htmlindex="index.html",
+            caption="report/cars.rst",
+            category="Tables",
+            labels={"table": "cars"},
+        ),
+    log:
+        "logs/datavzrd.log",
+    wrapper:
+        "v4.7.2/utils/datavzrd"

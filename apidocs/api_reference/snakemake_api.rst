@@ -14,26 +14,37 @@ It can be used as follows:
 
 .. code-block:: python
 
-    from snakemake.api import SnakemakeApi
+    from pathlib import Path
 
-    with api.SnakemakeApi(
-        settings.OutputSettings(
-            verbose=True,
+    from snakemake.api import (
+        OutputSettings,
+        ResourceSettings,
+        SnakemakeApi,
+        StorageSettings,
+    )
+
+    with SnakemakeApi(
+        OutputSettings(
+            verbose=False,
             show_failed_logs=True,
         ),
     ) as snakemake_api:
         workflow_api = snakemake_api.workflow(
-            storage_settings=settings.StorageSettings(),
-            resource_settings=settings.ResourceSettings(),
+            storage_settings=StorageSettings(),
+            resource_settings=ResourceSettings(),
             snakefile=Path("path/to/Snakefile"),
         )
         dag_api = workflow_api.dag()
         # Go on by calling methods of the dag api.
 
+
 .. autosummary::
    :toctree: _autosummary
    :template: module_template.rst
    :recursive:
+   :noindex:
 
    snakemake.api
    snakemake.settings
+   snakemake.settings.enums
+   snakemake.settings.types

@@ -1,0 +1,58 @@
+__use_yte__: true
+
+datasets:
+  cars:
+    path: ?input.table
+    separator: "\t"
+
+views:
+  cars:
+    dataset: cars
+    render-table:
+      columns:
+        name:
+          link-to-url:
+            Wikipedia:
+              url: "https://en.wikipedia.org/wiki/{value}"
+        miles per gallon:
+          plot:
+            ticks:
+              scale: linear
+        cylinders:
+          plot:
+            heatmap:
+              scale: linear
+              domain:
+                - 0
+                - 16
+              range:
+                # white to blue
+                - "#ffffff"
+                - "#6baed6"
+        displacement:
+          plot:
+            ticks:
+              scale: linear
+          display-mode: detail
+        horsepower:
+          plot:
+            ticks:
+              scale: linear
+          display-mode: detail
+        weight in lbs:
+          plot:
+            ticks:
+              scale: linear
+        acceleration:
+          plot:
+            ticks:
+              scale: linear
+        year:
+          plot:
+            ticks:
+              scale: linear
+        origin:
+          plot:
+            heatmap:
+              scale: ordinal
+              color-scheme: category10

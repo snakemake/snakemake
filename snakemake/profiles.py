@@ -10,7 +10,6 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
         import yte
 
         profile_dir = Path(stream.name).parent
-
         try:
             parsed_obj = yte.process_yaml(stream, require_use_yte=True)
         except Exception as e:
@@ -52,6 +51,9 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                         "default-resources",
                         "config",
                         "wms-monitor-arg",
+                        "groups",
+                        "group-components",
+                        "consider-ancient",
                     ):
                         result[key] = format_one_level_dict(value)
                     elif key == "set-resources":
