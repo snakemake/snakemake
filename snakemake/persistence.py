@@ -4,9 +4,10 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+from dataclasses import dataclass, field
+import hashlib
 import os
 import shutil
-import pickle
 import json
 import stat
 import tempfile
@@ -16,20 +17,23 @@ from functools import lru_cache
 from itertools import count
 from pathlib import Path
 from contextlib import contextmanager
-from typing import Optional
+from typing import Any, Optional, Set
 
 from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
 )
 
+from snakemake.common.tbdstring import TBDString
 import snakemake.exceptions
 from snakemake.logging import logger
-from snakemake.jobs import jobfiles
+from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
-from snakemake.io import is_flagged, get_flag_value
+from snakemake.io import _IOFile, is_flagged, get_flag_value
+from snakemake_interface_common.exceptions import WorkflowError
 
 
 UNREPRESENTABLE = object()
+RECORD_FORMAT_VERSION = 5
 
 
 class Persistence(PersistenceExecutorInterface):
@@ -41,7 +45,7 @@ class Persistence(PersistenceExecutorInterface):
         singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
-        path: Path = None,
+        path: Path | None = None,
     ):
         import importlib.util
 
@@ -254,13 +258,30 @@ class Persistence(PersistenceExecutorInterface):
 
     def conda_cleanup_envs(self):
         # cleanup envs
-        in_use = set(env.hash[:8] for env in self.dag.conda_envs.values())
-        for d in os.listdir(self.conda_env_path):
-            if len(d) >= 8 and d[:8] not in in_use:
-                if os.path.isdir(os.path.join(self.conda_env_path, d)):
-                    shutil.rmtree(os.path.join(self.conda_env_path, d))
-                else:
-                    os.remove(os.path.join(self.conda_env_path, d))
+        for address in set(
+            env.address
+            for env in self.dag.conda_envs.values()
+            if not env.is_externally_managed
+        ):
+            removed = False
+            if os.path.exists(address):
+                try:
+                    shutil.rmtree(address)
+                except Exception as e:
+                    raise WorkflowError(f"Failed to remove conda env {address}: {e}")
+                removed = True
+            yaml_path = Path(address).with_suffix(".yaml")
+            if yaml_path.exists():
+                try:
+                    yaml_path.unlink()
+                except Exception as e:
+                    raise WorkflowError(
+                        f"Failed to remove conda env yaml {yaml_path}: {e}"
+                    )
+
+                removed = True
+            if removed:
+                logger.info(f"Removed conda env {address}")
 
         # cleanup env archives
         in_use = set(env.content_hash for env in self.dag.conda_envs.values())
@@ -272,10 +293,14 @@ class Persistence(PersistenceExecutorInterface):
         for f in job.output:
             self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
+    def _remove_incomplete_marker(self, job):
+        for f in job.output:
+            self._delete_record(self._incomplete_path, f)
+
     async def finished(self, job):
         if not self.dag.workflow.execution_settings.keep_metadata:
-            for f in job.output:
-                self._delete_record(self._incomplete_path, f)
+            self._remove_incomplete_marker(job)
+            # do not store metadata if not requested
             return
 
         code = self._code(job.rule)
@@ -284,6 +309,7 @@ class Persistence(PersistenceExecutorInterface):
         params = self._params(job)
         shellcmd = job.shellcmd
         conda_env = self._conda_env(job)
+        software_stack_hash = self._software_stack_hash(job)
         fallback_time = time.time()
         for f in job.output:
             rec_path = self._record_path(self._incomplete_path, f)
@@ -305,6 +331,7 @@ class Persistence(PersistenceExecutorInterface):
             self._record(
                 self._metadata_path,
                 {
+                    "record_format_version": RECORD_FORMAT_VERSION,
                     "code": code,
                     "rule": job.rule.name,
                     "input": input,
@@ -316,6 +343,7 @@ class Persistence(PersistenceExecutorInterface):
                     "endtime": endtime,
                     "job_hash": hash(job),
                     "conda_env": conda_env,
+                    "software_stack_hash": software_stack_hash,
                     "container_img_url": job.container_img_url,
                     "input_checksums": {
                         infile: checksum
@@ -325,7 +353,9 @@ class Persistence(PersistenceExecutorInterface):
                 },
                 f,
             )
-            self._delete_record(self._incomplete_path, f)
+        # remove incomplete marker only after creation of metadata record.
+        # otherwise the job starttime will be missing.
+        self._remove_incomplete_marker(job)
 
     def cleanup(self, job):
         for f in job.output:
@@ -372,6 +402,15 @@ class Persistence(PersistenceExecutorInterface):
             )
         )
 
+    def has_metadata(self, job: Job) -> bool:
+        return all(self.metadata(path) for path in job.output)
+
+    def has_outdated_metadata(self, job: Job) -> bool:
+        return any(
+            self.metadata(path).get("record_format_version", 0) < RECORD_FORMAT_VERSION
+            for path in job.output
+        )
+
     def metadata(self, path):
         return self._read_record(self._metadata_path, path)
 
@@ -392,6 +431,9 @@ class Persistence(PersistenceExecutorInterface):
 
     def code(self, path):
         return self.metadata(path).get("code")
+
+    def record_format_version(self, path):
+        return self.metadata(path).get("record_format_version")
 
     def conda_env(self, path):
         return self.metadata(path).get("conda_env")
@@ -418,40 +460,70 @@ class Persistence(PersistenceExecutorInterface):
 
     def params_changed(self, job, file=None):
         """Yields output files with changed params or bool if file given."""
-        return _bool_or_gen(self._params_changed, job, file=file)
+        files = [file] if file is not None else job.output
 
-    def conda_env_changed(self, job, file=None):
-        """Yields output files with changed conda env or bool if file given."""
-        return _bool_or_gen(self._conda_env_changed, job, file=file)
+        changes = NO_PARAMS_CHANGE
 
-    def container_changed(self, job, file=None):
-        """Yields output files with changed container img or bool if file given."""
-        return _bool_or_gen(self._container_changed, job, file=file)
+        new = set(self._params(job))
+
+        for outfile in files:
+            fmt_version = self.record_format_version(outfile)
+            if fmt_version is None or fmt_version < 4:
+                # no reliable params stored
+                continue
+            recorded = self.params(outfile)
+            if recorded is not None:
+                old = set(recorded)
+                changes |= ParamsChange(only_old=old - new, only_new=new - old)
+        return changes
+
+    def software_stack_changed(self, job, file=None):
+        """Yields output files with changed software env or bool if file given."""
+        return _bool_or_gen(self._software_stack_changed, job, file=file)
 
     def _code_changed(self, job, file=None):
         assert file is not None
+        fmt_version = self.record_format_version(file)
+        if fmt_version is None or fmt_version < 3:
+            # no reliable code stored
+            return False
         recorded = self.code(file)
         return recorded is not None and recorded != self._code(job.rule)
 
     def _input_changed(self, job, file=None):
         assert file is not None
+        fmt_version = self.record_format_version(file)
+        if fmt_version is None or fmt_version < 4:
+            # no reliable input stored
+            return False
         recorded = self.input(file)
         return recorded is not None and recorded != self._input(job)
 
-    def _params_changed(self, job, file=None):
+    def _software_stack_changed(self, job, file=None):
         assert file is not None
-        recorded = self.params(file)
-        return recorded is not None and recorded != self._params(job)
+        fmt_version = self.record_format_version(file)
+        if fmt_version is None or fmt_version < 5:
+            # no reliable software stack hash stored (previous storage ignored pin files
+            # and aux deploy files of conda envs as well as env modules)
+            return False
 
-    def _conda_env_changed(self, job, file=None):
-        assert file is not None
-        recorded = self.conda_env(file)
-        return recorded is not None and recorded != self._conda_env(job)
+        recorded = self.software_stack_hash(file)
+        return recorded is not None and recorded != self._software_stack_hash(job)
 
-    def _container_changed(self, job, file=None):
-        assert file is not None
-        recorded = self.container_img_url(file)
-        return recorded is not None and recorded != job.container_img_url
+    def software_stack_hash(self, path):
+        return self.metadata(path).get("software_stack_hash")
+
+    def _software_stack_hash(self, job):
+        # TODO move code for retrieval into software deployment plugin interface once
+        # available
+        md5hash = hashlib.md5()
+        if job.conda_env:
+            md5hash.update(job.conda_env.hash.encode())
+        if job.container_img_url:
+            md5hash.update(job.container_img_url.encode())
+        if job.env_modules:
+            md5hash.update(job.env_modules.hash.encode())
+        return md5hash.hexdigest()
 
     @contextmanager
     def noop(self, *args):
@@ -462,8 +534,11 @@ class Persistence(PersistenceExecutorInterface):
 
     @lru_cache()
     def _code(self, rule):
-        code = rule.run_func.__code__
-        return b64encode(pickle_code(code)).decode()
+        # We only consider shell commands for now.
+        # Plain python code rules are hard to capture because the pickling of the code
+        # can change with different python versions.
+        # Scripts and notebooks are triggered by changes in the script mtime.
+        return rule.shellcmd if rule.shellcmd is not None else None
 
     @lru_cache()
     def _conda_env(self, job):
@@ -472,53 +547,68 @@ class Persistence(PersistenceExecutorInterface):
 
     @lru_cache()
     def _input(self, job):
-        get_path = lambda f: (
-            get_flag_value(f, "sourcecache_entry")
-            if is_flagged(f, "sourcecache_entry")
-            else f
-        )
-        return sorted(get_path(f) for f in job.input)
+        def get_paths():
+            for f in job.input:
+                if f.is_storage:
+                    yield f.storage_object.query
+                elif is_flagged(f, "pipe"):
+                    yield "<pipe>"
+                elif is_flagged(f, "service"):
+                    yield "<service>"
+                else:
+                    yield (
+                        # get the true path instead of the cache path
+                        get_flag_value(f, "sourcecache_entry")
+                        if is_flagged(f, "sourcecache_entry")
+                        else f
+                    )
+
+        return sorted(get_paths())
 
     @lru_cache()
     def _log(self, job):
         return sorted(job.log)
 
-    def _serialize_param_builtin(self, param):
-        if param is None or isinstance(
-            param,
-            (
-                int,
-                float,
-                bool,
-                str,
-                complex,
-                range,
-                list,
-                tuple,
-                dict,
-                set,
-                frozenset,
-                bytes,
-                bytearray,
-            ),
+    def _serialize_param_builtin(self, value: Any):
+        if (
+            value is None
+            or isinstance(
+                value,
+                (
+                    int,
+                    float,
+                    bool,
+                    str,
+                    complex,
+                    range,
+                    list,
+                    tuple,
+                    dict,
+                    set,
+                    frozenset,
+                    bytes,
+                    bytearray,
+                ),
+            )
+            and value is not TBDString
         ):
-            return repr(param)
+            return repr(value)
         else:
             return UNREPRESENTABLE
 
-    def _serialize_param_pandas(self, param):
+    def _serialize_param_pandas(self, value: Any):
         import pandas as pd
 
-        if isinstance(param, (pd.DataFrame, pd.Series, pd.Index)):
-            return repr(pd.util.hash_pandas_object(param).tolist())
-        return self._serialize_param_builtin(param)
+        if isinstance(value, (pd.DataFrame, pd.Series, pd.Index)):
+            return repr(pd.util.hash_pandas_object(value).tolist())
+        return self._serialize_param_builtin(value)
 
     @lru_cache()
-    def _params(self, job):
+    def _params(self, job: Job):
         return sorted(
             filter(
                 lambda p: p is not UNREPRESENTABLE,
-                map(self._serialize_param, job.params),
+                (self._serialize_param(value) for value in job.non_derived_params),
             )
         )
 
@@ -610,7 +700,10 @@ class Persistence(PersistenceExecutorInterface):
             self._max_len = os.pathconf(subject, "PC_NAME_MAX")
         return self._max_len
 
-    def _record_path(self, subject, id):
+    def _record_path(self, subject, id: _IOFile):
+        assert isinstance(id, _IOFile)
+        id = id.storage_object.query if id.is_storage else id
+
         max_len = (
             self._fetch_max_len(subject) if os.name == "posix" else 255
         )  # maximum NTFS and FAT32 filename length
@@ -646,9 +739,40 @@ def _bool_or_gen(func, job, file=None):
         return func(job, file=file)
 
 
-def pickle_code(code):
-    consts = [
-        (pickle_code(const) if type(const) == type(code) else const)
-        for const in code.co_consts
-    ]
-    return pickle.dumps((code.co_code, code.co_varnames, consts, code.co_names))
+@dataclass
+class ParamsChange:
+    only_old: Set[Any] = field(default_factory=set)
+    only_new: Set[Any] = field(default_factory=set)
+
+    def __bool__(self):
+        return bool(self.only_old or self.only_new)
+
+    def __or__(self, other):
+        if not self:
+            return other
+        if not other:
+            return self
+        return ParamsChange(
+            only_old=self.only_old | other.only_old,
+            only_new=self.only_new | other.only_new,
+        )
+
+    def __str__(self):
+        if not self:
+            return "No params change"
+        else:
+
+            def fmt_set(s, label):
+                if s:
+                    return f"{label}: {','.join(s)}"
+                else:
+                    return f"{label}: <nothing exclusive>"
+
+            return (
+                "Union of exclusive params before and now across all output: "
+                f"{fmt_set(self.only_old, 'before')} "
+                f"{fmt_set(self.only_new, 'now')} "
+            )
+
+
+NO_PARAMS_CHANGE = ParamsChange()

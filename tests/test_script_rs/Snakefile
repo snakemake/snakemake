@@ -1,0 +1,56 @@
+from pathlib import Path
+
+
+configfile: "config.yaml"
+
+
+rule all:
+    input:
+        "rust.out",
+        "rust-manifest.out",
+        "rust-outer-line-doc.out",
+
+
+rule python:
+    output:
+        "test.in"
+    script:
+        Path("scripts/test.py")
+
+
+rule simple:
+    input:
+        "test.in",
+        "test2.in",
+        ["test.in", "test2.in"],
+        named_input="test.in",
+    output:
+        "rust.out",
+    params:
+        integer=123
+    conda:
+        "envs/rust.yaml"
+    script:
+        "scripts/test.rs"
+
+rule manifest_doc:
+    output:
+        "rust-manifest.out",
+    params:
+        keep="-"
+    conda:
+        "envs/rust.yaml"
+    log:
+        "rust-manifest.log"
+    script:
+        "scripts/test-manifest.rs"
+
+rule manifest_outer_line_doc:
+    output:
+        "rust-outer-line-doc.out",
+    params:
+        keep="-",
+    conda:
+        "envs/rust.yaml"
+    script:
+        "scripts/test-outer-line-doc.rs"

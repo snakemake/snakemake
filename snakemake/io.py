@@ -22,10 +22,21 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Union, TYPE_CHECKING
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    TypeVar,
+    Union,
+    TYPE_CHECKING,
+)
 
-from snakemake_interface_common.utils import not_iterable, lchmod
+from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
+from snakemake_interface_common.utils import not_iterable
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -36,7 +47,6 @@ from snakemake_interface_storage_plugins.io import (
 from snakemake.common import (
     ON_WINDOWS,
     async_run,
-    get_function_params,
     get_input_function_aux_params,
     is_namedtuple_instance,
 )
@@ -220,7 +230,7 @@ class _IOFile(str, AnnotatedStringInterface):
             self._file: str | AnnotatedString | Callable[[Namedlist], str]
             self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
-            self._wildcard_constraints: dict[str, re.Pattern] | None
+            self._wildcard_constraints: Dict[str, re.Pattern] | None
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)
@@ -590,7 +600,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return (
             await self.exists_local()
             and not os.path.isdir(self.file)
-            and await self.size() < 100000
+            and await self.size() <= 1000000
             and not self.is_fifo()
         )
 
@@ -598,7 +608,7 @@ class _IOFile(str, AnnotatedStringInterface):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist. If force is True,
         omit eligibility check."""
-        if force or await self.is_checksum_eligible():  # less than 100000 bytes
+        if force or await self.is_checksum_eligible():  # less than 1 MB
             checksum = sha256()
             if await self.size() > 0:
                 # only read if file is bigger than zero
@@ -700,6 +710,23 @@ class _IOFile(str, AnnotatedStringInterface):
             await remove(
                 self, remove_non_empty_dir=remove_non_empty_dir, only_local=only_local
             )
+
+    async def touch_storage_and_local(self):
+        from snakemake_interface_storage_plugins.storage_object import (
+            StorageObjectTouch,
+        )
+
+        if self.is_storage:
+            if isinstance(self.storage_object, StorageObjectTouch):
+                if await self.exists_local():
+                    self.touch()
+                await self.storage_object.managed_touch()
+            else:
+                raise WorkflowError(
+                    f"Storage does not support touch operation. Consider contributing to the used storage provider."
+                )
+        else:
+            self.touch()
 
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
@@ -851,11 +878,11 @@ class _IOFile(str, AnnotatedStringInterface):
         return self._file.__hash__()
 
 
-def pretty_print_iofile(iofile: _IOFile):
-    if iofile.is_storage:
+def pretty_print_iofile(iofile: Union[_IOFile, str]) -> str:
+    if isinstance(iofile, _IOFile) and iofile.is_storage:
         return f"{iofile.storage_object.query} (storage)"
     else:
-        return iofile._file
+        return iofile
 
 
 class AnnotatedString(str, AnnotatedStringInterface):
@@ -1321,10 +1348,10 @@ def expand(*args, **wildcard_values):
     }
 
     def do_expand(
-        wildcard_values: dict[str, dict[str, Union[str, collections.abc.Iterable[str]]]]
+        wildcard_values: Dict[str, dict[str, Union[str, collections.abc.Iterable[str]]]]
     ):
         def flatten(
-            wildcard_values: dict[str, Union[str, collections.abc.Iterable[str]]]
+            wildcard_values: Dict[str, Union[str, collections.abc.Iterable[str]]]
         ):
             for wildcard, value in wildcard_values.items():
                 if (
@@ -1537,6 +1564,12 @@ class AttributeGuard:
         )
 
 
+# TODO: replace this with Self when Python 3.11 is the minimum supported version for
+#   executing scripts
+_TNamedList = TypeVar("_TNamedList", bound="Namedlist")
+"Type variable for self returning methods on Namedlist deriving classes"
+
+
 class Namedlist(list):
     """
     A list that additionally provides functions to name items. Further,
@@ -1686,13 +1719,13 @@ class Namedlist(list):
     def keys(self):
         return self._names.keys()
 
-    def _plainstrings(self):
+    def _plainstrings(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self, plainstr=True)
 
-    def _stripped_constraints(self):
+    def _stripped_constraints(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self, strip_constraints=True)
 
-    def _clone(self):
+    def _clone(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):
