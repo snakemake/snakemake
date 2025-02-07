@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 from abc import ABC
 from dataclasses import dataclass, field
+import functools
 import hashlib
 from pathlib import Path
 import sys
@@ -286,6 +287,7 @@ class SnakemakeApi(ApiBase):
 
 
 def _no_dag(method):
+    @functools.wraps(method)
     def _handle_no_dag(self: "WorkflowApi", *args, **kwargs):
         self.resource_settings.cores = 1
         return method(self, *args, **kwargs)
@@ -477,7 +479,7 @@ class DAGApi(ApiBase):
                 "immediate_submit has to be combined with notemp (it does not support temp file handling)"
             )
 
-        executor_plugin_registry = _get_executor_plugin_registry()
+        executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.get_plugin(executor)
 
         if executor_settings is not None:
@@ -599,6 +601,7 @@ class DAGApi(ApiBase):
         )
 
     def _no_exec(method):
+        @functools.wraps(method)
         def _handle_no_exec(self, *args, **kwargs):
             self.workflow_api.resource_settings.cores = 1
             return method(self, *args, **kwargs)
@@ -635,7 +638,7 @@ class DAGApi(ApiBase):
         reporter: str -- report plugin to use (default: html)
         """
 
-        report_plugin_registry = _get_report_plugin_registry()
+        report_plugin_registry = ReportPluginRegistry()
         report_plugin = report_plugin_registry.get_plugin(reporter)
 
         if report_settings is not None:
@@ -767,25 +770,3 @@ class DAGApi(ApiBase):
         path: Path -- The path to the CWL file.
         """
         self.workflow_api._workflow.export_to_cwl(path=path)
-
-
-def _get_executor_plugin_registry():
-    from snakemake.executors import local as local_executor
-    from snakemake.executors import dryrun as dryrun_executor
-    from snakemake.executors import touch as touch_executor
-
-    registry = ExecutorPluginRegistry()
-    registry.register_plugin("local", local_executor)
-    registry.register_plugin("dryrun", dryrun_executor)
-    registry.register_plugin("touch", touch_executor)
-
-    return registry
-
-
-def _get_report_plugin_registry():
-    from snakemake.report import html_reporter
-
-    registry = ReportPluginRegistry()
-    registry.register_plugin("html", html_reporter)
-
-    return registry

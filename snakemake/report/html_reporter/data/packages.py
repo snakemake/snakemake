@@ -170,7 +170,11 @@ class Package:
     def __init__(
         self, version=None, license_path=None, source_path=None, **source_paths
     ):
-        self.version = version
+        self.version = (
+            version
+            or Assets.get_version(source_path)
+            or Assets.get_version(license_path)
+        )
 
         try:
             self.license = Assets.get_content(license_path)
