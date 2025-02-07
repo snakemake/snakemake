@@ -1,6 +1,6 @@
 from collections import namedtuple
 import typing
-
+import re
 from snakemake_interface_executor_plugins.utils import TargetSpec
 
 from snakemake.common import parse_key_value_arg
@@ -14,12 +14,12 @@ def parse_target_jobs_cli_args(target_jobs_args):
             rulename, wildcards = entry.split(":", 1)
             if wildcards:
 
-                def parse_wildcard(entry):
-                    return parse_key_value_arg(entry, errmsg)
+                def remove_len_zero(tpl):
+                    return tuple(val for val in tpl if len(val)>0)
 
-                wildcards = dict(
-                    parse_wildcard(entry) for entry in wildcards.split(",")
-                )
+                matches = re.findall(r'(\w+)="([^"]*)",|(\w+)=([^,]*),', wildcards+",")
+                wildcards = dict(map(remove_len_zero, matches))
+                target_jobs.append(TargetSpec(rulename, wildcards))
                 target_jobs.append(TargetSpec(rulename, wildcards))
             else:
                 target_jobs.append(TargetSpec(rulename, dict()))

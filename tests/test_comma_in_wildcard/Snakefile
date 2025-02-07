@@ -1,0 +1,9 @@
+
+
+rule all:
+    input: "a_wildcard_with,.out"
+
+
+rule a:
+    output: "{prefix}.out"
+    shell: "touch {output}"
