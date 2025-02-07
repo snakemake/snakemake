@@ -2325,3 +2325,12 @@ def test_failed_intermediate():
     tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
     run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
+
+
+def test_github_issue2848():
+    # Should fail on parsing with ChildIOException, on Windows previously failed during execution
+    run(
+        dpath("test_github_issue2848"),
+        targets=["output/c.txt", "output/dir2/d.txt"],
+        shouldfail=True,
+    )
