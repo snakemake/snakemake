@@ -1,26 +1,27 @@
-/// This is a regular outer line doc comment, but it also contains a partial
-/// Cargo manifest.  Note the use of a *fenced* code block, and the
-/// `cargo` "language".
-///
-/// ```cargo
-/// [dependencies]
-/// csv = "1.1"
-/// serde = { version = "1.0", features = ["derive"] }
-/// ```
+//! This is a regular crate doc comment, but it also contains a partial
+//! Cargo manifest.  Note the use of a *fenced* code block, and the
+//! `cargo` "language".
+//!
+//! ```cargo
+//! [dependencies]
+//! csv = "1.1"
+//! serde = { version = "1.0", features = ["derive"] }
+//! ```
 
 
 use std::error::Error;
 use std::io::{BufWriter, Write};
 use std::fs::File;
-use serde::Deserialize;
+use serde_derive::Deserialize;
 
 
-static BED: &[u8] = b"chrom1	1	15	foo	454	-
+const BED: &[u8] = b"chrom1	1	15	foo	454	-
 chrom1	40	45	bar	2	+
 chrom2	4	45	baz	2	-
 ";
 
-#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+#[derive(Deserialize)]
 struct BedRecord {
     chrom: String,
     start: u64,
@@ -31,6 +32,7 @@ struct BedRecord {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    snakemake.redirect_stderr(&snakemake.log[0])?;
     let f_out = File::create(&snakemake.output[0])?;
 
     let mut ostream = BufWriter::new(f_out);

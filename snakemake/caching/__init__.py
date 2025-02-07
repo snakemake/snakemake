@@ -8,8 +8,13 @@ import os
 
 from snakemake.jobs import Job
 from snakemake.io import apply_wildcards
-from snakemake.exceptions import WorkflowError, CacheMissException
+from snakemake.exceptions import (
+    MissingOutputFileCachePathException,
+    WorkflowError,
+    CacheMissException,
+)
 from snakemake.caching.hash import ProvenanceHashMap
+from snakemake.logging import logger
 
 LOCATION_ENVVAR = "SNAKEMAKE_OUTPUT_CACHE"
 
@@ -21,11 +26,7 @@ class AbstractOutputFileCache:
         try:
             self.cache_location = os.environ[LOCATION_ENVVAR]
         except KeyError:
-            raise WorkflowError(
-                "Output file cache activated (--cache), but no cache "
-                "location specified. Please set the environment variable "
-                "${}.".format(LOCATION_ENVVAR)
-            )
+            raise MissingOutputFileCachePathException()
         self.provenance_hash_map = ProvenanceHashMap()
 
     @abstractmethod

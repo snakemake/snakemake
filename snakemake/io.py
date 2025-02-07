@@ -47,7 +47,6 @@ from snakemake_interface_storage_plugins.io import (
 from snakemake.common import (
     ON_WINDOWS,
     async_run,
-    get_function_params,
     get_input_function_aux_params,
     is_namedtuple_instance,
 )
@@ -601,7 +600,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return (
             await self.exists_local()
             and not os.path.isdir(self.file)
-            and await self.size() < 100000
+            and await self.size() <= 1000000
             and not self.is_fifo()
         )
 
@@ -609,7 +608,7 @@ class _IOFile(str, AnnotatedStringInterface):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist. If force is True,
         omit eligibility check."""
-        if force or await self.is_checksum_eligible():  # less than 100000 bytes
+        if force or await self.is_checksum_eligible():  # less than 1 MB
             checksum = sha256()
             if await self.size() > 0:
                 # only read if file is bigger than zero
@@ -879,11 +878,11 @@ class _IOFile(str, AnnotatedStringInterface):
         return self._file.__hash__()
 
 
-def pretty_print_iofile(iofile: _IOFile):
-    if iofile.is_storage:
+def pretty_print_iofile(iofile: Union[_IOFile, str]) -> str:
+    if isinstance(iofile, _IOFile) and iofile.is_storage:
         return f"{iofile.storage_object.query} (storage)"
     else:
-        return iofile._file
+        return iofile
 
 
 class AnnotatedString(str, AnnotatedStringInterface):

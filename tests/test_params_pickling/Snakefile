@@ -1,0 +1,20 @@
+import pandas as pd
+import numpy as np
+import polars as pl
+
+testpd = pd.DataFrame({"a": [1, 2, 3]})
+testnp = np.array([1, 2, np.float64(3)])
+testpl = pl.DataFrame({"a": [1, 2, 3]})
+
+
+rule a:
+    output:
+        pd="testpd.tsv",
+        np="testnp.tsv",
+        pl="testpl.tsv",
+    params:
+        testpd=testpd,
+        testnp=testnp,
+        testpl=testpl,
+    script:
+        "test.py"

@@ -28,7 +28,7 @@ def containerize(workflow, dag):
 
     envs = sorted(
         set(
-            job.conda_env_spec.get_conda_env(workflow, env_dir=CONDA_ENV_PATH)
+            job.conda_env_spec.get_conda_env(workflow, envs_dir=CONDA_ENV_PATH)
             for job in dag.jobs
             if job.conda_env_spec is not None
         ),
@@ -40,7 +40,7 @@ def containerize(workflow, dag):
         # build a hash of the environment contents
         envhash.update(env.content)
 
-    print("FROM condaforge/mambaforge:latest")
+    print("FROM condaforge/miniforge3:latest")
     print('LABEL io.github.snakemake.containerized="true"')
     print(f'LABEL io.github.snakemake.conda_env_hash="{envhash.hexdigest()}"')
 
@@ -67,13 +67,13 @@ def containerize(workflow, dag):
             get_env_cmds.append(f"ADD {env.file.get_path_or_uri()} {env_target_path}")
 
         generate_env_cmds.append(
-            f"mamba env create --prefix {prefix} --file {env_target_path} &&"
+            f"conda env create --prefix {prefix} --file {env_target_path} &&"
         )
         generated.add(env.content_hash)
 
-    print("\n# Step 1: Retrieve conda environments")
+    print("\n# Step 2: Retrieve conda environments")
     for cmd in get_env_cmds:
         print(cmd)
 
-    print("\n# Step 2: Generate conda environments")
-    print("\nRUN", " \\\n    ".join(generate_env_cmds), "\\\n    mamba clean --all -y")
+    print("\n# Step 3: Generate conda environments")
+    print("\nRUN", " \\\n    ".join(generate_env_cmds), "\\\n    conda clean --all -y")

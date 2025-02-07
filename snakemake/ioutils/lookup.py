@@ -1,17 +1,12 @@
 from abc import ABC, abstractmethod
-from collections import namedtuple
-from collections.abc import Mapping, Callable
+from collections.abc import Mapping
 from functools import partial
-import inspect
-import os
 import re
 from typing import List, Optional, Union
 
-from snakemake.common import async_run
 import snakemake.io
 import snakemake.utils
 from snakemake.exceptions import LookupError
-from snakemake_interface_common.exceptions import WorkflowError
 
 
 class WildcardHandlerBase(ABC):
@@ -118,6 +113,10 @@ def lookup(
 ):
     """Lookup values in a pandas dataframe, series, or python mapping (e.g. dict).
 
+    Required argument ``within`` should be a pandas dataframe or series (in which
+    case use ``query``, and optionally ``cols`` and ``is_nrows``), or a Python
+    mapping like a dict (in which case use the ``dpath`` argument is used).
+
     In case of a pandas dataframe (see https://pandas.pydata.org),
     the query parameter is passed to DataFrame.query().
     If the query results in multiple rows, the result is returned as a list of
@@ -137,13 +136,17 @@ def lookup(
     a single column, e.g.
     ``lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")``.
     In the latter case, just a list of items in that column is returned.
-
+    Finally, if the integer argument ``is_nrows`` is used, this returns true
+    if there are that many rows in the query results, false otherwise.
 
     In case of a pandas series, the series is converted into a dataframe via
     Series.to_frame() and the same logic as for a dataframe is applied.
 
-    In case of a python mapping, the dpath parameter is passed to dpath.values()
-    (see https://github.com/dpath-maintainers/dpath-python).
+    In case of a python mapping, the ``dpath`` parameter is passed to
+    ``dpath.values()`` (see https://github.com/dpath-maintainers/dpath-python),
+    and the ``query``, ``cols``, and ``is_nrows`` arguments are ignored. If the
+    dpath is not found, a ``LookupError`` is raised, unless a default fallback
+    value is provided via the ``default`` argument.
 
     Query, dpath and cols may contain wildcards (e.g. {sample}).
     In that case, this function returns a Snakemake input function which takes
@@ -154,9 +157,6 @@ def lookup(
     to auxiliary namespace arguments given to the lookup function, e.g.
     ``lookup(query="cell_type == '{sample.cell_type}'", within=samples, sample=lookup("sample == '{sample}'", within=samples))``
     This way, one can e.g. pass additional variables or chain lookups into more complex queries.
-
-    In case of dpath, if the dpath is not found, a LookupError is raised, unless a
-    default fallback value is provided via the ``default`` argument.
     """
     error = partial(LookupError, query=query, dpath=dpath)
 
@@ -172,7 +172,7 @@ def lookup(
     if query is not None:
         if isinstance(within, Mapping):
             raise error(
-                msg=f"Query parameter can only be used with pandas DataFrame or Series objects."
+                msg="Query parameter can only be used with pandas DataFrame or Series objects."
             )
 
         import pandas as pd
@@ -223,115 +223,3 @@ def lookup(
         return DpathWildcardHandler(do_dpath, **namespace).handle(dpath)
     else:
         raise error("Must provide either a query or dpath parameter.")
-
-
-def evaluate(expr: str):
-    """Evaluate a python expression while replacing any wildcards given as
-    {wildcardname} with the wildcard value represented as a string."""
-
-    def inner(wildcards):
-        return eval(
-            expr.format(**{w: repr(v) for w, v in wildcards.items()}), globals()
-        )
-
-    return inner
-
-
-def branch(
-    condition: Union[Callable, bool],
-    then: Optional[Union[str, list[str], Callable]] = None,
-    otherwise: Optional[Union[str, list[str], Callable]] = None,
-    cases: Optional[Mapping] = None,
-):
-    """Branch based on a condition that is provided as a function pointer (i.e. a Callable)
-    or a value.
-
-    If then and optionally otherwise are specified, do the following:
-    If the condition is (or evaluates to) True, return the value
-    of the then parameter. Otherwise, return the value of the otherwise parameter.
-
-    If cases is specified, do the following:
-    Retrieve the value of the cases mapping using the return value of the condition
-    (if it is a function), or the condition value itself as a key.
-
-    The given condition function has to take wildcards as its only parameter.
-    Similarly, then, otherwise and the values of the cases mapping can be such functions.
-
-    If any such function is given to any of those arguments, this function returns a derived
-    input function that will be evaluated once the wildcards are known.
-    """
-
-    def convert_none(value):
-        return value or []
-
-    def handle_callable(value, wildcards):
-        if isinstance(value, Callable):
-            return convert_none(value(wildcards))
-        else:
-            return convert_none(value)
-
-    def do_branch_then_otherwise(wildcards):
-        if handle_callable(condition, wildcards):
-            return handle_callable(then, wildcards)
-        else:
-            return handle_callable(otherwise, wildcards)
-
-    def do_branch_cases(wildcards):
-        res = handle_callable(condition, wildcards)
-        selected_case = cases[res]
-        return handle_callable(selected_case, wildcards)
-
-    do_branch = do_branch_then_otherwise
-    if cases is not None:
-        if otherwise is not None or then is not None:
-            raise ValueError("Cannot use cases together with then or otherwise.")
-        do_branch = do_branch_cases
-
-    if any(isinstance(value, Callable) for value in (condition, then, otherwise)):
-
-        def inner(wildcards):
-            return do_branch(wildcards)
-
-        return inner
-    else:
-        return do_branch(None)
-
-
-# Alias for expand that provides a more intuitive name for the use case of
-# collecting files from previous jobs.
-collect = snakemake.io.expand
-
-
-def exists(path):
-    """Return True if the given file or directory exists.
-
-    This function considers any storage arguments given to Snakemake.
-    """
-    func_context = inspect.currentframe().f_back.f_locals
-    func_context_global = inspect.currentframe().f_back.f_globals
-
-    workflow = func_context.get("workflow") or func_context_global.get("workflow")
-
-    if workflow is None:
-        raise WorkflowError(
-            "The exists function can only be used within a Snakemake workflow "
-            "(the global variable 'workflow' has to be present)."
-        )
-
-    path = workflow.modifier.path_modifier.apply_default_storage(path)
-    if snakemake.io.is_flagged(path, "storage_object"):
-        return async_run(path.flags["storage_object"].managed_exists())
-    else:
-        return os.path.exists(path)
-
-
-def register_in_globals(_globals):
-    _globals.update(
-        {
-            "lookup": lookup,
-            "evaluate": evaluate,
-            "branch": branch,
-            "collect": collect,
-            "exists": exists,
-        }
-    )

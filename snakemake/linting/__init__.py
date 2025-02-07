@@ -71,12 +71,16 @@ class Lint:
         self.body = body
         self.links = links or []
 
-    def __str__(self):
+    def __str__(self) -> str:
         width, _ = shutil.get_terminal_size()
-        return "{}:\n{}\n      Also see:\n{}".format(
+        output = "{}:\n{}".format(
             self.title,
             "\n".join(
                 map("      {}".format, textwrap.wrap(self.body, max(width - 6, 20)))
             ),
-            "\n".join(map("      {}".format, self.links)),
         )
+        if self.links:
+            output += "\n      Also see:\n{}".format(
+                "\n".join(map("      {}".format, self.links))
+            )
+        return output
