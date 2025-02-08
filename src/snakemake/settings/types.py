@@ -426,6 +426,7 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     immediate_submit: bool = False
     precommand: Optional[str] = None
     job_deploy_sources: bool = True
+    source_file_manifest: Optional[Path] = None
 
 
 @dataclass

@@ -3109,26 +3109,36 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         for f in self.workflow.configfiles:
             files.add(os.path.relpath(f))
 
-        # get git-managed files
-        # TODO allow a manifest file as alternative
-        try:
-            out = subprocess.check_output(
-                ["git", "ls-files", "--recurse-submodules", "."], stderr=subprocess.PIPE
-            )
-            for f in out.decode().split("\n"):
-                if f:
-                    files.add(os.path.relpath(f))
-        except subprocess.CalledProcessError as e:
-            if "fatal: not a git repository" in e.stderr.decode().lower():
-                logger.warning(
-                    "Unable to retrieve additional files from git. "
-                    "This is not a git repository."
+        # check if a manifest file is provided
+        # or get git-managed files
+        if self.workflow.remote_execution_settings.source_file_manifest:
+            fl = self.workflow.remote_execution_settings.source_file_manifest 
+            try:
+                with open(fl, "r") as manifest:
+                    for f in manifest.read().splitlines():
+                        if f.strip():
+                            files.add(os.path.relpath(f.strip()))
+            except FileNotFoundError:
+                raise WorkflowError(f"Manifest file not found: {fl}")
+        else:
+            try:
+                out = subprocess.check_output(
+                    ["git", "ls-files", "--recurse-submodules", "."], stderr=subprocess.PIPE
                 )
-            else:
-                raise WorkflowError(
-                    "Error executing git (Snakemake requires git to be installed for "
-                    "remote execution without shared filesystem):\n" + e.stderr.decode()
-                )
+                for f in out.decode().split("\n"):
+                    if f:
+                        files.add(os.path.relpath(f))
+            except subprocess.CalledProcessError as e:
+                if "fatal: not a git repository" in e.stderr.decode().lower():
+                    logger.warning(
+                        "Unable to retrieve additional files from git. "
+                        "This is not a git repository."
+                    )
+                else:
+                    raise WorkflowError(
+                        "Error executing git (Snakemake requires git to be installed for "
+                        "remote execution without shared filesystem):\n" + e.stderr.decode()
+                    )
 
         return files
 
