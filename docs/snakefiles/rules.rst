@@ -1551,7 +1551,7 @@ This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` d
 
     It is possible to refer to wildcards and params in the notebook path, e.g. by specifying ``"notebook/{params.name}.py"`` or ``"notebook/{wildcards.name}.py"``.
 
-In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake provides an interactive edit mode for notebook rules.
+In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake supports interactive editing via jupyter notebooks or your custom setup
 Let us assume you have written above rule, but the notebook does not yet exist.
 By running
 
@@ -1559,7 +1559,7 @@ By running
 
     snakemake --cores 1 --edit-notebook test.txt
 
-you instruct Snakemake to allow interactive editing of the notebook needed to create the file ``test.txt``.
+you instruct Snakemake to open an interactive editing session of the notebook needed to create the file ``test.txt``.
 Snakemake will run all dependencies of the notebook rule, such that all input files are present.
 Then, it will start a jupyter notebook server with an empty draft of the notebook, in which you can interactively program everything needed for this particular step.
 Once done, you should save the notebook from the jupyter web interface, go to the jupyter dashboard and hit the ``Quit`` button on the top right in order to shut down the jupyter server.
@@ -1573,12 +1573,21 @@ On a cluster or the cloud, you can generate all dependencies of the notebook rul
     snakemake --cluster ... --jobs 100 --until test.txt
 
 Then, the notebook rule can easily be executed locally.
-An demo of the entire interactive editing process can be found by clicking below:
+
+A demo of the entire interactive editing process can be found by clicking below:
 
 .. image:: images/snakemake-notebook-demo.gif
     :scale: 20%
     :alt: Notebook integration demo
     :align: center
+
+You can also interactively implement your code with environments other than the Jupyter notebook server. Simply run
+
+.. code-block:: console
+
+    snakemake --cores 1 --preamble-only test.txt
+
+and you will get the code snippet required to initialize the ``snakemake`` object within an interactive code execution session of your choice.
 
 Finally, it is advisable to combine the ``notebook`` directive with the ``conda`` directive (see :ref:`integrated_package_management`) in order to define a software stack to use.
 At least, this software stack should contain jupyter and the language to use (e.g. Python or R).
@@ -1608,7 +1617,7 @@ with
 The last dependency is advisable in order to enable autoformatting of notebook cells when editing.
 When using other languages than Python in the notebook, one needs to additionally add the respective kernel, e.g. ``r-irkernel`` for R support.
 
-When using an IDE with built-in Jupyter support, an alternative to ``--edit-notebook`` is ``--draft-notebook``.
+When using an IDE with built-in Jupyter support, an alternative to ``--edit-notebook`` and ``--preamble-only`` is ``--draft-notebook``.
 Instead of firing up a notebook server, ``--draft-notebook`` just creates a skeleton notebook for editing within the IDE.
 In addition, it prints instructions for configuring the IDE's notebook environment to use the interpreter from the
 Conda environment defined in the corresponding rule.
