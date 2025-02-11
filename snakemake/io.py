@@ -1349,10 +1349,12 @@ def expand(*args, **wildcard_values):
     }
 
     def do_expand(
-        wildcard_values: Dict[str, dict[str, Union[str, collections.abc.Iterable[str]]]]
+        wildcard_values: Dict[
+            str, dict[str, Union[str, collections.abc.Iterable[str]]]
+        ],
     ):
         def flatten(
-            wildcard_values: Dict[str, Union[str, collections.abc.Iterable[str]]]
+            wildcard_values: Dict[str, Union[str, collections.abc.Iterable[str]]],
         ):
             for wildcard, value in wildcard_values.items():
                 if (
