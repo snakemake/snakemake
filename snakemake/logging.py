@@ -96,8 +96,10 @@ def format_percentage(done, total):
     precision = 0
     fraction = done / total
     fmt_precision = "{{:.{}%}}".format
+
     def fmt(fraction):
         return fmt_precision(precision).format(fraction)
+
     while fmt(fraction) == "100%" or fmt(fraction) == "0%":
         precision += 1
     return fmt(fraction)
@@ -247,7 +249,7 @@ class DefaultFormatter(logging.Formatter):
 
     def format_job_finished(self, msg):
         """Format for job_finished log."""
-        return f"{timestamp()} {msg["msg"]}"
+        return f"{timestamp()} {msg['msg']}"
 
     def format_shellcmd(self, msg):
         """Format for shellcmd log."""
