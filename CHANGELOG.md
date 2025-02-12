@@ -1,6 +1,33 @@
 # Changelog
 
 
+## [8.28.0](https://github.com/snakemake/snakemake/compare/v8.27.1...v8.28.0) (2025-02-12)
+
+
+### Features
+
+* do not fail if --cache is active but no SNAKEMAKE_OUTPUT_CACHE env var is defined. Instead, print a warning that explains the options. ([#3270](https://github.com/snakemake/snakemake/issues/3270)) ([9610f7c](https://github.com/snakemake/snakemake/commit/9610f7c12fac8ef235012ed5ec0496e061af2346))
+
+
+### Bug Fixes
+
+* do not use outdated metadata for rerun triggers (only warn about it) ([#3259](https://github.com/snakemake/snakemake/issues/3259)) ([d766a48](https://github.com/snakemake/snakemake/commit/d766a48ecc8ebf1cd147996e8d4a5fcdf30e428a))
+* ensure that exceptions print storage queries instead of local copies of remote files ([#3258](https://github.com/snakemake/snakemake/issues/3258)) ([e5d8ec1](https://github.com/snakemake/snakemake/commit/e5d8ec172596e4f50df0c4334a964ff063a7967c))
+* fix error message of evaluate helper function ([#3282](https://github.com/snakemake/snakemake/issues/3282)) ([9483a64](https://github.com/snakemake/snakemake/commit/9483a642e044fa6be577f099dc2c4b5cc7a3d7d8))
+* Revert cleaning of env vars in apptainer ([#3285](https://github.com/snakemake/snakemake/issues/3285)) ([e79a51b](https://github.com/snakemake/snakemake/commit/e79a51b7f12a1ddd32d337b927ac351f73d94c81))
+
+
+### Performance Improvements
+
+* compare checksums of input files &lt;= 1MB (before (10KB) ([#3267](https://github.com/snakemake/snakemake/issues/3267)) ([ba017bb](https://github.com/snakemake/snakemake/commit/ba017bb636e70eef93085610de3d8290d201330e))
+* query updated input files in parallel ([#3266](https://github.com/snakemake/snakemake/issues/3266)) ([bc4fcee](https://github.com/snakemake/snakemake/commit/bc4fceef0bbed7e2efa9b168ac32999b4499ec63))
+
+
+### Documentation
+
+* Adds instructions for using syntax highlighting with lazy.nvim ([#3246](https://github.com/snakemake/snakemake/issues/3246)) ([7a75043](https://github.com/snakemake/snakemake/commit/7a750434a857ebc912868d36655bab4d32e7db32))
+* Fix typos in basic API example ([#3277](https://github.com/snakemake/snakemake/issues/3277)) ([8782219](https://github.com/snakemake/snakemake/commit/8782219392db1ed31b65c384b1dda72790bb8e89))
+
 ## [8.27.1](https://github.com/snakemake/snakemake/compare/v8.27.0...v8.27.1) (2025-01-08)
 
 
