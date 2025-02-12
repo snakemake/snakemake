@@ -1844,19 +1844,6 @@ def parse_quietness(quietness) -> Set[Quietness]:
     return quietness
 
 
-def setup_log_handlers(args, parser):
-    log_handlers = []
-
-    for logger_arg in args.logger:
-        plugin = LoggerPluginRegistry().get_plugin(plugin_name=logger_arg)
-        plugin_settings = plugin.get_settings(args)
-        # logger plugin here is the subclass of LoggerPluginBase, we get handler from it in configure_logger.
-        logger_plugin = plugin.logger_plugin(plugin_settings)
-        log_handlers.append(logger_plugin)
-
-    return log_handlers
-
-
 def parse_edit_notebook(args):
     edit_notebook = None
     if args.draft_notebook:
@@ -1916,6 +1903,11 @@ def args_to_api(args, parser):
         for name in StoragePluginRegistry().get_registered_plugins()
     }
 
+    log_handler_settings = {
+        name: LoggerPluginRegistry().get_plugin(name).get_settings(args)
+        for name in args.logger
+    }
+
     if args.reporter:
         report_plugin = ReportPluginRegistry().get_plugin(args.reporter)
         report_settings = report_plugin.get_settings(args)
@@ -1941,8 +1933,6 @@ def args_to_api(args, parser):
 
         yappi.start()
 
-    log_handlers = setup_log_handlers(args, parser)
-
     edit_notebook = parse_edit_notebook(args)
 
     wait_for_files = parse_wait_for_files(args)
@@ -1955,7 +1945,7 @@ def args_to_api(args, parser):
             debug_dag=args.debug_dag,
             verbose=args.verbose,
             show_failed_logs=args.show_failed_logs,
-            log_handlers=log_handlers,
+            log_handler_settings=log_handler_settings,
             keep_logger=False,
             stdout=args.dryrun,
             benchmark_extended=args.benchmark_extended,

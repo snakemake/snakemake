@@ -45,6 +45,7 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
+from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -247,8 +248,14 @@ class SnakemakeApi(ApiBase):
         dryrun: bool = False,
     ):
         if not self.output_settings.keep_logger:
+            log_handlers = []
+            for name, settings in self.output_settings.log_handler_settings.items():
+                plugin = LoggerPluginRegistry().get_plugin(name)
+                plugin.validate_settings(settings)
+                log_handlers.append(plugin.log_handler(settings))
+
             logger_manager.configure_logger(
-                plugins=self.output_settings.log_handlers,
+                handlers=log_handlers,
                 quiet=self.output_settings.quiet,
                 nocolor=self.output_settings.nocolor,
                 debug=self.output_settings.verbose,

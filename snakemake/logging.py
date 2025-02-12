@@ -16,8 +16,8 @@ from queue import Queue
 from functools import partial
 
 import textwrap
-from typing import Optional
-from snakemake_interface_logger_plugins.base import LoggerPluginBase
+from typing import List, Optional
+from snakemake_interface_logger_plugins.base import LogHandlerBase
 
 
 def get_default_exec_mode():
@@ -588,7 +588,7 @@ class LoggerManager:
             if isinstance(h, handler_type) or issubclass(type(h), handler_type)
         ]
 
-    def get_logfile(self) -> Optional[list[str]]:
+    def get_logfile(self) -> Optional[List[str]]:
         """Retrieve the log file paths from the file handlers in the logger."""
         logfiles = [
             h.baseFilename for h in self._get_handlers_of_type(logging.FileHandler)
@@ -676,7 +676,7 @@ class LoggerManager:
         mode=None,
         show_failed_logs: Optional[bool] = None,
         dryrun: Optional[bool] = None,
-        plugins: list[LoggerPluginBase] = None,
+        handlers: List[LogHandlerBase] = None,
     ):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
@@ -694,9 +694,12 @@ class LoggerManager:
             self.add_stream_handler(logging.NullHandler())
         elif self.mode == ExecMode.REMOTE:
             self.add_stream_handler()
-        elif plugins:
-            for plugin in plugins:
-                handler = plugin.create_handler(
+        elif handlers:
+            for handler in handlers:
+                # TODO adapt to potential changes in snakemake-interface-logger-plugins
+                # idea: move filtering into a filter class that is used here and keep all
+                # the args below away from the logger plugins.
+                handler = handler.create_handler(
                     quiet=quiet,
                     printreason=printreason,
                     printshellcmds=printshellcmds,
