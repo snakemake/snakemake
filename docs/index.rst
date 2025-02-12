@@ -101,6 +101,8 @@ The Snakemake maintainers are:
 * `Michael B. Hall <https://github.com/mbhall88>`_
 * `Filipe G. Vieira <https://github.com/fgvieira>`_
 * `Morten E. Lund <https://github.com/melund>`_
+* `Michael Jahn <https://github.com/m-jahn>`_
+* `Cade Mirchandani <https://github.com/cademirch>`_
 
 .. _main-resources:
 
