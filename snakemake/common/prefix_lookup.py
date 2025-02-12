@@ -15,13 +15,16 @@ class PrefixLookup:
         self._entries = sorted(grouped.items(), key=lambda x: x[0])
 
     def match(self, query: str) -> set[V]:
-        """Returns a set of all entries which are prefixes of the given key."""
-        return set(self.match_iter(query))
+        """Returns a set of all entry values which are attached to prefixes of the given key."""
+        return set(m[1] for m in self.match_iter(query))
 
     def match_iter(self, query: str) -> Generator[V, None, None]:
         """Yields all entries which are prefixes of the given key.
 
-        E.g. if "abc" is the key then "abc", "ab", "a", and "" are considered valid prefixes.
+           E.g. if "abc" is the key then "abc", "ab", "a", and "" are considered
+           valid prefixes.
+
+           Yields entries as (key, value) tuples as supplied to __init__()
         """
         stop_idx = len(self._entries)
         while stop_idx:
@@ -32,7 +35,7 @@ class PrefixLookup:
             k, entries = self._entries[stop_idx - 1]
             if query.startswith(k):
                 for entry in entries:
-                    yield entry
+                    yield (k, entry)
 
             if not query or not k:
                 # Exit loop, if iteration has reached "" query or key

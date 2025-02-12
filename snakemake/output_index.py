@@ -33,7 +33,7 @@ class OutputIndex:
         """
         return {
             rule
-            for rule, suffix in self._lookup.match_iter(targetfile)
+            for prefix, (rule, suffix) in self._lookup.match_iter(targetfile)
             if targetfile.endswith(suffix)
         }
 

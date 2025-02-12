@@ -71,7 +71,7 @@ class PathModifier:
             return path
 
         if self._prefix_replacements is not None:
-            prefixes = self._prefix_replacements.match(path)
+            prefixes = list(self._prefix_replacements.match_iter(path))
 
             if len(prefixes) > 1:
                 # ambiguous prefixes
@@ -82,7 +82,6 @@ class PathModifier:
                     )
                 )
             elif prefixes:
-                # replace prefix
                 prefix, replacement = prefixes[0]
                 return replacement + path[len(prefix) :]
             else:
