@@ -3,7 +3,7 @@ channels:
   - bioconda
   - nodefaults
 dependencies:
-  - python >=3.11
+  - python >=3.12
   - yte
   - packaging
   - boto3
