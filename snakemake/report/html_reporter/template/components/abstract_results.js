@@ -139,6 +139,9 @@ class AbstractResults extends React.Component {
                     "div",
                     { className: "inline-flex gap-1", role: "group" },
                     e(
+                        Toggle,
+                    ),
+                    e(
                         ResultViewButton,
                         { resultPath: entry.path, app: app }
                     ),
