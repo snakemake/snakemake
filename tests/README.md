@@ -69,17 +69,26 @@ Other tests in the directory may or may not work.
 
 ## Warnings and oddities
 
-You will likely see warnings related to deprecated functions in dependent libraries.
+You will likely see warnings related to deprecated functions in dependent libraries, especially
+botocore.
 
-You may also get failures from tests that rely on external connectivity. The default test suite
-makes connections to multiple external services.
+You may also get intermittent failures from tests that rely on external connectivity. The default
+test suite makes connections to multiple external services.
+
+Tests that require singularity will be auto-skipped if no singularity or apptainer installation is
+available. At the time of writing neither the `singularity` package on conda-forge nor the
+`apptainer` package are reliable, in that there are multiple failing tests on a standard Ubuntu
+system. This is likely due to system security profiles that conda, being a non-root application,
+cannot change.
+The Debian/Ubuntu `singularity-container` DEB package, which must be installed by the system
+administrator, does work. The equivalent RPM package should also work on RedHat-type systems.
+
+Tests in `tests/test_api.py` require a working `git`. This is not included in
+`test-environment.yml` as it's assumed you must have GIT installed to be working on the source
+code, but installing git into the conda environment should work if need be.
 
 Depending on how the Snakemake code was downloaded and installed in the test environmant,
 Snakemake may not be able to determine its own version and may think that it is version 0.
 The unit tests should all cope with this but be aware that you can not rely on anything that
 depends on version checks.
-
-6) Should run as many tests as possible using only conda-forge packages, in particular:
-  - Avoid use of wget or wrap it somehow
-  - Also consider the need for git, openmpi-bin, libopenmpi-dev, apptainer
 
