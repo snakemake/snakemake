@@ -128,6 +128,7 @@ class AbstractResults extends React.Component {
                     return comparison;
                 }
             }
+            return 0;
         });
 
         return entries.map(function (entry) {
