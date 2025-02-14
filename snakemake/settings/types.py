@@ -48,10 +48,16 @@ class SettingsBase(ABC):
 
 
 class NotebookEditMode:
-    def __init__(self, server_addr: Optional[str] = None, draft_only: bool = False):
+    def __init__(
+        self,
+        server_addr: Optional[str] = None,
+        draft_only: bool = False,
+        preamble_only: bool = False,
+    ):
         if server_addr is not None:
             self.ip, self.port = server_addr.split(":")
         self.draft_only = draft_only
+        self.preamble_only = preamble_only
 
 
 class MaxJobsPerTimespan:
