@@ -100,7 +100,37 @@ class AbstractResults extends React.Component {
         if (this.isLabelled()) {
             labels = this.getLabels();
         }
-        return this.getResults().map(function ([path, entry]) {
+        let entries = this.getResults().map(function ([path, entry]) {
+            let entryLabels;
+            let key;
+            if (labels !== undefined) {
+                entryLabels = labels.map(function (label) {
+                    return entry.labels[label] || "";
+                });
+                key = labels.join();
+            } else {
+                entryLabels = [path];
+                key = path;
+            }
+
+            return {
+                key: key,
+                path: path,
+                labels: entryLabels
+            };
+        });
+
+        entries = entries.sort(function (a, b) {
+            // sort labels lexicographically, first element is the most important
+            for (let i = 0; i < a.labels.length; i++) {
+                let comparison = a.labels[i].localeCompare(b.labels[i]);
+                if (comparison !== 0) {
+                    return comparison;
+                }
+            }
+        });
+
+        return entries.map(function (entry) {
             let actions = e(
                 "td",
                 { className: "p-1 text-right" },
@@ -109,7 +139,7 @@ class AbstractResults extends React.Component {
                     { className: "inline-flex gap-1", role: "group" },
                     e(
                         ResultViewButton,
-                        { resultPath: path, app: app }
+                        { resultPath: entry.path, app: app }
                     ),
                     e(
                         Button,
@@ -122,34 +152,20 @@ class AbstractResults extends React.Component {
                 )
             );
 
-            let entryLabels;
-            let key;
-            if (labels !== undefined) {
-                entryLabels = labels.map(function (label) {
-                    return e(
-                        "td",
-                        { className: "p-1" },
-                        entry.labels[label] || ""
-                    );
-                });
-                key = labels.join();
-            } else {
-                entryLabels = e(
-                    "td",
-                    { className: "p-1" },
-                    path
-                );
-                key = path;
-            }
-
             return [
                 e(
                     "tr",
-                    { key: key },
-                    entryLabels,
+                    { key: entry.key },
+                    entry.labels.map(function (labelValue) {
+                        return e(
+                            "td",
+                            { className: "p-1" },
+                            labelValue
+                        );
+                    }),
                     actions
                 )
             ];
-        })
+        });
     }
 }
