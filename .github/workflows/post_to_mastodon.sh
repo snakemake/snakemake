@@ -13,8 +13,6 @@ if [[ ! "${PR_TITLE}" =~ ^chore\(main\):\ release ]]; then
 fi
 
 # Extract version (everything after "release ")
-# codespell should ignore the regex
-# codespell-ignore-next
 if [[ "${PR_TITLE}" =~ [Rr]elease[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+) ]]; then
     version="${BASH_REMATCH[1]}"
 else
