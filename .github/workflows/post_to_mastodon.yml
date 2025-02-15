@@ -1,0 +1,30 @@
+name: Post to Mastodon on PR Merge
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+permissions:
+  pull-requests: read
+
+jobs:
+  post_to_mastodon:
+    if: |
+      ${{ github.event.pull_request.merged }} &&
+      (contains(github.event.pull_request.title, 'release') || contains(github.event.pull_request.title, ' v') || contains(github.event.pull_request.title, 'version'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post to Mastodon
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 2
+          max_attempts: 3
+          command: |
+            export MASTODONBOT="${{ secrets.MASTODONBOT }}"
+            export PR_TITLE="${{ github.event.pull_request.title }}"
+            chmod +x $GITHUB_WORKSPACE/.github/workflows/post_to_mastodon.sh
+            $GITHUB_WORKSPACE/.github/workflows/post_to_mastodon.sh
