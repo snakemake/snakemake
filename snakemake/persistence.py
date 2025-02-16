@@ -711,6 +711,11 @@ class Persistence(PersistenceExecutorInterface):
             max_len = 255
 
         b64id = self._b64id(id)
+
+        # create 32 character long hash of the b64id
+        # to avoid too long filenames for windows
+        b64id = hashlib.md5(b64id.encode()).hexdigest()
+        
         # split into chunks of proper length
         b64id = [b64id[i : i + max_len - 1] for i in range(0, len(b64id), max_len - 1)]
         # prepend dirs with @ (does not occur in b64) to avoid conflict with b64-named files in the same dir
