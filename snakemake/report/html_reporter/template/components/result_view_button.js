@@ -3,7 +3,6 @@
 class ResultViewButton extends React.Component {
     render() {
         let result = results[this.props.resultPath];
-
         return this.getViewButton(this.props.resultPath, result);
     }
 
