@@ -519,6 +519,7 @@ def test_conda_list_envs():
 # it is being used by another process:
 # 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\snakemake-2q4osog0\\test-env.yaml'
 @skip_on_windows
+@conda
 def test_conda_create_envs_only():
     tmpdir = run(
         dpath("test_conda"),
@@ -609,22 +610,27 @@ def test_wrapper_local_git_prefix():
         )
 
 
+@conda
 def test_get_log_none():
     run(dpath("test_get_log_none"))
 
 
+@conda
 def test_get_log_both():
     run(dpath("test_get_log_both"))
 
 
+@conda
 def test_get_log_stderr():
     run(dpath("test_get_log_stderr"))
 
 
+@conda
 def test_get_log_stdout():
     run(dpath("test_get_log_stdout"))
 
 
+@conda
 def test_get_log_complex():
     run(dpath("test_get_log_complex"))
 
@@ -1325,6 +1331,7 @@ def test_issue1037():
     )
 
 
+@conda
 def test_issue1046():
     run(dpath("test_issue1046"))
 
@@ -1629,6 +1636,7 @@ def test_containerized():
 
 
 @skip_on_windows
+@conda
 def test_containerize():
     run(dpath("test_conda"), containerize=True, check_results=False)
 
