@@ -54,7 +54,7 @@ class AbstractResults extends React.Component {
                 {},
                 e(
                     "div",
-                    { className: "flex gap-2 rounded bg-slate-800" },
+                    { className: "p-2 flex gap-2 rounded bg-slate-800" },
                     this.getToggleControls(this.state.data.toggleLabels),
                 ),
                 this.getResultsTable(this.state.data)
@@ -66,7 +66,7 @@ class AbstractResults extends React.Component {
 
     getInitToggleState(toggleLabels) {
         let toggles = new Map();
-        toggleLabels.forEach(function(value, key) {
+        toggleLabels.forEach(function (value, key) {
             toggles.set(key, value[0]);
         })
         return toggles;
@@ -74,14 +74,14 @@ class AbstractResults extends React.Component {
 
     getToggleControls(toggleLabels) {
         let toggleCallback = this.toggleCallback;
-        return toggleLabels.entries().map(function(entry) {
+        return toggleLabels.entries().map(function (entry) {
             let [name, values] = entry;
             return e(
                 Toggle,
                 {
                     label: name,
                     values: values,
-                    callback: function(selected) {
+                    callback: function (selected) {
                         toggleCallback(name, selected);
                     }
                 }
@@ -92,13 +92,11 @@ class AbstractResults extends React.Component {
     toggleCallback(name, selected) {
         let data = this.state.data;
         let _this = this;
-        this.setState(function(prevState) {
+        this.setState(function (prevState) {
             let toggles = new Map(prevState.toggles);
             toggles.set(name, selected);
             return { data: data, toggles };
-        }, function() {
-            console.log(_this.state.data.resultPathsToEntryLabels);
-            console.log(_this.props.app.state.resultPath);
+        }, function () {
             if (_this.state.data.resultPathsToEntryLabels.has(_this.props.app.state.resultPath)) {
                 let toggleLabels = Array.from(data.toggleLabels.keys().map((label) => _this.state.toggles.get(label)));
                 let entryLabels = _this.state.data.resultPathsToEntryLabels.get(_this.props.app.state.resultPath);
@@ -168,8 +166,14 @@ class AbstractResults extends React.Component {
         let results = this.getResults();
 
         let toggleLabels = new Map();
-        if (labels !== undefined) {
-            labels.forEach(function (label) {
+        // If there are at least two labels, consider all but the first label for
+        // being shown as toggles. The latter is possible if a label
+        // has exactly two values, each of which occur in half of the results.
+        // Example: a plot which is created twice for each sample, once with and 
+        // once without legend (for inclusion in larger panel figures where a 
+        // repeating legend would be superfluous).
+        if (labels !== undefined && labels.length > 1) {
+            labels.slice(1).forEach(function (label) {
                 let values = results.map(function ([path, entry]) {
                     return entry.labels[label];
                 }).filter(function (value) {
@@ -233,7 +237,7 @@ class AbstractResults extends React.Component {
         }
 
         return {
-            entryLabels: labels.filter((label) => toggleLabels.has(label)),
+            entryLabels: labels.filter((label) => !toggleLabels.has(label)),
             entryLabelValues,
             toggleLabels,
             entries,

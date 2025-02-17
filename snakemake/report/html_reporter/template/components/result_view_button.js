@@ -77,9 +77,7 @@ class ResultViewButton extends React.Component {
     }
 
     render() {
-        let button = this.viewManager.handleSelectedResult(this.props.resultPath);
-        console.log(button);
-        return button;
+        return this.viewManager.handleSelectedResult(this.props.resultPath);
     }
 }
 
