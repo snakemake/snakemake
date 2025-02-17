@@ -2009,6 +2009,11 @@ def test_conda_python_script():
 
 
 @conda
+def test_conda_run():
+    run(dpath("test_conda_run"), deployment_method={DeploymentMethod.CONDA})
+
+
+@conda
 def test_conda_python_3_7_script():
     run(
         dpath("test_conda_python_3_7_script"),
