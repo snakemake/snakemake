@@ -1,68 +1,85 @@
 'use strict';
 
-class ResultViewButton extends React.Component {
-    render() {
-        let result = results[this.props.resultPath];
-        return this.getViewButton(this.props.resultPath, result);
+
+class ButtonViewManager extends AbstractViewManager {
+    constructor(app) {
+        super();
+        this.app = app;
     }
 
-    getViewButton(resultPath, entry) {
-        const mimeType = this.getResultMimeType(resultPath);
-        let setView = this.props.app.setView;
+    handleImg(entry, resultPath) {
+        let app = this.app;
+        let props = {
+            href: "#",
+            onClick: function() {
+                app.setView({
+                    content: "img",
+                    contentPath: entry.data_uri,
+                    resultPath: resultPath
+                });
+            }
+        };
+        return this.renderButton(props);
+    }
 
-        let props;
+    handleHtml(entry, resultPath) {
+        let app = this.app;
+        let props = {
+            href: "#",
+            onClick: function() {
+                app.setView({
+                    content: "html",
+                    contentPath: entry.data_uri,
+                    resultPath: resultPath
+                });
+            }
+        };
+        return this.renderButton(props);
+    }
 
-        switch (mimeType) {
-            case "image/svg+xml":
-            case "image/png":
-            case "image/jpeg":
-                props = {
-                    href: "#",
-                    onClick: function () {
-                        setView({
-                            content: "img",
-                            contentPath: entry.data_uri
-                        })
-                    }
-                };
-                break;
-            case "text/html":
-                props = {
-                    href: "#",
-                    onClick: function () {
-                        setView({
-                            content: "html",
-                            contentPath: entry.data_uri
-                        })
-                    }
-                };
-                break;
-            case "application/pdf":
-                props = {
-                    href: "#",
-                    onClick: function () {
-                        setView({
-                            content: "pdf",
-                            contentPath: entry.data_uri
-                        })
-                    }
-                };
-                break;
-            default:
-                props = {
-                    href: entry.data_uri,
-                    download: entry.name,
-                    target: "_blank"
-                };
-        }
+    handlePdf(entry, resultPath) {
+        let app = this.app;
+        let props = {
+            href: "#",
+            onClick: function() {
+                app.setView({
+                    content: "pdf",
+                    contentPath: entry.data_uri,
+                    resultPath: resultPath
+                });
+            }
+        };
+        return this.renderButton(props);
+    }
+
+    handleDefault(entry, resultPath) {
+        let props = {
+            href: entry.data_uri,
+            download: entry.name,
+            target: "_blank"
+        };
+        return this.renderButton(props);
+    }
+
+    renderButton(props) {
         return e(
             Button,
             { iconName: "eye", ...props }
         );
     }
+}
 
-    getResultMimeType(resultPath) {
-        return results[resultPath].mime_type
+
+class ResultViewButton extends React.Component {
+    constructor(props) {
+        super(props);
+        this.viewManager = new ButtonViewManager(this.props.app);
+    }
+
+    render() {
+        let button = this.viewManager.handleSelectedResult(this.props.resultPath);
+        console.log(button);
+        return button;
     }
 }
 
