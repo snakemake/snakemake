@@ -8,13 +8,10 @@ class AbstractViewManager {
             case "image/png":
             case "image/jpeg":
                 return this.handleImg(entry, resultPath);
-                break;
             case "text/html":
                 return this.handleHtml(entry, resultPath);
-                break;
             case "application/pdf":
                 return this.handlePdf(entry, resultPath);
-                break;
             default:
                 return this.handleDefault(entry, resultPath);
         }
