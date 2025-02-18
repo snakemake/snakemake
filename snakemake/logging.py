@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 import textwrap
 from typing import List, Optional
 from snakemake_interface_logger_plugins.base import LogHandlerBase
-from snakemake_interface_logger_plugins.settings import LoggerSettingsInterface
+from snakemake_interface_logger_plugins.settings import OutputSettingsLoggerInterface
 
 
 if TYPE_CHECKING:
@@ -530,7 +530,7 @@ class ColorizingTextHandler(logging.StreamHandler):
                 raise
             except (KeyboardInterrupt, SystemExit):
                 pass  # Ignore exceptions for these cases, all errors have been handled before.
-            except Exception as e:
+            except Exception:
                 self.handleError(record)
 
     def decorate(self, record, message):
@@ -555,13 +555,13 @@ class LoggerManager:
         self.mode = None
 
         self.logfile_handlers = {}
-        self.settings: LoggerSettingsInterface = None
+        self.settings: OutputSettingsLoggerInterface = None
 
     def setup(
         self,
         mode: "ExecMode",
         handlers: List[LogHandlerBase],
-        settings: LoggerSettingsInterface,
+        settings: OutputSettingsLoggerInterface,
     ):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
