@@ -1,3 +1,4 @@
 test: true
 foo:
   bar: "let's go" # single ' to test quote escaping
+"test '": 1       # testing escape in key name
