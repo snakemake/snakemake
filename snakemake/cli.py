@@ -1960,7 +1960,6 @@ def args_to_api(args, parser):
 
     logging.logger_manager.setup(
         args.mode,
-        args.dryrun,
         log_handlers,
         output_settings,
     )

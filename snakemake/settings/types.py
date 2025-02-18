@@ -19,7 +19,10 @@ from snakemake_interface_executor_plugins.settings import (
     ExecMode,
     SharedFSUsage,
 )
-from snakemake_interface_logger_plugins.settings import LogHandlerSettingsBase
+from snakemake_interface_logger_plugins.settings import (
+    LogHandlerSettingsBase,
+    LoggerSettingsInterface,
+)
 
 from snakemake.common import (
     dict_to_key_value_args,
@@ -375,7 +378,8 @@ class ConfigSettings(SettingsBase):
 
 
 @dataclass
-class OutputSettings(SettingsBase):
+class OutputSettings(SettingsBase, LoggerSettingsInterface):
+    dryrun: bool = False
     printshellcmds: bool = False
     nocolor: bool = False
     quiet: Optional[AnySet[Quietness]] = None

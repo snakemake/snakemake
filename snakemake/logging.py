@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+
 import logging
 import logging.handlers
 import platform
@@ -14,19 +15,16 @@ import json
 import threading
 from queue import Queue
 from functools import partial
-
+from typing import TYPE_CHECKING
 import textwrap
 from typing import List, Optional
 from snakemake_interface_logger_plugins.base import LogHandlerBase
+from snakemake_interface_logger_plugins.settings import LoggerSettingsInterface
 
 
-def get_default_exec_mode():
+if TYPE_CHECKING:
     from snakemake_interface_executor_plugins.settings import ExecMode
-
-    return ExecMode.DEFAULT
-
-
-# Helper functions for logging
+    from snakemake.settings.enums import Quietness
 
 
 def timestamp():
@@ -124,14 +122,22 @@ def get_level(record: logging.LogRecord) -> str:
     return level.lower()
 
 
+def is_quiet_about(quiet: "Quietness", msg_type: str):
+    from snakemake.settings.enums import Quietness
+
+    parsed = Quietness.parse_choice(msg_type)
+
+    return Quietness.ALL in quiet or parsed in quiet
+
+
 class DefaultFormatter(logging.Formatter):
     def __init__(
         self,
-        printreason: bool = False,
+        quiet: "Quietness",
         show_failed_logs: bool = False,
         printshellcmds: bool = False,
     ):
-        self.printreason = printreason
+        self.quiet = set() if quiet is None else quiet
         self.show_failed_logs = show_failed_logs
         self.printshellcmds = printshellcmds
         self.last_msg_was_job_info = False
@@ -209,7 +215,7 @@ class DefaultFormatter(logging.Formatter):
         output.append(timestamp())
         if msg["rule_msg"]:
             output.append(f"Job {msg['jobid']}: {msg['rule_msg']}")
-            if self.printreason:
+            if not is_quiet_about(self.quiet, "reason"):
                 output.append(f"Reason: {msg['reason']}")
         else:
             output.append("\n".join(self._format_job_info(msg)))
@@ -300,7 +306,7 @@ class DefaultFormatter(logging.Formatter):
                 output.append(fmt)
 
         singleitems = ["jobid", "benchmark"]
-        if self.printreason:
+        if not is_quiet_about(self.quiet, "reason"):
             singleitems.append("reason")
         for item in singleitems:
             fmt = format_item(item, omit=None)
@@ -384,48 +390,40 @@ class DefaultFormatter(logging.Formatter):
 
 
 class DefaultFilter:
-    def __init__(
-        self,
-        quiet,
-        debug_dag,
-    ) -> None:
+    def __init__(self, quiet, debug_dag, dryrun) -> None:
         if quiet is None:
             quiet = set()
         self.quiet = quiet
         self.debug_dag = debug_dag
-
-    def is_quiet_about(self, msg_type: str):
-        from snakemake.settings.enums import Quietness
-
-        return (
-            Quietness.ALL in self.quiet
-            or Quietness.parse_choice(msg_type) in self.quiet
-        )
+        self.dryrun = dryrun
 
     def filter(self, record):
-        if self.is_quiet_about("all"):
-            return False
+        from snakemake.settings.enums import Quietness
 
         level = get_level(record)
+        if self.dryrun and level == "run_info":
+            return True
 
-        # Respect quiet mode filtering
+        if Quietness.ALL in self.quiet and not self.dryrun:
+            return False
+
         quietness_map = {
-            "job_info": "rules",
-            "group_info": "rules",
-            "job_error": "rules",
-            "group_error": "rules",
-            "progress": "progress",
-            "shellcmd": "progress",  # or other quietness types
-            "job_finished": "progress",
-            "resources_info": "progress",
-            "run_info": "progress",
-            "host": "host",
-            "info": "progress",
+            "job_info": Quietness.RULES,
+            "group_info": Quietness.RULES,
+            "job_error": Quietness.RULES,
+            "group_error": Quietness.RULES,
+            "progress": Quietness.PROGRESS,
+            "shellcmd": Quietness.PROGRESS,
+            "job_finished": Quietness.PROGRESS,
+            "resources_info": Quietness.PROGRESS,
+            "run_info": Quietness.PROGRESS,
+            "host": Quietness.HOST,
+            "info": Quietness.PROGRESS,
         }
 
-        # Check quietness for specific levels and skip accordingly
+        # Check quietness for specific levels
         if level in quietness_map:
-            if self.is_quiet_about(quietness_map[level]):
+            if quietness_map[level] in self.quiet:
                 return False
 
         # Handle dag_debug specifically
@@ -535,14 +533,6 @@ class ColorizingTextHandler(logging.StreamHandler):
             except Exception as e:
                 self.handleError(record)
 
-    def is_quiet_about(self, msg_type: str):
-        from snakemake.settings.enums import Quietness
-
-        return (
-            Quietness.ALL in self.quiet
-            or Quietness.parse_choice(msg_type) in self.quiet
-        )
-
     def decorate(self, record, message):
         """
         Add color to the log message based on its level.
@@ -560,47 +550,110 @@ class ColorizingTextHandler(logging.StreamHandler):
 class LoggerManager:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
-        self.quiet = None
-        self.printshellcmds = False
-        self.printreason = True
-        self.debug_dag = False
-        self.nocolor = False
-        self.stdout = False
-        self.debug = False
-        self.mode = None
-        self.show_failed_logs = False
-        self.dryrun = False
-        self.handlers = []
         self.initialized = False
         self.queue_listener = None
-        self.formatter = DefaultFormatter(
-            printreason=self.printreason,
-            show_failed_logs=self.show_failed_logs,
-            printshellcmds=self.printshellcmds,
+        self.mode = None
+
+        self.logfile_handlers = {}
+        self.settings: LoggerSettingsInterface = None
+
+    def setup(
+        self,
+        mode: "ExecMode",
+        handlers: List[LogHandlerBase],
+        settings: LoggerSettingsInterface,
+    ):
+        from snakemake_interface_executor_plugins.settings import ExecMode
+
+        self.mode = mode
+        self.settings = settings
+        self.initialized = True
+
+        stream_handlers = []
+        other_handlers = []
+
+        if self.mode == ExecMode.SUBPROCESS:
+            stream_handlers.append(logging.NullHandler())
+        elif self.mode == ExecMode.REMOTE:
+            stream_handlers.append(self._default_streamhandler())
+        elif handlers:
+            for handler in handlers:
+                configured_handler = self._configure_plugin_handler(handler)
+                if configured_handler.writes_to_file:
+                    self.logfile_handlers[configured_handler] = (
+                        configured_handler.baseFilename
+                    )
+                elif configured_handler.writes_to_stream:
+                    stream_handlers.append(configured_handler)
+                else:
+                    other_handlers.append(configured_handler)
+        else:
+            stream_handlers.append(self._default_streamhandler())
+        if len(stream_handlers) > 1:
+            raise ValueError("More than 1 stream log handler specified!")
+        all_handlers = (
+            stream_handlers + other_handlers + list(self.logfile_handlers.keys())
         )
-        self.filter = DefaultFilter(quiet=self.quiet, debug_dag=self.debug_dag)
 
-    def _get_handlers_of_type(self, handler_type: type):
-        """Helper function to get all handlers of a specified type."""
-        return [
-            h
-            for h in self.handlers
-            if isinstance(h, handler_type) or issubclass(type(h), handler_type)
-        ]
+        q = Queue(-1)
+        self.queue_listener = logging.handlers.QueueListener(
+            q,
+            *all_handlers,
+            respect_handler_level=True,
+        )
+        self.queue_listener.start()
+        self.logger.setLevel(logging.DEBUG if settings.verbose else logging.INFO)
+        self.logger.addHandler(logging.handlers.QueueHandler(q))
 
-    def get_logfile(self) -> Optional[List[str]]:
-        """Retrieve the log file paths from the file handlers in the logger."""
-        logfiles = [
-            h.baseFilename for h in self._get_handlers_of_type(logging.FileHandler)
-        ]
-        return logfiles if logfiles else None
+    def _configure_plugin_handler(self, plugin):
+        if not plugin.has_filter:
+            plugin.addFilter(self._default_filter())
+        if not plugin.has_formatter:
+            plugin.setFormatter(self._default_formatter())
+        return plugin
+
+    def _default_filter(self):
+        return DefaultFilter(
+            self.settings.quiet, self.settings.debug_dag, self.settings.dryrun
+        )
+
+    def _default_formatter(self):
+        return DefaultFormatter(
+            self.settings.quiet,
+            self.settings.show_failed_logs,
+            self.settings.printshellcmds,
+        )
+
+    def _default_filehandler(self, logfile):
+        logfile_handler = logging.FileHandler(logfile)
+        logfile_handler.setFormatter(self._default_formatter())
+        logfile_handler.addFilter(self._default_filter())
+        logfile_handler.setLevel(
+            logging.DEBUG if self.settings.verbose else logging.INFO
+        )
+        logfile_handler.name = "DefaultLogFileHandler"
+        return logfile_handler
+
+    def _default_streamhandler(self):
+        stream_handler = ColorizingTextHandler(
+            nocolor=self.settings.nocolor,
+            stream=sys.stdout if self.settings.stdout else sys.stderr,
+            mode=self.mode,
+        )
+        stream_handler.addFilter(self._default_filter())
+        stream_handler.setFormatter(self._default_formatter())
+        stream_handler.name = "DefaultStreamHandler"
+        return stream_handler
+
+    def get_logfile(self):
+        return self.logfile_handlers.values()
 
     def logfile_hint(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
         """Log the logfile location if applicable."""
-        logfiles = self.get_logfile()
-        if self.mode == ExecMode.DEFAULT and not self.dryrun and logfiles:
+        logfiles = self.logfile_handlers.values()
+        if self.mode == ExecMode.DEFAULT and not self.settings.dryrun and logfiles:
             log_paths = ", ".join([os.path.relpath(p) for p in logfiles])
             self.logger.info(f"Complete log(s): {log_paths}")
         return logfiles
@@ -609,13 +662,13 @@ class LoggerManager:
         from snakemake_interface_executor_plugins.settings import ExecMode
 
         if self.mode == ExecMode.DEFAULT:
-            for handler in self._get_handlers_of_type(logging.FileHandler):
+            for handler in self.logfile_handlers.keys():
                 handler.close()
 
     def setup_logfile(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
-        if self.mode == ExecMode.DEFAULT and not self.dryrun:
+        if self.mode == ExecMode.DEFAULT and not self.settings.dryrun:
             os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
             logfile = os.path.abspath(
                 os.path.join(
@@ -625,115 +678,12 @@ class LoggerManager:
                     + ".snakemake.log",
                 )
             )
-
-            logfile_handler = logging.FileHandler(logfile)
-            logfile_handler.setFormatter(self.formatter)
-            logfile_handler.addFilter(self.filter)
-            logfile_handler.setLevel(logging.DEBUG if self.debug else logging.INFO)
-            logfile_handler.name = "DefaultLogFileHandler"
-            self.handlers.append(logfile_handler)
-
-    def add_stream_handler(
-        self,
-        stream_handler: Optional[logging.StreamHandler] = None,
-        use_default_filter: bool = True,
-        use_default_formatter: bool = True,
-    ):
-        """
-        Adds a stream handler. Checks if one already exists by the same name before adding.
-        """
-        if stream_handler is None:
-            stream_handler = ColorizingTextHandler(
-                nocolor=self.nocolor,
-                stream=sys.stdout if self.stdout else sys.stderr,
-                mode=self.mode,
-            )
-        if not stream_handler.filters and use_default_filter:
-            stream_handler.addFilter(self.filter)
-        if not stream_handler.formatter and use_default_formatter:
-            stream_handler.setFormatter(self.formatter)
-
-        if not stream_handler.name:
-            stream_handler.name = "DefaultStreamHandler"
-
-        # try to prevent multiple stream handlers. may need to revisit this.
-        if not any([getattr(h, "stream", False) for h in self.handlers]):
-            self.handlers.append(stream_handler)
+            handler = self._default_filehandler(logfile)
+            self.logfile_handlers[handler] = logfile
 
     def stop(self):
         if self.queue_listener is not None:
             self.queue_listener.stop()
-
-    def configure_logger(
-        self,
-        quiet=None,
-        printshellcmds: Optional[bool] = None,
-        printreason: Optional[bool] = None,
-        debug_dag: Optional[bool] = None,
-        nocolor: Optional[bool] = None,
-        stdout: Optional[bool] = None,
-        debug: Optional[bool] = None,
-        mode=None,
-        show_failed_logs: Optional[bool] = None,
-        dryrun: Optional[bool] = None,
-        handlers: List[LogHandlerBase] = None,
-    ):
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
-        if self.initialized:
-            return
-
-        for key, value in locals().items():
-            if key != "self" and value is not None:
-                setattr(self, key, value)
-
-        # Update the logger settings based on the current mode
-        # Subproecces execMode gets nullhandler so nothing gets logged
-        # TODO: Think about if remote should be null handler too. Don't want remote logging to HTTP logger for example.
-        if self.mode == ExecMode.SUBPROCESS:
-            self.add_stream_handler(logging.NullHandler())
-        elif self.mode == ExecMode.REMOTE:
-            self.add_stream_handler()
-        elif handlers:
-            for handler in handlers:
-                # TODO adapt to potential changes in snakemake-interface-logger-plugins
-                # idea: move filtering into a filter class that is used here and keep all
-                # the args below away from the logger plugins.
-                handler = handler.create_handler(
-                    quiet=quiet,
-                    printreason=printreason,
-                    printshellcmds=printshellcmds,
-                    debug=debug,
-                    debug_dag=debug_dag,
-                    mode=mode,
-                    show_failed_logs=show_failed_logs,
-                    dryrun=dryrun,
-                    nocolor=nocolor,
-                    stdout=stdout,
-                )
-                # logging.Streamhandlers (and subclasses of it) should have attr called stream
-                if getattr(handler, "stream", False):
-                    self.add_stream_handler(
-                        stream_handler=handler,
-                        use_default_filter=False,
-                        use_default_formatter=False,
-                    )
-                else:
-                    self.handlers.append(handler)
-        else:
-            self.add_stream_handler()
-
-        q = Queue(-1)
-        self.queue_listener = logging.handlers.QueueListener(
-            q,
-            *self.handlers,
-            respect_handler_level=True,
-        )
-        self.queue_listener.start()
-        self.logger.addHandler(logging.handlers.QueueHandler(q))
-        self.initialized = True
-
-        self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
 
 
 # Global logger instance

@@ -252,9 +252,9 @@ class SnakemakeApi(ApiBase):
                 plugin.validate_settings(settings)
                 log_handlers.append(plugin.log_handler(self.output_settings, settings))
 
+            self.output_settings.dryrun = dryrun
             logger_manager.setup(
                 mode=mode,
-                dryrun=dryrun,
                 handlers=log_handlers,
                 settings=self.output_settings,
             )
