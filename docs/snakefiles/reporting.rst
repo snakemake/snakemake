@@ -122,7 +122,12 @@ Consider the following modification of rule ``b`` from above:
 
 If all results in a particular category/subcategory share the same label and both values occur once for each combination of other labels,
 Snakemake displays the label as a toggle switch above the result menu.
-This behavior can be used to, for example, switch between different versions of a plot, one with and one without a legend.
+This behavior can be used to, for example, switch between different versions of a plot, one with and one without a legend, see the example below (there, the legend label, with values yes/no, is automatically rendered as a toggle switch):
+
+.. image:: images/report-toggles.png
+    :scale: 100%
+    :alt: Example toggle switch for labels
+    :align: center
 
 
 Determining category, subcategory, and labels dynamically via functions
