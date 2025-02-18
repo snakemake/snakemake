@@ -36,7 +36,7 @@ from snakemake.settings.types import (
     WorkflowSettings,
     SharedFSUsage,
 )
-
+from snakemake.settings.enums import Quietness
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import (
     SpawnedJobArgsFactoryExecutorInterface,
@@ -1287,8 +1287,8 @@ class Workflow(WorkflowExecutorInterface):
                     self.log_missing_metadata_info()
                     self.log_outdated_metadata_info()
                     return
-                if self.output_settings.quiet:
-                    # in case of dryrun and quiet, just print above info and exit
+                # in case of dryrun and quiet, just print above info and exit. this set is equiv to --quiet
+                if self.output_settings.quiet == {Quietness.RULES, Quietness.PROGRESS}:
                     return
 
             if not self.dryrun and not self.execution_settings.no_hooks:
