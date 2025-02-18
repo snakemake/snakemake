@@ -20,6 +20,7 @@ from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 
+
 import snakemake.common.argparse
 from snakemake import logging
 from snakemake.api import (
@@ -1937,19 +1938,35 @@ def args_to_api(args, parser):
 
     wait_for_files = parse_wait_for_files(args)
 
+    output_settings = OutputSettings(
+        dryrun=args.dryrun,
+        printshellcmds=args.printshellcmds,
+        nocolor=args.nocolor,
+        quiet=args.quiet,
+        debug_dag=args.debug_dag,
+        verbose=args.verbose,
+        show_failed_logs=args.show_failed_logs,
+        log_handler_settings=log_handler_settings,
+        keep_logger=False,
+        stdout=args.dryrun,
+        benchmark_extended=args.benchmark_extended,
+    )
+
+    log_handlers = []
+    for name, settings in log_handler_settings.items():
+        plugin = LoggerPluginRegistry().get_plugin(name)
+        plugin.validate_settings(settings)
+        log_handlers.append(plugin.log_handler(output_settings, settings))
+
+    logging.logger_manager.setup(
+        args.mode,
+        args.dryrun,
+        log_handlers,
+        output_settings,
+    )
+    # TODO log command line used here
     with SnakemakeApi(
-        OutputSettings(
-            printshellcmds=args.printshellcmds,
-            nocolor=args.nocolor,
-            quiet=args.quiet,
-            debug_dag=args.debug_dag,
-            verbose=args.verbose,
-            show_failed_logs=args.show_failed_logs,
-            log_handler_settings=log_handler_settings,
-            keep_logger=False,
-            stdout=args.dryrun,
-            benchmark_extended=args.benchmark_extended,
-        )
+        output_settings,
     ) as snakemake_api:
         deployment_method = args.software_deployment_method
         if args.use_conda:
@@ -2190,7 +2207,7 @@ def args_to_api(args, parser):
 
 def main(argv=None):
     """Main entry point."""
-    logging.logger_manager.configure_logger()
+
     try:
         parser, args = parse_args(argv)
         success = args_to_api(args, parser)
