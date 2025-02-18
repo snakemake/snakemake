@@ -1,1 +1,3 @@
 test: true
+foo:
+  bar: "let's go" # single ' to test quote escaping
