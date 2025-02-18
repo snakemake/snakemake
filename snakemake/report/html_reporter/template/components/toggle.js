@@ -21,57 +21,54 @@ class Toggle extends React.Component {
             return `toggle-${props.label}-${props.values[idx]}`;
         }
 
-        const radioClasses = "focus:shadow-none outline-none focus:ring-0 focus:outline-none appearance-none w-4 h-4 checked:bg-emerald-500 focus:shadow-none focus:ring-emerald-500 focus:bg-slate-500 focus:border-emerald-500 focus:border-2 outline-none bg-clip-padding border-2 border-emerald-500 rounded-full shrink-0 bg-slate-500";
+        const radioClasses = "appearance-none hidden";
+        const labelClasses = "flex gap-2 items-center transition-all inline-block p-1 has-[:checked]:bg-emerald-500 has-[:checked]:text-slate-800 hover:bg-slate-500 bg-slate-600"
 
         let selectValue = this.selectValue;
 
         return e(
             "fieldset",
-            {className: "flex gap-2"},
+            {className: "flex gap-2 items-center shrink-0"},
             e(
                 "span",
-                {},
-                `${props.label}: `
+                {className: "uppercase font-bold"},
+                `${props.label}`
             ),
             e(
                 "span",
-                {className: "flex gap-2 items-center"},
-                e(
-                    "input",
-                    {
-                        className: radioClasses,
-                        type: "radio",
-                        checked: this.state.value == props.values[0],
-                        id: valueId(0),
-                        name: props.label, 
-                        value: props.values[0],
-                        onClick: () => selectValue(props.values[0])
-                    },
-                ),
+                {className: "flex gap-0 shrink-0"},
                 e(
                     "label",
-                    {for: valueId(0)},
+                    {for: valueId(0), className: `${labelClasses} rounded-l`},
+                    e(
+                        "input",
+                        {
+                            className: radioClasses,
+                            type: "radio",
+                            checked: this.state.value == props.values[0],
+                            id: valueId(0),
+                            name: props.label, 
+                            value: props.values[0],
+                            onClick: () => selectValue(props.values[0])
+                        },
+                    ),
                     props.values[0]
-                )
-            ),
-            e(
-                "span",
-                {className: "flex gap-2 items-center"},
-                e(
-                    "input",
-                    {
-                        className: radioClasses,
-                        type: "radio",
-                        checked: this.state.value == props.values[1], 
-                        id: valueId(1),
-                        name: props.label, 
-                        value: props.values[1], 
-                        onClick: () => selectValue(props.values[1])
-                    },
                 ),
                 e(
                     "label",
-                    {for: valueId(1)},
+                    {for: valueId(1), className: `${labelClasses} rounded-r`},
+                    e(
+                        "input",
+                        {
+                            className: radioClasses,
+                            type: "radio",
+                            checked: this.state.value == props.values[1], 
+                            id: valueId(1),
+                            name: props.label, 
+                            value: props.values[1], 
+                            onClick: () => selectValue(props.values[1])
+                        },
+                    ),
                     props.values[1]
                 )
             )

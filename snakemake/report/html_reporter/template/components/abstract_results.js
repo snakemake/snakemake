@@ -54,7 +54,7 @@ class AbstractResults extends React.Component {
                 {},
                 e(
                     "div",
-                    { className: "p-2 flex gap-2 rounded bg-slate-800" },
+                    { className: "p-2 flex flex-wrap gap-2 rounded bg-slate-800 text-xs" },
                     this.getToggleControls(this.state.data.toggleLabels),
                 ),
                 this.getResultsTable(this.state.data)
