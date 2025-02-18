@@ -479,7 +479,9 @@ def get_argument_parser(profiles=None):
         f"variable ${caching.LOCATION_ENVVAR}. Likewise, retrieve output files of the given rules "
         "from this cache if they have been created before (by anybody writing to the same cache), "
         "instead of actually executing the rules. Output files are identified by hashing all "
-        "steps, parameters and software stack (conda envs or containers) needed to create them.",
+        "steps, parameters and software stack (conda envs or containers) needed to create them. "
+        "If no rules are given, all rules that are eligible for caching (have a cache "
+        "directive, see docs) are cached.",
     )
 
     group_exec.add_argument(
