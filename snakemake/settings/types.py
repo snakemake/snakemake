@@ -21,7 +21,7 @@ from snakemake_interface_executor_plugins.settings import (
 )
 from snakemake_interface_logger_plugins.settings import (
     LogHandlerSettingsBase,
-    LoggerSettingsInterface,
+    OutputSettingsLoggerInterface,
 )
 
 from snakemake.common import (
@@ -378,7 +378,7 @@ class ConfigSettings(SettingsBase):
 
 
 @dataclass
-class OutputSettings(SettingsBase, LoggerSettingsInterface):
+class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     dryrun: bool = False
     printshellcmds: bool = False
     nocolor: bool = False
