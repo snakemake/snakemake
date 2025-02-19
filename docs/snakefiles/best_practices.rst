@@ -30,6 +30,12 @@ Ensure portability
 
 Annotate all your rules with versioned :ref:`Conda <integrated_package_management>` or :ref:`container <apptainer>` based software environment definitions. This ensures that your workflow utilizes the exactly same isolated software stacks, independently of the underlying system.
 
+Generate interactive reports (for free)
+---------------------------------------
+
+Annotate your final results for inclusing into Snakemake's automatic :ref:`interactive reports <snakefiles-reports>` (thereby make sure to use all the features, including categories and labels).
+This makes them explorable in a high-level way, while connecting them to the workflow code, parameters, and software stack.
+
 Enable configurability
 ----------------------
 
