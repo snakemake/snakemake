@@ -93,7 +93,7 @@ jobs:
         uses: comfuture/minio-action@v1
         with:
           access_key: minio
-          secret_key: minio
+          secret_key: minio123
           port: 9000
 
       - name: Test minio

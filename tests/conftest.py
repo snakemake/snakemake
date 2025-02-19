@@ -44,7 +44,7 @@ def s3_storage():
 
     endpoint_url = "http://127.0.0.1:9000"
     access_key = "minio"
-    secret_key = "minio"
+    secret_key = "minio123"
     bucket = f"snakemake-{uuid.uuid4().hex}"
 
     tagged_settings = TaggedSettings()
