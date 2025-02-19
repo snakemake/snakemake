@@ -471,10 +471,7 @@ class BashEncoder:
         for k, v in d.items():
             formatted_v = shlex.quote(f"{v}")
             formatted_k = shlex.quote(f"{k}")
-            s += (
-                f'[$(printf "%s" {formatted_k})]'
-                f'="$(printf "%s" {formatted_v})" '
-            )
+            s += f'[$(printf "%s" {formatted_k})]' f'="$(printf "%s" {formatted_v})" '
 
         s += ")"
         return s
