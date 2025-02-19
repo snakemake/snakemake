@@ -11,6 +11,7 @@ from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import List, Mapping, Optional, Set, Union
 
+from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
@@ -31,7 +32,6 @@ from snakemake.common import (
     get_container_image,
     parse_key_value_arg,
 )
-from snakemake.dag import Batch
 from snakemake.exceptions import (
     CliException,
     ResourceScopesException,
@@ -45,6 +45,7 @@ from snakemake.resources import (
     parse_resources,
 )
 from snakemake.settings.types import (
+    Batch,
     ChangeType,
     ConfigSettings,
     DAGSettings,
@@ -475,7 +476,7 @@ def get_argument_parser(profiles=None):
         nargs="*",
         metavar="RULE",
         help="Store output files of given rules in a central cache given by the environment "
-        "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
+        f"variable ${caching.LOCATION_ENVVAR}. Likewise, retrieve output files of the given rules "
         "from this cache if they have been created before (by anybody writing to the same cache), "
         "instead of actually executing the rules. Output files are identified by hashing all "
         "steps, parameters and software stack (conda envs or containers) needed to create them.",
@@ -1438,15 +1439,13 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
-        type=maybe_base64(expandvars(Path)),
+        type=maybe_base64(Path),
         help="Specify prefix for storing local copies of storage files and folders in "
         "case of remote jobs (e.g. cluster or cloud jobs). This may differ from "
         "--local-storage-prefix. If not set, uses value of --local-storage-prefix. "
         "By default, this is a hidden subfolder in the workdir. It can however be "
         "freely chosen, e.g. in order to store those files on a local scratch disk. "
-        "Environment variables will be expanded. In case they shall be expanded only "
-        "within the remote job, mask them with a leading backslash, i.e. "
-        "\\$SLURM_JOB_ID.",
+        "Environment variables will be expanded within the remote job.",
     )
     group_behavior.add_argument(
         "--shared-fs-usage",
