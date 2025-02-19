@@ -1,4 +1,4 @@
-sphinx ==8.1  # TODO workaround for bug, update as soon as fixed
+sphinx ==8.1  # TODO workaround for bug in 8.2.0, update as soon as fixed
 sphinxcontrib-napoleon
 sphinx-argparse
 sphinx-autodoc-typehints
