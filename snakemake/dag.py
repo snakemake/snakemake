@@ -525,10 +525,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             and job.targetfile in self.targetfiles
         )
 
-    def is_draft_notebook_job(self, job):
+    def is_draft_or_preamble_notebook_job(self, job):
         return (
             self.workflow.execution_settings.edit_notebook
-            and self.workflow.execution_settings.edit_notebook.draft_only
+            and (
+                self.workflow.execution_settings.edit_notebook.draft_only
+                or self.workflow.execution_settings.edit_notebook.preamble_only
+            )
             and job.targetfile in self.targetfiles
         )
 

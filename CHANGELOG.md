@@ -1,5 +1,11 @@
 # Changelog
 
+## [8.xx.xx]
+
+### Features
+
+* Add `--preamble-only` CLI option to print the preamble for a given notebook rule.
+
 
 ## [8.28.0](https://github.com/snakemake/snakemake/compare/v8.27.1...v8.28.0) (2025-02-12)
 

@@ -67,7 +67,7 @@ class JupyterNotebook(ScriptBase):
 
         with tempfile.TemporaryDirectory() as tmp:
             if edit is not None:
-                assert not edit.draft_only
+                assert not edit.draft_only and not edit.preamble_only
                 logger.info("Opening notebook for editing.")
                 cmd = (
                     "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
@@ -334,6 +334,9 @@ def notebook(
 
     if edit is None:
         executor.evaluate(edit=edit)
+    elif edit.preamble_only:
+        msg = f"Preamble is:\n{executor.get_preamble()}"
+        logger.info(msg)
     elif edit.draft_only:
         executor.draft()
         msg = f"Generated skeleton notebook:\n{path} "
@@ -348,6 +351,7 @@ def notebook(
                 "\nEditing with Jupyter CLI:"
                 "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
             )
+        msg += f"\nPreamble is:\n{executor.get_preamble()} "
         logger.info(msg)
     elif draft:
         executor.draft_and_edit(listen=edit)
