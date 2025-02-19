@@ -96,7 +96,7 @@ This works as follows:
 Defining file labels
 --------------------
 
-In addition to category, and subcategory, it is possible to define a dictionary of labels for each report item.
+In addition to category, and subcategory, it is possible (and highly recommended!) to define a dictionary of labels for each report item.
 By that, the actual filename will be hidden in the report and instead a table with the label keys as columns and the values in the respective row for the file will be displayed.
 This can lead to less technical reports that abstract away the fact that the results of the analysis are actually files.
 Consider the following modification of rule ``b`` from above:
@@ -119,6 +119,15 @@ Consider the following modification of rule ``b`` from above:
           )
       shell:
           "sleep `shuf -i 1-3 -n 1`; cp data/fig2.png {output}"
+
+If all results in a particular category/subcategory share the same label and both values occur once for each combination of other labels,
+Snakemake displays the label as a toggle switch above the result menu.
+This behavior can be used to, for example, switch between different versions of a plot, one with and one without a legend, see the example below (there, the legend label, with values yes/no, is automatically rendered as a toggle switch):
+
+.. image:: images/report-toggles.png
+    :scale: 100%
+    :alt: Example toggle switch for labels
+    :align: center
 
 
 Determining category, subcategory, and labels dynamically via functions
