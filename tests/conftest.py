@@ -42,7 +42,7 @@ def s3_storage():
     import uuid
     import boto3
 
-    endpoint_url = "http://localhost:9000"
+    endpoint_url = "http://127.0.0.1:9000"
     access_key = "minio"
     secret_key = "minio"
     bucket = f"snakemake-{uuid.uuid4().hex}"
