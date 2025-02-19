@@ -4,8 +4,8 @@
 Best practices
 ==============
 
-Linting
--------
+Care about code quality
+-----------------------
 
 Snakemake (>=5.11) comes with a code quality checker (a so called linter), that analyzes your workflow and highlights issues that should be solved in order to follow best practices, achieve maximum readability, and reproducibility.
 The linter can be invoked with 
@@ -17,20 +17,16 @@ The linter can be invoked with
 given that a ``Snakefile`` or ``workflow/Snakefile`` is accessible from your working directory.
 It is **highly recommended** to run the linter before publishing any workflow, asking questions on Stack Overflow or filing issues on Github.
 
-Formatting
-----------
+Care about code readability
+---------------------------
 
-There is an automatic formatter for Snakemake workflows, called `Snakefmt <https://github.com/snakemake/snakefmt>`_, which should be applied to any Snakemake workflow before publishing it.
-
-Care about readability
-----------------------
-
-* Try to keep filenames short (thus easier on the eye), but informative. Avoid mixing of too many special characters (e.g. decide whether to use ``_`` or ``-`` as a separator and do that consistently throughout the workflow).
-* Try to keep Python code like helper functions separate from rules (e.g. in a ``workflow/rules/common.smk`` file). This way, you help non-experts to read the workflow without needing to parse internals that are irrelevant for them. The helper function names should be chosen in a way that makes them sufficiently informative without looking at their content. Also avoid ``lambda`` expressions inside of rules.
-* Use Snakemake's :ref:`semantic helper functions <snakefiles-semantic-helpers>` in order to increase readibility and to avoid the reimplementation of common functionality for aggregation, parameter lookup or path modifications.
+1. There is an automatic formatter for Snakemake workflows, called `Snakefmt <https://github.com/snakemake/snakefmt>`_, which should be applied to any Snakemake workflow before publishing it.
+2. Try to keep filenames short (thus easier on the eye), but informative. Avoid mixing of too many special characters (e.g. decide whether to use ``_`` or ``-`` as a separator and do that consistently throughout the workflow).
+3. Try to keep Python code like helper functions separate from rules (e.g. in a ``workflow/rules/common.smk`` file). This way, you help non-experts to read the workflow without needing to parse internals that are irrelevant for them. The helper function names should be chosen in a way that makes them sufficiently informative without looking at their content. Also avoid ``lambda`` expressions inside of rules.
+4. Use Snakemake's :ref:`semantic helper functions <snakefiles-semantic-helpers>` in order to increase readibility and to avoid the reimplementation of common functionality for aggregation, parameter lookup or path modifications.
 
 Ensure portability
------------
+------------------
 
 Annotate all your rules with versioned :ref:`Conda <integrated_package_management>` or :ref:`container <apptainer>` based software environment definitions. This ensures that your workflow utilizes the exactly same isolated software stacks, independently of the underlying system.
 
@@ -52,9 +48,9 @@ Test your workflow continuously
 
 When hosting your workflow in a `Github <https://github.com>`_ repository, it is a good idea to add some minimal test data and configure `Github Actions <https://github.com/features/actions>`_ for continuously testing the workflow on each new commit.For this purpose, we provide predefined Github actions for both running tests and linting `here <https://github.com/snakemake/snakemake-github-action>`__, as well as formatting `here <https://github.com/snakemake/snakefmt#github-actions>`__.
 
-Publish while following standards
----------------------------------
+Follow the standards
+--------------------
 
-For publishing and distributing a Snakemake workflow, it is a good idea to stick to a :ref:`standardized structure <distribution_and_reproducibility>` that is expected by frequent users of Snakemake.
-The `Snakemake workflow catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_ automatically lists Snakemake workflows hosted on `Github <https://github.com>`_ if they follow certain `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_.
-By complying to these `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_ you can make your workflow more discoverable and even automate its usage documentation (see `"Standardized usage" <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_).
+1. For publishing and distributing a Snakemake workflow, it is a good idea to stick to a :ref:`standardized folder structure <distribution_and_reproducibility>` that is expected by frequent users of Snakemake. This simplifies the navigation through the codebase and keeps the workflow repository and the working directory clean.
+2. The `Snakemake workflow catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_ automatically lists Snakemake workflows hosted on `Github <https://github.com>`_ if they follow certain `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_.
+   By complying to these `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_ you can make your workflow more discoverable and even automate its usage documentation (see `"Standardized usage" <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_).
