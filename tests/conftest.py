@@ -42,9 +42,9 @@ def s3_storage():
     import uuid
     import boto3
 
-    endpoint_url = "https://play.minio.io:9000"
-    access_key = "Q3AM3UQ867SPQQA43P2F"
-    secret_key = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+    endpoint_url = "https://127.0.0.1:9000"
+    access_key = "minio"
+    secret_key = "minio"
     bucket = f"snakemake-{uuid.uuid4().hex}"
 
     tagged_settings = TaggedSettings()

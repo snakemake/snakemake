@@ -89,6 +89,14 @@ jobs:
               >/etc/sysctl.d/90-disable-userns-restrictions.conf'
           sudo sysctl -p /etc/sysctl.d/90-disable-userns-restrictions.conf
 
+      - name: Setup minio
+        uses: infleet/minio-action@v0.0.1
+        with:
+          port: "9000"
+          version: "latest"
+          username: "minio"
+          password: "minio"
+
       - name: Test local
         env:
           CI: true
