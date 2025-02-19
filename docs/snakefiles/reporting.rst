@@ -1,8 +1,8 @@
 .. _snakefiles-reports:
 
--------
+=======
 Reports
--------
+=======
 
 From Snakemake 5.1 on, it is possible to automatically generate detailed self-contained HTML reports that encompass runtime statistics, provenance information, workflow topology and results.
 **As an example, the report of the Snakemake rolling paper can be found** `here <https://snakemake.github.io/resources/report.html>`__.
@@ -94,7 +94,7 @@ This works as follows:
             """
 
 Defining file labels
-~~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 In addition to category, and subcategory, it is possible (and highly recommended!) to define a dictionary of labels for each report item.
 By that, the actual filename will be hidden in the report and instead a table with the label keys as columns and the values in the respective row for the file will be displayed.
@@ -131,16 +131,19 @@ This behavior can be used to, for example, switch between different versions of 
 
 
 Determining category, subcategory, and labels dynamically via functions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------------------------------------------
 
 Similar to e.g. with input file and parameter definition (see :ref:`snakefiles-input_functions`), ``category`` and a ``subcategory`` and ``labels`` can be specified by pointing to a function that takes ``wildcards`` as the first argument (and optionally in addition ``input``, ``output``, ``params`` in any order).
 The function is expected to return a string or number (int, float, numpy types), or, in case of labels, a dict with strings as keys and strings or numbers as values.
 
 
 Linking between items
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
-In every ``.rst`` document, you can link to
+From captions
+^^^^^^^^^^^^^
+
+In every ``.rst`` document (i.e. in the captions), you can link to
 
 * the **Workflow** panel (with ``Rules_``),
 * the **Statistics** panel (with ``Statistics_``),
@@ -149,8 +152,102 @@ In every ``.rst`` document, you can link to
 
 For details about the hyperlink mechanism of restructured text see `here <https://docutils.sourceforge.io/docs/user/rst/quickref.html#hyperlink-targets>`__.
 
+From results
+^^^^^^^^^^^^
+
+From within results that are included into the report, you can link to other report items.
+This works by using the ``snakemake.report_href()`` method that is available from within :ref:`python scripts <snakefiles-external_scripts>`.
+The method takes the path to the target report item in exactly the same form as it is given in the Snakefile,
+and optionally can be extended to target child paths or by URL arguments.
+For example, consider the following Snakefile:
+
+.. code-block:: python
+
+    rule a:
+        input:
+            report("test.html"),
+            report(
+                "subdir",
+                patterns=["{name}.html"],
+            )
+        output:
+            report(
+                "test2.html",
+            )
+        script:
+            "test_script.py"
+
+Inside of the script, we can now use ``snakemake.report_href()`` to create a link to the file ``test.html`` such that it can be accessed from the file ``test2.html``:
+
+.. code-block:: python
+
+    import textwrap
+
+    with open(snakemake.output[0], "w") as f:
+        print(
+            textwrap.dedent(f"""
+            <html>
+                <head>
+                    <title>Report</title>
+                </head>
+                <body>
+                    <a href={snakemake.report_href("test.html")}>Link to test.html</a>
+                </body>
+            </html>
+            """
+            ),
+            file=f,
+        )
+
+Note that you will rarely directly generate HTML like this in a Python script within a Snakemake workflow.
+Rather, you might want to access ``snakemake.report_href()`` when e.g. generating a table which is later rendered into HTML by e.g. `Datavzrd <https://datavzrd.github.io>`__ (also see :ref:`interaction_visualization_reporting_tutorial`).
+
+In case you want to refer to a file that is inside of a directory that is included into the Snakemake report, you can do so using the ``child_path`` method:
+
+.. code-block:: python
+
+    import textwrap
+
+    with open(snakemake.output[0], "w") as f:
+        print(
+            textwrap.dedent(f"""
+            <html>
+                <head>
+                    <title>Report</title>
+                </head>
+                <body>
+                    <a href={snakemake.report_href("subdir").child_path("foo.html")}>Link to test.html</a>
+                </body>
+            </html>
+            """
+            ),
+            file=f,
+        )
+
+Further, using ``url_args()`` you can add URL arguments and using ``anchor()`` you can add a target anchor to the link, e.g. to scroll to a specific section of the target document:
+
+.. code-block:: python
+
+    import textwrap
+
+    with open(snakemake.output[0], "w") as f:
+        print(
+            textwrap.dedent(f"""
+            <html>
+                <head>
+                    <title>Report</title>
+                </head>
+                <body>
+                    <a href={snakemake.report_href("subdir").child_path("foo.html").url_args(someparam=5).anchor("mysection")}>Link to test.html</a>
+                </body>
+            </html>
+            """
+            ),
+            file=f,
+        )
+
 Rendering reports
-~~~~~~~~~~~~~~~~~
+-----------------
 
 To create the report simply run
 
