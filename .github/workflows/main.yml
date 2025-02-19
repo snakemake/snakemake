@@ -95,6 +95,7 @@ jobs:
           access_key: minio
           secret_key: minio
           port: 9000
+          bucket_name: test
 
       - name: Test local
         env:
