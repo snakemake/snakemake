@@ -761,7 +761,7 @@ def test_threads0():
     run(dpath("test_threads0"))
 
 
-@skip_on_windows # no minio deployment on windows implemented in our CI
+@skip_on_windows  # no minio deployment on windows implemented in our CI
 def test_default_storage(s3_storage):
     prefix, settings = s3_storage
 
@@ -789,7 +789,7 @@ def test_default_storage_local_job(s3_storage):
     )
 
 
-@skip_on_windows # no minio deployment on windows implemented in our CI
+@skip_on_windows  # no minio deployment on windows implemented in our CI
 def test_storage(s3_storage):
     prefix, settings = s3_storage
 
