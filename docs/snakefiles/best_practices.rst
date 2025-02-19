@@ -23,7 +23,7 @@ Care about code readability
 1. There is an automatic formatter for Snakemake workflows, called `Snakefmt <https://github.com/snakemake/snakefmt>`_, which should be applied to any Snakemake workflow before publishing it.
 2. Try to keep filenames short (thus easier on the eye), but informative. Avoid mixing of too many special characters (e.g. decide whether to use ``_`` or ``-`` as a separator and do that consistently throughout the workflow).
 3. Try to keep Python code like helper functions separate from rules (e.g. in a ``workflow/rules/common.smk`` file). This way, you help non-experts to read the workflow without needing to parse internals that are irrelevant for them. The helper function names should be chosen in a way that makes them sufficiently informative without looking at their content. Also avoid ``lambda`` expressions inside of rules.
-4. Use Snakemake's :ref:`semantic helper functions <snakefiles-semantic-helpers>` in order to increase readibility and to avoid the reimplementation of common functionality for aggregation, parameter lookup or path modifications.
+4. Use Snakemake's :ref:`semantic helper functions <snakefiles-semantic-helpers>` in order to increase readability and to avoid the reimplementation of common functionality for aggregation, parameter lookup or path modifications.
 
 Ensure portability
 ------------------
@@ -33,7 +33,7 @@ Annotate all your rules with versioned :ref:`Conda <integrated_package_managemen
 Generate interactive reports (for free)
 ---------------------------------------
 
-Annotate your final results for inclusing into Snakemake's automatic :ref:`interactive reports <snakefiles-reports>` (thereby make sure to use all the features, including categories and labels).
+Annotate your final results for including into Snakemake's automatic :ref:`interactive reports <snakefiles-reports>` (thereby make sure to use all the features, including categories and labels).
 This makes them explorable in a high-level way, while connecting them to the workflow code, parameters, and software stack.
 
 Enable configurability
