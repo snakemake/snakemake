@@ -1,7 +1,7 @@
-sphinx >=3
+sphinx ==8.1  # TODO workaround for bug, update as soon as fixed
 sphinxcontrib-napoleon
 sphinx-argparse
-sphinx-autodoc-typehints ==3.0.1
+sphinx-autodoc-typehints
 docutils
 myst-parser
 configargparse
