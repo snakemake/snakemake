@@ -90,12 +90,11 @@ jobs:
           sudo sysctl -p /etc/sysctl.d/90-disable-userns-restrictions.conf
 
       - name: Setup minio
-        uses: infleet/minio-action@v0.0.1
+        uses: comfuture/minio-action@v1
         with:
-          port: "9000"
-          version: "latest"
-          username: "minio"
-          password: "minio"
+          access_key: minio
+          secret_key: minio
+          port: 9000
 
       - name: Test local
         env:
