@@ -303,7 +303,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                 if run:
                     if not self.dryrun:
-                        logger.info(f"Execute {len(run)} jobs...")
+                        logger.info(
+                            f"Execute {len(run)} jobs...",
+                            extra=dict(
+                                level="job_started", jobs=[j.jobid for j in run]
+                            ),
+                        )
 
                     # actually run jobs
                     local_runjobs = [job for job in run if job.is_local]
@@ -400,12 +405,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         for j in job:
                             logger.info(
                                 f"Finished jobid: {j.jobid} (Rule: {j.rule.name})",
-                                extra=dict(level="job_finished", extra=vars(j)),
+                                extra=dict(level="job_finished", job_id=j.jobid),
                             )
                     else:
                         logger.info(
                             f"Finished jobid: {job.jobid} (Rule: {job.rule.name})",
-                            extra=dict(level="job_finished", extra=vars(job)),
+                            extra=dict(level="job_finished", job_id=job.jobid),
                         )
                     self.progress()
 
