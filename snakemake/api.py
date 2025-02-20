@@ -245,7 +245,7 @@ class SnakemakeApi(ApiBase):
         mode: ExecMode = ExecMode.DEFAULT,
         dryrun: bool = False,
     ):
-        if not self.output_settings.keep_logger:
+        if not self.output_settings.keep_logger and not logger_manager.initialized:
             log_handlers = []
             for name, settings in self.output_settings.log_handler_settings.items():
                 plugin = LoggerPluginRegistry().get_plugin(name)
