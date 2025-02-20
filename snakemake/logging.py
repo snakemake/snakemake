@@ -655,7 +655,7 @@ class LoggerManager:
         """Log the logfile location if applicable."""
         logfiles = self.logfile_handlers.values()
         if self.mode == ExecMode.DEFAULT and not self.settings.dryrun and logfiles:
-            log_paths = ", ".join([os.path.relpath(p) for p in logfiles])
+            log_paths = ", ".join([os.path.abspath(p) for p in logfiles])
             self.logger.info(f"Complete log(s): {log_paths}")
         return logfiles
 
