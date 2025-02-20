@@ -159,11 +159,11 @@ class SnakemakeApi(ApiBase):
         """Cleanup the workflow."""
         if not self.output_settings.keep_logger:
             logger_manager.cleanup_logfile()
+            logger_manager.stop()
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
             if self._workflow_api._workflow_store is not None:
                 self._workflow_api._workflow_store.tear_down()
-        logger_manager.stop()
 
     def deploy_sources(
         self,
@@ -245,7 +245,7 @@ class SnakemakeApi(ApiBase):
         mode: ExecMode = ExecMode.DEFAULT,
         dryrun: bool = False,
     ):
-        if not self.output_settings.keep_logger and not logger_manager.initialized:
+        if not self.output_settings.keep_logger:
             log_handlers = []
             for name, settings in self.output_settings.log_handler_settings.items():
                 plugin = LoggerPluginRegistry().get_plugin(name)
