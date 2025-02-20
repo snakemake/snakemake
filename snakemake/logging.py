@@ -150,36 +150,34 @@ class DefaultFormatter(logging.Formatter):
         level = get_level(record)
         record_dict = record.__dict__.copy()
 
-        # Call specific formatters based on the log level
-        match level:
-            case "info":
-                return self.format_info(record_dict)
-            case "host":
-                return self.format_host(record_dict)
-            case "job_info":
-                return self.format_job_info(record_dict)
-            case "group_info":
-                return self.format_group_info(record_dict)
-            case "job_error":
-                return self.format_job_error(record_dict)
-            case "group_error":
-                return self.format_group_error(record_dict)
-            case "progress":
-                return self.format_progress(record_dict)
-            case "job_finished":
-                return self.format_job_finished(record_dict)
-            case "shellcmd":
-                return self.format_shellcmd(record_dict)
-            case "rule_info":
-                return self.format_rule_info(record_dict)
-            case "d3dag":
-                return self.format_d3dag(record_dict)
-            case "dag_debug":
-                return self.format_dag_debug(record_dict)
-            case "run_info":
-                return self.format_run_info(record_dict)
-            case _:
-                return record_dict["msg"]
+        if level == "info":
+            return self.format_info(record_dict)
+        elif level == "host":
+            return self.format_host(record_dict)
+        elif level == "job_info":
+            return self.format_job_info(record_dict)
+        elif level == "group_info":
+            return self.format_group_info(record_dict)
+        elif level == "job_error":
+            return self.format_job_error(record_dict)
+        elif level == "group_error":
+            return self.format_group_error(record_dict)
+        elif level == "progress":
+            return self.format_progress(record_dict)
+        elif level == "job_finished":
+            return self.format_job_finished(record_dict)
+        elif level == "shellcmd":
+            return self.format_shellcmd(record_dict)
+        elif level == "rule_info":
+            return self.format_rule_info(record_dict)
+        elif level == "d3dag":
+            return self.format_d3dag(record_dict)
+        elif level == "dag_debug":
+            return self.format_dag_debug(record_dict)
+        elif level == "run_info":
+            return self.format_run_info(record_dict)
+        else:
+            return record_dict["msg"]
 
     def format_info(self, msg):
         """
