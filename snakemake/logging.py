@@ -685,7 +685,7 @@ class LoggerManager:
             self.logfile_handlers[handler] = logfile
 
     def stop(self):
-        if self.queue_listener is not None:
+        if self.queue_listener is not None and self.queue_listener._thread is not None:
             self.queue_listener.stop()
 
 
