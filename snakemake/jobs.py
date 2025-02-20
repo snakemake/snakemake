@@ -1396,7 +1396,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         return any(job.is_updated for job in self.jobs)
 
     def log_info(self):
-        logger.info(extra=dict(level="group_info", groupid=self.groupid))
+        logger.info("", extra=dict(level="group_info", groupid=self.groupid))
         for job in sorted(self.jobs, key=lambda j: j.rule.name):
             job.log_info(indent=True)
 
@@ -1406,6 +1406,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         ]
         aux_logs = aux_logs or []
         logger.error(
+            "",
             dict(
                 level="group_error",
                 groupid=self.groupid,
@@ -1413,7 +1414,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 aux_logs=aux_logs,
                 job_error_info=job_error_info,
                 **kwargs,
-            )
+            ),
         )
 
     def register(self, external_jobid: Optional[str] = None):
