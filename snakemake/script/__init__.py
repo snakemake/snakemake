@@ -30,7 +30,7 @@ from snakemake import sourcecache
 from snakemake.common import MIN_PY_VERSION, ON_WINDOWS, get_snakemake_searchpaths
 from snakemake.deployment import singularity
 from snakemake.exceptions import WorkflowError
-from snakemake.logging import logger
+from snakemake.logging import logger_manager, logger
 from snakemake.shell import shell
 from snakemake.sourcecache import (
     LocalSourceFile,
@@ -751,7 +751,7 @@ class PythonScript(ScriptBase):
             del script;
             from snakemake.logging import logger;
             from snakemake.script import snakemake;
-            {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds};
+            {shell_exec_stmt}
             {preamble_addendum}
             """
         return "\n".join(
