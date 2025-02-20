@@ -272,6 +272,7 @@ class DefaultFormatter(logging.Formatter):
 
     def format_d3dag(self, msg):
         """Format for d3dag log."""
+
         return json.dumps({"nodes": msg["nodes"], "links": msg["edges"]})
 
     def format_dag_debug(self, msg):
@@ -573,7 +574,9 @@ class LoggerManager:
         other_handlers = []
 
         if self.mode == ExecMode.SUBPROCESS:
-            stream_handlers.append(logging.NullHandler())
+            handler = self._default_streamhandler()
+            handler.setLevel(logging.ERROR)
+            stream_handlers.append(handler)
         elif self.mode == ExecMode.REMOTE:
             stream_handlers.append(self._default_streamhandler())
         elif handlers:
