@@ -144,7 +144,7 @@ jobs:
           ls -R
 
       - name: Upload report
-        if: ${{ matrix.test_group == 1 }}
+        if: '(matrix.test_group == 1) && (matrix.shell == "bash")'
         uses: actions/upload-artifact@v4
         with:
           name: report-${{ matrix.py_ver }}.zip
