@@ -507,6 +507,27 @@ class Assets:
             sha256="f657f99d3fb9647db92628e96007aabb46e5f04f33e49999075aab8e250ca7ce",
             version="15.7.2",
         ),
+        # Begin dependencies for prop-types, included in prop-types/prop-types.min.js
+        # Versions from https://github.com/facebook/prop-types/blob/v15.7.2/yarn.lock
+        # ----
+        # The loose-envify package is among prop-types's direct dependencies,
+        # and the yarn.lock file shows two versions could be included: 1.4.0
+        # and 1.3.1 (both MIT-licensed). However, we found no trace of
+        # loose-envify code in the actual prop-types.min.js bundle, so it
+        # appears this dependency was removed in tree-shaking, along with its
+        # dependency js-tokens (3.0.0 and/or 4.0.0).
+        # ----
+        # The object-assign package (version 4.1.1) is among prop-types's
+        # direct dependencies, but we found no trace of it in the actual
+        # prop-types.min.js bundle, so it appears this dependency (a polyfill)
+        # was removed in tree-shaking.
+        # ----
+        # The react-is package (version 16.8.1) is among prop-types's
+        # direct dependencies, but we found no trace of it in the actual
+        # prop-types.min.js bundle, so it appears this dependency was removed
+        # in tree-shaking.
+        # ----
+        # End dependencies for prop-types, included in prop-types/prop-types.min.js
     }
 
     @classmethod
