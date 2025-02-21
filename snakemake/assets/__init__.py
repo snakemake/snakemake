@@ -63,10 +63,10 @@ class Assets:
             version="3.0.23",
         ),
         "tailwindcss/tailwind.css": Asset(
-            url="https://cdn.tailwindcss.com/{version}?plugins=forms@0.4.0,typography@0.5.2",
+            url="https://cdn.tailwindcss.com/{version}?plugins=forms@0.5.9,typography@0.5.2",
             # The tailwindcss cdn checksum is not stable. Since this is only included
             # as CSS styles, the risk is low.
-            version="3.0.23",
+            version="3.4.16",
         ),
         "react/LICENSE": Asset(
             url="https://raw.githubusercontent.com/facebook/react/refs/tags/v{version}/LICENSE",

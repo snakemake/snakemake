@@ -15,3 +15,7 @@ function isSingleDefaultCategory() {
 function isSingleSubcategory(category) {
     return Object.keys(categories[category]).length == 1;
 }
+
+function getResultMimeType(resultPath) {
+    return results[resultPath].mime_type
+}
