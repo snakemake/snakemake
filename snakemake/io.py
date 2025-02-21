@@ -683,11 +683,14 @@ class _IOFile(str, AnnotatedStringInterface):
             except OSError as e:
                 # ignore Errno 17 "File exists" (reason: multiprocessing)
                 if e.errno != 17:
-                    raise e
+                    raise WorkflowError(f"Failed to create output directory {dirpath}.", e)
 
         if is_flagged(self._file, "pipe"):
             assert isinstance(self._file, AnnotatedString)
-            os.mkfifo(self._file)
+            try:
+                os.mkfifo(self._file)
+            except Exception as e:
+                raise WorkflowError(f"Failed to create FIFO for pipe output {self._file}.", e)
 
     def protect(self):
         mode = (
@@ -1172,7 +1175,9 @@ def pipe(value):
         raise SyntaxError("Pipes may not be in storage.")
     if ON_WINDOWS:
         logger.warning("Pipes are not yet supported on Windows.")
-    return flag(value, "pipe", not ON_WINDOWS)
+        return value
+    else:
+        return flag(value, "pipe")
 
 
 def service(value):
