@@ -95,11 +95,11 @@ class Assets:
         ),
         # Begin dependencies for vega, included in vega/vega.js
         # Versions from https://github.com/vega/vega/blob/v5.21.0/yarn.lock.
-		# Via vega-crossfilter, vega-encode, vega-format,
-		# vega-functions, vega-geo, vega-regression, vega-scale, vega-statistics,
+        # Via vega-crossfilter, vega-encode, vega-format,
+        # vega-functions, vega-geo, vega-regression, vega-scale, vega-statistics,
         # vega-time, vega-transforms, vega-view; and via d3-geo (via vega-functions,
         # vega-geo, vega-projection); and via d3-geo-projection (via vega-projection)
-		#
+        #
         # This has its own dependency, internmap (1.0.1); however, while we can
         # find code from vega-crossfilter and d3-array in vega.js, there does
         # not appear to be any code from internmap after tree-shaking.
