@@ -144,7 +144,11 @@ jobs:
           ls -R
 
       - name: Upload report
+<<<<<<< HEAD
         if: ${{ matrix.test_group == 1 && matrix.shell == 'dash'}}
+=======
+        if: '(matrix.test_group == 1) && (matrix.shell == "bash")'
+>>>>>>> dfe1cb67f9d929050055179b51e7b5a741fc400f
         uses: actions/upload-artifact@v4
         with:
           name: report-${{ matrix.py_ver }}.zip
