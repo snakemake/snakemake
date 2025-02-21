@@ -420,6 +420,78 @@ class Assets:
             sha256="32df67148f0fc3db0eb9e263a7b75d07f1eb14c61955005a4a39c6918d10d137",
             version="6.20.8",
         ),
+        # Begin dependencies for vega-embed, included in vega-embed/vega-embed.js
+        # Versions from https://github.com/vega/vega-embed/blob/v6.20.8/yarn.lock.
+        "fast-json-patch/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/Starcounter-Jack/JSON-Patch/refs/tags/v{version}/LICENSE.txt",
+            sha256="26593d78926902a82eb9bc7e40d1811fc381055f23516b92fe48ca8399bf02df",
+            version="3.1.0",
+        ),
+        # json-stringify-pretty-compact 3.0.0 is already covered as one of
+        # vega's dependencies
+        # ----
+        # There are four versions of the semver package in yarn.lock (5.7.1,
+        # 6.3.0, 7.0.0, 7.3.5), but it appears that only one copy remains in
+        # the vega-embed.js bundle. The bundle has a compareBuild function,
+        # added in 6.1.0. It does not export a "tokens" list, added in 6.3.0
+        # and present in 7.0.0, but that is not conclusive because the package
+        # was split into separate source files to improve tree-shaking. By
+        # 7.3.5, the first line of the SemVer class constructor changes to
+        # "options = parseOptions(options)", and this does match what we see in
+        # the bundle, so we conclude that we have semver 7.3.5. In any case,
+        # the ISC license was unchanged across all four versions.
+        "semver/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/npm/node-semver/refs/tags/v{version}/LICENSE",
+            sha256="4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b",
+            version="7.3.5",
+        ),
+        # The tslib package is among vega-embed's direct dependencies, and the
+        # yarn.lock file shows four versions could be included: 2.3.1, 2.1.0,
+        # 1.14.1 (all MIT-licensed), and 1.1.0 (Apache-2.0-licensed). However,
+        # we found no trace of any of these in the actual vega-embed.js bundle.
+        # ----
+        # The following packages are part of vega, and are already covered by
+        # vega/LICENSE.
+        # - vega-interpreter: no dependencies
+        # ----
+        # This is not part of https://github.com/vega/vega, as far as we can
+        # tell, so we handle it separately. The repository
+        # https://github.com/vega/schema linked from NPM appears to contain
+        # only JSON schemas, not JavaScript source code, so we use an unpkg URL
+        # to reference the contents of the NPM package instead.
+        "vega-schema-url-parser/LICENSE": Asset(
+            url="https://unpkg.com/vega-schema-url-parser@{version}/LICENSE",
+            sha256="eeb1606fda238f623c36d1eb5e27c33b986a446445340b220c141097424af045",
+            version="2.2.0",
+        ),
+        "vega-themes/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/vega/vega-themes/refs/tags/v{version}/LICENSE",
+            sha256="ceb75fa4fbebbc381c0465442a502ffc13b73f36ccb385a66bcd5f55869e3979",
+            version="2.10.0",
+        ),
+        # Depends on vega-util, which is already covered in vega
+        "vega-tooltip/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/vega/vega-tooltip/refs/tags/v{version}/LICENSE",
+            sha256="93cd20d9cee8c77c080d1a585e3b07644ad2c8e9ccdfc86e350136884d62d935",
+            version="0.28.0",
+        ),
+        # End dependencies for vega-embed, included in vega-embed/vega-embed.js
+        # Begin copied/derived/adapted code in vega-embed, included in vega-embed/vega-embed.js
+        # - hashlru is included in vega-util (via vega-tooltip); already
+        #   covered as one of vega's dependencies
+        # - _areEquals() is based on fast-deep-equal; already covered as one of
+        #   vega-lite's dependencies
+        # - googlecharts theme in vega-themes carries its own copyright statement,
+        #     Copyright 2020 Google LLC.
+        #
+        #     Use of this source code is governed by a BSD-style
+        #     license that can be found in the LICENSE file or at
+        #     https://developers.google.com/open-source/licenses/bsd
+        #   No plain-text version of that URL is available, and the license has
+        #   the same BSD-3-Clause permission statement as vega-themes itself,
+        #   so we consider the combination of vega-themes/LICENSE and the
+        #   copyright statement in the source code sufficient.
+        # End copied/derived/adapted code in vega-embed, included in vega-embed/vega-embed.js
         "heroicons/LICENSE": Asset(
             url="https://raw.githubusercontent.com/tailwindlabs/heroicons/refs/tags/v{version}/LICENSE",
             sha256="75523ddd65d9620bea09f84e89d0c373b4205a3708b8a1e9f9598a5438a3e641",

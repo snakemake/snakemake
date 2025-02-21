@@ -164,6 +164,25 @@ def get_packages():
                 source_path="vega-embed/vega-embed.js",
                 license_path="vega-embed/LICENSE",
             ),
+            # Begin dependencies for vega-embed, included in vega-embed/vega-embed.js
+            # (excluding those shared with vega/vega-lite and therefore already documented)
+            "fast-json-patch": Package(
+                license_path="fast-json-patch/LICENSE",
+            ),
+            "semver": Package(
+                license_path="semver/LICENSE",
+            ),
+            "vega-schema-url-parser": Package(
+                license_path="vega-schema-url-parser/LICENSE",
+            ),
+            "vega-themes": Package(
+                license_path="vega-themes/LICENSE",
+            ),
+            "vega-tooltip": Package(
+                license_path="vega-tooltip/LICENSE",
+            ),
+            # End dependencies for vega-embed, included in vega-embed/vega-embed.js
+            # Any copied/derived/adapted code in vega-embed is shared with vega and/or vega-lite.
             "heroicons": Package(
                 license_path="heroicons/LICENSE",
             ),
