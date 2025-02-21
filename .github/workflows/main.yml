@@ -41,9 +41,12 @@ jobs:
     strategy:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        py_ver: ["3.11", "3.12"]
+        py_ver:
+          - "3.11"
+          - "3.12"
+        shell:
+          - bash
         include:
-          - shell: bash
           - shell: dash # for py 3.12 also test dash as default shell (snakemake will still use bash for shell commands)
             py_ver: "3.12"
     runs-on: ubuntu-latest
