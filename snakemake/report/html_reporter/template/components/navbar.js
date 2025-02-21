@@ -205,7 +205,8 @@ class Navbar extends React.Component {
         if (isSingleDefaultCategory()) {
             return undefined;
         }
-        return { name: "Results", func: undefined };
+        let setView = this.props.app.setView;
+        return { name: "Results", func: function () { setView({ navbarMode: "menu", category: undefined, subcategory: undefined }) } };
     }
 
     getSearchResultsBreadcrumb() {
