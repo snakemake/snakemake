@@ -683,14 +683,18 @@ class _IOFile(str, AnnotatedStringInterface):
             except OSError as e:
                 # ignore Errno 17 "File exists" (reason: multiprocessing)
                 if e.errno != 17:
-                    raise WorkflowError(f"Failed to create output directory {dirpath}.", e)
+                    raise WorkflowError(
+                        f"Failed to create output directory {dirpath}.", e
+                    )
 
         if is_flagged(self._file, "pipe"):
             assert isinstance(self._file, AnnotatedString)
             try:
                 os.mkfifo(self._file)
             except Exception as e:
-                raise WorkflowError(f"Failed to create FIFO for pipe output {self._file}.", e)
+                raise WorkflowError(
+                    f"Failed to create FIFO for pipe output {self._file}.", e
+                )
 
     def protect(self):
         mode = (
