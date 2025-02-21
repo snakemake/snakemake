@@ -222,7 +222,7 @@ class DefaultFormatter(logging.Formatter):
             output.append("DAG of jobs will be updated after completion.")
         if msg["is_handover"]:
             output.append("Handing over execution to foreign system...")
-        output.append("")
+
         return "\n".join(output)
 
     def format_group_info(self, msg):
@@ -536,9 +536,11 @@ class ColorizingTextHandler(logging.StreamHandler):
         """
         Add color to the log message based on its level.
         """
-        message = [message]  # Treat the formatted message as a list
+        message = [message]
 
-        # Use record.levelname to apply color if applicable
+        if record.levelname == "INFO" and not hasattr(record, "level"):
+            record.levelname = "WARNING"  # mimic old snakemake logging color
+
         if not self.nocolor and record.levelname in self.colors:
             message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
             message.append(self.RESET_SEQ)
