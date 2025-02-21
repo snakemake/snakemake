@@ -104,85 +104,100 @@ class Assets:
         # find code from vega-crossfilter and d3-array in vega.js, there does
         # not appear to be any code from internmap after tree-shaking.
         "d3-array/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-array/refs/tags/v2.12.1/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-array/refs/tags/v{version}/LICENSE",
             sha256="0747bebeb06b10954913149be9b9a8bdf6fad3e6fdcbd9f9524e7a94c13d2cea",
+            version="2.12.1",
         ),
         # Via vega-format
         "d3-format/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-format/refs/tags/v2.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-format/refs/tags/v{version}/LICENSE",
             sha256="7eea8533ea92bd8c32a901e89ecb0305890905bb12711449565ddff96891146d",
+            version="2.0.0",
         ),
         # Via vega-format
         "d3-time-format/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-time-format/refs/tags/v3.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-time-format/refs/tags/v{version}/LICENSE",
             sha256="7a3cb0e5055874e67db9aa2d5fe26de23204fa994ffbad198901ffe9c812a717",
+            version="3.0.0",
         ),
         # Via vega-time, vega-view; and via d3-time-format (via vega-format)
         "d3-time/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-time/refs/tags/v2.1.1/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-time/refs/tags/v{version}/LICENSE",
             sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+            version="2.1.1",
         ),
         # Via vega-encode, vega-scale
         "d3-interpolate/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-interpolate/refs/tags/v2.0.1/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-interpolate/refs/tags/v{version}/LICENSE",
             sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+            version="2.0.1",
         ),
         # Via vega-functions, vega-geo; and via d3-interpolate (via vega-encode)
         "d3-color/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-color/refs/tags/v2.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-color/refs/tags/v{version}/LICENSE",
             sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+            version="2.0.0",
         ),
         # Via vega-scale
         "d3-scale/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-scale/refs/tags/v3.3.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-scale/refs/tags/v{version}/LICENSE",
             sha256="7eea8533ea92bd8c32a901e89ecb0305890905bb12711449565ddff96891146d",
+            version="3.3.0",
         ),
         # Via vega-expression
         # The license file included in the NPM package does not exist directly
         # in https://github.com/DefinitelyTyped/DefinitelyTyped, so we use an
         # unpkg URL to reference the contents of the NPM package instead.
         "@types-estree/LICENSE": Asset(
-            url="https://unpkg.com/@types/estree@0.0.50/LICENSE",
+            url="https://unpkg.com/@types/estree@{version}/LICENSE",
             sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+            version="0.0.50",
         ),
         # Via vega-force
         "d3-force/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-force/refs/tags/v2.1.1/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-force/refs/tags/v{version}/LICENSE",
             sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+            version="2.1.1",
         ),
         # Via d3-force (via vega-force)
         "d3-dispatch/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-dispatch/refs/tags/v2.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-dispatch/refs/tags/v{version}/LICENSE",
             sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+            version="2.0.0",
         ),
         # Via d3-force (via vega-force)
         "d3-quadtree/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-quadtree/refs/tags/v2.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-quadtree/refs/tags/v{version}/LICENSE",
             sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+            version="2.0.0",
         ),
         # Via vega-view; and via d3-force (via vega-force)
         "d3-timer/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-timer/refs/tags/v2.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-timer/refs/tags/v{version}/LICENSE",
             sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+            version="2.0.0",
         ),
         # Via vega-functions, vega-geo, vega-projection (directly and via
         # d3-geo-projection)
         "d3-geo/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-geo/refs/tags/v2.0.2/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-geo/refs/tags/v{version}/LICENSE",
             sha256="c3c9d41a75b64963748657932167ec4c56404b8fd557d4f89c9eeda6e2fdf39a",
+            version="2.0.2",
         ),
         # Via vega-hierarchy
         "d3-hierarchy/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-hierarchy/refs/tags/v2.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-hierarchy/refs/tags/v{version}/LICENSE",
             sha256="e1211892da0b0e0585b7aebe8f98c1274fba15bafe47fa1f4ee8a7a502c06304",
+            version="2.0.0",
         ),
         # Via vega-loader
         # This has its own dependencies (commander 2.20.3, iconv-lite 0.4.24,
         # rw 1.3.3), but they are all used only in the command-line tools
         # rather than in the library that is bundled in vega.js.
         "d3-dsv/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-dsv/refs/tags/v2.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-dsv/refs/tags/v{version}/LICENSE",
             sha256="8b5304265ccedbd17567aa14a0dc6b9bf4013fee44964c46aa54fdf8527d6a68",
+            version="2.0.0",
         ),
         # Via vega-loader; also from vega-geo/src/util/contours.js, "Based on
         # https://github.com/topojson/topojson-client/blob/v3.0.0/src/stitch.js"
@@ -191,36 +206,42 @@ class Assets:
         # in vega.js. Dependency node-fetch 2.6.4, via vega-loader, is not
         # used for browser builds.
         "topojson-client/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/topojson/topojson-client/refs/tags/v3.1.0/LICENSE",
+            url="https://raw.githubusercontent.com/topojson/topojson-client/refs/tags/v{version}/LICENSE",
             sha256="4c4d15b635e04e691825a76db7d33f7f2033b55669a7430011694f31e6c65999",
+            version="3.1.0",
         ),
         # Via vega-projection
         # This has its own dependencies (commander 2.20.3, resolve 1.20.0), but
         # they are all used only in the command-line tools rather than in the
         # library that is bundled in vega.js.
         "d3-geo-projection/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-geo-projection/refs/tags/v3.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-geo-projection/refs/tags/v{version}/LICENSE",
             sha256="4108a126a74cc35d4d5ae39ca5d0cc926fa7c8ec40e459a0c6d3481c69decbd8",
+            version="3.0.0",
         ),
         # Via vega-scenegraph (directly and via d3-shape)
         "d3-path/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-path/refs/tags/v2.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-path/refs/tags/v{version}/LICENSE",
             sha256="b8265327ab678f554800e71188b1cc6b1ff57522e292d2b1c0be66f27cf328b6",
+            version="2.0.0",
         ),
         # Via vega-scenegraph
         "d3-shape/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-shape/refs/tags/v2.1.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-shape/refs/tags/v{version}/LICENSE",
             sha256="7eea8533ea92bd8c32a901e89ecb0305890905bb12711449565ddff96891146d",
+            version="2.1.0",
         ),
         # Via vega-voronoi
         "d3-delaunay/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-delaunay/refs/tags/v5.2.0/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-delaunay/refs/tags/v{version}/LICENSE",
             sha256="d19bf35c4080eea32e098a9c8d62540ffd425611ac8dfc856a233f0357d8b02e",
+            version="5.2.0",
         ),
         # Via d3-delaunay (via vega-voronoi)
         "delaunator/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/mapbox/delaunator/refs/tags/v4.0.1/LICENSE",
+            url="https://raw.githubusercontent.com/mapbox/delaunator/refs/tags/v{version}/LICENSE",
             sha256="27043d1a6a0e1985fde12660decbbd3b23c67de900b00609c90d4f0aa492f425",
+            version="4.0.1",
         ),
         # End dependencies for vega, included in vega/vega.js
         # Begin copied/derived/adapted code in vega, included in vega/vega.js
@@ -229,8 +250,9 @@ class Assets:
         # was the current version when the function was added to vega, in
         # commit f153863f3575bff1b42294c9cb065d80afb757ff on 2020-02-28.
         "hashlru/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/dominictarr/hashlru/refs/tags/v1.0.4/LICENSE",
+            url="https://raw.githubusercontent.com/dominictarr/hashlru/refs/tags/v{version}/LICENSE",
             sha256="08e4bd7a280eaaf1fbcaad9dad1fb94412477fcdd1cf81660988303297e5e1d1",
+            version="1.0.4",
         ),
         # From
         # vega-statistics/src/regression/{poly,r-squared,pow,log,linear}.js,
@@ -241,6 +263,7 @@ class Assets:
         "d3-regression/LICENSE": Asset(
             url="https://raw.githubusercontent.com/HarryStevens/d3-regression/e23d40a663dffba14b92cb42d9989de3a32894b5/LICENSE",
             sha256="d210203f922101502894baf700b9a392e323a26e4b603ab166c57e09a6e773b5",
+            version="1.2.1",
         ),
         # From vega-statistics/src/regression/poly.js, "Adapted from
         # d3-regression by Harry Stevens [...] which was adapted from
@@ -248,24 +271,27 @@ class Assets:
         # when the functions were added to vega, in commit
         # 71610e4456a3a4145435d83f8458748ba137a2a3 2019-05-10.
         "regression/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/Tom-Alexander/regression-js/refs/tags/2.0.1/LICENSE",
+            url="https://raw.githubusercontent.com/Tom-Alexander/regression-js/refs/tags/{version}/LICENSE",
             sha256="2f932f5cfb9b042cc6c0089ee8004b33e3746ffeab879341dbd453c150524307",
+            version="2.0.1",
         ),
         # From vega-statistics/src/regression/loess.js, "Adapted from
         # science.js by Jason Davies". Version 1.9.3 was the current version
         # when the functions were added to vega, in commit
         # 71610e4456a3a4145435d83f8458748ba137a2a3 on 2019-05-10.
         "science/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/jasondavies/science.js/refs/tags/v1.9.3/LICENSE",
+            url="https://raw.githubusercontent.com/jasondavies/science.js/refs/tags/v{version}/LICENSE",
             sha256="3bd1fdf686ffcad175daddcb36ee28599ac8f090b6cec2c7654118c8a6f3d4c9",
+            version="1.9.3",
         ),
         # From src/quickselect.js in d3-array, "Based on
         # https://github.com/mourner/quickselect". Version 2.0.0 was the
         # current version when the file was added to d3-array, in commit
         # d447c2a31cd6aacf54a40b22c29620f7e17bbd7e on 2018-11-10.
         "quickselect/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/mourner/quickselect/refs/tags/v2.0.0/LICENSE",
+            url="https://raw.githubusercontent.com/mourner/quickselect/refs/tags/v{version}/LICENSE",
             sha256="597034cb7c11c916ad407344ea99a0b08e3c443a6b4421460f1d23c411c69707",
+            version="2.0.0",
         ),
         # From vega-statistics/src/normal.js, "Ported from Apache Commons
         # Math". Version 3.6.1 was the current version when this implementation
@@ -274,10 +300,12 @@ class Assets:
         "commons-math/LICENSE.txt": Asset(
             url="https://raw.githubusercontent.com/apache/commons-math/refs/tags/MATH_3_6_1/LICENSE.txt",
             sha256="64f23963615950bad9ddd31569a7f09afbbe11b81d94873ffd9b1cac6081a11d",
+            version="3.6.1",
         ),
         "commons-math/NOTICE.txt": Asset(
             url="https://raw.githubusercontent.com/apache/commons-math/refs/tags/MATH_3_6_1/NOTICE.txt",
             sha256="5495442a32bfc2b93b4a8f2c34c5c218d16cca434aa5684fb953d9419120e3fa",
+            version="3.6.1",
         ),
         # From vega-expression/src/parser.js, "The following expression parser
         # is based on Esprima (http://esprima.org/)." Unusually, the original
@@ -288,8 +316,9 @@ class Assets:
         # had a copyright statement in esprima.js attributing specific
         # individual contributors, as reproduced in the vega source.
         "esprima/LICENSE.BSD": Asset(
-            url="https://raw.githubusercontent.com/jquery/esprima/refs/tags/2.2.0/LICENSE.BSD",
+            url="https://raw.githubusercontent.com/jquery/esprima/refs/tags/{version}/LICENSE.BSD",
             sha256="0e74697a68cebdcd61502c30fe80ab7f9e341d995dcd452023654d57133534b1",
+            version="2.2.0",
         ),
         # From vega-scenegraph/src/path/arc.js, "Copied from Inkscape svgtopdf,
         # thanks!" We cannot find the original implementation in Inkscape or
@@ -299,22 +328,25 @@ class Assets:
         # 82932143de7cef4187a34026689df12abaa25959 on 2018-12-20, and the
         # current release of fabric.js at that time was 2.4.5.
         "fabric/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/fabricjs/fabric.js/refs/tags/v2.4.5/LICENSE",
+            url="https://raw.githubusercontent.com/fabricjs/fabric.js/refs/tags/v{version}/LICENSE",
             sha256="9f6c2cc99aa9c618df93fed7d1cf7279d4e329d92dd2ce5e96173c73ce305055",
+            version="2.4.5",
         ),
         # From vega-geo/src/util/{contours,density2D}.js, "Implementation
         # adapted from d3/d3-contour. Thanks!" When these routines were added
         # in 0ab6b730a7e576d33d00e12063855bb132194191 on 2019-11-11, the latest
         # version was 1.3.2.
         "d3-contour/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/d3/d3-contour/refs/tags/v1.3.2/LICENSE",
+            url="https://raw.githubusercontent.com/d3/d3-contour/refs/tags/v{version}/LICENSE",
             sha256="5f5dcce265668080a60fbdc513f6f8ef21466780bcaa331e64ee39df19e63b30",
+            version="1.3.2",
         ),
         # From vega-geo/src/util/contours.js, "Based on
         # https://github.com/mbostock/shapefile/blob/v0.6.2/shp/polygon.js"
         "shapefile/LICENSE": Asset(
-            url="https://raw.githubusercontent.com/mbostock/shapefile/refs/tags/v0.6.2/LICENSE.txt",
+            url="https://raw.githubusercontent.com/mbostock/shapefile/refs/tags/v{version}/LICENSE.txt",
             sha256="c16529a9d5b8802982abd714a6823344e24b0cb5131596bc343927ead605d708",
+            version="0.6.2",
         ),
         # End copied/derived/adapted code in vega, included in vega/vega.js
         "vega-lite/vega-lite.js": Asset(
