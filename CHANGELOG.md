@@ -1,6 +1,25 @@
 # Changelog
 
 
+## [8.29.0](https://github.com/snakemake/snakemake/compare/v8.28.0...v8.29.0) (2025-02-21)
+
+
+### Features
+
+* provide mechanism to link between report items (snakemake.report_href, see docs) ([#3224](https://github.com/snakemake/snakemake/issues/3224)) ([a024e60](https://github.com/snakemake/snakemake/commit/a024e6064dc08cdb15f4cc1b190974a5d1a1be5d))
+* toggles for binary labels in report ([#3296](https://github.com/snakemake/snakemake/issues/3296)) ([7690998](https://github.com/snakemake/snakemake/commit/7690998cc3235d26c9785bd3973dc776084fb797))
+
+
+### Bug Fixes
+
+* add missing [@conda](https://github.com/conda) annotations ([#3298](https://github.com/snakemake/snakemake/issues/3298)) ([0b541cc](https://github.com/snakemake/snakemake/commit/0b541ccc08e2995011ead85f23fa67ce669bc81a))
+* sort results lexicographically by labels in their order of appearance ([#3293](https://github.com/snakemake/snakemake/issues/3293)) ([a19a0ac](https://github.com/snakemake/snakemake/commit/a19a0ac3c969380a856d5b8c3aa2626a91c412a3))
+
+
+### Documentation
+
+* update best practices ([7270eb3](https://github.com/snakemake/snakemake/commit/7270eb325eb1ee5270dfcebcbeca8b976f099f19))
+
 ## [8.28.0](https://github.com/snakemake/snakemake/compare/v8.27.1...v8.28.0) (2025-02-12)
 
 
