@@ -144,7 +144,7 @@ class Assets:
             sha256="7eea8533ea92bd8c32a901e89ecb0305890905bb12711449565ddff96891146d",
             version="3.3.0",
         ),
-        # Via vega-expression
+        # Via vega-expression (vega-lite also depends on vega-expression)
         # The license file included in the NPM package does not exist directly
         # in https://github.com/DefinitelyTyped/DefinitelyTyped, so we use an
         # unpkg URL to reference the contents of the NPM package instead.
@@ -245,7 +245,7 @@ class Assets:
         ),
         # End dependencies for vega, included in vega/vega.js
         # Begin copied/derived/adapted code in vega, included in vega/vega.js
-        # From vega-util/src/lru-cache.js, "adapted from
+        # From vega-util/src/lruCache.js, "adapted from
         # https://github.com/dominictarr/hashlru/ (MIT License)". Version 1.0.4
         # was the current version when the function was added to vega, in
         # commit f153863f3575bff1b42294c9cb065d80afb757ff on 2020-02-28.
@@ -359,6 +359,57 @@ class Assets:
             sha256="f618900fd0d64046963b29f40590cdd1e341a2f41449f99110d82fd81fea808c",
             version="5.2.0",
         ),
+        # Begin dependencies for vega-lite, included in vega-lite/vega-lite.js
+        # Versions from https://github.com/vega/vega-lite/blob/v5.2.0/yarn.lock.
+        "@types-clone/LICENSE": Asset(
+            url="https://unpkg.com/@types/clone@{version}/LICENSE",
+            sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+            version="2.1.1",
+        ),
+        "array-flat-polyfill/LICENSE": Asset(
+            # Releases are not tagged in git; we use the commit hash
+            # corresponding to the 1.0.1 release
+            url="https://raw.githubusercontent.com/jonathantneal/array-flat-polyfill/362d855cb6ea2ef12f0676b116c5f9e4233b6f31/LICENSE.md",
+            sha256="597756adcb51f243ef4fb386920377f61d012ace0904364e1a8ee9aaec6afc84",
+            version="1.0.1",
+        ),
+        "clone/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/pvorb/clone/refs/tags/v{version}/LICENSE",
+            sha256="3fb0857ef0133928cf72c88dfc464e931486e88778961eedec25585e2321507f",
+            version="2.1.2",
+        ),
+        "fast-deep-equal/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/epoberezkin/fast-deep-equal/refs/tags/v{version}/LICENSE",
+            sha256="7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a",
+            version="3.1.3",
+        ),
+        "fast-json-stable-stringify/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/epoberezkin/fast-json-stable-stringify/refs/tags/v{version}/LICENSE",
+            sha256="a833d366242c298cf1b10263516572fb8dcbe68eb5072cdcac2b4546e2b4eb36",
+            version="2.1.0",
+        ),
+        "json-stringify-pretty-compact/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/lydell/json-stringify-pretty-compact/refs/tags/v{version}/LICENSE",
+            sha256="d0800a7c9b5f723f7fe029f75d3a9ae44173178b9729d1521e18371ab24ae97a",
+            version="3.0.0",
+        ),
+        # The tslib package is among vega-lite's direct dependencies, and the
+        # yarn.lock file shows three versions could be included: 2.2.0, 2.1.0
+        # (both MIT-licensed), and 1.1.0 (Apache-2.0-licensed). However, we
+        # found no trace of any of these in the actual vega-lite.js bundle.
+        # ----
+        # The following packages are part of vega, and are already covered by
+        # vega/LICENSE.
+        # - vega-event-selector: no dependencies
+        # - vega-expression: depends on vega-util, @types/estree (already
+        #   covered as one of vega's dependencies)
+        # - vega-util (no dependencies; includes code from hashlru, already
+        #   covered as one of vega's dependencies)
+        # ----
+        # End dependencies for vega-lite, included in vega-lite/vega-lite.js
+        # Begin copied/derived/adapted code in vega-lite, included in vega-lite/vega-lite.js
+        # - hashlru is included in vega-util; already covered as one of vega's dependencies
+        # End copied/derived/adapted code in vega-lite, included in vega-lite/vega-lite.js
         "vega-embed/vega-embed.js": Asset(
             url="https://cdnjs.cloudflare.com/ajax/libs/vega-embed/{version}/vega-embed.js",
             sha256="4e546c1f86eb200333606440e92f76e2940b905757018d9672cd1708e4e6ff0a",

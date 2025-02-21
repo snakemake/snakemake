@@ -138,6 +138,28 @@ def get_packages():
                 source_path="vega-lite/vega-lite.js",
                 license_path="vega-lite/LICENSE",
             ),
+            # Begin dependencies for vega-lite, included in vega-lite/vega-lite.js
+            # (excluding those shared with vega and therefore already documented)
+            "@types-clone": Package(
+                license_path="@types-estree/LICENSE",
+            ),
+            "array-flat-polyfill": Package(
+                license_path="array-flat-polyfill/LICENSE",
+            ),
+            "clone": Package(
+                license_path="clone/LICENSE",
+            ),
+            "fast-deep-equal": Package(
+                license_path="fast-deep-equal/LICENSE",
+            ),
+            "fast-json-stable-stringify": Package(
+                license_path="fast-json-stable-stringify/LICENSE",
+            ),
+            "json-stringify-pretty-compact": Package(
+                license_path="json-stringify-pretty-compact/LICENSE",
+            ),
+            # End dependencies for vega-lite, included in vega-lite/vega-lite.js
+            # Any copied/derived/adapted code in vega-lite is shared with vega.
             "vega-embed": Package(
                 source_path="vega-embed/vega-embed.js",
                 license_path="vega-embed/LICENSE",
