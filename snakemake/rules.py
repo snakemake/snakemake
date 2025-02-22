@@ -1049,7 +1049,10 @@ class Rule(RuleInterface):
                         "Resources with the same name need to have the same types (int, float, or str are allowed).",
                         rule=self,
                     )
-                if isinstance(res, int):
+                if isinstance(res, int) and (
+                    self.workflow.is_local(self)
+                    or name in self.workflow.resource_scopes.locals
+                ):
                     res = min(global_res, res)
             return res
 
