@@ -7,6 +7,6 @@ rule test_xonsh:
 	output:
 		"test.out"
 	conda:
-		"../envs/xonsh.yaml"
+		"envs/xonsh.yaml"
 	script:
 		"scripts/test.xsh"

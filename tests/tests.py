@@ -424,6 +424,12 @@ def test_script_python():
 
 @skip_on_windows
 @conda
+def test_script_xsh():
+    run(dpath("test_script_xsh"))
+
+
+@skip_on_windows
+@conda
 def test_script_rs():
     run(
         dpath("test_script_rs"),
