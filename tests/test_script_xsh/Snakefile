@@ -1,0 +1,12 @@
+rule all:
+	input:
+		"test.out"
+
+
+rule test_xonsh:
+	output:
+		"test.out"
+	conda:
+		"envs/xonsh.yaml"
+	script:
+		"scripts/test.xsh"
