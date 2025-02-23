@@ -14,6 +14,7 @@ import subprocess
 import tarfile
 import textwrap
 import time
+import json
 from typing import Iterable, List, Optional, Set, Union
 import uuid
 import subprocess
@@ -2731,20 +2732,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         jobs = list(self.jobs)
 
         if len(jobs) > max_jobs:
-            logger.info(f"Job-DAG is too large for visualization (>{max_jobs} jobs).")
+            print(f"Job-DAG is too large for visualization (>{max_jobs} jobs).")
         else:
-            logger.info(
-                "",
-                extra=dict(
-                    level="d3dag",
-                    nodes=[node(job) for job in jobs],
-                    edges=[
-                        edge(dep, job)
-                        for job in jobs
-                        for dep in self._dependencies[job]
-                        if self.needrun(dep)
-                    ],
-                ),
+            print(
+                json.dumps(
+                    dict(
+                        nodes=[node(job) for job in jobs],
+                        edges=[
+                            edge(dep, job)
+                            for job in jobs
+                            for dep in self._dependencies[job]
+                            if self.needrun(dep)
+                        ],
+                    ),
+                )
             )
 
     def print_reasons(self):
