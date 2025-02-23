@@ -168,8 +168,6 @@ class DefaultFormatter(logging.Formatter):
             return self.format_job_finished(record_dict)
         elif level == "shellcmd":
             return self.format_shellcmd(record_dict)
-        elif level == "rule_info":
-            return self.format_rule_info(record_dict)
         elif level == "d3dag":
             return self.format_d3dag(record_dict)
         elif level == "dag_debug":
@@ -260,13 +258,6 @@ class DefaultFormatter(logging.Formatter):
         if self.printshellcmds:
             return msg["msg"]
         return ""
-
-    def format_rule_info(self, msg):
-        """Format for rule_info log."""
-        output = [msg["rule_name"]]
-        if msg["docstring"]:
-            output.append(f"    {msg['docstring']}")
-        return "\n".join(output)
 
     def format_d3dag(self, msg):
         """Format for d3dag log."""
