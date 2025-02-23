@@ -1605,6 +1605,27 @@ as ``"${snakemake_input[0]}"`` and ``"${snakemake_input[1]}"``.
 
 For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object.
 
+
+Xonsh_
+~~~~~~
+
+.. _Xonsh: https://xon.sh
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        script:
+            "path/to/script.xsh"
+
+Because Xonsh is a superset of Python, you can use a Xonsh script as you would a Python script (see above), but with all the additional shell primitives that Xonsh provides.
+
+
 .. _snakefiles_notebook-integration:
 
 Jupyter notebook integration
