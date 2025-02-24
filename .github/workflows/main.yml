@@ -89,6 +89,20 @@ jobs:
               >/etc/sysctl.d/90-disable-userns-restrictions.conf'
           sudo sysctl -p /etc/sysctl.d/90-disable-userns-restrictions.conf
 
+      - name: Setup minio
+        uses: comfuture/minio-action@v1
+        with:
+          access_key: minio
+          secret_key: minio123
+          port: 9000
+
+      - name: Test minio
+        run: |
+          export AWS_ACCESS_KEY_ID=minio
+          export AWS_SECRET_ACCESS_KEY=minio123
+          export AWS_EC2_METADATA_DISABLED=true
+          aws --endpoint-url http://127.0.0.1:9000/ s3 mb s3://test
+
       - name: Test local
         env:
           CI: true
@@ -118,7 +132,7 @@ jobs:
           ls -R
 
       - name: Upload report
-        if: ${{ matrix.test_group == 1 }}
+        if: ${{matrix.test_group == 1}}
         uses: actions/upload-artifact@v4
         with:
           name: report-${{ matrix.py_ver }}.zip
