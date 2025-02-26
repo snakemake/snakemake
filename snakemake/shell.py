@@ -195,7 +195,7 @@ class shell:
 
         jobid = context.get("jobid")
         if not context.get("is_shell") and jobid is not None:
-            logger.info(None, extra=dict(event=LogEvent.shellcmd, cmd=cmd))
+            logger.info(None, extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
 
         conda_env = context.get("conda_env", None)
         conda_base_path = context.get("conda_base_path", None)
