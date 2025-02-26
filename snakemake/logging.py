@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -43,7 +45,6 @@ except ImportError:
 
 # LogEvent to inform formatting and available fields.
 class LogEvent(StrEnum):
-    GENERIC = auto()
     RUN_INFO = auto()
     WORKFLOW_STARTED = auto()
     SHELLCMD = auto()
@@ -154,7 +155,7 @@ def get_event_level(record: logging.LogRecord) -> tuple[LogEvent, str]:
         tuple[LogEvent, str]
 
     """
-    event = record.__dict__.get("event", LogEvent.GENERIC)
+    event = record.__dict__.get("event", None)
 
     return (event, record.levelname)
 
@@ -190,7 +191,7 @@ class DefaultFormatter(logging.Formatter):
             return rd["msg"]
 
         formatters = {
-            LogEvent.GENERIC: self.format_info,
+            None: default_formatter,
             LogEvent.JOB_INFO: self.format_job_info,
             LogEvent.JOB_ERROR: self.format_job_error,
             LogEvent.JOB_FINISHED: self.format_job_finished,
@@ -430,7 +431,6 @@ class DefaultFilter:
             LogEvent.JOB_FINISHED: Quietness.PROGRESS,
             LogEvent.RESOURCES_INFO: Quietness.PROGRESS,
             LogEvent.RUN_INFO: Quietness.PROGRESS,
-            LogEvent.GENERIC: Quietness.PROGRESS,
         }
 
         # Check quietness for specific levels
@@ -466,7 +466,7 @@ class ColorizingTextHandler(logging.StreamHandler):
     yellow_info_events = [
         LogEvent.RUN_INFO,
         LogEvent.SHELLCMD,
-        LogEvent.GENERIC,  # To mimic old coloring where log.info was mapped to log.warn
+        None,  # To mimic old coloring where log.info was mapped to log.warn
     ]
 
     def __init__(
@@ -529,7 +529,7 @@ class ColorizingTextHandler(logging.StreamHandler):
             try:
                 event, level = get_event_level(record)
 
-                if level == "job_info":
+                if event == LogEvent.JOB_INFO:
                     if not self.last_msg_was_job_info:
                         self.stream.write(
                             "\n"
@@ -561,7 +561,7 @@ class ColorizingTextHandler(logging.StreamHandler):
 
         if not self.nocolor and record.levelname in self.colors:
             if level == "INFO" and event in self.yellow_info_events:
-                color = "YELLOW"
+                color = self.colors["WARNING"]
             else:
                 color = self.colors[record.levelname]
 
@@ -712,28 +712,6 @@ class LoggerManager:
             self.queue_listener.stop()
 
 
-old_factory = logging.getLogRecordFactory()
-
-
-def record_factory_factory():
-    """
-    Add event=LogEvent.Generic to info log records.
-    Source: https://stackoverflow.com/a/66764439/14212340
-    """
-
-    def record_factory(*args, **kwargs):
-        record = old_factory(*args, **kwargs)
-
-        # Default event for INFO logs
-        if record.levelno == logging.INFO:
-            record.event = LogEvent.GENERIC
-
-        return record
-
-    return record_factory
-
-
 # Global logger instance
-logging.setLogRecordFactory(record_factory_factory())
 logger = logging.getLogger(__name__)
 logger_manager = LoggerManager(logger)
