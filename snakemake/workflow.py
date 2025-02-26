@@ -51,7 +51,7 @@ from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 
-from snakemake.logging import logger, format_resources, logger_manager
+from snakemake.logging import logger, format_resources, logger_manager, LogEvent
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
@@ -1097,10 +1097,7 @@ class Workflow(WorkflowExecutorInterface):
         executor_settings: ExecutorSettingsBase,
         updated_files: Optional[List[str]] = None,
     ):
-        logger.info(
-            f"host: {platform.node()}",
-            extra=dict(level="host", host=platform.node()),
-        )
+        logger.info(f"host: {platform.node()}")
 
         from snakemake.shell import shell
 
@@ -1218,32 +1215,34 @@ class Workflow(WorkflowExecutorInterface):
                     if shell_exec is not None:
                         logger.info(f"Using shell: {shell_exec}")
                     if not self.local_exec:
-                        logger.warning(
+                        logger.info(
                             f"Provided remote nodes: {self.nodes}",
-                            extra=dict(level="resources_info", nodes=self.nodes),
+                            extra=dict(event=LogEvent.RESOURCES_INFO, nodes=self.nodes),
                         )
                     else:
                         if self._cores is not None:
-                            warning = (
+                            info = (
                                 ""
                                 if self._cores > 1
                                 else " (use --cores to define parallelism)"
                             )
-                            logger.warning(
-                                f"Provided cores: {self._cores}{warning}",
-                                extra=dict(level="resources_info", cores=self._cores),
+                            logger.info(
+                                f"Provided cores: {self._cores}{info}",
+                                extra=dict(
+                                    event=LogEvent.RESOURCES_INFO, cores=self._cores
+                                ),
                             )
-                            logger.warning(
+                            logger.info(
                                 "Rules claiming more threads will be scaled down.",
-                                extra=dict(level="resources_info"),
+                                extra=dict(event=LogEvent.RESOURCES_INFO),
                             )
 
                     provided_resources = format_resources(self.global_resources)
                     if provided_resources:
-                        logger.warning(
+                        logger.info(
                             f"Provided resources: {provided_resources}",
                             extra=dict(
-                                level="resources_info",
+                                event=LogEvent.RESOURCES_INFO,
                                 provided_resources=self.global_resources,
                             ),
                         )
@@ -1267,9 +1266,9 @@ class Workflow(WorkflowExecutorInterface):
 
                     if self.exec_mode == ExecMode.DEFAULT:
                         stats_msg, stats_dict = self.dag.stats()
-                        logger.warning(
+                        logger.info(
                             stats_msg,
-                            extra=dict(level="run_info", stats=stats_dict),
+                            extra=dict(level=LogEvent.RUN_INFO, stats=stats_dict),
                         )
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
@@ -1278,9 +1277,9 @@ class Workflow(WorkflowExecutorInterface):
                 # the dryrun case
                 if len(self.dag):
                     stats_msg, stats_dict = self.dag.stats()
-                    logger.warning(
+                    logger.info(
                         stats_msg,
-                        extra=dict(level="run_info", stats=stats_dict),
+                        extra=dict(level=LogEvent.RUN_INFO, stats=stats_dict),
                     )
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
@@ -1318,13 +1317,13 @@ class Workflow(WorkflowExecutorInterface):
                 if self.dryrun:
                     if len(self.dag):
                         stats_msg, stats_dict = self.dag.stats()
-                        logger.warning(
+                        logger.info(
                             stats_msg,
-                            extra=dict(level="run_info", stats=stats_dict),
+                            extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
                         )
                         self.dag.print_reasons()
                         self.log_provenance_info()
-                    logger.info("")
+
                     logger.info(
                         "This was a dry-run (flag -n). The order of jobs "
                         "does not reflect the order of execution."
@@ -1387,8 +1386,8 @@ class Workflow(WorkflowExecutorInterface):
             logger.info(
                 "Rules with provenance triggered jobs: "
                 + " ".join(jobs_to_rulenames(provenance_triggered_jobs))
+                + "\n"
             )
-            logger.info("")
         self.log_missing_metadata_info()
         self.log_outdated_metadata_info()
 

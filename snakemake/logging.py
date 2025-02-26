@@ -21,6 +21,46 @@ from typing import List, Optional
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_logger_plugins.settings import OutputSettingsLoggerInterface
 
+try:
+    from enum import StrEnum, auto
+except ImportError:
+    from enum import Enum, auto
+
+    class StrEnum(str, Enum):
+        """
+        StrEnum implementation for Python < 3.11
+        """
+
+        def _generate_next_value_(name, start, count, last_values):
+            return name.lower()
+
+        def __str__(self):
+            return self.value
+
+        def __repr__(self):
+            return self.value
+
+
+# LogEvent to inform formatting and available fields.
+class LogEvent(StrEnum):
+    GENERIC = auto()
+    RUN_INFO = auto()
+    WORKFLOW_STARTED = auto()
+    SHELLCMD = auto()
+    JOB_INFO = auto()
+    JOB_ERROR = auto()
+    JOB_STARTED = auto()
+    JOB_FINISHED = auto()
+
+    GROUP_INFO = auto()
+    GROUP_ERROR = auto()
+
+    RESOURCES_INFO = auto()
+
+    DEBUG_DAG = auto()
+
+    PROGRESS = auto()
+
 
 if TYPE_CHECKING:
     from snakemake_interface_executor_plugins.settings import ExecMode
@@ -103,7 +143,7 @@ def format_percentage(done, total):
     return fmt(fraction)
 
 
-def get_level(record: logging.LogRecord) -> str:
+def get_event_level(record: logging.LogRecord) -> tuple[LogEvent, str]:
     """
     Gets snakemake log level from a log record. If there is no snakemake log level,
     returns the log record's level name.
@@ -111,15 +151,12 @@ def get_level(record: logging.LogRecord) -> str:
     Args:
         record (logging.LogRecord)
     Returns:
-        str: The log level
+        tuple[LogEvent, str]
 
     """
-    level = record.__dict__.get("level", None)
+    event = record.__dict__.get("event", LogEvent.GENERIC)
 
-    if level is None:
-        level = record.levelname
-
-    return level.lower()
+    return (event, record.levelname)
 
 
 def is_quiet_about(quiet: "Quietness", msg_type: str):
@@ -146,36 +183,27 @@ class DefaultFormatter(logging.Formatter):
         """
         Override format method to format Snakemake-specific log messages.
         """
-
-        level = get_level(record)
+        event, level = get_event_level(record)
         record_dict = record.__dict__.copy()
 
-        if level == "info":
-            return self.format_info(record_dict)
-        elif level == "host":
-            return self.format_host(record_dict)
-        elif level == "job_info":
-            return self.format_job_info(record_dict)
-        elif level == "group_info":
-            return self.format_group_info(record_dict)
-        elif level == "job_error":
-            return self.format_job_error(record_dict)
-        elif level == "group_error":
-            return self.format_group_error(record_dict)
-        elif level == "progress":
-            return self.format_progress(record_dict)
-        elif level == "job_finished":
-            return self.format_job_finished(record_dict)
-        elif level == "shellcmd":
-            return self.format_shellcmd(record_dict)
-        elif level == "d3dag":
-            return self.format_d3dag(record_dict)
-        elif level == "dag_debug":
-            return self.format_dag_debug(record_dict)
-        elif level == "run_info":
-            return self.format_run_info(record_dict)
-        else:
-            return record_dict["msg"]
+        def default_formatter(rd):
+            return rd["msg"]
+
+        formatters = {
+            LogEvent.GENERIC: self.format_info,
+            LogEvent.JOB_INFO: self.format_job_info,
+            LogEvent.JOB_ERROR: self.format_job_error,
+            LogEvent.JOB_FINISHED: self.format_job_finished,
+            LogEvent.GROUP_INFO: self.format_group_info,
+            LogEvent.GROUP_ERROR: self.format_group_error,
+            LogEvent.SHELLCMD: self.format_shellcmd,
+            LogEvent.RUN_INFO: self.format_run_info,
+            LogEvent.DEBUG_DAG: self.format_dag_debug,
+            LogEvent.PROGRESS: self.format_progress,
+        }
+
+        formatter = formatters.get(event, default_formatter)
+        return formatter(record_dict)
 
     def format_info(self, msg):
         """
@@ -216,16 +244,11 @@ class DefaultFormatter(logging.Formatter):
         else:
             output.append("\n".join(self._format_job_info(msg)))
 
-        if msg["is_checkpoint"]:
-            output.append("DAG of jobs will be updated after completion.")
-        if msg["is_handover"]:
-            output.append("Handing over execution to foreign system...")
-
         return "\n".join(output)
 
     def format_group_info(self, msg):
         """Format for group_info log."""
-        msg = f"{timestamp()} group job {msg['groupid']} (jobs in lexicogr. order):"
+        msg = f"{timestamp()} {msg['msg']}"
 
         return msg
 
@@ -350,7 +373,7 @@ class DefaultFormatter(logging.Formatter):
 
     def _format_group_error(self, msg):
         """Helper method to format group error details."""
-        output = [f"Error in group {msg['groupid']}:"]
+        output = []
 
         if msg["msg"]:
             output.append(f"    message: {msg['msg']}")
@@ -390,7 +413,7 @@ class DefaultFilter:
     def filter(self, record):
         from snakemake.settings.enums import Quietness
 
-        level = get_level(record)
+        event, level = get_event_level(record)
         if self.dryrun and level == "run_info":
             return True
 
@@ -398,26 +421,25 @@ class DefaultFilter:
             return False
 
         quietness_map = {
-            "job_info": Quietness.RULES,
-            "group_info": Quietness.RULES,
-            "job_error": Quietness.RULES,
-            "group_error": Quietness.RULES,
-            "progress": Quietness.PROGRESS,
-            "shellcmd": Quietness.PROGRESS,
-            "job_finished": Quietness.PROGRESS,
-            "resources_info": Quietness.PROGRESS,
-            "run_info": Quietness.PROGRESS,
-            "host": Quietness.HOST,
-            "info": Quietness.PROGRESS,
+            LogEvent.JOB_INFO: Quietness.RULES,
+            LogEvent.GROUP_INFO: Quietness.RULES,
+            LogEvent.JOB_ERROR: Quietness.RULES,
+            LogEvent.GROUP_ERROR: Quietness.RULES,
+            LogEvent.PROGRESS: Quietness.PROGRESS,
+            LogEvent.SHELLCMD: Quietness.PROGRESS,
+            LogEvent.JOB_FINISHED: Quietness.PROGRESS,
+            LogEvent.RESOURCES_INFO: Quietness.PROGRESS,
+            LogEvent.RUN_INFO: Quietness.PROGRESS,
+            LogEvent.GENERIC: Quietness.PROGRESS,
         }
 
         # Check quietness for specific levels
-        if level in quietness_map:
-            if quietness_map[level] in self.quiet:
+        if event in quietness_map:
+            if quietness_map[event] in self.quiet:
                 return False
 
         # Handle dag_debug specifically
-        if level == "dag_debug" and not self.debug_dag:
+        if event == LogEvent.DEBUG_DAG and not self.debug_dag:
             return False
 
         return True
@@ -440,6 +462,12 @@ class ColorizingTextHandler(logging.StreamHandler):
         "CRITICAL": MAGENTA,
         "ERROR": RED,
     }
+
+    yellow_info_events = [
+        LogEvent.RUN_INFO,
+        LogEvent.SHELLCMD,
+        LogEvent.GENERIC,  # To mimic old coloring where log.info was mapped to log.warn
+    ]
 
     def __init__(
         self,
@@ -499,7 +527,7 @@ class ColorizingTextHandler(logging.StreamHandler):
 
         with self._output_lock:
             try:
-                level = get_level(record)
+                event, level = get_event_level(record)
 
                 if level == "job_info":
                     if not self.last_msg_was_job_info:
@@ -529,11 +557,15 @@ class ColorizingTextHandler(logging.StreamHandler):
         """
         message = [message]
 
-        if record.levelname == "INFO" and not hasattr(record, "level"):
-            record.levelname = "WARNING"  # mimic old snakemake logging color
+        event, level = get_event_level(record)
 
         if not self.nocolor and record.levelname in self.colors:
-            message.insert(0, self.COLOR_SEQ % (30 + self.colors[record.levelname]))
+            if level == "INFO" and event in self.yellow_info_events:
+                color = "YELLOW"
+            else:
+                color = self.colors[record.levelname]
+
+            message.insert(0, self.COLOR_SEQ % (30 + color))
             message.append(self.RESET_SEQ)
 
         return "".join(message)
@@ -680,6 +712,28 @@ class LoggerManager:
             self.queue_listener.stop()
 
 
+old_factory = logging.getLogRecordFactory()
+
+
+def record_factory_factory():
+    """
+    Add event=LogEvent.Generic to info log records.
+    Source: https://stackoverflow.com/a/66764439/14212340
+    """
+
+    def record_factory(*args, **kwargs):
+        record = old_factory(*args, **kwargs)
+
+        # Default event for INFO logs
+        if record.levelno == logging.INFO:
+            record.event = LogEvent.GENERIC
+
+        return record
+
+    return record_factory
+
+
 # Global logger instance
+logging.setLogRecordFactory(record_factory_factory())
 logger = logging.getLogger(__name__)
 logger_manager = LoggerManager(logger)

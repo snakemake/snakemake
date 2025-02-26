@@ -52,7 +52,7 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 
-from snakemake.logging import logger
+from snakemake.logging import logger, LogEvent
 from snakemake.common import (
     is_local_file,
     get_uuid,
@@ -1054,7 +1054,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         logger.info(
             f" Rule: {self.rule.name}, Jobid: {self.dag.jobid(self)}",
             extra=dict(
-                level="job_info",
+                event=LogEvent.JOB_INFO,
                 jobid=self.dag.jobid(self),
                 rule_msg=self.message,
                 rule_name=self.rule.name,
@@ -1086,8 +1086,12 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         )
         logger.info(
             f"Shell command: {self.shellcmd}",
-            extra=dict(level="shellcmd", shellcmd=self.shellcmd, indent=indent),
+            extra=dict(event=LogEvent.SHELLCMD, shellcmd=self.shellcmd, indent=indent),
         )
+        if self.rule.is_checkpoint:
+            logger.info("DAG of jobs will be updated after completion.")
+        if self.rule.is_handover:
+            logger.info("Handing over execution to foreign system...")
 
     def get_log_error_info(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
@@ -1104,7 +1108,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,
-            level="job_error",
+            event=LogEvent.JOB_ERROR,
         )
 
     def log_error(
@@ -1396,7 +1400,12 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         return any(job.is_updated for job in self.jobs)
 
     def log_info(self):
-        logger.info("", extra=dict(level="group_info", groupid=self.groupid))
+        logger.info(
+            f"Group job {self.groupid} (jobs in lexicogr. order):",
+            extra=dict(
+                event=LogEvent.GROUP_INFO, group_id=self.groupid, jobs=self.jobs
+            ),
+        )
         for job in sorted(self.jobs, key=lambda j: j.rule.name):
             job.log_info(indent=True)
 
@@ -1406,11 +1415,10 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         ]
         aux_logs = aux_logs or []
         logger.error(
-            "",
+            f"Error in group {self.groupid}",
             dict(
-                level="group_error",
+                event=LogEvent.GROUP_ERROR,
                 groupid=self.groupid,
-                msg=msg,
                 aux_logs=aux_logs,
                 job_error_info=job_error_info,
                 **kwargs,

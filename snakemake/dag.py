@@ -70,7 +70,7 @@ from snakemake.jobs import (
     Reason,
 )
 from snakemake.settings.types import SharedFSUsage
-from snakemake.logging import logger
+from snakemake.logging import logger, LogEvent
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
 from snakemake.settings.types import ChangeType
@@ -1017,7 +1017,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         for i, job in enumerate(jobs):
             logger.debug(
-                msg="", extra=dict(level="debug_dag", status="candidate", job=job)
+                None, extra=dict(event=LogEvent.DEBUG_DAG, status="candidate", job=job)
             )
             if file in job.input:
                 cycles.append(job)
@@ -1086,13 +1086,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             raise AmbiguousRuleException(file, producer, ambiguities[0])
         logger.debug(
             f"Selected {producer.rule.name}",
-            extra=dict(level="debug_dag", status="selected", job=producer),
+            extra=dict(event=LogEvent.DEBUG_DAG, status="selected", job=producer),
         )
         if exceptions:
             logger.debug(
                 msg=f"Producer found, hence exceptions are ignored. Exceptions: {WorkflowError(*exceptions)}",
                 extra=dict(
-                    level="debug_dag",
+                    event=LogEvent.DEBUG_DAG,
                     file=file,
                     exception=WorkflowError(*exceptions),
                 ),
@@ -1175,7 +1175,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         logger.debug(
                             msg=f"No producers found, but file: {res.file} is present on disk.",
                             extra=dict(
-                                level="debug_dag",
+                                event=LogEvent.DEBUG_DAG,
                                 file=res.file,
                                 exception=ex,
                             ),

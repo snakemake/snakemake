@@ -20,7 +20,7 @@ from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
-from snakemake.logging import logger
+from snakemake.logging import logger, LogEvent
 
 from snakemake.settings.types import MaxJobsPerTimespan
 
@@ -306,7 +306,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         logger.info(
                             f"Execute {len(run)} jobs...",
                             extra=dict(
-                                level="job_started", jobs=[j.jobid for j in run]
+                                event=LogEvent.JOB_STARTED, jobs=[j.jobid for j in run]
                             ),
                         )
 
@@ -405,12 +405,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         for j in job:
                             logger.info(
                                 f"Finished jobid: {j.jobid} (Rule: {j.rule.name})",
-                                extra=dict(level="job_finished", job_id=j.jobid),
+                                extra=dict(event=LogEvent.JOB_FINISHED, job_id=j.jobid),
                             )
                     else:
                         logger.info(
                             f"Finished jobid: {job.jobid} (Rule: {job.rule.name})",
-                            extra=dict(level="job_finished", job_id=job.jobid),
+                            extra=dict(event=LogEvent.JOB_FINISHED, job_id=job.jobid),
                         )
                     self.progress()
 
@@ -838,9 +838,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def progress(self):
         """Display the progress."""
         logger.info(
-            "",
+            None,
             extra=dict(
-                level="progress",
+                event=LogEvent.PROGRESS,
                 done=self.finished_jobs,
                 total=len(self.workflow.dag),
             ),
