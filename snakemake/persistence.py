@@ -774,5 +774,10 @@ class ParamsChange:
                 f"{fmt_set(self.only_new, 'now')} "
             )
 
+    def __iter__(self):
+        if self:
+            yield from self.only_old
+            yield from self.only_new
+
 
 NO_PARAMS_CHANGE = ParamsChange()
