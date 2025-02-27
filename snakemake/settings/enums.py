@@ -26,3 +26,4 @@ class Quietness(SettingsEnumBase):
     PROGRESS = 1
     ALL = 2
     HOST = 3
+    REASON = 4

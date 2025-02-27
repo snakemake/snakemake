@@ -45,10 +45,11 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
+from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
-from snakemake.logging import setup_logger, logger
+from snakemake.logging import logger, logger_manager
 from snakemake.shell import shell
 from snakemake.common import (
     MIN_PY_VERSION,
@@ -137,8 +138,6 @@ class SnakemakeApi(ApiBase):
 
         self._check_is_in_context()
 
-        self.setup_logger(mode=workflow_settings.exec_mode)
-
         self._check_default_storage_provider(storage_settings=storage_settings)
 
         snakefile = resolve_snakefile(snakefile)
@@ -159,7 +158,8 @@ class SnakemakeApi(ApiBase):
     def _cleanup(self):
         """Cleanup the workflow."""
         if not self.output_settings.keep_logger:
-            logger.cleanup()
+            logger_manager.cleanup_logfile()
+            logger_manager.stop()
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
             if self._workflow_api._workflow_store is not None:
@@ -245,18 +245,18 @@ class SnakemakeApi(ApiBase):
         mode: ExecMode = ExecMode.DEFAULT,
         dryrun: bool = False,
     ):
-        if not self.output_settings.keep_logger:
-            setup_logger(
-                handler=self.output_settings.log_handlers,
-                quiet=self.output_settings.quiet,
-                nocolor=self.output_settings.nocolor,
-                debug=self.output_settings.verbose,
-                printshellcmds=self.output_settings.printshellcmds,
-                debug_dag=self.output_settings.debug_dag,
-                stdout=stdout or self.output_settings.stdout,
+        if not self.output_settings.keep_logger and not logger_manager.initialized:
+            log_handlers = []
+            for name, settings in self.output_settings.log_handler_settings.items():
+                plugin = LoggerPluginRegistry().get_plugin(name)
+                plugin.validate_settings(settings)
+                log_handlers.append(plugin.log_handler(self.output_settings, settings))
+
+            self.output_settings.dryrun = dryrun
+            logger_manager.setup(
                 mode=mode,
-                show_failed_logs=self.output_settings.show_failed_logs,
-                dryrun=dryrun,
+                handlers=log_handlers,
+                settings=self.output_settings,
             )
 
     def _check_is_in_context(self):
@@ -489,6 +489,12 @@ class DAGApi(ApiBase):
             # no shared FS at all
             self.workflow_api.storage_settings.shared_fs_usage = frozenset()
 
+        self.snakemake_api.setup_logger(
+            stdout=executor_plugin.common_settings.dryrun_exec,
+            mode=self.workflow_api.workflow_settings.exec_mode,
+            dryrun=executor_plugin.common_settings.dryrun_exec,
+        )
+
         if (
             executor_plugin.common_settings.local_exec
             and not executor_plugin.common_settings.dryrun_exec
@@ -526,12 +532,6 @@ class DAGApi(ApiBase):
             raise ApiError(
                 "For local execution, --shared-fs-usage has to be unrestricted."
             )
-
-        self.snakemake_api.setup_logger(
-            stdout=executor_plugin.common_settings.dryrun_exec,
-            mode=self.workflow_api.workflow_settings.exec_mode,
-            dryrun=executor_plugin.common_settings.dryrun_exec,
-        )
 
         if executor_plugin.common_settings.local_exec:
             if (
@@ -586,7 +586,7 @@ class DAGApi(ApiBase):
             or not executor_plugin.common_settings.local_exec
         )
 
-        logger.setup_logfile()
+        logger_manager.setup_logfile()
 
         workflow = self.workflow_api._workflow
         workflow.execution_settings = execution_settings
