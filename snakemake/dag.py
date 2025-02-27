@@ -914,7 +914,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if job.log:
                 files = chain(files, job.log)
             for f in files:
-                if f.is_storage and not f.should_not_be_retrieved_from_storage:
+                if (
+                    f.is_storage
+                    and not f.should_not_be_retrieved_from_storage
+                    and not is_flagged(f, "pipe")
+                    and not is_flagged(f, "service")
+                ):
                     await f.store_in_storage()
                     storage_mtime = (await f.mtime()).storage()
                     # immediately force local mtime to match storage,
