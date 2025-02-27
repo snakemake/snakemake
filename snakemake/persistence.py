@@ -474,7 +474,9 @@ class Persistence(PersistenceExecutorInterface):
             recorded = self.params(outfile)
             if recorded is not None:
                 old = set(recorded)
-                changes |= ParamsChange(only_old=old - new, only_new=new - old, files={outfile})
+                changes |= ParamsChange(
+                    only_old=old - new, only_new=new - old, files={outfile}
+                )
         return changes
 
     def software_stack_changed(self, job, file=None):
