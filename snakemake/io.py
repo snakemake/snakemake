@@ -941,9 +941,15 @@ _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
 
+_CONSIDER_LOCAL_DEFAULT = frozenset()
+
 
 async def wait_for_files(
-    files, latency_wait=3, wait_for_local=False, ignore_pipe_or_service=False
+    files,
+    latency_wait=3,
+    wait_for_local=False,
+    ignore_pipe_or_service=False,
+    consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
 ):
     """Wait for given files to be present in the filesystem."""
     files = list(files)
@@ -956,11 +962,12 @@ async def wait_for_files(
                 return None
             if (
                 isinstance(f, _IOFile)
+                and f not in consider_local
                 and f.is_storage
                 and (not wait_for_local or f.should_not_be_retrieved_from_storage)
             ):
                 if not await f.exists_in_storage():
-                    return f"{f} (missing in storage)"
+                    return f"{f.storage_object.query} (missing in storage)"
             elif not os.path.exists(f):
                 parent_dir = os.path.dirname(f)
                 if list_parent:
@@ -978,16 +985,20 @@ async def wait_for_files(
 
     missing = await get_missing()
     if missing:
+        fmt_missing = "\n".join
+
         sleep = max(latency_wait / 10, 1)
         before_time = time.time()
-        logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
+        logger.info(
+            f"Waiting at most {latency_wait} seconds for missing files:\n{fmt_missing(missing)}"
+        )
         while time.time() - before_time < latency_wait:
             missing = await get_missing()
             logger.debug("still missing files, waiting...")
             if not missing:
                 return
             time.sleep(sleep)
-        missing = "\n".join(await get_missing(list_parent=True))
+        missing = fmt_missing(await get_missing(list_parent=True))
         raise IOError(
             f"Missing files after {latency_wait} seconds. This might be due to "
             "filesystem latency. If that is the case, consider to increase the "
