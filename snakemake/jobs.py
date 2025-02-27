@@ -287,6 +287,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         # TODO get rid of these
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
+        self.pipe_or_service_output = set()
         self._queue_input = defaultdict(list)
         for f in self.output:
             f_ = output_mapping[f]
@@ -296,6 +297,8 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.protected_output.add(f)
             if f_ in self.rule.touch_output:
                 self.touch_output.add(f)
+            if is_flagged(f_, "pipe") or is_flagged(f_, "service"):
+                self.pipe_or_service_output.add(f)
         for f in self.input:
             f_ = input_mapping[f]
             queue_info = get_flag_value(f_, "from_queue")
@@ -851,6 +854,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.input,
                 wait_for_local=wait_for_local,
                 latency_wait=self.dag.workflow.execution_settings.latency_wait,
+                consider_local={f for f in self.input if self.is_pipe_or_service_input(f)}
             )
         except IOError as ex:
             raise WorkflowError(
@@ -938,6 +942,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     relative_source = os.path.relpath(source)
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
+
+    def is_pipe_or_service_input(self, path) -> bool:
+        generating_job = self.dag.dependencies[self][path]
+        return path in generating_job.pipe_or_service_output
 
     async def cleanup(self):
         """Cleanup output files."""
