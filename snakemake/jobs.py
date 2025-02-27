@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+from builtins import ExceptionGroup
 from collections import defaultdict
 import os
 import base64
@@ -854,7 +855,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.input,
                 wait_for_local=wait_for_local,
                 latency_wait=self.dag.workflow.execution_settings.latency_wait,
-                consider_local={f for f in self.input if self.is_pipe_or_service_input(f)}
+                consider_local={
+                    f for f in self.input if self.is_pipe_or_service_input(f)
+                },
             )
         except IOError as ex:
             raise WorkflowError(
@@ -944,8 +947,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     os.symlink(source, link)
 
     def is_pipe_or_service_input(self, path) -> bool:
-        generating_job = self.dag.dependencies[self][path]
-        return path in generating_job.pipe_or_service_output
+        for dep, files in self.dag.dependencies[self].items():
+            if path in files:
+                return path in dep.pipe_or_service_output
+        return False
 
     async def cleanup(self):
         """Cleanup output files."""
@@ -1576,17 +1581,25 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 # Wait a bit to ensure that subsequent levels really have distinct
                 # modification times.
                 await asyncio.sleep(0.1)
-            async with asyncio.TaskGroup() as tg:
-                for job in level:
-                    # postprocessing involves touching output files (to ensure that
-                    # modification times are always correct. This has to happen in
-                    # topological order, such that they are not mixed up.
-                    # We have to disable output mtime checks here
-                    # (at least for now), because they interfere with the update of
-                    # intermediate file mtimes that might happen in previous levels.
-                    tg.create_task(
-                        job.postprocess(error=error, check_output_mtime=False, **kwargs)
-                    )
+            try:
+                async with asyncio.TaskGroup() as tg:
+                    for job in level:
+                        # postprocessing involves touching output files (to ensure that
+                        # modification times are always correct. This has to happen in
+                        # topological order, such that they are not mixed up.
+                        # We have to disable output mtime checks here
+                        # (at least for now), because they interfere with the update of
+                        # intermediate file mtimes that might happen in previous levels.
+                        tg.create_task(
+                            job.postprocess(
+                                error=error, check_output_mtime=False, **kwargs
+                            )
+                        )
+            except ExceptionGroup as e:
+                raise WorkflowError(
+                    f"Error postprocessing group job {self.jobid}.",
+                    *e.exceptions,
+                )
         # remove all pipe and service outputs since all jobs of this group are done and the
         # outputs are no longer needed
         for job in self.jobs:

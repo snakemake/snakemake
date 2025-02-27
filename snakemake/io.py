@@ -945,7 +945,11 @@ _CONSIDER_LOCAL_DEFAULT = frozenset()
 
 
 async def wait_for_files(
-    files, latency_wait=3, wait_for_local=False, ignore_pipe_or_service=False, consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT
+    files,
+    latency_wait=3,
+    wait_for_local=False,
+    ignore_pipe_or_service=False,
+    consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
 ):
     """Wait for given files to be present in the filesystem."""
     files = list(files)
