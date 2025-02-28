@@ -983,6 +983,12 @@ def get_argument_parser(profiles=None):
         "will automatically be reused in non-interactive mode by Snakemake for subsequent jobs.",
     )
     group_notebooks.add_argument(
+        "--preamble-only",
+        metavar="TARGET",
+        help="Print the preamble used in notebooks and scripts to configure the `snakemake` rule object."
+        "No code is being run and existing notebooks or scripts are not modified.",
+    )
+    group_notebooks.add_argument(
         "--edit-notebook",
         metavar="TARGET",
         help="Interactively edit the notebook associated with the rule used to generate the given target file. "
@@ -1892,6 +1898,9 @@ def parse_edit_notebook(args):
     if args.draft_notebook:
         args.targets = {args.draft_notebook}
         edit_notebook = NotebookEditMode(draft_only=True)
+    elif args.preamble_only:
+        args.targets = {args.preamble_only}
+        edit_notebook = NotebookEditMode(preamble_only=True)
     elif args.edit_notebook:
         args.targets = {args.edit_notebook}
         args.force = True

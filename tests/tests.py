@@ -1581,6 +1581,19 @@ def test_jupyter_notebook_draft():
     )
 
 
+@conda
+def test_jupyter_notebook_preamble():
+    from snakemake.settings.types import NotebookEditMode
+
+    run(
+        dpath("test_jupyter_notebook_preamble"),
+        deployment_method={DeploymentMethod.CONDA},
+        edit_notebook=NotebookEditMode(preamble_only=True),
+        targets=["results/result_intermediate.txt"],
+        check_md5=False,
+    )
+
+
 def test_github_issue456():
     run(dpath("test_github_issue456"))
 
