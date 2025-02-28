@@ -116,6 +116,16 @@ From the base snakemake folder you call :code:`pytest` to run all the tests, or 
    $ pytest
    $ pytest tests/tests.py::test_log_input
 
+Tests that require specific resources (e.g. network access or a working conda/singularity installation) are skipped when these are not available.
+
+In addition, tests can be skipped by setting the corresponding environment variables:
+
+.. code-block:: console
+
+   SNAKEMAKE_TESTS_NO_CONNECTED
+   SNAKEMAKE_TESTS_NO_APPTAINER
+   SNAKEMAKE_TESTS_NO_CONDA
+
 If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
 
 .. _project_info-doc_guidelines:
