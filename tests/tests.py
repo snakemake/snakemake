@@ -17,6 +17,7 @@ from snakemake.persistence import Persistence
 from snakemake.resources import DefaultResources, GroupResources
 from snakemake.settings.enums import RerunTrigger
 
+from snakemake.settings.types import Batch
 from snakemake.shell import shell
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -246,6 +247,10 @@ def test_ancient_cli():
     )
 
 
+def test_subpath():
+    run(dpath("test_subpath"))
+
+
 def test_report():
     run(
         dpath("test_report"),
@@ -253,6 +258,10 @@ def test_report():
         report_stylesheet="custom-stylesheet.css",
         check_md5=False,
     )
+
+
+def test_report_href():
+    run(dpath("test_report_href"))
 
 
 def test_report_zip():
@@ -413,6 +422,16 @@ def test_script_python():
     run(dpath("test_script_py"))
 
 
+@skip_on_windows
+@conda
+def test_script_rs():
+    run(
+        dpath("test_script_rs"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
+
+
 @skip_on_windows  # Test relies on perl
 def test_shadow():
     run(dpath("test_shadow"))
@@ -461,8 +480,9 @@ def test_omitfrom():
     )  # wildcard rule
 
 
+@skip_on_windows  # paths are different on windows ('/' vs. '\')
 def test_nonstr_params():
-    run(dpath("test_nonstr_params"))
+    run(dpath("test_nonstr_params"), benchmark_extended=True)
 
 
 def test_delete_output():
@@ -503,6 +523,7 @@ def test_conda_list_envs():
 # it is being used by another process:
 # 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\snakemake-2q4osog0\\test-env.yaml'
 @skip_on_windows
+@conda
 def test_conda_create_envs_only():
     tmpdir = run(
         dpath("test_conda"),
@@ -593,22 +614,27 @@ def test_wrapper_local_git_prefix():
         )
 
 
+@conda
 def test_get_log_none():
     run(dpath("test_get_log_none"))
 
 
+@conda
 def test_get_log_both():
     run(dpath("test_get_log_both"))
 
 
+@conda
 def test_get_log_stderr():
     run(dpath("test_get_log_stderr"))
 
 
+@conda
 def test_get_log_stdout():
     run(dpath("test_get_log_stdout"))
 
 
+@conda
 def test_get_log_complex():
     run(dpath("test_get_log_complex"))
 
@@ -645,6 +671,8 @@ def test_format_wildcards():
 
 def test_with_parentheses():
     run(dpath("test (with parenthese's)"))
+
+    run(dpath("test_path with spaces"))
 
 
 def test_dup_out_patterns():
@@ -733,6 +761,7 @@ def test_threads0():
     run(dpath("test_threads0"))
 
 
+@skip_on_windows  # no minio deployment on windows implemented in our CI
 def test_default_storage(s3_storage):
     prefix, settings = s3_storage
 
@@ -760,6 +789,7 @@ def test_default_storage_local_job(s3_storage):
     )
 
 
+@skip_on_windows  # no minio deployment on windows implemented in our CI
 def test_storage(s3_storage):
     prefix, settings = s3_storage
 
@@ -1089,7 +1119,7 @@ def test_resources_can_be_overwritten_as_global():
 def test_scopes_submitted_to_cluster(mocker):
     from snakemake.spawn_jobs import SpawnedJobArgsFactory
 
-    spy = mocker.spy(SpawnedJobArgsFactory, "get_resource_scopes_args")
+    spy = mocker.spy(SpawnedJobArgsFactory, "get_resource_scopes_arg")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1307,6 +1337,7 @@ def test_issue1037():
     )
 
 
+@conda
 def test_issue1046():
     run(dpath("test_issue1046"))
 
@@ -1411,20 +1442,14 @@ def test_filegraph():
 
 
 def test_batch():
-    from snakemake.dag import Batch
-
     run(dpath("test_batch"), batch=Batch("aggregate", 1, 2))
 
 
 def test_batch_final():
-    from snakemake.dag import Batch
-
     run(dpath("test_batch_final"), batch=Batch("aggregate", 1, 1))
 
 
 def test_batch_fail():
-    from snakemake.dag import Batch
-
     run(dpath("test_batch"), batch=Batch("aggregate", 2, 2), shouldfail=True)
 
 
@@ -1617,6 +1642,7 @@ def test_containerized():
 
 
 @skip_on_windows
+@conda
 def test_containerize():
     run(dpath("test_conda"), containerize=True, check_results=False)
 
@@ -2303,3 +2329,13 @@ def test_checkpoint_open():
 
 def test_toposort():
     run(dpath("test_toposort"), check_results=False, executor="dryrun")
+
+
+@skip_on_windows  # OS agnostic
+def test_failed_intermediate():
+    # see https://github.com/snakemake/snakemake/pull/2966#issuecomment-2558133016
+    # fix was to also write job metadata (persistence.finished(job)) in case of errors
+    path = dpath("test_failed_intermediate")
+    tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
+    run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
+    run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)

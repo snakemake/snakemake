@@ -29,8 +29,13 @@ Snakemake
     :alt: Discord
     :target: https://discord.gg/NUdMtmr
 
-.. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow&color=%236ee7b7
-    :target: https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester
+.. image:: https://img.shields.io/badge/bluesky-follow-%23d1fae5
+   :alt: Bluesky
+   :target: https://bsky.app/profile/johanneskoester.bsky.social
+
+.. image:: https://img.shields.io/badge/mastodon-follow-%23ecfdf5
+   :alt: Mastodon
+   :target: https://fosstodon.org/@johanneskoester
 
 .. image:: https://img.shields.io/github/stars/snakemake/snakemake?style=social
     :alt: GitHub stars
@@ -96,6 +101,8 @@ The Snakemake maintainers are:
 * `Michael B. Hall <https://github.com/mbhall88>`_
 * `Filipe G. Vieira <https://github.com/fgvieira>`_
 * `Morten E. Lund <https://github.com/melund>`_
+* `Michael Jahn <https://github.com/m-jahn>`_
+* `Cade Mirchandani <https://github.com/cademirch>`_
 
 .. _main-resources:
 
@@ -142,7 +149,7 @@ Resources
 
 .. toctree::
   :caption: Executing workflows
-  :name: execution
+  :name: execution-toctree
   :hidden:
   :maxdepth: 1
 
