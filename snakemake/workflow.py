@@ -54,6 +54,7 @@ from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
+    MissingOutputFileCachePathException,
     RuleException,
     CreateRuleException,
     UnknownRuleException,
@@ -123,7 +124,7 @@ from snakemake.sourcecache import (
     infer_source_file,
 )
 from snakemake.deployment.conda import Conda
-from snakemake import api, sourcecache
+from snakemake import api, caching, sourcecache
 import snakemake.ioutils
 import snakemake.ioflags
 from snakemake.jobs import jobs_to_rulenames
@@ -252,6 +253,9 @@ class Workflow(WorkflowExecutorInterface):
     def source_cache_path(self) -> Path:
         assert self.storage_settings is not None
         if SharedFSUsage.SOURCE_CACHE not in self.storage_settings.shared_fs_usage:
+            # TODO can this cause issues with the source cache?
+            # When regenerating it for each remote job, might that accidentally trigger
+            # job reruns where an input file or a source file suddenly becomes newer?
             return self.snakemake_tmp_dir / "source-cache"
         else:
             return Path(
@@ -682,15 +686,26 @@ class Workflow(WorkflowExecutorInterface):
             self.cache_rules.update(
                 {rulename: "all" for rulename in self.workflow_settings.cache}
             )
-            if (
-                self.storage_settings is not None
-                and self.storage_settings.default_storage_provider is not None
-            ):
-                self._output_file_cache = StorageOutputFileCache(
-                    self.storage_registry.default_storage_provider
+            try:
+                if (
+                    self.storage_settings is not None
+                    and self.storage_settings.default_storage_provider is not None
+                ):
+                    self._output_file_cache = StorageOutputFileCache(
+                        self.storage_registry.default_storage_provider
+                    )
+                else:
+                    self._output_file_cache = LocalOutputFileCache()
+            except MissingOutputFileCachePathException:
+                logger.warning(
+                    "Output file cache activated (--cache), but no cache "
+                    "location specified. Hence, Snakemake will not use between workflow "
+                    "caching (see "
+                    "https://snakemake.readthedocs.io/en/stable/executing/caching.html). "
+                    "Please set the environment variable "
+                    f"${caching.LOCATION_ENVVAR} to a reasonable path or storage URI "
+                    "(if you use a storage plugin) to activate the caching."
                 )
-            else:
-                self._output_file_cache = LocalOutputFileCache()
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))

@@ -65,7 +65,7 @@ class ContentDisplay extends React.Component {
             case "pdf":
                 return e(
                     "iframe",
-                    { src: this.props.app.state.contentPath, className: "w-full h-screen" }
+                    { src: this.props.app.state.contentPath, className: "w-full h-screen", key: `${this.props.app.state.renderTrigger}` }
                 );
             case "text":
                 return e(
