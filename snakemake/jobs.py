@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+from builtins import ExceptionGroup
 from collections import defaultdict
 import os
 import base64
@@ -287,6 +288,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         # TODO get rid of these
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
+        self.pipe_or_service_output = set()
         self._queue_input = defaultdict(list)
         for f in self.output:
             f_ = output_mapping[f]
@@ -296,6 +298,8 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.protected_output.add(f)
             if f_ in self.rule.touch_output:
                 self.touch_output.add(f)
+            if is_flagged(f_, "pipe") or is_flagged(f_, "service"):
+                self.pipe_or_service_output.add(f)
         for f in self.input:
             f_ = input_mapping[f]
             queue_info = get_flag_value(f_, "from_queue")
@@ -851,6 +855,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.input,
                 wait_for_local=wait_for_local,
                 latency_wait=self.dag.workflow.execution_settings.latency_wait,
+                consider_local={
+                    f for f in self.input if self.is_pipe_or_service_input(f)
+                },
             )
         except IOError as ex:
             raise WorkflowError(
@@ -938,6 +945,12 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     relative_source = os.path.relpath(source)
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
+
+    def is_pipe_or_service_input(self, path) -> bool:
+        for dep, files in self.dag.dependencies[self].items():
+            if path in files:
+                return path in dep.pipe_or_service_output
+        return False
 
     async def cleanup(self):
         """Cleanup output files."""
@@ -1568,17 +1581,25 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 # Wait a bit to ensure that subsequent levels really have distinct
                 # modification times.
                 await asyncio.sleep(0.1)
-            async with asyncio.TaskGroup() as tg:
-                for job in level:
-                    # postprocessing involves touching output files (to ensure that
-                    # modification times are always correct. This has to happen in
-                    # topological order, such that they are not mixed up.
-                    # We have to disable output mtime checks here
-                    # (at least for now), because they interfere with the update of
-                    # intermediate file mtimes that might happen in previous levels.
-                    tg.create_task(
-                        job.postprocess(error=error, check_output_mtime=False, **kwargs)
-                    )
+            try:
+                async with asyncio.TaskGroup() as tg:
+                    for job in level:
+                        # postprocessing involves touching output files (to ensure that
+                        # modification times are always correct. This has to happen in
+                        # topological order, such that they are not mixed up.
+                        # We have to disable output mtime checks here
+                        # (at least for now), because they interfere with the update of
+                        # intermediate file mtimes that might happen in previous levels.
+                        tg.create_task(
+                            job.postprocess(
+                                error=error, check_output_mtime=False, **kwargs
+                            )
+                        )
+            except ExceptionGroup as e:
+                raise WorkflowError(
+                    f"Error postprocessing group job {self.jobid}.",
+                    *e.exceptions,
+                )
         # remove all pipe and service outputs since all jobs of this group are done and the
         # outputs are no longer needed
         for job in self.jobs:

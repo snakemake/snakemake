@@ -41,7 +41,15 @@ jobs:
     strategy:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        py_ver: ["3.11", "3.12"]
+        py_ver:
+          - "3.11"
+          - "3.12"
+        shell:
+          - bash
+          - dash # for py 3.12 also test dash as default shell (snakemake will still use bash for shell commands)
+        exclude:
+          - shell: dash 
+            py_ver: "3.11"
     runs-on: ubuntu-latest
     needs: formatting
     env:
@@ -80,7 +88,7 @@ jobs:
         run: |
           sudo add-apt-repository -y ppa:apptainer/ppa
           sudo apt-get update
-          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev apptainer
+          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev apptainer dash
 
       # See https://github.com/apptainer/apptainer/pull/2262
       - name: Disable apparmor namespace restrictions for apptainer
@@ -110,6 +118,10 @@ jobs:
           #PYTHONTRACEMALLOC: 10
         shell: bash -el {0}
         run: |
+          if [ "${{ matrix.shell }}" == "dash" ]; then
+              sudo chsh -s /usr/bin/dash $(whoami)
+          fi
+
           pytest -v -x --show-capture=stderr \
             --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration \
             tests/tests.py \
@@ -132,7 +144,7 @@ jobs:
           ls -R
 
       - name: Upload report
-        if: ${{ matrix.test_group == 1 }}
+        if: ${{ matrix.test_group == 1 && matrix.shell == 'dash'}}
         uses: actions/upload-artifact@v4
         with:
           name: report-${{ matrix.py_ver }}.zip
