@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 from abc import ABCMeta, abstractmethod
 import os
+from pathlib import Path
 
 from snakemake.jobs import Job
 from snakemake.io import apply_wildcards
@@ -51,7 +52,13 @@ class AbstractOutputFileCache:
             assert (
                 len(job.output) == 1
             ), "bug: multiple output files in cacheable job but multiext not used for declaring them"
-            yield (job.output[0], "")
+            # It is crucial to distinguish cacheable objects by the file extension.
+            # Otherwise, for rules that generate different output based on the provided
+            # extension a wrong cache entry can be returned.
+            # Another nice side effect is that the cached files become more accessible
+            # because their extension is presented in the cache dir.
+            ext = Path(job.output[0]).suffix
+            yield (job.output[0], ext)
 
     def raise_write_error(self, entry, exception=None):
         raise WorkflowError(

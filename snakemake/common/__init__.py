@@ -18,6 +18,7 @@ import os
 import asyncio
 import collections
 from pathlib import Path
+from typing import Union
 
 from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
@@ -51,6 +52,13 @@ def get_snakemake_searchpaths():
         path for path in sys.path if os.path.isdir(path)
     ]
     return list(unique_justseen(paths))
+
+
+def get_report_id(path: Union[str, Path]) -> str:
+    h = hashlib.sha256()
+    h.update(str(path).encode())
+
+    return h.hexdigest()
 
 
 def mb_to_mib(mb):
