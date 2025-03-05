@@ -21,10 +21,10 @@ class PrefixLookup:
     def match_iter(self, query: str) -> Generator[V, None, None]:
         """Yields all entries which are prefixes of the given key.
 
-           E.g. if "abc" is the key then "abc", "ab", "a", and "" are considered
-           valid prefixes.
+        E.g. if "abc" is the key then "abc", "ab", "a", and "" are considered
+        valid prefixes.
 
-           Yields entries as (key, value) tuples as supplied to __init__()
+        Yields entries as (key, value) tuples as supplied to __init__()
         """
         stop_idx = len(self._entries)
         while stop_idx:
