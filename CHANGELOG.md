@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [8.29.1](https://github.com/snakemake/snakemake/compare/v8.29.0...v8.29.1) (2025-03-05)
+
+
+### Bug Fixes
+
+* fix type error upon --list-params-changes ([#3313](https://github.com/snakemake/snakemake/issues/3313)) ([114238c](https://github.com/snakemake/snakemake/commit/114238c813da844b95a69676e8d57ee19b5bf700))
+
 ## [8.29.0](https://github.com/snakemake/snakemake/compare/v8.28.0...v8.29.0) (2025-02-27)
 
 
