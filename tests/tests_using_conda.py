@@ -177,6 +177,9 @@ def test_issue635():
         check_md5=False,
     )
 
+@conda
+def test_issue1046():
+    run(dpath("test_issue1046"))
 
 @skip_on_windows
 @conda
@@ -296,6 +299,7 @@ def test_resource_string_in_cli_or_profile():
         shellcmd=f"snakemake --workflow-profile {profile} -c1 --default-resources slurm_account=foo other_resource='--test'",
     )
 
+
 # These tests have no explicit dependency on Conda and do not build new conda envs,
 # but will fail if 'conda info --json' does not work as expected, because the wrapper
 # code uses this to examine the installed software environment.
@@ -318,8 +322,4 @@ def test_get_log_stdout():
 
 def test_get_log_complex():
     run(dpath("test_get_log_complex"))
-
-
-def test_issue1046():
-    run(dpath("test_issue1046"))
 
