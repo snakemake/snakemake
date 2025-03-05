@@ -15,7 +15,7 @@ import pytest
 from snakemake.persistence import Persistence
 from snakemake.resources import DefaultResources, GroupResources
 from snakemake.settings.enums import RerunTrigger
-from snakemake.utils import min_version # import so we can patch out if needed
+from snakemake.utils import min_version  # import so we can patch out if needed
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
@@ -1372,6 +1372,7 @@ def test_string_resources():
         default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
         cluster="./qsub.py",
     )
+
 
 def test_github_issue456():
     run(dpath("test_github_issue456"))

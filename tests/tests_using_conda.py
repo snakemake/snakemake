@@ -153,6 +153,7 @@ def test_wrapper_local_git_prefix():
             check_md5=False,
         )
 
+
 @skip_on_windows
 @apptainer
 @connected
@@ -164,9 +165,11 @@ def test_singularity_conda():
         conda_frontend="conda",
     )
 
+
 @conda
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
+
 
 @skip_on_windows
 @conda
@@ -177,9 +180,11 @@ def test_issue635():
         check_md5=False,
     )
 
+
 @conda
 def test_issue1046():
     run(dpath("test_issue1046"))
+
 
 @skip_on_windows
 @conda
@@ -203,6 +208,7 @@ def test_jupyter_notebook_draft():
         targets=["results/result_intermediate.txt"],
         check_md5=False,
     )
+
 
 @skip_on_windows
 @apptainer
@@ -304,6 +310,7 @@ def test_resource_string_in_cli_or_profile():
 # but will fail if 'conda info --json' does not work as expected, because the wrapper
 # code uses this to examine the installed software environment.
 
+
 def test_get_log_none():
     run(dpath("test_get_log_none"))
 
@@ -322,4 +329,3 @@ def test_get_log_stdout():
 
 def test_get_log_complex():
     run(dpath("test_get_log_complex"))
-
