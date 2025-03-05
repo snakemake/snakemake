@@ -1,6 +1,28 @@
 # Changelog
 
 
+## [8.29.0](https://github.com/snakemake/snakemake/compare/v8.28.0...v8.29.0) (2025-02-27)
+
+
+### Features
+
+* provide mechanism to link between report items (snakemake.report_href, see docs) ([#3224](https://github.com/snakemake/snakemake/issues/3224)) ([a024e60](https://github.com/snakemake/snakemake/commit/a024e6064dc08cdb15f4cc1b190974a5d1a1be5d))
+* toggles for binary labels in report ([#3296](https://github.com/snakemake/snakemake/issues/3296)) ([7690998](https://github.com/snakemake/snakemake/commit/7690998cc3235d26c9785bd3973dc776084fb797))
+
+
+### Bug Fixes
+
+* add missing [@conda](https://github.com/conda) annotations ([#3298](https://github.com/snakemake/snakemake/issues/3298)) ([0b541cc](https://github.com/snakemake/snakemake/commit/0b541ccc08e2995011ead85f23fa67ce669bc81a))
+* properly handle remote storage when waiting for pipes ([#3317](https://github.com/snakemake/snakemake/issues/3317)) ([9f7e092](https://github.com/snakemake/snakemake/commit/9f7e092b17c0ce0ab88469184ce98dba6518c543))
+* provide proper error messages if output file preparation (pipe, mkdir) fails ([#3309](https://github.com/snakemake/snakemake/issues/3309)) ([77ef176](https://github.com/snakemake/snakemake/commit/77ef176e2927f6d51de826a2ed3aeb175a2e9a50))
+* record file extension (e.g. .tsv) in between workflow cache records in order to avoid that files of the wrong format are erroneously returned by the cache. This will lead to some cache misses. But avoiding errors induced by the previous behavior of ignoring file extensions when seeking for cache records is more important. ([#3314](https://github.com/snakemake/snakemake/issues/3314)) ([4912f00](https://github.com/snakemake/snakemake/commit/4912f00c24c5fd16b958e530956297ba11d7e155))
+* sort results lexicographically by labels in their order of appearance ([#3293](https://github.com/snakemake/snakemake/issues/3293)) ([a19a0ac](https://github.com/snakemake/snakemake/commit/a19a0ac3c969380a856d5b8c3aa2626a91c412a3))
+
+
+### Documentation
+
+* update best practices ([7270eb3](https://github.com/snakemake/snakemake/commit/7270eb325eb1ee5270dfcebcbeca8b976f099f19))
+
 ## [8.28.0](https://github.com/snakemake/snakemake/compare/v8.27.1...v8.28.0) (2025-02-12)
 
 
