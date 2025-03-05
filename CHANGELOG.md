@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [8.29.2](https://github.com/snakemake/snakemake/compare/v8.29.1...v8.29.2) (2025-03-05)
+
+
+### Documentation
+
+* define gpu and gpu_manufacturer standard resource ([f4e7a08](https://github.com/snakemake/snakemake/commit/f4e7a08f7c3ead6c29e6a05d83f352728367cd8c))
+* define gpu_model resource ([ac7d704](https://github.com/snakemake/snakemake/commit/ac7d704c3e78fe7137572b980f24c87ec72d74d4))
+
 ## [8.29.1](https://github.com/snakemake/snakemake/compare/v8.29.0...v8.29.1) (2025-03-05)
 
 
