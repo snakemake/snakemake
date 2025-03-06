@@ -46,6 +46,8 @@ def md5sum(filename, ignore_newlines=False):
 
 # test skipping
 def is_connected():
+    if "SNAKEMAKE_TESTS_NO_CONNECTED" in os.environ:
+        return False
     try:
         urllib.request.urlopen("http://www.google.com", timeout=1)
         return True
@@ -70,12 +72,16 @@ def has_zenodo_token():
 
 
 def has_apptainer():
+    if "SNAKEMAKE_TESTS_NO_APPTAINER" in os.environ:
+        return False
     return (shutil.which("apptainer") is not None) or (
         shutil.which("singularity") is not None
     )
 
 
 def has_conda():
+    if "SNAKEMAKE_TESTS_NO_CONDA" in os.environ:
+        return False
     return shutil.which("conda") is not None
 
 
