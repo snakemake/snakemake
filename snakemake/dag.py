@@ -913,7 +913,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if job.log:
                 files = chain(files, job.log)
             for f in files:
-                if f.is_storage and not f.should_not_be_retrieved_from_storage:
+                if (
+                    f.is_storage
+                    and not f.should_not_be_retrieved_from_storage
+                    and not is_flagged(f, "pipe")
+                    and not is_flagged(f, "service")
+                ):
                     await f.store_in_storage()
                     storage_mtime = (await f.mtime()).storage()
                     # immediately force local mtime to match storage,
@@ -2244,19 +2249,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return await self.new_job(targetrule)
 
     async def file2jobs(self, targetfile, wildcards_dict=None):
-        rules = self.output_index.match(targetfile)
+        rules = self.output_index.match_producers(targetfile)
         jobs = []
         exceptions = list()
         for rule in rules:
-            if rule.is_producer(targetfile):
-                try:
-                    jobs.append(
-                        await self.new_job(
-                            rule, targetfile=targetfile, wildcards_dict=wildcards_dict
-                        )
+            try:
+                jobs.append(
+                    await self.new_job(
+                        rule, targetfile=targetfile, wildcards_dict=wildcards_dict
                     )
-                except InputFunctionException as e:
-                    exceptions.append(e)
+                )
+            except InputFunctionException as e:
+                exceptions.append(e)
         if not jobs:
             if exceptions:
                 raise exceptions[0]

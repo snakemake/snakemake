@@ -6,7 +6,6 @@ dependencies:
   - python >=3.11
   - yte
   - packaging
-  - datrie
   - boto3
   - httpretty
   - wrapt
