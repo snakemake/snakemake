@@ -100,6 +100,8 @@ class Rule(RuleInterface):
         self._conda_env = None
         self._expanded_conda_env = _NOT_CACHED
         self._container_img = None
+        self._software_env_spec = None
+        self._expanded_software_env_spec = _NOT_CACHED
         self.is_containerized = False
         self.env_modules = None
         self._group = None
@@ -262,6 +264,14 @@ class Rule(RuleInterface):
     @container_img.setter
     def container_img(self, container_img):
         self._container_img = container_img
+
+    @property
+    def sofware_env_spec(self):
+        return self._software_env_spec
+
+    @software_env_spec.setter
+    def software_env_spec(self, software_env_spec):
+        self._software_env_spec = software_env_spec
 
     @property
     def input(self):
@@ -1228,6 +1238,46 @@ class Rule(RuleInterface):
             return resolved_url
 
         return self.container_img
+
+    def expand_software_env_spec(self, wildcards, params=None, input=None):
+        if self._expanded_software_env_spec is not _NOT_CACHED:
+            return self._expanded_software_env_spec
+
+        from snakemake.common import is_local_file
+        from snakemake.sourcecache import SourceFile, infer_source_file
+
+        software_env_spec = self._software_env_spec
+        if software_env_spec is not None:
+            if not callable(software_env_spec):
+                cacheable = not contains_wildcard(software_env_spec)
+            else:
+                software_env_spec, _ = self.apply_input_function(
+                    software_env_spec, wildcards=wildcards, params=params, input=input
+                )
+                cacheable = False
+                if software_env_spec is None:
+                    return None
+        else:
+            self._expanded_software_env_spec = None
+            return None
+
+        def modify_source_paths(path: typing.Union[str, Path]):
+            if isinstance(path, SourceFile):
+                return path
+            if is_local_file(path) and not os.path.isabs(path):
+                # Software env file paths are considered to be relative to the
+                # directory of the Snakefile.
+                # Hence we adjust the path accordingly.
+                # This is not necessary in case of receiving a SourceFile.
+                return self.basedir.join(path)
+            return infer_source_file(path)
+
+        software_env_spec = software_env_spec.modify_source_paths(modify_source_paths)
+
+        if cacheable:
+            self._expanded_software_env_spec = software_env_spec
+
+        return software_env_spec
 
     def is_producer(self, requested_output):
         """

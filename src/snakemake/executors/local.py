@@ -116,20 +116,20 @@ class Executor(RealExecutor):
         conda_env = (
             job.conda_env.address
             if DeploymentMethod.CONDA
-            in self.workflow.deployment_settings.deployment_method
+            in self.workflow.legacy_deployment_settings.deployment_method
             and job.conda_env
             else None
         )
         container_img = (
             job.container_img_path
             if DeploymentMethod.APPTAINER
-            in self.workflow.deployment_settings.deployment_method
+            in self.workflow.legacy_deployment_settings.deployment_method
             else None
         )
         env_modules = (
             job.env_modules
             if DeploymentMethod.ENV_MODULES
-            in self.workflow.deployment_settings.deployment_method
+            in self.workflow.legacy_deployment_settings.deployment_method
             else None
         )
 
@@ -152,10 +152,10 @@ class Executor(RealExecutor):
             self.workflow.output_settings.benchmark_extended,
             conda_env,
             container_img,
-            self.workflow.deployment_settings.apptainer_args,
+            self.workflow.legacy_deployment_settings.apptainer_args,
             env_modules,
             DeploymentMethod.APPTAINER
-            in self.workflow.deployment_settings.deployment_method,
+            in self.workflow.legacy_deployment_settings.deployment_method,
             self.workflow.linemaps,
             self.workflow.execution_settings.debug,
             self.workflow.execution_settings.cleanup_scripts,

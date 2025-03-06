@@ -52,7 +52,7 @@ from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
-    DeploymentSettings,
+    LegacyDeploymentSettings,
     ExecutionSettings,
     GroupSettings,
     MaxJobsPerTimespan,
@@ -2052,7 +2052,7 @@ def args_to_api(args, parser):
                         cache=args.cache,
                         consider_ancient=args.consider_ancient,
                     ),
-                    deployment_settings=DeploymentSettings(
+                    deployment_settings=LegacyDeploymentSettings(
                         deployment_method=deployment_method,
                         conda_prefix=args.conda_prefix,
                         conda_cleanup_pkgs=args.conda_cleanup_pkgs,

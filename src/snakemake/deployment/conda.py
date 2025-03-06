@@ -103,7 +103,7 @@ class Env:
         self._path = None
         self._archive_file = None
         self._cleanup = cleanup
-        self._singularity_args = workflow.deployment_settings.apptainer_args
+        self._singularity_args = workflow.legacy_deployment_settings.apptainer_args
 
     @property
     def is_externally_managed(self):
