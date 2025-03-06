@@ -5,6 +5,7 @@ from snakemake.ioutils.exists import exists
 from snakemake.ioutils.lookup import lookup
 from snakemake.ioutils.rule_items_proxy import rule_item_factory
 from snakemake.ioutils.subpath import subpath
+from snakemake.ioutils.input import parse_input, extract_checksum
 
 
 def register_in_globals(_globals):
@@ -21,5 +22,7 @@ def register_in_globals(_globals):
             "resources": rule_item_factory("resources"),
             "threads": rule_item_factory("threads"),
             "subpath": subpath,
+            "parse_input": parse_input,
+            "extract_checksum": extract_checksum,
         }
     )
