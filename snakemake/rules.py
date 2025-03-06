@@ -264,13 +264,12 @@ class Rule(RuleInterface):
         self._container_img = container_img
 
     @property
-    def sofware_env_spec(self):
+    def software_env_spec(self):
         return self._software_env_spec
 
     @software_env_spec.setter
     def software_env_spec(self, software_env_spec):
         self._software_env_spec = software_env_spec
-
     @property
     def input(self):
         return self._input
