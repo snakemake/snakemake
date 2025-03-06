@@ -349,7 +349,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             simg = None
             if simg_url and (
                 DeploymentMethod.APPTAINER
-                in self.workflow.deployment_settings.deployment_method
+                in self.workflow.legacy_deployment_settings.deployment_method
             ):
                 assert (
                     simg_url in self.container_imgs
@@ -360,7 +360,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 env = env_spec.get_conda_env(
                     self.workflow,
                     container_img=simg,
-                    cleanup=self.workflow.deployment_settings.conda_cleanup_pkgs,
+                    cleanup=self.workflow.legacy_deployment_settings.conda_cleanup_pkgs,
                 )
                 self.conda_envs[key] = env
 
@@ -1963,12 +1963,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             # and singularity images are set up.
             if (
                 DeploymentMethod.APPTAINER
-                in self.workflow.deployment_settings.deployment_method
+                in self.workflow.legacy_deployment_settings.deployment_method
             ):
                 self.pull_container_imgs()
             if (
                 DeploymentMethod.CONDA
-                in self.workflow.deployment_settings.deployment_method
+                in self.workflow.legacy_deployment_settings.deployment_method
             ):
                 self.create_conda_envs()
             potential_new_ready_jobs = True

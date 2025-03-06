@@ -484,6 +484,10 @@ class Conda(RuleKeywordState):
     pass
 
 
+class Software(RuleKeywordState):
+    pass
+
+
 class Singularity(RuleKeywordState):
     @property
     def keyword(self):
@@ -714,6 +718,7 @@ rule_property_subautomata = dict(
     conda=Conda,
     singularity=Singularity,
     container=Container,
+    software=Software,
     containerized=Containerized,
     envmodules=EnvModules,
     wildcard_constraints=WildcardConstraints,
