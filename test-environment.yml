@@ -51,7 +51,6 @@ dependencies:
   - reretry
   - graphviz
   - humanfriendly
-  - stress-ng
   - throttler
   - dpath
   - nodejs # for cwltool
