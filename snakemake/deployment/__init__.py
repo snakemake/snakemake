@@ -79,7 +79,9 @@ class SoftwareDeploymentManager:
         for kind, plugin in self.plugins.items():
 
             def factory(*args, within: EnvSpecBase, **kwargs):
-                return plugin.env_spec_cls(*args, within=within, kind=kind, **kwargs)
+                env_spec = plugin.env_spec_cls(*args, **kwargs)
+                env_spec.within = within
+                env_spec.kind = kind
 
             args = get_function_params(plugin.env_spec_cls)
             args.append("within")
