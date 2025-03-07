@@ -1269,7 +1269,14 @@ class Rule(RuleInterface):
                 # Hence we adjust the path accordingly.
                 # This is not necessary in case of receiving a SourceFile.
                 return self.basedir.join(path)
-            return infer_source_file(path)
+            source_file = infer_source_file(path)
+            cached_path = self.workflow.sourcecache.cache_entry(source_file)
+            try:
+                self.workflow.sourcecache.cache(source_file)
+            except Exception:
+                # ignore exception, we still want the path to be returned
+                pass
+            return cached_path
 
         software_env_spec = software_env_spec.modify_source_paths(modify_source_paths)
 
