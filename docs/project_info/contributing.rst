@@ -102,20 +102,22 @@ Putting these tests into repeatable test cases ensures they can be checked on mu
 Setup to run the test suite locally
 ===================================
 
-Unit tests and regression tests are written to be run by `pytest <https://docs.pytest.org/en/stable/`.
+Unit tests and regression tests are written to be run by `pytest <https://docs.pytest.org/en/stable/>`_.
 
 Assuming you are on a Linux system, and have a working Conda installation, the easiest way to run the tests is like so:
 
 1. Ensure your Conda config (``~/.condarc``) has these options:
 
-::
-    channels:
-      - conda-forge
-      - bioconda
-    channel_priority: strict
-    solver: libmamba
+.. code-block::
 
-*Note: if you need to keep different settings in your personal ``~/.condarc`` for some reason, you can first make the ``snakemake-testing`` env, activate it, and put the above into ``$CONDA_PREFIX/.condarc`` so it will apply to just that environment.*
+   channels:
+     - conda-forge
+     - bioconda
+   channel_priority: strict
+   solver: libmamba
+
+.. note::
+   If you need to keep different settings in your personal ``~/.condarc`` for some reason, you can first make the ``snakemake-testing`` env, activate it, and put the above into ``$CONDA_PREFIX/.condarc`` so it will apply to just the test environment.
 
 2. After checking out the branch you want to test, run these commands:
 
@@ -127,9 +129,7 @@ Assuming you are on a Linux system, and have a working Conda installation, the e
 
 You may want to set a specific Python version by editing the constraint in ``test-environment.yml`` before doing this.
 
-Use of the ``-e``/``--editable`` option to ``pip`` will make your development version of Snakemake the one called when running Snakemake and all the unit tests.
-
-You only need to run the ``pip`` command once, not after each time you make code changes.
+Use of the ``-e``/``--editable`` option to ``pip`` will make your development version of Snakemake the one called when running Snakemake and all the unit tests. You only need to run the ``pip`` command once, not after each time you make code changes.
 
 3. From the base Snakemake folder you may now run any specific test:
 
@@ -148,9 +148,11 @@ Running the full test suite
 
 If you simply run ``pytest`` in the top level directory it will scan for and attempt to run every test in the directory, but you will almost certainly get errors as not all tests are working and current.
 
-The core test suite is the set of tests run as a GitHub action by the code under ``.github/workflows/main.yml``, so you should look in this file for the list of tests actually expected to pass in a regular test environment. At the time of writing this text, the suite is:
+The core test suite is run as a `GitHub action <https://docs.github.com/en/actions/about-github-actions/understanding-github-actions>`_ by the code under ``.github/workflows/main.yml``, so you should look in this file for the list of tests actually expected to pass in a regular test environment.
 
-..
+At the time of writing this text, the suite is:
+
+.. code-block::
 
    tests/tests.py
    tests/tests_using_conda.py
