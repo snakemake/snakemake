@@ -221,15 +221,15 @@ class TestWorkflowsMinioPlayStorageBase(TestWorkflowsBase):
 
     @property
     def endpoint_url(self):
-        return "https://play.minio.io:9000"
+        return "http://127.0.0.1:9000"
 
     @property
     def access_key(self):
-        return "Q3AM3UQ867SPQQA43P2F"
+        return "minio"
 
     @property
     def secret_key(self):
-        return "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+        return "minio123"
 
 
 class TestReportBase(TestWorkflowsLocalStorageBase):
