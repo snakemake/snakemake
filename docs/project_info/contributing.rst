@@ -97,9 +97,27 @@ Testing Guidelines
 
 To ensure that you do not introduce bugs into Snakemake, you should test your code thoroughly.
 
-To have integration tests run automatically when committing code changes to Github, you need to sign up on wercker.com and register a user.
+Putting these tests into repeatable test cases ensures they can be checked on multiple platforms and Python versions.
 
-The easiest way to run your development version of Snakemake is perhaps to go to the folder containing your local copy of Snakemake and call:
+Setup to run the test suite locally
+===================================
+
+Unit tests and regression tests are written to be run by `pytest <https://docs.pytest.org/en/stable/`.
+
+Assuming you are on a Linux system, and have a working Conda installation, the easiest way to run the tests is like so:
+
+1. Ensure your Conda config (``~/.condarc``) has these options:
+
+::
+    channels:
+      - conda-forge
+      - bioconda
+    channel_priority: strict
+    solver: libmamba
+
+*Note: if you need to keep different settings in your personal ``~/.condarc`` for some reason, you can first make the ``snakemake-testing`` env, activate it, and put the above into ``$CONDA_PREFIX/.condarc`` so it will apply to just that environment.*
+
+2. After checking out the branch you want to test, run these commands:
 
 .. code-block:: console
 
@@ -107,16 +125,68 @@ The easiest way to run your development version of Snakemake is perhaps to go to
     $ conda activate snakemake-testing
     $ pip install -e .
 
-This will make your development version of Snakemake the one called when running snakemake. You do not need to run this command after each time you make code changes.
+You may want to set a specific Python version by editing the constraint in ``test-environment.yml`` before doing this.
 
-From the base snakemake folder you call :code:`pytest` to run all the tests, or choose one specific test:
+Use of the ``-e``/``--editable`` option to ``pip`` will make your development version of Snakemake the one called when running Snakemake and all the unit tests.
+
+You only need to run the ``pip`` command once, not after each time you make code changes.
+
+3. From the base Snakemake folder you may now run any specific test:
 
 .. code-block:: console
 
-   $ pytest
    $ pytest tests/tests.py::test_log_input
 
-If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
+You can also use the ``-k`` flag to select tests by substring match, rather than by the full name, and the ``--co`` option to preview which tests will be run. Try, for example:
+
+.. code-block:: console
+
+   $ pytest --co tests/tests.py -k test_modules_all
+
+Running the full test suite
+===========================
+
+If you simply run ``pytest`` in the top level directory it will scan for and attempt to run every test in the directory, but you will almost certainly get errors as not all tests are working and current.
+
+The core test suite is the set of tests run as a GitHub action by the code under ``.github/workflows/main.yml``, so you should look in this file for the list of tests actually expected to pass in a regular test environment. At the time of writing this text, the suite is:
+
+..
+
+   tests/tests.py
+   tests/tests_using_conda.py
+   tests/test_expand.py
+   tests/test_io.py
+   tests/test_schema.py
+   tests/test_linting.py
+   tests/test_executor_test_suite.py
+   tests/test_api.py
+   tests/test_internals.py
+
+Other tests in the directory may or may not work.
+
+Warnings and oddities
+=====================
+
+You will likely see warnings related to deprecated functions in dependent libraries, especially botocore.
+
+You may also get intermittent failures from tests that rely on external connectivity. The default test suite makes connections to multiple external services.
+
+Tests that require singularity will be auto-skipped if no singularity or apptainer installation is available.
+At the time of writing neither the ``singularity`` package on conda-forge nor the ``apptainer`` package are reliable, in that there are multiple failing tests on a standard Ubuntu system.
+This is likely due to system security profiles that conda, being a non-root application, cannot change.
+The Debian/Ubuntu ``singularity-container`` DEB package, which must be installed by the system administrator, does work.
+The equivalent RPM package should also work on RedHat-type systems.
+
+Tests in ``tests/test_api.py`` require a working ``git``.
+This is not included in ``test-environment.yml`` as it's assumed you must have GIT installed to be working on the source code, but installing git into the conda environment should work if need be.
+
+Depending on how the Snakemake code was downloaded and installed in the test environment, Snakemake may not be able to determine its own version and may think that it is version 0.
+The existing unit tests should all cope with this, and in general you should avoid writing tests that rely on explicit version checks.
+
+Continuous integration
+======================
+
+To have integration tests run automatically when committing code changes to Github, you need to sign up on wercker.com and register a user.
 
 .. _project_info-doc_guidelines:
 
