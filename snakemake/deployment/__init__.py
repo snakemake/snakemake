@@ -71,8 +71,8 @@ class SoftwareDeploymentManager:
         for kind, plugin in self.plugins.items():
             if kind in global_variables:
                 raise WorkflowError(
-                    "The software deployment plugin {plugin.name} provides an "
-                    "invalid kind {kind}, which is already reserved as a global "
+                    f"The software deployment plugin {plugin.name} provides an "
+                    f"invalid kind {kind}, which is already reserved as a global "
                     "variable in snakemake."
                 )
 
@@ -82,6 +82,7 @@ class SoftwareDeploymentManager:
                 env_spec = plugin.env_spec_cls(*args, **kwargs)
                 env_spec.within = within
                 env_spec.kind = kind
+                return env_spec
 
             args = get_function_params(plugin.env_spec_cls)
             args.append("within")
