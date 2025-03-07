@@ -80,6 +80,7 @@ class SoftwareDeploymentManager:
 
             def factory(*args, within: EnvSpecBase, **kwargs):
                 env_spec = plugin.env_spec_cls(*args, **kwargs)
+                env_spec.technical_init()
                 env_spec.within = within
                 env_spec.kind = kind
                 return env_spec

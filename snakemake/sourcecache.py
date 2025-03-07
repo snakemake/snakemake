@@ -370,23 +370,23 @@ class SourceCache:
         return self._runtime_cache_path or self.runtime_cache.name
 
     def open(self, source_file, mode="r"):
-        cache_entry = self._cache(source_file)
+        cache_entry = self.cache(source_file)
         return self._open_local_or_remote(
             LocalSourceFile(cache_entry), mode, encoding="utf-8"
         )
 
     def exists(self, source_file):
         try:
-            self._cache(source_file, retries=1)
+            self.cache(source_file, retries=1)
         except Exception:
             return False
         return True
 
     def get_path(self, source_file):
-        cache_entry = self._cache(source_file)
+        cache_entry = self.cache(source_file)
         return str(cache_entry)
 
-    def _cache_entry(self, source_file: SourceFile) -> Path:
+    def cache_entry(self, source_file: SourceFile) -> Path:
         file_cache_path = source_file.get_cache_path()
         assert file_cache_path
 
@@ -398,8 +398,8 @@ class SourceCache:
             # check runtime cache
             return Path(self.runtime_cache_path) / file_cache_path
 
-    def _cache(self, source_file: SourceFile, retries: int = 3):
-        cache_entry = self._cache_entry(source_file)
+    def cache(self, source_file: SourceFile, retries: int = 3):
+        cache_entry = self.cache_entry(source_file)
         if not cache_entry.exists():
             self._do_cache(source_file, cache_entry, retries=retries)
         return cache_entry
