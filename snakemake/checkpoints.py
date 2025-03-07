@@ -1,13 +1,16 @@
-from snakemake.common import async_run
+from typing import TYPE_CHECKING
+
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
 from snakemake.io import checkpoint_target
+
+if TYPE_CHECKING:
+    from snakemake.rules import Rule
 
 
 class Checkpoints:
     """A namespace for checkpoints so that they can be accessed via dot notation."""
 
     def __init__(self):
-        self.future_output = None
         self.created_output = None
 
     def register(self, rule, fallback_name=None):
@@ -20,7 +23,7 @@ class Checkpoints:
 class Checkpoint:
     __slots__ = ["rule", "checkpoints"]
 
-    def __init__(self, rule, checkpoints):
+    def __init__(self, rule: "Rule", checkpoints: Checkpoints):
         self.rule = rule
         self.checkpoints = checkpoints
 
@@ -32,11 +35,9 @@ class Checkpoint:
             )
 
         output, _ = self.rule.expand_output(wildcards)
-        if self.checkpoints.future_output is not None:
-            for iofile in output:
-                if iofile in self.checkpoints.future_output:
-                    break
-            else:
+
+        if self.checkpoints.created_output is not None:
+            if set(output) <= set(self.checkpoints.created_output):
                 return CheckpointJob(self.rule, output)
 
         raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
@@ -45,6 +46,6 @@ class Checkpoint:
 class CheckpointJob:
     __slots__ = ["rule", "output"]
 
-    def __init__(self, rule, output):
+    def __init__(self, rule: "Rule", output):
         self.output = output
         self.rule = rule
