@@ -5,7 +5,7 @@ from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_software_deployment_plugins.registry import (
     SoftwareDeploymentPluginRegistry,
 )
-from snakemake_interface_software_deployment_plugins import EnvSpecBase, EnvBase
+from snakemake_interface_software_deployment_plugins import EnvSpecBase, EnvBase, EnvSpecSourceFile
 
 from snakemake.common import get_function_params, overwrite_function_params
 from snakemake.jobs import Job
@@ -77,13 +77,25 @@ class SoftwareDeploymentManager:
                 )
 
         for kind, plugin in self.plugins.items():
+            def make_factory(plugin_val, kind_val):
+                def factory(*args, within: EnvSpecBase, **kwargs):
+                    if args:
+                        raise WorkflowError(
+                            "Positional arguments are not allowed in "
+                            f"software deployment expressions (found in {kind}())"
+                        )
 
-            def factory(*args, within: EnvSpecBase, **kwargs):
-                env_spec = plugin.env_spec_cls(*args, **kwargs)
-                env_spec.technical_init()
-                env_spec.within = within
-                env_spec.kind = kind
-                return env_spec
+                    for attr in plugin_val.env_spec_cls.source_path_attributes():
+                        kwargs[attr] = EnvSpecSourceFile(kwargs[attr])
+
+                    env_spec = plugin_val.env_spec_cls(*args, **kwargs)
+                    env_spec.technical_init()
+
+                    env_spec.within = within
+                    env_spec.kind = kind_val
+                    return env_spec
+                return factory
+            factory = make_factory(plugin, kind)
 
             args = get_function_params(plugin.env_spec_cls)
             args.append("within")
