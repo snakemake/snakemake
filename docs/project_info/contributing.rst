@@ -104,44 +104,34 @@ Setup to run the test suite locally
 
 Unit tests and regression tests are written to be run by `pytest <https://docs.pytest.org/en/stable/>`_.
 
-Assuming you are on a Linux system, and have a working Conda installation, the easiest way to run the tests is like so:
+Assuming you are on a Linux system, and have a working Conda installation, the standard way to run the tests is explained in the following.
+With sufficient experience, it is however possible to run the tests in different setups, given the expected dependencies are installed.
 
-1. Ensure your Conda config (``~/.condarc``) has these options:
+1. Ensure your Conda version is at least 24.7.1 (Snakemake's minimum required Conda version).
+   Check the output of ``conda --version`` and update conda if necessary.
+2. Activate strict channel priorities (this is always a good idea when using Conda, see `here <https://conda-forge.org/docs/user/tipsandtricks/#using-multiple-channels>`__ for the rationale), by running ``conda config --set channel_priority strict``.
+3. After checking out the branch you want to test, run these commands:
 
-.. code-block::
+   .. code-block:: console
 
-   channels:
-     - conda-forge
-     - bioconda
-   channel_priority: strict
-   solver: libmamba
+       $ conda env create -f test-environment.yml -n snakemake-testing
+       $ conda activate snakemake-testing
+       $ pip install -e .
 
-.. note::
-   If you need to keep different settings in your personal ``~/.condarc`` for some reason, you can first make the ``snakemake-testing`` env, activate it, and put the above into ``$CONDA_PREFIX/.condarc`` so it will apply to just the test environment.
+   You may want to set a specific Python version by editing the constraint in ``test-environment.yml`` before doing this.
+   Use of the ``-e``/``--editable`` option to ``pip`` will make your development version of Snakemake the one called when running Snakemake and all the unit tests. You only need to run the ``pip`` command once, not after each time you make code changes.
 
-2. After checking out the branch you want to test, run these commands:
+4. From the base Snakemake folder you may now run any specific test:
 
-.. code-block:: console
+   .. code-block:: console
 
-    $ conda env create -f test-environment.yml -n snakemake-testing
-    $ conda activate snakemake-testing
-    $ pip install -e .
+      $ pytest tests/tests.py::test_log_input
 
-You may want to set a specific Python version by editing the constraint in ``test-environment.yml`` before doing this.
+   You can also use the ``-k`` flag to select tests by substring match, rather than by the full name, and the ``--co`` option to preview which tests will be run. Try, for example:
 
-Use of the ``-e``/``--editable`` option to ``pip`` will make your development version of Snakemake the one called when running Snakemake and all the unit tests. You only need to run the ``pip`` command once, not after each time you make code changes.
+   .. code-block:: console
 
-3. From the base Snakemake folder you may now run any specific test:
-
-.. code-block:: console
-
-   $ pytest tests/tests.py::test_log_input
-
-You can also use the ``-k`` flag to select tests by substring match, rather than by the full name, and the ``--co`` option to preview which tests will be run. Try, for example:
-
-.. code-block:: console
-
-   $ pytest --co tests/tests.py -k test_modules_all
+      $ pytest --co tests/tests.py -k test_modules_all
 
 Running the full test suite
 ===========================
@@ -188,7 +178,8 @@ The existing unit tests should all cope with this, and in general you should avo
 Continuous integration
 ======================
 
-To have integration tests run automatically when committing code changes to Github, you need to sign up on wercker.com and register a user.
+When creating a pull request for https://github.com/snakemake/snakemake, all tests will be automatically executed in a controlled environment by Github Actions.  
+
 
 .. _project_info-doc_guidelines:
 
