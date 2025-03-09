@@ -118,7 +118,7 @@ Plugins
 ^^^^^^^
 
 Various functionalities of Snakemake are organized via plugins (e.g. supporting different execution backends or remote storage).
-For each type of plugin, Snakemake offers an interface pacakage.
+For each type of plugin, Snakemake offers an interface package.
 Interface packages provide a stable API for the communication between the main Snakemake and the plugin.
 They are independently (and semantically) versioned and aim to avoid breaking changes, so that plugins will rarely have to be modified and should remain compatible with a wide range of Snakemake versions for a long time.
 
@@ -179,7 +179,7 @@ An example class (in this case for storage plugins) created by the scaffold comm
     class StorageProvider(StorageProviderBase):
         # For compatibility with future changes, you should not overwrite the __init__
         # method. Instead, use __post_init__ to set additional attributes and initialize
-        # futher stuff.
+        # further stuff.
 
         def __post_init__(self):
             # This is optional and can be removed if not needed.
