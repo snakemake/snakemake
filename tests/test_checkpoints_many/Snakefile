@@ -44,11 +44,7 @@ rule copy:
     input:
         "second/{sample}/{i}/{j}/test2.txt",
     output:
-        "copy/{sample}/{i}/{j}/test2.txt",
-    shell:
-        """
-        cp -f {input} {output}
-        """
+        touch("copy/{sample}/{i}/{j}/test2.txt"),
 
 
 def aggregate(wildcards):
