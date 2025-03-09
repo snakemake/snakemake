@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language: Snakemake (extended from python.vim)
 " Maintainer: Jay Hesselberth (jay.hesselberth@gmail.com)
-" Last Change: 2020 Oct 6
+" Last Change: 2025 Mar 6
 "
 " Usage
 "
@@ -20,28 +20,40 @@ endif
 source $VIMRUNTIME/syntax/python.vim
 source $VIMRUNTIME/indent/python.vim
 
+" Snakemake rules, as of version 8.29
 "
-" Snakemake rules, as of version 5.8
 "
-"
-" rule        = "rule" (identifier | "") ":" ruleparams
-" include     = "include:" stringliteral
-" workdir     = "workdir:" stringliteral
-" ni          = NEWLINE INDENT
-" ruleparams  = [ni input] [ni output] [ni params] [ni message] [ni threads] [ni (run | shell)] NEWLINE snakemake
-" input       = "input" ":" parameter_list
-" output      = "output" ":" parameter_list
-" params      = "params" ":" parameter_list
-" message     = "message" ":" stringliteral
-" threads     = "threads" ":" integer
-" resources   = "resources" ":" parameter_list
-" version     = "version" ":" statement
-" run         = "run" ":" ni statement
-" shell       = "shell" ":" stringliteral
-" singularity = "singularity" ":" stringliteral
-" conda       = "conda" ":" stringliteral
-" shadow      = "shadow" ":" stringliteral
-" group       = "group" ":" stringliteral
+" rule         = "rule" (identifier | "") ":" ruleparams
+" include      = "include:" stringliteral
+" workdir      = "workdir:" stringliteral
+" module       = "module" identifier ":" moduleparams
+" configfile   = "configfile" ":" stringliteral
+" userule      = "use" "rule" (identifier | "*") "from" identifier ["as" identifier] ["with" ":" norunparams]
+" ni           = NEWLINE INDENT
+" norunparams  = [ni input] [ni output] [ni params] [ni message] [ni threads] [ni resources] [ni log] [ni conda] [ni container] [ni benchmark] [ni cache] [ni priority]
+" ruleparams   = norunparams [ni (run | shell | script | notebook)] NEWLINE snakemake
+" input        = "input" ":" parameter_list
+" output       = "output" ":" parameter_list
+" params       = "params" ":" parameter_list
+" log          = "log" ":" parameter_list
+" benchmark    = "benchmark" ":" statement
+" cache        = "cache" ":" bool
+" message      = "message" ":" stringliteral
+" threads      = "threads" ":" integer
+" priority     = "priority" ":" integer
+" resources    = "resources" ":" parameter_list
+" version      = "version" ":" statement
+" conda        = "conda" ":" stringliteral
+" container    = "container" ":" stringliteral
+" run          = "run" ":" ni statement
+" shell        = "shell" ":" stringliteral
+" script       = "script" ":" stringliteral
+" notebook     = "notebook" ":" stringliteral
+" moduleparams = [ni snakefile] [ni metawrapper] [ni config] [ni skipval]
+" snakefile    = "snakefile" ":" stringliteral
+" metawrapper  = "meta_wrapper" ":" stringliteral
+" config       = "config" ":" stringliteral
+" skipval      = "skip_validation" ":" stringliteral
 
 
 " general directives (e.g. input)
@@ -88,6 +100,7 @@ syn keyword pythonStatement
       \ checkpoint
       \ rule
       \ subworkflow
+      \ use
       \ nextgroup=pythonFunction skipwhite
 
 " common snakemake objects
@@ -103,8 +116,10 @@ syn keyword pythonBuiltinObj
 " snakemake functions
 syn keyword pythonBuiltinFunc 
       \ ancient
+      \ before_update
       \ directory
       \ expand
+      \ exists
       \ multiext
       \ pipe
       \ protected
@@ -113,6 +128,7 @@ syn keyword pythonBuiltinFunc
       \ temp
       \ touch
       \ unpack
+      \ update
 
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class
