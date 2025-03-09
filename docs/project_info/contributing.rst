@@ -285,9 +285,97 @@ Snakemake is organized as a combination of a main package, a set of plugin inter
 The development of the Snakemake main package as well as the plugin interfaces is hosted by the Snakemake GitHub organization (https://github.com/snakemake) and maintained by the :ref:`Snakemake core team <maintainers>`.
 Many plugins are hosted by and developed within the Snakemake GitHub organization as well.
 However, both Snakemake's plugin detection and the `plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/>`__ are designed to work seamlessly with plugins developed outside of the Snakemake GitHub organization and such contributions are highly encouraged.
+Visually, Snakemake's architecture can be summarized as follows:
 
 .. image:: img/architecture.svg
     :alt: Snakemake architecture
 
 The main package
 ----------------
+
+Snakemake's main package can be partitioned into three levels.
+
+#. The user-facing level, consisting of an API and a command line interface that uses the API under the hood.
+#. The language level, implementing the language parser and thereby defining the workflow definition syntax.
+#. The core level, implementing Snakemake's interpretation of rules defined via the language, the inference of jobs and their dependencies, as well as the actual execution of workflows as a combined usage of the various plugin types.
+
+The user-facing level
+^^^^^^^^^^^^^^^^^^^^^
+
+Most users will interact with the command line interface of Snakemake.
+The command line interface of Snakemake is defined in `snakemake/cli.py <https://github.com/snakemake/snakemake/blob/main/snakemake/cli.py>`__ using Python's argparse module.
+The module is responsible for parsing command-line arguments, setting up logging, and invoking the appropriate Snakemake API calls based on the provided arguments. It defines various argument groups for execution, grouping, reports, notebooks, utilities, output, behavior, remote execution, software deployment, conda, apptainer/singularity, environment modules, and internal use.
+
+The main steps in `cli.py` include:
+#. **Argument Parsing**: Using argparse to define and parse command-line arguments.
+#. **Profile Handling**: Managing profiles for setting default command-line arguments.
+#. **Logging Setup**: Configuring log handlers based on the provided arguments.
+#. **API Invocation**: Converting parsed arguments into API calls to execute the workflow, generate reports, or perform other tasks.
+
+The API (application programming interface) of Snakemake is defined in `snakemake/api.py <https://github.com/snakemake/snakemake/blob/main/snakemake/api.py>`__.
+It provides a programmatic interface to Snakemake, allowing users to interact with Snakemake workflows through Python code.
+It defines classes and methods for setting up and executing workflows, managing resources, and handling various settings.
+
+The main components include:
+#. ``SnakemakeApi``: The main entry point for interacting with Snakemake workflows programmatically. It provides methods for setting up workflows, deploying sources, and handling exceptions.
+   Via the method ``SnakemakeApi.workflow()`` a workflow can be instantiated from a given snakefile, thereby returning a ``WorkflowApi`` object).
+#. ``WorkflowApi``: A class for managing workflow-specific settings and operations, such as creating DAGs, linting workflows, and executing workflows.
+   Via the method ``WorkflowApi.dag()`` a Directed Acyclic Graph (DAG) can be instantiated from the workflow, thereby returning a ``DAGApi`` object).
+#. ``DAGApi``: A class for managing Directed Acyclic Graph (DAG) settings and executing workflows with specific executors and settings.
+
+All parts of the API are designed to be used in combination with a set of `data classes <https://docs.python.org/3/library/dataclasses.html>`__ and `enumerations <https://docs.python.org/3/library/enum.html>`__ that define various settings in a type safe and readable way.
+These classes are in part found under `snakemake/settings <https://github.com/snakemake/snakemake/blob/main/snakemake/settings>`__, and in part (where necessary) defined in the plugin interface packages.
+
+The language level
+^^^^^^^^^^^^^^^^^^
+
+Snakemake offers a domain specific language (DSL) for defining workflows.
+The syntax of the DSL is primarily defined via the implementation of the parser in `snakemake/parser.py <https://github.com/snakemake/snakemake/blob/main/snakemake/parser.py>`__.
+A key feature of Snakemake's power is the fact that the language extends the syntax of Python with *directives* to define rules and other workflow specific controls.
+Technically, this is implemented as a hierarchy of `Mealy machines <https://en.wikipedia.org/wiki/Mealy_machine>`__, each of which is responsible for one of the directives offered by the Snakemake DSL.
+The parser first tokenizes a given snakefile using Python's builtin tokenizer, and then translates the tokens (that contain DSL tokens) into plain python tokens which translate the DSL specification into a plain Python specification of the workflow and all its items (e.g. the definition of rules).
+The latter are then fed into the Python interpreter, thereby building up the workflow with all the defined rules.
+During the token translation process, the Mealy machine hierarchy starts in a state accepting (and outputting) any Python token, and switches to appropriate sub-machines whenever a DSL-specifiy keyword is encountered.
+The Mealy machines are implemented as Python classes, using abstract base classes to define common functionality.
+The generated Python code invokes methods of the ``snakemake.workflow.Workflow`` (see :ref:`codebase_core`) class to build up the workflow.
+
+.. _codebase_core:
+
+The core level
+^^^^^^^^^^^^^^
+
+The core level of Snakemake is responsible for interpreting the rules defined via the language, inferring jobs and their dependencies, and executing workflows. The most important components of the core level include:
+
+Workflow
+""""""""
+The ``Workflow`` class (`snakemake/workflow.py <https://github.com/snakemake/snakemake/blob/main/snakemake/workflow.py>`__) is the central class representing a Snakemake workflow. It manages the rules, config, resources, and execution settings. The `Workflow` class is responsible for parsing the workflow definition, creating the Directed Acyclic Graph (DAG) of jobs, and orchestrating the execution of the workflow. It interacts with other core components like `Rule`, `DAG`, and `Scheduler` to manage the workflow execution.
+
+Rule
+""""
+The `Rule` class (`snakemake/rules.py <https://github.com/snakemake/snakemake/blob/main/snakemake/rules.py>`__) represents a single rule in the workflow. A `Rule` defines the input, output, and parameters for a specific step in the workflow. It also includes directives for resources, conda environments, and containerization. The `Rule` class interacts with the `Workflow` class to define the workflow structure and with the `DAG` class to manage job dependencies.
+
+DAG
+"""
+The `DAG` class (`snakemake/dag.py <https://github.com/snakemake/snakemake/blob/main/snakemake/dag.py>`__) represents the Directed Acyclic Graph (DAG) of jobs in the workflow. It is responsible for inferring the order of job execution, detecting cycles, and managing job dependencies. The `DAG` class interacts with the `Workflow`, `Rule`, and `Scheduler` classes to manage the workflow execution.
+
+Persistence
+"""""""""""
+The `Persistence` class (`snakemake/persistence.py <https://github.com/snakemake/snakemake/blob/main/snakemake/persistence.py>`__) manages the persistent storage of metadata and provenance information. The `Persistence` class interacts with the `Workflow` and `DAG` classes to manage workflow state.
+
+Scheduler
+"""""""""
+The `Scheduler` class (`snakemake/scheduler.py <https://github.com/snakemake/snakemake/blob/main/snakemake/scheduler.py>`__) is responsible for scheduling jobs for execution. It uses the DAG to determine the order of job execution, taking into account resource constraints and job priorities. The `Scheduler` class interacts with the `Workflow`, `DAG`, and `Rule` classes to manage job scheduling.
+
+PathModifier
+""""""""""""
+The `PathModifier` class (`snakemake/path_modifier.py <https://github.com/snakemake/snakemake/blob/main/snakemake/path_modifier.py>`__) is a utility class for handling path modifications such as the handling of remote storage or module imports. It ensures that paths are correctly managed and modified according to the workflow's requirements. The `PathModifier` class interacts with the `Workflow` and `_IOFile` classes to manage file paths.
+
+Sourcecache
+"""""""""""
+The `Sourcecache` class (`snakemake/sourcecache.py <https://github.com/snakemake/snakemake/blob/main/snakemake/sourcecache.py>`__) handles the caching of source files. It ensures that remote source files are efficiently managed and reused across workflow executions. The `Sourcecache` class interacts with the `Workflow` and `_IOFile` classes to manage source files.
+
+Besides these central classes, the following modules add additional functionality:
+
+ioutils
+"""""""
+The ``ioutils`` module (`snakemake/ioutils <https://github.com/snakemake/snakemake/blob/main/snakemake/ioutils>`__) implements semantic helper functions functions for handling input and output files as well as non-file parameters in the workflow.
