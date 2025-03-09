@@ -88,7 +88,7 @@ jobs:
         run: |
           sudo add-apt-repository -y ppa:apptainer/ppa
           sudo apt-get update
-          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev apptainer dash
+          sudo apt install -y git wget openmpi-bin libopenmpi-dev apptainer dash
 
       # See https://github.com/apptainer/apptainer/pull/2262
       - name: Disable apparmor namespace restrictions for apptainer
@@ -125,6 +125,7 @@ jobs:
           pytest -v -x --show-capture=stderr \
             --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration \
             tests/tests.py \
+            tests/tests_using_conda.py \
             tests/test_expand.py \
             tests/test_io.py \
             tests/test_schema.py \
@@ -174,7 +175,12 @@ jobs:
         shell: python
         run: |
           import fileinput
-          excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
+          excluded_on_win = [ "environment-modules",
+                              "cwltool",
+                              "cwl-utils",
+                              "apptainer",
+                              "squashfuse",
+                              "stress-ng" ]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line, end="")
