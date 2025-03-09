@@ -122,7 +122,7 @@ jobs:
               sudo chsh -s /usr/bin/dash $(whoami)
           fi
 
-          pytest -v -x --show-capture=stderr \
+          pytest -v -x --show-capture=all \
             --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration \
             tests/tests.py \
             tests/tests_using_conda.py \
@@ -203,4 +203,4 @@ jobs:
           CI: true
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         run: |
-          python -m pytest --show-capture=stderr -v -x --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration tests/tests.py
+          python -m pytest --show-capture=all -v -x --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration tests/tests.py
