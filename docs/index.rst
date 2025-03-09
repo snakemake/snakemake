@@ -188,6 +188,7 @@ Resources
     project_info/more_resources
     project_info/faq
     project_info/contributing
+    project_info/codebase
     project_info/authors
     project_info/history
     project_info/license
