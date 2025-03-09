@@ -89,6 +89,8 @@ When using Snakemake, please cite our "rolling" paper
 This paper will also be regularly updated when Snakemake receives new features.
 See :doc:`Citations <project_info/citations>` for more information.
 
+.. _maintainers:
+
 -----------
 Maintainers
 -----------

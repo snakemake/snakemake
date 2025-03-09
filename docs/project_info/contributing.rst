@@ -1,8 +1,8 @@
 .. _project_info-contributing:
 
-============
+************
 Contributing
-============
+************
 
 Contributions are welcome, and they are greatly appreciated!
 Every little bit helps, and credit will always be given.
@@ -10,65 +10,60 @@ Every little bit helps, and credit will always be given.
 You can contribute in many ways:
 
 
-----------------------
-Types of Contributions
-----------------------
+
+Types of contributions
+======================
 
 
-Report Bugs
-===========
+Report bugs or suggest enhancements
+-----------------------------------
 
-Report bugs at https://github.com/snakemake/snakemake/issues
+Report bugs or suggest enhancements at https://github.com/snakemake/snakemake/issues
 
-If you are reporting a bug, please include:
+If you are reporting a bug, follow the template and fill out the requested information, including:
 
 * Your operating system name and version.
 * Any details about your local setup that might be helpful in troubleshooting.
-* Detailed steps to reproduce the bug.
+* Detailed steps to reproduce the bug and ideally a test case.
+
+If you are proposing am enhancement or a new feature:
+
+* Explain in detail how it would work.
+* Keep the scope as narrow as possible, to make it easier to implement.
+* Remember that this is a volunteer-driven project, and that contributions are welcome :).
 
 
 Fix Bugs
-========
+--------
 
 Look through the Github issues for bugs.
 If you want to start working on a bug then please write short message on the issue tracker to prevent duplicate work.
 
 
 Implement Features
-==================
+------------------
 
-Look through the Github issues for features.
+Look through the Github issues for feature/enhancement requests.
 If you want to start working on an issue then please write short message on the issue tracker to prevent duplicate work.
 
 Contributing a plugin
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
-Currently, Snakemake supports executor plugins and storage plugins.
+Currently, Snakemake supports executor plugins, storage plugins, and report plugins.
 The `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_ shows which plugins are available and how to contribute new ones.
 
 Write Documentation
-===================
+-------------------
 
-Snakemake could always use more documentation, whether as part of the official vcfpy docs, in docstrings, or even on the web in blog posts, articles, and such.
+Snakemake could always use more documentation, whether as part of the official docs, in docstrings, or even on the web in blog posts, articles, and such.
 
 Snakemake uses `Sphinx <https://sphinx-doc.org>`_ for the user manual (that you are currently reading).
 See :ref:`project_info-doc_guidelines` on how the documentation reStructuredText is used.
 
 
-Submit Feedback
-===============
 
-The best way to send feedback is to file an issue at https://github.com/snakemake/snakemake/issues
-
-If you are proposing a feature:
-
-* Explain in detail how it would work.
-* Keep the scope as narrow as possible, to make it easier to implement.
-* Remember that this is a volunteer-driven project, and that contributions are welcome :)
-
------------------------
 Pull Request Guidelines
------------------------
+=======================
 
 To update the documentation, fix bugs or add new features you need to create a Pull Request
 . A PR is a change you make to your local copy of the code for us to review and potentially integrate into the code base.
@@ -91,16 +86,21 @@ If you want to create more pull requests, first run :code:`git checkout main` an
 
 Feel free to ask questions about this if you want to contribute to Snakemake :)
 
-------------------
+
 Testing Guidelines
-------------------
+==================
 
 To ensure that you do not introduce bugs into Snakemake, you should test your code thoroughly.
 
 Putting these tests into repeatable test cases ensures they can be checked on multiple platforms and Python versions.
 
+Continuous integration
+----------------------
+For any pull request, all tests are automatically executed within Github Actions, providing feedback to you and the official development team whether the proposed changes are working as expected and do not hamper other functionality Snakemake provides.
+However, it is useful to be able to run the tests locally, thereby being able to quickly debug any occurring failures.
+
 Setup to run the test suite locally
-===================================
+-----------------------------------
 
 Unit tests and regression tests are written to be run by `pytest <https://docs.pytest.org/en/stable/>`_.
 
@@ -134,7 +134,7 @@ With sufficient experience, it is however possible to run the tests in different
       $ pytest --co tests/tests.py -k test_modules_all
 
 Running the full test suite
-===========================
+---------------------------
 
 If you simply run ``pytest`` in the top level directory it will scan for and attempt to run every test in the directory, but you will almost certainly get errors as not all tests are working and current.
 
@@ -157,7 +157,7 @@ At the time of writing this text, the suite is:
 Other tests in the directory may or may not work.
 
 Warnings and oddities
-=====================
+---------------------
 
 You will likely see warnings related to deprecated functions in dependent libraries, especially botocore.
 
@@ -175,17 +175,11 @@ This is not included in ``test-environment.yml`` as it's assumed you must have G
 Depending on how the Snakemake code was downloaded and installed in the test environment, Snakemake may not be able to determine its own version and may think that it is version 0.
 The existing unit tests should all cope with this, and in general you should avoid writing tests that rely on explicit version checks.
 
-Continuous integration
-======================
-
-When creating a pull request for https://github.com/snakemake/snakemake, all tests will be automatically executed in a controlled environment by Github Actions.  
-
 
 .. _project_info-doc_guidelines:
 
-------------------------
 Documentation Guidelines
-------------------------
+========================
 
 For the documentation, please adhere to the following guidelines:
 
@@ -235,7 +229,6 @@ For the documentation, please adhere to the following guidelines:
 
 .. _doc_setup:
 
--------------------
 Documentation Setup
 -------------------
 
@@ -282,3 +275,19 @@ Afterwards, the docs can be built with
     $ source .venv/bin/activate
     $ make html  # rebuild for changed files only
     $ make clean && make html  # force rebuild
+
+.. _codebase_intro:
+
+The Snakemake codebase
+======================
+
+Snakemake is organized as a combination of a main package, a set of plugin interface packages for various functionalities (e.g. execution backends, storage, reporting), and plugin packages implementing those interfaces.
+The development of the Snakemake main package as well as the plugin interfaces is hosted by the Snakemake GitHub organization (https://github.com/snakemake) and maintained by the :ref:`Snakemake core team <maintainers>`.
+Many plugins are hosted by and developed within the Snakemake GitHub organization as well.
+However, both Snakemake's plugin detection and the `plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/>`__ are designed to work seamlessly with plugins developed outside of the Snakemake GitHub organization and such contributions are highly encouraged.
+
+.. image:: img/architecture.svg
+    :alt: Snakemake architecture
+
+The main package
+----------------
