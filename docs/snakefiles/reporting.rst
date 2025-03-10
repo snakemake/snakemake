@@ -311,7 +311,7 @@ For example, with
     snakemake fig1.svg --report report-short.html
 
 the report contains only ``fig1.svg``.
-This can for example be useful when a larger workflow has not yet run to completion, but you already want to explore some intermediate outputs in the report.
+This can be useful when a larger workflow has not yet run to completion, but you already want to explore some intermediate outputs in the report.
 Or when you have multiple alternative target rules within the same workflow.
 
 Custom layout
