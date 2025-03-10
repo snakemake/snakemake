@@ -17,6 +17,7 @@ import sys
 import tempfile
 import textwrap
 import typing
+import shlex
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from pathlib import Path
@@ -425,9 +426,10 @@ class JuliaEncoder:
         if value is None:
             return "nothing"
         elif isinstance(value, str):
-            return repr(value)
+            # JS string quoting works OK for Julia - see tests/test_script/scripts/test.jl
+            return json.dumps(value)
         elif isinstance(value, Path):
-            return repr(str(value))
+            return json.dumps(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
@@ -456,7 +458,7 @@ class JuliaEncoder:
     def encode_items(cls, items):
         def encode_item(item):
             name, value = item
-            return f'"{name}" => {cls.encode_value(value)}'
+            return f'{cls.encode_value(name)} => {cls.encode_value(value)}'
 
         return ", ".join(map(encode_item, items))
 
@@ -514,12 +516,12 @@ class BashEncoder:
         main_aa = dict()
         for var in vars(smk):
             val = getattr(smk, var)
+            suffix = "params" if var == "_params_store" else var.strip("_").lower()
             if var in self.namedlists:
-                suffix = "params" if var == "_params_store" else var.strip("_").lower()
                 aa = f"{self.prefix}_{suffix}={self.encode_namedlist(val)}"
                 arrays.append(aa)
             elif var in self.dicts:
-                aa = f"{self.prefix}_{var.strip('_').lower()}={self.dict_to_aa(val)}"
+                aa = f"{self.prefix}_{suffix}={self.dict_to_aa(val)}"
                 arrays.append(aa)
             else:
                 main_aa[var] = val
@@ -529,38 +531,40 @@ class BashEncoder:
 
     @staticmethod
     def dict_to_aa(d: dict) -> str:
-        """Converts a dictionary to an associative array"""
+        """Converts a dictionary to a Bash associative array
+           This produces the array component of the variable.
+           e.g. ( [var1]=val1 [var2]=val2 )
+           to make it a correct bash associative array, you need to name it with
+           name=<output of this method>
+        """
         s = "( "
         for k, v in d.items():
-            formatted_v = shlex.quote(f"{v}")
-            formatted_k = shlex.quote(f"{k}")
-            s += (
-                f'[$(printf "%s" {formatted_k})]'
-                f'="$(printf "%s" {formatted_v})" '
-            )
+            # The next replacement meant is for lists, but also gets applied to sub-dicts
+            # so that the script will only see a string containing the dict keys.
+            # There is no easy way to represent a nested dict in Bash
+            if isinstance(v, Iterable) and not isinstance(v, str):
+                v = " ".join([str(x) for x in v])
+            quoted_v = shlex.quote(str(v))
+            quoted_k = shlex.quote(str(k))
+            s += f'[{quoted_k}]={quoted_v} '
 
         s += ")"
         return s
 
     @classmethod
-    def encode_namedlist(cls, named_list) -> str:
-        """Convert a namedlist into a bash associative array
-        This produces the array component of the variable.
-        e.g. ( [var1]=val1 [var2]=val2 )
-        to make it a correct bash associative array, you need to name it with
-        name=<output of this method>
+    def encode_namedlist(cls, named_list: io_.Namedlist) -> str:
+        """Convert a namedlist into a Bash associative array
+           See the comments for dict_to_aa()
         """
-        aa = "("
+        nl_dict = dict()
 
+        # Add the same items keyed by name and also by index
         for i, (name, val) in enumerate(named_list._allitems()):
-            if isinstance(val, Iterable) and not isinstance(val, str):
-                val = " ".join(val)
-            aa += f' [{i}]="{val}"'
             if name is not None:
-                aa += f' [{name}]="{val}"'
+                nl_dict[name] = val
+            nl_dict[str(i)] = val
 
-        aa += " )"
-        return aa
+        return cls.dict_to_aa(nl_dict)
 
 
 class ScriptBase(ABC):
@@ -1172,8 +1176,6 @@ class JuliaScript(ScriptBase):
                 JuliaEncoder.encode_value(self.rulename),
                 JuliaEncoder.encode_value(self.bench_iteration),
                 JuliaEncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
-            ).replace(
-                "'", '"'
             )
         )
 
@@ -1243,8 +1245,6 @@ class RustScript(ScriptBase):
             bench_iteration=bench_iteration,
             scriptdir=path.get_basedir().get_path_or_uri(),
         )
-
-        import json
 
         json_string = json.dumps(dict(snakemake))
 
