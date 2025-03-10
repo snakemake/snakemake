@@ -4,7 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from abc import ABC
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 import functools
 import hashlib
 from pathlib import Path
@@ -12,7 +12,7 @@ import sys
 from typing import Dict, List, Mapping, Optional, Set
 import os
 import tarfile
-
+import uuid
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
 from snakemake.settings.types import (
     ChangeType,
@@ -49,7 +49,7 @@ from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
-from snakemake.logging import logger, logger_manager
+from snakemake.logging import logger, logger_manager, LogEvent
 from snakemake.shell import shell
 from snakemake.common import (
     MIN_PY_VERSION,
@@ -593,7 +593,19 @@ class DAGApi(ApiBase):
         workflow.remote_execution_settings = remote_execution_settings
         workflow.scheduling_settings = scheduling_settings
         workflow.group_settings = group_settings
-
+        logger.info(
+            None,
+            extra=dict(
+                event=LogEvent.WORKFLOW_STARTED,
+                workflow_id=uuid.uuid4(),
+                snakefile=workflow.snakefile,
+                workflow=asdict(workflow),
+                execution_settings=asdict(execution_settings),
+                remote_execution_settings=asdict(remote_execution_settings),
+                scheduling_settings=asdict(scheduling_settings),
+                group_settings=asdict(group_settings),
+            ),
+        )
         workflow.execute(
             executor_plugin=executor_plugin,
             executor_settings=executor_settings,
