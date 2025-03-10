@@ -306,6 +306,15 @@ def test_resource_string_in_cli_or_profile():
     )
 
 
+@skip_on_windows
+@conda
+def test_script_xsh():
+    run(
+        dpath("test_script_xsh"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
+
+
 @conda
 def test_conda_run():
     run(dpath("test_conda_run"), deployment_method={DeploymentMethod.CONDA})
