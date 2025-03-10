@@ -1,9 +1,8 @@
 [project]
 channels = ["conda-forge"]
 name = "snakemake"
-platforms = ["osx-arm64", "linux-64"]
+platforms = ["linux-64", "osx-arm64", "win-64", "osx-64", "linux-aarch64"]
 
-[tasks]
 
 [dependencies]
 python = ">=3.11" # minimum version of python required by snakemake
@@ -12,7 +11,112 @@ python = ">=3.11" # minimum version of python required by snakemake
 snakemake = { path = ".", editable = true }
 
 [environments]
-dev = { features = ["publish"] }
+publish = { features = ["publish"] }
+docs = { features = ["docs", "plugin-interfaces"] }
+test = { features = [
+  "test",
+  "plugin-interfaces",
+  "storage-plugins",
+  "executor-plugins",
+] }
+
+[feature.plugin-interfaces.pypi-dependencies]
+snakemake-interface-executor-plugins = ">=9.3.3, <10"
+snakemake-interface-storage-plugins = ">=3.3.0, <4"
+
+[feature.storage-plugins.pypi-dependencies]
+snakemake-storage-plugin-http = "*"
+snakemake-storage-plugin-s3 = "*"
+snakemake-storage-plugin-fs = "*"
+
+[feature.executor-plugins.pypi-dependencies]
+snakemake-executor-plugin-cluster-generic = "*"
+
+
+###########
+# test
+[feature.test.dependencies]
+pytest = ">=8.3.5,<9"
+pytest-mock = ">=3.14.0,<4"
+pytest-cov = ">=6.0.0,<7"
+pytest-split = ">=0.10.0,<0.11"
+yte = ">=1.5.7,<2"
+packaging = ">=24.2,<25"
+boto3 = ">=1.37.9,<2"
+httpretty = ">=1.1.4,<2"
+wrapt = ">=1.17.2,<2"
+pyyaml = ">=6.0.2,<7"
+ftputil = ">=5.1.0,<6"
+pysftp = ">=0.2.9,<0.3"
+requests = ">=2.32.3,<3"
+responses = ">=0.25.6,<0.26"
+numpy = ">=2.2.3,<3"
+polars = ">=1.24.0,<2"
+appdirs = ">=1.4.4,<2"
+pytools = ">=2024.1.6,<2026"
+docutils = ">=0.21.2,<0.22"
+pygments = ">=2.19.1,<3"
+pandoc = ">=3.6.3,<4"
+xorg-libxrender = ">=0.9.12,<0.10"
+xorg-libxext = ">=1.3.6,<2"
+xorg-libxau = ">=1.0.12,<2"
+xorg-libxdmcp = ">=1.1.5,<2"
+xorg-libsm = ">=1.2.5,<2"
+psutil = ">=7.0.0,<8"
+oauth2client = ">=4.1.3,<5"
+configargparse = ">=1.7,<2"
+jsonschema = ">=4.23.0,<5"
+pandas = ">=2.2.3,<3"
+gitpython = ">=3.1.44,<4"
+pulp = ">=2.8.0,<3"
+nbformat = ">=5.10.4,<6"
+crc32c = ">=2.7.1,<3"
+requests-mock = ">=1.12.1,<2"
+peppy = ">=0.40.7,<0.41"
+eido = ">=0.2.4,<0.3"
+glpk = ">=5.0,<6"
+smart_open = ">=7.1.0,<8"
+filelock = ">=3.17.0,<4"
+tabulate = ">=0.9.0,<0.10"
+reretry = ">=0.11.8,<0.12"
+graphviz = ">=12.2.1,<13"
+humanfriendly = ">=10.0,<11"
+throttler = ">=1.2.2,<2"
+dpath = ">=2.2.0,<3"
+# nodejs = ">=22.13.0,<22.14"
+immutables = ">=0.21,<0.22"
+conda = ">=25.1.1,<26"
+pip = ">=25.0.1,<26"
+
+
+#########
+# docs
+
+[feature.docs.dependencies]
+wrapt = ">=1.17.2,<2"
+pyyaml = ">=6.0.2,<7"
+requests = ">=2.32.3,<3"
+appdirs = ">=1.4.4,<2"
+docutils = ">=0.18.1,<0.21"
+throttler = ">=1.2.2,<2"
+configargparse = ">=1.7,<2"
+jsonschema = ">=4.23.0,<5"
+gitpython = ">=3.1.44,<4"
+sphinx = ">=7.2.6,<8"
+sphinx-argparse = ">=0.4.0,<0.6"
+sphinx_rtd_theme = ">=3.0.1,<4"
+sphinxawesome-theme = ">=5.2.0,<6"
+recommonmark = ">=0.7.1,<0.8"
+commonmark = ">=0.9.1,<0.10"
+myst-parser = ">=3.0.1,<5"
+sphinxcontrib-napoleon = ">=0.7,<0.8"
+humanfriendly = ">=10.0,<11"
+
+[feature.docs.tasks]
+build-docs = { cmd = 'make html SPHINXOPTS="-W --keep-going -n"', description = "Build the documentation in the docs/ directory", cwd = "docs" }
+
+
+#####
 
 [feature.publish.dependencies]
 setuptools = ">=75.8.2,<76"
