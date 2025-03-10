@@ -600,7 +600,6 @@ class DAGApi(ApiBase):
                 event=LogEvent.WORKFLOW_STARTED,
                 workflow_id=uuid.uuid4(),
                 snakefile=workflow.snakefile,
-                workflow=asdict(workflow),
                 execution_settings=asdict(execution_settings),
                 remote_execution_settings=asdict(remote_execution_settings),
                 scheduling_settings=asdict(scheduling_settings),
