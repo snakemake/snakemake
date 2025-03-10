@@ -461,7 +461,7 @@ class ColorizingTextHandler(logging.StreamHandler):
 
         # Case 1: Check if terminal is "dumb"
         if os.environ.get("TERM") == "dumb":
-                return False
+            return False
 
         # Case 2: Always support colors in subprocess mode
         if mode == ExecMode.SUBPROCESS:
