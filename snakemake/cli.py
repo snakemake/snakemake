@@ -3,26 +3,25 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import argparse
-import dataclasses
+from collections import defaultdict
 import os
 import re
 import sys
-from functools import partial
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import Set
+from typing import List, Mapping, Optional, Set, Union
 
+from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
+from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
 import snakemake.common.argparse
 from snakemake import logging
 from snakemake.api import (
     SnakemakeApi,
-    _get_executor_plugin_registry,
-    _get_report_plugin_registry,
     resolve_snakefile,
 )
 from snakemake.common import (
@@ -33,13 +32,11 @@ from snakemake.common import (
     get_container_image,
     parse_key_value_arg,
 )
-from snakemake.dag import Batch
 from snakemake.exceptions import (
     CliException,
     ResourceScopesException,
     print_exception,
 )
-from snakemake.io import flag
 from snakemake.resources import (
     DefaultResources,
     ParsedResource,
@@ -48,6 +45,7 @@ from snakemake.resources import (
     parse_resources,
 )
 from snakemake.settings.types import (
+    Batch,
     ChangeType,
     ConfigSettings,
     DAGSettings,
@@ -104,6 +102,48 @@ def parse_set_threads(args):
         "(with THREADS being a positive integer).",
         fallback=fallback,
     )
+
+
+def parse_consider_ancient(
+    args: Optional[List[str]],
+) -> Mapping[str, Set[Union[str, int]]]:
+    """Parse command line arguments for marking input files as ancient.
+
+    Args:
+        args: List of RULE=INPUTITEMS pairs, where INPUTITEMS is a comma-separated list
+              of input item names or indices (0-based).
+
+    Returns:
+        A mapping of rules to sets of their ancient input items.
+
+    Raises:
+        ValueError: If the format is invalid or values cannot be parsed.
+    """
+    errmsg = (
+        "Invalid --consider-ancient definition: entries have to be defined as "
+        "RULE=INPUTITEMS pairs, with INPUTITEMS being a list of input items of the "
+        "rule (given as name or index (0-based)), separated by commas."
+    )
+
+    def parse_item(item: str) -> Union[str, int]:
+        try:
+            return int(item)
+        except ValueError:
+            if item.isidentifier():
+                return item
+            else:
+                raise ValueError(f"{errmsg} (Unparsable value: {repr(item)})")
+
+    consider_ancient = defaultdict(set)
+
+    if args is not None:
+        for entry in args:
+            rule, items = parse_key_value_arg(entry, errmsg=errmsg, strip_quotes=True)
+            if not rule.isidentifier():
+                raise ValueError(f"{errmsg} (Invalid rule name: {repr(rule)})")
+            items = items.split(",")
+            consider_ancient[rule] = {parse_item(item) for item in items}
+    return consider_ancient
 
 
 def parse_set_resources(args):
@@ -329,7 +369,9 @@ def get_profile_dir(profile: str) -> (Path, Path):
         profile_candidate = Path(d) / profile
         if profile_candidate.exists():
             files = os.listdir(profile_candidate)
-            curr_major = int(__version__.split(".")[0])
+            # If versioneer cannot get the real version it will return something
+            # like "0+untagged.5410.g40ffe59" - this should only occur in testing scenarios
+            curr_major = int(__version__.split(".")[0].split("+")[0])
             config_files = {
                 f: min_major
                 for f, min_major in zip(files, map(get_config_min_major, files))
@@ -445,7 +487,7 @@ def get_argument_parser(profiles=None):
         nargs="*",
         metavar="RULE",
         help="Store output files of given rules in a central cache given by the environment "
-        "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
+        f"variable ${caching.LOCATION_ENVVAR}. Likewise, retrieve output files of the given rules "
         "from this cache if they have been created before (by anybody writing to the same cache), "
         "instead of actually executing the rules. Output files are identified by hashing all "
         "steps, parameters and software stack (conda envs or containers) needed to create them.",
@@ -457,7 +499,7 @@ def get_argument_parser(profiles=None):
         metavar="FILE",
         type=Path,
         help=(
-            "The workflow definition in form of a snakefile."
+            "The workflow definition in form of a snakefile. "
             "Usually, you should not need to specify this. "
             "By default, Snakemake will search for {} "
             "beneath the current working "
@@ -479,7 +521,7 @@ def get_argument_parser(profiles=None):
             "In case of cluster/cloud execution, this argument sets the maximum number "
             "of cores requested from the cluster or cloud scheduler. (See "
             "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
-            "resources-remote-execution for more info)"
+            "resources-remote-execution for more info.) "
             "This number is available to rules via workflow.cores."
         ),
     )
@@ -524,7 +566,7 @@ def get_argument_parser(profiles=None):
             "cluster/cloud mode, this argument will also constrain the amount of "
             "resources requested from the server. (See "
             "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
-            "resources-remote-execution for more info)"
+            "resources-remote-execution for more info.)"
         ),
     )
     group_exec.add_argument(
@@ -718,7 +760,7 @@ def get_argument_parser(profiles=None):
         "--executor",
         "-e",
         help="Specify a custom executor, available via an executor plugin: snakemake_executor_<name>",
-        choices=_get_executor_plugin_registry().plugins.keys(),
+        choices=ExecutorPluginRegistry().plugins.keys(),
     )
     group_exec.add_argument(
         "--forceall",
@@ -743,6 +785,20 @@ def get_argument_parser(profiles=None):
             "output in your workflow updated."
         ),
     )
+    group_exec.add_argument(
+        "--consider-ancient",
+        metavar="RULE=INPUTITEMS",
+        nargs="+",
+        default=dict(),
+        parse_func=parse_consider_ancient,
+        help="Consider given input items of given rules as ancient, i.e. not triggering "
+        "re-runs if they are newer than the output files. "
+        "Putting this into a workflow specific profile (or specifying as argument) "
+        "allows to overrule rerun triggers caused by file modification dates where the "
+        "user knows better. RULE is the name of the rule, INPUTITEMS is a comma "
+        "separated list of input items of the rule (given as name or index (0-based)).",
+    )
+
     group_exec.add_argument(
         "--prioritize",
         "-P",
@@ -847,11 +903,11 @@ def get_argument_parser(profiles=None):
         nargs="*",
         metavar="NAME=VALUE",
         help=(
-            "If the workflow management service accepts extra arguments, provide."
-            " them in key value pairs with --wms-monitor-arg. For example, to run"
-            " an existing workflow using a wms monitor, you can provide the pair "
-            " id=12345 and the arguments will be provided to the endpoint to "
-            " first interact with the workflow"
+            "If the workflow management service accepts extra arguments, provide. "
+            "them in key value pairs with --wms-monitor-arg. For example, to run "
+            "an existing workflow using a wms monitor, you can provide the pair "
+            "id=12345 and the arguments will be provided to the endpoint to "
+            "first interact with the workflow"
         ),
     )
     group_exec.add_argument(
@@ -907,10 +963,15 @@ def get_argument_parser(profiles=None):
         const="report.html",
         metavar="FILE",
         type=Path,
-        help="Create an HTML report with results and statistics. "
-        "This can be either a .html file or a .zip file. "
-        "In the former case, all results are embedded into the .html (this only works for small data). "
-        "In the latter case, results are stored along with a file report.html in the zip archive. "
+        help="Create a self-contained HTML report with default statistics, "
+        "provenance information and user-specified results. "
+        "For smaller datasets with a limited report complexity, you can specify "
+        "an '.html' file and all results will be embedded directly into this file. "
+        "For customized reports on larger sample sizes, it makes more sense to "
+        "specify a '.zip' file. The resulting archive will spread the contents "
+        "across a folder structure, for a quicker loading of individual results. "
+        "You can unpack this archive anywhere and open the 'report.html` file in "
+        "its main folder to view the report in any web browser. "
         "If no filename is given, an embedded report.html is the default.",
     )
     group_report.add_argument(
@@ -1050,7 +1111,7 @@ def get_argument_parser(profiles=None):
         help="Print a summary of all files created by the workflow. The "
         "has the following columns: filename, modification time, "
         "rule version, status, plan.\n"
-        "Thereby rule version contains the version"
+        "Thereby rule version contains the version "
         "the file was created with (see the version keyword of rules), and "
         "status denotes whether the file is missing, its input files are "
         "newer or if version or implementation of the rule changed since "
@@ -1084,8 +1145,7 @@ def get_argument_parser(profiles=None):
         "scripts under version control. Hence, they will be included in the archive. "
         "Further, it will add input files that are not generated by "
         "by the workflow itself and conda environments. Note that symlinks are "
-        "dereferenced. Supported "
-        "formats are .tar, .tar.gz, .tar.bz2 and .tar.xz.",
+        "dereferenced. Supported formats are .tar, .tar.gz, .tar.bz2 and .tar.xz.",
     )
     group_utils.add_argument(
         "--cleanup-metadata",
@@ -1389,15 +1449,13 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
-        type=maybe_base64(expandvars(Path)),
+        type=maybe_base64(Path),
         help="Specify prefix for storing local copies of storage files and folders in "
         "case of remote jobs (e.g. cluster or cloud jobs). This may differ from "
         "--local-storage-prefix. If not set, uses value of --local-storage-prefix. "
         "By default, this is a hidden subfolder in the workdir. It can however be "
         "freely chosen, e.g. in order to store those files on a local scratch disk. "
-        "Environment variables will be expanded. In case they shall be expanded only "
-        "within the remote job, mask them with a leading backslash, i.e. "
-        "\\$SLURM_JOB_ID.",
+        "Environment variables will be expanded within the remote job.",
     )
     group_behavior.add_argument(
         "--shared-fs-usage",
@@ -1427,6 +1485,16 @@ def get_argument_parser(profiles=None):
         "determines how careful jobs are selected for execution. The default "
         "value (1.0) provides the best speed and still acceptable scheduling "
         "quality.",
+    )
+    group_behavior.add_argument(
+        "--scheduler-subsample",
+        type=int,
+        default=None,
+        help="Set the number of jobs to be considered for scheduling. If number "
+        "of ready jobs is greater than this value, this number of jobs is randomly "
+        "chosen for scheduling; if number of ready jobs is lower, this option has "
+        "no effect. This can be useful on very large DAGs, where the scheduler can "
+        "take some time selecting which jobs to run.",
     )
     group_behavior.add_argument(
         "--no-hooks",
@@ -1467,15 +1535,15 @@ def get_argument_parser(profiles=None):
         metavar="FILE",
         default=None,
         help="Provide a custom script containing a function 'def log_handler(msg):'. "
-        "Snakemake will call this function for every logging output (given as a dictionary msg)"
+        "Snakemake will call this function for every logging output (given as a dictionary msg) "
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
     group_behavior.add_argument(
         "--log-service",
         default=None,
         choices=["none", "slack", "wms"],
-        help="Set a specific messaging service for logging output."
-        "Snakemake will notify the service on errors and completed execution."
+        help="Set a specific messaging service for logging output. "
+        "Snakemake will notify the service on errors and completed execution. "
         "Currently slack and workflow management system (wms) are supported.",
     )
     group_behavior.add_argument(
@@ -1630,7 +1698,7 @@ def get_argument_parser(profiles=None):
     )
     group_conda.add_argument(
         "--conda-frontend",
-        default="mamba",
+        default="conda",
         choices=["conda", "mamba"],
         help="Choose the conda frontend for installing environments. "
         "Mamba is much faster and highly recommended.",
@@ -1715,9 +1783,9 @@ def get_argument_parser(profiles=None):
     )
 
     # Add namespaced arguments to parser for each plugin
-    _get_executor_plugin_registry().register_cli_args(parser)
+    ExecutorPluginRegistry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
-    _get_report_plugin_registry().register_cli_args(parser)
+    ReportPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1886,7 +1954,7 @@ def args_to_api(args, parser):
         args.report_html_path = args.report
         args.report_html_stylesheet_path = args.report_stylesheet
 
-    executor_plugin = _get_executor_plugin_registry().get_plugin(args.executor)
+    executor_plugin = ExecutorPluginRegistry().get_plugin(args.executor)
     executor_settings = executor_plugin.get_settings(args)
 
     storage_provider_settings = {
@@ -1895,7 +1963,7 @@ def args_to_api(args, parser):
     }
 
     if args.reporter:
-        report_plugin = _get_report_plugin_registry().get_plugin(args.reporter)
+        report_plugin = ReportPluginRegistry().get_plugin(args.reporter)
         report_settings = report_plugin.get_settings(args)
     else:
         report_plugin = None
@@ -1993,6 +2061,7 @@ def args_to_api(args, parser):
                         wrapper_prefix=args.wrapper_prefix,
                         exec_mode=args.mode,
                         cache=args.cache,
+                        consider_ancient=args.consider_ancient,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
@@ -2141,6 +2210,7 @@ def args_to_api(args, parser):
                                 ilp_solver=args.scheduler_ilp_solver,
                                 solver_path=args.scheduler_solver_path,
                                 greediness=args.scheduler_greediness,
+                                subsample=args.scheduler_subsample,
                                 max_jobs_per_second=args.max_jobs_per_second,
                                 max_jobs_per_timespan=args.max_jobs_per_timespan,
                             ),

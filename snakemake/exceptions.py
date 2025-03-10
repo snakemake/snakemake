@@ -354,6 +354,9 @@ class ImproperShadowException(RuleException):
 class AmbiguousRuleException(RuleException):
     def __init__(self, filename, job_a, job_b, lineno=None, snakefile=None):
         from snakemake import utils
+        from snakemake.io import pretty_print_iofile
+
+        filename = pretty_print_iofile(filename)
 
         wildcards_a = utils.format("{}", job_a._format_wildcards)
         wildcards_b = utils.format("{}", job_b._format_wildcards)
@@ -390,10 +393,11 @@ class CyclicGraphException(RuleException):
 
 class MissingRuleException(RuleException):
     def __init__(self, file, lineno=None, snakefile=None):
+        from snakemake.io import pretty_print_iofile
+
         super().__init__(
-            "No rule to produce {} (if you use input functions make sure that they don't raise unexpected exceptions).".format(
-                file
-            ),
+            f"No rule to produce {pretty_print_iofile(file)} (if you use input "
+            "functions make sure that they don't raise unexpected exceptions).",
             lineno=lineno,
             snakefile=snakefile,
         )
@@ -416,13 +420,17 @@ class NoRulesException(RuleException):
 
 class IncompleteFilesException(RuleException):
     def __init__(self, files):
+        from snakemake.io import pretty_print_iofile
+
         super().__init__(
             "The files below seem to be incomplete. "
             "If you are sure that certain files are not incomplete, "
             "mark them as complete with\n\n"
             "    snakemake --cleanup-metadata <filenames>\n\n"
             "To re-generate the files rerun your command with the "
-            "--rerun-incomplete flag.\nIncomplete files:\n{}".format("\n".join(files))
+            "--rerun-incomplete flag.\nIncomplete files:\n{}".format(
+                "\n".join(map(pretty_print_iofile, files))
+            )
         )
 
 
@@ -593,6 +601,10 @@ class LookupError(WorkflowError):
         if exc is not None:
             args.append(exc)
         super().__init__(*args)
+
+
+class MissingOutputFileCachePathException(Exception):
+    pass
 
 
 def is_file_not_found_error(exc, considered_files):

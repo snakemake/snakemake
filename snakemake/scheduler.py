@@ -62,6 +62,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.failed = set()
         self.finished_jobs = 0
         self.greediness = self.workflow.scheduling_settings.greediness
+        self.subsample = self.workflow.scheduling_settings.subsample
         self._tofinish = []
         self._toerror = []
         self.handle_job_success = True
@@ -263,20 +264,25 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         job.reset_params_and_resources()
 
                     logger.debug(f"Resources before job selection: {self.resources}")
-                    logger.debug(
-                        f"Ready jobs ({len(needrun)})",
-                        # + "\n\t".join(map(str, needrun))
-                    )
+
+                    # Subsample jobs to be run (to speedup solver)
+                    n_total_needrun = len(needrun)
+                    if self.subsample and n_total_needrun > self.subsample:
+                        import random
+
+                        needrun = set(random.sample(tuple(needrun), k=self.subsample))
+                        logger.debug(
+                            f"Ready subsampled jobs: {len(needrun)} (out of {n_total_needrun})"
+                        )
+                    else:
+                        logger.debug(f"Ready jobs: {n_total_needrun}")
 
                     if not self._last_job_selection_empty:
                         logger.info("Select jobs to execute...")
                     run = self.job_selector(needrun)
                     self._last_job_selection_empty = not run
 
-                    logger.debug(
-                        f"Selected jobs ({len(run)})"
-                        # + "\n\t".join(map(str, run))
-                    )
+                    logger.debug(f"Selected jobs: {len(run)}")
                     logger.debug(f"Resources after job selection: {self.resources}")
 
                 # update running jobs
@@ -335,6 +341,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # clear the global tofinish such that parallel calls do not interfere
         async def postprocess():
             for job in self._tofinish:
+                # IMPORTANT: inside of this loop, there may be no calls that have
+                # a complexity of at least the number of jobs.
+                # Otherwise the function would be quadratic in the number of jobs.
                 if not self.workflow.dryrun:
                     try:
                         if self.workflow.exec_mode == ExecMode.DEFAULT:
@@ -373,9 +382,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 if self.update_resources:
                     # normal jobs have len=1, group jobs have len>1
                     self.finished_jobs += len(job)
-                    logger.debug(
-                        f"jobs registered as running before removal {self.running}"
-                    )
                     self.running.remove(job)
                     self._free_resources(job)
 
@@ -429,7 +435,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def _proceed(self, job):
         """Do stuff after job is finished."""
         with self._lock:
-            logger.debug(f"Completion of job {job.rules} reported to scheduler.")
             self._tofinish.append(job)
 
             if self.dryrun:
@@ -506,19 +511,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
         import pulp
         from pulp import lpSum
 
-        logger.debug("Selecting jobs to run using ILP solver.")
-
         if len(jobs) == 1:
-            logger.debug(
-                "Switching to greedy selector because only one job has to be scheduled."
-            )
             return self.job_selector_greedy(jobs)
 
         with self._lock:
             if not self.resources["_cores"]:
                 return set()
 
-            # assert self.resources["_cores"] > 0
             scheduled_jobs = {
                 job: pulp.LpVariable(
                     f"job_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
@@ -626,7 +625,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 )
 
         status = self._solve_ilp(prob, time_limit=10)
-        logger.debug(f"Problem is {pulp.LpStatus[status]}")
         if pulp.LpStatus[status] != "Optimal":
             if pulp.LpStatus[status] == "Not Solved":
                 logger.warning(
@@ -635,7 +633,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             elif pulp.LpStatus[status] == "Infeasible":
                 logger.warning("Failed to solve scheduling problem with ILP solver.")
 
-            logger.debug("Falling back to greedy solver.")
+            logger.warning("Falling back to greedy solver.")
             return self.job_selector_greedy(jobs)
 
         selected_jobs = set(
@@ -841,7 +839,4 @@ class JobRateLimiter:
         for _ in range(index):
             self._jobs.popleft()
         n_free = max(self._limit.max_jobs - len(self._jobs), 0)
-        logger.debug(
-            f"Free jobs: {n_free}, jobs in timespan: {len(self._jobs)}, limit: {self._limit.max_jobs}, timespan: {self._limit.timespan}"
-        )
         return n_free
