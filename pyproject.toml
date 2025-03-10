@@ -1,6 +1,6 @@
 [project]
 name = "snakemake"
-version = "8.29.3"
+version = "8.30.0"
 description = "Workflow management system to create reproducible and scalable data analyses"
 readme = { content-type = "text/markdown", text = """
   Snakemake is a workflow management system that aims to reduce the
