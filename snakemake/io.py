@@ -32,7 +32,7 @@ from typing import (
     TypeVar,
     Union,
     TYPE_CHECKING,
-    Sequence
+    Sequence,
 )
 
 from snakemake_interface_common.utils import lchmod
