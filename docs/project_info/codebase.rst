@@ -103,7 +103,7 @@ Besides these central classes, the following modules add additional functionalit
 
 ioutils
 """""""
-The ``ioutils`` module (`snakemake/ioutils <https://github.com/snakemake/snakemake/blob/main/snakemake/ioutils>`__) implements semantic helper functions functions for handling input and output files as well as non-file parameters in the workflow.
+The ``ioutils`` module (`snakemake/ioutils <https://github.com/snakemake/snakemake/blob/main/snakemake/ioutils>`__) implements semantic helper functions for handling input and output files as well as non-file parameters in the workflow.
 
 linting
 """""""
