@@ -12,11 +12,36 @@ class Checkpoints:
     def __init__(self):
         self.created_output = None
 
+    def module_use(self):
+        return ModuleCheckpoints(self)
+
+
+class ModuleCheckpoints:
+    def __init__(self, parent: Checkpoints):
+        self.parent = parent
+
+    @property
+    def future_output(self):
+        return self.parent.future_output
+
+    @future_output.setter
+    def future_output(self, value):
+        self.parent.future_output = value
+
+    @property
+    def created_output(self):
+        return self.parent.created_output
+
+    @created_output.setter
+    def created_output(self, value):
+        self.parent.created_output = value
+
     def register(self, rule, fallback_name=None):
         checkpoint = Checkpoint(rule, self)
         if fallback_name:
             setattr(self, fallback_name, checkpoint)
-        setattr(self, rule.name, Checkpoint(rule, self))
+        setattr(self, rule.name, checkpoint)
+        setattr(self.parent, rule.name, checkpoint)
 
 
 class Checkpoint:
