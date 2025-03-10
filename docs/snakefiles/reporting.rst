@@ -296,7 +296,8 @@ To get such a self-contained ``ZIP`` archive, simply specify a ``.zip`` file nam
 
     snakemake --report some_report.zip
 
-You can move this file wherever you need it and then unpack it.
+You can move this file wherever you want to view it and then unpack it right there.
+This includes sending this file to collaboration partners or customers for whom you might have done an analysis.
 The main entry point is always the ``report.html`` file in the main folder that this creates (for the above example, this folder will be named ``some_report``).
 Just open that file in a web browser and explore your results.
 
