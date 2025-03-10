@@ -30,6 +30,7 @@ setup(
             "report/html_reporter/template/**/*",
             "report/html_reporter/template/*",
             "common/tests/testcases/**/*",
+            "unit_tests/templates/*",
         ]
     },
 )
