@@ -69,6 +69,16 @@ def has_zenodo_token():
     return os.environ.get("ZENODO_SANDBOX_PAT")
 
 
+def has_apptainer():
+    return (shutil.which("apptainer") is not None) or (
+        shutil.which("singularity") is not None
+    )
+
+
+def has_conda():
+    return shutil.which("conda") is not None
+
+
 gcloud = pytest.mark.skipif(
     not is_connected() or not has_gcloud_service_key(),
     reason="Skipping GCLOUD tests because not on "
@@ -86,6 +96,17 @@ connected = pytest.mark.skipif(not is_connected(), reason="no internet connectio
 
 ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
 not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
+
+apptainer = pytest.mark.skipif(
+    not has_apptainer(),
+    reason="Skipping Apptainer tests because no "
+    "apptainer/singularity executable available.",
+)
+
+conda = pytest.mark.skipif(
+    not has_conda(),
+    reason="Skipping Conda tests because no conda executable available.",
+)
 
 zenodo = pytest.mark.skipif(
     not has_zenodo_token(), reason="no ZENODO_SANDBOX_PAT provided"
@@ -127,42 +148,6 @@ def print_tree(path, exclude=None):
             print(f"{subindent}{f}")
 
 
-@pytest.fixture
-def s3_storage():
-    from snakemake_storage_plugin_s3 import StorageProviderSettings
-    from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
-    import uuid
-    import boto3
-
-    endpoint_url = "https://play.minio.io:9000"
-    access_key = "Q3AM3UQ867SPQQA43P2F"
-    secret_key = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
-    bucket = f"snakemake-{uuid.uuid4().hex}"
-
-    tagged_settings = TaggedSettings()
-    tagged_settings.register_settings(
-        StorageProviderSettings(
-            endpoint_url=endpoint_url,
-            access_key=access_key,
-            secret_key=secret_key,
-        )
-    )
-
-    yield f"s3://{bucket}", {"s3": tagged_settings}
-
-    # clean up using boto3
-    s3c = boto3.resource(
-        "s3",
-        endpoint_url=endpoint_url,
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-    )
-    try:
-        s3c.Bucket(bucket).delete()
-    except Exception:
-        pass
-
-
 def run(
     path,
     shouldfail=False,
@@ -175,7 +160,7 @@ def run(
     nodes=None,
     set_pythonpath=True,
     cleanup=True,
-    conda_frontend="mamba",
+    conda_frontend="conda",
     config=dict(),
     targets=set(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
@@ -229,6 +214,7 @@ def run(
     shared_fs_usage=None,
     benchmark_extended=False,
     apptainer_args="",
+    tmpdir=None,
 ):
     """
     Test the Snakefile in the path.
@@ -252,28 +238,32 @@ def run(
 
     results_dir = join(path, "expected-results")
     original_snakefile = join(path, snakefile)
+    original_dirname = os.path.basename(os.path.dirname(original_snakefile))
     assert os.path.exists(original_snakefile)
     if check_results:
         assert os.path.exists(results_dir) and os.path.isdir(
             results_dir
         ), "{} does not exist".format(results_dir)
 
-    # If we need to further check results, we won't cleanup tmpdir
-    tmpdir = next(tempfile._get_candidate_names())
-    tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
-    os.mkdir(tmpdir)
+    if tmpdir is None:
+        # If we need to further check results, we won't cleanup tmpdir
+        tmpdir = next(tempfile._get_candidate_names())
+        tmpdir = os.path.join(
+            tempfile.gettempdir(), f"snakemake-{original_dirname}-{tmpdir}"
+        )
+        os.mkdir(tmpdir)
 
-    config = dict(config)
-
-    # copy files
-    for f in os.listdir(path):
-        copy(os.path.join(path, f), tmpdir)
+        # copy files
+        for f in os.listdir(path):
+            copy(os.path.join(path, f), tmpdir)
 
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
 
     snakemake_api = None
     exception = None
+
+    config = dict(config)
 
     # run snakemake
     if shellcmd:

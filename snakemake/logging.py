@@ -442,6 +442,9 @@ class Logger:
         msg["level"] = "d3dag"
         self.handler(msg)
 
+    def host_info(self):
+        self.handler(dict(level="host"))
+
     def is_quiet_about(self, msg_type: str):
         from snakemake.settings.enums import Quietness
 
@@ -533,7 +536,9 @@ class Logger:
 
         level = msg["level"]
 
-        if level == "job_info" and not self.is_quiet_about("rules"):
+        if level == "host" and not self.is_quiet_about("host"):
+            self.logger.info(f"host: {platform.node()}")
+        elif level == "job_info" and not self.is_quiet_about("rules"):
             if not self.last_msg_was_job_info:
                 self.logger.info("")
             timestamp()

@@ -2,7 +2,8 @@ from abc import ABC
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
-from typing import Any, Optional
+import re
+from typing import Any, Optional, Union
 from typing import Mapping, Sequence, Set
 
 import immutables
@@ -53,6 +54,33 @@ class NotebookEditMode:
         self.draft_only = draft_only
 
 
+class MaxJobsPerTimespan:
+    arg_re = re.compile(r"(?P<count>\d+)/(?P<timespan>\d+(h|m|s|ms|w|d))")
+
+    def __init__(self, max_jobs: int, timespan: Optional[str] = None):
+        import humanfriendly
+
+        self.max_jobs = max_jobs
+        if timespan is not None:
+            self.timespan = humanfriendly.parse_timespan(timespan)
+        else:
+            self.timespan = 1
+
+    @classmethod
+    def parse_choice(cls, arg: str):
+        m = cls.arg_re.match(arg)
+        if m is None:
+            raise WorkflowError(
+                "Invalid max jobs per timespan definition. "
+                "Must be of the form <max_jobs>/<timespan> with <max_jobs> being an "
+                "integer, and <timespan> being an integer with "
+                f"unit h, m, s ms, w, d. Given instead: {arg}"
+            )
+        max_jobs, timespan = m.group("count"), m.group("timespan")
+        max_jobs = int(max_jobs)
+        return cls(max_jobs, timespan=timespan)
+
+
 @dataclass
 class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     """
@@ -96,6 +124,9 @@ class WorkflowSettings(SettingsBase):
     wrapper_prefix: Optional[str] = None
     exec_mode: ExecMode = ExecMode.DEFAULT
     cache: Optional[Sequence[str]] = None
+    consider_ancient: Mapping[str, AnySet[Union[str, int]]] = field(
+        default_factory=dict
+    )
 
 
 class Batch:
@@ -221,7 +252,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
     conda_base_path: Optional[Path] = None
-    conda_frontend: str = "mamba"
+    conda_frontend: str = "conda"
     conda_not_block_search_path_envvars: bool = False
     apptainer_args: str = ""
     apptainer_prefix: Optional[Path] = None
@@ -231,10 +262,21 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         self.deployment_method.add(method)
 
     def __post_init__(self):
+        from snakemake.logging import logger
+
         if self.apptainer_prefix is None:
             self.apptainer_prefix = os.environ.get("APPTAINER_CACHEDIR", None)
         self.apptainer_prefix = expand_vars_and_user(self.apptainer_prefix)
         self.conda_prefix = expand_vars_and_user(self.conda_prefix)
+        if self.conda_frontend != "conda":
+            logger.warning(
+                "Support for alternative conda frontends has been deprecated in "
+                "favor of simpler support and code base. "
+                "This should not cause issues since current conda releases rely on "
+                "fast solving via libmamba. "
+                f"Ignoring the alternative conda frontend setting ({self.conda_frontend})."
+            )
+            self.conda_frontend = "conda"
 
 
 @dataclass
@@ -250,7 +292,9 @@ class SchedulingSettings(SettingsBase):
     ilp_solver:
         Set solver for ilp scheduler.
     greediness:
-        set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
+        Set the greediness of scheduling. This value, between 0 and 1, determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
+    subsample:
+        Set the number of jobs to be considered for scheduling. If number of ready jobs is greater than this value, this number of jobs is randomly chosen for scheduling; if number of ready jobs is lower, this option has no effect. This can be useful on very large DAGs, where the scheduler can take some time selecting which jobs to run."
     """
 
     prioritytargets: AnySet[str] = frozenset()
@@ -258,10 +302,14 @@ class SchedulingSettings(SettingsBase):
     ilp_solver: Optional[str] = None
     solver_path: Optional[Path] = None
     greediness: Optional[float] = None
-    max_jobs_per_second: int = 10
+    subsample: Optional[int] = None
+    max_jobs_per_second: Optional[int] = None
+    max_jobs_per_timespan: Optional[MaxJobsPerTimespan] = None
 
     def __post_init__(self):
         self.greediness = self._get_greediness()
+        if self.max_jobs_per_second is not None and self.max_jobs_per_timespan is None:
+            self.max_jobs_per_timespan = MaxJobsPerTimespan(self.max_jobs_per_second)
 
     def _get_greediness(self):
         if self.greediness is None:
@@ -270,8 +318,11 @@ class SchedulingSettings(SettingsBase):
             return self.greediness
 
     def _check(self):
-        if not (0 < self.greedyness <= 1.0):
-            raise ApiError("greediness must be >0 and <=1")
+        if not (0 <= self.greediness <= 1.0):
+            raise ApiError("greediness must be >=0 and <=1")
+        if self.subsample:
+            if not isinstance(self.subsample, int) or self.subsample < 1:
+                raise ApiError("subsample must be a positive integer")
 
 
 @dataclass

@@ -3,67 +3,124 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import collections
 import itertools
+import math
 import os
+from numbers import Integral, Real, Complex, Number
 from collections.abc import Iterable
+import json
+import os
+import pickle
+import re
+import sys
+import tempfile
+import textwrap
 import typing
+from abc import ABC, abstractmethod
+from collections.abc import Iterable
+from pathlib import Path
+from typing import List, Optional, Pattern, Tuple, Union, Dict
+from urllib.error import URLError
+import urllib.parse
+from typing import TypeVar
 
+from snakemake import io as io_
 from snakemake import sourcecache
+from snakemake.common import MIN_PY_VERSION, ON_WINDOWS, get_snakemake_searchpaths
+from snakemake.deployment import singularity
+from snakemake.exceptions import WorkflowError
+from snakemake.logging import logger
+from snakemake.shell import shell
 from snakemake.sourcecache import (
     LocalSourceFile,
     SourceCache,
     SourceFile,
     infer_source_file,
 )
-import tempfile
-import textwrap
-import sys
-import pickle
-import collections
-import re
-import json
-from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Tuple, Pattern, Union, Optional, List
-from urllib.error import URLError
-from pathlib import Path
-
 from snakemake.utils import format
-from snakemake.logging import logger
-from snakemake.exceptions import WorkflowError
-from snakemake.shell import shell
-from snakemake.common import (
-    MIN_PY_VERSION,
-    ON_WINDOWS,
-    get_snakemake_searchpaths,
-)
-from snakemake.deployment import singularity
+from snakemake.common import get_report_id
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 PathLike = Union[str, Path, os.PathLike]
 
+# Type hint, object injected by the python preamble
+snakemake: "Snakemake"
+
+
+# For compatibility with Python <3.11 where typing.Self is not available.
+ReportHrefType = TypeVar("ReportHrefType", bound="ReportHref")
+
+
+class ReportHref:
+    def __init__(
+        self,
+        path: Union[str, Path],
+        parent: Optional[ReportHrefType] = None,
+        url_args: Optional[Dict[str, str]] = None,
+        anchor: Optional[str] = None,
+    ):
+        self._parent = parent
+        if parent is None:
+            self._id = get_report_id(path)
+        else:
+            self._id = parent._id
+        # ensure that path is a url compatible string
+        self._path = path if isinstance(path, str) else str(path.as_posix())
+        self._url_args = (
+            {key: value for key, value in url_args.items()} if url_args else {}
+        )
+        self._anchor = anchor
+
+    def child_path(self, path: Union[str, Path]) -> ReportHrefType:
+        return ReportHref(path, parent=self)
+
+    def url_args(self, **args: str) -> ReportHrefType:
+        return ReportHref(path=self._path, parent=self._parent, url_args=args)
+
+    def anchor(self, anchor: str) -> ReportHrefType:
+        return ReportHref(
+            path=self._path, parent=self._parent, url_args=self._url_args, anchor=anchor
+        )
+
+    def __str__(self) -> str:
+        path = os.path.basename(self._path) if self._parent is None else self._path
+        if self._url_args:
+
+            def fmt_arg(key, value):
+                return f"{key}={urllib.parse.quote(str(value))}"
+
+            args = f"?{'&'.join(fmt_arg(key, value) for key, value in self._url_args.items())}"
+        else:
+            args = ""
+        if self._anchor:
+            anchor = f"#{urllib.parse.quote(self._anchor)}"
+        else:
+            anchor = ""
+        return f"../{self._id}/{path}{args}{anchor}"
+
 
 class Snakemake:
     def __init__(
         self,
-        input_,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
+        input_: io_.InputFiles,
+        output: io_.OutputFiles,
+        params: io_.Params,
+        wildcards: io_.Wildcards,
+        threads: int,
+        resources: io_.Resources,
+        log: io_.Log,
+        config: typing.Dict[str, typing.Any],
+        rulename: str,
         bench_iteration,
-        scriptdir=None,
+        scriptdir: typing.Optional[PathLike] = None,
     ):
         # convert input and output to plain strings as some remote objects cannot
         # be pickled
         self.input = input_._plainstrings()
         self.output = output._plainstrings()
-        self.params = params
+        self._safely_store_params(params)
         self.wildcards = wildcards
         self.threads = threads
         self.resources = resources
@@ -73,7 +130,18 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
-    def log_fmt_shell(self, stdout=True, stderr=True, append=False):
+    def report_href(self, path: Union[str, Path]) -> ReportHref:
+        """Return an href to the given path in the report context, assuming that the
+        path is given as it is given to the report marker in the workflow.
+
+        The returned object can be extended to child paths using the `child_path(path)`
+        method. This is useful if the referred item is a directory.
+        """
+        return ReportHref(path)
+
+    def log_fmt_shell(
+        self, stdout: bool = True, stderr: bool = True, append: bool = False
+    ) -> str:
         """
         Return a shell redirection string to be used in `shell()` calls
 
@@ -110,7 +178,91 @@ class Snakemake:
         any      any      any      None  ""
         -------- -------- -------- ----- -----------
         """
-        return _log_shell_redirect(self.log, stdout, stderr, append)
+        return _log_shell_redirect(str(self.log), stdout, stderr, append)
+
+    @property
+    def params(self):
+        params = io_.Params(toclone=list(self._params_store))
+        try:
+            for i, value in enumerate(params):
+                param_type = self._params_types.get(i)
+                if param_type is None:
+                    # nothing to convert
+                    continue
+                if param_type.startswith("pd."):
+                    import pandas as pd
+
+                    if param_type == "pd.DataFrame":
+                        params[i] = pd.DataFrame.from_dict(value)
+                    elif param_type == "pd.Series":
+                        params[i] = pd.Series(value)
+                elif param_type.startswith("np."):
+                    import numpy as np
+
+                    if param_type == "np.ndarray":
+                        params[i] = np.array(value)
+                elif param_type.startswith("pl."):
+                    import polars as pl
+
+                    if param_type == "pl.LazyFrame":
+                        params[i] = pl.from_dict(value).lazy()
+                    elif param_type == "pl.DataFrame":
+                        params[i] = pl.from_dict(value)
+                    elif param_type == "pl.Series":
+                        params[i] = pl.Series(**value)
+        except ImportError as e:
+            raise ImportError(
+                "Failed to import required module for loading rule params. "
+                "Make sure that the respective package (numpy, pandas, polars) "
+                "is available in the software environment in which the "
+                f"script/wrapper/notebook is executed: {e}"
+            )
+
+        params._take_names(self._params_store._get_names())
+        return params
+
+    def _safely_store_params(self, params: io_.Params):
+        try:
+            import pandas as pd
+        except ModuleNotFoundError:
+            pd = None
+        try:
+            import numpy as np
+        except ModuleNotFoundError:
+            np = None
+        try:
+            import polars as pl
+        except ModuleNotFoundError:
+            pl = None
+
+        self._params_store = io_.Params(toclone=list(params))
+        self._params_types = dict()
+        for i, value in enumerate(params):
+            if pd:
+                if isinstance(value, pd.DataFrame):
+                    self._params_store[i] = value.to_dict()
+                    self._params_types[i] = "pd.DataFrame"
+                elif isinstance(value, pd.Series):
+                    self._params_store[i] = value.to_dict()
+                    self._params_types[i] = "pd.Series"
+            if np and isinstance(value, np.ndarray):
+                self._params_store[i] = value.tolist()
+                self._params_types[i] = "np.ndarray"
+            if pl:
+                if isinstance(value, pl.LazyFrame):
+                    self._params_store[i] = value.collect().to_dict(as_series=False)
+                    self._params_types[i] = "pl.LazyFrame"
+                if isinstance(value, pl.DataFrame):
+                    self._params_store[i] = value.to_dict(as_series=False)
+                    self._params_types[i] = "pl.DataFrame"
+                elif isinstance(value, pl.Series):
+                    self._params_store[i] = {
+                        "name": value.name,
+                        "values": value.to_list(),
+                    }
+                    self._params_types[i] = "pl.Series"
+
+        self._params_store._take_names(params._get_names())
 
 
 def _log_shell_redirect(
@@ -175,24 +327,37 @@ class REncoder:
     def encode_numeric(cls, value):
         if value is None:
             return "as.numeric(NA)"
-        return str(value)
+        elif isinstance(value, Integral):
+            return f"{value}L"
+        elif isinstance(value, Real):
+            if value == float("inf"):
+                return "Inf"
+            elif value == float("-inf"):
+                return "-Inf"
+            elif math.isnan(value):
+                return "NaN"
+            else:
+                return f"{value}"
+        elif isinstance(value, Complex):
+            return f"{cls.encode_numeric(value.real)}+{cls.encode_numeric(value.imag)}i"
+        else:
+            raise ValueError("Value is not a proper number")
 
     @classmethod
     def encode_value(cls, value):
         if value is None:
             return "NULL"
+        elif isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        elif isinstance(value, (int, float, complex)):
+            return cls.encode_numeric(value)
         elif isinstance(value, str):
             return repr(value)
         elif isinstance(value, Path):
             return repr(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
-        elif isinstance(value, bool):
-            return "TRUE" if value else "FALSE"
-        elif isinstance(value, int) or isinstance(value, float):
-            return str(value)
         elif isinstance(value, collections.abc.Iterable):
-            # convert all iterables to vectors
             return cls.encode_list(value)
         else:
             # Try to convert from numpy if numpy is present
@@ -200,17 +365,31 @@ class REncoder:
                 import numpy as np
 
                 if isinstance(value, np.number):
-                    return str(value)
+                    return cls.encode_numeric(value.item())
                 elif isinstance(value, np.bool_):
                     return "TRUE" if value else "FALSE"
-
             except ImportError:
                 pass
         raise ValueError(f"Unsupported value for conversion into R: {value}")
 
     @classmethod
     def encode_list(cls, l):
-        return "c({})".format(", ".join(map(cls.encode_value, l)))
+        """Encode as vector if the type is homogeneous, otherwise use a list."""
+        is_homogeneous = False
+        if len(l) == 0:
+            # An empty list is always homogeneous
+            is_homogeneous = True
+        else:
+            # Numbers of different type can be stored in the same vector,
+            # casting without information loss is acceptable (e.g. int -> float)
+            for vector_type in (Number, bool, str, bytes):
+                if all([isinstance(e, vector_type) for e in l]):
+                    is_homogeneous = True
+
+        if is_homogeneous:
+            return "c({})".format(", ".join(map(cls.encode_value, l)))
+        else:
+            return "list({})".format(", ".join(map(cls.encode_value, l)))
 
     @classmethod
     def encode_items(cls, items):
@@ -226,7 +405,7 @@ class REncoder:
         return d
 
     @classmethod
-    def encode_namedlist(cls, namedlist):
+    def encode_namedlist(cls, namedlist: io_.Namedlist):
         positional = ", ".join(map(cls.encode_value, namedlist))
         named = cls.encode_items(namedlist.items())
         source = "list("
@@ -336,7 +515,8 @@ class BashEncoder:
         for var in vars(smk):
             val = getattr(smk, var)
             if var in self.namedlists:
-                aa = f"{self.prefix}_{var.strip('_').lower()}={self.encode_namedlist(val)}"
+                suffix = "params" if var == "_params_store" else var.strip("_").lower()
+                aa = f"{self.prefix}_{suffix}={self.encode_namedlist(val)}"
                 arrays.append(aa)
             elif var in self.dicts:
                 aa = f"{self.prefix}_{var.strip('_').lower()}={self.dict_to_aa(val)}"
@@ -471,16 +651,13 @@ class ScriptBase(ABC):
         return self.path.get_path_or_uri()
 
     @abstractmethod
-    def get_preamble(self):
-        ...
+    def get_preamble(self) -> str: ...
 
     @abstractmethod
-    def write_script(self, preamble, fd):
-        ...
+    def write_script(self, preamble, fd) -> None: ...
 
     @abstractmethod
-    def execute_script(self, fname, edit=False):
-        ...
+    def execute_script(self, fname, edit=False) -> None: ...
 
     def _execute_cmd(self, cmd, **kwargs):
         return shell(
@@ -565,14 +742,29 @@ class PythonScript(ScriptBase):
             else f"from snakemake.shell import shell; shell.executable({shell_exec});"
         )
 
-        preamble = textwrap.dedent(
-            f"""
-        ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys; sys.path.extend({repr(searchpaths)}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds}; {preamble_addendum}
-        ######## snakemake preamble end #########
-        """
+        preamble = f"""
+            import sys;
+            sys.path.extend({repr(searchpaths)});
+            import pickle;
+            from snakemake import script;
+            script.snakemake = pickle.loads({snakemake});
+            del script;
+            from snakemake.logging import logger;
+            from snakemake.script import snakemake;
+            {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds};
+            {preamble_addendum}
+            """
+        return "\n".join(
+            [
+                "######## snakemake preamble start (automatically inserted, do not edit) ########",
+                PythonScript._minify_preamble(preamble),
+                "######## snakemake preamble end #########\n",
+            ]
         )
-        return preamble
+
+    @staticmethod
+    def _minify_preamble(preamble: str) -> str:
+        return textwrap.dedent(preamble).replace("\n", "")
 
     def get_preamble(self):
         if isinstance(self.path, LocalSourceFile):
@@ -748,10 +940,13 @@ class RScript(ScriptBase):
             bench_iteration = {},
             scriptdir = {},
             source = function(...){{
-                wd <- getwd()
-                setwd(snakemake@scriptdir)
-                source(...)
-                setwd(wd)
+                old_wd <- getwd()
+                on.exit(setwd(old_wd), add = TRUE)
+            
+                is_url <- grepl("^https?://", snakemake@scriptdir)
+                file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
+                if (!is_url) setwd(snakemake@scriptdir)
+                source(file)
             }}
         )
         {preamble_addendum}
@@ -858,10 +1053,13 @@ class RMarkdown(ScriptBase):
             bench_iteration = {},
             scriptdir = {},
             source = function(...){{
-                wd <- getwd()
-                setwd(snakemake@scriptdir)
-                source(...)
-                setwd(wd)
+                old_wd <- getwd()
+                on.exit(setwd(old_wd), add = TRUE)
+            
+                is_url <- grepl("^https?://", snakemake@scriptdir)
+                file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
+                if (!is_url) setwd(snakemake@scriptdir)
+                source(file)
             }}
         )
 
@@ -1064,11 +1262,11 @@ class RustScript(ScriptBase):
                     "use_type": "Vec<String>"
                 }},
             }});
-            
+
             pub struct Iter<'a, T>(std::slice::Iter<'a, T>);
             impl<'a, T> Iterator for Iter<'a, T> {{
                 type Item = &'a T;
-                
+
                 fn next(&mut self) -> Option<Self::Item> {{
                     self.0.next()
                 }}
@@ -1079,16 +1277,16 @@ class RustScript(ScriptBase):
                         impl IntoIterator for $s {{
                             type Item = String;
                             type IntoIter = std::vec::IntoIter<Self::Item>;
-            
+
                             fn into_iter(self) -> Self::IntoIter {{
                                 self.positional.into_iter()
                             }}
                         }}
-            
+
                         impl<'a> IntoIterator for &'a $s {{
                             type Item = &'a String;
                             type IntoIter = Iter<'a, String>;
-            
+
                             fn into_iter(self) -> Self::IntoIter {{
                                 Iter(self.positional.as_slice().into_iter())
                             }}
@@ -1096,13 +1294,13 @@ class RustScript(ScriptBase):
                     )+
                 }};
             }}
-            
+
             macro_rules! impl_index {{
                 ($($s:ty),+) => {{
                     $(
                     impl std::ops::Index<usize> for $s {{
                         type Output = String;
-            
+
                         fn index(&self, index: usize) -> &Self::Output {{
                             &self.positional[index]
                         }}
@@ -1110,11 +1308,11 @@ class RustScript(ScriptBase):
                     )+
                 }}
             }}
-            
-            
+
+
             impl_iter!(Input, Output, Wildcards, Log);
             impl_index!(Input, Output, Wildcards, Log);
-            
+
             impl Snakemake {{
                 #[allow(dead_code)]
                 fn redirect_stderr<P: AsRef<std::path::Path>>(
@@ -1129,7 +1327,7 @@ class RustScript(ScriptBase):
                         .open(path)?;
                     Ok(gag::Redirect::stderr(log)?)
                 }}
-                
+
                 #[allow(dead_code)]
                 fn redirect_stdout<P: AsRef<std::path::Path>>(
                     &self,
@@ -1144,7 +1342,7 @@ class RustScript(ScriptBase):
                     Ok(gag::Redirect::stdout(log)?)
                 }}
             }}
-            
+
             lazy_static::lazy_static! {{
                 // https://github.com/rust-lang-nursery/lazy-static.rs/issues/153
                 #[allow(non_upper_case_globals)]
@@ -1198,7 +1396,7 @@ class RustScript(ScriptBase):
         deps = self.default_dependencies()
         ftrs = self.default_features()
         self._execute_cmd(
-            "rust-script -d {deps} --features {ftrs} {fname:q} ",
+            "rust-script -d {deps} {fname:q} -- --features {ftrs}",
             fname=fname,
             deps=deps,
             ftrs=ftrs,
@@ -1217,9 +1415,9 @@ class RustScript(ScriptBase):
         return " -d ".join(
             [
                 "anyhow=1",
-                "serde_json=1",
-                "serde=1",
-                "serde_derive=1",
+                "serde_json=1.0",
+                "serde=1.0",
+                "serde_derive=1.0",
                 "lazy_static=1.4",
                 "json_typegen=0.6",
                 "gag=1",
@@ -1343,7 +1541,14 @@ class BashScript(ScriptBase):
             scriptdir=path.get_basedir().get_path_or_uri(),
         )
 
-        namedlists = ["input", "output", "log", "resources", "wildcards", "params"]
+        namedlists = [
+            "input",
+            "output",
+            "log",
+            "resources",
+            "wildcards",
+            "_params_store",
+        ]
         dicts = ["config"]
         encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
         preamble = encoder.encode_snakemake(snakemake)
@@ -1390,6 +1595,11 @@ class BashScript(ScriptBase):
 
     def execute_script(self, fname, edit=False):
         self._execute_cmd("bash {fname:q}", fname=fname)
+
+
+class XonshScript(PythonScript):
+    def execute_script(self, fname, edit=False):
+        self._execute_cmd("xonsh {fname:q}", fname=fname)
 
 
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
@@ -1454,6 +1664,8 @@ def get_language(source_file, source):
         language = "rust"
     elif filename.endswith(".sh"):
         language = "bash"
+    elif filename.endswith(".xsh"):
+        language = "xonsh"
 
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
@@ -1517,10 +1729,11 @@ def script(
         "julia": JuliaScript,
         "rust": RustScript,
         "bash": BashScript,
+        "xonsh": XonshScript,
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
-            "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd) or Julia (.jl) script."
+            "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd), Julia (.jl), Rust (.rs), Bash (.sh), or Xonsh (.xsh) script."
         )
 
     executor = exec_class(
