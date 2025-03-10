@@ -172,7 +172,7 @@ class StorageRegistry:
 
     def _storage_object(
         self,
-        query: Union[str, List[str]],
+        query: Union[str, List[str], dict],
         provider: Optional[str] = None,
         retrieve: Optional[bool] = None,
         keep_local: Optional[bool] = None,
@@ -183,6 +183,27 @@ class StorageRegistry:
                     q, provider=provider, retrieve=retrieve, keep_local=keep_local
                 )
                 for q in query
+            ]
+
+        if isinstance(query, dict):
+            provider_name = provider
+
+            if provider_name is None:
+                provider_name = self.infer_provider(query)
+
+            if provider_name != "apd":
+                raise WorkflowError(f"Passing a dict as the query is only valid with the `apd` storage plugin.\nQuery {query} for provider {provider_name} is not valid.")
+
+            provider = self._storages.get(provider_name)
+
+            if provider is None:
+                provider = self.register_storage(provider_name)
+
+            queries = provider.get_files(query)
+            return [
+                self._storage_object(q, provider='xrootd', retrieve=retrieve, keep_local=keep_local
+                )
+                for q in queries
             ]
 
         provider_name = provider
