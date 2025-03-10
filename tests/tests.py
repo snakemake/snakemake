@@ -427,7 +427,7 @@ def test_script_rs():
         check_md5=False,
     )
 
-    
+
 @skip_on_windows  # Test relies on perl
 def test_shadow():
     run(dpath("test_shadow"))
