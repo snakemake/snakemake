@@ -2047,3 +2047,18 @@ def test_failed_intermediate():
     tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
     run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
+
+
+def test_censored_path():
+    snakefile = os.path.join(dpath("test_censored_path"), "Snakefile")
+    p = sp.Popen(
+        f"snakemake -s {snakefile} -c1 -n",
+        shell=True,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    stdout = stdout.decode()
+    assert "my_password" not in stdout
+    assert "param_name" not in stdout
+    assert "param_value" not in stdout
