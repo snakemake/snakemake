@@ -27,4 +27,4 @@ def extract_checksum(infile, **kwargs):
             .item()
         )
     except ImportError:
-        raise WorkflowError("Pandas is required to extract checksum.")
+        raise WorkflowError("Pandas is required to extract checksum from file.")
