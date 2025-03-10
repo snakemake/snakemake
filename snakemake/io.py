@@ -3,35 +3,41 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import ABC, abstractmethod
 import asyncio
 import collections
+import collections.abc
 import copy
-from dataclasses import dataclass, field
-import datetime
 import functools
-import json
 import os
 import queue
 import re
 import shutil
 import stat
 import string
-import subprocess as sp
 import time
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
-import string
-import collections
-import asyncio
-from typing import Callable
+from dataclasses import dataclass, field
 from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Union, Sequence
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    TypeVar,
+    Union,
+    TYPE_CHECKING,
+    Sequence
+)
 
-from snakemake_interface_common.utils import not_iterable, lchmod
+from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
+from snakemake_interface_common.utils import not_iterable
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -42,7 +48,6 @@ from snakemake_interface_storage_plugins.io import (
 from snakemake.common import (
     ON_WINDOWS,
     async_run,
-    get_function_params,
     get_input_function_aux_params,
     is_namedtuple_instance,
 )
@@ -53,6 +58,10 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 from snakemake.logging import logger
+
+if TYPE_CHECKING:
+    import snakemake.rules
+    import snakemake.jobs
 
 
 def lutime(file, times):
@@ -67,12 +76,10 @@ def lutime(file, times):
 class AnnotatedStringInterface(ABC):
     @property
     @abstractmethod
-    def flags(self) -> Dict[str, Any]:
-        ...
+    def flags(self) -> Dict[str, Any]: ...
 
     @abstractmethod
-    def is_callable(self) -> bool:
-        ...
+    def is_callable(self) -> bool: ...
 
     def is_flagged(self, flag: str) -> bool:
         return flag in self.flags and bool(self.flags[flag])
@@ -126,11 +133,13 @@ class IOCache(IOCacheStorageInterface):
     def size(self):
         return self._size
 
-    async def mtime_inventory(self, jobs, n_workers=8):
-        queue = asyncio.Queue()
+    async def mtime_inventory(
+        self, jobs: "collections.abc.Iterable[snakemake.jobs.Job]", n_workers=8
+    ):
+        queue: asyncio.Queue = asyncio.Queue()
         stop_item = object()
 
-        async def worker(queue):
+        async def worker(queue: asyncio.Queue):
             while True:
                 item = await queue.get()
                 if item is stop_item:
@@ -153,6 +162,7 @@ class IOCache(IOCacheStorageInterface):
         ]
 
         for job in jobs:
+            f: "_IOFile"
             for f in chain(job.input, job.output):
                 if not f.is_storage and await f.exists():
                     queue.put_nowait(f)
@@ -169,7 +179,7 @@ class IOCache(IOCacheStorageInterface):
 
         await asyncio.gather(*tasks)
 
-    async def collect_mtime(self, path):
+    async def collect_mtime(self, path: "_IOFile"):
         return await path.mtime_uncached()
 
     def clear(self):
@@ -184,8 +194,7 @@ class IOCache(IOCacheStorageInterface):
         self.active = False
 
 
-def IOFile(file, rule=None):
-    assert rule is not None
+def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
     f = _IOFile(file)
     f.rule = rule
     return f
@@ -193,8 +202,8 @@ def IOFile(file, rule=None):
 
 def iocache(func: Callable):
     @functools.wraps(func)
-    async def wrapper(self, *args, **kwargs):
-        # self: _IOFile
+    async def wrapper(self: "_IOFile", *args, **kwargs):
+        assert self.rule is not None
         if self.rule.workflow.iocache.active:
             cache = getattr(self.rule.workflow.iocache, func.__name__)
             if self in cache:
@@ -213,7 +222,16 @@ class _IOFile(str, AnnotatedStringInterface):
     A file that is either input or output of a rule.
     """
 
-    __slots__ = ["_is_function", "_file", "rule", "_regex", "_wildcard_constraints"]
+    __slots__ = ["_is_callable", "_file", "rule", "_regex", "_wildcard_constraints"]
+
+    if TYPE_CHECKING:
+
+        def __init__(self, file):
+            self._is_callable: bool
+            self._file: str | AnnotatedString | Callable[[Namedlist], str]
+            self.rule: snakemake.rules.Rule | None
+            self._regex: re.Pattern | None
+            self._wildcard_constraints: Dict[str, re.Pattern] | None
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)
@@ -230,7 +248,7 @@ class _IOFile(str, AnnotatedStringInterface):
                 stripped.flags = file.flags
             file = stripped
         obj = str.__new__(cls, file)
-        obj._is_function = is_callable
+        obj._is_callable = is_callable
         obj._file = file
         obj.rule = None
         obj._regex = None
@@ -243,18 +261,22 @@ class _IOFile(str, AnnotatedStringInterface):
 
     def new_from(self, new_value):
         new = str.__new__(self.__class__, new_value)
-        new._is_function = self._is_function
+        new._is_callable = self._is_callable
         new._file = self._file
         new.rule = self.rule
         if new.is_storage:
             new.storage_object._iofile = new
         return new
 
+    def is_callable(self) -> bool:
+        return self._is_callable
+
     async def inventory(self):
         """Starting from the given file, try to cache as much existence and
         modification date information of this and other files as possible.
         """
-        cache = self.rule.workflow.iocache
+        assert self.rule is not None
+        cache: IOCache = self.rule.workflow.iocache
         if cache.active:
             tasks = []
             if self.is_storage and self not in cache.exists_in_storage:
@@ -265,7 +287,7 @@ class _IOFile(str, AnnotatedStringInterface):
                 tasks.append(self._local_inventory(cache))
             await asyncio.gather(*tasks)
 
-    async def _local_inventory(self, cache):
+    async def _local_inventory(self, cache: IOCache):
         # for local files, perform BFS via os.scandir to determine existence of files
         if cache.remaining_wait_time <= 0:
             # No more time to create inventory.
@@ -301,9 +323,9 @@ class _IOFile(str, AnnotatedStringInterface):
                 break
             except PermissionError:
                 raise WorkflowError(
-                    "Insufficient permissions to access {}. "
+                    f"Insufficient permissions to access {self}. "
                     "Please make sure that all accessed files and directories "
-                    "are readable and writable for you.".format(self)
+                    "are readable and writable for you."
                 )
 
         cache.remaining_wait_time -= time.time() - start_time
@@ -384,7 +406,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
     @property
     def file(self):
-        if not self._is_function:
+        if not self.is_callable():
             return self._file
         else:
             raise ValueError(
@@ -393,35 +415,37 @@ class _IOFile(str, AnnotatedStringInterface):
             )
 
     def check(self):
+        if callable(self._file):
+            return
         hint = (
             "It can also lead to inconsistent results of the file-matching "
             "approach used by Snakemake."
         )
         if self._file.startswith("./"):
             logger.warning(
-                "Relative file path '{}' starts with './'. This is redundant "
-                "and strongly discouraged. {} You can simply omit the './' "
-                "for relative file paths.".format(self._file, hint)
+                f"Relative file path '{self._file}' starts with './'. This is redundant "
+                f"and strongly discouraged. {hint} You can simply omit the './' "
+                "for relative file paths."
             )
         if self._file.startswith(" "):
             logger.warning(
-                "File path '{}' starts with whitespace. "
-                "This is likely unintended. {}".format(self._file, hint)
+                f"File path '{self._file}' starts with whitespace. "
+                f"This is likely unintended. {hint}"
             )
         if self._file.endswith(" "):
             logger.warning(
-                "File path '{}' ends with whitespace. "
-                "This is likely unintended. {}".format(self._file, hint)
+                f"File path '{self._file}' ends with whitespace. "
+                f"This is likely unintended. {hint}"
             )
         if "\n" in self._file:
             logger.warning(
-                "File path '{}' contains line break. "
-                "This is likely unintended. {}".format(self._file, hint)
+                f"File path '{self._file}' contains line break. "
+                f"This is likely unintended. {hint}"
             )
         if _double_slash_regex.search(self._file) is not None and not self.is_storage:
             logger.warning(
-                "File path {} contains double '{}'. "
-                "This is likely unintended. {}".format(self._file, os.path.sep, hint)
+                f"File path {self._file} contains double '{os.path.sep}'. "
+                f"This is likely unintended. {hint}"
             )
 
     async def exists(self):
@@ -433,9 +457,9 @@ class _IOFile(str, AnnotatedStringInterface):
     def parents(self, omit=0):
         """Yield all parent paths, omitting the given number of ancestors."""
         for p in list(Path(self.file).parents)[::-1][omit:]:
-            p = IOFile(str(p), rule=self.rule)
-            p.clone_flags(self)
-            yield p
+            p1 = IOFile(str(p), rule=self.rule)
+            p1.clone_flags(self)
+            yield p1
 
     @iocache
     async def exists_local(self):
@@ -457,8 +481,9 @@ class _IOFile(str, AnnotatedStringInterface):
         )
 
     async def mtime(self):
+        assert self.rule is not None
         if self.rule.workflow.iocache.active:
-            cache = self.rule.workflow.iocache
+            cache: IOCache = self.rule.workflow.iocache
             if self in cache.mtime:
                 mtime = cache.mtime[self]
                 # if inventory is filled by storage plugin, mtime.local() will be None and
@@ -576,7 +601,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return (
             await self.exists_local()
             and not os.path.isdir(self.file)
-            and await self.size() < 100000
+            and await self.size() <= 1000000
             and not self.is_fifo()
         )
 
@@ -584,7 +609,7 @@ class _IOFile(str, AnnotatedStringInterface):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist. If force is True,
         omit eligibility check."""
-        if force or await self.is_checksum_eligible():  # less than 100000 bytes
+        if force or await self.is_checksum_eligible():  # less than 1 MB
             checksum = sha256()
             if await self.size() > 0:
                 # only read if file is bigger than zero
@@ -659,10 +684,18 @@ class _IOFile(str, AnnotatedStringInterface):
             except OSError as e:
                 # ignore Errno 17 "File exists" (reason: multiprocessing)
                 if e.errno != 17:
-                    raise e
+                    raise WorkflowError(
+                        f"Failed to create output directory {dirpath}.", e
+                    )
 
         if is_flagged(self._file, "pipe"):
-            os.mkfifo(self._file)
+            assert isinstance(self._file, AnnotatedString)
+            try:
+                os.mkfifo(self._file)
+            except Exception as e:
+                raise WorkflowError(
+                    f"Failed to create FIFO for pipe output {self._file}.", e
+                )
 
     def protect(self):
         mode = (
@@ -686,6 +719,23 @@ class _IOFile(str, AnnotatedStringInterface):
                 self, remove_non_empty_dir=remove_non_empty_dir, only_local=only_local
             )
 
+    async def touch_storage_and_local(self):
+        from snakemake_interface_storage_plugins.storage_object import (
+            StorageObjectTouch,
+        )
+
+        if self.is_storage:
+            if isinstance(self.storage_object, StorageObjectTouch):
+                if await self.exists_local():
+                    self.touch()
+                await self.storage_object.managed_touch()
+            else:
+                raise WorkflowError(
+                    f"Storage does not support touch operation. Consider contributing to the used storage provider."
+                )
+        else:
+            self.touch()
+
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
         try:
@@ -700,9 +750,10 @@ class _IOFile(str, AnnotatedStringInterface):
                 lutime(self.file, times)
         except OSError as e:
             if e.errno == 2:
+                assert self.rule is not None
                 raise MissingOutputException(
-                    "Output file {} of rule {} shall be touched but "
-                    "does not exist.".format(self.file, self.rule.name),
+                    f"Output file {self.file} of rule {self.rule.name} "
+                    "shall be touched but does not exist.",
                     lineno=self.rule.lineno,
                     snakefile=self.rule.snakefile,
                 )
@@ -729,7 +780,8 @@ class _IOFile(str, AnnotatedStringInterface):
     def apply_wildcards(self, wildcards):
         f = self._file
 
-        if self._is_function:
+        if self.is_callable():
+            assert callable(self._file)
             f = self._file(Namedlist(fromdict=wildcards))
 
         # this bit ensures flags are transferred over to files after
@@ -796,9 +848,10 @@ class _IOFile(str, AnnotatedStringInterface):
     def match(self, target):
         return self.regex().match(target) or None
 
-    def clone_flags(self, other, skip_storage_object=False):
+    def clone_flags(self, other: "_IOFile", skip_storage_object=False):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
+        assert isinstance(self._file, AnnotatedString)
         if isinstance(other._file, AnnotatedString) or isinstance(other._file, _IOFile):
             self._file.flags = getattr(other._file, "flags", {}).copy()
             if skip_storage_object and self.is_storage:
@@ -809,11 +862,12 @@ class _IOFile(str, AnnotatedStringInterface):
                     "to change"
                 )
 
-    def clone_storage_object(self, other):
+    def clone_storage_object(self, other: "_IOFile"):
         if (
             isinstance(other._file, AnnotatedString)
             and "storage_object" in other._file.flags
         ):
+            assert isinstance(self._file, AnnotatedString)
             self._file.flags["storage_object"] = copy.copy(
                 other._file.flags["storage_object"]
             )
@@ -821,6 +875,7 @@ class _IOFile(str, AnnotatedStringInterface):
     def set_flags(self, flags):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
+        assert isinstance(self._file, AnnotatedString)
         self._file.flags = flags
 
     def __eq__(self, other):
@@ -831,11 +886,11 @@ class _IOFile(str, AnnotatedStringInterface):
         return self._file.__hash__()
 
 
-def pretty_print_iofile(iofile: _IOFile):
-    if iofile.is_storage:
+def pretty_print_iofile(iofile: Union[_IOFile, str]) -> str:
+    if isinstance(iofile, _IOFile) and iofile.is_storage:
         return f"{iofile.storage_object.query} (storage)"
     else:
-        return iofile._file
+        return iofile
 
 
 class AnnotatedString(str, AnnotatedStringInterface):
@@ -861,7 +916,7 @@ class AnnotatedString(str, AnnotatedStringInterface):
         self._flags = value
 
 
-MaybeAnnotated = Union[AnnotatedStringInterface, str]
+MaybeAnnotated = Union[AnnotatedStringInterface, str, Callable]
 
 
 def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
@@ -883,19 +938,19 @@ def flag(value, flag_type, flag_value=True):
     return [flag(v, flag_type, flag_value=flag_value) for v in value]
 
 
-def is_callable(value: Any):
-    return callable(value) or (
-        isinstance(value, AnnotatedStringInterface) and value.is_callable()
-    )
-
-
 _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
 
+_CONSIDER_LOCAL_DEFAULT = frozenset()
+
 
 async def wait_for_files(
-    files, latency_wait=3, wait_for_local=False, ignore_pipe_or_service=False
+    files,
+    latency_wait=3,
+    wait_for_local=False,
+    ignore_pipe_or_service=False,
+    consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
 ):
     """Wait for given files to be present in the filesystem."""
     files = list(files)
@@ -908,11 +963,12 @@ async def wait_for_files(
                 return None
             if (
                 isinstance(f, _IOFile)
+                and f not in consider_local
                 and f.is_storage
                 and (not wait_for_local or f.should_not_be_retrieved_from_storage)
             ):
                 if not await f.exists_in_storage():
-                    return f"{f} (missing in storage)"
+                    return f"{f.storage_object.query} (missing in storage)"
             elif not os.path.exists(f):
                 parent_dir = os.path.dirname(f)
                 if list_parent:
@@ -930,16 +986,20 @@ async def wait_for_files(
 
     missing = await get_missing()
     if missing:
+        fmt_missing = "\n".join
+
         sleep = max(latency_wait / 10, 1)
         before_time = time.time()
-        logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
+        logger.info(
+            f"Waiting at most {latency_wait} seconds for missing files:\n{fmt_missing(missing)}"
+        )
         while time.time() - before_time < latency_wait:
             missing = await get_missing()
             logger.debug("still missing files, waiting...")
             if not missing:
                 return
             time.sleep(sleep)
-        missing = "\n".join(await get_missing(list_parent=True))
+        missing = fmt_missing(await get_missing(list_parent=True))
         raise IOError(
             f"Missing files after {latency_wait} seconds. This might be due to "
             "filesystem latency. If that is the case, consider to increase the "
@@ -1037,7 +1097,7 @@ def apply_wildcards(pattern, wildcards):
 def is_callable(value):
     return (
         callable(value)
-        or (isinstance(value, _IOFile) and value._is_function)
+        or (isinstance(value, _IOFile) and value.is_callable())
         or (isinstance(value, AnnotatedString) and value.callable is not None)
     )
 
@@ -1131,7 +1191,9 @@ def pipe(value):
         raise SyntaxError("Pipes may not be in storage.")
     if ON_WINDOWS:
         logger.warning("Pipes are not yet supported on Windows.")
-    return flag(value, "pipe", not ON_WINDOWS)
+        return value
+    else:
+        return flag(value, "pipe")
 
 
 def service(value):
@@ -1306,15 +1368,23 @@ def expand(*args, **wildcard_values):
         for filepattern in filepatterns
     }
 
-    def do_expand(wildcard_values):
-        def flatten(wildcard_values):
-            for wildcard, values in wildcard_values.items():
+    def do_expand(
+        wildcard_values: Dict[
+            str, dict[str, Union[str, collections.abc.Iterable[str]]]
+        ],
+    ):
+        def flatten(
+            wildcard_values: Dict[str, Union[str, collections.abc.Iterable[str]]],
+        ):
+            for wildcard, value in wildcard_values.items():
                 if (
-                    isinstance(values, str)
-                    or not isinstance(values, collections.abc.Iterable)
-                    or is_namedtuple_instance(values)
+                    isinstance(value, str)
+                    or not isinstance(value, collections.abc.Iterable)
+                    or is_namedtuple_instance(value)
                 ):
-                    values = [values]
+                    values: collections.abc.Iterable[str] = [value]  # type: ignore[list-item]
+                else:
+                    values = value
                 yield [(wildcard, value) for value in values]
 
         # string.Formatter does not fully support AnnotatedString (flags are discarded)
@@ -1328,7 +1398,7 @@ def expand(*args, **wildcard_values):
         formatter = string.Formatter()
         try:
             return [
-                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))
+                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))  # type: ignore[arg-type]
                 for filepattern in filepatterns
                 for comb in map(
                     format_dict, combinator(*flatten(wildcard_values[filepattern]))
@@ -1376,7 +1446,7 @@ def multiext(prefix, *extensions):
     return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
 
 
-def limit(pattern, **wildcards):
+def limit(pattern: Union[str, AnnotatedString], **wildcards):
     """
     Limit wildcards to the given values.
 
@@ -1386,7 +1456,7 @@ def limit(pattern, **wildcards):
     """
     return pattern.format(
         **{
-            wildcard: "{{{},{}}}".format(wildcard, "|".join(values))
+            wildcard: f"{{{wildcard},{'|'.join(values)}}}"
             for wildcard, values in wildcards.items()
         }
     )
@@ -1420,8 +1490,9 @@ def glob_wildcards(pattern, files=None, followlinks=False):
     if not dirname:
         dirname = "."
 
-    names = [match.group("name") for match in WILDCARD_REGEX.finditer(pattern)]
-    Wildcards = collections.namedtuple("Wildcards", names)
+    _names = [match.group("name") for match in WILDCARD_REGEX.finditer(pattern)]
+    names: list[str] = sorted(set(_names), key=_names.index)
+    Wildcards = collections.namedtuple("Wildcards", names)  # type: ignore[misc]
     wildcards = Wildcards(*[list() for name in names])
 
     pattern = re.compile(regex_from_filepattern(pattern))
@@ -1496,6 +1567,32 @@ def strip_wildcard_constraints(pattern):
     return WILDCARD_REGEX.sub(strip_constraint, pattern)
 
 
+class AttributeGuard:
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, *args, **kwargs):
+        """
+        Generic function that throws an `AttributeError`.
+
+        Used as replacement for functions such as `index()` and `sort()`,
+        which may be overridden by workflows, to signal to a user that
+        these functions should not be used.
+        """
+        raise AttributeError(
+            f"{self.name}() cannot be used on snakemake input, output, resources etc.; "
+            "instead it is a valid name for items on those objects. If you want e.g. to "
+            "sort, convert to a plain list before or directly use sorted() on the "
+            "object."
+        )
+
+
+# TODO: replace this with Self when Python 3.11 is the minimum supported version for
+#   executing scripts
+_TNamedList = TypeVar("_TNamedList", bound="Namedlist")
+"Type variable for self returning methods on Namedlist deriving classes"
+
+
 class Namedlist(list):
     """
     A list that additionally provides functions to name items. Further,
@@ -1525,7 +1622,7 @@ class Namedlist(list):
         # default to throwing exception if called to prevent use as functions
         self._allowed_overrides = ["index", "sort"]
         for name in self._allowed_overrides:
-            setattr(self, name, functools.partial(self._used_attribute, _name=name))
+            setattr(self, name, AttributeGuard(name))
 
         if toclone is not None:
             if custom_map is not None:
@@ -1554,20 +1651,6 @@ class Namedlist(list):
             for key, item in fromdict.items():
                 self.append(item)
                 self._add_name(key)
-
-    @staticmethod
-    def _used_attribute(*args, _name, **kwargs):
-        """
-        Generic function that throws an `AttributeError`.
-
-        Used as replacement for functions such as `index()` and `sort()`,
-        which may be overridden by workflows, to signal to a user that
-        these functions should not be used.
-        """
-        raise AttributeError(
-            "{_name}() cannot be used; attribute name reserved"
-            " for use in some existing workflows".format(_name=_name)
-        )
 
     def _add_name(self, name):
         """
@@ -1674,17 +1757,21 @@ class Namedlist(list):
     def keys(self):
         return self._names.keys()
 
-    def _plainstrings(self):
+    def _plainstrings(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self, plainstr=True)
 
-    def _stripped_constraints(self):
+    def _stripped_constraints(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self, strip_constraints=True)
 
-    def _clone(self):
+    def _clone(self: _TNamedList) -> _TNamedList:
         return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):
-        return self.__dict__.get(key, default_value)
+        value = self.__dict__.get(key, default_value)
+        # handle internally guarded values like sort or index (see AttributeGuard)
+        if isinstance(value, AttributeGuard):
+            return default_value
+        return value
 
     def __getitem__(self, key):
         if isinstance(key, str):
@@ -1701,15 +1788,39 @@ class Namedlist(list):
 
 class InputFiles(Namedlist):
     @property
-    def size(self):
+    def size_files(self):
         async def sizes():
             return [await f.size() for f in self]
 
-        return sum(async_run(sizes()))
+        return async_run(sizes())
+
+    @property
+    def size_files_kb(self):
+        return [f / 1024 for f in self.size_files]
+
+    @property
+    def size_files_mb(self):
+        return [f / 1024 for f in self.size_files_kb]
+
+    @property
+    def size_files_gb(self):
+        return [f / 1024 for f in self.size_files_mb]
+
+    @property
+    def size(self):
+        return sum(self.size_files)
+
+    @property
+    def size_kb(self):
+        return sum(self.size_files_kb)
 
     @property
     def size_mb(self):
-        return self.size / 1024 / 1024
+        return sum(self.size_files_mb)
+
+    @property
+    def size_gb(self):
+        return sum(self.size_files_gb)
 
 
 class OutputFiles(Namedlist):

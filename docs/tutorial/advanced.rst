@@ -1,4 +1,4 @@
-.. tutorial-advanced:
+.. _tutorial-advanced:
 
 Advanced: Decorating the example workflow
 -----------------------------------------
@@ -67,7 +67,7 @@ For example
     $ snakemake --cores 10
 
 
-.. sidebar:: Note
+.. note::
 
   Apart from the very common thread resource, Snakemake provides a ``resources`` directive that can be used to **specify arbitrary resources**, e.g., memory usage or auxiliary computing devices like GPUs.
   Similar to threads, these can be considered by the scheduler when an available amount of that resource is given with the command line argument ``--resources`` (see :ref:`snakefiles-resources`).
@@ -190,7 +190,7 @@ We modify the rule ``bwa_map`` accordingly:
         shell:
             "bwa mem -R '{params.rg}' -t {threads} {input} | samtools view -Sb - > {output}"
 
-.. sidebar:: Note
+.. note::
 
   The ``params`` directive can also take functions like in Step 3 to defer
   initialization to the DAG phase. In contrast to input functions, these can
@@ -228,7 +228,7 @@ We modify our rule ``bwa_map`` as follows:
             "(bwa mem -R '{params.rg}' -t {threads} {input} | "
             "samtools view -Sb - > {output}) 2> {log}"
 
-.. sidebar:: Note
+.. note::
 
   It is best practice to store all log files in a subdirectory ``logs/``, prefixed by the rule or tool name.
 
@@ -295,6 +295,8 @@ Exercise
 * Re-execute the whole workflow and observe how Snakemake handles the temporary and protected files.
 * Run Snakemake with the target ``mapped_reads/A.bam``. Although the file is marked as temporary, you will see that Snakemake does not delete it because it is specified as a target file.
 * Try to re-execute the whole workflow again with the dry-run option. You will see that it fails (as intended) because Snakemake cannot overwrite the protected output files.
+
+After having a look at the summary, please go on with the :ref:`"additional features" part of the tutorial <tutorial-additional_features>`.
 
 Summary
 :::::::
@@ -384,3 +386,5 @@ With this, the final version of our workflow in the ``Snakefile`` looks like thi
             "plots/quals.svg"
         script:
             "scripts/plot-quals.py"
+
+Now, please go on with the :ref:`"additional features" part of the tutorial <tutorial-additional_features>`.

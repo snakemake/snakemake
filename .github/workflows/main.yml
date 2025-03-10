@@ -24,7 +24,7 @@ jobs:
         with:
           environment-name: black
           create-args: black
-          cache-environment: true
+          cache-environment: false
 
       - name: Check formatting
         shell: bash -el {0}
@@ -41,14 +41,22 @@ jobs:
     strategy:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        py_ver: ["3.11", "3.12"]
+        py_ver:
+          - "3.11"
+          - "3.12"
+        shell:
+          - bash
+          - dash # for py 3.12 also test dash as default shell (snakemake will still use bash for shell commands)
+        exclude:
+          - shell: dash 
+            py_ver: "3.11"
     runs-on: ubuntu-latest
     needs: formatting
     env:
       AWS_AVAILABLE: "${{ secrets.AWS_ACCESS_KEY_ID }}"
       GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -58,12 +66,13 @@ jobs:
           cp test-environment.yml test-environment-${{ matrix.py_ver }}.yml
           sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment-${{ matrix.py_ver }}.yml
 
-      - name: Setup snakemke environment
-        uses: mamba-org/setup-micromamba@v1
+      - name: Setup snakemake environment
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          miniforge-version: latest
           environment-file: test-environment-${{ matrix.py_ver }}.yml
           environment-name: snakemake
-          cache-environment: true
+          auto-update-conda: true
 
       - name: Install snakemake from source
         shell: bash -el {0}
@@ -79,7 +88,28 @@ jobs:
         run: |
           sudo add-apt-repository -y ppa:apptainer/ppa
           sudo apt-get update
-          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev apptainer
+          sudo apt install -y git wget openmpi-bin libopenmpi-dev apptainer dash
+
+      # See https://github.com/apptainer/apptainer/pull/2262
+      - name: Disable apparmor namespace restrictions for apptainer
+        run: |
+          sudo sh -c 'echo kernel.apparmor_restrict_unprivileged_userns=0 \
+              >/etc/sysctl.d/90-disable-userns-restrictions.conf'
+          sudo sysctl -p /etc/sysctl.d/90-disable-userns-restrictions.conf
+
+      - name: Setup minio
+        uses: comfuture/minio-action@v1
+        with:
+          access_key: minio
+          secret_key: minio123
+          port: 9000
+
+      - name: Test minio
+        run: |
+          export AWS_ACCESS_KEY_ID=minio
+          export AWS_SECRET_ACCESS_KEY=minio123
+          export AWS_EC2_METADATA_DISABLED=true
+          aws --endpoint-url http://127.0.0.1:9000/ s3 mb s3://test
 
       - name: Test local
         env:
@@ -88,15 +118,21 @@ jobs:
           #PYTHONTRACEMALLOC: 10
         shell: bash -el {0}
         run: |
+          if [ "${{ matrix.shell }}" == "dash" ]; then
+              sudo chsh -s /usr/bin/dash $(whoami)
+          fi
+
           pytest -v -x --show-capture=stderr \
             --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration \
             tests/tests.py \
+            tests/tests_using_conda.py \
             tests/test_expand.py \
             tests/test_io.py \
             tests/test_schema.py \
             tests/test_linting.py \
             tests/test_executor_test_suite.py \
-            tests/test_api.py
+            tests/test_api.py \
+            tests/test_internals.py
 
       - name: Run tests/test_report/Snakefile to generate report
         shell: bash -el {0}
@@ -109,13 +145,13 @@ jobs:
           ls -R
 
       - name: Upload report
-        if: ${{ matrix.test_group == 1 }}
+        if: ${{ matrix.test_group == 1 && matrix.shell == 'dash'}}
         uses: actions/upload-artifact@v4
         with:
           name: report-${{ matrix.py_ver }}.zip
           path: tests/test_report/report.zip
 
-          
+
   build-container-image:
     runs-on: ubuntu-latest
     needs: testing
@@ -132,25 +168,30 @@ jobs:
     runs-on: windows-latest
     needs: formatting
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Remove unix-only dependencies
         shell: python
         run: |
           import fileinput
-          excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
+          excluded_on_win = [ "environment-modules",
+                              "cwltool",
+                              "cwl-utils",
+                              "apptainer",
+                              "squashfuse",
+                              "stress-ng" ]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line, end="")
 
-      - name: Setup snakemke environment
-        uses: mamba-org/setup-micromamba@v1
+      - name: Setup snakemake environment
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          miniforge-version: latest
           environment-file: test-environment.yml
           environment-name: snakemake
-          init-shell: powershell
-          cache-environment: true
+          auto-update-conda: true
 
       - name: Install snakemake from source
         run: |

@@ -4,6 +4,9 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 
+import hashlib
+
+
 class EnvModules:
     def __init__(self, *module_names):
         self.names = module_names
@@ -16,3 +19,10 @@ class EnvModules:
 
     def __str__(self):
         return ", ".join(self.names)
+
+    @property
+    def hash(self) -> str:
+        md5hash = hashlib.md5()
+        for name in self.names:
+            md5hash.update(name.encode())
+        return md5hash.hexdigest()
