@@ -1,0 +1,73 @@
+import glob
+import random
+from pathlib import Path
+
+ALL_SAMPLES = ["s1"]
+
+
+rule all:
+    input:
+        expand("collect/{sample}/all_done.txt", sample=ALL_SAMPLES),
+
+
+rule before:
+    output:
+        ALL_SAMPLES,
+    run:
+        for sample in ALL_SAMPLES:
+            Path(sample).touch()
+
+
+checkpoint first:
+    input:
+        expand("{sample}", sample=ALL_SAMPLES),
+    output:
+        directory("first/{sample}"),
+    run:
+        for i in range(1, 5):
+            Path(f"{output[0]}/{i}").mkdir(parents=True, exist_ok=True)
+            Path(f"{output[0]}/{i}/test.txt").touch()
+
+
+checkpoint second:
+    input:
+        "first/{sample}/{i}/test.txt",
+    output:
+        directory("second/{sample}/{i}"),
+    run:
+        for j in range(6, 10):
+            Path(f"{output[0]}/{j}").mkdir(parents=True, exist_ok=True)
+            Path(f"{output[0]}/{j}/test2.txt").touch()
+
+
+rule copy:
+    input:
+        "second/{sample}/{i}/{j}/test2.txt",
+    output:
+        touch("copy/{sample}/{i}/{j}/test2.txt"),
+
+
+def aggregate(wildcards):
+
+    outputs_i = glob.glob(f"{checkpoints.first.get(**wildcards).output}/*/")
+
+    outputs_i = [output.split("/")[-2] for output in outputs_i]
+
+    split_files = []
+    for i in outputs_i:
+        s2out = checkpoints.second.get(**wildcards, i=i).output[0]
+        assert Path(s2out).exists()
+        output_j = glob.glob(f"{s2out}/*/")
+        outputs_j = [output.split("/")[-2] for output in output_j]
+        for j in outputs_j:
+            split_files.extend(
+                expand(f"copy/{{sample}}/{i}/{j}/test2.txt", sample=wildcards.sample)
+            )
+    return split_files
+
+
+rule collect:
+    input:
+        aggregate,
+    output:
+        touch("collect/{sample}/all_done.txt"),
