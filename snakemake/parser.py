@@ -651,7 +651,7 @@ class Script(AbstractCmd):
     def args(self):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, nix_flakem singularity_args, env_modules, "
+            "config, rule, conda_env, conda_base_path, container_img, nix_flake, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, sourcecache_path, "
             "runtime_sourcecache_path"
         )
