@@ -4,9 +4,11 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+from builtins import ExceptionGroup
 from collections import defaultdict
 import os
 import base64
+from pathlib import Path
 import tempfile
 import json
 import shutil
@@ -14,7 +16,8 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Iterable, List, Optional
+import time
+from typing import Iterable, List, Optional, Union
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings.types import DeploymentMethod
@@ -41,6 +44,7 @@ from snakemake.io import (
 from snakemake.settings.types import SharedFSUsage
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
+from snakemake.sourcecache import LocalSourceFile, SourceFile, infer_source_file
 from snakemake.utils import format
 from snakemake.exceptions import (
     InputOpenException,
@@ -284,6 +288,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         # TODO get rid of these
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
+        self.pipe_or_service_output = set()
         self._queue_input = defaultdict(list)
         for f in self.output:
             f_ = output_mapping[f]
@@ -293,6 +298,8 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.protected_output.add(f)
             if f_ in self.rule.touch_output:
                 self.touch_output.add(f)
+            if is_flagged(f_, "pipe") or is_flagged(f_, "service"):
+                self.pipe_or_service_output.add(f)
         for f in self.input:
             f_ = input_mapping[f]
             queue_info = get_flag_value(f_, "from_queue")
@@ -401,14 +408,16 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         path = self.rule.script or self.rule.notebook
         if not path:
             return
-        if self.rule.basedir:
-            # needed if rule is included from another subdirectory
-            path = self.rule.basedir.join(path).get_path_or_uri()
-        if is_local_file(path) and os.path.exists(path):
-            script_mtime = get_script_mtime(path)
-            for f in self.output:
-                if await f.exists() and not await f.is_newer(script_mtime):
-                    yield f
+
+        path: SourceFile = self._path_to_source_file(path)
+
+        if isinstance(path, LocalSourceFile):
+            path = path.get_path_or_uri()
+            if os.path.exists(path):
+                script_mtime = get_script_mtime(path)
+                for f in self.output:
+                    if await f.exists() and not await f.is_newer(script_mtime):
+                        yield f
         # TODO also handle remote file case here.
 
     def get_target_spec(self):
@@ -625,6 +634,23 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 rule=self.rule,
             )
 
+    def _path_to_source_file(self, path: Union[str, Path]) -> SourceFile:
+        """Return the path to source file referred by rule, while expanding
+        wildcards and params.
+        """
+        if isinstance(path, Path):
+            path = str(path)
+
+        if self.wildcards is not None or self.params is not None:
+            # parse wildcards and params to get the correct script name
+            path = format(path, wildcards=self.wildcards, params=self.params)
+        path = infer_source_file(path)
+        if isinstance(path, LocalSourceFile) and self.rule.basedir:
+            # needed if rule is included from another subdirectory
+            path = self.rule.basedir.join(path)
+
+        return path
+
     @property
     def is_shell(self):
         return self.rule.is_shell
@@ -829,6 +855,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.input,
                 wait_for_local=wait_for_local,
                 latency_wait=self.dag.workflow.execution_settings.latency_wait,
+                consider_local={
+                    f for f in self.input if self.is_pipe_or_service_input(f)
+                },
             )
         except IOError as ex:
             raise WorkflowError(
@@ -916,6 +945,12 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     relative_source = os.path.relpath(source)
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
+
+    def is_pipe_or_service_input(self, path) -> bool:
+        for dep, files in self.dag.dependencies[self].items():
+            if path in files:
+                return path in dep.pipe_or_service_output
+        return False
 
     async def cleanup(self):
         """Cleanup output files."""
@@ -1117,11 +1152,12 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
 
     async def postprocess(
         self,
-        store_in_storage=True,
-        handle_log=True,
-        handle_touch=True,
-        error=False,
-        ignore_missing_output=False,
+        store_in_storage: bool = True,
+        handle_log: bool = True,
+        handle_touch: bool = True,
+        error: bool = False,
+        ignore_missing_output: Union[List[_IOFile], bool] = False,
+        check_output_mtime: bool = True,
     ):
         if self.dag.is_draft_notebook_job(self):
             # no output produced but have to delete incomplete marker
@@ -1154,6 +1190,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                         ignore_missing_output=ignore_missing_output,
                         # storage not yet handled, just require the local files
                         wait_for_local=True,
+                        check_output_mtime=check_output_mtime,
                     )
                 self.dag.unshadow_output(self, only_log=error)
 
@@ -1186,19 +1223,17 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             self.dag.workflow.persistence.cleanup(self)
             raise e
 
-        if not error:
-            try:
-                await self.dag.workflow.persistence.finished(self)
-            except IOError as e:
-                raise WorkflowError(
-                    "Error recording metadata for finished job "
-                    "({}). Please ensure write permissions for the "
-                    "directory {}".format(e, self.dag.workflow.persistence.path)
-                )
+        try:
+            await self.dag.workflow.persistence.finished(self)
+        except IOError as e:
+            raise WorkflowError(
+                "Error recording metadata for finished job "
+                "({}). Please ensure write permissions for the "
+                "directory {}".format(e, self.dag.workflow.persistence.path)
+            )
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
             await self.cleanup()
-            self.dag.workflow.persistence.cleanup(self)
 
     @property
     def name(self):
@@ -1512,15 +1547,59 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             await job.cleanup()
 
     async def postprocess(self, error=False, **kwargs):
+        def needed(job_, f):
+            # Files that are targetfiles, non-temp files, or temp files that
+            # are needed by other unfinished jobs outside of this group
+            # are still needed. Other files can be missing.
+            return (
+                f in self.dag.targetfiles
+                or not is_flagged(f, "temp")
+                or any(
+                    f in files
+                    for j, files in self.dag.depending[job_].items()
+                    if (
+                        not self.dag.finished(j)
+                        and self.dag.needrun(j)
+                        and j not in self.jobs
+                    )
+                )
+            )
+
+        # ignore missing output if the output is not needed outside of this group
+        if not kwargs.get("ignore_missing_output", False):
+            kwargs["ignore_missing_output"] = [
+                f
+                for j in self.jobs
+                for f in j.output
+                if is_flagged(f, "temp") and not needed(j, f)
+            ]
+
         # Iterate over jobs in toposorted order (see self.__iter__) to
         # ensure that outputs are touched in correct order.
-        for level in self.toposorted:
-            async with asyncio.TaskGroup() as tg:
-                for job in level:
-                    # postprocessing involves touching output files (to ensure that
-                    # modification times are always correct. This has to happen in
-                    # topological order, such that they are not mixed up.
-                    tg.create_task(job.postprocess(error=error, **kwargs))
+        for i, level in enumerate(self.toposorted):
+            if i > 0:
+                # Wait a bit to ensure that subsequent levels really have distinct
+                # modification times.
+                await asyncio.sleep(0.1)
+            try:
+                async with asyncio.TaskGroup() as tg:
+                    for job in level:
+                        # postprocessing involves touching output files (to ensure that
+                        # modification times are always correct. This has to happen in
+                        # topological order, such that they are not mixed up.
+                        # We have to disable output mtime checks here
+                        # (at least for now), because they interfere with the update of
+                        # intermediate file mtimes that might happen in previous levels.
+                        tg.create_task(
+                            job.postprocess(
+                                error=error, check_output_mtime=False, **kwargs
+                            )
+                        )
+            except ExceptionGroup as e:
+                raise WorkflowError(
+                    f"Error postprocessing group job {self.jobid}.",
+                    *e.exceptions,
+                )
         # remove all pipe and service outputs since all jobs of this group are done and the
         # outputs are no longer needed
         for job in self.jobs:

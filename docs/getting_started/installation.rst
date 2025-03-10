@@ -1,8 +1,10 @@
 .. _Miniconda: https://conda.pydata.org/miniconda.html
 .. _Miniforge: https://github.com/conda-forge/miniforge
-.. _Mamba: https://github.com/mamba-org/mamba
+.. _Mamba: https://prefix.dev/docs/mamba
 .. _Conda: https://conda.pydata.org
 .. _PyPi: https://pypi.org/project/snakemake/
+.. _Pixi: https://pixi.sh
+.. _Micromamba: https://prefix.dev/docs/mamba
 
 
 .. _getting_started-installation:

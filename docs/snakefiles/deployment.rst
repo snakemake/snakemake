@@ -426,7 +426,7 @@ otherwise, it assumes the given specification to point to an existing environmen
 Running jobs in containers
 --------------------------
 
-As an alternative to using Conda (see above), it is possible to define, for each rule, a (docker) container to use, e.g.,
+As an alternative to using Conda (see above), it is possible to define, for each rule, a (Docker) container to use, e.g.,
 
 .. code-block:: python
 
@@ -451,6 +451,10 @@ When executing Snakemake with
 it will execute the job within a container that is spawned from the given image.
 Allowed image urls entail everything supported by apptainer (e.g., ``shub://`` and ``docker://``).
 However, ``docker://`` is preferred, as other container runtimes will be supported in the future (e.g. podman).
+
+Note that the isolation of jobs running in containers depends on the container engine.
+For example, Docker does not pass any host environment variables to the container, whereas Apptainer/Singularity passes everything.
+To override the default behaviour, consider using ``--apptainer-args`` or ``--singularity-args``, e.g. to pass ``--cleanenv``.
 
 Defining global container images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -639,10 +643,10 @@ and reproduce the data analysis at any time in the future.
 Global workflow dependencies
 ----------------------------
 
-Often, your workflow will depend on some additional packages that need to be present 
+Often, your workflow will depend on some additional packages that need to be present
 along with Snakemake in order to handle actions before any rule is executed.
-Classical examples for this are `pandas <https://pandas.pydata.org/>`_, 
-`pep <https://pep.databio.org>`_ (also see :ref:`snakefiles-peps`) and 
+Classical examples for this are `pandas <https://pandas.pydata.org/>`_,
+`pep <https://pep.databio.org>`_ (also see :ref:`snakefiles-peps`) and
 :ref:`storage plugins <storage-support>`.
 
 Snakemake allows to define such global dependencies using a global ``conda`` directive
@@ -661,8 +665,8 @@ With ``envs/global.yaml`` containing e.g.::
     dependencies:
       - pandas=1.0.3
       - snakemake-storage-plugin-s3
-    
-Under the hood, this is implemented using `conda-inject <https://github.com/koesterlab/conda-inject>`_, 
+
+Under the hood, this is implemented using `conda-inject <https://github.com/koesterlab/conda-inject>`_,
 which modifies the python searchpath and the PATH variable on the fly during execution,
 pointing to additional environments that do not alter the environment in which Snakemake
 has been installed.
