@@ -124,11 +124,21 @@ class Env:
 
     @lazy_property
     def pin_file(self):
-        return self._get_aux_file(
-            f".{self.conda.platform}.pin.txt",
+        aux_file = self._get_aux_file(
+            f".pin.yml",
             "Omitting search for pin file "
             "(https://snakemake.readthedocs.io/en/stable/snakefiles/"
             "deployment.html#freezing-environments-to-exactly-pinned-packages).",
+        )
+        return (
+            aux_file
+            if aux_file is not None
+            else self._get_aux_file(
+                f".{self.conda.platform}.pin.txt",
+                "Omitting search for pin file "
+                "(https://snakemake.readthedocs.io/en/stable/snakefiles/"
+                "deployment.html#freezing-environments-to-exactly-pinned-packages).",
+            )
         )
 
     @lazy_property
@@ -568,18 +578,26 @@ class Env:
                             subcommand.append("env")
                             yes_flag = []
 
-                        cmd = (
-                            strict_priority
-                            + subcommand
-                            + [
-                                "create",
-                                "--quiet",
-                                "--no-default-packages",
-                                f'--file "{target_env_file}"',
+                        if filetype == "pin.yml":
+                            cmd = strict_priority + [
+                                "conda-lock",
+                                "install",
                                 f'--prefix "{env_path}"',
+                                f'"{target_env_file}"',
                             ]
-                            + yes_flag
-                        )
+                        else:
+                            cmd = (
+                                strict_priority
+                                + subcommand
+                                + [
+                                    "create",
+                                    "--quiet",
+                                    "--no-default-packages",
+                                    f'--file "{target_env_file}"',
+                                    f'--prefix "{env_path}"',
+                                ]
+                                + yes_flag
+                            )
                         cmd = " ".join(cmd)
                         if self._container_img:
                             cmd = singularity.shellcmd(
@@ -610,7 +628,10 @@ class Env:
                             logger.info(
                                 f"Using pinnings from {self.pin_file.get_path_or_uri()}."
                             )
-                            out = create_env(pin_file, filetype="pin.txt")
+                            if self.pin_file.get_path_or_uri().endswith(".pin.yml"):
+                                out = create_env(pin_file, filetype="pin.yml")
+                            else:
+                                out = create_env(pin_file, filetype="pin.txt")
                         except subprocess.CalledProcessError as e:
                             # remove potential partially installed environment
                             shutil.rmtree(env_path, ignore_errors=True)
