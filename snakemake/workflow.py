@@ -1801,66 +1801,41 @@ class Workflow(WorkflowExecutorInterface):
                 )
                 # TODO retrieve suitable singularity image
 
+            def check_may_use_software_deployment(method):
+                if ruleinfo.template_engine:
+                    raise RuleException(
+                        f"{method} directive is only allowed with "
+                        "run, shell, script, notebook, or wrapper "
+                        "directives (not with template_engine)",
+                        rule=rule,
+                    )
+
             if ruleinfo.env_modules:
                 # If using environment modules and they are defined for the rule,
                 # ignore conda and singularity directive below.
                 # The reason is that this is likely intended in order to use
                 # a software stack specifically compiled for a particular
                 # HPC cluster.
-                invalid_rule = not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                )
-                if invalid_rule:
-                    raise RuleException(
-                        "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run or the template_engine)",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("envmodules")
                 from snakemake.deployment.env_modules import EnvModules
 
                 rule.env_modules = EnvModules(*ruleinfo.env_modules)
 
             if ruleinfo.conda_env:
-                if not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                ):
-                    raise RuleException(
-                        "Conda environments are only allowed "
-                        "with shell, script, notebook, or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("conda")
 
                 if isinstance(ruleinfo.conda_env, Path):
                     ruleinfo.conda_env = str(ruleinfo.conda_env)
 
                 rule.conda_env = ruleinfo.conda_env
 
-            invalid_rule = not (
-                ruleinfo.script
-                or ruleinfo.wrapper
-                or ruleinfo.shellcmd
-                or ruleinfo.notebook
-            )
             if ruleinfo.container_img:
-                if invalid_rule:
-                    raise RuleException(
-                        "Singularity directive is only allowed "
-                        "with shell, script, notebook or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("container/singularity")
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule and ruleinfo.container_img != False:
-                    # skip rules with run directive or empty image
+                if not ruleinfo.template_engine and ruleinfo.container_img != False:
+                    # skip rules with template_engine directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
 
