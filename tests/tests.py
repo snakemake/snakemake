@@ -1774,36 +1774,6 @@ def test_github_issue1618():
     run(dpath("test_github_issue1618"), cores=5)
 
 
-<<<<<<< HEAD
-@conda
-def test_conda_python_script():
-    run(dpath("test_conda_python_script"), deployment_method={DeploymentMethod.CONDA})
-
-
-@conda
-def test_conda_run():
-    run(dpath("test_conda_run"), deployment_method={DeploymentMethod.CONDA})
-
-
-@conda
-def test_conda_python_3_7_script():
-    run(
-        dpath("test_conda_python_3_7_script"),
-        deployment_method={DeploymentMethod.CONDA},
-    )
-
-
-@conda
-def test_prebuilt_conda_script():
-    sp.run(
-        f"conda env create -f {dpath('test_prebuilt_conda_script/env.yaml')}",
-        shell=True,
-    )
-    run(dpath("test_prebuilt_conda_script"), deployment_method={DeploymentMethod.CONDA})
-
-
-=======
->>>>>>> main
 @skip_on_windows
 def test_github_issue1818():
     run(dpath("test_github_issue1818"), rerun_triggers={RerunTrigger.INPUT})
