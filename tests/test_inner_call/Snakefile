@@ -1,0 +1,22 @@
+def some_b():
+    def inner(wildcards):
+        return {wildcards.x}
+    return inner
+
+def some_a():
+    def inner(wildcards):
+        return expand("{x}.in", x=some_b())
+    return inner
+
+rule all:
+    input:
+        "a.txt"
+
+rule b:
+    input:
+        some_a()
+    output:
+        "{x}.txt"
+    shell:
+        "touch {output}"
+

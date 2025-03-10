@@ -1,0 +1,12 @@
+import sys
+import os
+
+conda:
+    "env.yaml"
+
+print(sys.path, file=sys.stderr)
+print(os.environ["PATH"], file=sys.stderr)
+
+import PIL
+from snakemake.shell import shell
+shell("which rg")

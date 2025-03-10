@@ -1,12 +1,12 @@
-
 from snakemake.utils import min_version
 
 from snakemake import __version__
 print(__version__, file=sys.stderr)
 
-shell.prefix("source ~/.bashrc; ")
-
-#min_version("2.1")
+# The next line does not seem to be needed for this test to pass.
+# If it is re-enabled then the default setting must be restored afterwards
+# because this is a global setting and breaks some other tests.
+#shell.prefix("source ~/.bashrc; ")
 
 TEST = "abc"
 

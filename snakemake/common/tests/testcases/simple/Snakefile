@@ -1,6 +1,7 @@
 rule all:
     input:
-        "test3.out"
+        "test3.out",
+        collect("res/{somewildcard}.out", somewildcard=["somedir1", "somedir2/subdir"])
 
 rule a:
     output:
@@ -27,10 +28,23 @@ rule c:
     input:
         "test2.out"
     output:
-        "test3.out"
+        report(
+            "test3.out",
+            caption="caption.rst",
+            category="Test",
+            subcategory="Subtest",
+            labels={"label1": "foo", "label2": "bar"},
+        )
     log:
         "c.log"
     resources:
         mem="5MB"
     shell:
         "cp {input} {output} 2> {log}"
+
+
+rule d:
+    output:
+        "res/{somewildcard}.out"
+    shell:
+        "touch {output}"

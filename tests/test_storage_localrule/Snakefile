@@ -1,0 +1,17 @@
+localrules: a
+
+
+rule a:
+    input:
+        "test.txt"
+    output:
+        "test.out"
+    shell:
+        "cat {input} > {output}"
+
+
+rule b:
+    output:
+        "test.txt"
+    shell:
+        "echo hello > {output}"

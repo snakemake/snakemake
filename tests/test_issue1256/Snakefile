@@ -1,0 +1,10 @@
+rule all:
+    input:
+        'done.txt',
+        
+rule trim_transcripts:
+    output:
+        done.txt,
+    run:
+        if 1 = 2:  # Intentional syntax error
+            print('foo')

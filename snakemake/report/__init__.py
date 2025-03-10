@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from dataclasses import InitVar, dataclass, field
 import os
 import sys
 import mimetypes
@@ -10,7 +11,7 @@ import base64
 import textwrap
 import datetime
 import io
-from typing import Optional
+from typing import List, Optional
 import uuid
 import json
 import time
@@ -25,9 +26,12 @@ import numbers
 from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
+from humanfriendly import format_size
 
 from snakemake import script, wrapper, notebook
-from snakemake.report.data.common import get_resource_as_string
+from snakemake.jobs import Job
+from snakemake.report.common import data_uri_from_file, mime_from_file
+from snakemake.rules import Rule
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.io import (
@@ -45,10 +49,17 @@ from snakemake.common import (
     get_input_function_aux_params,
 )
 from snakemake import logging
-from snakemake.report import data
-from snakemake.report.rulegraph_spec import rulegraph_spec
-
-from snakemake_interface_executor_plugins.utils import lazy_property
+from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake_interface_report_plugins.interfaces import (
+    CategoryInterface,
+    RuleRecordInterface,
+    ConfigFileRecordInterface,
+    JobRecordInterface,
+    FileRecordInterface,
+)
+from snakemake.common import get_report_id
+from snakemake.exceptions import WorkflowError
 
 
 class EmbeddedMixin(object):
@@ -86,33 +97,7 @@ class EmbeddedFigure(Figure, EmbeddedMixin):
 directives.register_directive("embeddedfigure", EmbeddedFigure)
 
 
-def data_uri(data, filename, encoding="utf8", mime="text/plain"):
-    """Craft a base64 data URI from file with proper encoding and mimetype."""
-    data = base64.b64encode(data)
-    return f'data:{mime};charset={encoding};filename={filename};base64,{data.decode("utf-8")}'
-
-
-def mime_from_file(file):
-    mime, encoding = mimetypes.guess_type(file)
-    if mime is None:
-        mime = "text/plain"
-        logger.info(
-            "Could not detect mimetype for {}, assuming text/plain.".format(file)
-        )
-    return mime, encoding
-
-
-def data_uri_from_file(file, defaultenc="utf8"):
-    """Craft a base64 data URI from file with proper encoding and mimetype."""
-    if isinstance(file, Path):
-        file = str(file)
-    mime, encoding = mime_from_file(file)
-    if encoding is None:
-        encoding = defaultenc
-    with open(file, "rb") as f:
-        return data_uri(f.read(), os.path.basename(file), encoding, mime)
-
-
+# legacy report code
 def report(
     text,
     path,
@@ -222,17 +207,23 @@ def expand_report_argument(item, wildcards, job):
         return item
 
 
-class Category:
-    def __init__(self, name, wildcards, job):
-        if name is not None:
-            name = expand_report_argument(name, wildcards, job)
-        if name is None:
-            name = "Other"
+@dataclass(slots=True)
+class Category(CategoryInterface):
+    wildcards: InitVar
+    job: InitVar
+    name: Optional[str]
+    is_other: bool = field(init=False)
+    id: str = field(init=False)
 
-        self.is_other = name == "Other"
-        self.name = name
+    def __post_init__(self, wildcards, job):
+        if self.name is not None:
+            self.name = expand_report_argument(self.name, wildcards, job)
+        if self.name is None:
+            self.name = "Other"
+
+        self.is_other = self.name == "Other"
         h = hashlib.sha256()
-        h.update(name.encode())
+        h.update(self.name.encode())
         self.id = h.hexdigest()
 
     def __eq__(self, other):
@@ -254,8 +245,19 @@ def render_iofile(iofile):
         return str(iofile)
 
 
-class RuleRecord:
-    def __init__(self, job, job_rec):
+@dataclass(slots=True)
+class RuleRecord(RuleRecordInterface):
+    job: InitVar
+    job_rec: InitVar
+    name: str = field(init=False)
+    container_img_url: Optional[str] = field(init=False)
+    conda_env: Optional[str] = field(init=False)
+    n_jobs: int = field(init=False)
+    id: str = field(init=False)
+    language: str = field(init=False)
+    source: str = field(init=False)
+
+    def __post_init__(self, job, job_rec):
         import yaml
 
         self.name = job_rec.rule
@@ -269,17 +271,7 @@ class RuleRecord:
         self.n_jobs = 1
         self.id = uuid.uuid4()
 
-    @lazy_property
-    def code(self):
-        try:
-            from pygments.lexers import get_lexer_by_name
-            from pygments.formatters import HtmlFormatter
-            from pygments import highlight
-            import pygments.util
-        except ImportError:
-            raise WorkflowError(
-                "Python package pygments must be installed to create reports."
-            )
+    def init_source(self):
         sources, language = None, None
         if self._rule.shellcmd is not None:
             sources = [self._rule.shellcmd]
@@ -317,20 +309,8 @@ class RuleRecord:
             sources = []
             language = "python"
 
-        try:
-            lexer = get_lexer_by_name(language)
-
-            highlighted = highlight(
-                "\n\n".join(sources),
-                lexer,
-                HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
-            )
-
-            return highlighted
-        except pygments.util.ClassNotFound:
-            return [
-                f'<pre class="source"><code>{source}</code></pre>' for source in sources
-            ]
+        self.source = "\n\n".join(sources)
+        self.language = language
 
     def add(self, job_rec):
         self.n_jobs += 1
@@ -351,101 +331,69 @@ class RuleRecord:
         )
 
 
-class ConfigfileRecord:
-    def __init__(self, configfile):
+@dataclass(slots=True)
+class ConfigfileRecord(ConfigFileRecordInterface):
+    configfile: InitVar
+    path: Path = field(init=False)
+    source: str = field(init=False)
+
+    def __post_init__(self, configfile):
         self.path = Path(configfile)
-
-    def code(self):
-        try:
-            from pygments.lexers import get_lexer_by_name
-            from pygments.formatters import HtmlFormatter
-            from pygments import highlight
-        except ImportError:
-            raise WorkflowError(
-                "Python package pygments must be installed to create reports."
-            )
-
-        file_ext = self.path.suffix
-        if file_ext in (".yml", ".yaml"):
-            language = "yaml"
-        elif file_ext == ".json":
-            language = "json"
-        else:
-            raise ValueError(
-                "Config file extension {} is not supported - must be YAML or JSON".format(
-                    file_ext
-                )
-            )
-
-        lexer = get_lexer_by_name(language)
-        return highlight(
-            self.path.read_text(),
-            lexer,
-            HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
-        )
+        self.source = self.path.read_text()
 
 
-class JobRecord:
-    def __init__(self):
-        self.job = None
-        self.rule = None
-        self.starttime = sys.maxsize
-        self.endtime = 0
-        self.output = []
-        self.conda_env_file = None
-        self.container_img_url = None
+@dataclass(slots=True)
+class JobRecord(JobRecordInterface):
+    job: Job = field(init=False)
+    rule: Rule = field(init=False)
+    starttime: int = sys.maxsize
+    endtime: int = 0
+    output: list = field(default_factory=list)
+    conda_env_file: Optional[Path] = field(init=False)
+    container_img_url: Optional[Path] = field(init=False)
 
 
-class FileRecord:
-    def __init__(
-        self,
-        path,
-        job,
-        caption,
-        env,
-        category,
-        workflow,
-        wildcards_overwrite=None,
-        mode_embedded=True,
-        aux_files=None,
-        name_overwrite=None,
-        labels=None,
-    ):
-        self.labels = labels
-        self.name_overwrite = name_overwrite
-        self.mode_embedded = mode_embedded
-        self.path = path
-        self.target = os.path.basename(path)
+@dataclass(slots=True)
+class FileRecord(FileRecordInterface):
+    path: Path
+    job: Job
+    parent_path: Optional[Path] = None
+    category: Optional[str] = None
+    wildcards_overwrite: Optional[Wildcards] = None
+    labels: Optional[dict] = None
+    raw_caption: Optional[Path] = None
+    aux_files: List[Path] = field(default_factory=list)
+    name_overwrite: Optional[str] = None
+    size: int = field(init=False)
+    params: str = field(init=False)
+    wildcards: str = field(init=False)
+    mime: str = field(init=False)
+    caption: str = field(init=False)
+    id: str = field(init=False)
+    target: str = field(init=False)
+
+    def __post_init__(self):
+        self.target = str(self.path.name)
         self.size = os.path.getsize(self.path)
-        self.size_mb = f"{self.size / 1e6:.2g} MB"
-        logger.info(f"Adding {self.name} ({self.size_mb}).")
-        self.raw_caption = caption
+        logger.info(f"Adding {self.name} ({format_size(self.size)}).")
         self.mime, _ = mime_from_file(self.path)
-        self.workflow = workflow
 
-        h = hashlib.sha256()
-        h.update(path.encode())
-
-        self.id = h.hexdigest()
-        self.job = job
-        self._wildcards = (
-            job.wildcards if wildcards_overwrite is None else wildcards_overwrite
-        )
-        self.wildcards = logging.format_wildcards(self._wildcards)
+        self.id = get_report_id(self.parent_path or self.path)
+        self.wildcards = logging.format_wildcards(self.raw_wildcards)
         self.params = (
-            logging.format_dict(job.params).replace("\n", r"\n").replace('"', r"\"")
+            logging.format_dict(self.job.params)
+            .replace("\n", r"\n")
+            .replace('"', r"\"")
         )
-        self.category = category
+        self.aux_files = self.aux_files or []
 
-        self.aux_files = aux_files or []
-
-        self.data_uri = self._data_uri()
-
-    def _data_uri(self):
-        if self.mode_embedded:
-            return data_uri_from_file(self.path)
-        else:
-            return os.path.join("data/raw", self.id, self.filename)
+    @property
+    def raw_wildcards(self):
+        return (
+            self.job.wildcards
+            if self.wildcards_overwrite is None
+            else self.wildcards_overwrite
+        )
 
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
@@ -454,7 +402,7 @@ class FileRecord:
                 job.input,
                 job.output,
                 job.params,
-                self._wildcards,
+                self.raw_wildcards,
                 job.threads,
                 job.resources,
                 job.log,
@@ -482,42 +430,6 @@ class FileRecord:
             self.caption = ""
 
     @property
-    def is_img(self):
-        web_safe = {
-            "image/gif",
-            "image/jpeg",
-            "image/png",
-            "image/svg+xml",
-            "application/pdf",
-        }
-        return self.mime in web_safe
-
-    @property
-    def is_text(self):
-        return self.is_table or self.mime == "text/plain"
-
-    @property
-    def is_table(self):
-        return self.mime in {"text/csv", "text/tab-separated-values"}
-
-    @property
-    def is_vega(self):
-        return (
-            self.mime == "application/json"
-            and self.path.endswith(".vl.json")
-            or self.path.endswith(".vg.json")
-        )
-
-    @property
-    def icon(self):
-        if self.is_img:
-            return "image"
-        elif self.is_text:
-            return "file-text"
-        else:
-            return "file"
-
-    @property
     def name(self):
         if self.name_overwrite:
             return self.name_overwrite
@@ -525,7 +437,14 @@ class FileRecord:
 
     @property
     def filename(self):
-        return os.path.basename(self.path)
+        if self.parent_path is None:
+            return os.path.basename(self.path)
+        else:
+            return str(self.path.relative_to(self.parent_path))
+
+    @property
+    def workflow(self):
+        return self.job.rule.workflow
 
 
 def expand_labels(labels, wildcards, job):
@@ -555,7 +474,11 @@ def expand_labels(labels, wildcards, job):
     }
 
 
-def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
+async def auto_report(
+    dag,
+    report_plugin: ReportPlugin,
+    report_settings: ReportSettingsBase,
+):
     try:
         from jinja2 import Environment, PackageLoader, UndefinedError
     except ImportError as e:
@@ -563,64 +486,87 @@ def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
             "Python package jinja2 must be installed to create reports."
         )
 
-    mode_embedded = True
-    if path.suffix == ".zip":
-        mode_embedded = False
-    elif path.suffix != ".html":
-        raise WorkflowError("Report file does not end with .html or .zip")
-
-    custom_stylesheet = None
-    if stylesheet is not None:
-        try:
-            with open(stylesheet) as s:
-                custom_stylesheet = s.read()
-        except BaseException as e:
-            raise WorkflowError("Unable to read custom report stylesheet.", e)
-
     logger.info("Creating report...")
-
-    env = Environment(
-        loader=PackageLoader("snakemake", "report/template"),
-        trim_blocks=True,
-        lstrip_blocks=True,
-    )
-    env.filters["get_resource_as_string"] = get_resource_as_string
 
     persistence = dag.workflow.persistence
     results = defaultdict(lambda: defaultdict(list))
     records = defaultdict(JobRecord)
     recorded_files = set()
+
+    env = Environment(
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+
     for job in dag.jobs:
-        for f in itertools.chain(job.expanded_output, job.input):
+        for f in job.output:
+            meta = persistence.metadata(f)
+            if not meta:
+                logger.warning(
+                    "Missing metadata for file {}. Maybe metadata "
+                    "was deleted or it was created using an older "
+                    "version of Snakemake. This is a non critical "
+                    "warning.".format(f)
+                )
+                continue
+
+            def get_time(rectime, metatime, sel_func):
+                if metatime is None:
+                    return rectime
+                return sel_func(metatime, rectime)
+
+            try:
+                job_hash = meta["job_hash"]
+                rule = meta["rule"]
+                job_rec = records[(job_hash, rule)]
+                job_rec.rule = rule
+                job_rec.job = job
+                job_rec.starttime = get_time(job_rec.starttime, meta["starttime"], min)
+                job_rec.endtime = get_time(job_rec.endtime, meta["endtime"], max)
+                job_rec.conda_env_file = None
+                job_rec.conda_env = meta["conda_env"]
+                job_rec.container_img_url = meta["container_img_url"]
+                job_rec.output.append(f)
+            except KeyError as e:
+                logger.warning(
+                    "Metadata for file {} was created with a too "
+                    "old Snakemake version.".format(f)
+                )
+
+        for f in itertools.chain(job.output, job.input):
             if is_flagged(f, "report") and f not in recorded_files:
-                if not f.exists:
+                if not await f.exists():
                     raise WorkflowError(
                         "File {} marked for report but does not exist.".format(f)
                     )
                 report_obj = get_flag_value(f, "report")
 
                 def register_file(
-                    f, wildcards_overwrite=None, aux_files=None, name_overwrite=None
+                    f,
+                    parent_path=None,
+                    wildcards_overwrite=None,
+                    aux_files=None,
+                    name_overwrite=None,
                 ):
                     wildcards = wildcards_overwrite or job.wildcards
                     category = Category(
-                        report_obj.category, wildcards=wildcards, job=job
+                        name=report_obj.category, wildcards=wildcards, job=job
                     )
                     subcategory = Category(
-                        report_obj.subcategory, wildcards=wildcards, job=job
+                        name=report_obj.subcategory, wildcards=wildcards, job=job
                     )
                     labels = expand_labels(report_obj.labels, wildcards, job)
 
                     results[category][subcategory].append(
                         FileRecord(
-                            f,
-                            job,
-                            report_obj.caption,
-                            env,
-                            category,
-                            dag.workflow,
+                            path=Path(f),
+                            parent_path=(
+                                Path(parent_path) if parent_path is not None else None
+                            ),
+                            job=job,
+                            category=category,
+                            raw_caption=report_obj.caption,
                             wildcards_overwrite=wildcards_overwrite,
-                            mode_embedded=mode_embedded,
                             aux_files=aux_files,
                             name_overwrite=name_overwrite,
                             labels=labels,
@@ -628,16 +574,12 @@ def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
                     )
                     recorded_files.add(f)
 
+                if f.is_storage:
+                    await f.retrieve_from_storage()
                 if os.path.isfile(f):
                     register_file(f)
                 elif os.path.isdir(f):
                     if report_obj.htmlindex:
-                        if mode_embedded:
-                            raise WorkflowError(
-                                "Directory marked for report specifies htmlindex. "
-                                "This is unsupported when requesting a pure HTML report. "
-                                "Please use store as zip instead (--report report.zip)."
-                            )
                         aux_files = []
                         index_found = False
                         for root, dirs, files in os.walk(f):
@@ -668,16 +610,26 @@ def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
                                 rule=job.rule,
                             )
 
+                        found_something = False
                         for pattern in report_obj.patterns:
                             pattern = os.path.join(f, pattern)
                             wildcards = glob_wildcards(pattern)._asdict()
+                            found_something |= len(wildcards) > 0
                             names = wildcards.keys()
                             for w in zip(*wildcards.values()):
                                 w = dict(zip(names, w))
                                 w.update(job.wildcards_dict)
                                 w = Wildcards(fromdict=w)
-                                f = apply_wildcards(pattern, w)
-                                register_file(f, wildcards_overwrite=w)
+                                subfile = apply_wildcards(pattern, w)
+                                register_file(
+                                    subfile, parent_path=f, wildcards_overwrite=w
+                                )
+                        if not found_something:
+                            logger.warning(
+                                "No files found for patterns given to report marker "
+                                "in rule {job.rule.name} for output {f}. Make sure "
+                                "that the patterns are correctly specified."
+                            )
                     else:
                         raise WorkflowError(
                             "Directory marked for report but neither file patterns "
@@ -686,87 +638,30 @@ def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
                             rule=job.rule,
                         )
 
-        for f in job.expanded_output:
-            meta = persistence.metadata(f)
-            if not meta:
-                logger.warning(
-                    "Missing metadata for file {}. Maybe metadata "
-                    "was deleted or it was created using an older "
-                    "version of Snakemake. This is a non critical "
-                    "warning.".format(f)
-                )
-                continue
-
-            def get_time(rectime, metatime, sel_func):
-                if metatime is None:
-                    return rectime
-                return sel_func(metatime, rectime)
-
-            try:
-                job_hash = meta["job_hash"]
-                rule = meta["rule"]
-                rec = records[(job_hash, rule)]
-                rec.rule = rule
-                rec.job = job
-                rec.starttime = get_time(rec.starttime, meta["starttime"], min)
-                rec.endtime = get_time(rec.endtime, meta["endtime"], max)
-                rec.conda_env_file = None
-                rec.conda_env = meta["conda_env"]
-                rec.container_img_url = meta["container_img_url"]
-                rec.output.append(f)
-            except KeyError as e:
-                logger.warning(
-                    "Metadata for file {} was created with a too "
-                    "old Snakemake version.".format(f)
-                )
-
     for subcats in results.values():
         for catresults in subcats.values():
             catresults.sort(key=lambda res: res.name)
 
-    # prepare runtimes
-    runtimes = [
-        {"rule": rec.rule, "runtime": rec.endtime - rec.starttime}
-        for rec in sorted(records.values(), key=lambda rec: rec.rule)
-    ]
-
-    def get_datetime(rectime):
-        try:
-            return datetime.datetime.fromtimestamp(rectime).isoformat()
-        except OSError:
-            return None
-
-    # prepare end times
-    timeline = [
-        {
-            "rule": rec.rule,
-            "starttime": get_datetime(rec.starttime),
-            "endtime": get_datetime(rec.endtime),
-        }
-        for rec in sorted(records.values(), key=lambda rec: rec.rule)
-    ]
-
     # prepare per-rule information
     rules = defaultdict(list)
-    for rec in records.values():
-        rule = RuleRecord(rec.job, rec)
-        if rec.rule not in rules:
-            rules[rec.rule].append(rule)
+    for job_rec in records.values():
+        rule = RuleRecord(job_rec.job, job_rec)
+        if job_rec.rule not in rules:
+            rules[job_rec.rule].append(rule)
+            rule.init_source()
         else:
             merged = False
-            for other in rules[rec.rule]:
+            for other in rules[job_rec.rule]:
                 if rule == other:
-                    other.add(rec)
+                    other.add(job_rec)
                     merged = True
                     break
             if not merged:
-                rules[rec.rule].append(rule)
+                rules[job_rec.rule].append(rule)
+                rule.init_source()
     # In theory there could be more than one rule with the same name kept from above.
     # For now, we just keep the first.
     rules = {rulename: items[0] for rulename, items in rules.items()}
-
-    # rulegraph
-    rulegraph, xmax, ymax = rulegraph_spec(dag)
 
     # configfiles
     configfiles = [ConfigfileRecord(f) for f in dag.workflow.configfiles]
@@ -799,18 +694,18 @@ def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
                 res.render(env, rst_links, results, files)
 
     # global description
-    text = ""
+    workflow_description = ""
     if dag.workflow.report_text:
         with dag.workflow.sourcecache.open(dag.workflow.report_text) as f:
 
             class Snakemake:
                 config = dag.workflow.config
 
-            text = f.read() + rst_links
+            workflow_description = f.read() + rst_links
 
             try:
-                text = publish_parts(
-                    env.from_string(text).render(
+                workflow_description = publish_parts(
+                    env.from_string(workflow_description).render(
                         snakemake=Snakemake, categories=results, files=files
                     ),
                     writer_name="html",
@@ -823,81 +718,15 @@ def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
                     e,
                 )
 
-    # record time
-    now = f"{datetime.datetime.now().ctime()} {time.tzname[0]}"
-    results_size = sum(
-        res.size
-        for cat in results.values()
-        for subcat in cat.values()
-        for res in subcat
+    reporter = report_plugin.reporter(
+        rules,
+        results,
+        configfiles,
+        sorted(records.values(), key=lambda rec: rec.rule),
+        report_settings,
+        workflow_description,
+        dag=dag,
     )
 
-    try:
-        from pygments.formatters import HtmlFormatter
-    except ImportError:
-        raise WorkflowError(
-            "Python package pygments must be installed to create reports."
-        )
-
-    categories = data.render_categories(results)
-    rendered_results = data.render_results(results)
-    rulegraph = data.render_rulegraph(
-        rulegraph["nodes"], rulegraph["links"], rulegraph["links_direct"]
-    )
-    rules = data.render_rules(rules)
-    runtimes = data.render_runtimes(runtimes)
-    timeline = data.render_timeline(timeline)
-    packages = data.get_packages()
-
-    template = env.get_template("index.html.jinja2")
-
-    logger.info("Downloading resources and rendering HTML.")
-
-    rendered = template.render(
-        results=rendered_results,
-        categories=categories,
-        rulegraph=rulegraph,
-        rules=rules,
-        workflow_desc=json.dumps(text),
-        runtimes=runtimes,
-        timeline=timeline,
-        packages=packages,
-        pygments_css=HtmlFormatter(style="stata-dark").get_style_defs(".source"),
-        custom_stylesheet=custom_stylesheet,
-        logo=data_uri_from_file(Path(__file__).parent / "template" / "logo.svg"),
-        now=now,
-    )
-
-    # TODO look into supporting .WARC format, also see (https://webrecorder.io)
-
-    if not mode_embedded:
-        with ZipFile(path, compression=ZIP_DEFLATED, mode="w") as zipout:
-            folder = Path(Path(path).stem)
-            # store results in data folder
-            for subcats in results.values():
-                for catresults in subcats.values():
-                    for result in catresults:
-                        # write raw data
-                        zipout.write(result.path, str(folder.joinpath(result.data_uri)))
-                        # write aux files
-                        parent = folder.joinpath(result.data_uri).parent
-                        for aux_path in result.aux_files:
-                            # print(aux_path, parent, str(parent.joinpath(os.path.relpath(aux_path, os.path.dirname(result.path)))))
-                            zipout.write(
-                                aux_path,
-                                str(
-                                    parent.joinpath(
-                                        os.path.relpath(
-                                            aux_path, os.path.dirname(result.path)
-                                        )
-                                    )
-                                ),
-                            )
-
-            # write report html
-            zipout.writestr(str(folder.joinpath("report.html")), rendered)
-    else:
-        with open(path, "w", encoding="utf-8") as htmlout:
-            htmlout.write(rendered)
-
-    logger.info(f"Report created: {path}.")
+    reporter.render()
+    logger.info("Report created.")

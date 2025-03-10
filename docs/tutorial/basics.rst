@@ -99,7 +99,7 @@ In the Snakefile, define the following rule:
         shell:
             "bwa mem {input} | samtools view -Sb - > {output}"
 
-.. sidebar:: Note
+.. note::
 
     A common error is to forget the comma between the input or output items.
     Since Python concatenates subsequent strings, this can lead to unexpected behavior.
@@ -115,7 +115,7 @@ In other words, Snakemake will replace ``{input}`` with ``data/genome.fa data/sa
 The shell command invokes ``bwa mem`` with reference genome and reads, and pipes the output into ``samtools`` which creates a compressed `BAM <https://en.wikipedia.org/wiki/Binary_Alignment_Map>`_ file containing the alignments.
 The output of ``samtools`` is redirected into the output file defined by the rule with ``>``.
 
-.. sidebar:: Note
+.. note::
 
   It is best practice to have subsequent steps of a workflow in separate, unique, output folders. This keeps the working directory structured. Further, such unique prefixes allow Snakemake to quickly discard most rules in its search for rules that can provide the requested input. This accelerates the resolution of the rule dependencies in a workflow.
 
@@ -165,7 +165,7 @@ Simply replace the ``A`` in the second input file and in the output file with th
         shell:
             "bwa mem {input} | samtools view -Sb - > {output}"
 
-.. sidebar:: Note
+.. note::
 
   Note that if a rule has multiple output files, Snakemake requires them to all
   have exactly the same wildcards. Otherwise, it could happen that two jobs
@@ -231,7 +231,7 @@ We add the following rule beneath the ``bwa_map`` rule:
             "samtools sort -T sorted_reads/{wildcards.sample} "
             "-O bam {input} > {output}"
 
-.. sidebar:: Note
+.. note::
 
   In the shell command above we split the string into two lines, which are however automatically concatenated into one by Python.
   This is a handy pattern to avoid too long shell command lines. When using this, make sure to have a trailing whitespace in each line but the last,
@@ -255,7 +255,7 @@ as mentioned before, the dependencies are resolved automatically by matching fil
 Step 4: Indexing read alignments and visualizing the DAG of jobs
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-.. sidebar:: Note
+.. note::
 
   Snakemake uses the `Python format mini language <https://docs.python.org/3/library/string.html#formatexamples>`_ to format shell commands.
   Sometimes you have to use braces (``{}``) for something else in a shell command.
@@ -283,7 +283,7 @@ By executing
     $ snakemake --dag sorted_reads/{A,B}.bam.bai | dot -Tsvg > dag.svg
 
 
-.. sidebar:: Note
+.. note::
 
   If you went with: :ref:`tutorial-free-on-gitpod`, you can easily view the resulting ``dag.svg`` by right-clicking on the file in the explorer panel on the left and selecting ``Open With -> Preview``.
 
@@ -347,7 +347,7 @@ Hence, we can define the list of samples ad-hoc in plain Python at the top of th
     SAMPLES = ["A", "B"]
 
 
-.. sidebar:: Note
+.. note::
 
   If you name input or output files like above, their order won't be preserved when referring to them as ``{input}``.
   Further, note that named and unnamed (i.e., positional) input and output files can be combined, but the positional ones must come first, equivalent to Python functions with keyword arguments.
@@ -392,7 +392,7 @@ Step 6: Using custom scripts
 ::::::::::::::::::::::::::::
 
 Usually, a workflow not only consists of invoking various tools, but also contains custom code to for example calculate summary statistics or create plots.
-While Snakemake also allows you to directly :ref:`write Python code inside a rule <.. _snakefiles-rules>`, it is usually reasonable to move such logic into separate scripts.
+While Snakemake also allows you to directly :ref:`write Python code inside a rule <snakefiles-external_scripts>`, it is usually reasonable to move such logic into separate scripts.
 For this purpose, Snakemake offers the ``script`` directive.
 Add the following rule to your Snakefile:
 
@@ -407,7 +407,7 @@ Add the following rule to your Snakefile:
             "scripts/plot-quals.py"
 
 
-.. sidebar:: Note
+.. note::
 
   ``snakemake.input`` and ``snakemake.output`` always contain a list of file names, even if the lists each contain only one file name.
   Therefore, to refer to a particular file name, you have to index into that list.
@@ -432,7 +432,7 @@ Create the file ``scripts/plot-quals.py``, with the following content:
     plt.savefig(snakemake.output[0])
 
 
-.. sidebar:: Note
+.. note::
 
   It is best practice to use the script directive whenever an inline code block would have
   more than a few lines of code.
@@ -478,9 +478,9 @@ When executing Snakemake with
 
     $ snakemake -n
 
-.. sidebar:: Note
+.. note::
 
-   In case you have mutliple reasonable sets of target files,
+   In case you have multiple reasonable sets of target files,
    you can add multiple target rules at the top of the Snakefile. While
    Snakemake will execute the first per default, you can target any of them via
    the command line (for example, ``snakemake -n mytarget``).
@@ -496,12 +496,14 @@ Exercise
 * Snakemake provides handy flags for forcing re-execution of parts of the workflow. Have a look at the command line help with ``snakemake --help`` and search for the flag ``--forcerun``. Then, use this flag to re-execute the rule ``samtools_sort`` and see what happens.
 * Snakemake displays the reason for each job (under ``reason:``). Perform a dry-run that forces some rules to be reexecuted (using the ``--forcerun`` flag in combination with some rulename) to understand the decisions of Snakemake.
 
+After having a look at the summary, please go on with the :ref:`advanced part of the tutorial <tutorial-advanced>`.
+
 Summary
 :::::::
 
 In total, the resulting workflow looks like this:
 
-.. code:: console
+.. code:: python
 
     SAMPLES = ["A", "B"]
 
@@ -559,3 +561,6 @@ In total, the resulting workflow looks like this:
             "plots/quals.svg"
         script:
             "scripts/plot-quals.py"
+
+
+Now, please go on with the :ref:`advanced part of the tutorial <tutorial-advanced>`.

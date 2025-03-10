@@ -1,7 +1,7 @@
 
 Program: bcftools (Tools for variant calling and manipulating VCFs and BCFs)
 License: GNU GPLv3+, due to use of the GNU Scientific Library
-Version: 1.10.2 (using htslib 1.10.2)
+Version: 1.21 (using htslib 1.21)
 
 Usage:   bcftools [--version|--version-only] [--help] <command> <argument>
 
@@ -14,6 +14,7 @@ Commands:
     annotate     annotate and edit VCF/BCF files
     concat       concatenate VCF/BCF files from the same set of samples
     convert      convert VCF/BCF files to different formats and back
+    head         view VCF/BCF file headers
     isec         intersections of VCF/BCF files
     merge        merge VCF/BCF files files from non-overlapping sample sets
     norm         left-align and normalize indels
@@ -34,6 +35,9 @@ Commands:
     polysomy     detect number of chromosomal copies
     roh          identify runs of autozygosity (HMM)
     stats        produce VCF/BCF stats
+
+ -- Plugins (collection of programs for calling, file manipulation & analysis)
+    39 plugins available, run "bcftools plugin -lv" to see a complete list
 
  Most commands accept VCF, bgzipped VCF, and BCF with the file type detected
  automatically even when streaming from a pipe. Indexed VCF and BCF will work

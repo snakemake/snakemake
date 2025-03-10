@@ -1,0 +1,14 @@
+rule a:
+    input:
+        "test.in"
+    output:
+        "test.out"
+    shell:
+        "cp {input} {output}"
+
+
+rule b:
+    output:
+        "test.in"
+    shell:
+        "touch {output}"

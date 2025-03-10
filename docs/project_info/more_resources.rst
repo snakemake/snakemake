@@ -37,4 +37,4 @@ These resources are not part of the official documentation.
 * `Japanese version of the Snakemake tutorial <https://github.com/joemphilips/Translate_Snakemake_Tutorial>`_
 * `Basic <https://bioinfo-fr.net/snakemake-pour-les-nuls>`_ and `advanced <https://bioinfo-fr.net/snakemake-aller-plus-loin-avec-la-parallelisation>`_ french Snakemake tutorial.
 * `Mini tutorial on Snakemake and Bioconda <https://github.com/dlaehnemann/TutMinicondaSnakemake>`_
-* `Snakeparse: a utility to expose Snakemake workflow configuation via a command line interface <https://github.com/nh13/snakeparse>`_
+* `Snakeparse: a utility to expose Snakemake workflow configuration via a command line interface <https://github.com/nh13/snakeparse>`_

@@ -1,0 +1,15 @@
+def get_i1(wildcards):
+    return 0
+
+
+def get_i2(wildcards):
+    return 1
+
+
+rule all:
+    input:
+        expand("test.{i}.out", i=[get_i1, get_i2])
+    output:
+        "test.out"
+    shell:
+        "touch {output}"

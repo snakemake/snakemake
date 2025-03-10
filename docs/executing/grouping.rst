@@ -13,7 +13,7 @@ This way, queueing and execution time can be saved, in particular by attaching s
 
 From Snakemake 7.11 on, Snakemake will request resources for groups by summing across jobs that can be run in parallel, and taking the max of jobs run in series.
 The only exception is ``runtime``, where the max will be taken over parallel jobs, and the sum over series.
-If resource contraints are provided (via ``--resources`` or ``--cores``), parallel job layers that exceed the constraints will be stacked in series.
+If resource constraints are provided (via ``--resources`` or ``--cores``), parallel job layers that exceed the constraints will be stacked in series.
 For example, if 6 instances of ``somerule`` are being run, each instance requires ``1000MB`` of memory and ``30 min`` runtime, and only ``3000MB`` are available, Snakemake will request ``3000MB`` and ``60 min`` runtime, enough to run 3 instances of ``somerule``, then another 3 instances of ``somerule`` in series.
 
 Often, the ideal group will be dependent on the specifics of the underlying computing platform.
@@ -38,3 +38,10 @@ This makes it possible to define batches of jobs of the same kind that shall be 
 
 means that given ``n`` jobs spawned from rule ``somerule``, Snakemake will create ``n / 5`` groups which each execute 5 jobs of ``somerule`` together.
 For example, with 10 jobs from ``somerule`` you would end up with 2 groups of 5 jobs that are submitted as one piece each.
+
+Furthermore, it is possible to use wildcards in group names.
+This way, you can e.g. have a group per sample, e.g.:
+
+.. code-block:: bash
+
+    snakemake --groups somerule=group_{sample} --group-components group_{sample}=5

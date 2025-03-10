@@ -4,7 +4,7 @@ min_version("6.0")
 
 configfile: "config.yaml"
 
-remote_workflow_directory = "https://raw.githubusercontent.com/snakemake-workflows/dna-seq-varlociraptor/49e8479402e8094a6c0ade5f1ec6803cee255c79"
+remote_workflow_directory = "https://raw.githubusercontent.com/snakemake-workflows/dna-seq-varlociraptor/v5.0.2"
 workflow_snakefile = f"{remote_workflow_directory}/workflow/Snakefile"
 
 

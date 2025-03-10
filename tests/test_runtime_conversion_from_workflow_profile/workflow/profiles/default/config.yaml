@@ -1,0 +1,3 @@
+set-resources:
+    a:
+        runtime: 5m

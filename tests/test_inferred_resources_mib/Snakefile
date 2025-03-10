@@ -1,0 +1,28 @@
+rule a:
+    output:
+        "test1.out",
+    resources:
+        mem="5000MB",
+        disk="5000MB",
+    shell:
+        "echo {resources.mem_mib} {resources.disk_mib} {resources.mem_mb} {resources.disk_mb} > {output}"
+
+
+rule b:
+    output:
+        "test2.out",
+    resources:
+        mem="50G",
+        disk="50G",
+    shell:
+        "echo {resources.mem_mib} {resources.disk_mib} {resources.mem_mb} {resources.disk_mb} > {output}"
+
+
+rule c:
+    output:
+        "test3.out",
+    resources:
+        mem="5TB",
+        disk="5TB",
+    shell:
+        "echo {resources.mem_mib} {resources.disk_mib} {resources.mem_mb} {resources.disk_mb} > {output}"

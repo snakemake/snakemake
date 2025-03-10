@@ -1,0 +1,24 @@
+shell.executable("bash")
+
+shell("echo '2' > 2 && echo '4' > 4 && sleep 1 && echo '1' > 1 && echo '3' > 3")
+
+rule all:
+    input:
+        "2",
+        "4"
+
+rule A:
+    input:
+        "1"
+    output:
+        "2",
+    shell:
+        "cat {input} > {output}"
+
+rule B:
+    input:
+        x="3"
+    output:
+        "4",
+    shell:
+        "cat {input} > {output}"

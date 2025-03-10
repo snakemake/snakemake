@@ -1,0 +1,10 @@
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - r-base =4.4
+  - r-readr =2.1.5
+  - r-dplyr =1.1
+  - r-ggplot2 =3.5
+  - notebook =7.2
+  - r-irkernel =1.3

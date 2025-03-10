@@ -1,4 +1,4 @@
-import os
+import os, sys
 from pathlib import Path
 import subprocess as sp
 from itertools import product
@@ -23,9 +23,9 @@ def test_lint(lint, case):
                     "snakemake",
                     "--lint",
                     "--directory",
-                    lint,
+                    str(lint),
                     "--snakefile",
-                    lint.joinpath(case).with_suffix(".smk"),
+                    str(lint.joinpath(case).with_suffix(".smk")),
                 ],
                 stderr=sp.STDOUT,
             )
@@ -35,7 +35,7 @@ def test_lint(lint, case):
         if case == "positive":
             assert out == "Congratulations, your workflow is in a good condition!"
         else:
-            print(out)
+            print(out, file=sys.stderr)
             assert (
                 False
             ), "Negative lint example but linting command exited with status 0."
@@ -43,9 +43,13 @@ def test_lint(lint, case):
     except sp.CalledProcessError as e:
         if case == "negative":
             assert e.output.decode().strip()
+            if "not_used_params" in lint.name:
+                # Check that the correct line number is reported
+                assert "line 3" in e.output.decode().strip()
         else:
+            print(e.output.decode().strip(), file=sys.stderr)
             raise e
 
     else:
-        print(out)
+        print(out, file=sys.stderr)
         assert out

@@ -1,0 +1,15 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+
+description: snakemake configuration file
+
+type: object
+
+properties:
+  samples:
+    type: string
+  adapter:
+    type: string
+    pattern: "^[ACTG]+$"
+
+required:
+  - samples

@@ -3,7 +3,7 @@
 SHELL:=/bin/bash
 
 # Create Vagrant VMs
-# copy munge authenication key from slurmmaster to node
+# copy munge authentication key from slurmmaster to node
 # !! need cp -p or else munge keys do not work
 setup:
 	vagrant up #&& \

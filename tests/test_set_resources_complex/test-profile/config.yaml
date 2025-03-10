@@ -1,0 +1,5 @@
+set-resources:
+    a:
+        slurm_partition: "m2_gpu"
+        runtime: 5
+        slurm_extra: "'--nice=150 --gres=gpu:1'"

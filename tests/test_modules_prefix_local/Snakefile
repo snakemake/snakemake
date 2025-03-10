@@ -1,0 +1,17 @@
+
+module module1:
+    snakefile:
+        "module1/Snakefile"
+    config:
+        config
+    prefix:
+        "out_1"
+
+
+use rule * from module1 as module1_*
+
+
+rule joint_all:
+    input:
+        "out_1/test_final.txt",
+    default_target: True

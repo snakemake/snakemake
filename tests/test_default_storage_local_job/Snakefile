@@ -1,0 +1,27 @@
+rule all:
+    input:
+        "c.txt"
+
+
+rule a:
+    output:
+        local("a.txt")
+    shell:
+        "echo a > a.txt"
+
+
+rule b:
+    input:
+        local("a.txt")
+    output:
+        "b.txt"
+    shell:
+        "cat {input} > {output}"
+
+rule c:
+    input:
+        "b.txt"
+    output:
+        "c.txt"
+    shell:
+        "cat {input} > {output}"

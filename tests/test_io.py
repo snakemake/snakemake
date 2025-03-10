@@ -1,6 +1,6 @@
 from pathlib import PosixPath
 
-from snakemake.io import _wildcard_regex, expand
+from snakemake.io import WILDCARD_REGEX, expand
 from snakemake.exceptions import WildcardError
 
 
@@ -8,7 +8,7 @@ def test_wildcard_regex():
     def matches(text):
         return [
             (match.group("name"), match.group("constraint"))
-            for match in _wildcard_regex.finditer(text)
+            for match in WILDCARD_REGEX.finditer(text)
         ]
 
     # without constraints

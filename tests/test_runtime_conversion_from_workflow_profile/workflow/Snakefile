@@ -1,0 +1,12 @@
+rule a:
+     output: "a.out"
+     #resources:
+     #   runtime="5m"
+     shell: """
+          if [ {resources.runtime} -eq 5 ]; then
+             touch {output}
+          else
+             echo "Runtime is not 300 seconds"
+             exit 1
+          fi
+          """

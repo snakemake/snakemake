@@ -11,7 +11,7 @@ from snakemake.jobs import Job
 from snakemake import script
 from snakemake import wrapper
 from snakemake.exceptions import WorkflowError
-from snakemake.settings import DeploymentMethod
+from snakemake.settings.types import DeploymentMethod
 
 # ATTENTION: increase version number whenever the hashing algorithm below changes!
 __version__ = "0.1"
@@ -142,7 +142,7 @@ class ProvenanceHashMap:
 
         provenance_hash = h.hexdigest()
 
-        # Store for re-use.
+        # Store for reuse.
         self._hashes[job] = provenance_hash
 
         return provenance_hash

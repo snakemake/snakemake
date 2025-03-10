@@ -9,6 +9,7 @@ from itertools import chain
 import os
 import time
 import threading
+from pathlib import Path
 
 from snakemake.logging import logger
 
@@ -23,24 +24,40 @@ class BenchmarkRecord:
     """Record type for benchmark times"""
 
     @classmethod
-    def get_header(klass):
-        return "\t".join(
-            (
-                "s",
-                "h:m:s",
-                "max_rss",
-                "max_vms",
-                "max_uss",
-                "max_pss",
-                "io_in",
-                "io_out",
-                "mean_load",
-                "cpu_time",
-            )
-        )
+    def get_header(klass, extended_fmt=False):
+        header = [
+            "s",
+            "h:m:s",
+            "max_rss",
+            "max_vms",
+            "max_uss",
+            "max_pss",
+            "io_in",
+            "io_out",
+            "mean_load",
+            "cpu_time",
+        ]
+
+        if extended_fmt:
+            header += [
+                "jobid",
+                "rule_name",
+                "wildcards",
+                "params",
+                "threads",
+                "cpu_usage",
+                "resources",
+                "input_size_mb",
+            ]
+
+        return header
 
     def __init__(
         self,
+        jobid=None,
+        rule_name=None,
+        wildcards=None,
+        params=None,
         running_time=None,
         max_rss=None,
         max_vms=None,
@@ -48,13 +65,23 @@ class BenchmarkRecord:
         max_pss=None,
         io_in=None,
         io_out=None,
-        cpu_usages=None,
+        cpu_usage=None,
         cpu_time=None,
+        resources=None,
+        threads=None,
+        input=None,
     ):
+        #: Job ID
+        self.jobid = (jobid,)
+        #: Rule name
+        self.rule_name = (rule_name,)
+        #: Job wildcards
+        self.wildcards = (wildcards,)
+        #: Job parameters
+        self.params = (params,)
         #: Running time in seconds
         self.running_time = running_time
         #: Maximal RSS in MB
-
         self.max_rss = max_rss
         #: Maximal VMS in MB
         self.max_vms = max_vms
@@ -67,9 +94,15 @@ class BenchmarkRecord:
         #: I/O written in bytes
         self.io_out = io_out
         #: Count of CPU seconds, divide by running time to get mean load estimate
-        self.cpu_usages = cpu_usages or 0
+        self.cpu_usage = cpu_usage or 0
         #: CPU usage (user and system) in seconds
         self.cpu_time = cpu_time or 0
+        #: Job resources
+        self.resources = (resources,)
+        #: Job threads
+        self.threads = (threads,)
+        #: Job input
+        self.input = input
         #: First time when we measured CPU load, for estimating total running time
         self.first_time = None
         #: Previous point when measured CPU load, for estimating total running time
@@ -81,31 +114,38 @@ class BenchmarkRecord:
         #: Track if data has been collected
         self.data_collected = False
 
-    def to_tsv(self):
-        """Return ``str`` with the TSV representation of this record"""
+    def timedelta_to_str(self, x):
+        """Conversion of timedelta to str without fractions of seconds"""
+        mm, ss = divmod(x.seconds, 60)
+        hh, mm = divmod(mm, 60)
+        s = "%d:%02d:%02d" % (hh, mm, ss)
+        if x.days:
 
-        def to_tsv_str(x):
-            """Conversion of value to str for TSV (None becomes "-")"""
-            if x is None:
-                return "-"
-            elif isinstance(x, float):
-                return f"{x:.2f}"
-            else:
-                return str(x)
+            def plural(n):
+                return n, abs(n) != 1 and "s" or ""
 
-        def timedelta_to_str(x):
-            """Conversion of timedelta to str without fractions of seconds"""
-            mm, ss = divmod(x.seconds, 60)
-            hh, mm = divmod(mm, 60)
-            s = "%d:%02d:%02d" % (hh, mm, ss)
-            if x.days:
+            s = ("%d day%s, " % plural(x.days)) + s
+        return s
 
-                def plural(n):
-                    return n, abs(n) != 1 and "s" or ""
+    def mean_load(self):
+        return self.cpu_usage / self.running_time
 
-                s = ("%d day%s, " % plural(x.days)) + s
-            return s
+    def parse_wildcards(self):
+        return {key: value for key, value in self.wildcards.items()}
 
+    def parse_params(self):
+        return {key: value for key, value in self.params.items()}
+
+    def parse_resources(self):
+        return {key: value for key, value in self.resources.items()}
+
+    def input_size_mb(self):
+        return {file: Path(file).stat().st_size / 1024 / 1024 for file in self.input}
+
+    def get_benchmarks(self, extended_fmt=False):
+        logger.debug(
+            f"Stats included in benchmarks file: {self.get_header(extended_fmt)}"
+        )
         if self.skipped_procs:
             logger.debug(
                 "Benchmark: not collected for "
@@ -125,44 +165,60 @@ class BenchmarkRecord:
                     ]
                 )
             )
-        if self.data_collected:
-            return "\t".join(
-                map(
-                    to_tsv_str,
-                    (
-                        f"{self.running_time:.4f}",
-                        timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
-                        self.max_rss,
-                        self.max_vms,
-                        self.max_uss,
-                        self.max_pss,
-                        self.io_in,
-                        self.io_out,
-                        self.cpu_usages / self.running_time,
-                        self.cpu_time,
-                    ),
-                )
-            )
-        else:
-            # If no data has been collect mem and cpu statistics will be printed as NA
-            # to make it possible to distinguish this case from processes that complete instantly
+
+        # If no data has been collect mem and cpu statistics will be printed as NA
+        # to make it possible to distinguish this case from processes that complete instantly
+        if not self.data_collected:
             logger.warning(
                 "Benchmark: unable to collect cpu and memory benchmark statistics"
             )
-            return "\t".join(
-                [
-                    f"{self.running_time:.4f}",
-                    timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
-                    "NA",
-                    "NA",
-                    "NA",
-                    "NA",
-                    "NA",
-                    "NA",
-                    "NA",
-                    "NA",
-                ]
-            )
+        record = [
+            f"{self.running_time:.4f}",
+            self.timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
+            self.max_rss if self.data_collected else "NA",
+            self.max_vms if self.data_collected else "NA",
+            self.max_uss if self.data_collected else "NA",
+            self.max_pss if self.data_collected else "NA",
+            self.io_in if self.data_collected else "NA",
+            self.io_out if self.data_collected else "NA",
+            self.mean_load() if self.data_collected else "NA",
+            self.cpu_time if self.data_collected else "NA",
+        ]
+        if extended_fmt:
+            record += [
+                self.jobid,
+                self.rule_name,
+                self.parse_wildcards(),
+                self.parse_params(),
+                self.threads,
+                self.cpu_usage if self.data_collected else "NA",
+                self.parse_resources(),
+                self.input_size_mb(),
+            ]
+        return record
+
+    def to_tsv(self, extended_fmt):
+        """Return ``str`` with the TSV representation of this record"""
+
+        def to_tsv_str(x):
+            """Conversion of value to str for TSV (None becomes "-")"""
+            if x is None:
+                return "-"
+            elif isinstance(x, float):
+                return f"{x:.2f}"
+            else:
+                return str(x)
+
+        return "\t".join(map(to_tsv_str, self.get_benchmarks(extended_fmt)))
+
+    def to_json(self, extended_fmt):
+        """Return ``str`` with the JSON representation of this record"""
+        import json
+
+        return json.dumps(
+            dict(zip(self.get_header(extended_fmt), self.get_benchmarks(extended_fmt))),
+            sort_keys=True,
+        )
 
 
 class DaemonTimer(threading.Thread):
@@ -267,7 +323,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         io_in, io_out = 0, 0
         check_io = True
         # CPU seconds
-        cpu_usages = 0
+        cpu_usage = 0
         # CPU usage time
         cpu_time = 0
 
@@ -279,7 +335,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                 proc = self.procs.setdefault(proc.pid, proc)
                 with proc.oneshot():
                     if self.bench_record.prev_time:
-                        cpu_usages += proc.cpu_percent() * (
+                        cpu_usage += proc.cpu_percent() * (
                             this_time - self.bench_record.prev_time
                         )
                     # Makes it possible to summarize information about the process even
@@ -343,7 +399,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
             self.bench_record.io_in = io_in
             self.bench_record.io_out = io_out
 
-            self.bench_record.cpu_usages += cpu_usages
+            self.bench_record.cpu_usage += cpu_usage
             self.bench_record.cpu_time = cpu_time
 
 
@@ -376,14 +432,25 @@ def benchmarked(pid=None, benchmark_record=None, interval=BENCHMARK_INTERVAL):
         result.running_time = time.time() - start_time
 
 
-def print_benchmark_records(records, file_):
+def print_benchmark_tsv(records, file_, extended_fmt):
     """Write benchmark records to file-like the object"""
-    print(BenchmarkRecord.get_header(), file=file_)
+    logger.debug("Benchmarks in TSV format")
+    print("\t".join(BenchmarkRecord.get_header(extended_fmt)), file=file_)
     for r in records:
-        print(r.to_tsv(), file=file_)
+        print(r.to_tsv(extended_fmt), file=file_)
 
 
-def write_benchmark_records(records, path):
+def print_benchmark_jsonl(records, file_, extended_fmt):
+    """Write benchmark records to file-like the object"""
+    logger.debug("Benchmarks in JSONL format")
+    for r in records:
+        print(r.to_json(extended_fmt), file=file_)
+
+
+def write_benchmark_records(records, path, extended_fmt):
     """Write benchmark records to file at path"""
     with open(path, "wt") as f:
-        print_benchmark_records(records, f)
+        if path.endswith(".jsonl"):
+            print_benchmark_jsonl(records, f, extended_fmt)
+        else:
+            print_benchmark_tsv(records, f, extended_fmt)

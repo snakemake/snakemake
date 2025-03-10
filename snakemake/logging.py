@@ -15,8 +15,6 @@ from functools import partial
 import inspect
 import textwrap
 
-from snakemake.common import DYNAMIC_FILL
-
 
 def get_default_exec_mode():
     from snakemake_interface_executor_plugins.settings import ExecMode
@@ -88,38 +86,39 @@ class ColorizingStreamHandler(_logging.StreamHandler):
 
 class SlackLogger:
     def __init__(self):
-        from slacker import Slacker
+        from slack_sdk import WebClient
 
         self.token = os.getenv("SLACK_TOKEN")
         if not self.token:
             print(
-                "The use of slack logging requires the user to set a user specific slack legacy token to the SLACK_TOKEN environment variable. Set this variable by 'export SLACK_TOKEN=your_token'. To generate your token please visit https://api.slack.com/custom-integrations/legacy-tokens."
+                "The use of slack logging requires the user to set a user specific slack User OAuth token to the SLACK_TOKEN environment variable. Set this variable by 'export SLACK_TOKEN=your_token'. To generate your token please visit https://api.slack.com/authentication/token-types#user."
             )
             exit(-1)
-        self.slack = Slacker(self.token)
+        self.slack = WebClient(self.token)
         # Check for success
         try:
-            auth = self.slack.auth.test().body
+            auth = self.slack.auth_test().data
         except Exception:
             print(
-                "Slack connection failed. Please compare your provided slack token exported in the SLACK_TOKEN environment variable with your online token at https://api.slack.com/custom-integrations/legacy-tokens. A different token can be set up by 'export SLACK_TOKEN=your_token'."
+                "Slack connection failed. Please compare your provided slack token exported in the SLACK_TOKEN environment variable with your online token (app). This token can be tested at https://api.slack.com/methods/auth.test/test. A different token can be set up by 'export SLACK_TOKEN=your_token'."
             )
             exit(-1)
         self.own_id = auth["user_id"]
         self.error_occured = False
+        self.slack.chat_postMessage(
+            channel=self.own_id, text="Snakemake has connected."
+        )
 
     def log_handler(self, msg):
-        if msg["level"] == "error" and not self.error_occured:
-            self.slack.chat.post_message(
-                self.own_id, text="At least one error occured.", username="snakemake"
+        if "error" in msg["level"] and not self.error_occured:
+            self.slack.chat_postMessage(
+                channel=self.own_id, text="At least one error occurred."
             )
             self.error_occured = True
 
         if msg["level"] == "progress" and msg["done"] == msg["total"]:
             # workflow finished
-            self.slack.chat.post_message(
-                self.own_id, text="Workflow complete.", username="snakemake"
-            )
+            self.slack.chat_postMessage(channel=self.own_id, text="Workflow complete.")
 
 
 class WMSLogger:
@@ -136,7 +135,9 @@ class WMSLogger:
         from snakemake.resources import DefaultResources
 
         self.address = address or "http:127.0.0.1:5000"
-        self.args = map(DefaultResources.decode_arg, args) if args else []
+        self.args = list(map(DefaultResources.decode_arg, args)) if args else []
+        self.args = {item[0]: item[1] for item in list(self.args)}
+
         self.metadata = metadata or {}
 
         # A token is suggested but not required, depends on server
@@ -183,7 +184,6 @@ class WMSLogger:
 
         # Prepare a request that has metadata about the job
         metadata = {
-            "snakefile": os.path.join(workdir, self.metadata.get("snakefile")),
             "command": self.metadata.get("command"),
             "workdir": workdir,
         }
@@ -192,14 +192,33 @@ class WMSLogger:
             f"{self.address}/create_workflow",
             headers=self._headers,
             params=self.args,
-            data=json.dumps(metadata),
+            data=metadata,
         )
+
+        # Extract the id from the response
+        id = response.json()["id"]
 
         # Check the response, will exit on any error
         self.check_response(response, "/create_workflow")
 
         # Provide server parameters to the logger
-        self.server = {"url": self.address, "id": response.json()["id"]}
+        headers = (
+            {"Content-Type": "application/json"}
+            if self._headers is None
+            else {**self._headers, **{"Content-Type": "application/json"}}
+        )
+
+        # Send the workflow name to the server
+        response_change_workflow_name = requests.put(
+            f"{self.address }/api/workflow/{id}",
+            headers=headers,
+            data=json.dumps(self.args),
+        )
+        # Check the response, will exit on any error
+        self.check_response(response_change_workflow_name, f"/api/workflow/{id}")
+
+        # Provide server parameters to the logger
+        self.server = {"url": self.address, "id": id}
 
     def check_response(self, response, endpoint="wms monitor request"):
         """A helper function to take a response and check for an expected set of
@@ -207,7 +226,6 @@ class WMSLogger:
         denied), 500 (server error) and 200 (success).
         """
         status_code = response.status_code
-
         # Cut out early on success
         if status_code == 200:
             return
@@ -245,7 +263,7 @@ class WMSLogger:
     def _parse_message(self, msg):
         """Given a message dictionary, we want to loop through the key, value
         pairs and convert some attributes to strings (e.g., jobs are fine to be
-        represnted as names) and return a dictionary.
+        represented as names) and return a dictionary.
         """
         result = {}
         for key, value in msg.items():
@@ -283,9 +301,7 @@ class WMSLogger:
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
-        response = requests.post(
-            url, data=json.dumps(server_info), headers=self._headers
-        )
+        response = requests.post(url, data=server_info, headers=self._headers)
         self.check_response(response, "/update_workflow_status")
 
 
@@ -306,7 +322,6 @@ class Logger:
         self.show_failed_logs = False
         self.logfile_handler = None
         self.dryrun = False
-        latency_wait = 5
 
     def setup_logfile(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
@@ -427,8 +442,11 @@ class Logger:
         msg["level"] = "d3dag"
         self.handler(msg)
 
+    def host_info(self):
+        self.handler(dict(level="host"))
+
     def is_quiet_about(self, msg_type: str):
-        from snakemake.settings import Quietness
+        from snakemake.settings.enums import Quietness
 
         return (
             Quietness.ALL in self.quiet
@@ -485,14 +503,14 @@ class Logger:
                 yield f"    resources: {resources}"
 
         def show_logs(logs):
-            from snakemake.io import wait_for_files
-
-            wait_for_files(logs, latency_wait=self.latency_wait)
             for f in logs:
                 try:
                     content = open(f, "r").read()
                 except FileNotFoundError:
                     yield f"Logfile {f} not found."
+                    return
+                except UnicodeDecodeError:
+                    yield f"Logfile {f} is not a text file."
                     return
                 lines = content.splitlines()
                 logfile_header = f"Logfile {f}:"
@@ -518,7 +536,9 @@ class Logger:
 
         level = msg["level"]
 
-        if level == "job_info" and not self.is_quiet_about("rules"):
+        if level == "host" and not self.is_quiet_about("host"):
+            self.logger.info(f"host: {platform.node()}")
+        elif level == "job_info" and not self.is_quiet_about("rules"):
             if not self.last_msg_was_job_info:
                 self.logger.info("")
             timestamp()
@@ -601,7 +621,7 @@ class Logger:
             timestamp()
             self.logger.error("\n".join(group_error()))
         else:
-            if level == "info":
+            if level == "info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
             if level == "warning":
                 self.logger.critical(msg["msg"])
@@ -609,9 +629,9 @@ class Logger:
                 self.logger.error(msg["msg"])
             elif level == "debug":
                 self.logger.debug(msg["msg"])
-            elif level == "resources_info":
+            elif level == "resources_info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
-            elif level == "run_info":
+            elif level == "run_info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
             elif level == "progress" and not self.is_quiet_about("progress"):
                 done = msg["done"]
@@ -681,7 +701,7 @@ def format_dict(dict_like, omit_keys=None, omit_values=None):
 
 
 format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
-format_wildcards = partial(format_dict, omit_values={DYNAMIC_FILL})
+format_wildcards = format_dict
 
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
@@ -689,7 +709,7 @@ def format_resource_names(resources, omit_resources="_cores _nodes".split()):
 
 
 def format_percentage(done, total):
-    """Format percentage from given fraction while avoiding superflous precision."""
+    """Format percentage from given fraction while avoiding superfluous precision."""
     if done == total:
         return "100%"
     if done == 0:
@@ -718,8 +738,9 @@ def setup_logger(
     mode=None,
     show_failed_logs=False,
     dryrun=False,
-    latency_wait=5,
 ):
+    from snakemake.settings.types import Quietness
+
     if mode is None:
         mode = get_default_exec_mode()
 
@@ -728,14 +749,12 @@ def setup_logger(
         quiet = set()
     elif isinstance(quiet, bool):
         if quiet:
-            quiet = set(["progress", "rules"])
+            quiet = {Quietness.PROGRESS, Quietness.RULES}
         else:
             quiet = set()
-    elif isinstance(quiet, list):
-        quiet = set(quiet)
-    else:
+    elif not isinstance(quiet, set):
         raise ValueError(
-            "Unsupported value provided for quiet mode (either bool, None or list allowed)."
+            "Unsupported value provided for quiet mode (either bool, None or set allowed)."
         )
 
     logger.log_handler.extend(handler)
@@ -755,4 +774,3 @@ def setup_logger(
     logger.mode = mode
     logger.dryrun = dryrun
     logger.show_failed_logs = show_failed_logs
-    logger.latency_wait = latency_wait

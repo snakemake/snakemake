@@ -1,0 +1,24 @@
+
+storage fs:
+    provider="fs"
+
+
+rule all:
+    input:
+        storage("fs/test2.txt")
+
+
+checkpoint foo:
+    output:
+        storage("fs/test.txt")
+    shell:
+        "echo 'test' > {output}"
+
+
+rule bar:
+    input:
+        storage("fs/test.txt")
+    output:
+        storage("fs/test2.txt")
+    shell:
+        "cp {input} {output}"

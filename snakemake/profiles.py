@@ -1,4 +1,6 @@
 from collections import OrderedDict
+import os
+from pathlib import Path
 from configargparse import YAMLConfigFileParser, ConfigFileParserException
 
 
@@ -7,6 +9,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
         # taken from configargparse and modified to add special handling for key-value pairs
         import yte
 
+        profile_dir = Path(stream.name).parent
         try:
             parsed_obj = yte.process_yaml(stream, require_use_yte=True)
         except Exception as e:
@@ -48,11 +51,21 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                         "default-resources",
                         "config",
                         "wms-monitor-arg",
+                        "groups",
+                        "group-components",
+                        "consider-ancient",
                     ):
                         result[key] = format_one_level_dict(value)
-                    if key in ("set-resources"):
+                    elif key == "set-resources":
                         result[key] = format_two_level_dict(value)
                 else:
-                    result[key] = str(value)
+                    value = os.path.expandvars(str(value))
+
+                    # Adjust path if it exists in the profile dir.
+                    # Otherwise value is not a file or not existing in the profile dir.
+                    if (profile_dir / value).exists():
+                        value = str(profile_dir / value)
+
+                    result[key] = value
 
         return result

@@ -25,7 +25,7 @@ rule b:
     input:
         "test.out"
     output:
-        multiext("test2", ".out", ".out2")
+        multiext("test2", ".out", "_out2")
     shell:
         "echo test2 > {output[0]}; echo test22 > {output[1]}"
 

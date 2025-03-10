@@ -20,7 +20,7 @@ Instead, we suggest to first execute the workflow that shall be tested with some
 The small dummy datasets can in addition be used to generate an integration test, that could e.g. be stored under ``.tests/integration``, next to the unit tests.
 
 Each auto-generated unit test is stored in a file ``.tests/unit/test_<rulename>.py``, and executes just the one representative job of the respective rule.
-After successfull execution of the job, it will compare the obtained results with those that have been present when running ``snakemake --generate-unit-tests``.
+After successful execution of the job, it will compare the obtained results with those that have been present when running ``snakemake --generate-unit-tests``.
 By default, the comparison happens byte by byte (using ``cmp``). This behavior can be overwritten by modifying the test file.
 
 .. _Pytest: https://pytest.org

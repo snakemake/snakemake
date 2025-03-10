@@ -1,0 +1,13 @@
+rule random_python_conda_script:
+    output:
+        "test.txt"
+    conda:
+        "test_python_env.yaml"
+    params: 
+        script=workflow.source_path('test_script_run.py')
+    run:
+        # Calling a script like this is usually unnecessary with Snakemake
+        # we use this pattern just for testing purposes here.
+        # In a real workflow, use the script directive instead which
+        # is cleaner and gives you many more benefits.
+        shell("python {params.script}")

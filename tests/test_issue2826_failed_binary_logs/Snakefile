@@ -1,0 +1,12 @@
+rule:
+    log:
+        'log.bin'
+    run:
+        import pickle
+        with open(log[0], 'wb') as f:
+            # Write anything binary to the file
+            # that cannot be interpreted as unicode
+            # dumping the log object was an easy way to do this 
+            pickle.dump(log, f)
+        # make this test fail
+        a

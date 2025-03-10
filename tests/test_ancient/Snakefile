@@ -1,12 +1,8 @@
-from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
-
 shell.executable("bash")
 
-HTTP = HTTPRemoteProvider()
-
 shell("touch C && sleep 1 && touch B && sleep 1 && touch A && touch D && \
-    mkdir -p github.com/snakemake/snakemake/raw/main/tests/test_remote_http/expected-results && \
-    touch github.com/snakemake/snakemake/raw/main/tests/test_remote_http/expected-results/landsat-data.txt && \
+    mkdir -p .snakemake/storage/http/github.com/snakemake/snakemake/raw/series-7/tests/test_remote_http/expected-results && \
+    touch .snakemake/storage/http/github.com/snakemake/snakemake/raw/series-7/tests/test_remote_http/expected-results/landsat-data.txt && \
     touch -t 200101010101 old_file")
 
 #Will not be executed even though A is newer
@@ -37,6 +33,11 @@ rule c:
 
 # This should not run even though output is older than input
 rule remote_ancient:
-    input: ancient(HTTP.remote("github.com/snakemake/snakemake/raw/main/tests/test_remote_http/expected-results/landsat-data.txt"))
-    output: "old_file"
-    shell: "cp {input} {output}"
+    input:
+        storage(
+            "https://github.com/snakemake/snakemake/raw/series-7/tests/test_remote_http/expected-results/landsat-data.txt"
+        )
+    output:
+        "old_file"
+    shell:
+        "cp {input} {output}"

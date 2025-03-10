@@ -1,0 +1,16 @@
+from pathlib import Path
+
+pepfile: Path("pep/config.yaml")
+
+
+pepschema: Path("workflow/schemas/pep.yaml")
+
+rule all:
+    input:
+        expand("{sample}.txt", sample=pep.sample_table["sample_name"])
+
+rule a:
+    output:
+        "{sample}.txt"
+    shell:
+        "touch {output}"

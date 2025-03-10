@@ -1,0 +1,31 @@
+import pandas
+
+
+samples = pandas.DataFrame.from_records(
+    (
+        {"sample_id": "a", "use_a": True},
+        {"sample_id": "b", "use_a": False},
+        {"sample_id": "c", "use_a": False},
+    ),
+)
+
+rule b:
+    input:
+        collect(
+            "test/{sample.sample_id}.txt",
+            sample=lookup(
+                query="use_a",
+                within=samples
+            )
+        )
+    output:
+        "test/complete.txt"
+    shell:
+        "cat {input} > {output}"
+
+rule a:
+    output:
+        "test/{i}.txt"
+    shell:
+        "echo '{wildcards.i}' > {output}"
+

@@ -1,0 +1,25 @@
+shell("date > in.txt")
+
+
+rule all:
+    input:
+        "out.txt" if exists("test.txt") else [],
+        "test.txt"
+
+
+rule b:
+    input:
+        before_update("test.txt")
+    output:
+        "out.txt"
+    shell:
+        "cp {input} {output}"
+
+
+rule a:
+    input:
+        "in.txt"
+    output:
+        update("test.txt")
+    shell:
+        "echo bar >> test.txt"

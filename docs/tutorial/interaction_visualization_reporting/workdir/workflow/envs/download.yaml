@@ -1,0 +1,9 @@
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python =3.11
+  - polars =1.1
+  - vega_datasets =0.9
+  - ipykernel =6.29
+  - notebook =7.2

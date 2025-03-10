@@ -1,0 +1,21 @@
+rule all:
+    input:
+        "test.a.txt",
+        "test.b.txt",
+
+
+rule a:
+    input:
+        "test.txt"
+    output:
+        "test.a.txt"
+    shell:
+        "cp {input} {output}"
+
+rule b:
+    input:
+        "test.txt"
+    output:
+        "test.b.txt"
+    shell:
+        "cp {input} {output}"

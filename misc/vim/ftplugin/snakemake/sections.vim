@@ -4,9 +4,9 @@ function! s:NextSection(type, backwards, visual)
     endif
 
     if a:type == 1
-        let pattern = '\v(^rule|^checkpoint|^def|%^)' 
+        let pattern = '\v(^rule|^checkpoint|^def|^use|^onstart|^onsuccess|^onerror|%^)' 
     elseif a:type == 2
-        let pattern = '\v\n\zs\n^(rule|checkpoint|def)'
+        let pattern = '\v\n\zs\n^(rule|checkpoint|def|use|onstart|onsuccess|onerror)'
     endif
 
     if a:backwards
