@@ -49,7 +49,7 @@ rule copy:
 
 def aggregate(wildcards):
 
-    outputs_i = glob.glob(f"{checkpoints.first.get(** wildcards).output}/*/")
+    outputs_i = glob.glob(f"{checkpoints.first.get(**wildcards).output}/*/")
 
     outputs_i = [output.split("/")[-2] for output in outputs_i]
 
