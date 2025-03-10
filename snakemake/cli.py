@@ -11,6 +11,7 @@ from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import List, Mapping, Optional, Set, Union
 
+from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
@@ -31,7 +32,6 @@ from snakemake.common import (
     get_container_image,
     parse_key_value_arg,
 )
-from snakemake.dag import Batch
 from snakemake.exceptions import (
     CliException,
     ResourceScopesException,
@@ -45,6 +45,7 @@ from snakemake.resources import (
     parse_resources,
 )
 from snakemake.settings.types import (
+    Batch,
     ChangeType,
     ConfigSettings,
     DAGSettings,
@@ -359,7 +360,9 @@ def get_profile_dir(profile: str) -> (Path, Path):
         profile_candidate = Path(d) / profile
         if profile_candidate.exists():
             files = os.listdir(profile_candidate)
-            curr_major = int(__version__.split(".")[0])
+            # If versioneer cannot get the real version it will return something
+            # like "0+untagged.5410.g40ffe59" - this should only occur in testing scenarios
+            curr_major = int(__version__.split(".")[0].split("+")[0])
             config_files = {
                 f: min_major
                 for f, min_major in zip(files, map(get_config_min_major, files))
@@ -475,7 +478,7 @@ def get_argument_parser(profiles=None):
         nargs="*",
         metavar="RULE",
         help="Store output files of given rules in a central cache given by the environment "
-        "variable $SNAKEMAKE_OUTPUT_CACHE. Likewise, retrieve output files of the given rules "
+        f"variable ${caching.LOCATION_ENVVAR}. Likewise, retrieve output files of the given rules "
         "from this cache if they have been created before (by anybody writing to the same cache), "
         "instead of actually executing the rules. Output files are identified by hashing all "
         "steps, parameters and software stack (conda envs or containers) needed to create them.",

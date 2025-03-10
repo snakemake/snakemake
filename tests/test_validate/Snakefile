@@ -7,10 +7,6 @@ from snakemake.utils import validate
 
 configfile: "config.yaml"
 
-
-validate(config, "config.schema.yaml")
-
-
 # Polars DataFrame
 samples = pl.read_csv(
     config["samples"],
@@ -52,6 +48,7 @@ assert samples["tissue"] == "blood"
 assert samples["n"] == 0
 
 # Pandas DataFrame with index
+validate(config, "config.schema.yaml")
 samples = pd.read_table(config["samples"]).set_index("sample", drop=False)
 validate(samples, "samples.schema.yaml")
 assert samples.iloc[0]["tissue"] == "blood"
@@ -63,9 +60,11 @@ rule all:
     input:
         expand("test.{sample}.txt", sample=samples.index),
 
+module test:
+    snakefile:
+        "module-test/Snakefile"
+    config:
+        config
 
-rule a:
-    output:
-        "test.{sample}.txt",
-    shell:
-        "touch {output}"
+
+use rule * from test as test_*
