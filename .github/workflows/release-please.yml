@@ -2,7 +2,7 @@ on:
   push:
     branches:
       - main
-      - "jjjermiah"
+      - "jjjermiah/*"
 
 name: release-please
 
