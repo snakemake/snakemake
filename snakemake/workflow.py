@@ -1804,15 +1804,8 @@ class Workflow(WorkflowExecutorInterface):
 
                 rule.conda_env = ruleinfo.conda_env
 
-            invalid_rule = not (
-                ruleinfo.script
-                or ruleinfo.wrapper
-                or ruleinfo.shellcmd
-                or ruleinfo.notebook
-            )
             if ruleinfo.nix_flake:
                 rule.nix_flake = ruleinfo.nix_flake
-
             if ruleinfo.container_img:
                 check_may_use_software_deployment("container/singularity")
                 rule.container_img = ruleinfo.container_img
