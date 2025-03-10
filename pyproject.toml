@@ -89,10 +89,10 @@ include = [
 ]
 
 [tool.hatch.version]
-source = "vcs"
-# path = "snakemake/_version.py"
-[tool.hatch.build.hooks.vcs]
-version-file = "snakemake/_version.py"
-version-attr = "__version__"
+# source = "vcs"
+path = "snakemake/_version.py"
+# [tool.hatch.build.hooks.vcs]
+# version-file = "snakemake/_version.py"
+# version-attr = "__version__"
 
 artifacts = ["**/__pycache__", "**/*.py[cod]"]
