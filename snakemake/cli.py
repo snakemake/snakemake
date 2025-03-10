@@ -1963,7 +1963,7 @@ def args_to_api(args, parser):
         log_handlers,
         output_settings,
     )
-    # TODO log command line used here
+
     with SnakemakeApi(
         output_settings,
     ) as snakemake_api:

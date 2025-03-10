@@ -1268,7 +1268,7 @@ class Workflow(WorkflowExecutorInterface):
                         stats_msg, stats_dict = self.dag.stats()
                         logger.info(
                             stats_msg,
-                            extra=dict(level=LogEvent.RUN_INFO, stats=stats_dict),
+                            extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
                         )
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
@@ -1279,7 +1279,7 @@ class Workflow(WorkflowExecutorInterface):
                     stats_msg, stats_dict = self.dag.stats()
                     logger.info(
                         stats_msg,
-                        extra=dict(level=LogEvent.RUN_INFO, stats=stats_dict),
+                        extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
                     )
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)

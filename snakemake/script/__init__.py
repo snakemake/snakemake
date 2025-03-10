@@ -30,7 +30,7 @@ from snakemake import sourcecache
 from snakemake.common import MIN_PY_VERSION, ON_WINDOWS, get_snakemake_searchpaths
 from snakemake.deployment import singularity
 from snakemake.exceptions import WorkflowError
-from snakemake.logging import logger_manager, logger
+from snakemake.logging import logger
 from snakemake.shell import shell
 from snakemake.sourcecache import (
     LocalSourceFile,
@@ -1167,9 +1167,7 @@ class JuliaScript(ScriptBase):
                 JuliaEncoder.encode_value(self.rulename),
                 JuliaEncoder.encode_value(self.bench_iteration),
                 JuliaEncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
-            ).replace(
-                "'", '"'
-            )
+            ).replace("'", '"')
         )
 
     def write_script(self, preamble, fd):
