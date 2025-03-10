@@ -19,6 +19,7 @@ from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
+from snakemake.deployment.nix_flake import NixFlakeEnv
 from snakemake.exceptions import WorkflowError
 
 
@@ -200,6 +201,7 @@ class shell:
         conda_env = context.get("conda_env", None)
         conda_base_path = context.get("conda_base_path", None)
         container_img = context.get("container_img", None)
+        nix_flake = context.get("nix_flake", None)
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
         resources = context.get("resources", {})
@@ -238,6 +240,8 @@ class shell:
                 cmd = Conda(
                     container_img=container_img, prefix_path=conda_base_path
                 ).shellcmd(conda_env, cmd)
+        if nix_flake:
+            cmd = NixFlakeEnv(nix_flake).shellcmd(cmd)
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:

@@ -494,6 +494,10 @@ class Container(RuleKeywordState):
     pass
 
 
+class NixFlake(RuleKeywordState):
+    pass
+
+
 class Containerized(RuleKeywordState):
     pass
 
@@ -543,7 +547,7 @@ class Run(RuleKeywordState):
         yield "\n"
         yield (
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
-            "resources, log, rule, conda_env, container_img, "
+            "resources, log, rule, conda_env, container_img, nix_flake, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
             "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, {rule_func_marker}=True):".format(
@@ -647,7 +651,7 @@ class Script(AbstractCmd):
     def args(self):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
+            "config, rule, conda_env, conda_base_path, container_img, nix_flake, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, sourcecache_path, "
             "runtime_sourcecache_path"
         )
@@ -660,7 +664,7 @@ class Notebook(Script):
     def args(self):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
+            "config, rule, conda_env, conda_base_path, container_img, nix_flake, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
             "edit_notebook, sourcecache_path, runtime_sourcecache_path"
         )
@@ -673,7 +677,7 @@ class Wrapper(Script):
     def args(self):
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
+            "config, rule, conda_env, conda_base_path, container_img, nix_flake, singularity_args, env_modules, "
             "bench_record, workflow.workflow_settings.wrapper_prefix, jobid, bench_iteration, "
             "cleanup_scripts, shadow_dir, sourcecache_path, runtime_sourcecache_path"
         )
@@ -714,6 +718,7 @@ rule_property_subautomata = dict(
     conda=Conda,
     singularity=Singularity,
     container=Container,
+    nix_flake=NixFlake,
     containerized=Containerized,
     envmodules=EnvModules,
     wildcard_constraints=WildcardConstraints,

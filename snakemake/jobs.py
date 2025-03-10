@@ -572,6 +572,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         return None
 
     @property
+    def nix_flake(self):
+        return self.rule.nix_flake
+
+    @property
     def env_modules(self):
         return self.rule.env_modules
 
