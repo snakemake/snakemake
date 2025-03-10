@@ -31,3 +31,7 @@ playground/*
 tutorial/*
 
 snakemake/assets/data
+
+# pixi environments
+.pixi
+*.egg-info

@@ -5,11 +5,12 @@ __license__ = "MIT"
 
 import sys
 
-from snakemake._version import get_versions
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version
 
-__version__ = get_versions()["version"]
-del get_versions
-
+__version__ = version("snakemake")
 PIP_DEPLOYMENTS_PATH = ".snakemake/pip-deployments"
 
 sys.path.append(PIP_DEPLOYMENTS_PATH)
