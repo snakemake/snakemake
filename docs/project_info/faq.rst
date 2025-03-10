@@ -635,7 +635,7 @@ or, more concise in this special case:
 There is a compiler error when installing Snakemake with pip or easy_install, what shall I do?
 ----------------------------------------------------------------------------------------------
 
-Snakemake itself is plain Python, hence the compiler error must come from one of the dependencies, like e.g., datrie.
+Snakemake itself is plain Python, hence the compiler error must come from one of the dependencies.
 You should have a look if maybe you are missing some library or a certain compiler package.
 If everything seems fine, please report to the upstream developers of the failing dependency.
 

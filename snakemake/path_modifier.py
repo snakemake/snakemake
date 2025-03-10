@@ -4,10 +4,11 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+
+from snakemake.common.prefix_lookup import PrefixLookup
 from snakemake.exceptions import WorkflowError
 from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
 from snakemake.logging import logger
-
 
 PATH_MODIFIER_FLAG = "path_modified"
 
@@ -17,21 +18,18 @@ class PathModifier:
         self.skip_properties = set()
         self.workflow = workflow
 
-        self.trie = None
         self.prefix = None
         assert not (prefix and replace_prefix)
         if prefix:
             if not prefix.endswith("/"):
                 prefix += "/"
             self.prefix = prefix
-        if replace_prefix:
-            import datrie
 
-            self.trie = datrie.Trie(
-                "".join(set(char for prefix in replace_prefix for char in prefix))
-            )
-            for prefix, replacement in replace_prefix.items():
-                self.trie[prefix] = replacement
+        self._prefix_replacements = (
+            PrefixLookup(entries=list(replace_prefix.items()))
+            if replace_prefix
+            else None
+        )
 
     def modify(self, path, property=None):
         if get_flag_value(path, PATH_MODIFIER_FLAG):
@@ -62,7 +60,7 @@ class PathModifier:
         return modified_path
 
     def replace_prefix(self, path, property=None):
-        if (self.trie is None and self.prefix is None) or (
+        if (self._prefix_replacements is None and self.prefix is None) or (
             property in self.skip_properties
             or os.path.isabs(path)
             or path.startswith("..")
@@ -72,8 +70,9 @@ class PathModifier:
             # no replacement
             return path
 
-        if self.trie is not None:
-            prefixes = self.trie.prefix_items(str(path))
+        if self._prefix_replacements is not None:
+            prefixes = list(self._prefix_replacements.match_iter(path))
+
             if len(prefixes) > 1:
                 # ambiguous prefixes
                 raise WorkflowError(
@@ -83,7 +82,6 @@ class PathModifier:
                     )
                 )
             elif prefixes:
-                # replace prefix
                 prefix, replacement = prefixes[0]
                 return replacement + path[len(prefix) :]
             else:
@@ -136,5 +134,5 @@ class PathModifier:
         return flag_with_storage_object(path, storage_object)
 
     @property
-    def modifies_prefixes(self):
-        return self.trie is not None
+    def modifies_prefixes(self) -> bool:
+        return self._prefix_replacements is not None

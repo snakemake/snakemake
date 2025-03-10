@@ -6,7 +6,6 @@ dependencies:
   - python >=3.11
   - yte
   - packaging
-  - datrie
   - boto3
   - httpretty
   - wrapt
@@ -52,6 +51,7 @@ dependencies:
   - reretry
   - graphviz
   - humanfriendly
+  - stress-ng
   - throttler
   - dpath
   - nodejs # for cwltool

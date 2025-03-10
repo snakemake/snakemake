@@ -9,7 +9,7 @@ properties:
     type: string
   adapter:
     type: string
-    pattern: "^[ACGT]+$"
+    pattern: "^[ACTG]+$"
 
 required:
   - samples
