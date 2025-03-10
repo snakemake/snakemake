@@ -4,7 +4,11 @@ __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
 import sys
-from importlib.metadata import version
+
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version
 
 __version__ = version("snakemake")
 PIP_DEPLOYMENTS_PATH = ".snakemake/pip-deployments"
