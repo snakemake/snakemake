@@ -151,7 +151,9 @@ def validate(data, schema, set_default=True):
         recordlist = []
         for i, record in enumerate(data.iter_rows(named=True)):
             # Exclude NULL values
-            record = {k: v for k, v in record.items() if pl.Series(k, [v]).is_not_null().all()}
+            record = {
+                k: v for k, v in record.items() if pl.Series(k, [v]).is_not_null().all()
+            }
             try:
                 recordlist.append(_validate_record(record))
             except jsonschema.exceptions.ValidationError as e:
@@ -181,7 +183,9 @@ def validate(data, schema, set_default=True):
         recordlist = []
         for i, record in enumerate(data.head(1000).collect().iter_rows(named=True)):
             # Exclude NULL values
-            record = {k: v for k, v in record.items() if pl.Series(k, [v]).is_not_null().all()}
+            record = {
+                k: v for k, v in record.items() if pl.Series(k, [v]).is_not_null().all()
+            }
             try:
                 recordlist.append(_validate_record(record))
             except jsonschema.exceptions.ValidationError as e:
