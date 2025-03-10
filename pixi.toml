@@ -17,7 +17,7 @@ dev = { features = ["publish"] }
 [feature.publish.dependencies]
 setuptools = ">=75.8.2,<76"
 twine = ">=6.1.0,<7"
-python-build = ">=1.2.2.post1,<2"
+python-build = ">=1.2.2,<2"
 
 [feature.publish.tasks]
 build = { cmd = "python -m build", description = "Build the package" }
