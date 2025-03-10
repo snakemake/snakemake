@@ -7,7 +7,7 @@ Reports
 From Snakemake 5.1 on, it is possible to automatically generate detailed self-contained HTML reports that you can easily move and share. 
 They encompass runtime statistics, provenance information and workflow topology by default, and workflow developers can also specify and annotate results for inclusion.
 For smaller default reports, these can be a single :ref:`snakefiles-self_contained_html_file`.
-For more complext reports, one can generate a :ref:`snakefiles-self_contained_zip_archive`, with a contained ``report.html`` as the main entry point.
+For more complex reports, one can generate a :ref:`snakefiles-self_contained_zip_archive`, with a contained ``report.html`` as the main entry point.
 **As an example, the report of the Snakemake rolling paper can be found** `here <https://snakemake.github.io/resources/report.html>`__.
 
 .. _snakefiles-including_results_in_a_report:
