@@ -1587,7 +1587,8 @@ def get_argument_parser(profiles=None):
         help="Provide a custom name for the jobscript that is submitted to the "
         'cluster (see --cluster). NAME is "snakejob.{name}.{jobid}.sh" '
         "per default. The wildcard {jobid} has to be present in the name.",
-    ) 
+    )
+
     group_cluster.add_argument(
         "--source-file-manifest",
         metavar="FILE",
