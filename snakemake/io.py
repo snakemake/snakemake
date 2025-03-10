@@ -596,7 +596,7 @@ class _IOFile(str, AnnotatedStringInterface):
         await self.check_broken_symlink()
         return os.path.getsize(self.file)
 
-    async def is_checksum_eligible(self, threshold=100000):
+    async def is_checksum_eligible(self, threshold):
         return (
             await self.exists_local()
             and not os.path.isdir(self.file)
@@ -604,7 +604,7 @@ class _IOFile(str, AnnotatedStringInterface):
             and not self.is_fifo()
         )
 
-    async def checksum(self, threshold=1000000, force=False):
+    async def checksum(self, threshold, force=False):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist. If force is True,
         omit eligibility check."""
@@ -623,7 +623,7 @@ class _IOFile(str, AnnotatedStringInterface):
         else:
             return None
 
-    async def is_same_checksum(self, other_checksum, threshold=1000000, force=False):
+    async def is_same_checksum(self, other_checksum, threshold, force=False):
         checksum = await self.checksum(threshold, force=force)
         if checksum is None or other_checksum is None:
             # if no checksum available or files too large, not the same

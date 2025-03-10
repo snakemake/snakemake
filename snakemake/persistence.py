@@ -130,6 +130,7 @@ class Persistence(PersistenceExecutorInterface):
             self.unlock = self.noop
 
         self._read_record = self._read_record_cached
+        self.max_checksum_file_size = self.dag.workflow.dag_settings.max_checksum_file_size
 
     @property
     def path(self) -> Path:
@@ -326,7 +327,7 @@ class Persistence(PersistenceExecutorInterface):
                 else fallback_time
             )
 
-            checksums = ((infile, await infile.checksum()) for infile in job.input)
+            checksums = ((infile, await infile.checksum(self.max_checksum_file_size)) for infile in job.input)
 
             self._record(
                 self._metadata_path,
