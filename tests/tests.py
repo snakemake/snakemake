@@ -414,8 +414,10 @@ def test_script_python():
 
 @skip_on_windows
 def test_script_xsh():
-    run(dpath("test_script_xsh"))
-
+    run(
+        dpath("test_script_xsh"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
 
 @skip_on_windows
 def test_script_rs():
