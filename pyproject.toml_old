@@ -1,0 +1,20 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=42",
+  'tomli; python_version < "3.11"',
+]
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+tag_prefix = "v"
+versionfile_build = "snakemake/_version.py"
+versionfile_source = "snakemake/_version.py"
+
+[tool.codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = '.git,*.pdf,*.svg,versioneer.py,*.css,test_*'
+check-hidden = true
+ignore-regex = '^\s*"image/\S+": ".*|\b[Mm]anuel[. ][Hh]oltgrewe\b'
+ignore-words-list = 'testin'

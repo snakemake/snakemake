@@ -1,0 +1,19 @@
+[project]
+channels = ["conda-forge"]
+name = "snakemake"
+platforms = ["osx-arm64", "linux-64"]
+
+[tasks]
+
+[dependencies]
+python = ">=3.11" # minimum version of python required by snakemake
+
+[pypi-dependencies]
+snakemake = { path = ".", editable = true }
+
+[environments]
+dev = {features = ["dev"]}
+
+[feature.dev.dependencies]
+hatch = "*"
+
