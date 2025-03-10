@@ -17,6 +17,7 @@ import threading
 from snakemake.utils import format, argvquote, cmd_exe_quote
 from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
+from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
@@ -195,7 +196,7 @@ class shell:
 
         jobid = context.get("jobid")
         if not context.get("is_shell") and jobid is not None:
-            logger.shellcmd(cmd)
+            logger.info(None, extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
 
         conda_env = context.get("conda_env", None)
         conda_base_path = context.get("conda_base_path", None)
