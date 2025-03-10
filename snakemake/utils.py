@@ -111,10 +111,7 @@ def validate(data, schema, set_default=True):
     import pandas as pd
     import polars as pl
 
-    def _validate_record(record, excl_null=True):
-        # Exclude NULL values
-        if excl_null:
-            record = {k: v for k, v in record.items() if not pd.isnull(v)}
+    def _validate_record(record):
         if set_default:
             DefaultValidator(schema, resolver=resolver).validate(record)
             return record
@@ -124,7 +121,7 @@ def validate(data, schema, set_default=True):
     if isinstance(data, dict):
         logger.debug("Validating dict")
         try:
-            _validate_record(data, excl_null=False)
+            _validate_record(data)
         except jsonschema.exceptions.ValidationError as e:
             raise WorkflowError("Error validating config file.", e)
 
@@ -133,6 +130,8 @@ def validate(data, schema, set_default=True):
 
         recordlist = []
         for i, record in enumerate(data.to_dict("records")):
+            # Exclude NULL values
+            record = {k: v for k, v in record.items() if pd.notnull(v)}
             try:
                 recordlist.append(_validate_record(record))
             except jsonschema.exceptions.ValidationError as e:
@@ -151,6 +150,8 @@ def validate(data, schema, set_default=True):
 
         recordlist = []
         for i, record in enumerate(data.iter_rows(named=True)):
+            # Exclude NULL values
+            record = {k: v for k, v in record.items() if pl.Series(k, [v]).is_not_null().all()}
             try:
                 recordlist.append(_validate_record(record))
             except jsonschema.exceptions.ValidationError as e:
@@ -179,6 +180,8 @@ def validate(data, schema, set_default=True):
 
         recordlist = []
         for i, record in enumerate(data.head(1000).collect().iter_rows(named=True)):
+            # Exclude NULL values
+            record = {k: v for k, v in record.items() if pl.Series(k, [v]).is_not_null().all()}
             try:
                 recordlist.append(_validate_record(record))
             except jsonschema.exceptions.ValidationError as e:
