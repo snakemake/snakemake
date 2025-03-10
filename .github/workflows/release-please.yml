@@ -9,7 +9,6 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-
       - uses: GoogleCloudPlatform/release-please-action@v4
         id: release
         with:
@@ -21,22 +20,19 @@ jobs:
         with:
           fetch-depth: 0
 
-
       - name: Install Pixi
         if: ${{ steps.release.outputs.release_created }}
-        uses: prefix-dev/setup-pixi@v0.8.1
+        uses: prefix-dev/setup-pixi@v0.8.3
         with:
           pixi-version: v0.40.3
           cache: true
           locked: false
+          environments: publish
 
-      # - name: Build and check package
-      #   if: ${{ steps.release.outputs.release_created }}
-      #   run: |
-      #     python -m pip install --upgrade pip
-      #     pip install build twine
-      #     python -m build
-      #     twine check --strict dist/*
+      - name: Build and Check package
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          pixi run --environment publish check-build
 
       # - name: Publish to PyPI
       #   if: ${{ steps.release.outputs.release_created }}

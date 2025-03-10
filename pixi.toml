@@ -126,7 +126,7 @@ python-build = ">=1.2.2,<2"
 
 [feature.publish.tasks]
 build = { cmd = "python -m build", description = "Build the package" }
-check = { cmd = "python -m twine check dist/*", depends-on = [
+check-build = { cmd = "python -m twine check dist/*", depends-on = [
   "build",
 ], description = "Check that the package can be uploaded" }
 
