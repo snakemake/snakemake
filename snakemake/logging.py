@@ -460,8 +460,7 @@ class ColorizingTextHandler(logging.StreamHandler):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
         # Case 1: Check if terminal is "dumb"
-        if "TERM" in os.environ:
-            if os.environ["TERM"] == "dumb":
+        if os.environ.get("TERM") == "dumb":
                 return False
 
         # Case 2: Always support colors in subprocess mode
@@ -658,17 +657,20 @@ class LoggerManager:
         from snakemake_interface_executor_plugins.settings import ExecMode
 
         if self.mode == ExecMode.DEFAULT and not self.settings.dryrun:
-            os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
-            logfile = os.path.abspath(
-                os.path.join(
-                    ".snakemake",
-                    "log",
-                    datetime.datetime.now().isoformat().replace(":", "")
-                    + ".snakemake.log",
+            try:
+                os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
+                logfile = os.path.abspath(
+                    os.path.join(
+                        ".snakemake",
+                        "log",
+                        datetime.datetime.now().isoformat().replace(":", "")
+                        + ".snakemake.log",
+                    )
                 )
-            )
-            handler = self._default_filehandler(logfile)
-            self.logfile_handlers[handler] = logfile
+                handler = self._default_filehandler(logfile)
+                self.logfile_handlers[handler] = logfile
+            except OSError as e:
+                self.logger.error(f"Failed to setup log file: {e}")
 
     def stop(self):
         if self.queue_listener is not None and self.queue_listener._thread is not None:

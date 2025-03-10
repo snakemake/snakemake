@@ -1129,7 +1129,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
     ):
         logger.error(
-            f"Error in jobid: {self.dag.jobid(self)}",
+            f"Error in rule {self.rule.name}, jobid: {self.dag.jobid(self)}",
             extra=self.get_log_error_info(msg, indent, aux_logs, **kwargs),
         )
 
