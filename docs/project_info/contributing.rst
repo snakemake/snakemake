@@ -225,7 +225,8 @@ Snakemake development environment via
 
     $ git clone git@github.com:snakemake/snakemake.git
     $ cd snakemake
-    $ conda env create -f doc-environment.yml -n snakemake
+    $ conda env create -f doc-environment.yml -n snakemake_docs
+    $ conda activate snakemake_docs
 
 You will also need to install your development version of Snakemake for the docs to be built correctly
 
@@ -237,7 +238,6 @@ Then, the docs can be built with
 
 .. code-block:: console
 
-    $ conda activate snakemake
     $ cd docs
     $ make html
     $ make clean && make html  # force rebuild
