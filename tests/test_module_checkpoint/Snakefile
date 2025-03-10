@@ -1,0 +1,40 @@
+shell.executable("bash")
+
+print(id(checkpoints))
+
+
+module test_a:
+    snakefile:
+        "module-test/Snakefile"
+    config:
+        ["AAA"]
+    prefix:
+        "a"
+
+
+use rule * from test_a as test_a_*
+
+
+module test_b:
+    snakefile:
+        "module-test/Snakefile"
+    config:
+        ["BBB"]
+    prefix:
+        "b"
+
+
+use rule * from test_b as test_b_*
+
+
+assert test_a.config[0] == "AAA"
+
+
+rule all:
+    input:
+        expand(rules.test_a_aggregate.output, sample="a"),
+        expand(rules.test_b_aggregate.output, sample="b"),
+    default_target: True
+
+
+print(id(checkpoints))
