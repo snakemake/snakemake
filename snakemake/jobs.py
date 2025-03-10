@@ -30,6 +30,7 @@ from snakemake_interface_executor_plugins.jobs import (
     SingleJobExecutorInterface,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_logger_plugins.common import LogEvent
 
 from snakemake.io import (
     _IOFile,
@@ -53,7 +54,7 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 
-from snakemake.logging import logger, LogEvent
+from snakemake.logging import logger
 from snakemake.common import (
     is_local_file,
     get_uuid,

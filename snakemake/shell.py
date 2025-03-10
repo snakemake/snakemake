@@ -16,7 +16,8 @@ import threading
 
 from snakemake.utils import format, argvquote, cmd_exe_quote
 from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
-from snakemake.logging import logger, LogEvent
+from snakemake.logging import logger
+from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError

@@ -28,6 +28,7 @@ from snakemake.settings.types import DeploymentMethod
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
+from snakemake_interface_logger_plugins.common import LogEvent
 
 from snakemake import workflow
 from snakemake import workflow as _workflow
@@ -70,7 +71,7 @@ from snakemake.jobs import (
     Reason,
 )
 from snakemake.settings.types import SharedFSUsage
-from snakemake.logging import logger, LogEvent
+from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
 from snakemake.settings.types import ChangeType

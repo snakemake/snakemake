@@ -17,10 +17,11 @@ from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorI
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
-from snakemake.logging import logger, LogEvent
+from snakemake.logging import logger
 
 from snakemake.settings.types import MaxJobsPerTimespan
 

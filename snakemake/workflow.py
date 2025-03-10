@@ -50,8 +50,9 @@ from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
+from snakemake_interface_logger_plugins.common import LogEvent
 
-from snakemake.logging import logger, format_resources, logger_manager, LogEvent
+from snakemake.logging import logger, format_resources, logger_manager
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
