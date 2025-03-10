@@ -2,7 +2,7 @@ on:
   push:
     branches:
       - main
-      - "jjjermiah/3347-modernize-package-dev"
+      - "jjjermiah"
 
 name: release-please
 
@@ -16,6 +16,7 @@ jobs:
         with:
           release-type: python
           # package-name: snakemake
+          target-branch: ${{ github.ref_name }}
 
       - uses: actions/checkout@v4
         if: ${{ steps.release.outputs.release_created }}
