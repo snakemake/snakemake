@@ -1,5 +1,4 @@
 class NixFlakeEnv:
-
     """Nix Flake Env"""
 
     def __init__(self, nix_flake):
