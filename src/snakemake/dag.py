@@ -3112,7 +3112,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         # check if a manifest file is provided
         # or get git-managed files
         if self.workflow.remote_execution_settings.source_file_manifest:
-            fl = self.workflow.remote_execution_settings.source_file_manifest 
+            fl = self.workflow.remote_execution_settings.source_file_manifest
             try:
                 with open(fl, "r") as manifest:
                     for f in manifest.read().splitlines():
@@ -3123,7 +3123,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         else:
             try:
                 out = subprocess.check_output(
-                    ["git", "ls-files", "--recurse-submodules", "."], stderr=subprocess.PIPE
+                    ["git", "ls-files", "--recurse-submodules", "."],
+                    stderr=subprocess.PIPE,
                 )
                 for f in out.decode().split("\n"):
                     if f:
@@ -3137,7 +3138,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 else:
                     raise WorkflowError(
                         "Error executing git (Snakemake requires git to be installed for "
-                        "remote execution without shared filesystem):\n" + e.stderr.decode()
+                        "remote execution without shared filesystem):\n"
+                        + e.stderr.decode()
                     )
 
         return files
