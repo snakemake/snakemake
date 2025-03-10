@@ -1,7 +1,11 @@
 rule all:
     input:
         "test_1_file.tsv",
-        "test_2_file.tsv"
+        "test_2_file.tsv",
+        "test.out",
+        "test2.out"
+
+# Test that the change works as intended for workflows imported as modules
 
 module other_workflow:
     snakefile:
@@ -11,3 +15,19 @@ module other_workflow:
 use rule test from other_workflow as other_test with:
     params:
         b = 9
+
+# Test that the change works for regular rule inheritance
+rule a:
+    params:
+        a = 3,
+        b = 6
+    output:
+        "test.out"
+    shell:
+        "echo {params.a} {params.b} > {output}"
+
+use rule a as b with:
+    params:
+        a = 9
+    output:
+        "test2.out"
