@@ -32,12 +32,6 @@ jobs:
           cache: true
           locked: false
 
-      # - name: Set up Python
-      #   if: ${{ steps.release.outputs.release_created }}
-      #   uses: actions/setup-python@v5
-      #   with:
-      #     python-version: '3.x'
-
       # - name: Build and check package
       #   if: ${{ steps.release.outputs.release_created }}
       #   run: |
