@@ -259,7 +259,7 @@ Further, using ``url_args()`` you can add URL arguments and using ``anchor()`` y
 Rendering reports
 -----------------
 
-All the metadata contained in the report (e.g. runtime statistics) is automatically collected during the rendering of the report.
+All the metadata contained in the report (e.g. runtime statistics) are automatically collected during the rendering of the report.
 These statistics are obtained from the metadata that is stored in the ``.snakemake`` directory inside your working directory.
 
 .. _snakefiles-self_contained_html_file:
