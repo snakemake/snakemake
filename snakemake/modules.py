@@ -188,6 +188,7 @@ class WorkflowModifier:
             self.rules = set()
             self.rule_proxies = rule_proxies or Rules()
             self.globals["rules"] = self.rule_proxies
+            self.globals["checkpoints"] = self.globals["checkpoints"].module_use()
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile
