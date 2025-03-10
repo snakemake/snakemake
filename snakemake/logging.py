@@ -22,46 +22,7 @@ import textwrap
 from typing import List, Optional
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_logger_plugins.settings import OutputSettingsLoggerInterface
-
-try:
-    from enum import StrEnum, auto
-except ImportError:
-    from enum import Enum, auto
-
-    class StrEnum(str, Enum):
-        """
-        StrEnum implementation for Python < 3.11
-        """
-
-        def _generate_next_value_(name, start, count, last_values):
-            return name.lower()
-
-        def __str__(self):
-            return self.value
-
-        def __repr__(self):
-            return self.value
-
-
-# LogEvent to inform formatting and available fields.
-class LogEvent(StrEnum):
-    RUN_INFO = auto()
-    WORKFLOW_STARTED = auto()
-    SHELLCMD = auto()
-    JOB_INFO = auto()
-    JOB_ERROR = auto()
-    JOB_STARTED = auto()
-    JOB_FINISHED = auto()
-
-    GROUP_INFO = auto()
-    GROUP_ERROR = auto()
-
-    RESOURCES_INFO = auto()
-
-    DEBUG_DAG = auto()
-
-    PROGRESS = auto()
-
+from snakemake_interface_logger_plugins.common import LogEvent
 
 if TYPE_CHECKING:
     from snakemake_interface_executor_plugins.settings import ExecMode
