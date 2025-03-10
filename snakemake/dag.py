@@ -144,6 +144,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._running = set()
         self._jobs_with_finished_queue_input = set()
         self._storage_input_jobs = defaultdict(list)
+        self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -646,7 +647,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         e,
                         rule=job.rule,
                     )
-            return not await f.is_same_checksum(checksum, force=True)
+            return not await f.is_same_checksum(checksum, self.max_checksum_file_size, force=True)
 
         checksum_failed_output = [
             f
@@ -1227,7 +1228,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             try:
                 return is_same_checksum_cache[(f, job)]
             except KeyError:
-                if not await f.is_checksum_eligible():
+                if not await f.is_checksum_eligible(self.max_checksum_file_size):
                     # no chance to compute checksum, cannot be assumed the same
                     is_same = False
                 else:
@@ -1241,7 +1242,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         # no checksums recorded, we cannot assume them to be the same
                         is_same = False
                     else:
-                        is_same = await f.is_same_checksum(checksums.pop())
+                        is_same = await f.is_same_checksum(self.max_checksum_file_size, checksums.pop())
 
                 is_same_checksum_cache[(f, job)] = is_same
                 return is_same

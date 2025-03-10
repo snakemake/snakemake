@@ -1295,6 +1295,13 @@ def get_argument_parser(profiles=None):
         "to individual checks for the rest.",
     )
     group_behavior.add_argument(
+        "--max-checksum-file-size",
+        type=int,
+        default=1000000,
+        metavar="BYTES",
+        help="Compute the checksum only for files that are smaller than the threshold.",
+    )
+    group_behavior.add_argument(
         "--latency-wait",
         "--output-wait",
         "-w",
@@ -2090,6 +2097,7 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
+                            max_checksum_file_size=args.max_checksum_file_size,
                         ),
                     )
 
