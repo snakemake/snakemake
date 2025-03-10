@@ -30,7 +30,7 @@ setup(
             "report/html_reporter/template/**/*",
             "report/html_reporter/template/*",
             "common/tests/testcases/**/*",
-            "snakemake/snakemake/unit_tests/templates/*"
+            "snakemake/snakemake/unit_tests/templates/*",
         ]
     },
 )
