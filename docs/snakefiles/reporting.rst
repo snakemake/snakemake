@@ -274,7 +274,7 @@ To create a default report simply run
     snakemake --report
 
 after your workflow has finished successfully.
-This will implicitly assume a report file name of ``report.html`` and will create this self-contained HTML report.
+This will create a self-contained HTML report with the default filename ``report.html``.
 If you want to give your report a custom name, you can do so by specifying this on the command-line:
 
 .. code-block:: bash
