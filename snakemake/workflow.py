@@ -1291,7 +1291,8 @@ class Workflow(WorkflowExecutorInterface):
 
             if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
-                async_run(self.dag.cleanup_storage_objects())
+                if not self.storage_settings.keep_storage_local:
+                    async_run(self.dag.cleanup_storage_objects())
 
             if success:
                 if self.dryrun:
