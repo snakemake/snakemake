@@ -1,6 +1,84 @@
 # Changelog
 
 
+## [8.29.3](https://github.com/snakemake/snakemake/compare/v8.29.2...v8.29.3) (2025-03-09)
+
+
+### Bug Fixes
+
+* update syntax, folding, and sections vim files ([#3340](https://github.com/snakemake/snakemake/issues/3340)) ([4bf797c](https://github.com/snakemake/snakemake/commit/4bf797c9057a52eadb65d69b7cfd576cecb35410))
+* use local play storage ([#3344](https://github.com/snakemake/snakemake/issues/3344)) ([e86acc4](https://github.com/snakemake/snakemake/commit/e86acc4eaa82af52f3606d50036c86189513f6dc))
+
+
+### Documentation
+
+* add description of codebase ([#3350](https://github.com/snakemake/snakemake/issues/3350)) ([6fe6535](https://github.com/snakemake/snakemake/commit/6fe653566d4bedf5aa496364c3985d13c6908474))
+* simplify test setup description ([#3348](https://github.com/snakemake/snakemake/issues/3348)) ([ec8a0e1](https://github.com/snakemake/snakemake/commit/ec8a0e1a0979063247e98bb760c0cdfad4edd5cc))
+
+## [8.29.2](https://github.com/snakemake/snakemake/compare/v8.29.1...v8.29.2) (2025-03-05)
+
+
+### Documentation
+
+* define gpu and gpu_manufacturer standard resource ([f4e7a08](https://github.com/snakemake/snakemake/commit/f4e7a08f7c3ead6c29e6a05d83f352728367cd8c))
+* define gpu_model resource ([ac7d704](https://github.com/snakemake/snakemake/commit/ac7d704c3e78fe7137572b980f24c87ec72d74d4))
+
+## [8.29.1](https://github.com/snakemake/snakemake/compare/v8.29.0...v8.29.1) (2025-03-05)
+
+
+### Bug Fixes
+
+* fix type error upon --list-params-changes ([#3313](https://github.com/snakemake/snakemake/issues/3313)) ([114238c](https://github.com/snakemake/snakemake/commit/114238c813da844b95a69676e8d57ee19b5bf700))
+
+## [8.29.0](https://github.com/snakemake/snakemake/compare/v8.28.0...v8.29.0) (2025-02-27)
+
+
+### Features
+
+* provide mechanism to link between report items (snakemake.report_href, see docs) ([#3224](https://github.com/snakemake/snakemake/issues/3224)) ([a024e60](https://github.com/snakemake/snakemake/commit/a024e6064dc08cdb15f4cc1b190974a5d1a1be5d))
+* toggles for binary labels in report ([#3296](https://github.com/snakemake/snakemake/issues/3296)) ([7690998](https://github.com/snakemake/snakemake/commit/7690998cc3235d26c9785bd3973dc776084fb797))
+
+
+### Bug Fixes
+
+* add missing [@conda](https://github.com/conda) annotations ([#3298](https://github.com/snakemake/snakemake/issues/3298)) ([0b541cc](https://github.com/snakemake/snakemake/commit/0b541ccc08e2995011ead85f23fa67ce669bc81a))
+* properly handle remote storage when waiting for pipes ([#3317](https://github.com/snakemake/snakemake/issues/3317)) ([9f7e092](https://github.com/snakemake/snakemake/commit/9f7e092b17c0ce0ab88469184ce98dba6518c543))
+* provide proper error messages if output file preparation (pipe, mkdir) fails ([#3309](https://github.com/snakemake/snakemake/issues/3309)) ([77ef176](https://github.com/snakemake/snakemake/commit/77ef176e2927f6d51de826a2ed3aeb175a2e9a50))
+* record file extension (e.g. .tsv) in between workflow cache records in order to avoid that files of the wrong format are erroneously returned by the cache. This will lead to some cache misses. But avoiding errors induced by the previous behavior of ignoring file extensions when seeking for cache records is more important. ([#3314](https://github.com/snakemake/snakemake/issues/3314)) ([4912f00](https://github.com/snakemake/snakemake/commit/4912f00c24c5fd16b958e530956297ba11d7e155))
+* sort results lexicographically by labels in their order of appearance ([#3293](https://github.com/snakemake/snakemake/issues/3293)) ([a19a0ac](https://github.com/snakemake/snakemake/commit/a19a0ac3c969380a856d5b8c3aa2626a91c412a3))
+
+
+### Documentation
+
+* update best practices ([7270eb3](https://github.com/snakemake/snakemake/commit/7270eb325eb1ee5270dfcebcbeca8b976f099f19))
+
+## [8.28.0](https://github.com/snakemake/snakemake/compare/v8.27.1...v8.28.0) (2025-02-12)
+
+
+### Features
+
+* do not fail if --cache is active but no SNAKEMAKE_OUTPUT_CACHE env var is defined. Instead, print a warning that explains the options. ([#3270](https://github.com/snakemake/snakemake/issues/3270)) ([9610f7c](https://github.com/snakemake/snakemake/commit/9610f7c12fac8ef235012ed5ec0496e061af2346))
+
+
+### Bug Fixes
+
+* do not use outdated metadata for rerun triggers (only warn about it) ([#3259](https://github.com/snakemake/snakemake/issues/3259)) ([d766a48](https://github.com/snakemake/snakemake/commit/d766a48ecc8ebf1cd147996e8d4a5fcdf30e428a))
+* ensure that exceptions print storage queries instead of local copies of remote files ([#3258](https://github.com/snakemake/snakemake/issues/3258)) ([e5d8ec1](https://github.com/snakemake/snakemake/commit/e5d8ec172596e4f50df0c4334a964ff063a7967c))
+* fix error message of evaluate helper function ([#3282](https://github.com/snakemake/snakemake/issues/3282)) ([9483a64](https://github.com/snakemake/snakemake/commit/9483a642e044fa6be577f099dc2c4b5cc7a3d7d8))
+* Revert cleaning of env vars in apptainer ([#3285](https://github.com/snakemake/snakemake/issues/3285)) ([e79a51b](https://github.com/snakemake/snakemake/commit/e79a51b7f12a1ddd32d337b927ac351f73d94c81))
+
+
+### Performance Improvements
+
+* compare checksums of input files &lt;= 1MB (before (10KB) ([#3267](https://github.com/snakemake/snakemake/issues/3267)) ([ba017bb](https://github.com/snakemake/snakemake/commit/ba017bb636e70eef93085610de3d8290d201330e))
+* query updated input files in parallel ([#3266](https://github.com/snakemake/snakemake/issues/3266)) ([bc4fcee](https://github.com/snakemake/snakemake/commit/bc4fceef0bbed7e2efa9b168ac32999b4499ec63))
+
+
+### Documentation
+
+* Adds instructions for using syntax highlighting with lazy.nvim ([#3246](https://github.com/snakemake/snakemake/issues/3246)) ([7a75043](https://github.com/snakemake/snakemake/commit/7a750434a857ebc912868d36655bab4d32e7db32))
+* Fix typos in basic API example ([#3277](https://github.com/snakemake/snakemake/issues/3277)) ([8782219](https://github.com/snakemake/snakemake/commit/8782219392db1ed31b65c384b1dda72790bb8e89))
+
 ## [8.27.1](https://github.com/snakemake/snakemake/compare/v8.27.0...v8.27.1) (2025-01-08)
 
 

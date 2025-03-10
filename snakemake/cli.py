@@ -360,7 +360,9 @@ def get_profile_dir(profile: str) -> (Path, Path):
         profile_candidate = Path(d) / profile
         if profile_candidate.exists():
             files = os.listdir(profile_candidate)
-            curr_major = int(__version__.split(".")[0])
+            # If versioneer cannot get the real version it will return something
+            # like "0+untagged.5410.g40ffe59" - this should only occur in testing scenarios
+            curr_major = int(__version__.split(".")[0].split("+")[0])
             config_files = {
                 f: min_major
                 for f, min_major in zip(files, map(get_config_min_major, files))

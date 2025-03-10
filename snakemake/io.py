@@ -683,11 +683,18 @@ class _IOFile(str, AnnotatedStringInterface):
             except OSError as e:
                 # ignore Errno 17 "File exists" (reason: multiprocessing)
                 if e.errno != 17:
-                    raise e
+                    raise WorkflowError(
+                        f"Failed to create output directory {dirpath}.", e
+                    )
 
         if is_flagged(self._file, "pipe"):
             assert isinstance(self._file, AnnotatedString)
-            os.mkfifo(self._file)
+            try:
+                os.mkfifo(self._file)
+            except Exception as e:
+                raise WorkflowError(
+                    f"Failed to create FIFO for pipe output {self._file}.", e
+                )
 
     def protect(self):
         mode = (
@@ -934,9 +941,15 @@ _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
 
+_CONSIDER_LOCAL_DEFAULT = frozenset()
+
 
 async def wait_for_files(
-    files, latency_wait=3, wait_for_local=False, ignore_pipe_or_service=False
+    files,
+    latency_wait=3,
+    wait_for_local=False,
+    ignore_pipe_or_service=False,
+    consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
 ):
     """Wait for given files to be present in the filesystem."""
     files = list(files)
@@ -949,11 +962,12 @@ async def wait_for_files(
                 return None
             if (
                 isinstance(f, _IOFile)
+                and f not in consider_local
                 and f.is_storage
                 and (not wait_for_local or f.should_not_be_retrieved_from_storage)
             ):
                 if not await f.exists_in_storage():
-                    return f"{f} (missing in storage)"
+                    return f"{f.storage_object.query} (missing in storage)"
             elif not os.path.exists(f):
                 parent_dir = os.path.dirname(f)
                 if list_parent:
@@ -971,16 +985,20 @@ async def wait_for_files(
 
     missing = await get_missing()
     if missing:
+        fmt_missing = "\n".join
+
         sleep = max(latency_wait / 10, 1)
         before_time = time.time()
-        logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
+        logger.info(
+            f"Waiting at most {latency_wait} seconds for missing files:\n{fmt_missing(missing)}"
+        )
         while time.time() - before_time < latency_wait:
             missing = await get_missing()
             logger.debug("still missing files, waiting...")
             if not missing:
                 return
             time.sleep(sleep)
-        missing = "\n".join(await get_missing(list_parent=True))
+        missing = fmt_missing(await get_missing(list_parent=True))
         raise IOError(
             f"Missing files after {latency_wait} seconds. This might be due to "
             "filesystem latency. If that is the case, consider to increase the "
@@ -1172,7 +1190,9 @@ def pipe(value):
         raise SyntaxError("Pipes may not be in storage.")
     if ON_WINDOWS:
         logger.warning("Pipes are not yet supported on Windows.")
-    return flag(value, "pipe", not ON_WINDOWS)
+        return value
+    else:
+        return flag(value, "pipe")
 
 
 def service(value):
@@ -1348,10 +1368,12 @@ def expand(*args, **wildcard_values):
     }
 
     def do_expand(
-        wildcard_values: Dict[str, dict[str, Union[str, collections.abc.Iterable[str]]]]
+        wildcard_values: Dict[
+            str, dict[str, Union[str, collections.abc.Iterable[str]]]
+        ],
     ):
         def flatten(
-            wildcard_values: Dict[str, Union[str, collections.abc.Iterable[str]]]
+            wildcard_values: Dict[str, Union[str, collections.abc.Iterable[str]]],
         ):
             for wildcard, value in wildcard_values.items():
                 if (
@@ -1750,15 +1772,39 @@ class Namedlist(list):
 
 class InputFiles(Namedlist):
     @property
-    def size(self):
+    def size_files(self):
         async def sizes():
             return [await f.size() for f in self]
 
-        return sum(async_run(sizes()))
+        return async_run(sizes())
+
+    @property
+    def size_files_kb(self):
+        return [f / 1024 for f in self.size_files]
+
+    @property
+    def size_files_mb(self):
+        return [f / 1024 for f in self.size_files_kb]
+
+    @property
+    def size_files_gb(self):
+        return [f / 1024 for f in self.size_files_mb]
+
+    @property
+    def size(self):
+        return sum(self.size_files)
+
+    @property
+    def size_kb(self):
+        return sum(self.size_files_kb)
 
     @property
     def size_mb(self):
-        return self.size / 1024 / 1024
+        return sum(self.size_files_mb)
+
+    @property
+    def size_gb(self):
+        return sum(self.size_files_gb)
 
 
 class OutputFiles(Namedlist):
