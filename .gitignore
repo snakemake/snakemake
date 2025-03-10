@@ -3,6 +3,8 @@
 *.swp
 
 docs/_build
+apidocs/_build
+apidocs/**/_autosummary
 build/
 dist/
 *.egg-info/
@@ -12,6 +14,7 @@ dist/
 .venv
 .venv/*
 .python-version
+/version.txt
 
 
 .idea
@@ -26,3 +29,5 @@ dist/
 tests/test*/*
 playground/*
 tutorial/*
+
+snakemake/assets/data

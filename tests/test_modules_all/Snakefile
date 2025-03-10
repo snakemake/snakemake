@@ -1,5 +1,6 @@
 shell.executable("bash")
 
+
 configfile: "config/config.yaml"
 
 
@@ -8,10 +9,16 @@ module test:
         "module-test/Snakefile"
     config:
         config
-    replace_prefix: 
+    replace_prefix:
         {"results/": "results/testmodule/"}
 
 
-use rule * from test
+use rule * from test as test_*
+
+
+rule all:
+    input:
+        multiext(expand("results/testmodule/c/{name}.", name="test")[0], "tsv", "txt"),
+
 
 assert test.some_func() == 15

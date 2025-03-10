@@ -1,0 +1,21 @@
+.image-reference img {
+    display: inline;
+    background: none !important;
+}
+
+.image-reference {
+    border-bottom: none !important;
+}
+
+:root {
+    --color-links: #047857;
+    --color-brand: #047857;
+}
+
+#content {
+    overflow-x: auto;
+}
+
+code {
+    font-family: monospace !important;
+}

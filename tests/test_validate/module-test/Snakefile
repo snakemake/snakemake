@@ -1,0 +1,14 @@
+shell.executable("bash")
+
+import pandas as pd
+from snakemake.utils import validate
+
+
+validate(config, "config.schema.yaml")
+
+
+rule a:
+    output:
+        "test.{sample}.txt",
+    shell:
+        "touch {output}"

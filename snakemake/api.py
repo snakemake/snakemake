@@ -3,17 +3,18 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass, field
+import functools
+import hashlib
 from pathlib import Path
 import sys
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Mapping, Optional, Set
 import os
-from functools import partial
-import importlib
+import tarfile
 
-from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES
-from snakemake.settings import (
+from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
+from snakemake.settings.types import (
     ChangeType,
     GroupSettings,
     SchedulingSettings,
@@ -24,7 +25,7 @@ if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import (
+from snakemake.settings.types import (
     DAGSettings,
     DeploymentMethod,
     DeploymentSettings,
@@ -34,12 +35,16 @@ from snakemake.settings import (
     RemoteExecutionSettings,
     ResourceSettings,
     StorageSettings,
+    SharedFSUsage,
 )
 
-from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_executor_plugins import ExecutorSettingsBase
+from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_common.exceptions import ApiError
+from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
+from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -62,7 +67,7 @@ class ApiBase(ABC):
         pass
 
 
-def resolve_snakefile(path: Optional[Path]):
+def resolve_snakefile(path: Optional[Path], allow_missing: bool = False):
     """Get path to the snakefile.
 
     Arguments
@@ -73,9 +78,10 @@ def resolve_snakefile(path: Optional[Path]):
         for p in SNAKEFILE_CHOICES:
             if p.exists():
                 return p
-        raise ApiError(
-            f"No Snakefile found, tried {', '.join(map(str, SNAKEFILE_CHOICES))}."
-        )
+        if not allow_missing:
+            raise ApiError(
+                f"No Snakefile found, tried {', '.join(map(str, SNAKEFILE_CHOICES))}."
+            )
     return path
 
 
@@ -99,6 +105,8 @@ class SnakemakeApi(ApiBase):
         config_settings: Optional[ConfigSettings] = None,
         storage_settings: Optional[StorageSettings] = None,
         workflow_settings: Optional[WorkflowSettings] = None,
+        deployment_settings: Optional[DeploymentSettings] = None,
+        storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
     ):
@@ -122,10 +130,16 @@ class SnakemakeApi(ApiBase):
             storage_settings = StorageSettings()
         if workflow_settings is None:
             workflow_settings = WorkflowSettings()
+        if deployment_settings is None:
+            deployment_settings = DeploymentSettings()
+        if storage_provider_settings is None:
+            storage_provider_settings = dict()
 
         self._check_is_in_context()
 
-        self._setup_logger()
+        self.setup_logger(mode=workflow_settings.exec_mode)
+
+        self._check_default_storage_provider(storage_settings=storage_settings)
 
         snakefile = resolve_snakefile(snakefile)
 
@@ -137,6 +151,8 @@ class SnakemakeApi(ApiBase):
             resource_settings=resource_settings,
             storage_settings=storage_settings,
             workflow_settings=workflow_settings,
+            deployment_settings=deployment_settings,
+            storage_provider_settings=storage_provider_settings,
         )
         return self._workflow_api
 
@@ -146,11 +162,65 @@ class SnakemakeApi(ApiBase):
             logger.cleanup()
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
-            if (
-                self._workflow_api._workflow_store is not None
-                and self._workflow_api._workflow._workdir_handler is not None
-            ):
-                self._workflow_api._workflow._workdir_handler.change_back()
+            if self._workflow_api._workflow_store is not None:
+                self._workflow_api._workflow_store.tear_down()
+
+    def deploy_sources(
+        self,
+        query: str,
+        checksum: str,
+        storage_settings: StorageSettings,
+        storage_provider_settings: Dict[str, TaggedSettings],
+    ):
+        if (
+            storage_settings.default_storage_provider is None
+            or storage_settings.default_storage_prefix is None
+        ):
+            raise ApiError(
+                "A default storage provider and prefix has to be set for deployment of "
+                "sources."
+            )
+
+        self._check_default_storage_provider(storage_settings=storage_settings)
+
+        plugin = StoragePluginRegistry().get_plugin(
+            storage_settings.default_storage_provider
+        )
+        if not plugin.is_read_write():
+            raise ApiError(
+                f"Default storage provider {storage_settings.default_storage_provider} "
+                "is not a read-write storage provider."
+            )
+
+        plugin_settings = storage_provider_settings.get(
+            storage_settings.default_storage_provider
+        ).get_settings(None)
+
+        plugin.validate_settings(plugin_settings)
+
+        provider_instance = plugin.storage_provider(
+            local_prefix=storage_settings.local_storage_prefix,
+            settings=plugin_settings,
+            is_default=True,
+        )
+        query_validity = provider_instance.is_valid_query(query)
+        if not query_validity:
+            raise ApiError(
+                f"Error when applying default storage provider "
+                f"{storage_settings.default_storage_provider} to upload workflow "
+                f"sources. {query_validity}"
+            )
+        storage_object = provider_instance.object(query)
+        async_run(storage_object.managed_retrieve())
+        with open(storage_object.local_path(), "rb") as f:
+            obtained_checksum = hashlib.file_digest(f, "sha256").hexdigest()
+        if obtained_checksum != checksum:
+            raise ApiError(
+                f"Checksum of retrieved sources ({obtained_checksum}) does not match "
+                f"expected checksum ({checksum})."
+            )
+        with tarfile.open(storage_object.local_path(), "r") as tar:
+            tar.extractall()
 
     def print_exception(self, ex: Exception):
         """Print an exception during workflow execution in a human readable way
@@ -161,14 +231,15 @@ class SnakemakeApi(ApiBase):
         ---------
         ex: Exception -- The exception to print.
         """
-        linemaps = (
-            self._workflow_api._workflow.linemaps
-            if self._workflow_api is not None
-            else dict()
-        )
+        linemaps = dict()
+        if (
+            self._workflow_api is not None
+            and self._workflow_api._workflow_store is not None
+        ):
+            linemaps = self._workflow_api._workflow_store.linemaps
         print_exception(ex, linemaps)
 
-    def _setup_logger(
+    def setup_logger(
         self,
         stdout: bool = False,
         mode: ExecMode = ExecMode.DEFAULT,
@@ -182,7 +253,7 @@ class SnakemakeApi(ApiBase):
                 debug=self.output_settings.verbose,
                 printshellcmds=self.output_settings.printshellcmds,
                 debug_dag=self.output_settings.debug_dag,
-                stdout=stdout,
+                stdout=stdout or self.output_settings.stdout,
                 mode=mode,
                 show_failed_logs=self.output_settings.show_failed_logs,
                 dryrun=dryrun,
@@ -195,6 +266,17 @@ class SnakemakeApi(ApiBase):
                 "statement."
             )
 
+    def _check_default_storage_provider(self, storage_settings: StorageSettings):
+        if storage_settings.default_storage_provider is not None:
+            plugin = StoragePluginRegistry().get_plugin(
+                storage_settings.default_storage_provider
+            )
+            if not plugin.is_read_write():
+                raise ApiError(
+                    f"Default storage provider {storage_settings.default_storage_provider} "
+                    "is not a read-write storage provider."
+                )
+
     def __enter__(self):
         self._is_in_context = True
         return self
@@ -202,6 +284,15 @@ class SnakemakeApi(ApiBase):
     def __exit__(self, exc_type, exc_value, traceback):
         self._is_in_context = False
         self._cleanup()
+
+
+def _no_dag(method):
+    @functools.wraps(method)
+    def _handle_no_dag(self: "WorkflowApi", *args, **kwargs):
+        self.resource_settings.cores = 1
+        return method(self, *args, **kwargs)
+
+    return _handle_no_dag
 
 
 @dataclass
@@ -223,13 +314,15 @@ class WorkflowApi(ApiBase):
     resource_settings: ResourceSettings
     storage_settings: StorageSettings
     workflow_settings: WorkflowSettings
+    deployment_settings: DeploymentSettings
+    storage_provider_settings: Mapping[str, TaggedSettings]
+
     _workflow_store: Optional[Workflow] = field(init=False, default=None)
     _workdir_handler: Optional[WorkdirHandler] = field(init=False)
 
     def dag(
         self,
         dag_settings: Optional[DAGSettings] = None,
-        deployment_settings: Optional[DeploymentSettings] = None,
     ):
         """Create a DAG API.
 
@@ -239,16 +332,14 @@ class WorkflowApi(ApiBase):
         """
         if dag_settings is None:
             dag_settings = DAGSettings()
-        if deployment_settings is None:
-            deployment_settings = DeploymentSettings()
 
         return DAGApi(
             self.snakemake_api,
             self,
             dag_settings=dag_settings,
-            deployment_settings=deployment_settings,
         )
 
+    @_no_dag
     def lint(self, json: bool = False):
         """Lint the workflow.
 
@@ -261,12 +352,14 @@ class WorkflowApi(ApiBase):
         True if any lints were printed
         """
         workflow = self._get_workflow(check_envvars=False)
+        self._workflow_store = workflow
         workflow.include(
             self.snakefile, overwrite_default_target=True, print_compilation=False
         )
         workflow.check()
         return workflow.lint(json=json)
 
+    @_no_dag
     def list_rules(self, only_targets: bool = False):
         """List the rules of the workflow.
 
@@ -276,10 +369,12 @@ class WorkflowApi(ApiBase):
         """
         self._workflow.list_rules(only_targets=only_targets)
 
+    @_no_dag
     def list_resources(self):
         """List the resources of the workflow."""
         self._workflow.list_resources()
 
+    @_no_dag
     def print_compilation(self):
         """Print the pure python compilation of the workflow."""
         workflow = self._get_workflow()
@@ -289,27 +384,34 @@ class WorkflowApi(ApiBase):
     def _workflow(self):
         if self._workflow_store is None:
             workflow = self._get_workflow()
+            self._workflow_store = workflow
             workflow.include(
                 self.snakefile, overwrite_default_target=True, print_compilation=False
             )
             workflow.check()
-            self._workflow_store = workflow
         return self._workflow_store
 
     def _get_workflow(self, **kwargs):
         from snakemake.workflow import Workflow
 
+        if "group_settings" not in kwargs:
+            # just init with defaults, can be overwritten later
+            kwargs["group_settings"] = GroupSettings()
+
         return Workflow(
             config_settings=self.config_settings,
             resource_settings=self.resource_settings,
             workflow_settings=self.workflow_settings,
+            deployment_settings=self.deployment_settings,
             storage_settings=self.storage_settings,
             output_settings=self.snakemake_api.output_settings,
             overwrite_workdir=self.workdir,
+            storage_provider_settings=self.storage_provider_settings,
             **kwargs,
         )
 
     def __post_init__(self):
+        self._workdir_handler = None
         super().__post_init__()
         self.snakefile = self.snakefile.absolute()
         self._workdir_handler = WorkdirHandler(self.workdir)
@@ -334,11 +436,9 @@ class DAGApi(ApiBase):
     snakemake_api: SnakemakeApi
     workflow_api: WorkflowApi
     dag_settings: DAGSettings
-    deployment_settings: DeploymentSettings
 
     def __post_init__(self):
         self.workflow_api._workflow.dag_settings = self.dag_settings
-        self.workflow_api._workflow.deployment_settings = self.deployment_settings
 
     def execute_workflow(
         self,
@@ -357,7 +457,6 @@ class DAGApi(ApiBase):
         executor: str -- The executor to use.
         execution_settings: ExecutionSettings -- The execution settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
-        deployment_settings: DeploymentSettings -- The deployment settings for the workflow.
         remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
         executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
         updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
@@ -380,15 +479,57 @@ class DAGApi(ApiBase):
                 "immediate_submit has to be combined with notemp (it does not support temp file handling)"
             )
 
-        executor_plugin_registry = _get_executor_plugin_registry()
+        executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.get_plugin(executor)
 
-        if executor_plugin.common_settings.implies_no_shared_fs:
-            self.workflow_api.storage_settings.assume_shared_fs = False
+        if executor_settings is not None:
+            executor_plugin.validate_settings(executor_settings)
 
-        self.snakemake_api._setup_logger(
+        if executor_plugin.common_settings.implies_no_shared_fs:
+            # no shared FS at all
+            self.workflow_api.storage_settings.shared_fs_usage = frozenset()
+
+        if (
+            executor_plugin.common_settings.local_exec
+            and not executor_plugin.common_settings.dryrun_exec
+            and self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT
+        ):
+            logger.info("Assuming unrestricted shared filesystem usage.")
+            self.workflow_api.storage_settings.shared_fs_usage = SharedFSUsage.all()
+        if executor_plugin.common_settings.job_deploy_sources:
+            remote_execution_settings.job_deploy_sources = True
+
+        if (
+            self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT
+            and SharedFSUsage.INPUT_OUTPUT
+            not in self.workflow_api.storage_settings.shared_fs_usage
+            and (
+                not self.workflow_api.storage_settings.default_storage_provider
+                or self.workflow_api.storage_settings.default_storage_prefix is None
+            )
+            and executor_plugin.common_settings.can_transfer_local_files is False
+        ):
+            raise ApiError(
+                "If no shared filesystem is assumed for input and output files, a "
+                "default storage provider (--default-storage-provider) and "
+                "default storage prefix (--default-storage-prefix) has to be set. "
+                "See https://snakemake.github.io/snakemake-plugin-catalog for possible "
+                "storage provider plugins."
+            )
+        if (
+            executor_plugin.common_settings.local_exec
+            and not executor_plugin.common_settings.dryrun_exec
+            and self.workflow_api.workflow_settings.exec_mode == ExecMode.DEFAULT
+            and self.workflow_api.storage_settings.shared_fs_usage
+            != SharedFSUsage.all()
+        ):
+            raise ApiError(
+                "For local execution, --shared-fs-usage has to be unrestricted."
+            )
+
+        self.snakemake_api.setup_logger(
             stdout=executor_plugin.common_settings.dryrun_exec,
-            mode=execution_settings.mode,
+            mode=self.workflow_api.workflow_settings.exec_mode,
             dryrun=executor_plugin.common_settings.dryrun_exec,
         )
 
@@ -435,6 +576,10 @@ class DAGApi(ApiBase):
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
 
+        if executor_plugin.common_settings.touch_exec:
+            # no actual execution happening, hence we can omit any deployment
+            self.workflow_api.deployment_settings.deployment_method = frozenset()
+
         execution_settings.use_threads = (
             execution_settings.use_threads
             or (os.name not in ["posix"])
@@ -455,6 +600,15 @@ class DAGApi(ApiBase):
             updated_files=updated_files,
         )
 
+    def _no_exec(method):
+        @functools.wraps(method)
+        def _handle_no_exec(self, *args, **kwargs):
+            self.workflow_api.resource_settings.cores = 1
+            return method(self, *args, **kwargs)
+
+        return _handle_no_exec
+
+    @_no_exec
     def generate_unit_tests(self, path: Path):
         """Generate unit tests for the workflow.
 
@@ -464,14 +618,16 @@ class DAGApi(ApiBase):
         """
         self.workflow_api._workflow.generate_unit_tests(path=path)
 
+    @_no_exec
     def containerize(self):
         """Containerize the workflow."""
         self.workflow_api._workflow.containerize()
 
+    @_no_exec
     def create_report(
         self,
-        path: Path,
-        stylesheet: Optional[Path] = None,
+        reporter: str = "html",
+        report_settings: Optional[ReportSettingsBase] = None,
     ):
         """Create a report for the workflow.
 
@@ -479,60 +635,88 @@ class DAGApi(ApiBase):
         ---------
         report: Path -- The path to the report.
         report_stylesheet: Optional[Path] -- The path to the report stylesheet.
+        reporter: str -- report plugin to use (default: html)
         """
+
+        report_plugin_registry = ReportPluginRegistry()
+        report_plugin = report_plugin_registry.get_plugin(reporter)
+
+        if report_settings is not None:
+            report_plugin.validate_settings(report_settings)
+
         self.workflow_api._workflow.create_report(
-            path=path,
-            stylesheet=stylesheet,
+            report_plugin=report_plugin,
+            report_settings=report_settings,
         )
 
+    @_no_exec
     def printdag(self):
         """Print the DAG of the workflow."""
         self.workflow_api._workflow.printdag()
 
+    @_no_exec
     def printrulegraph(self):
         """Print the rule graph of the workflow."""
         self.workflow_api._workflow.printrulegraph()
 
+    @_no_exec
     def printfilegraph(self):
         """Print the file graph of the workflow."""
         self.workflow_api._workflow.printfilegraph()
 
+    @_no_exec
     def printd3dag(self):
         """Print the DAG of the workflow in D3.js compatible JSON."""
         self.workflow_api._workflow.printd3dag()
 
+    @_no_exec
     def unlock(self):
         """Unlock the workflow."""
         self.workflow_api._workflow.unlock()
 
+    @_no_exec
     def cleanup_metadata(self, paths: List[Path]):
         """Cleanup the metadata of the workflow."""
         self.workflow_api._workflow.cleanup_metadata(paths)
 
+    @_no_exec
     def conda_cleanup_envs(self):
         """Cleanup the conda environments of the workflow."""
-        self.deployment_settings.imply_deployment_method(DeploymentMethod.CONDA)
+        self.workflow_api.deployment_settings.imply_deployment_method(
+            DeploymentMethod.CONDA
+        )
         self.workflow_api._workflow.conda_cleanup_envs()
 
+    @_no_exec
     def conda_create_envs(self):
         """Only create the conda environments of the workflow."""
-        self.deployment_settings.imply_deployment_method(DeploymentMethod.CONDA)
+        self.workflow_api.deployment_settings.imply_deployment_method(
+            DeploymentMethod.CONDA
+        )
         self.workflow_api._workflow.conda_create_envs()
 
+    @_no_exec
     def conda_list_envs(self):
         """List the conda environments of the workflow."""
-        self.deployment_settings.imply_deployment_method(DeploymentMethod.CONDA)
+        self.workflow_api.deployment_settings.imply_deployment_method(
+            DeploymentMethod.CONDA
+        )
         self.workflow_api._workflow.conda_list_envs()
 
+    @_no_exec
     def cleanup_shadow(self):
         """Cleanup the shadow directories of the workflow."""
         self.workflow_api._workflow.cleanup_shadow()
 
+    @_no_exec
     def container_cleanup_images(self):
         """Cleanup the container images of the workflow."""
-        self.deployment_settings.imply_deployment_method(DeploymentMethod.APPTAINER)
+        self.workflow_api.deployment_settings.imply_deployment_method(
+            DeploymentMethod.APPTAINER
+        )
         self.workflow_api._workflow.container_cleanup_images()
 
+    @_no_exec
     def list_changes(self, change_type: ChangeType):
         """List the changes of the workflow.
 
@@ -542,10 +726,12 @@ class DAGApi(ApiBase):
         """
         self.workflow_api._workflow.list_changes(change_type=change_type)
 
+    @_no_exec
     def list_untracked(self):
         """List the untracked files of the workflow."""
         self.workflow_api._workflow.list_untracked()
 
+    @_no_exec
     def summary(self, detailed: bool = False):
         """Summarize the workflow.
 
@@ -555,6 +741,7 @@ class DAGApi(ApiBase):
         """
         self.workflow_api._workflow.summary(detailed=detailed)
 
+    @_no_exec
     def archive(self, path: Path):
         """Archive the workflow.
 
@@ -564,6 +751,7 @@ class DAGApi(ApiBase):
         """
         self.workflow_api._workflow.archive(path=path)
 
+    @_no_exec
     def delete_output(self, only_temp: bool = False, dryrun: bool = False):
         """Delete the output of the workflow.
 
@@ -582,16 +770,3 @@ class DAGApi(ApiBase):
         path: Path -- The path to the CWL file.
         """
         self.workflow_api._workflow.export_to_cwl(path=path)
-
-
-def _get_executor_plugin_registry():
-    from snakemake.executors import local as local_executor
-    from snakemake.executors import dryrun as dryrun_executor
-    from snakemake.executors import touch as touch_executor
-
-    registry = ExecutorPluginRegistry()
-    registry.register_plugin("local", local_executor)
-    registry.register_plugin("dryrun", dryrun_executor)
-    registry.register_plugin("touch", touch_executor)
-
-    return registry

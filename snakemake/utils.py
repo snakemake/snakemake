@@ -16,11 +16,12 @@ import shlex
 import sys
 from urllib.parse import urljoin
 
-from snakemake.io import regex, Namedlist, Wildcards
+from snakemake.io import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
 from snakemake.logging import logger
 from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
+from snakemake.io import regex_from_filepattern
 
 
 def validate(data, schema, set_default=True):
@@ -186,7 +187,7 @@ def listfiles(pattern, restriction=None, omit_value=None):
             dirname = "."
     else:
         dirname = os.path.dirname(pattern)
-    pattern = re.compile(regex(pattern))
+    pattern = re.compile(regex_from_filepattern(pattern))
 
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
@@ -467,10 +468,10 @@ def read_job_properties(
 
 def min_version(version):
     """Require minimum snakemake version, raise workflow error if not met."""
-    import pkg_resources
+    from packaging.version import parse
     from snakemake.common import __version__
 
-    if pkg_resources.parse_version(__version__) < pkg_resources.parse_version(version):
+    if parse(__version__) < parse(version):
         raise WorkflowError(
             "Expecting Snakemake version {} or higher (you are currently using {}).".format(
                 version, __version__
@@ -673,7 +674,7 @@ class Paramspace:
 
             if any((param not in dataframe.columns for param in filename_params)):
                 raise KeyError(
-                    "One or more entries of filename_params are not valid coulumn names for the param file."
+                    "One or more entries of filename_params are not valid column names for the param file."
                 )
             elif len(set(filename_params)) != len(filename_params):
                 raise ValueError("filename_params must be unique")
@@ -730,7 +731,7 @@ class Paramspace:
     def instance(self, wildcards):
         """Obtain instance (dataframe row) with the given wildcard values."""
         import pandas as pd
-        from snakemake.io import regex
+        from snakemake.io import regex_from_filepattern
 
         def convert_value_dtype(name, value):
             if self.dataframe.dtypes[name] == bool and value == "False":
@@ -755,7 +756,7 @@ class Paramspace:
                     for name in self.dataframe.columns
                 )
             )
-            rexp = re.compile(regex(pattern))
+            rexp = re.compile(regex_from_filepattern(pattern))
             match = rexp.match(wildcard_value)
             if not match:
                 raise WorkflowError(

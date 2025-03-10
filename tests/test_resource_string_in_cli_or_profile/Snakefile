@@ -1,0 +1,9 @@
+# fails when submitted as
+# $ snakemake --executor slurm -j2 --workflow-profile ./profiles/ --default-resources slurm_account=m2_zdvhpc
+
+rule all:
+     input: "a.out"
+
+rule test1:
+     output: "a.out"
+     shell: "touch {output}"

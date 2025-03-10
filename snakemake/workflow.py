@@ -4,18 +4,22 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from dataclasses import dataclass, field
+import hashlib
 import re
 import os
+import subprocess
 import sys
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from collections.abc import Mapping
 from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
-from typing import List, Optional, Set
+import tarfile
+import tempfile
+from typing import Dict, Iterable, List, Optional, Set, Union
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import (
+from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
@@ -29,28 +33,34 @@ from snakemake.settings import (
     SchedulingSettings,
     StorageSettings,
     WorkflowSettings,
+    SharedFSUsage,
 )
 
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import (
     SpawnedJobArgsFactoryExecutorInterface,
 )
-from snakemake_interface_executor_plugins.utils import lazy_property
-from snakemake_interface_executor_plugins import ExecutorSettingsBase
+from snakemake_interface_common.utils import lazy_property
+from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry.plugin import (
     Plugin as ExecutorPlugin,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 
 from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
+    MissingOutputFileCachePathException,
     RuleException,
     CreateRuleException,
     UnknownRuleException,
     NoRulesException,
     WorkflowError,
+    update_lineno,
 )
 from snakemake.dag import DAG, ChangeType
 from snakemake.scheduler import JobScheduler
@@ -63,7 +73,6 @@ from snakemake.io import (
     ancient,
     directory,
     expand,
-    dynamic,
     glob_wildcards,
     flag,
     touch,
@@ -75,6 +84,7 @@ from snakemake.io import (
     report,
     multiext,
     ensure,
+    from_queue,
     IOFile,
     sourcecache_entry,
 )
@@ -86,11 +96,13 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 from snakemake.template_rendering import render_template
-from snakemake_interface_executor_plugins.utils import not_iterable
+from snakemake_interface_common.utils import not_iterable
 
 import snakemake.wrapper
 from snakemake.common import (
     ON_WINDOWS,
+    async_run,
+    get_appdirs,
     is_local_file,
     Rules,
     Scatter,
@@ -100,18 +112,25 @@ from snakemake.common import (
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoints
-from snakemake.resources import DefaultResources, ResourceScopes
+from snakemake.resources import ParsedResource, ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
-from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
+from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
     LocalSourceFile,
     SourceCache,
+    SourceFile,
     infer_source_file,
 )
 from snakemake.deployment.conda import Conda
-from snakemake import api, sourcecache
+from snakemake import api, caching, sourcecache
+import snakemake.ioutils
+import snakemake.ioflags
+from snakemake.jobs import jobs_to_rulenames
+
+
+SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
 
 
 @dataclass
@@ -128,16 +147,20 @@ class Workflow(WorkflowExecutorInterface):
     remote_execution_settings: Optional[RemoteExecutionSettings] = None
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
+    storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     check_envvars: bool = True
-    cache_rules: Mapping[str, str] = field(default_factory=dict)
-    overwrite_workdir: Optional[str] = None
+    cache_rules: Dict[str, str] = field(default_factory=dict)
+    overwrite_workdir: Optional[str | Path] = None
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
+    injected_conda_envs: List = field(default_factory=list)
 
     def __post_init__(self):
         """
         Create the controller.
         """
-        self.global_resources = dict(self.resource_settings.resources)
+        from snakemake.storage import StorageRegistry
+
+        self.global_resources: dict = dict(self.resource_settings.resources)
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
 
@@ -149,13 +172,14 @@ class Workflow(WorkflowExecutorInterface):
         self._linemaps = dict()
         self.rule_count = 0
         self.included = []
-        self.included_stack = []
-        self._persistence: Persistence = None
+        self.included_stack: list[SourceFile] = []
+        self._persistence: Optional[Persistence] = None
         self._dag: Optional[DAG] = None
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
         self._rulecount = 0
+        self._parent_groupids = dict()
         self.global_container_img = None
         self.global_is_containerized = False
         self.configfiles = list(self.config_settings.configfiles)
@@ -167,10 +191,15 @@ class Workflow(WorkflowExecutorInterface):
         self._resource_scopes = ResourceScopes.defaults()
         self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
         self.modules = dict()
-        self._sourcecache = SourceCache()
+        self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
+
+        self._sourcecache = SourceCache(self.source_cache_path)
+
         self._scheduler = None
         self._spawned_job_general_args = None
         self._executor_plugin = None
+        self._storage_registry = StorageRegistry(self)
+        self._source_archive = None
 
         _globals = globals()
         from snakemake.shell import shell
@@ -183,6 +212,10 @@ class Workflow(WorkflowExecutorInterface):
         _globals["github"] = sourcecache.GithubFile
         _globals["gitlab"] = sourcecache.GitlabFile
         _globals["gitfile"] = sourcecache.LocalGitFile
+        _globals["storage"] = self._storage_registry
+        snakemake.ioutils.register_in_globals(_globals)
+        snakemake.ioflags.register_in_globals(_globals)
+        _globals["from_queue"] = from_queue
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -192,10 +225,114 @@ class Workflow(WorkflowExecutorInterface):
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
 
     @property
+    def parent_groupids(self):
+        return self._parent_groupids
+
+    def tear_down(self):
+        for conda_env in self.injected_conda_envs:
+            conda_env.deactivate()
+        if self._workdir_handler is not None:
+            self._workdir_handler.change_back()
+        self._snakemake_tmp_dir.cleanup()
+
+    @property
+    def is_main_process(self):
+        return self.exec_mode == ExecMode.DEFAULT
+
+    @property
+    def snakemake_tmp_dir(self) -> Path:
+        return Path(self._snakemake_tmp_dir.name)
+
+    def register_resource(self, name: str, value: Union[int, str]):
+        self.global_resources[name] = value
+        if self.scheduler is not None:
+            # update the scheduler if it is already active
+            self.scheduler.resources[name] = value
+
+    @property
+    def source_cache_path(self) -> Path:
+        assert self.storage_settings is not None
+        if SharedFSUsage.SOURCE_CACHE not in self.storage_settings.shared_fs_usage:
+            # TODO can this cause issues with the source cache?
+            # When regenerating it for each remote job, might that accidentally trigger
+            # job reruns where an input file or a source file suddenly becomes newer?
+            return self.snakemake_tmp_dir / "source-cache"
+        else:
+            return Path(
+                os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache")
+            )
+
+    @property
+    def storage_registry(self):
+        return self._storage_registry
+
+    @property
+    def source_archive(self):
+        assert self._source_archive is not None, (
+            "bug: source archive info accessed but source archive has not been "
+            "uploaded to default storage provider before"
+        )
+        return self._source_archive
+
+    def upload_sources(self):
+        assert self.storage_settings is not None
+        with tempfile.NamedTemporaryFile(suffix="snakemake-sources.tar.xz") as tf:
+            self.write_source_archive(Path(tf.name))
+            tf.flush()
+            with open(tf.name, "rb") as f:
+                checksum = hashlib.file_digest(f, "sha256").hexdigest()
+
+            prefix = self.storage_settings.default_storage_prefix
+            if prefix:
+                prefix = f"{prefix}/"
+            query = f"{prefix}snakemake-workflow-sources.{checksum}.tar.xz"
+
+            self._source_archive = SourceArchiveInfo(query, checksum)
+
+            obj = self.storage_registry.default_storage_provider.object(query)
+            obj.set_local_path(Path(tf.name))
+            logger.info("Uploading source archive to storage provider...")
+            async_run(obj.managed_store())
+
+    def write_source_archive(self, path: Path):
+        def get_files():
+            for f in self.dag.get_sources():
+                if f.startswith(".."):
+                    logger.warning(
+                        f"Ignoring source file {f}! Only files relative "
+                        "to the working directory are allowed. Most likely the "
+                        "spawned jobs will not properly work. Make sure to start "
+                        "the workflow from a directory below which all the sources "
+                        "are located (may be in subfolders) and also ensure that any "
+                        "config files you refer to are inside that directory."
+                    )
+                    continue
+
+                # The kubernetes API can't create secret files larger than 1MB.
+                source_file_size = os.path.getsize(f)
+                max_file_size = 10000000
+                if source_file_size > max_file_size:
+                    logger.warning(
+                        "Skipping the source file for upload {f}. Its size "
+                        "{source_file_size} exceeds "
+                        "the maximum file size (10MB). Consider to provide the file as "
+                        "input file instead.".format(
+                            f=f, source_file_size=source_file_size
+                        )
+                    )
+                    continue
+                yield f
+
+        assert path.suffixes == [".tar", ".xz"]
+        with tarfile.open(path, "w:xz") as archive:
+            for f in get_files():
+                archive.add(f)
+
+    @property
     def enable_cache(self):
         return (
-            self.execution_settings is not None
-            and self.execution_settings.cache is not None
+            self.workflow_settings is not None
+            and self.workflow_settings.cache is not None
         )
 
     def check_cache_rules(self):
@@ -247,14 +384,15 @@ class Workflow(WorkflowExecutorInterface):
     def touch(self):
         import snakemake.executors.touch
 
-        return isinstance(
+        return issubclass(
             self.executor_plugin.executor, snakemake.executors.touch.Executor
         )
 
     @property
     def use_threads(self):
+        assert self.execution_settings is not None
         return (
-            self.workflow.execution_settings.use_threads
+            self.execution_settings.use_threads
             or (os.name not in ["posix", "nt"])
             or not self.local_exec
         )
@@ -269,6 +407,14 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def non_local_exec(self):
         return not self.local_exec
+
+    @property
+    def remote_exec(self):
+        return self.exec_mode == ExecMode.REMOTE
+
+    @property
+    def exec_mode(self):
+        return self.workflow_settings.exec_mode
 
     @lazy_property
     def spawned_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
@@ -330,16 +476,18 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def rerun_triggers(self) -> Set[RerunTrigger]:
-        return self.dag_settings.rerun_triggers
+        assert self.dag_settings is not None
+        return self.dag_settings.rerun_triggers  # type: ignore[return-value]
 
     @property
     def conda_base_path(self):
+        assert self.deployment_settings is not None
         if self.deployment_settings.conda_base_path:
             return self.deployment_settings.conda_base_path
         if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
             try:
                 return Conda().prefix_path
-            except CreateCondaEnvironmentException as e:
+            except CreateCondaEnvironmentException:
                 # Return no preset conda base path now and report error later in jobs.
                 return None
         else:
@@ -383,7 +531,7 @@ class Workflow(WorkflowExecutorInterface):
         return linted
 
     def get_cache_mode(self, rule: Rule):
-        if self.dag_settings.cache is None:
+        if self.workflow_settings.cache is None:
             return None
         else:
             return self.cache_rules.get(rule.name)
@@ -477,7 +625,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         if not self._rules:
             raise NoRulesException()
-        if not name in self._rules:
+        if name not in self._rules:
             raise UnknownRuleException(name)
         return self._rules[name]
 
@@ -497,8 +645,9 @@ class Workflow(WorkflowExecutorInterface):
                 logger.info(resource)
 
     def is_local(self, rule):
-        return rule.group is None and (
-            rule.name in self._localrules or rule.norun or rule.is_template_engine
+        return self.local_exec or (
+            rule.group is None
+            and (rule.name in self._localrules or rule.norun or rule.is_template_engine)
         )
 
     def check_localrules(self):
@@ -520,7 +669,8 @@ class Workflow(WorkflowExecutorInterface):
         """
         if isinstance(path, Path):
             path = str(path)
-        if self.storage_settings.default_remote_provider is not None:
+        assert self.storage_settings is not None
+        if self.storage_settings.default_storage_provider is not None:
             path = self.modifier.modify_path(path)
         return IOFile(path)
 
@@ -530,49 +680,72 @@ class Workflow(WorkflowExecutorInterface):
         ignore_incomplete: bool,
         lock_warn_only: bool,
         nolock: bool = False,
-        shadow_prefix: Optional[str] = None,
-    ) -> DAG:
-        if self.dag_settings.cache is not None:
+        shadow_prefix: str | Path | None = None,
+    ):
+        if self.workflow_settings.cache is not None:
             self.cache_rules.update(
-                {rulename: "all" for rulename in self.dag_settings.cache}
+                {rulename: "all" for rulename in self.workflow_settings.cache}
             )
-            if self.storage_settings.default_remote_provider is not None:
-                self._output_file_cache = RemoteOutputFileCache(
-                    self.storage_settings.default_remote_provider
+            try:
+                if (
+                    self.storage_settings is not None
+                    and self.storage_settings.default_storage_provider is not None
+                ):
+                    self._output_file_cache = StorageOutputFileCache(
+                        self.storage_registry.default_storage_provider
+                    )
+                else:
+                    self._output_file_cache = LocalOutputFileCache()
+            except MissingOutputFileCachePathException:
+                logger.warning(
+                    "Output file cache activated (--cache), but no cache "
+                    "location specified. Hence, Snakemake will not use between workflow "
+                    "caching (see "
+                    "https://snakemake.readthedocs.io/en/stable/executing/caching.html). "
+                    "Please set the environment variable "
+                    f"${caching.LOCATION_ENVVAR} to a reasonable path or storage URI "
+                    "(if you use a storage plugin) to activate the caching."
                 )
-            else:
-                self._output_file_cache = LocalOutputFileCache()
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
 
+        assert self.dag_settings is not None
         if self.dag_settings.target_files_omit_workdir_adjustment:
 
             def files(items):
-                return filterfalse(self.is_rule, items)
+                return map(
+                    self.modifier.path_modifier.apply_default_storage,
+                    filterfalse(self.is_rule, items),
+                )
 
         else:
 
             def files(items):
-                relpath = (
-                    lambda f: f
+                relpath = lambda f: (
+                    f
                     if os.path.isabs(f) or f.startswith("root://")
                     else os.path.relpath(f)
                 )
-                return map(relpath, filterfalse(self.is_rule, items))
+                return map(
+                    self.modifier.path_modifier.apply_default_storage,
+                    map(relpath, filterfalse(self.is_rule, items)),
+                )
 
         self.iocache = snakemake.io.IOCache(self.dag_settings.max_inventory_wait_time)
 
         if not self.dag_settings.targets and not self.dag_settings.target_jobs:
-            targets = (
+            targets: Iterable = (
                 [self.default_target] if self.default_target is not None else list()
             )
         else:
             targets = self.dag_settings.targets
 
-        prioritytargets = set()
-        if self.scheduling_settings is not None:
-            prioritytargets = self.scheduling_settings.prioritytargets
+        prioritytargets = (
+            set()
+            if self.scheduling_settings is None
+            else self.scheduling_settings.prioritytargets
+        )
 
         priorityrules = set(rules(prioritytargets))
         priorityfiles = set(files(prioritytargets))
@@ -599,11 +772,15 @@ class Workflow(WorkflowExecutorInterface):
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
 
-        rules = self.rules
-        if self.dag_settings.allowed_rules:
-            rules = [
-                rule for rule in rules if rule.name in self.dag_settings.allowed_rules
+        rules = (
+            [
+                rule
+                for rule in self.rules
+                if rule.name in self.dag_settings.allowed_rules
             ]
+            if self.dag_settings.allowed_rules
+            else self.rules
+        )
 
         self._dag = DAG(
             self,
@@ -624,6 +801,17 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=ignore_incomplete,
         )
 
+        persistence_path = (
+            self.snakemake_tmp_dir / "persistence"
+            if (
+                self.storage_settings is not None
+                and SharedFSUsage.PERSISTENCE
+                not in self.storage_settings.shared_fs_usage
+            )
+            else None
+        )
+
+        assert self.deployment_settings is not None
         self._persistence = Persistence(
             nolock=nolock,
             dag=self._dag,
@@ -631,6 +819,7 @@ class Workflow(WorkflowExecutorInterface):
             singularity_prefix=self.deployment_settings.apptainer_prefix,
             shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
+            path=persistence_path,
         )
 
     def generate_unit_tests(self, path: Path):
@@ -641,6 +830,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         from snakemake import unit_tests
 
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=False,
@@ -649,6 +839,7 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         deploy = []
+        assert self.deployment_settings is not None
         if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
             deploy.append("conda")
         if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
@@ -658,6 +849,7 @@ class Workflow(WorkflowExecutorInterface):
         )
 
     def cleanup_metadata(self, paths: List[Path]):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=True,
@@ -667,7 +859,7 @@ class Workflow(WorkflowExecutorInterface):
         for path in paths:
             success = self.persistence.cleanup_metadata(path)
             if not success:
-                failed.append(path)
+                failed.append(str(path))
         if failed:
             raise WorkflowError(
                 "Failed to clean up metadata for the following files because the metadata was not present.\n"
@@ -677,9 +869,10 @@ class Workflow(WorkflowExecutorInterface):
             )
 
     def unlock(self):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -703,7 +896,7 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
 
-        self.dag.clean(only_temp=only_temp, dryrun=dryrun)
+        async_run(self.dag.clean(only_temp=only_temp, dryrun=dryrun))
 
     def list_untracked(self):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
@@ -715,7 +908,7 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
 
-        items = self.dag.get_outputs_with_changes(change_type)
+        items = async_run(self.dag.get_outputs_with_changes(change_type))
         if items:
             print(*items, sep="\n")
 
@@ -731,6 +924,7 @@ class Workflow(WorkflowExecutorInterface):
         self.dag.archive(path)
 
     def summary(self, detailed: bool = False):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=True,
@@ -738,32 +932,35 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        print("\n".join(self.dag.summary(detailed=detailed)))
+        async def join_summary(detailed):
+            return "\n".join(
+                [line async for line in self.dag.summary(detailed=detailed)]
+            )
 
-    def conda_cleanup_envs(self):
-        self._prepare_dag(forceall=True, ignore_incomplete=True, lock_warn_only=False)
-        self._build_dag()
-        self.persistence.conda_cleanup_envs()
+        print(async_run(join_summary(detailed)))
 
     def printdag(self):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=True,
         )
         self._build_dag()
         print(self.dag)
 
     def printrulegraph(self):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=True,
         )
         self._build_dag()
-        self.dag.rule_dot()
+        print(self.dag.rule_dot())
 
     def printfilegraph(self):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=True,
@@ -773,6 +970,7 @@ class Workflow(WorkflowExecutorInterface):
         print(self.dag.filegraph_dot())
 
     def printd3dag(self):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=True,
@@ -785,6 +983,7 @@ class Workflow(WorkflowExecutorInterface):
     def containerize(self):
         from snakemake.deployment.containerize import containerize
 
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=False,
@@ -800,6 +999,7 @@ class Workflow(WorkflowExecutorInterface):
         Arguments
         path -- the path to the CWL document to be created.
         """
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=True,
@@ -813,9 +1013,12 @@ class Workflow(WorkflowExecutorInterface):
         with open(path, "w") as cwl:
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
 
-    def create_report(self, path: Path, stylesheet: Optional[Path] = None):
+    def create_report(
+        self, report_plugin: ReportPlugin, report_settings: ReportSettingsBase
+    ):
         from snakemake.report import auto_report
 
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=False,
@@ -823,28 +1026,23 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        auto_report(self.dag, path, stylesheet=stylesheet)
+        async_run(auto_report(self.dag, report_plugin, report_settings))
 
     def conda_list_envs(self):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=False,
             lock_warn_only=False,
         )
         self._build_dag()
-
-        if (
-            DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
-            and self.storage_settings.assume_shared_fs
-        ):
-            self.dag.pull_container_imgs()
         self.dag.create_conda_envs(
             dryrun=True,
             quiet=True,
         )
         print("environment", "container", "location", sep="\t")
         for env in set(job.conda_env for job in self.dag.jobs):
-            if env and not env.is_named:
+            if env and not env.is_externally_managed:
                 print(
                     env.file.simplify_path(),
                     env.container_img_url or "",
@@ -854,33 +1052,34 @@ class Workflow(WorkflowExecutorInterface):
         return True
 
     def conda_create_envs(self):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
 
-        if (
-            DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
-            and self.storage_settings.assume_shared_fs
-        ):
+        assert self.deployment_settings is not None
+        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs()
 
     def conda_cleanup_envs(self):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
         self.persistence.conda_cleanup_envs()
 
     def container_cleanup_images(self):
+        assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -888,9 +1087,8 @@ class Workflow(WorkflowExecutorInterface):
 
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
-        self.dag.init()
-        self.dag.update_checkpoint_dependencies()
-        self.dag.check_dynamic()
+        async_run(self.dag.init())
+        async_run(self.dag.update_checkpoint_dependencies())
 
     def execute(
         self,
@@ -898,8 +1096,16 @@ class Workflow(WorkflowExecutorInterface):
         executor_settings: ExecutorSettingsBase,
         updated_files: Optional[List[str]] = None,
     ):
+        logger.host_info()
+
         from snakemake.shell import shell
 
+        assert self.deployment_settings is not None
+        assert self.execution_settings is not None
+        assert self.storage_settings is not None
+        assert self.dag_settings is not None
+        assert self.remote_execution_settings is not None
+        assert self.output_settings is not None
         shell.conda_block_conflicting_envvars = (
             not self.deployment_settings.conda_not_block_search_path_envvars
         )
@@ -912,9 +1118,11 @@ class Workflow(WorkflowExecutorInterface):
 
         if self.execution_settings.wait_for_files:
             try:
-                snakemake.io.wait_for_files(
-                    self.execution_settings.wait_for_files,
-                    latency_wait=self.execution_settings.latency_wait,
+                async_run(
+                    snakemake.io.wait_for_files(
+                        self.execution_settings.wait_for_files,
+                        latency_wait=self.execution_settings.latency_wait,
+                    )
                 )
             except IOError as e:
                 logger.error(str(e))
@@ -928,13 +1136,13 @@ class Workflow(WorkflowExecutorInterface):
             shadow_prefix=self.execution_settings.shadow_prefix,
         )
 
-        if self.execution_settings.mode in [ExecMode.SUBPROCESS, ExecMode.REMOTE]:
+        if self.exec_mode in [ExecMode.SUBPROCESS, ExecMode.REMOTE]:
             self.persistence.deactivate_cache()
 
         self._build_dag()
 
         with self.persistence.lock():
-            self.dag.postprocess(update_needrun=False)
+            async_run(self.dag.postprocess(update_needrun=False))
             if not self.dryrun:
                 # deactivate IOCache such that from now on we always get updated
                 # size, existence and mtime information
@@ -952,19 +1160,49 @@ class Workflow(WorkflowExecutorInterface):
                     "with checkpoint jobs, as the dependencies cannot be determined before "
                     "execution in such cases."
                 )
+            if self.touch:
+                self.dag.check_touch_compatible()
 
             if updated_files is not None:
                 updated_files.extend(
                     f for job in self.dag.needrun_jobs() for f in job.output
                 )
 
-            if (
-                DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
-                and self.storage_settings.assume_shared_fs
+            shared_deployment = (
+                SharedFSUsage.SOFTWARE_DEPLOYMENT
+                in self.storage_settings.shared_fs_usage
+            )
+
+            if shared_deployment or (self.remote_exec and not shared_deployment):
+                if (
+                    DeploymentMethod.APPTAINER
+                    in self.deployment_settings.deployment_method
+                ):
+                    self.dag.pull_container_imgs()
+                if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+                    self.dag.create_conda_envs()
+
+            shared_storage_local_copies = (
+                SharedFSUsage.STORAGE_LOCAL_COPIES
+                in self.storage_settings.shared_fs_usage
+            )
+            logger.debug(f"shared_storage_local_copies: {shared_storage_local_copies}")
+            logger.debug(f"remote_exec: {self.remote_exec}")
+            dryrun_or_touch = self.dryrun or self.touch
+            if not dryrun_or_touch and (
+                (self.exec_mode == ExecMode.DEFAULT and shared_storage_local_copies)
+                or (self.remote_exec and not shared_storage_local_copies)
             ):
-                self.dag.pull_container_imgs()
-            if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
-                self.dag.create_conda_envs()
+                async_run(self.dag.retrieve_storage_inputs())
+
+            if (
+                SharedFSUsage.SOURCES not in self.storage_settings.shared_fs_usage
+                and self.exec_mode == ExecMode.DEFAULT
+                and self.remote_execution_settings.job_deploy_sources
+                and not executor_plugin.common_settings.can_transfer_local_files
+            ):
+                # no shared FS, hence we have to upload the sources to the storage
+                self.upload_sources()
 
             self.scheduler = JobScheduler(self, executor_plugin)
 
@@ -1014,7 +1252,7 @@ class Workflow(WorkflowExecutorInterface):
                     ):
                         logger.info("Singularity containers: ignored")
 
-                    if self.execution_settings.mode == ExecMode.DEFAULT:
+                    if self.exec_mode == ExecMode.DEFAULT:
                         logger.run_info("\n".join(self.dag.stats()))
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
@@ -1025,6 +1263,8 @@ class Workflow(WorkflowExecutorInterface):
                     logger.run_info("\n".join(self.dag.stats()))
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
+                    self.log_missing_metadata_info()
+                    self.log_outdated_metadata_info()
                     return
                 if self.output_settings.quiet:
                     # in case of dryrun and quiet, just print above info and exit
@@ -1033,56 +1273,32 @@ class Workflow(WorkflowExecutorInterface):
             if not self.dryrun and not self.execution_settings.no_hooks:
                 self._onstart(logger.get_logfile())
 
-            def log_provenance_info():
-                provenance_triggered_jobs = [
-                    job
-                    for job in self.dag.needrun_jobs(exclude_finished=False)
-                    if self.dag.reason(job).is_provenance_triggered()
-                ]
-                if provenance_triggered_jobs:
-                    logger.info(
-                        "Some jobs were triggered by provenance information, "
-                        "see 'reason' section in the rule displays above.\n"
-                        "If you prefer that only modification time is used to "
-                        "determine whether a job shall be executed, use the command "
-                        "line option '--rerun-triggers mtime' (also see --help).\n"
-                        "If you are sure that a change for a certain output file (say, <outfile>) won't "
-                        "change the result (e.g. because you just changed the formatting of a script "
-                        "or environment definition), you can also wipe its metadata to skip such a trigger via "
-                        "'snakemake --cleanup-metadata <outfile>'. "
-                    )
-                    logger.info(
-                        "Rules with provenance triggered jobs: "
-                        + ",".join(
-                            sorted(
-                                set(job.rule.name for job in provenance_triggered_jobs)
-                            )
-                        )
-                    )
-                    logger.info("")
-
             has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
 
             try:
                 success = self.scheduler.schedule()
             except Exception as e:
                 if self.dryrun:
-                    log_provenance_info()
+                    self.log_provenance_info()
                 raise e
 
             if (
                 not self.remote_execution_settings.immediate_submit
                 and not self.dryrun
-                and self.execution_settings.mode == ExecMode.DEFAULT
+                and self.exec_mode == ExecMode.DEFAULT
             ):
                 self.dag.cleanup_workdir()
+
+            if not dryrun_or_touch:
+                async_run(self.dag.store_storage_outputs())
+                async_run(self.dag.cleanup_storage_objects())
 
             if success:
                 if self.dryrun:
                     if len(self.dag):
                         logger.run_info("\n".join(self.dag.stats()))
                         self.dag.print_reasons()
-                        log_provenance_info()
+                        self.log_provenance_info()
                     logger.info("")
                     logger.info(
                         "This was a dry-run (flag -n). The order of jobs "
@@ -1104,6 +1320,53 @@ class Workflow(WorkflowExecutorInterface):
                 logger.logfile_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
 
+    def log_metadata_info(self, metadata_attr, description):
+        jobs = [
+            job
+            for job in self.dag.jobs
+            if getattr(self.dag.reason(job), metadata_attr)
+            and not self.dag.needrun(job)
+        ]
+        if jobs:
+            logger.info(
+                f"{len(jobs)} jobs have {description} "
+                "provenance/metadata so that it in part "
+                "cannot be used to trigger re-runs.\n"
+                f"Rules with {description} metadata: {' '.join(jobs_to_rulenames(jobs))}"
+            )
+
+    def log_missing_metadata_info(self):
+        self.log_metadata_info("no_metadata", "missing")
+
+    def log_outdated_metadata_info(self):
+        self.log_metadata_info("outdated_metadata", "outdated")
+
+    def log_provenance_info(self):
+        provenance_triggered_jobs = [
+            job
+            for job in self.dag.needrun_jobs(exclude_finished=False)
+            if self.dag.reason(job).is_provenance_triggered()
+        ]
+        if provenance_triggered_jobs:
+            logger.info(
+                "Some jobs were triggered by provenance information, "
+                "see 'reason' section in the rule displays above.\n"
+                "If you prefer that only modification time is used to "
+                "determine whether a job shall be executed, use the command "
+                "line option '--rerun-triggers mtime' (also see --help).\n"
+                "If you are sure that a change for a certain output file (say, <outfile>) won't "
+                "change the result (e.g. because you just changed the formatting of a script "
+                "or environment definition), you can also wipe its metadata to skip such a trigger via "
+                "'snakemake --cleanup-metadata <outfile>'. "
+            )
+            logger.info(
+                "Rules with provenance triggered jobs: "
+                + " ".join(jobs_to_rulenames(provenance_triggered_jobs))
+            )
+            logger.info("")
+        self.log_missing_metadata_info()
+        self.log_outdated_metadata_info()
+
     @property
     def current_basedir(self):
         """Basedir of currently parsed Snakefile."""
@@ -1120,12 +1383,13 @@ class Workflow(WorkflowExecutorInterface):
         # TODO download to disk (use source cache) in case of remote file
         import inspect
 
-        frame = inspect.currentframe().f_back
-        calling_file = frame.f_code.co_filename
+        frame = inspect.currentframe()
+        assert frame is not None and frame.f_back is not None
+        calling_file = frame.f_back.f_code.co_filename
 
-        if (
-            self.included_stack
-            and calling_file == self.included_stack[-1].get_path_or_uri()
+        if self.included_stack and (
+            (calling_file == self.included_stack[-1].get_path_or_uri())
+            or calling_file.startswith(self.current_basedir.get_path_or_uri())
         ):
             # called from current snakefile, we can try to keep the original source
             # file annotation
@@ -1147,8 +1411,9 @@ class Workflow(WorkflowExecutorInterface):
     def snakefile(self):
         import inspect
 
-        frame = inspect.currentframe().f_back
-        return frame.f_code.co_filename
+        frame = inspect.currentframe()
+        assert not (frame is None or frame.f_back is None)
+        return frame.f_back.f_code.co_filename
 
     def register_envvars(self, *envvars):
         """
@@ -1193,22 +1458,28 @@ class Workflow(WorkflowExecutorInterface):
         self.included_stack.append(snakefile)
 
         default_target = self.default_target
-        code, linemap, rulecount = parse(
+        linemap: Dict[int, int] = dict()
+        self.linemaps[snakefile.get_path_or_uri()] = linemap
+        code, rulecount = parse(
             snakefile,
             self,
             rulecount=self._rulecount,
+            linemap=linemap,
         )
         self._rulecount = rulecount
 
         if print_compilation:
             print(code)
+            return
 
-        if isinstance(snakefile, LocalSourceFile):
+        snakefile_path_or_uri = snakefile.get_basedir().get_path_or_uri()
+        if (
+            isinstance(snakefile, LocalSourceFile)
+            and snakefile_path_or_uri not in sys.path
+        ):
             # insert the current directory into sys.path
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
-
-        self.linemaps[snakefile.get_path_or_uri()] = linemap
 
         exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
@@ -1297,7 +1568,7 @@ class Workflow(WorkflowExecutorInterface):
         except ImportError:
             raise WorkflowError("For PEP support, please install peppy.")
 
-        self.pepfile = path
+        self.pepfile = str(path)
         self.globals["pep"] = peppy.Project(self.pepfile)
 
     def pepschema(self, schema):
@@ -1305,6 +1576,8 @@ class Workflow(WorkflowExecutorInterface):
             import eido
         except ImportError:
             raise WorkflowError("For PEP schema support, please install eido.")
+
+        schema = str(schema)
 
         if is_local_file(schema) and not os.path.isabs(schema):
             # schema is relative to current Snakefile
@@ -1356,7 +1629,7 @@ class Workflow(WorkflowExecutorInterface):
         rule.is_checkpoint = checkpoint
         rule.module_globals = self.modifier.globals
 
-        def decorate(ruleinfo):
+        def decorate(ruleinfo):  # type: ignore[no-redef]
             nonlocal name
 
             # If requested, modify ruleinfo via the modifier.
@@ -1380,6 +1653,13 @@ class Workflow(WorkflowExecutorInterface):
                 rule.set_output(*ruleinfo.output.paths, **ruleinfo.output.kwpaths)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
+
+            def get_resource_value(value):
+                if isinstance(value, ParsedResource):
+                    return value.value
+                else:
+                    return value
+
             # handle default resources
             if self.resource_settings.default_resources is not None:
                 rule.resources = copy.deepcopy(
@@ -1400,16 +1680,17 @@ class Workflow(WorkflowExecutorInterface):
                         "Threads value has to be an integer, float, or a callable.",
                         rule=rule,
                     )
-                if name in self.resource_settings.overwrite_threads:
-                    rule.resources["_cores"] = self.resource_settings.overwrite_threads[
-                        name
-                    ]
-                else:
+                if name not in self.resource_settings.overwrite_threads:
                     if isinstance(ruleinfo.threads, float):
                         ruleinfo.threads = int(ruleinfo.threads)
                     rule.resources["_cores"] = ruleinfo.threads
             else:
                 rule.resources["_cores"] = 1
+
+            if name in self.resource_settings.overwrite_threads:
+                rule.resources["_cores"] = get_resource_value(
+                    self.resource_settings.overwrite_threads[name]
+                )
 
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (
@@ -1433,6 +1714,7 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth
+
             if ruleinfo.resources:
                 args, resources = ruleinfo.resources
                 if args:
@@ -1451,7 +1733,12 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 rule.resources.update(resources)
             if name in self.resource_settings.overwrite_resources:
-                rule.resources.update(self.resource_settings.overwrite_resources[name])
+                rule.resources.update(
+                    (resource, get_resource_value(value))
+                    for resource, value in self.resource_settings.overwrite_resources[
+                        name
+                    ].items()
+                )
 
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(
@@ -1489,41 +1776,28 @@ class Workflow(WorkflowExecutorInterface):
                 )
                 # TODO retrieve suitable singularity image
 
+            def check_may_use_software_deployment(method):
+                if ruleinfo.template_engine:
+                    raise RuleException(
+                        f"{method} directive is only allowed with "
+                        "run, shell, script, notebook, or wrapper "
+                        "directives (not with template_engine)",
+                        rule=rule,
+                    )
+
             if ruleinfo.env_modules:
                 # If using environment modules and they are defined for the rule,
                 # ignore conda and singularity directive below.
                 # The reason is that this is likely intended in order to use
                 # a software stack specifically compiled for a particular
                 # HPC cluster.
-                invalid_rule = not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                )
-                if invalid_rule:
-                    raise RuleException(
-                        "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run or the template_engine)",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("envmodules")
                 from snakemake.deployment.env_modules import EnvModules
 
                 rule.env_modules = EnvModules(*ruleinfo.env_modules)
 
             if ruleinfo.conda_env:
-                if not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                ):
-                    raise RuleException(
-                        "Conda environments are only allowed "
-                        "with shell, script, notebook, or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("conda")
 
                 if isinstance(ruleinfo.conda_env, Path):
                     ruleinfo.conda_env = str(ruleinfo.conda_env)
@@ -1538,19 +1812,14 @@ class Workflow(WorkflowExecutorInterface):
             )
             if ruleinfo.nix_flake:
                 rule.nix_flake = ruleinfo.nix_flake
+
             if ruleinfo.container_img:
-                if invalid_rule:
-                    raise RuleException(
-                        "Singularity directive is only allowed "
-                        "with shell, script, notebook or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("container/singularity")
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule and ruleinfo.container_img != False:
-                    # skip rules with run directive or empty image
+                if not ruleinfo.template_engine and ruleinfo.container_img != False:
+                    # skip rules with template_engine directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
 
@@ -1598,7 +1867,7 @@ class Workflow(WorkflowExecutorInterface):
 
             if ruleinfo.default_target is True:
                 self.default_target = rule.name
-            elif not (ruleinfo.default_target is False):
+            elif ruleinfo.default_target is not False:
                 raise WorkflowError(
                     "Invalid argument for 'default_target:' directive. Only True allowed. "
                     "Do not use the directive for rules that shall not be the default target. ",
@@ -1705,6 +1974,43 @@ class Workflow(WorkflowExecutorInterface):
             return ruleinfo
 
         return decorate
+
+    def global_conda(self, conda_env):
+        assert self.deployment_settings is not None
+        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+            from conda_inject import inject_env_file, PackageManager
+
+            try:
+                package_manager = PackageManager[
+                    self.deployment_settings.conda_frontend.upper()
+                ]
+            except KeyError:
+                raise WorkflowError(
+                    f"Chosen conda frontend {self.deployment_settings.conda_frontend} is not supported by conda-inject."
+                )
+
+            # Handle relative path
+            if not isinstance(conda_env, SourceFile):
+                if is_local_file(conda_env) and not os.path.isabs(conda_env):
+                    # Conda env file paths are considered to be relative to the directory of the Snakefile
+                    # hence we adjust the path accordingly.
+                    # This is not necessary in case of receiving a SourceFile.
+                    conda_env = self.current_basedir.join(conda_env)
+                else:
+                    # infer source file from unmodified uri or path
+                    conda_env = infer_source_file(conda_env)
+
+            logger.info(f"Injecting conda environment {conda_env.get_path_or_uri()}.")
+            try:
+                env = inject_env_file(
+                    conda_env.get_path_or_uri(), package_manager=package_manager
+                )
+            except subprocess.CalledProcessError as e:
+                raise WorkflowError(
+                    f"Failed to inject conda environment {conda_env}: {e.stdout.decode()}",
+                    e,
+                )
+            self.injected_conda_envs.append(env)
 
     def container(self, container_img):
         def decorate(ruleinfo):

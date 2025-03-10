@@ -5,11 +5,17 @@ __license__ = "MIT"
 
 from abc import ABCMeta, abstractmethod
 import os
+from pathlib import Path
 
 from snakemake.jobs import Job
 from snakemake.io import apply_wildcards
-from snakemake.exceptions import WorkflowError, CacheMissException
+from snakemake.exceptions import (
+    MissingOutputFileCachePathException,
+    WorkflowError,
+    CacheMissException,
+)
 from snakemake.caching.hash import ProvenanceHashMap
+from snakemake.logging import logger
 
 LOCATION_ENVVAR = "SNAKEMAKE_OUTPUT_CACHE"
 
@@ -21,23 +27,19 @@ class AbstractOutputFileCache:
         try:
             self.cache_location = os.environ[LOCATION_ENVVAR]
         except KeyError:
-            raise WorkflowError(
-                "Output file cache activated (--cache), but no cache "
-                "location specified. Please set the environment variable "
-                "${}.".format(LOCATION_ENVVAR)
-            )
+            raise MissingOutputFileCachePathException()
         self.provenance_hash_map = ProvenanceHashMap()
 
     @abstractmethod
-    def store(self, job: Job, cache_mode):
+    async def store(self, job: Job, cache_mode):
         pass
 
     @abstractmethod
-    def fetch(self, job: Job, cache_mode):
+    async def fetch(self, job: Job, cache_mode):
         pass
 
     @abstractmethod
-    def exists(self, job: Job):
+    async def exists(self, job: Job):
         pass
 
     def get_outputfiles(self, job: Job):
@@ -50,7 +52,13 @@ class AbstractOutputFileCache:
             assert (
                 len(job.output) == 1
             ), "bug: multiple output files in cacheable job but multiext not used for declaring them"
-            yield (job.output[0], "")
+            # It is crucial to distinguish cacheable objects by the file extension.
+            # Otherwise, for rules that generate different output based on the provided
+            # extension a wrong cache entry can be returned.
+            # Another nice side effect is that the cached files become more accessible
+            # because their extension is presented in the cache dir.
+            ext = Path(job.output[0]).suffix
+            yield (job.output[0], ext)
 
     def raise_write_error(self, entry, exception=None):
         raise WorkflowError(
