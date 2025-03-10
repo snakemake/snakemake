@@ -1,74 +1,68 @@
 .. _project_info-contributing:
 
-============
+************
 Contributing
-============
+************
 
 Contributions are welcome, and they are greatly appreciated!
 Every little bit helps, and credit will always be given.
+A detailed description of the Snakemake codebase and architecture can be found :ref:`here <codebase_intro>`.
 
 You can contribute in many ways:
 
-
-----------------------
-Types of Contributions
-----------------------
+Types of contributions
+======================
 
 
-Report Bugs
-===========
+Report bugs or suggest enhancements
+-----------------------------------
 
-Report bugs at https://github.com/snakemake/snakemake/issues
+Report bugs or suggest enhancements at https://github.com/snakemake/snakemake/issues
 
-If you are reporting a bug, please include:
+If you are reporting a bug, follow the template and fill out the requested information, including:
 
 * Your operating system name and version.
 * Any details about your local setup that might be helpful in troubleshooting.
-* Detailed steps to reproduce the bug.
+* Detailed steps to reproduce the bug and ideally a test case.
+
+If you are proposing am enhancement or a new feature:
+
+* Explain in detail how it would work.
+* Keep the scope as narrow as possible, to make it easier to implement.
+* Remember that this is a volunteer-driven project, and that contributions are welcome :).
 
 
 Fix Bugs
-========
+--------
 
 Look through the Github issues for bugs.
 If you want to start working on a bug then please write short message on the issue tracker to prevent duplicate work.
 
 
 Implement Features
-==================
+------------------
 
-Look through the Github issues for features.
+Look through the Github issues for feature/enhancement requests.
 If you want to start working on an issue then please write short message on the issue tracker to prevent duplicate work.
 
 Contributing a plugin
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
-Currently, Snakemake supports executor plugins and storage plugins.
+Currently, Snakemake supports executor plugins, storage plugins, and report plugins.
 The `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_ shows which plugins are available and how to contribute new ones.
 
 Write Documentation
-===================
+-------------------
 
-Snakemake could always use more documentation, whether as part of the official vcfpy docs, in docstrings, or even on the web in blog posts, articles, and such.
+Snakemake could always use more documentation, whether as part of the official docs, in docstrings, or even on the web in blog posts, articles, and such.
 
 Snakemake uses `Sphinx <https://sphinx-doc.org>`_ for the user manual (that you are currently reading).
 See :ref:`project_info-doc_guidelines` on how the documentation reStructuredText is used.
 
 
-Submit Feedback
-===============
 
-The best way to send feedback is to file an issue at https://github.com/snakemake/snakemake/issues
-
-If you are proposing a feature:
-
-* Explain in detail how it would work.
-* Keep the scope as narrow as possible, to make it easier to implement.
-* Remember that this is a volunteer-driven project, and that contributions are welcome :)
-
------------------------
 Pull Request Guidelines
------------------------
+=======================
 
 To update the documentation, fix bugs or add new features you need to create a Pull Request
 . A PR is a change you make to your local copy of the code for us to review and potentially integrate into the code base.
@@ -91,38 +85,100 @@ If you want to create more pull requests, first run :code:`git checkout main` an
 
 Feel free to ask questions about this if you want to contribute to Snakemake :)
 
-------------------
+
 Testing Guidelines
-------------------
+==================
 
 To ensure that you do not introduce bugs into Snakemake, you should test your code thoroughly.
 
-To have integration tests run automatically when committing code changes to Github, you need to sign up on wercker.com and register a user.
+Putting these tests into repeatable test cases ensures they can be checked on multiple platforms and Python versions.
 
-The easiest way to run your development version of Snakemake is perhaps to go to the folder containing your local copy of Snakemake and call:
+Continuous integration
+----------------------
+For any pull request, all tests are automatically executed within Github Actions, providing feedback to you and the official development team whether the proposed changes are working as expected and do not hamper other functionality Snakemake provides.
+However, it is useful to be able to run the tests locally, thereby being able to quickly debug any occurring failures.
 
-.. code-block:: console
+Setup to run the test suite locally
+-----------------------------------
 
-    $ conda env create -f test-environment.yml -n snakemake-testing
-    $ conda activate snakemake-testing
-    $ pip install -e .
+Unit tests and regression tests are written to be run by `pytest <https://docs.pytest.org/en/stable/>`_.
 
-This will make your development version of Snakemake the one called when running snakemake. You do not need to run this command after each time you make code changes.
+Assuming you are on a Linux system, and have a working Conda installation, the standard way to run the tests is explained in the following.
+With sufficient experience, it is however possible to run the tests in different setups, given the expected dependencies are installed.
 
-From the base snakemake folder you call :code:`pytest` to run all the tests, or choose one specific test:
+1. Ensure your Conda version is at least 24.7.1 (Snakemake's minimum required Conda version).
+   Check the output of ``conda --version`` and update conda if necessary.
+2. Activate strict channel priorities (this is always a good idea when using Conda, see `here <https://conda-forge.org/docs/user/tipsandtricks/#using-multiple-channels>`__ for the rationale), by running ``conda config --set channel_priority strict``.
+3. After checking out the branch you want to test, run these commands:
 
-.. code-block:: console
+   .. code-block:: console
 
-   $ pytest
-   $ pytest tests/tests.py::test_log_input
+       $ conda env create -f test-environment.yml -n snakemake-testing
+       $ conda activate snakemake-testing
+       $ pip install -e .
 
-If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
+   You may want to set a specific Python version by editing the constraint in ``test-environment.yml`` before doing this.
+   Use of the ``-e``/``--editable`` option to ``pip`` will make your development version of Snakemake the one called when running Snakemake and all the unit tests. You only need to run the ``pip`` command once, not after each time you make code changes.
+
+4. From the base Snakemake folder you may now run any specific test:
+
+   .. code-block:: console
+
+      $ pytest tests/tests.py::test_log_input
+
+   You can also use the ``-k`` flag to select tests by substring match, rather than by the full name, and the ``--co`` option to preview which tests will be run. Try, for example:
+
+   .. code-block:: console
+
+      $ pytest --co tests/tests.py -k test_modules_all
+
+Running the full test suite
+---------------------------
+
+If you simply run ``pytest`` in the top level directory it will scan for and attempt to run every test in the directory, but you will almost certainly get errors as not all tests are working and current.
+
+The core test suite is run as a `GitHub action <https://docs.github.com/en/actions/about-github-actions/understanding-github-actions>`_ by the code under ``.github/workflows/main.yml``, so you should look in this file for the list of tests actually expected to pass in a regular test environment.
+
+At the time of writing this text, the suite is:
+
+.. code-block::
+
+   tests/tests.py
+   tests/tests_using_conda.py
+   tests/test_expand.py
+   tests/test_io.py
+   tests/test_schema.py
+   tests/test_linting.py
+   tests/test_executor_test_suite.py
+   tests/test_api.py
+   tests/test_internals.py
+
+Other tests in the directory may or may not work.
+
+Warnings and oddities
+---------------------
+
+You will likely see warnings related to deprecated functions in dependent libraries, especially botocore.
+
+You may also get intermittent failures from tests that rely on external connectivity. The default test suite makes connections to multiple external services.
+
+Tests that require singularity will be auto-skipped if no singularity or apptainer installation is available.
+At the time of writing neither the ``singularity`` package on conda-forge nor the ``apptainer`` package are reliable, in that there are multiple failing tests on a standard Ubuntu system.
+This is likely due to system security profiles that conda, being a non-root application, cannot change.
+The Debian/Ubuntu ``singularity-container`` DEB package, which must be installed by the system administrator, does work.
+The equivalent RPM package should also work on RedHat-type systems.
+
+Tests in ``tests/test_api.py`` require a working ``git``.
+This is not included in ``test-environment.yml`` as it's assumed you must have GIT installed to be working on the source code, but installing git into the conda environment should work if need be.
+
+Depending on how the Snakemake code was downloaded and installed in the test environment, Snakemake may not be able to determine its own version and may think that it is version 0.
+The existing unit tests should all cope with this, and in general you should avoid writing tests that rely on explicit version checks.
+
 
 .. _project_info-doc_guidelines:
 
-------------------------
 Documentation Guidelines
-------------------------
+========================
 
 For the documentation, please adhere to the following guidelines:
 
@@ -172,7 +228,6 @@ For the documentation, please adhere to the following guidelines:
 
 .. _doc_setup:
 
--------------------
 Documentation Setup
 -------------------
 
