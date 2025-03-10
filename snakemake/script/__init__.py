@@ -458,7 +458,7 @@ class JuliaEncoder:
     def encode_items(cls, items):
         def encode_item(item):
             name, value = item
-            return f'{cls.encode_value(name)} => {cls.encode_value(value)}'
+            return f"{cls.encode_value(name)} => {cls.encode_value(value)}"
 
         return ", ".join(map(encode_item, items))
 
@@ -532,10 +532,10 @@ class BashEncoder:
     @staticmethod
     def dict_to_aa(d: dict) -> str:
         """Converts a dictionary to a Bash associative array
-           This produces the array component of the variable.
-           e.g. ( [var1]=val1 [var2]=val2 )
-           to make it a correct bash associative array, you need to name it with
-           name=<output of this method>
+        This produces the array component of the variable.
+        e.g. ( [var1]=val1 [var2]=val2 )
+        to make it a correct bash associative array, you need to name it with
+        name=<output of this method>
         """
         s = "( "
         for k, v in d.items():
@@ -546,7 +546,7 @@ class BashEncoder:
                 v = " ".join([str(x) for x in v])
             quoted_v = shlex.quote(str(v))
             quoted_k = shlex.quote(str(k))
-            s += f'[{quoted_k}]={quoted_v} '
+            s += f"[{quoted_k}]={quoted_v} "
 
         s += ")"
         return s
@@ -554,7 +554,7 @@ class BashEncoder:
     @classmethod
     def encode_namedlist(cls, named_list: io_.Namedlist) -> str:
         """Convert a namedlist into a Bash associative array
-           See the comments for dict_to_aa()
+        See the comments for dict_to_aa()
         """
         nl_dict = dict()
 
