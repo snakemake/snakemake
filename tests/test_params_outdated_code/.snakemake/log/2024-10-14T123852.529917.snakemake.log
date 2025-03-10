@@ -1,0 +1,40 @@
+host: fedora.fritz.box
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Job stats:
+job      count
+-----  -------
+1            1
+2            1
+total        2
+
+Select jobs to execute...
+Execute 1 jobs...
+
+[Mon Oct 14 12:38:52 2024]
+localrule 2:
+    output: somedir/test.out
+    jobid: 1
+    reason: Missing output files: somedir/test.out
+    wildcards: dir=somedir
+    resources: tmpdir=/tmp
+
+[Mon Oct 14 12:38:52 2024]
+Finished job 1.
+1 of 2 steps (50%) done
+Select jobs to execute...
+Execute 1 jobs...
+
+[Mon Oct 14 12:38:52 2024]
+localrule 1:
+    input: somedir/test.out
+    jobid: 0
+    reason: Input files updated by another job: somedir/test.out
+    resources: tmpdir=/tmp
+
+[Mon Oct 14 12:38:52 2024]
+Finished job 0.
+2 of 2 steps (100%) done
+Complete log: .snakemake/log/2024-10-14T123852.529917.snakemake.log

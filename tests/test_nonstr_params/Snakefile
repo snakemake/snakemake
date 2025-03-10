@@ -1,8 +1,15 @@
+import numpy as np
+from pathlib import Path
+
 rule:
     output:
         "test.out"
+    benchmark:
+        "test.jsonl"
     params:
-        test=True
+        test=True,
+        path=Path("/tmp"),
+        np=np.int64(1),
     run:
         assert params.test is True
-        shell("touch {output}")
+        shell("echo {params.path} {params.np} > {output}")

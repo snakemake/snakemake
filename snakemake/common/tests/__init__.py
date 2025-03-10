@@ -5,13 +5,15 @@ from typing import List, Mapping, Optional
 import uuid
 
 import pytest
-from snakemake import api, settings
+from snakemake import api
 
 from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_storage_plugins.settings import StorageProviderSettingsBase
+
+from snakemake.settings import types as settings
 
 
 def handle_testcase(func):
@@ -39,26 +41,21 @@ class TestWorkflowsBase(ABC):
     create_report = False
 
     @abstractmethod
-    def get_executor(self) -> str:
-        ...
+    def get_executor(self) -> str: ...
 
     @abstractmethod
-    def get_executor_settings(self) -> Optional[ExecutorSettingsBase]:
-        ...
+    def get_executor_settings(self) -> Optional[ExecutorSettingsBase]: ...
 
     @abstractmethod
-    def get_default_storage_provider(self) -> Optional[str]:
-        ...
+    def get_default_storage_provider(self) -> Optional[str]: ...
 
     @abstractmethod
-    def get_default_storage_prefix(self) -> Optional[str]:
-        ...
+    def get_default_storage_prefix(self) -> Optional[str]: ...
 
     @abstractmethod
     def get_default_storage_provider_settings(
         self,
-    ) -> Optional[Mapping[str, TaggedSettings]]:
-        ...
+    ) -> Optional[Mapping[str, TaggedSettings]]: ...
 
     def get_remote_execution_settings(self) -> settings.RemoteExecutionSettings:
         return settings.RemoteExecutionSettings(
@@ -117,9 +114,11 @@ class TestWorkflowsBase(ABC):
                 storage_settings=settings.StorageSettings(
                     default_storage_provider=self.get_default_storage_provider(),
                     default_storage_prefix=self.get_default_storage_prefix(),
-                    shared_fs_usage=settings.SharedFSUsage.all()
-                    if self.get_assume_shared_fs()
-                    else frozenset(),
+                    shared_fs_usage=(
+                        settings.SharedFSUsage.all()
+                        if self.get_assume_shared_fs()
+                        else frozenset()
+                    ),
                 ),
                 deployment_settings=self.get_deployment_settings(deployment_method),
                 storage_provider_settings=self.get_default_storage_provider_settings(),
@@ -222,15 +221,15 @@ class TestWorkflowsMinioPlayStorageBase(TestWorkflowsBase):
 
     @property
     def endpoint_url(self):
-        return "https://play.minio.io:9000"
+        return "http://127.0.0.1:9000"
 
     @property
     def access_key(self):
-        return "Q3AM3UQ867SPQQA43P2F"
+        return "minio"
 
     @property
     def secret_key(self):
-        return "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+        return "minio123"
 
 
 class TestReportBase(TestWorkflowsLocalStorageBase):

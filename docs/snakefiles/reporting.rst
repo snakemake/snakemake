@@ -1,11 +1,11 @@
 .. _snakefiles-reports:
 
--------
+=======
 Reports
--------
+=======
 
 From Snakemake 5.1 on, it is possible to automatically generate detailed self-contained HTML reports that encompass runtime statistics, provenance information, workflow topology and results.
-**As an example, the report of the Snakemake rolling paper can be found** `here <https://snakemake.github.io/resources/report.html>`_.
+**As an example, the report of the Snakemake rolling paper can be found** `here <https://snakemake.github.io/resources/report.html>`__.
 
 For including results into the report, the Snakefile has to be annotated with additional information.
 Each output file that shall be part of the report has to be marked with the ``report`` flag, which optionally points to a caption in `restructured text format <https://docutils.sourceforge.io/docs/user/rst/quickstart.html>`_ and allows to define a ``category`` for grouping purposes.
@@ -94,9 +94,9 @@ This works as follows:
             """
 
 Defining file labels
-~~~~~~~~~~~~~~~~~~~~~
+--------------------
 
-In addition to category, and subcategory, it is possible to define a dictionary of labels for each report item.
+In addition to category, and subcategory, it is possible (and highly recommended!) to define a dictionary of labels for each report item.
 By that, the actual filename will be hidden in the report and instead a table with the label keys as columns and the values in the respective row for the file will be displayed.
 This can lead to less technical reports that abstract away the fact that the results of the analysis are actually files.
 Consider the following modification of rule ``b`` from above:
@@ -120,28 +120,134 @@ Consider the following modification of rule ``b`` from above:
       shell:
           "sleep `shuf -i 1-3 -n 1`; cp data/fig2.png {output}"
 
+If all results in a particular category/subcategory share the same label and both values occur once for each combination of other labels,
+Snakemake displays the label as a toggle switch above the result menu.
+This behavior can be used to, for example, switch between different versions of a plot, one with and one without a legend, see the example below (there, the legend label, with values yes/no, is automatically rendered as a toggle switch):
+
+.. image:: images/report-toggles.png
+    :scale: 100%
+    :alt: Example toggle switch for labels
+    :align: center
+
 
 Determining category, subcategory, and labels dynamically via functions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------------------------------------------
 
 Similar to e.g. with input file and parameter definition (see :ref:`snakefiles-input_functions`), ``category`` and a ``subcategory`` and ``labels`` can be specified by pointing to a function that takes ``wildcards`` as the first argument (and optionally in addition ``input``, ``output``, ``params`` in any order).
 The function is expected to return a string or number (int, float, numpy types), or, in case of labels, a dict with strings as keys and strings or numbers as values.
 
 
 Linking between items
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
-In every ``.rst`` document, you can link to
+From captions
+^^^^^^^^^^^^^
+
+In every ``.rst`` document (i.e. in the captions), you can link to
 
 * the **Workflow** panel (with ``Rules_``),
 * the **Statistics** panel (with ``Statistics_``),
 * any **category** panel (with ``Mycategory_``, while ``Mycategory`` is the name given for the category argument of the report flag). E.g., with above example, you could write ``see `Step 2`_`` in order to link to the section with the results that have been assigned to the category ``Step 2``.
 * any **file** marked with the report flag (with ``myfile.txt_``, while ``myfile.txt`` is the basename of the file, without any leading directories). E.g., with above example, you could write ``see fig2.png_`` in order to link to the result in the report document.
 
-For details about the hyperlink mechanism of restructured text see `here <https://docutils.sourceforge.io/docs/user/rst/quickref.html#hyperlink-targets>`_.
+For details about the hyperlink mechanism of restructured text see `here <https://docutils.sourceforge.io/docs/user/rst/quickref.html#hyperlink-targets>`__.
+
+From results
+^^^^^^^^^^^^
+
+From within results that are included into the report, you can link to other report items.
+This works by using the ``snakemake.report_href()`` method that is available from within :ref:`python scripts <snakefiles-external_scripts>`.
+The method takes the path to the target report item in exactly the same form as it is given in the Snakefile,
+and optionally can be extended to target child paths or by URL arguments.
+For example, consider the following Snakefile:
+
+.. code-block:: python
+
+    rule a:
+        input:
+            report("test.html"),
+            report(
+                "subdir",
+                patterns=["{name}.html"],
+            )
+        output:
+            report(
+                "test2.html",
+            )
+        script:
+            "test_script.py"
+
+Inside of the script, we can now use ``snakemake.report_href()`` to create a link to the file ``test.html`` such that it can be accessed from the file ``test2.html``:
+
+.. code-block:: python
+
+    import textwrap
+
+    with open(snakemake.output[0], "w") as f:
+        print(
+            textwrap.dedent(f"""
+            <html>
+                <head>
+                    <title>Report</title>
+                </head>
+                <body>
+                    <a href={snakemake.report_href("test.html")}>Link to test.html</a>
+                </body>
+            </html>
+            """
+            ),
+            file=f,
+        )
+
+Note that you will rarely directly generate HTML like this in a Python script within a Snakemake workflow.
+Rather, you might want to access ``snakemake.report_href()`` when e.g. generating a table which is later rendered into HTML by e.g. `Datavzrd <https://datavzrd.github.io>`__ (also see :ref:`interaction_visualization_reporting_tutorial`).
+
+In case you want to refer to a file that is inside of a directory that is included into the Snakemake report, you can do so using the ``child_path`` method:
+
+.. code-block:: python
+
+    import textwrap
+
+    with open(snakemake.output[0], "w") as f:
+        print(
+            textwrap.dedent(f"""
+            <html>
+                <head>
+                    <title>Report</title>
+                </head>
+                <body>
+                    <a href={snakemake.report_href("subdir").child_path("foo.html")}>Link to test.html</a>
+                </body>
+            </html>
+            """
+            ),
+            file=f,
+        )
+
+Further, using ``url_args()`` you can add URL arguments and using ``anchor()`` you can add a target anchor to the link, e.g. to scroll to a specific section of the target document:
+
+.. code-block:: python
+
+    import textwrap
+
+    with open(snakemake.output[0], "w") as f:
+        print(
+            textwrap.dedent(f"""
+            <html>
+                <head>
+                    <title>Report</title>
+                </head>
+                <body>
+                    <a href={snakemake.report_href("subdir").child_path("foo.html").url_args(someparam=5).anchor("mysection")}>Link to test.html</a>
+                </body>
+            </html>
+            """
+            ),
+            file=f,
+        )
 
 Rendering reports
-~~~~~~~~~~~~~~~~~
+-----------------
 
 To create the report simply run
 
@@ -163,7 +269,7 @@ You can define an institute specific stylesheet with:
 In particular, this allows you to e.g. set a logo at the top (by using CSS to inject a background for the placeholder ``<div id="brand">``, or overwrite colors.
 For an example custom stylesheet defining the logo, see :download:`here <../../tests/test_report/custom-stylesheet.css>`.
 The report for above example can be found :download:`here <../../tests/test_report/expected-results/report.html>` (with a custom branding for the University of Duisburg-Essen).
-The full example source code can be found `here <https://github.com/snakemake/snakemake/tree/main/tests/test_report/>`_.
+The full example source code can be found `here <https://github.com/snakemake/snakemake/tree/main/tests/test_report/>`__.
 
 Note that the report can be restricted to particular jobs and results by specifying targets at the command line, analog to normal Snakemake execution.
 For example, with

@@ -8,9 +8,9 @@ from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
-from snakemake import common
+from snakemake import PIP_DEPLOYMENTS_PATH
 from snakemake.io import get_flag_value, is_flagged
-from snakemake.settings import SharedFSUsage
+from snakemake.settings.types import SharedFSUsage
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -117,7 +117,7 @@ class SpawnedJobArgsFactory:
             ),
         ]
 
-    def get_resource_scopes_args(self):
+    def get_resource_scopes_arg(self):
         return format_cli_arg(
             "--set-resource-scopes",
             self.workflow.resource_settings.overwrite_resource_scopes,
@@ -201,16 +201,18 @@ class SpawnedJobArgsFactory:
             executor_common_settings.auto_deploy_default_storage_provider
             and self.workflow.storage_settings.default_storage_provider is not None
         ):
-            package_name = StoragePluginRegistry().get_plugin_package_name(
-                self.workflow.storage_settings.default_storage_provider
+            packages_to_install = set(
+                StoragePluginRegistry().get_plugin_package_name(pkg)
+                for pkg in self.workflow.storage_provider_settings.keys()
             )
-            precommand.append(
-                f"pip install --target '{common.PIP_DEPLOYMENTS_PATH}' {package_name}"
-            )
+            pkgs = " ".join(packages_to_install)
+
+            precommand.append(f"pip install --target '{PIP_DEPLOYMENTS_PATH}' {pkgs}")
 
         if (
             SharedFSUsage.SOURCES not in self.workflow.storage_settings.shared_fs_usage
             and self.workflow.remote_execution_settings.job_deploy_sources
+            and not executor_common_settings.can_transfer_local_files
         ):
             archive = self.workflow.source_archive
             default_storage_provider_args = self.get_default_storage_provider_args()
@@ -222,6 +224,21 @@ class SpawnedJobArgsFactory:
             )
 
         return " && ".join(precommand)
+
+    def get_configfiles_arg(self):
+        # If not shared FS, use relpath for the configfiles (deployed via source archive)
+        # Source archive creation ensures that configfiles are in a subdir of the CWD
+        # and errors otherwise.
+        if SharedFSUsage.SOURCES not in self.workflow.storage_settings.shared_fs_usage:
+            configfiles = [
+                os.path.relpath(f) for f in self.workflow.overwrite_configfiles
+            ]
+        else:
+            configfiles = self.workflow.overwrite_configfiles
+        if configfiles:
+            return format_cli_arg("--configfiles", configfiles)
+        else:
+            return ""
 
     def general_args(
         self,
@@ -239,13 +256,16 @@ class SpawnedJobArgsFactory:
             in self.workflow.storage_settings.shared_fs_usage
         )
 
+        # base64 encode the prefix to ensure that eventually unexpanded env vars
+        # are not replaced with values (or become empty if missing) by the shell
         local_storage_prefix = (
             w2a(
                 "storage_settings.remote_job_local_storage_prefix",
                 flag="--local-storage-prefix",
+                base64_encode=True,
             )
             if executor_common_settings.non_local_exec
-            else w2a("storage_settings.local_storage_prefix")
+            else w2a("storage_settings.local_storage_prefix", base64_encode=True)
         )
 
         args = [
@@ -275,7 +295,7 @@ class SpawnedJobArgsFactory:
                 skip=not shared_deployment,
             ),
             w2a("deployment_settings.apptainer_prefix"),
-            w2a("deployment_settings.apptainer_args"),
+            w2a("deployment_settings.apptainer_args", base64_encode=True),
             w2a("resource_settings.max_threads"),
             self.get_shared_fs_usage_arg(executor_common_settings),
             w2a(
@@ -284,12 +304,12 @@ class SpawnedJobArgsFactory:
             w2a("workflow_settings.wrapper_prefix"),
             w2a("resource_settings.overwrite_scatter", flag="--set-scatter"),
             w2a("deployment_settings.conda_not_block_search_path_envvars"),
-            w2a("overwrite_configfiles", flag="--configfiles"),
             w2a("config_settings.config_args", flag="--config"),
             w2a("output_settings.printshellcmds"),
             w2a("output_settings.benchmark_extended"),
             w2a("execution_settings.latency_wait"),
             w2a("scheduling_settings.scheduler", flag="--scheduler"),
+            w2a("workflow_settings.cache"),
             local_storage_prefix,
             format_cli_arg(
                 "--scheduler-solver-path",
@@ -301,7 +321,8 @@ class SpawnedJobArgsFactory:
                 flag="--directory",
                 skip=self.workflow.storage_settings.assume_common_workdir,
             ),
-            self.get_resource_scopes_args(),
+            self.get_resource_scopes_arg(),
+            self.get_configfiles_arg(),
         ]
         args.extend(self.get_storage_provider_args())
         args.extend(self.get_set_resources_args())

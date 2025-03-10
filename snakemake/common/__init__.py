@@ -10,19 +10,18 @@ import operator
 import platform
 import hashlib
 import inspect
+import shutil
 import sys
+from typing import Callable, List
 import uuid
 import os
 import asyncio
 import collections
 from pathlib import Path
+from typing import Union
 
-from snakemake._version import get_versions
-
+from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
-
-__version__ = get_versions()["version"]
-del get_versions
 
 
 MIN_PY_VERSION = (3, 7)
@@ -46,7 +45,6 @@ SNAKEFILE_CHOICES = list(
         ),
     )
 )
-PIP_DEPLOYMENTS_PATH = ".snakemake/pip-deployments"
 
 
 def get_snakemake_searchpaths():
@@ -54,6 +52,13 @@ def get_snakemake_searchpaths():
         path for path in sys.path if os.path.isdir(path)
     ]
     return list(unique_justseen(paths))
+
+
+def get_report_id(path: Union[str, Path]) -> str:
+    h = hashlib.sha256()
+    h.update(str(path).encode())
+
+    return h.hexdigest()
 
 
 def mb_to_mib(mb):
@@ -278,8 +283,22 @@ class Gather:
     pass
 
 
-def get_function_params(func):
-    return inspect.signature(func).parameters
+FUNC_OVERWRITE_PARAMS_ATTR = "_overwrite_params"
+
+
+def get_function_params(func: Callable):
+    if hasattr(func, FUNC_OVERWRITE_PARAMS_ATTR):
+        return getattr(func, FUNC_OVERWRITE_PARAMS_ATTR)
+    else:
+        return inspect.signature(func).parameters
+
+
+def overwrite_function_params(func: Callable, params: List[str]):
+    """Force function params to be the given list. Useful for functions that
+    use *args to get all parameters in dynamically created cases like in
+    snakemake.ioutils.subpath.subpath.
+    """
+    setattr(func, FUNC_OVERWRITE_PARAMS_ATTR, params)
 
 
 def get_input_function_aux_params(func, candidate_params):
@@ -320,7 +339,7 @@ def set_env(**environ):
     >>> "PLUGINS_DIR" in os.environ
     False
 
-    :type environ: dict[str, unicode]
+    :type environ: Dict[str, unicode]
     :param environ: Environment variables to set
     """
     old_environ = dict(os.environ)
@@ -347,4 +366,16 @@ def is_namedtuple_instance(x):
     f = getattr(t, "_fields", None)
     if not isinstance(f, tuple):
         return False
-    return all(type(n) == str for n in f)
+    return all(type(n) is str for n in f)
+
+
+def copy_permission_safe(src: str, dst: str):
+    """Copy a file to a given destination.
+
+    If destination exists, it is removed first in order to avoid permission issues when
+    the destination permissions are tried to be applied to an already existing
+    destination.
+    """
+    if os.path.exists(dst):
+        os.unlink(dst)
+    shutil.copy(src, dst)
