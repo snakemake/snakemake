@@ -1,0 +1,13 @@
+rule all:
+    input:
+        "test_1_file.tsv",
+        "test_2_file.tsv"
+
+module other_workflow:
+    snakefile:
+        # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
+        "other_workflow.smk"
+
+use rule test from other_workflow as other_test with:
+    params:
+        b = 9

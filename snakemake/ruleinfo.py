@@ -68,7 +68,10 @@ class RuleInfo:
         if modifier.ruleinfo_overwrite:
             for key, value in modifier.ruleinfo_overwrite.__dict__.items():
                 if key != "func" and value is not None:
-                    self.__dict__[key] = value
+                    if key == "params":
+                        self.__dict__[key] = ((), {**self.params[1], **modifier.ruleinfo_overwrite.params[1]})
+                    else:
+                        self.__dict__[key] = value
                     if key in prefix_replacables:
                         skips.add(key)
 
