@@ -19,6 +19,7 @@ test = { features = [
   "storage-plugins",
   "executor-plugins",
 ] }
+lint = { features = ["lint"] }
 
 [feature.plugin-interfaces.pypi-dependencies]
 snakemake-interface-executor-plugins = ">=9.3.3, <10"
@@ -128,3 +129,6 @@ build = { cmd = "python -m build", description = "Build the package" }
 check = { cmd = "python -m twine check dist/*", depends-on = [
   "build",
 ], description = "Check that the package can be uploaded" }
+
+[feature.lint.dependencies]
+black = "*"
