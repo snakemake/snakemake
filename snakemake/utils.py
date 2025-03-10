@@ -111,9 +111,10 @@ def validate(data, schema, set_default=True):
     import pandas as pd
     import polars as pl
 
-    def _validate_record(record):
+    def _validate_record(record, excl_null=True):
         # Exclude NULL values
-        record = {k: v for k, v in record.items() if not pd.isnull(v)}
+        if excl_null:
+            record = {k: v for k, v in record.items() if not pd.isnull(v)}
         if set_default:
             DefaultValidator(schema, resolver=resolver).validate(record)
             return record
@@ -123,7 +124,7 @@ def validate(data, schema, set_default=True):
     if isinstance(data, dict):
         logger.debug("Validating dict")
         try:
-            _validate_record(data)
+            _validate_record(data, excl_null=False)
         except jsonschema.exceptions.ValidationError as e:
             raise WorkflowError("Error validating config file.", e)
 
