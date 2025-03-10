@@ -547,6 +547,49 @@ It can for example be used to condition some behavior in the workflow on the exi
         shell:
             "cp {input} {output}"
 
+.. _snakefiles-semantic-helpers-parse-input:
+
+The parse_input function
+""""""""""""""""""""""""
+
+The ``parse_input`` function allows to parse an input file and return a value.
+It has the signature ``parse_input(input_item, parser, kwargs)``, with ``input_item`` being the key of an input file, ``parser`` being a callable to extract the desired information, and ``kwargs`` extra arguments passed to the parser.
+The function will return the extracted value.
+It can for example be used to extract a value from inside an input file.
+
+.. code-block:: python
+
+    rule a:
+	input:
+	    samples="samples.tsv",
+        output:
+            "samples.id",
+        params:
+            id=parse_input(input.samples, parser=extract_id)
+        shell:
+            "echo {params.id} > {output}"
+
+
+.. _snakefiles-semantic-helpers-extract-checksum:
+
+The extract_checksum function
+"""""""""""""""""""""""""""""
+
+The ``extract_checksum`` function parses an input file and returns the checksum of the given file.
+It has the signature ``extract_checksum(infile, file)``, with ``infile`` being the input file, and ``file`` the filename to search for.
+The function will return the checksum of ``file`` present in ``infile``.
+
+.. code-block:: python
+
+    rule a:
+	input:
+	    checksum="samples.md5",
+        output:
+            tsv="{a}.tsv",
+        params:
+            checksum=parse_input(input.checksum, parser=extract_checksum, file=output.tsv)
+        shell:
+            "echo {params.checksum} > {output}"
 
 .. _snakefiles-rule-item-access:
 
