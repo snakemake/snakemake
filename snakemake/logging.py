@@ -427,6 +427,7 @@ class ColorizingTextHandler(logging.StreamHandler):
     yellow_info_events = [
         LogEvent.RUN_INFO,
         LogEvent.SHELLCMD,
+        LogEvent.JOB_STARTED,
         None,  # To mimic old coloring where log.info was mapped to log.warn
     ]
 
@@ -500,7 +501,8 @@ class ColorizingTextHandler(logging.StreamHandler):
                     # Reset flag if the message is not a 'job_info'
                     self.last_msg_was_job_info = False
                 formatted_message = self.format(record)
-
+                if formatted_message == "None":
+                    return
                 # Apply color to the formatted message
                 self.stream.write(self.decorate(record, formatted_message))
                 self.stream.write(getattr(self, "terminator", "\n"))
