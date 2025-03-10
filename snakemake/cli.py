@@ -1356,7 +1356,7 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--keep-storage-local-copies",
         action="store_true",
-        help="Keep local copies of remote input files.",
+        help="Keep local copies of remote input and output files.",
     )
     group_behavior.add_argument(
         "--target-files-omit-workdir-adjustment",
