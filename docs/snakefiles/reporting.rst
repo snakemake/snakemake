@@ -4,8 +4,16 @@
 Reports
 =======
 
-From Snakemake 5.1 on, it is possible to automatically generate detailed self-contained HTML reports that encompass runtime statistics, provenance information, workflow topology and results.
+From Snakemake 5.1 on, it is possible to automatically generate detailed self-contained HTML reports that you can easily move and share. 
+They encompass runtime statistics, provenance information and workflow topology by default, and workflow developers can also specify and annotate results for inclusion.
+For smaller default reports, these can be a single :ref:`snakefiles-self_contained_html_file`.
+For more complext reports, one can generate a :ref:`snakefiles-self_contained_zip_archive`, with a contained ``report.html`` as the main entry point.
 **As an example, the report of the Snakemake rolling paper can be found** `here <https://snakemake.github.io/resources/report.html>`__.
+
+.. _snakefiles-including_results_in_a_report:
+
+Including results in a report
+-----------------------------
 
 For including results into the report, the Snakefile has to be annotated with additional information.
 Each output file that shall be part of the report has to be marked with the ``report`` flag, which optionally points to a caption in `restructured text format <https://docutils.sourceforge.io/docs/user/rst/quickstart.html>`_ and allows to define a ``category`` for grouping purposes.
@@ -94,7 +102,7 @@ This works as follows:
             """
 
 Defining file labels
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 In addition to category, and subcategory, it is possible (and highly recommended!) to define a dictionary of labels for each report item.
 By that, the actual filename will be hidden in the report and instead a table with the label keys as columns and the values in the respective row for the file will be displayed.
@@ -131,17 +139,17 @@ This behavior can be used to, for example, switch between different versions of 
 
 
 Determining category, subcategory, and labels dynamically via functions
------------------------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Similar to e.g. with input file and parameter definition (see :ref:`snakefiles-input_functions`), ``category`` and a ``subcategory`` and ``labels`` can be specified by pointing to a function that takes ``wildcards`` as the first argument (and optionally in addition ``input``, ``output``, ``params`` in any order).
 The function is expected to return a string or number (int, float, numpy types), or, in case of labels, a dict with strings as keys and strings or numbers as values.
 
 
 Linking between items
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 From captions
-^^^^^^^^^^^^^
+"""""""""""""
 
 In every ``.rst`` document (i.e. in the captions), you can link to
 
@@ -153,7 +161,7 @@ In every ``.rst`` document (i.e. in the captions), you can link to
 For details about the hyperlink mechanism of restructured text see `here <https://docutils.sourceforge.io/docs/user/rst/quickref.html#hyperlink-targets>`__.
 
 From results
-^^^^^^^^^^^^
+""""""""""""
 
 From within results that are included into the report, you can link to other report items.
 This works by using the ``snakemake.report_href()`` method that is available from within :ref:`python scripts <snakefiles-external_scripts>`.
@@ -246,32 +254,56 @@ Further, using ``url_args()`` you can add URL arguments and using ``anchor()`` y
             file=f,
         )
 
+.. _snakefiles-rendering_reports:
+
 Rendering reports
 -----------------
 
-To create the report simply run
-
-.. code-block:: bash
-
-    snakemake --report report.html
-
-after your workflow has finished.
-All other information contained in the report (e.g. runtime statistics) is automatically collected during creation.
+All the metadata contained in the report (e.g. runtime statistics) is automatically collected during the rendering of the report.
 These statistics are obtained from the metadata that is stored in the ``.snakemake`` directory inside your working directory.
 
+.. _snakefiles-self_contained_html_file:
 
-You can define an institute specific stylesheet with:
+Self-contained HTML file
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+To create a default report simply run
 
 .. code-block:: bash
 
-    snakemake --report report.html --report-stylesheet custom-stylesheet.css
+    snakemake --report
 
-In particular, this allows you to e.g. set a logo at the top (by using CSS to inject a background for the placeholder ``<div id="brand">``, or overwrite colors.
-For an example custom stylesheet defining the logo, see :download:`here <../../tests/test_report/custom-stylesheet.css>`.
-The report for above example can be found :download:`here <../../tests/test_report/expected-results/report.html>` (with a custom branding for the University of Duisburg-Essen).
-The full example source code can be found `here <https://github.com/snakemake/snakemake/tree/main/tests/test_report/>`__.
+after your workflow has finished successfully.
+This will implicitly assume a report file name of ``report.html`` and will create this self-contained HTML report.
+If you want to give your report a custom name, you can do so by specifying this on the command-line:
 
-Note that the report can be restricted to particular jobs and results by specifying targets at the command line, analog to normal Snakemake execution.
+.. code-block:: bash
+
+    snakemake --report my_report.html
+
+As specifying an HTML file for the report will always embed any user-defined report outputs into the same HTML file, this report output type is only suitable for smaller reports.
+
+.. _snakefiles-self_contained_zip_archive:
+
+Self-contained ZIP archive
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For anything more complex, it is recommended to generate a ``ZIP`` archive report.
+For example, if you have lots of samples you report on, or if you specified lots of different workflow outputs for report inclusion.
+To get such a self-contained ``ZIP`` archive, simply specify a ``.zip`` file name instead:
+
+.. code-block:: bash
+
+    snakemake --report some_report.zip
+
+You can move this file wherever you need it and then unpack it.
+The main entry point is always the ``report.html`` file in the main folder that this creates (for the above example, this folder will be named ``some_report``).
+Just open that file in a web browser and explore your results.
+
+Partial reports
+^^^^^^^^^^^^^^^
+
+The report can be restricted to particular jobs and results by specifying targets at the command line, analog to normal Snakemake execution.
 For example, with
 
 .. code-block:: bash
@@ -279,3 +311,20 @@ For example, with
     snakemake fig1.svg --report report-short.html
 
 the report contains only ``fig1.svg``.
+This can for example be useful when a larger workflow has not yet run to completion, but you already want to explore some intermediate outputs in the report.
+Or when you have multiple alternative target rules within the same workflow.
+
+Custom layout
+^^^^^^^^^^^^^
+
+You can define an institute specific layout by providing a custom stylesheet:
+
+.. code-block:: bash
+
+    snakemake --report report.html --report-stylesheet custom-stylesheet.css
+
+For example, this allows you to set a logo at the top (by using CSS to inject a background for the placeholder ``<div id="brand">``), or overwrite colors.
+
+For an example with a custom stylesheet defining a logo, see :download:`the report here <../../tests/test_report/expected-results/report.html>` (with a custom branding for the University of Duisburg-Essen).
+For the complete mechanics, you can also have a look at the `full example source code  <https://github.com/snakemake/snakemake/tree/main/tests/test_report/>`__ and :download:`the custom stylesheet with the logo definition <../../tests/test_report/custom-stylesheet.css>`.
+
