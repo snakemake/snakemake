@@ -1167,7 +1167,9 @@ class JuliaScript(ScriptBase):
                 JuliaEncoder.encode_value(self.rulename),
                 JuliaEncoder.encode_value(self.bench_iteration),
                 JuliaEncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
-            ).replace("'", '"')
+            ).replace(
+                "'", '"'
+            )
         )
 
     def write_script(self, preamble, fd):
