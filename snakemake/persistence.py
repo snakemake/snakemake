@@ -170,8 +170,7 @@ class Persistence(PersistenceExecutorInterface):
             self._files = set(self.dag.output_files)
         return self._files
 
-    @property
-    def locked(self):
+    def lock_conflicts(self):
         inputfiles = set(self.all_inputfiles())
         outputfiles = set(self.all_outputfiles())
         if os.path.exists(self._lockdir):
@@ -180,28 +179,38 @@ class Persistence(PersistenceExecutorInterface):
                     for f in lock:
                         f = f.strip()
                         if f in outputfiles:
-                            return True
+                            return f
             for lockfile in self._locks("output"):
                 with open(lockfile) as lock:
                     for f in lock:
                         f = f.strip()
                         if f in outputfiles or f in inputfiles:
-                            return True
-        return False
+                            return f
+        return None
+
+    @property
+    def locked(self):
+        if self.lock_conflicts():
+            return True
+        else:
+            return False
 
     @contextmanager
     def lock_warn_only(self):
-        if self.locked:
+        lock_conflict = self.lock_conflicts()
+        if lock_conflict:
             logger.info(
                 "Error: Directory cannot be locked. This usually "
                 "means that another Snakemake instance is running on this directory. "
                 "Another possibility is that a previous run exited unexpectedly."
+                f"File(s) of interest include the following:\n {lock_conflict}"
             )
         yield
 
     @contextmanager
     def lock(self):
-        if self.locked:
+        lock_conflict = self.lock_conflicts(lock_conflict)
+        if lock_conflict:
             raise snakemake.exceptions.LockException()
         try:
             self._lock(self.all_inputfiles(), "input")
