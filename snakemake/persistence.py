@@ -3,27 +3,40 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import asyncio
+from dataclasses import dataclass, field
+import hashlib
 import os
 import shutil
-import signal
-import marshal
-import pickle
 import json
+import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
-from functools import lru_cache, partial
-from itertools import filterfalse, count
+from functools import lru_cache
+from itertools import count
 from pathlib import Path
+from contextlib import contextmanager
+from typing import Any, Optional, Set
 
+from snakemake_interface_executor_plugins.persistence import (
+    PersistenceExecutorInterface,
+)
+
+from snakemake.common.tbdstring import TBDString
 import snakemake.exceptions
 from snakemake.logging import logger
-from snakemake.jobs import jobfiles
+from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
-from snakemake.io import is_flagged, get_flag_value
+from snakemake.io import _IOFile, is_flagged, get_flag_value
+from snakemake_interface_common.exceptions import WorkflowError
 
 
-class Persistence:
+UNREPRESENTABLE = object()
+RECORD_FORMAT_VERSION = 5
+
+
+class Persistence(PersistenceExecutorInterface):
     def __init__(
         self,
         nolock=False,
@@ -32,14 +45,26 @@ class Persistence:
         singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
+        path: Path | None = None,
     ):
+        import importlib.util
+
+        self._serialize_param = (
+            self._serialize_param_pandas
+            if importlib.util.find_spec("pandas") is not None
+            else self._serialize_param_builtin
+        )
+
         self._max_len = None
-        self.path = os.path.abspath(".snakemake")
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
+
+        if path is None:
+            self._path = Path(os.path.abspath(".snakemake"))
+        else:
+            self._path = path
+        os.makedirs(self.path, exist_ok=True)
+
         self._lockdir = os.path.join(self.path, "locks")
-        if not os.path.exists(self._lockdir):
-            os.mkdir(self._lockdir)
+        os.makedirs(self._lockdir, exist_ok=True)
 
         self.dag = dag
         self._lockfile = dict()
@@ -55,20 +80,18 @@ class Persistence:
         if conda_prefix is None:
             self.conda_env_path = os.path.join(self.path, "conda")
         else:
-            self.conda_env_path = os.path.abspath(os.path.expanduser(conda_prefix))
+            self.conda_env_path = os.path.abspath(conda_prefix)
         if singularity_prefix is None:
             self.container_img_path = os.path.join(self.path, "singularity")
         else:
-            self.container_img_path = os.path.abspath(
-                os.path.expanduser(singularity_prefix)
-            )
+            self.container_img_path = os.path.abspath(singularity_prefix)
         if shadow_prefix is None:
             self.shadow_path = os.path.join(self.path, "shadow")
         else:
             self.shadow_path = os.path.join(shadow_prefix, "shadow")
 
         # place to store any auxiliary information needed during a run (e.g. source tarballs)
-        self.aux_path = os.path.join(self.path, "auxiliary")
+        self._aux_path = os.path.join(self.path, "auxiliary")
 
         # migration of .snakemake folder structure
         migration_indicator = Path(
@@ -108,6 +131,14 @@ class Persistence:
 
         self._read_record = self._read_record_cached
 
+    @property
+    def path(self) -> Path:
+        return Path(self._path)
+
+    @property
+    def aux_path(self) -> Path:
+        return Path(self._aux_path)
+
     def migrate_v1_to_v2(self):
         logger.info("Migrating .snakemake folder to new format...")
         i = 0
@@ -125,14 +156,11 @@ class Persistence:
                             self._metadata_path
                         )
                         os.makedirs(target_path, exist_ok=True)
-                        shutil.copyfile(
-                            path / filename,
-                            target_path / filename,
-                        )
+                        shutil.copyfile(path / filename, target_path / filename)
                 i += 1
                 # this can take a while for large folders...
                 if (i % 10000) == 0 and i > 0:
-                    logger.info("{} files migrated".format(i))
+                    logger.info(f"{i} files migrated")
 
         logger.info("Migration complete")
 
@@ -167,6 +195,7 @@ class Persistence:
         else:
             return False
 
+    @contextmanager
     def lock_warn_only(self):
         lock_conflict = self.lock_conflicts()
         if lock_conflict:
@@ -176,15 +205,21 @@ class Persistence:
                 "Another possibility is that a previous run exited unexpectedly."
                 f"File(s) of interest include the following:\n {lock_conflict}"
             )
+        yield
 
+    @contextmanager
     def lock(self):
-        lock_conflict = self.lock_conflicts()
+        lock_conflict = self.lock_conflicts(lock_conflict)
         if lock_conflict:
-            raise snakemake.exceptions.LockException(lock_conflict)
-        self._lock(self.all_inputfiles(), "input")
-        self._lock(self.all_outputfiles(), "output")
+            raise snakemake.exceptions.LockException()
+        try:
+            self._lock(self.all_inputfiles(), "input")
+            self._lock(self.all_outputfiles(), "output")
+            yield
+        finally:
+            self.unlock()
 
-    def unlock(self, *args):
+    def unlock(self):
         logger.debug("unlocking")
         for lockfile in self._lockfile.values():
             try:
@@ -206,15 +241,56 @@ class Persistence:
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
 
+    def cleanup_containers(self):
+        from humanfriendly import format_size
+
+        required_imgs = {Path(img.path) for img in self.dag.container_imgs.values()}
+        img_dir = Path(self.container_img_path)
+        total_size_cleaned_up = 0
+        num_containers_removed = 0
+        for pulled_img in img_dir.glob("*.simg"):
+            if pulled_img in required_imgs:
+                continue
+            size_bytes = pulled_img.stat().st_size
+            total_size_cleaned_up += size_bytes
+            filesize = format_size(size_bytes)
+            pulled_img.unlink()
+            logger.debug(f"Removed unrequired container {pulled_img} ({filesize})")
+            num_containers_removed += 1
+
+        if num_containers_removed == 0:
+            logger.info("No containers require cleaning up")
+        else:
+            logger.info(
+                f"Cleaned up {num_containers_removed} containers, saving {format_size(total_size_cleaned_up)}"
+            )
+
     def conda_cleanup_envs(self):
         # cleanup envs
-        in_use = set(env.hash[:8] for env in self.dag.conda_envs.values())
-        for d in os.listdir(self.conda_env_path):
-            if len(d) >= 8 and d[:8] not in in_use:
-                if os.path.isdir(os.path.join(self.conda_env_path, d)):
-                    shutil.rmtree(os.path.join(self.conda_env_path, d))
-                else:
-                    os.remove(os.path.join(self.conda_env_path, d))
+        for address in set(
+            env.address
+            for env in self.dag.conda_envs.values()
+            if not env.is_externally_managed
+        ):
+            removed = False
+            if os.path.exists(address):
+                try:
+                    shutil.rmtree(address)
+                except Exception as e:
+                    raise WorkflowError(f"Failed to remove conda env {address}: {e}")
+                removed = True
+            yaml_path = Path(address).with_suffix(".yaml")
+            if yaml_path.exists():
+                try:
+                    yaml_path.unlink()
+                except Exception as e:
+                    raise WorkflowError(
+                        f"Failed to remove conda env yaml {yaml_path}: {e}"
+                    )
+
+                removed = True
+            if removed:
+                logger.info(f"Removed conda env {address}")
 
         # cleanup env archives
         in_use = set(env.content_hash for env in self.dag.conda_envs.values())
@@ -222,29 +298,29 @@ class Persistence:
             if d not in in_use:
                 shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
 
-    def started(self, job, external_jobid=None):
+    def started(self, job, external_jobid: Optional[str] = None):
         for f in job.output:
-            self._record(
-                self._incomplete_path,
-                {"external_jobid": external_jobid},
-                f,
-            )
+            self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
-    def finished(self, job, keep_metadata=True):
-        if not keep_metadata:
-            for f in job.expanded_output:
-                self._delete_record(self._incomplete_path, f)
+    def _remove_incomplete_marker(self, job):
+        for f in job.output:
+            self._delete_record(self._incomplete_path, f)
+
+    async def finished(self, job):
+        if not self.dag.workflow.execution_settings.keep_metadata:
+            self._remove_incomplete_marker(job)
+            # do not store metadata if not requested
             return
 
-        version = str(job.rule.version) if job.rule.version is not None else None
         code = self._code(job.rule)
         input = self._input(job)
         log = self._log(job)
         params = self._params(job)
         shellcmd = job.shellcmd
         conda_env = self._conda_env(job)
+        software_stack_hash = self._software_stack_hash(job)
         fallback_time = time.time()
-        for f in job.expanded_output:
+        for f in job.output:
             rec_path = self._record_path(self._incomplete_path, f)
             starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
             # Sometimes finished is called twice, if so, lookup the previous starttime
@@ -252,14 +328,19 @@ class Persistence:
                 starttime = self._read_record(self._metadata_path, f).get(
                     "starttime", None
                 )
-            endtime = f.mtime.local_or_remote() if f.exists else fallback_time
 
-            checksums = ((infile, infile.checksum()) for infile in job.input)
+            endtime = (
+                (await f.mtime()).local_or_storage()
+                if await f.exists()
+                else fallback_time
+            )
+
+            checksums = ((infile, await infile.checksum()) for infile in job.input)
 
             self._record(
                 self._metadata_path,
                 {
-                    "version": version,
+                    "record_format_version": RECORD_FORMAT_VERSION,
                     "code": code,
                     "rule": job.rule.name,
                     "input": input,
@@ -271,23 +352,26 @@ class Persistence:
                     "endtime": endtime,
                     "job_hash": hash(job),
                     "conda_env": conda_env,
+                    "software_stack_hash": software_stack_hash,
                     "container_img_url": job.container_img_url,
                     "input_checksums": {
                         infile: checksum
-                        for infile, checksum in checksums
+                        async for infile, checksum in checksums
                         if checksum is not None
                     },
                 },
                 f,
             )
-            self._delete_record(self._incomplete_path, f)
+        # remove incomplete marker only after creation of metadata record.
+        # otherwise the job starttime will be missing.
+        self._remove_incomplete_marker(job)
 
     def cleanup(self, job):
-        for f in job.expanded_output:
+        for f in job.output:
             self._delete_record(self._incomplete_path, f)
             self._delete_record(self._metadata_path, f)
 
-    def incomplete(self, job):
+    async def incomplete(self, job):
         if self._incomplete_cache is None:
             self._cache_incomplete_folder()
 
@@ -302,7 +386,15 @@ class Persistence:
                 rec_path = self._record_path(self._incomplete_path, f)
                 return rec_path in self._incomplete_cache
 
-        return any(map(lambda f: f.exists and marked_incomplete(f), job.output))
+        async def is_incomplete(f):
+            exists = await f.exists()
+            marked = marked_incomplete(f)
+            return exists and marked
+
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(is_incomplete(f)) for f in job.output]
+
+        return any(task.result() for task in tasks)
 
     def _cache_incomplete_folder(self):
         self._incomplete_cache = {
@@ -319,11 +411,17 @@ class Persistence:
             )
         )
 
+    def has_metadata(self, job: Job) -> bool:
+        return all(self.metadata(path) for path in job.output)
+
+    def has_outdated_metadata(self, job: Job) -> bool:
+        return any(
+            self.metadata(path).get("record_format_version", 0) < RECORD_FORMAT_VERSION
+            for path in job.output
+        )
+
     def metadata(self, path):
         return self._read_record(self._metadata_path, path)
-
-    def version(self, path):
-        return self.metadata(path).get("version")
 
     def rule(self, path):
         return self.metadata(path).get("rule")
@@ -343,6 +441,9 @@ class Persistence:
     def code(self, path):
         return self.metadata(path).get("code")
 
+    def record_format_version(self, path):
+        return self.metadata(path).get("record_format_version")
+
     def conda_env(self, path):
         return self.metadata(path).get("conda_env")
 
@@ -358,10 +459,6 @@ class Persistence:
             for output_path in job.output
         )
 
-    def version_changed(self, job, file=None):
-        """Yields output files with changed versions or bool if file given."""
-        return _bool_or_gen(self._version_changed, job, file=file)
-
     def code_changed(self, job, file=None):
         """Yields output files with changed code or bool if file given."""
         return _bool_or_gen(self._code_changed, job, file=file)
@@ -372,56 +469,87 @@ class Persistence:
 
     def params_changed(self, job, file=None):
         """Yields output files with changed params or bool if file given."""
-        return _bool_or_gen(self._params_changed, job, file=file)
+        files = [file] if file is not None else job.output
 
-    def conda_env_changed(self, job, file=None):
-        """Yields output files with changed conda env or bool if file given."""
-        return _bool_or_gen(self._conda_env_changed, job, file=file)
+        changes = NO_PARAMS_CHANGE
 
-    def container_changed(self, job, file=None):
-        """Yields output files with changed container img or bool if file given."""
-        return _bool_or_gen(self._container_changed, job, file=file)
+        new = set(self._params(job))
 
-    def _version_changed(self, job, file=None):
-        assert file is not None
-        recorded = self.version(file)
-        return recorded is not None and recorded != job.rule.version
+        for outfile in files:
+            fmt_version = self.record_format_version(outfile)
+            if fmt_version is None or fmt_version < 4:
+                # no reliable params stored
+                continue
+            recorded = self.params(outfile)
+            if recorded is not None:
+                old = set(recorded)
+                changes |= ParamsChange(
+                    only_old=old - new, only_new=new - old, files={outfile}
+                )
+        return changes
+
+    def software_stack_changed(self, job, file=None):
+        """Yields output files with changed software env or bool if file given."""
+        return _bool_or_gen(self._software_stack_changed, job, file=file)
 
     def _code_changed(self, job, file=None):
         assert file is not None
+        fmt_version = self.record_format_version(file)
+        if fmt_version is None or fmt_version < 3:
+            # no reliable code stored
+            return False
         recorded = self.code(file)
         return recorded is not None and recorded != self._code(job.rule)
 
     def _input_changed(self, job, file=None):
         assert file is not None
+        fmt_version = self.record_format_version(file)
+        if fmt_version is None or fmt_version < 4:
+            # no reliable input stored
+            return False
         recorded = self.input(file)
         return recorded is not None and recorded != self._input(job)
 
-    def _params_changed(self, job, file=None):
+    def _software_stack_changed(self, job, file=None):
         assert file is not None
-        recorded = self.params(file)
-        return recorded is not None and recorded != self._params(job)
+        fmt_version = self.record_format_version(file)
+        if fmt_version is None or fmt_version < 5:
+            # no reliable software stack hash stored (previous storage ignored pin files
+            # and aux deploy files of conda envs as well as env modules)
+            return False
 
-    def _conda_env_changed(self, job, file=None):
-        assert file is not None
-        recorded = self.conda_env(file)
-        return recorded is not None and recorded != self._conda_env(job)
+        recorded = self.software_stack_hash(file)
+        return recorded is not None and recorded != self._software_stack_hash(job)
 
-    def _container_changed(self, job, file=None):
-        assert file is not None
-        recorded = self.container_img_url(file)
-        return recorded is not None and recorded != job.container_img_url
+    def software_stack_hash(self, path):
+        return self.metadata(path).get("software_stack_hash")
 
+    def _software_stack_hash(self, job):
+        # TODO move code for retrieval into software deployment plugin interface once
+        # available
+        md5hash = hashlib.md5()
+        if job.conda_env:
+            md5hash.update(job.conda_env.hash.encode())
+        if job.container_img_url:
+            md5hash.update(job.container_img_url.encode())
+        if job.env_modules:
+            md5hash.update(job.env_modules.hash.encode())
+        return md5hash.hexdigest()
+
+    @contextmanager
     def noop(self, *args):
-        pass
+        yield
 
     def _b64id(self, s):
         return urlsafe_b64encode(str(s).encode()).decode()
 
     @lru_cache()
     def _code(self, rule):
-        code = rule.run_func.__code__
-        return b64encode(pickle_code(code)).decode()
+        # We only consider shell commands for now.
+        # Plain python code rules are hard to capture because the pickling of the code
+        # can change with different python versions.
+        # Scripts and notebooks are triggered by changes in the script mtime.
+        return rule.shellcmd if rule.shellcmd is not None else None
 
     @lru_cache()
     def _conda_env(self, job):
@@ -430,20 +558,70 @@ class Persistence:
 
     @lru_cache()
     def _input(self, job):
-        get_path = (
-            lambda f: get_flag_value(f, "sourcecache_entry").get_path_or_uri()
-            if is_flagged(f, "sourcecache_entry")
-            else f
-        )
-        return sorted(get_path(f) for f in job.input)
+        def get_paths():
+            for f in job.input:
+                if f.is_storage:
+                    yield f.storage_object.query
+                elif is_flagged(f, "pipe"):
+                    yield "<pipe>"
+                elif is_flagged(f, "service"):
+                    yield "<service>"
+                else:
+                    yield (
+                        # get the true path instead of the cache path
+                        get_flag_value(f, "sourcecache_entry")
+                        if is_flagged(f, "sourcecache_entry")
+                        else f
+                    )
+
+        return sorted(get_paths())
 
     @lru_cache()
     def _log(self, job):
         return sorted(job.log)
 
+    def _serialize_param_builtin(self, value: Any):
+        if (
+            value is None
+            or isinstance(
+                value,
+                (
+                    int,
+                    float,
+                    bool,
+                    str,
+                    complex,
+                    range,
+                    list,
+                    tuple,
+                    dict,
+                    set,
+                    frozenset,
+                    bytes,
+                    bytearray,
+                ),
+            )
+            and value is not TBDString
+        ):
+            return repr(value)
+        else:
+            return UNREPRESENTABLE
+
+    def _serialize_param_pandas(self, value: Any):
+        import pandas as pd
+
+        if isinstance(value, (pd.DataFrame, pd.Series, pd.Index)):
+            return repr(pd.util.hash_pandas_object(value).tolist())
+        return self._serialize_param_builtin(value)
+
     @lru_cache()
-    def _params(self, job):
-        return sorted(map(repr, job.params))
+    def _params(self, job: Job):
+        return sorted(
+            filter(
+                lambda p: p is not UNREPRESENTABLE,
+                (self._serialize_param(value) for value in job.non_derived_params),
+            )
+        )
 
     @lru_cache()
     def _output(self, job):
@@ -468,6 +646,10 @@ class Persistence:
             suffix=f".{os.path.basename(recpath)[:8]}",
         ) as tmpfile:
             json.dump(json_value, tmpfile)
+        # ensure read and write permissions for user and group
+        os.chmod(
+            tmpfile.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
+        )
         os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
@@ -499,7 +681,7 @@ class Persistence:
             except json.JSONDecodeError as e:
                 pass
         # case: file is corrupted, delete it
-        logger.warning(f"Deleting corrupted metadata record.")
+        logger.warning("Deleting corrupted metadata record.")
         self._delete_record(subject, id)
         return dict()
 
@@ -510,14 +692,14 @@ class Persistence:
         return (
             f
             for f, _ in listfiles(
-                os.path.join(self._lockdir, "{{n,[0-9]+}}.{}.lock".format(type))
+                os.path.join(self._lockdir, f"{{n,[0-9]+}}.{type}.lock")
             )
             if not os.path.isdir(f)
         )
 
     def _lock(self, files, type):
         for i in count(0):
-            lockfile = os.path.join(self._lockdir, "{}.{}.lock".format(i, type))
+            lockfile = os.path.join(self._lockdir, f"{i}.{type}.lock")
             if not os.path.exists(lockfile):
                 self._lockfile[type] = lockfile
                 with open(lockfile, "w") as lock:
@@ -529,7 +711,10 @@ class Persistence:
             self._max_len = os.pathconf(subject, "PC_NAME_MAX")
         return self._max_len
 
-    def _record_path(self, subject, id):
+    def _record_path(self, subject, id: _IOFile):
+        assert isinstance(id, _IOFile)
+        id = id.storage_object.query if id.is_storage else id
+
         max_len = (
             self._fetch_max_len(subject) if os.name == "posix" else 255
         )  # maximum NTFS and FAT32 filename length
@@ -560,14 +745,50 @@ class Persistence:
 
 def _bool_or_gen(func, job, file=None):
     if file is None:
-        return (f for f in job.expanded_output if func(job, file=f))
+        return (f for f in job.output if func(job, file=f))
     else:
         return func(job, file=file)
 
 
-def pickle_code(code):
-    consts = [
-        (pickle_code(const) if type(const) == type(code) else const)
-        for const in code.co_consts
-    ]
-    return pickle.dumps((code.co_code, code.co_varnames, consts, code.co_names))
+@dataclass
+class ParamsChange:
+    only_old: Set[Any] = field(default_factory=set)
+    only_new: Set[Any] = field(default_factory=set)
+    files: Set[str] = field(default_factory=set)
+
+    def __bool__(self):
+        return bool(self.only_old or self.only_new)
+
+    def __or__(self, other):
+        if not self:
+            return other
+        if not other:
+            return self
+        return ParamsChange(
+            only_old=self.only_old | other.only_old,
+            only_new=self.only_new | other.only_new,
+            files=self.files | other.files,
+        )
+
+    def __iter__(self):
+        return iter(self.files)
+
+    def __str__(self):
+        if not self:
+            return "No params change"
+        else:
+
+            def fmt_set(s, label):
+                if s:
+                    return f"{label}: {','.join(s)}"
+                else:
+                    return f"{label}: <nothing exclusive>"
+
+            return (
+                "Union of exclusive params before and now across all output: "
+                f"{fmt_set(self.only_old, 'before')} "
+                f"{fmt_set(self.only_new, 'now')} "
+            )
+
+
+NO_PARAMS_CHANGE = ParamsChange()

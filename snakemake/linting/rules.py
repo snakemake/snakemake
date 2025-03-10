@@ -1,16 +1,25 @@
 from itertools import chain
 import re
+import sys
 
-from snakemake.io import get_wildcard_names, is_flagged
 from snakemake.linting import Linter, Lint, links, NAME_PATTERN
+from snakemake.rules import Rule
 
 
 class RuleLinter(Linter):
     def item_desc_plain(self, rule):
-        return "rule {} (line {}, {})".format(rule.name, rule.lineno, rule.snakefile)
+        lineno = self.get_lineno(rule)
+        return f"rule {rule.name} (line {lineno}, {rule.snakefile})"
 
     def item_desc_json(self, rule):
-        return {"rule": rule.name, "line": rule.lineno, "snakefile": rule.snakefile}
+        lineno = self.get_lineno(rule)
+        return {"rule": rule.name, "line": lineno, "snakefile": rule.snakefile}
+
+    def get_lineno(self, rule: Rule) -> int | None:
+        linemaps = self.workflow.linemaps
+        if linemaps and rule.snakefile in linemaps:
+            return linemaps[rule.snakefile][rule.lineno]
+        return rule.lineno
 
     def lint_params_prefix(self, rule):
         for param, value in rule.params.items():
@@ -57,7 +66,7 @@ class RuleLinter(Linter):
             "threads",
             "resources",
         },
-        regex=re.compile("{{(?P<name>{}).*?}}".format(NAME_PATTERN)),
+        regex=re.compile(f"{{(?P<name>{NAME_PATTERN}).*?}}"),
     ):
         if rule.shellcmd:
             for match in regex.finditer(rule.shellcmd):
@@ -79,38 +88,20 @@ class RuleLinter(Linter):
                         links=[links.params],
                     )
 
-    def lint_version(self, rule):
-        if rule.version:
-            yield Lint(
-                title="The version directive is deprecated",
-                body="It was meant for documenting tool version, but this has been replaced "
-                "by using the conda or container directive.",
-                links=[links.package_management, links.containers],
-            )
-
-    def lint_dynamic(self, rule):
-        for file in chain(rule.output, rule.input):
-            if is_flagged(file, "dynamic"):
-                yield Lint(
-                    title="The dynamic flag is deprecated",
-                    body="Use checkpoints instead, which are more powerful and less error-prone.",
-                    links=[links.checkpoints],
-                )
-
     def lint_long_run(self, rule):
         func_code = rule.run_func.__code__.co_code
-
-        if rule.is_run and len(func_code) > 70:
+        max_len = 70 if sys.version_info < (3, 11) else 210
+        if rule.is_run and len(func_code) > max_len:
             yield Lint(
                 title="Migrate long run directives into scripts or notebooks",
-                body="Long run directives hamper workflow readability. Use the script or notebook direcive instead. "
+                body="Long run directives hamper workflow readability. Use the script or notebook directive instead. "
                 "Note that the script or notebook directive does not involve boilerplate. Similar to run, you "
                 "will have direct access to params, input, output, and wildcards."
-                "Only use the run direcive for a handful of lines.",
+                "Only use the run directive for a handful of lines.",
                 links=[links.external_scripts, links.notebooks],
             )
 
-    def lint_iofile_by_index(self, rule, regex=re.compile("(input|output)\[[0-9]+\]")):
+    def lint_iofile_by_index(self, rule, regex=re.compile(r"(input|output)\[[0-9]+\]")):
         if rule.shellcmd and regex.search(rule.shellcmd):
             yield Lint(
                 title="Do not access input and output files individually by index in shell commands",
@@ -132,7 +123,7 @@ class RuleLinter(Linter):
                     body="While environment modules allow to document and deploy the required software on a certain "
                     "platform, they lock your workflow in there, disabling easy reproducibility on other machines "
                     "that don't have exactly the same environment modules. Hence env modules (which might be beneficial "
-                    "in certain cluster environments), should allways be complemented with equivalent conda "
+                    "in certain cluster environments), should always be complemented with equivalent conda "
                     "environments.",
                     links=[links.package_management, links.containers],
                 )

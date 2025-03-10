@@ -1,0 +1,5 @@
+def foo():
+    if not exists("test.txt"):
+        raise ValueError("File does not exist")
+
+foo()

@@ -1,0 +1,24 @@
+rule all:
+    input:
+        "b.fa",
+
+
+module fusion_calling:
+    meta_wrapper:
+        "v2.5.0/meta/bio/star_arriba"
+
+
+use rule * from fusion_calling
+
+
+use rule star_index from fusion_calling with:
+    input:
+        fasta="data/genome.fa",
+        gtf="data/a.gtf",
+
+
+rule test:
+    input:
+        rules.star_index.output,
+    output:
+        "b.fa",

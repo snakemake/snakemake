@@ -1,14 +1,24 @@
 shell.executable("bash")
 
+
 configfile: "config.yaml"
+
 
 rule all:
     input:
         "test.out",
+        "explicit_import.py.out",
+
 
 rule:
     output:
-        "test.out"
+        "test.out",
     script:
         "scripts/test.py"
 
+
+rule:
+    output:
+        "explicit_import.py.out",
+    script:
+        "scripts/test_explicit_import.py"

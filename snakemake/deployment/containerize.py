@@ -2,10 +2,7 @@ from pathlib import Path
 import hashlib
 import os
 
-from snakemake.common import get_container_image
-from snakemake.io import contains_wildcard
 from snakemake.exceptions import WorkflowError
-from snakemake.deployment import conda
 from snakemake.logging import logger
 from snakemake.sourcecache import LocalSourceFile
 
@@ -31,7 +28,7 @@ def containerize(workflow, dag):
 
     envs = sorted(
         set(
-            job.conda_env_spec.get_conda_env(workflow, env_dir=CONDA_ENV_PATH)
+            job.conda_env_spec.get_conda_env(workflow, envs_dir=CONDA_ENV_PATH)
             for job in dag.jobs
             if job.conda_env_spec is not None
         ),
@@ -39,13 +36,13 @@ def containerize(workflow, dag):
     )
     envhash = hashlib.sha256()
     for env in envs:
-        logger.info("Hashing conda environment {}.".format(relfile(env)))
+        logger.info(f"Hashing conda environment {relfile(env)}.")
         # build a hash of the environment contents
         envhash.update(env.content)
 
-    print("FROM condaforge/mambaforge:latest")
+    print("FROM condaforge/miniforge3:latest")
     print('LABEL io.github.snakemake.containerized="true"')
-    print('LABEL io.github.snakemake.conda_env_hash="{}"'.format(envhash.hexdigest()))
+    print(f'LABEL io.github.snakemake.conda_env_hash="{envhash.hexdigest()}"')
 
     generated = set()
     get_env_cmds = []
@@ -58,27 +55,25 @@ def containerize(workflow, dag):
         env_source_path = relfile(env)
         env_target_path = prefix / "environment.yaml"
         get_env_cmds.append("\n# Conda environment:")
-        get_env_cmds.append("#   source: {}".format(env_source_path))
-        get_env_cmds.append("#   prefix: {}".format(prefix))
+        get_env_cmds.append(f"#   source: {env_source_path}")
+        get_env_cmds.append(f"#   prefix: {prefix}")
         get_env_cmds.append(
             "\n".join(map("#   {}".format, env.content.decode().strip().split("\n")))
         )
-        get_env_cmds.append("RUN mkdir -p {}".format(prefix))
+        get_env_cmds.append(f"RUN mkdir -p {prefix}")
         if isinstance(env.file, LocalSourceFile):
-            get_env_cmds.append("COPY {} {}".format(env_source_path, env_target_path))
+            get_env_cmds.append(f"COPY {env_source_path} {env_target_path}")
         else:
-            get_env_cmds.append(
-                "ADD {} {}".format(env.file.get_path_or_uri(), env_target_path)
-            )
+            get_env_cmds.append(f"ADD {env.file.get_path_or_uri()} {env_target_path}")
 
         generate_env_cmds.append(
-            "mamba env create --prefix {} --file {} &&".format(prefix, env_target_path)
+            f"conda env create --prefix {prefix} --file {env_target_path} &&"
         )
         generated.add(env.content_hash)
 
-    print("\n# Step 1: Retrieve conda environments")
+    print("\n# Step 2: Retrieve conda environments")
     for cmd in get_env_cmds:
         print(cmd)
 
-    print("\n# Step 2: Generate conda environments")
-    print("\nRUN", " \\\n    ".join(generate_env_cmds), "\\\n    mamba clean --all -y")
+    print("\n# Step 3: Generate conda environments")
+    print("\nRUN", " \\\n    ".join(generate_env_cmds), "\\\n    conda clean --all -y")

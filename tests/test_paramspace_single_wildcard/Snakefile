@@ -1,0 +1,213 @@
+from snakemake.utils import Paramspace
+import pandas as pd
+
+
+# should result in alpha~{alpha}/beta~{beta}/gamma~{gamma}
+paramspace_default = Paramspace(pd.read_csv("params.tsv", sep="\t"), single_wildcard="space")
+
+# should result in alpha~{alpha}/beta~{beta}/gamma~{gamma}
+paramspace_empty = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=[], single_wildcard="space")
+
+# should result in alpha~{alpha}/gamma~{gamma}/beta~{beta}
+paramspace_one = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["beta"], single_wildcard="space")
+
+# should result in alpha~{alpha}/beta~{beta}_gamma~{gamma}
+paramspace_two = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["beta", "gamma"], single_wildcard="space")
+
+# should result in alpha~{alpha}_beta~{beta}_gamma~{gamma}
+paramspace_full = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["alpha", "beta", "gamma"], single_wildcard="space")
+
+# should result in beta~{beta}_gamma~{gamma}_alpha~{alpha}
+paramspace_full_reorder = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["beta", "gamma", "alpha"], single_wildcard="space")
+
+# should result in alpha:{alpha}/beta:{beta}/gamma:{gamma}
+paramspace_sep = Paramspace(pd.read_csv("params.tsv", sep="\t"), param_sep="_is_", single_wildcard="space")
+
+# should result in beta={beta}_gamma={gamma}_alpha={alpha}
+paramspace_sep_and_pattern = Paramspace(
+    pd.read_csv("params.tsv", sep="\t"),
+    filename_params=["beta", "gamma", "alpha"],
+    param_sep="=", single_wildcard="space"
+)
+
+# should result in alpha~{alpha}::beta~{beta}::gamma~{gamma}
+paramspace_filenamesep = Paramspace(
+    pd.read_csv("params.tsv", sep="\t"),
+    filename_params="*",
+    filename_sep="__", single_wildcard="space"
+)
+
+
+rule all:
+    input:
+        expand("results/default/plots/{params}.pdf", params=paramspace_default.instance_patterns),
+        expand("results/empty/plots/{params}.pdf", params=paramspace_empty.instance_patterns),
+        expand("results/one/plots/{params}.pdf", params=paramspace_one.instance_patterns),
+        expand("results/two/plots/{params}.pdf", params=paramspace_two.instance_patterns),
+        expand("results/full/plots/{params}.pdf", params=paramspace_full.instance_patterns),
+        expand("results/full_reorder/plots/{params}.pdf", params=paramspace_full_reorder.instance_patterns),
+        expand("results/sep/plots/{params}.pdf", params=paramspace_sep.instance_patterns),
+        expand("results/sep_and_pattern/plots/{params}.pdf", params=paramspace_sep_and_pattern.instance_patterns),
+        expand("results/filenamesep/plots/{params}.pdf", params=paramspace_filenamesep.instance_patterns),
+
+
+rule simulate_default:
+    output:
+        f"results/default/simulations/{paramspace_default.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_default.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_default:
+    input:
+        f"results/default/simulations/{paramspace_default.wildcard_pattern}.tsv"
+    output:
+        f"results/default/plots/{paramspace_default.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
+
+
+rule simulate_empty:
+    output:
+        f"results/empty/simulations/{paramspace_empty.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_empty.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_empty:
+    input:
+        f"results/empty/simulations/{paramspace_empty.wildcard_pattern}.tsv"
+    output:
+        f"results/empty/plots/{paramspace_empty.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
+
+
+rule simulate_one:
+    output:
+        f"results/one/simulations/{paramspace_one.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_one.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_one:
+    input:
+        f"results/one/simulations/{paramspace_one.wildcard_pattern}.tsv"
+    output:
+        f"results/one/plots/{paramspace_one.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
+
+
+rule simulate_two:
+    output:
+        f"results/two/simulations/{paramspace_two.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_two.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_two:
+    input:
+        f"results/two/simulations/{paramspace_two.wildcard_pattern}.tsv"
+    output:
+        f"results/two/plots/{paramspace_two.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
+
+
+rule simulate_full:
+    output:
+        f"results/full/simulations/{paramspace_full.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_full.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_full:
+    input:
+        f"results/full/simulations/{paramspace_full.wildcard_pattern}.tsv"
+    output:
+        f"results/full/plots/{paramspace_full.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
+
+
+rule simulate_full_reorder:
+    output:
+        f"results/full_reorder/simulations/{paramspace_full_reorder.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_full_reorder.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_full_reorder:
+    input:
+        f"results/full_reorder/simulations/{paramspace_full_reorder.wildcard_pattern}.tsv"
+    output:
+        f"results/full_reorder/plots/{paramspace_full_reorder.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
+
+
+rule simulate_sep:
+    output:
+        f"results/sep/simulations/{paramspace_sep.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_sep.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_sep:
+    input:
+        f"results/sep/simulations/{paramspace_sep.wildcard_pattern}.tsv"
+    output:
+        f"results/sep/plots/{paramspace_sep.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
+
+
+rule simulate_sep_and_pattern:
+    output:
+        f"results/sep_and_pattern/simulations/{paramspace_sep_and_pattern.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_sep_and_pattern.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_sep_and_pattern:
+    input:
+        f"results/sep_and_pattern/simulations/{paramspace_sep_and_pattern.wildcard_pattern}.tsv"
+    output:
+        f"results/sep_and_pattern/plots/{paramspace_sep_and_pattern.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
+
+
+rule simulate_filenamesep:
+    output:
+        f"results/filenamesep/simulations/{paramspace_filenamesep.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_filenamesep.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_filenamesep:
+    input:
+        f"results/filenamesep/simulations/{paramspace_filenamesep.wildcard_pattern}.tsv"
+    output:
+        f"results/filenamesep/plots/{paramspace_filenamesep.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"

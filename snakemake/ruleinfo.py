@@ -33,7 +33,6 @@ class RuleInfo:
         self.resources = None
         self.priority = None
         self.retries = None
-        self.version = None
         self.log = None
         self.docstring = None
         self.group = None
@@ -46,6 +45,7 @@ class RuleInfo:
         self.path_modifier = None
         self.handover = False
         self.default_target = False
+        self.localrule = False
 
     def __copy__(self):
         """Return a copy of this ruleinfo."""
