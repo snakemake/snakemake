@@ -12,8 +12,15 @@ python = ">=3.11" # minimum version of python required by snakemake
 snakemake = { path = ".", editable = true }
 
 [environments]
-dev = {features = ["dev"]}
+dev = { features = ["publish"] }
 
-[feature.dev.dependencies]
-hatch = "*"
+[feature.publish.dependencies]
+setuptools = ">=75.8.2,<76"
+twine = ">=6.1.0,<7"
+python-build = ">=1.2.2.post1,<2"
 
+[feature.publish.tasks]
+build = { cmd = "python -m build", description = "Build the package" }
+check = { cmd = "python -m twine check dist/*", depends-on = [
+  "build",
+], description = "Check that the package can be uploaded" }
