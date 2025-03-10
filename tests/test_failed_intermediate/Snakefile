@@ -1,0 +1,22 @@
+rule all:
+    input:
+        "test3.txt"
+
+rule a:
+    output:
+        "test2.txt"
+    params:
+        a=1,
+        fail=config["fail"]
+    shell:
+        "if [ {params.fail} = true ]; then exit 1; fi; echo '{params.fail}' > {output}"
+
+rule b:
+    input:
+        "test2.txt"
+    output:
+        "test3.txt"
+    params:
+        a=2
+    shell:
+        "cp {input} {output}"

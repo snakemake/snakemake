@@ -299,6 +299,7 @@ class Persistence(PersistenceExecutorInterface):
 
     async def finished(self, job):
         if not self.dag.workflow.execution_settings.keep_metadata:
+            self._remove_incomplete_marker(job)
             # do not store metadata if not requested
             return
 
@@ -352,6 +353,8 @@ class Persistence(PersistenceExecutorInterface):
                 },
                 f,
             )
+        # remove incomplete marker only after creation of metadata record.
+        # otherwise the job starttime will be missing.
         self._remove_incomplete_marker(job)
 
     def cleanup(self, job):
@@ -471,7 +474,9 @@ class Persistence(PersistenceExecutorInterface):
             recorded = self.params(outfile)
             if recorded is not None:
                 old = set(recorded)
-                changes |= ParamsChange(only_old=old - new, only_new=new - old)
+                changes |= ParamsChange(
+                    only_old=old - new, only_new=new - old, files={outfile}
+                )
         return changes
 
     def software_stack_changed(self, job, file=None):
@@ -740,6 +745,7 @@ def _bool_or_gen(func, job, file=None):
 class ParamsChange:
     only_old: Set[Any] = field(default_factory=set)
     only_new: Set[Any] = field(default_factory=set)
+    files: Set[str] = field(default_factory=set)
 
     def __bool__(self):
         return bool(self.only_old or self.only_new)
@@ -752,7 +758,11 @@ class ParamsChange:
         return ParamsChange(
             only_old=self.only_old | other.only_old,
             only_new=self.only_new | other.only_new,
+            files=self.files | other.files,
         )
+
+    def __iter__(self):
+        return iter(self.files)
 
     def __str__(self):
         if not self:

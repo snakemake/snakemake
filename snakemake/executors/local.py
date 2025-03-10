@@ -258,8 +258,10 @@ class Executor(RealExecutor):
         try:
             ex = future.exception()
             if ex is not None:
-                raise ex
-            self.report_job_success(job_info)
+                print_exception(ex, self.workflow.linemaps)
+                self.report_job_error(job_info)
+            else:
+                self.report_job_success(job_info)
         except _ProcessPoolExceptions:
             self.handle_job_error(job_info.job)
             # no error callback, just silently ignore the interrupt as the main scheduler is also killed

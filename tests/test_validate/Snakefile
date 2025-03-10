@@ -3,9 +3,11 @@ shell.executable("bash")
 import pandas as pd
 from snakemake.utils import validate
 
-configfile: "config.yaml"
-validate(config, "config.schema.yaml")
 
+configfile: "config.yaml"
+
+
+validate(config, "config.schema.yaml")
 
 samples = pd.read_table(config["samples"]).set_index("sample", drop=False)
 validate(samples, "samples.schema.yaml")
@@ -13,11 +15,14 @@ validate(samples, "samples.schema.yaml")
 
 rule all:
     input:
-        expand("test.{sample}.txt", sample=samples.index)
+        expand("test.{sample}.txt", sample=samples.index),
 
 
-rule a:
-    output:
-        "test.{sample}.txt"
-    shell:
-        "touch {output}"
+module test:
+    snakefile:
+        "module-test/Snakefile"
+    config:
+        config
+
+
+use rule * from test as test_*

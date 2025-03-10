@@ -9,6 +9,7 @@ import re
 import os
 import shutil
 import stat
+from typing import Optional
 from snakemake import utils
 import tempfile
 import io
@@ -195,6 +196,7 @@ class HostingProviderFile(SourceFile):
         tag: str = None,
         branch: str = None,
         commit: str = None,
+        host: str = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -221,6 +223,20 @@ class HostingProviderFile(SourceFile):
         self.branch = branch
         self.path = path.strip("/")
         self.token = ""
+        self.host = host
+
+        # Via __post_init__ implementing subclasses can do additional things without
+        # replicating the constructor args.
+        self.__post_init__()
+
+    def __post_init__(self):
+        pass
+
+    def mtime(self) -> Optional[float]:
+        # Intentionally None, hence causing any caching to generate an updated mtime.
+        # Switching commits/branches/refs in the same repo should cause rerun triggers
+        # if those files are used as input files for jobs and have changed checksums.
+        return None
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
@@ -239,6 +255,7 @@ class HostingProviderFile(SourceFile):
             tag=self.tag,
             commit=self.commit,
             branch=self.branch,
+            host=self.host,
         )
 
     def join(self, path):
@@ -253,6 +270,7 @@ class HostingProviderFile(SourceFile):
             tag=self.tag,
             commit=self.commit,
             branch=self.branch,
+            host=self.host,
         )
 
     @property
@@ -261,36 +279,24 @@ class HostingProviderFile(SourceFile):
 
 
 class GithubFile(HostingProviderFile):
-    def __init__(
-        self,
-        repo: str,
-        path: str,
-        tag: str = None,
-        branch: str = None,
-        commit: str = None,
-    ):
-        super().__init__(repo, path, tag, branch, commit)
+    def __post_init__(self):
+        if self.host is not None:
+            raise WorkflowError(
+                "host keyword argument is not yet supported by GithubFile."
+            )
         self.token = os.environ.get("GITHUB_TOKEN", "")
 
     def get_path_or_uri(self):
         auth = f":{self.token}@" if self.token else ""
-        return "https://{}raw.githubusercontent.com/{}/{}/{}".format(
-            auth, self.repo, self.ref, self.path
-        )
+        # TODO find out how this URL looks like with Github enterprise server and support
+        # self.host being not none by removing the check in __post_init__
+        return f"https://{auth}raw.githubusercontent.com/{self.repo}/{self.ref}/{self.path}"
 
 
 class GitlabFile(HostingProviderFile):
-    def __init__(
-        self,
-        repo: str,
-        path: str,
-        tag: str = None,
-        branch: str = None,
-        commit: str = None,
-        host: str = None,
-    ):
-        super().__init__(repo, path, tag, branch, commit)
-        self.host = host
+    def __post_init__(self):
+        if self.host is None:
+            self.host = "gitlab.com"
         self.token = os.environ.get("GITLAB_TOKEN", "")
 
     def get_path_or_uri(self):
@@ -298,7 +304,7 @@ class GitlabFile(HostingProviderFile):
 
         auth = f"&private_token={self.token}" if self.token else ""
         return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
-            self.host or "gitlab.com",
+            self.host,
             quote(self.repo, safe=""),
             quote(self.path, safe=""),
             self.ref,
