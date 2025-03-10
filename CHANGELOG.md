@@ -1,6 +1,35 @@
 # Changelog
 
 
+## [8.29.3](https://github.com/snakemake/snakemake/compare/v8.29.2...v8.29.3) (2025-03-09)
+
+
+### Bug Fixes
+
+* update syntax, folding, and sections vim files ([#3340](https://github.com/snakemake/snakemake/issues/3340)) ([4bf797c](https://github.com/snakemake/snakemake/commit/4bf797c9057a52eadb65d69b7cfd576cecb35410))
+* use local play storage ([#3344](https://github.com/snakemake/snakemake/issues/3344)) ([e86acc4](https://github.com/snakemake/snakemake/commit/e86acc4eaa82af52f3606d50036c86189513f6dc))
+
+
+### Documentation
+
+* add description of codebase ([#3350](https://github.com/snakemake/snakemake/issues/3350)) ([6fe6535](https://github.com/snakemake/snakemake/commit/6fe653566d4bedf5aa496364c3985d13c6908474))
+* simplify test setup description ([#3348](https://github.com/snakemake/snakemake/issues/3348)) ([ec8a0e1](https://github.com/snakemake/snakemake/commit/ec8a0e1a0979063247e98bb760c0cdfad4edd5cc))
+
+## [8.29.2](https://github.com/snakemake/snakemake/compare/v8.29.1...v8.29.2) (2025-03-05)
+
+
+### Documentation
+
+* define gpu and gpu_manufacturer standard resource ([f4e7a08](https://github.com/snakemake/snakemake/commit/f4e7a08f7c3ead6c29e6a05d83f352728367cd8c))
+* define gpu_model resource ([ac7d704](https://github.com/snakemake/snakemake/commit/ac7d704c3e78fe7137572b980f24c87ec72d74d4))
+
+## [8.29.1](https://github.com/snakemake/snakemake/compare/v8.29.0...v8.29.1) (2025-03-05)
+
+
+### Bug Fixes
+
+* fix type error upon --list-params-changes ([#3313](https://github.com/snakemake/snakemake/issues/3313)) ([114238c](https://github.com/snakemake/snakemake/commit/114238c813da844b95a69676e8d57ee19b5bf700))
+
 ## [8.29.0](https://github.com/snakemake/snakemake/compare/v8.28.0...v8.29.0) (2025-02-27)
 
 
