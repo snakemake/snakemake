@@ -102,7 +102,6 @@ def format_exception_to_string(ex, linemaps=None):
         return format_error(
             ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
         )
-        return
     elif isinstance(ex, TokenError):
         return format_error(ex, None, show_traceback=False)
     elif isinstance(ex, MissingRuleException):
