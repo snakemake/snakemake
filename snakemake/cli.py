@@ -70,6 +70,11 @@ from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
 
 
+def parse_size_in_bytes(value):
+    from humanfriendly import parse_size
+    return parse_size(value)
+
+
 def expandvars(atype):
     def inner(args):
         if isinstance(args, list):
@@ -1301,9 +1306,9 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--max-checksum-file-size",
-        type=int,
         default=1000000,
         metavar="BYTES",
+        parse_func=parse_size_in_bytes,
         help="Compute the checksum during DAG computation and job postprocessing "
         "only for files that are smaller than the provided threshold.",
     )
