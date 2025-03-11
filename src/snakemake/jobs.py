@@ -70,6 +70,8 @@ def format_file(f, is_input: bool):
         return f"{f} (pipe)"
     elif is_flagged(f, "service"):
         return f"{f} (service)"
+    elif is_flagged(f, "nodelocal"):
+        return f"{f} (nodelocal)"
     elif is_flagged(f, "update"):
         return f"{f} (update)"
     elif is_flagged(f, "before_update"):
@@ -1617,7 +1619,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 f
                 for j in self.jobs
                 for f in j.output
-                if is_flagged(f, "temp") and not needed(j, f)
+                if is_flagged(f, "nodelocal")
+                or (is_flagged(f, "temp") and not needed(j, f))
             ]
 
         # Iterate over jobs in toposorted order (see self.__iter__) to

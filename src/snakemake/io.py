@@ -1140,6 +1140,22 @@ def temp(value):
     return flag(value, "temp")
 
 
+def nodelocal(value, mktemp=True):
+    """
+    A flag for an input or output file that only lives on the compute node executing the group jobs and not accessible from the main snakemake job.
+    e.g. for what some HPC call "local scratch". By default, file is also flagged as a temp
+    """
+    if is_flagged(value, "protected"):
+        raise SyntaxError("Node-local may not be protected.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Node-local cannot be on storage.")
+    # NOTE technically a pipe could be nodelocal (if the FIFO is in /tmp)
+    # NOTE a directory can be nodelocal
+    if mktemp:
+        value = temp(value)
+    return flag(value, "nodelocal")
+
+
 @dataclass
 class QueueInfo:
     queue: queue.Queue
@@ -1216,6 +1232,8 @@ def protected(value):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "storage_object"):
         raise SyntaxError("Storage and protected flags are mutually exclusive.")
+    if is_flagged(value, "nodelocal"):
+        raise SyntaxError("Protected and nodelocal flags are mutually exclusive.")
     return flag(value, "protected")
 
 

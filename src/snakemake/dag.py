@@ -929,6 +929,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     and not f.should_not_be_retrieved_from_storage
                     and not is_flagged(f, "pipe")
                     and not is_flagged(f, "service")
+                    and not is_flagged(f, "nodelocal")
                 ):
                     await f.store_in_storage()
                     storage_mtime = (await f.mtime()).storage()
@@ -1774,8 +1775,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for f in job.output:
                 is_pipe = is_flagged(f, "pipe")
                 is_service = is_flagged(f, "service")
-                if is_pipe or is_service:
-                    if job.is_run:
+                is_nodelocal = is_flagged(f, "nodelocal")
+                if is_pipe or is_service or is_nodelocal:
+                    if not is_nodelocal and job.is_run:
                         raise WorkflowError(
                             "Rule defines pipe output but "
                             "uses a 'run' directive. This is "
@@ -1798,7 +1800,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             "job".format(f),
                             rule=job.rule,
                         )
-                    elif len(depending) == 0:
+                    elif not is_nodelocal and len(depending) == 0:
                         raise WorkflowError(
                             "Output file {} is marked as pipe or service "
                             "but it has no consumer. This is "
@@ -1814,7 +1816,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         )
 
                     for dep in depending:
-                        if dep.is_run:
+                        if not is_nodelocal and dep.is_run:
                             raise WorkflowError(
                                 "Rule consumes pipe or service input but "
                                 "uses a 'run' directive. This is "
@@ -2615,7 +2617,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
                 status = "ok"
                 if not await f.exists():
-                    if is_flagged(f, "temp"):
+                    if is_flagged(f, "nodelocal"):
+                        status = "file local to node"
+                    elif is_flagged(f, "temp"):
                         status = "removed temp file"
                     elif is_flagged(f, "pipe"):
                         status = "pipe file"
