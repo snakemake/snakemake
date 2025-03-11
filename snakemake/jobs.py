@@ -491,12 +491,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 skip_evaluation = {"tmpdir"}
             if not self._params_and_resources_resetted:
                 # initial evaluation, input files of job are probably not yet present.
-                # Therefore skip all functions
-                skip_evaluation.update(
-                    name
-                    for name, val in self.rule.resources.items()
-                    if is_callable(val)
-                )
+                # Therefore skip all functions that depend on input files.
+                for name, val in self.rule.resources.items():
+                    if is_callable(val) and 'input' in val.__code__.co_varnames:
+                        skip_evaluation.add(name)
+
             self._resources = self.rule.expand_resources(
                 self.wildcards_dict,
                 self.input,
