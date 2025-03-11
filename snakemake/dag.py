@@ -267,14 +267,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return self._checkpoint_jobs
 
     @property
-    def finished_checkpoint_jobs(self):
-        for job in self.finished_jobs:
-            if job.is_checkpoint:
+    def finished_and_not_needrun_checkpoint_jobs(self):
+        for job in self.jobs:
+            if job.is_checkpoint and (self.finished(job) or not self.needrun(job)):
                 yield job
 
     def update_checkpoint_outputs(self):
         workflow.checkpoints.created_output = set(
-            f for job in self.finished_checkpoint_jobs for f in job.output
+            f for job in self.finished_and_not_needrun_checkpoint_jobs for f in job.output
         )
 
     def update_jobids(self):
@@ -406,25 +406,28 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if self.workflow.remote_exec:
             logger.info("Storing output in storage.")
             try:
-                async with asyncio.TaskGroup() as tg:
-                    for job in self.needrun_jobs(exclude_finished=False):
-                        benchmark = [job.benchmark] if job.benchmark else []
+                for level in self.toposorted(
+                    set(self.needrun_jobs(exclude_finished=False))
+                ):
+                    async with asyncio.TaskGroup() as tg:
+                        for job in level:
+                            benchmark = [job.benchmark] if job.benchmark else []
 
-                        async def tostore(f):
-                            return (
-                                f.is_storage
-                                and f
-                                not in self.workflow.storage_settings.unneeded_temp_files
-                                and await f.exists_local()
-                            )
+                            async def tostore(f):
+                                return (
+                                    f.is_storage
+                                    and f
+                                    not in self.workflow.storage_settings.unneeded_temp_files
+                                    and await f.exists_local()
+                                )
 
-                        if self.finished(job):
-                            for f in chain(job.output, benchmark):
+                            if self.finished(job):
+                                for f in chain(job.output, benchmark):
+                                    if await tostore(f):
+                                        tg.create_task(f.store_in_storage())
+                            for f in job.log:
                                 if await tostore(f):
                                     tg.create_task(f.store_in_storage())
-                        for f in job.log:
-                            if await tostore(f):
-                                tg.create_task(f.store_in_storage())
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to store output in storage.", e)
 

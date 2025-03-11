@@ -29,10 +29,10 @@ rule aggregate:
         aggregate_input
     output:
         "aggregated.txt"
-    #shell:
-    #    "cat {input} > {output}"
-    run:
-        shell("cat {input} > {output}")
+    shell:
+        "cat {input} > {output}"
+    # run:
+    #     shell("cat {input} > {output}")
 
 # an intermediate rule
 rule intermediate:

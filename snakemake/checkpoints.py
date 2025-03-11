@@ -1,6 +1,4 @@
 from typing import TYPE_CHECKING
-from pathlib import Path
-
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
 from snakemake.io import checkpoint_target
 
@@ -36,12 +34,9 @@ class Checkpoint:
             )
 
         output, _ = self.rule.expand_output(wildcards)
-
         if self.checkpoints.created_output is not None:
             may_not_created = set(output) - set(self.checkpoints.created_output)
             if not may_not_created:
-                return CheckpointJob(self.rule, output)
-            if all(Path(f).exists() for f in may_not_created):
                 return CheckpointJob(self.rule, output)
 
         raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
