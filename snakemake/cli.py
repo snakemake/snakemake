@@ -10,7 +10,6 @@ import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import List, Mapping, Optional, Set, Union
-
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -65,6 +64,7 @@ from snakemake.settings.types import (
     SharedFSUsage,
     StorageSettings,
     WorkflowSettings,
+    StrictDagEvaluation,
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
@@ -858,6 +858,15 @@ def get_argument_parser(profiles=None):
             "If not supplied, the value is set to the '.snakemake' directory relative "
             "to the working directory."
         ),
+    )
+
+    group_exec.add_argument(
+        "--strict-dag-evaluation",
+        nargs="+",
+        choices=StrictDagEvaluation.choices(),
+        default=set(),
+        parse_func=StrictDagEvaluation.parse_choices_set,
+        help="Strict evaluation of rules' correctness even when not required to produce the output files. ",
     )
 
     try:
@@ -2101,6 +2110,7 @@ def args_to_api(args, parser):
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
                             trust_mtime_cache=args.trust_mtime_cache,
+                            strict_evaluation=args.strict_dag_evaluation,
                         ),
                     )
 
