@@ -864,7 +864,7 @@ def get_argument_parser(profiles=None):
         "--strict-dag-evaluation",
         nargs="+",
         choices=StrictDagEvaluation.choices(),
-        default=[],
+        default=set(),
         parse_func=StrictDagEvaluation.parse_choices_set,
         help="Strict evaluation of rules' correctness even when not required to produce the output files. ",
     )
