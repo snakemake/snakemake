@@ -358,6 +358,7 @@ class ConfigSettings(SettingsBase):
     config: Mapping[str, str] = immutables.Map()
     configfiles: Sequence[Path] = tuple()
     config_args: Optional[str] = None
+    replace_workflow: bool = False
 
     def __post_init__(self):
         self.overwrite_config = self._get_overwrite_config()

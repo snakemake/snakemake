@@ -660,6 +660,16 @@ def get_argument_parser(profiles=None):
         ),
     )
     group_exec.add_argument(
+        "--replace-workflow-config",
+        action="store_true",
+        help=(
+            "Config files provided via command line do not update and extend the config "
+            "dictionary of the workflow but instead fully replace it. Keys that are not "
+            "defined in the provided config files will be undefined even if specified "
+            "within the workflow config."
+        ),
+    )
+    group_exec.add_argument(
         "--envvars",
         nargs="+",
         metavar="VARNAME",
@@ -1979,6 +1989,7 @@ def args_to_api(args, parser):
                         config=parse_config(args.config),
                         configfiles=args.configfile,
                         config_args=args.config,
+                        replace_workflow=args.replace_workflow_config
                     ),
                     storage_settings=storage_settings,
                     storage_provider_settings=storage_provider_settings,
