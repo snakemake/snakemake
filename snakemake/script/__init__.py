@@ -539,9 +539,9 @@ class BashEncoder:
         """
         s = "( "
         for k, v in d.items():
-            # The next replacement meant is for lists, but also gets applied to sub-dicts
+            # The next replacement is meant for lists, but also gets applied to sub-dicts
             # so that the script will only see a string containing the dict keys.
-            # There is no easy way to represent a nested dict in Bash
+            # There is no easy way to represent a nested dict in Bash so don't try.
             if isinstance(v, Iterable) and not isinstance(v, str):
                 v = " ".join([str(x) for x in v])
             quoted_v = shlex.quote(str(v))
