@@ -233,9 +233,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.update_conda_envs()
 
         await self.update_needrun(create_inventory=True)
-        # TODO: The above is where the inventory got built, so
-        # this is where we have a built inventory and we're ready
-        # to save it or reload it?
         if self.workflow.dryrun:
             # The iocache is now up-to-date and can be persisted for future
             # non-dry-runs.
