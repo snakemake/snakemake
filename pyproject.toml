@@ -234,12 +234,16 @@ myst-parser = ">=3.0.1,<5"
 sphinxcontrib-napoleon = ">=0.7,<0.8"
 humanfriendly = ">=10.0,<11"
 
-[tool.pixi.feature.docs.tasks]
-build-docs = { cmd = 'make html SPHINXOPTS="-W --keep-going -n"', description = "Build the documentation in the docs/ directory", cwd = "docs" }
-docs = { cmd = "python -m http.server 8000 --directory docs/_build/html", description = "Serve the documentation on http://localhost:8000", depends-on = [
-  "build-docs",
-] }
 
+[tool.pixi.feature.docs.tasks.build-docs]
+description = "Build the documentation in the docs/ directory"
+cwd = "docs"
+cmd = 'make html SPHINXOPTS="-W --keep-going -n"'
+
+[tool.pixi.feature.docs.tasks.docs]
+description = "Serve the documentation on http://localhost:8000"
+cmd = "python -m http.server 8000 --directory docs/_build/html"
+depends-on = ["build-docs"]
 #------------------------ Style -------------------------------
 [tool.pixi.feature.style.dependencies]
 black = "*"
