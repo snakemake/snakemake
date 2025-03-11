@@ -4,9 +4,9 @@ channels:
   - nodefaults
 dependencies:
   - python >=3.11
+  - setuptools
   - yte
   - packaging
-  - datrie
   - boto3
   - httpretty
   - wrapt
@@ -52,15 +52,16 @@ dependencies:
   - reretry
   - graphviz
   - humanfriendly
+  - stress-ng
   - throttler
   - dpath
   - nodejs # for cwltool
   - immutables
   - conda
+  - cwltool
+  - cwl-utils
   - pip
   - pip:
-      - cwltool
-      - cwl-utils
       - snakemake-interface-executor-plugins >=9.3.1
       - snakemake-executor-plugin-cluster-generic >=1.0.9
       - snakemake-storage-plugin-http
