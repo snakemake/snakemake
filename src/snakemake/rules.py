@@ -281,22 +281,24 @@ class Rule(RuleInterface):
                 "multiext" in getattr(x, "_flags", {}) for x in item
             ):
                 for ifile in item:
-                    if "multiext" in getattr(ifile, "_flags", {}):
-                        if ifile._flags["multiext"].isnamed():
-                            # Revert back multiext part to prefix, to avoid breaking cache later.
-                            _name = ifile._flags["multiext"].name
-                            ifile._flags["multiext"] = ifile._flags["multiext"].prefix
-                            self._set_inoutput_item(
-                                ifile,
-                                name=_name,
-                                mark_ancient=i in consider_ancient,
-                            )
-                        else:
-                            ifile._flags["multiext"] = ifile._flags["multiext"].prefix
-                            self._set_inoutput_item(
-                                ifile,
-                                mark_ancient=i in consider_ancient,
-                            )
+                    if (
+                        "multiext" in getattr(ifile, "_flags", {})
+                        and ifile._flags["multiext"].isnamed()
+                    ):
+                        # Revert back multiext part to prefix, to avoid breaking cache later.
+                        _name = ifile._flags["multiext"].name
+                        ifile._flags["multiext"] = ifile._flags["multiext"].prefix
+                        self._set_inoutput_item(
+                            ifile,
+                            name=_name,
+                            mark_ancient=i in consider_ancient,
+                        )
+                    elif "multiext" in getattr(ifile, "_flags", {}):
+                        ifile._flags["multiext"] = ifile._flags["multiext"].prefix
+                        self._set_inoutput_item(
+                            ifile,
+                            mark_ancient=i in consider_ancient,
+                        )
                     else:
                         self._set_inoutput_item(
                             ifile,
@@ -369,18 +371,20 @@ class Rule(RuleInterface):
                 "multiext" in getattr(x, "_flags", {}) for x in item
             ):
                 for ofile in item:
-                    if "multiext" in getattr(ofile, "_flags", {}):
-                        if ofile._flags["multiext"].isnamed():
-                            _name = ofile._flags["multiext"].name
-                            ofile._flags["multiext"] = ofile._flags["multiext"].prefix
-                            self._set_inoutput_item(
-                                ofile,
-                                output=True,
-                                name=_name,
-                            )
-                        else:
-                            ofile._flags["multiext"] = ofile._flags["multiext"].prefix
-                            self._set_inoutput_item(ofile, output=True)
+                    if (
+                        "multiext" in getattr(ofile, "_flags", {})
+                        and ofile._flags["multiext"].isnamed()
+                    ):
+                        _name = ofile._flags["multiext"].name
+                        ofile._flags["multiext"] = ofile._flags["multiext"].prefix
+                        self._set_inoutput_item(
+                            ofile,
+                            output=True,
+                            name=_name,
+                        )
+                    elif "multiext" in getattr(ofile, "_flags", {}):
+                        ofile._flags["multiext"] = ofile._flags["multiext"].prefix
+                        self._set_inoutput_item(ofile, output=True)
                     else:
                         self._set_inoutput_item(ofile, output=True)
             else:
