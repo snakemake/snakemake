@@ -100,13 +100,16 @@ def get_script_mtime(path: str) -> float:
 
 class AbstractJob(JobExecutorInterface):
     @abstractmethod
-    def reset_params_and_resources(self): ...
+    def reset_params_and_resources(self):
+        ...
 
     @abstractmethod
-    def get_target_spec(self): ...
+    def get_target_spec(self):
+        ...
 
     @abstractmethod
-    def products(self, include_logfiles=True): ...
+    def products(self, include_logfiles=True):
+        ...
 
     def has_products(self, include_logfiles=True):
         for _ in self.products(include_logfiles=include_logfiles):
@@ -494,7 +497,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 # initial evaluation, input files of job are probably not yet present.
                 # Therefore skip all functions that depend on input files.
                 for name, val in self.rule.resources.items():
-                    if is_callable(val) and 'input' in val.__code__.co_varnames:
+                    if is_callable(val) and "input" in val.__code__.co_varnames:
                         skip_evaluation.add(name)
             self._resources = self.rule.expand_resources(
                 self.wildcards_dict,
