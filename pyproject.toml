@@ -114,14 +114,14 @@ snakemake = { path = ".", editable = true }
 
 [tool.pixi.environments]
 dev = { features = [
-  # plugins
-  "plugin-interfaces",
-  "storage-plugins",
-  "executor-plugins",
   # optional dependencies
   "messaging",
   "pep",
   "reports",
+  # plugins
+  "plugin-interfaces",
+  "storage-plugins",
+  "executor-plugins",
   # dev 
   "test",
   "docs",
@@ -254,7 +254,7 @@ twine = ">=6.1.0,<7"
 python-build = ">=1.2.2,<2"
 
 [tool.pixi.feature.publish.tasks]
-build = { cmd = "python -m build", description = "Build the package" }
+build = { cmd = "python -m build", description = "Build the package into the dist/ directory" }
 check-build = { cmd = "python -m twine check dist/*", depends-on = [
   "build",
 ], description = "Check that the package can be uploaded" }
