@@ -1,0 +1,43 @@
+shell.executable("bash")
+
+rule all:
+    input:
+        "some_dir/final",
+        "empty_dir",
+        "full_dir"
+
+rule a:
+    input: "infile"
+    output: "intermediate", "dangling", touch(protected("protected"))
+    shell: "ln -s {input} {output[0]} && touch nothere && ln -s nothere {output[1]}"
+
+rule b:
+    input: "intermediate"
+    output: touch("some_dir/final")
+
+rule c:
+    output: directory("empty_dir")
+    shell: "mkdir empty_dir"
+
+rule d:
+    output: directory("full_dir")
+    shell: "mkdir full_dir && touch full_dir/somefile"
+
+rule e:
+    input: "infile"
+    output: temp("temp_intermediate")
+    shell: "touch {output}"
+
+rule f:
+    input: "temp_intermediate"
+    output: directory(temp("temp_empty_dir"))
+    shell: "mkdir temp_empty_dir"
+
+rule g:
+    input: "temp_intermediate"
+    output: directory(temp("temp_full_dir"))
+    shell: "mkdir temp_full_dir && touch temp_full_dir/somefile"
+
+rule temp:
+    input: "temp_empty_dir", "temp_full_dir"
+    output: touch("temp_keep")
