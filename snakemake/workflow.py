@@ -1203,12 +1203,13 @@ class Workflow(WorkflowExecutorInterface):
             ):
                 async_run(self.dag.retrieve_storage_inputs())
 
-            if (
+            should_deploy_sources = (
                 SharedFSUsage.SOURCES not in self.storage_settings.shared_fs_usage
                 and self.exec_mode == ExecMode.DEFAULT
                 and self.remote_execution_settings.job_deploy_sources
                 and not executor_plugin.common_settings.can_transfer_local_files
-            ):
+            )
+            if should_deploy_sources:
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
@@ -1290,12 +1291,15 @@ class Workflow(WorkflowExecutorInterface):
                     self.log_provenance_info()
                 raise e
             finally:
-                if (
-                    not self.remote_execution_settings.immediate_submit
-                    and not self.dryrun
-                    and self.exec_mode == ExecMode.DEFAULT
-                ):
-                    self.dag.cleanup_workdir()
+                if should_deploy_sources:
+                    self.cleanup_source_archive()
+
+            if (
+                not self.remote_execution_settings.immediate_submit
+                and not self.dryrun
+                and self.exec_mode == ExecMode.DEFAULT
+            ):
+                self.dag.cleanup_workdir()
 
             if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
