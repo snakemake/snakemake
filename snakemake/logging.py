@@ -575,10 +575,12 @@ class LoggerManager:
                     stream_handlers.append(configured_handler)
                 else:
                     other_handlers.append(configured_handler)
-        else:
-            stream_handlers.append(self._default_streamhandler())
+
         if len(stream_handlers) > 1:
             raise ValueError("More than 1 stream log handler specified!")
+        else:
+            # we dont have any stream_handlers from plugin(s) so give us the default one
+            stream_handlers.append(self._default_streamhandler())
         all_handlers = (
             stream_handlers + other_handlers + list(self.logfile_handlers.keys())
         )
