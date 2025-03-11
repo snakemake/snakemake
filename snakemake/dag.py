@@ -51,6 +51,7 @@ from snakemake.exceptions import (
     RemoteFileException,
     WildcardError,
     WorkflowError,
+    print_exception_warning
 )
 from snakemake.io import (
     _IOFile,
@@ -1045,7 +1046,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 MissingInputException,
                 CyclicGraphException,
                 PeriodicWildcardError,
-                WorkflowError,
+                WorkflowError, #TODO maybe CyclicGraphException, PeriodicWildcardError, Workflow?
             ) as ex:
                 exceptions.append(ex)
                 discarded_jobs.add(job)
@@ -2261,10 +2262,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 )
             except InputFunctionException as e:
                 exceptions.append(e)
+                if (self.workflow.dag_settings.strict_functions_evaluation):
+                    raise e
         if not jobs:
             if exceptions:
                 raise exceptions[0]
             raise MissingRuleException(targetfile)
+        else:
+            # Warn user of possible errors
+            for e in exceptions:
+                print_exception_warning(
+                        e, 
+                        self.workflow.linemaps, 
+                        "Use --strict-functions-evaluation to force strict mode."
+                )
         return jobs
 
     def rule_dot2(self):

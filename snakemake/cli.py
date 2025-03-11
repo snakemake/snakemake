@@ -860,6 +860,15 @@ def get_argument_parser(profiles=None):
         ),
     )
 
+    group_exec.add_argument(
+        "--strict-functions-evaluation",
+        "--strict-functions",
+        action="store_true",
+        help="Strictly evaluate functions inside rules' directives. "
+        "Produce an error if a rule's callable raises an exception, even if the rule is not "
+        "strictly required to produce output files.",
+    )
+
     try:
         import pulp
 
@@ -2090,6 +2099,7 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
+                            strict_functions_evaluation=args.strict_functions_evaluation
                         ),
                     )
 
