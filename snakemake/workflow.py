@@ -274,6 +274,14 @@ class Workflow(WorkflowExecutorInterface):
         )
         return self._source_archive
 
+    def cleanup_source_archive(self):
+        """cleanup source archive form remote storage"""
+        if self._source_archive is not None:
+            obj = self.storage_registry.default_storage_provider.object(
+                self._source_archive.query
+            )
+            async_run(obj.managed_remove())
+
     def upload_sources(self):
         assert self.storage_settings is not None
         with tempfile.NamedTemporaryFile(suffix="snakemake-sources.tar.xz") as tf:
@@ -1195,12 +1203,13 @@ class Workflow(WorkflowExecutorInterface):
             ):
                 async_run(self.dag.retrieve_storage_inputs())
 
-            if (
+            should_deploy_sources = (
                 SharedFSUsage.SOURCES not in self.storage_settings.shared_fs_usage
                 and self.exec_mode == ExecMode.DEFAULT
                 and self.remote_execution_settings.job_deploy_sources
                 and not executor_plugin.common_settings.can_transfer_local_files
-            ):
+            )
+            if should_deploy_sources:
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
@@ -1281,6 +1290,9 @@ class Workflow(WorkflowExecutorInterface):
                 if self.dryrun:
                     self.log_provenance_info()
                 raise e
+            finally:
+                if should_deploy_sources:
+                    self.cleanup_source_archive()
 
             if (
                 not self.remote_execution_settings.immediate_submit
@@ -1291,7 +1303,8 @@ class Workflow(WorkflowExecutorInterface):
 
             if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
-                async_run(self.dag.cleanup_storage_objects())
+                if not self.storage_settings.keep_storage_local:
+                    async_run(self.dag.cleanup_storage_objects())
 
             if success:
                 if self.dryrun:

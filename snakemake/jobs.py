@@ -1097,6 +1097,20 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
     ):
         aux_logs = aux_logs or []
+        # Retrieve conda env path only when conda is enabled with sdm
+        # Otherwise the class Conda will be created also when not explicitly
+        # requested with sdm, resulting in an error when conda is not available
+        # in the container.
+        conda_env_adress = (
+            self.conda_env.address
+            if (
+                DeploymentMethod.CONDA
+                in self.dag.workflow.deployment_settings.deployment_method
+                and self.conda_env
+            )
+            else None
+        )
+
         return dict(
             name=self.rule.name,
             msg=msg,
@@ -1104,7 +1118,8 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             input=format_files(self.input, is_input=True),
             output=format_files(self.output, is_input=False),
             log=format_files(self.log, is_input=False) + aux_logs,
-            conda_env=self.conda_env.address if self.conda_env else None,
+            conda_env=conda_env_adress,
+            container_img=self.container_img,
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,

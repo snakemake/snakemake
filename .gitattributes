@@ -6,3 +6,4 @@ tests/test_issue1046/expected-results/test_report.html linguist-vendored=true
 tests/test_report/report.html linguist-vendored=true
 tests/test_report/expected-results/report.html linguist-vendored=true
 tests/test_report/custom-stylesheet.css linguist-vendored=true
+tests/**/*.html linguist-vendored=true
