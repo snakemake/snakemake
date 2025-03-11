@@ -277,17 +277,30 @@ class Rule(RuleInterface):
             self.name, frozenset()
         )
         for i, item in enumerate(input):
-            if any('multiext' in getattr(x, '_flags', {}) for x in item):
+            if any("multiext" in getattr(x, "_flags", {}) for x in item):
                 for ifile in item:
-                    if 'multiext' in getattr(ifile, '_flags', {}):
-                        if ifile._flags['multiext'].isnamed():
-                            self._set_inoutput_item(ifile, name=ifile._flags['multiext'].name, mark_ancient=i in consider_ancient)
+                    if "multiext" in getattr(ifile, "_flags", {}):
+                        if ifile._flags["multiext"].isnamed():
+                            self._set_inoutput_item(
+                                ifile,
+                                name=ifile._flags["multiext"].name,
+                                mark_ancient=i in consider_ancient,
+                            )
                         else:
-                            self._set_inoutput_item(ifile, mark_ancient=i in consider_ancient)
+                            self._set_inoutput_item(
+                                ifile,
+                                mark_ancient=i in consider_ancient,
+                            )
                     else:
-                        self._set_inoutput_item(ifile, mark_ancient=i in consider_ancient)
+                        self._set_inoutput_item(
+                            ifile,
+                            mark_ancient=i in consider_ancient,
+                        )
             else:
-                self._set_inoutput_item(item, mark_ancient=i in consider_ancient)
+                self._set_inoutput_item(
+                    item,
+                    mark_ancient=i in consider_ancient,
+                )
 
         for name, item in kwinput.items():
             self._set_inoutput_item(
@@ -346,11 +359,15 @@ class Rule(RuleInterface):
         for item in output:
             # Named multiext have their name set under the flag (MultiextValue), if the first one is named, all of them are named.
             # Any of the output files in item can be multiext, so we do need to check all of them.
-            if any('multiext' in getattr(x, '_flags', {}) for x in item):
+            if any("multiext" in getattr(x, "_flags", {}) for x in item):
                 for ofile in item:
-                    if 'multiext' in getattr(ofile, '_flags', {}):
-                        if ofile._flags['multiext'].isnamed():
-                            self._set_inoutput_item(ofile, output=True, name=ofile._flags['multiext'].name)
+                    if "multiext" in getattr(ofile, "_flags", {}):
+                        if ofile._flags["multiext"].isnamed():
+                            self._set_inoutput_item(
+                                ofile,
+                                output=True,
+                                name=ofile._flags["multiext"].name,
+                            )
                         else:
                             self._set_inoutput_item(ofile, output=True)
                     else:

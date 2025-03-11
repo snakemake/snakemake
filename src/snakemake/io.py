@@ -1458,14 +1458,26 @@ def multiext(prefix, *extensions, **named_extensions):
             r"Extensions for multiext may not contain path delimiters (/,\)."
         )
     # Ensure either all extensions are named or all are positional
-    if not ((extensions and not named_extensions) or (not extensions and named_extensions)):
+    if not (
+        (extensions and not named_extensions) or (not extensions and named_extensions)
+    ):
         raise WorkflowError(
             "multiext should be given with all named extensions or all not-named extensions, not a mix."
         )
     if extensions:
-       return [flag(prefix + ext, "multiext", flag_value=MultiextValue(prefix=prefix)) for ext in extensions]
+        return [
+            flag(prefix + ext, "multiext", flag_value=MultiextValue(prefix=prefix))
+            for ext in extensions
+        ]
     else:
-       return [flag(prefix + ext, "multiext", flag_value=MultiextValue(name=name, prefix=prefix)) for name, ext in named_extensions.items()]
+        return [
+            flag(
+                prefix + ext,
+                "multiext",
+                flag_value=MultiextValue(name=name, prefix=prefix),
+            )
+            for name, ext in named_extensions.items()
+        ]
 
 
 def limit(pattern: Union[str, AnnotatedString], **wildcards):
