@@ -277,7 +277,6 @@ class Rule(RuleInterface):
             self.name, frozenset()
         )
         for i, item in enumerate(input):
-            print(f"Here we are in the enumerate with {item}")
             if isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
                 for ifile in item:
                     if "multiext" in getattr(ifile, "_flags", {}):
