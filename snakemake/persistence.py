@@ -736,20 +736,24 @@ class Persistence(PersistenceExecutorInterface):
         self._read_record = self._read_record_uncached
         self._incomplete_cache = False
 
+    @property
+    def _iocache_filename(self):
+        return os.path.join(self.iocache_path, "latest.pkl")
+
     def save_iocache(self):
-        filepath = os.path.join(self.iocache_path, "latest.pkl")
+        filepath = self._iocache_filename
         with open(filepath, 'wb') as handle:
             self.dag.workflow.iocache.save(handle)
 
     def load_iocache(self):
-        filepath = os.path.join(self.iocache_path, "latest.pkl")
+        filepath = self._iocache_filename
         if os.path.exists(filepath):
             logger.info(f"Loading trusted IOCache from latest dry-run.")
             with open(filepath, 'rb') as handle:
                 self.dag.workflow.iocache = IOCache.load(handle)
 
     def drop_iocache(self):
-        filepath = os.path.join(self.iocache_path, "latest.pkl")
+        filepath = self._iocache_filename
         if os.path.exists(filepath):
             os.remove(filepath)
 
