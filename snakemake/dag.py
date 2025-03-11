@@ -409,25 +409,26 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if self.workflow.remote_exec:
             logger.info("Storing output in storage.")
             try:
-                async with asyncio.TaskGroup() as tg:
-                    for job in self.needrun_jobs(exclude_finished=False):
-                        benchmark = [job.benchmark] if job.benchmark else []
+                for level in self.toposorted(self.needrun_jobs(exclude_finished=False)):
+                    async with asyncio.TaskGroup() as tg:
+                        for job in level:
+                            benchmark = [job.benchmark] if job.benchmark else []
 
-                        async def tostore(f):
-                            return (
-                                f.is_storage
-                                and f
-                                not in self.workflow.storage_settings.unneeded_temp_files
-                                and await f.exists_local()
-                            )
+                            async def tostore(f):
+                                return (
+                                    f.is_storage
+                                    and f
+                                    not in self.workflow.storage_settings.unneeded_temp_files
+                                    and await f.exists_local()
+                                )
 
-                        if self.finished(job):
-                            for f in chain(job.output, benchmark):
+                            if self.finished(job):
+                                for f in chain(job.output, benchmark):
+                                    if await tostore(f):
+                                        tg.create_task(f.store_in_storage())
+                            for f in job.log:
                                 if await tostore(f):
                                     tg.create_task(f.store_in_storage())
-                        for f in job.log:
-                            if await tostore(f):
-                                tg.create_task(f.store_in_storage())
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to store output in storage.", e)
 
