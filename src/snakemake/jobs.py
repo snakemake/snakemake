@@ -482,6 +482,14 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self._resources = None
         self._attempt = attempt
 
+    def _get_resources_to_skip(self):
+        """Return a set of resource names that are callable and depend on input files."""
+        return {
+            name
+            for name, val in self.rule.resources.items()
+            if is_callable(val) and "input" in val.__code__.co_varnames
+        }
+
     @property
     def resources(self):
         if self._resources is None:
@@ -493,9 +501,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             if not self._params_and_resources_resetted:
                 # initial evaluation, input files of job are probably not yet present.
                 # Therefore skip all functions that depend on input files.
-                for name, val in self.rule.resources.items():
-                    if is_callable(val) and "input" in val.__code__.co_varnames:
-                        skip_evaluation.add(name)
+                skip_evaluation.update(self._get_resources_to_skip())
             self._resources = self.rule.expand_resources(
                 self.wildcards_dict,
                 self.input,
