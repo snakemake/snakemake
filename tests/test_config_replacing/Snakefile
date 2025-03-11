@@ -12,5 +12,5 @@ rule create:
     output:
         'result.txt'
     shell:
-        'echo "{name}-{id}-{value}" > {output}'
+        'echo {name}-{id}-{value} > {output}'
 
