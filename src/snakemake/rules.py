@@ -277,26 +277,16 @@ class Rule(RuleInterface):
             self.name, frozenset()
         )
         for i, item in enumerate(input):
-            if isinstance(item, collections.abc.Iterable) and any(
-                "multiext" in getattr(x, "_flags", {}) for x in item
-            ):
+            print(f"Here we are in the enumerate with {item}")
+            if isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
                 for ifile in item:
-                    if (
-                        "multiext" in getattr(ifile, "_flags", {})
-                        and ifile._flags["multiext"].isnamed()
-                    ):
+                    if "multiext" in getattr(ifile, "_flags", {}):
                         # Revert back multiext part to prefix, to avoid breaking cache later.
                         _name = ifile._flags["multiext"].name
                         ifile._flags["multiext"] = ifile._flags["multiext"].prefix
                         self._set_inoutput_item(
                             ifile,
                             name=_name,
-                            mark_ancient=i in consider_ancient,
-                        )
-                    elif "multiext" in getattr(ifile, "_flags", {}):
-                        ifile._flags["multiext"] = ifile._flags["multiext"].prefix
-                        self._set_inoutput_item(
-                            ifile,
                             mark_ancient=i in consider_ancient,
                         )
                     else:
@@ -367,14 +357,9 @@ class Rule(RuleInterface):
         for item in output:
             # Named multiext have their name set under the flag (MultiextValue), if the first one is named, all of them are named.
             # Any of the output files in item can be multiext, so we do need to check all of them.
-            if isinstance(item, collections.abc.Iterable) and any(
-                "multiext" in getattr(x, "_flags", {}) for x in item
-            ):
+            if isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
                 for ofile in item:
-                    if (
-                        "multiext" in getattr(ofile, "_flags", {})
-                        and ofile._flags["multiext"].isnamed()
-                    ):
+                    if "multiext" in getattr(ofile, "_flags", {}):
                         _name = ofile._flags["multiext"].name
                         ofile._flags["multiext"] = ofile._flags["multiext"].prefix
                         self._set_inoutput_item(
@@ -382,9 +367,6 @@ class Rule(RuleInterface):
                             output=True,
                             name=_name,
                         )
-                    elif "multiext" in getattr(ofile, "_flags", {}):
-                        ofile._flags["multiext"] = ofile._flags["multiext"].prefix
-                        self._set_inoutput_item(ofile, output=True)
                     else:
                         self._set_inoutput_item(ofile, output=True)
             else:

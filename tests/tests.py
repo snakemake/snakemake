@@ -1351,6 +1351,10 @@ def test_multiext():
     run(dpath("test_multiext"))
 
 
+def test_multiext_named():
+    run(dpath("test_multiext_named"))
+
+
 def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
 
