@@ -360,7 +360,9 @@ def get_profile_dir(profile: str) -> (Path, Path):
         profile_candidate = Path(d) / profile
         if profile_candidate.exists():
             files = os.listdir(profile_candidate)
-            curr_major = int(__version__.split(".")[0])
+            # If versioneer cannot get the real version it will return something
+            # like "0+untagged.5410.g40ffe59" - this should only occur in testing scenarios
+            curr_major = int(__version__.split(".")[0].split("+")[0])
             config_files = {
                 f: min_major
                 for f, min_major in zip(files, map(get_config_min_major, files))
@@ -952,10 +954,15 @@ def get_argument_parser(profiles=None):
         const="report.html",
         metavar="FILE",
         type=Path,
-        help="Create an HTML report with results and statistics. "
-        "This can be either a .html file or a .zip file. "
-        "In the former case, all results are embedded into the .html (this only works for small data). "
-        "In the latter case, results are stored along with a file report.html in the zip archive. "
+        help="Create a self-contained HTML report with default statistics, "
+        "provenance information and user-specified results. "
+        "For smaller datasets with a limited report complexity, you can specify "
+        "an '.html' file and all results will be embedded directly into this file. "
+        "For customized reports on larger sample sizes, it makes more sense to "
+        "specify a '.zip' file. The resulting archive will spread the contents "
+        "across a folder structure, for a quicker loading of individual results. "
+        "You can unpack this archive anywhere and open the 'report.html` file in "
+        "its main folder to view the report in any web browser. "
         "If no filename is given, an embedded report.html is the default.",
     )
     group_report.add_argument(

@@ -920,6 +920,11 @@ All of these resources have specific meanings understood by snakemake and are tr
   :ref:`See below <resources-remote-execution>` for more info.
   They are usually passed to execution backends, e.g. to allow the selection of appropriate compute nodes for the job execution.
 
+* ``gpu``, ``gpu_manufacturer``, and ``gpu_model`` define the number of GPUs, the manufacturer of the GPUs, and the gpu model needed by the job.
+  The ``gpu`` resource is an integer and the other two are strings. Please check the executor plugin docs in order to see
+  whether and how these resources are supported and properly interpreted by the executor.
+  For example, the `kubernetes executor plugin <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/kubernetes.html>`__ accepts the terms ``nvidia`` or ``amd`` for the ``gpu_manufacturer`` resource.
+
 Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``time``, ``temp``, etc).
 
 .. _default-resources:
@@ -955,16 +960,16 @@ Modification in the Snakefile uses the following syntax:
 .. code-block:: python
 
     resource_scopes:
-        gpus="local",
+        gpu="local",
         foo="local",
         disk_mb="global"
 
-Here, we set both ``gpus`` and ``foo`` as local resources, and we changed ``disk_mb`` from its default to be a ``global`` resource.
+Here, we set both ``gpu`` and ``foo`` as local resources, and we changed ``disk_mb`` from its default to be a ``global`` resource.
 These options could be overridden at the command line using:
 
 .. code-block:: console
 
-    $ snakemake --set-resource-scopes gpus=global disk_mb=local
+    $ snakemake --set-resource-scopes gpu=global disk_mb=local
 
 Resources and Group Jobs
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1011,28 +1016,6 @@ option is to not use preemptible instances by default, but only for a particular
 
 
 Note that this is currently implemented for the Google Life Sciences API.
-
-
-GPU Resources
-~~~~~~~~~~~~~
-
-The Google Life Sciences API currently has support for
-`NVIDIA GPUs <https://cloud.google.com/compute/docs/gpus#restrictions>`_, meaning that you can request a number of NVIDIA GPUs explicitly by adding ``nvidia_gpu`` or ``gpu`` to your Snakefile resources for a step:
-
-
-.. code-block:: python
-
-    rule a:
-        output:
-            "test.txt"
-        resources:
-            nvidia_gpu=1
-        shell:
-            "somecommand ..."
-
-
-A specific `gpu model <https://cloud.google.com/compute/docs/gpus#introduction>`_ can be requested using ``gpu_model`` and lowercase identifiers like ``nvidia-tesla-p100`` or ``nvidia-tesla-p4``, for example: ``gpu_model="nvidia-tesla-p100"``. If you don't specify ``gpu`` or ``nvidia_gpu`` with a count, but you do specify a ``gpu_model``, the count will default to 1.
-
 
 
 Messages
@@ -1604,6 +1587,27 @@ as ``"${snakemake_input[0]}"`` and ``"${snakemake_input[1]}"``.
 ----
 
 For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object.
+
+
+Xonsh_
+~~~~~~
+
+.. _Xonsh: https://xon.sh
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        script:
+            "path/to/script.xsh"
+
+Because Xonsh is a superset of Python, you can use a Xonsh script as you would a Python script (see above), but with all the additional shell primitives that Xonsh provides.
+
 
 .. _snakefiles_notebook-integration:
 

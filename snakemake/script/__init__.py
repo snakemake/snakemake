@@ -21,8 +21,10 @@ import shlex
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from pathlib import Path
-from typing import List, Optional, Pattern, Tuple, Union
+from typing import List, Optional, Pattern, Tuple, Union, Dict
 from urllib.error import URLError
+import urllib.parse
+from typing import TypeVar
 
 from snakemake import io as io_
 from snakemake import sourcecache
@@ -38,6 +40,7 @@ from snakemake.sourcecache import (
     infer_source_file,
 )
 from snakemake.utils import format
+from snakemake.common import get_report_id
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
@@ -45,6 +48,58 @@ PathLike = Union[str, Path, os.PathLike]
 
 # Type hint, object injected by the python preamble
 snakemake: "Snakemake"
+
+
+# For compatibility with Python <3.11 where typing.Self is not available.
+ReportHrefType = TypeVar("ReportHrefType", bound="ReportHref")
+
+
+class ReportHref:
+    def __init__(
+        self,
+        path: Union[str, Path],
+        parent: Optional[ReportHrefType] = None,
+        url_args: Optional[Dict[str, str]] = None,
+        anchor: Optional[str] = None,
+    ):
+        self._parent = parent
+        if parent is None:
+            self._id = get_report_id(path)
+        else:
+            self._id = parent._id
+        # ensure that path is a url compatible string
+        self._path = path if isinstance(path, str) else str(path.as_posix())
+        self._url_args = (
+            {key: value for key, value in url_args.items()} if url_args else {}
+        )
+        self._anchor = anchor
+
+    def child_path(self, path: Union[str, Path]) -> ReportHrefType:
+        return ReportHref(path, parent=self)
+
+    def url_args(self, **args: str) -> ReportHrefType:
+        return ReportHref(path=self._path, parent=self._parent, url_args=args)
+
+    def anchor(self, anchor: str) -> ReportHrefType:
+        return ReportHref(
+            path=self._path, parent=self._parent, url_args=self._url_args, anchor=anchor
+        )
+
+    def __str__(self) -> str:
+        path = os.path.basename(self._path) if self._parent is None else self._path
+        if self._url_args:
+
+            def fmt_arg(key, value):
+                return f"{key}={urllib.parse.quote(str(value))}"
+
+            args = f"?{'&'.join(fmt_arg(key, value) for key, value in self._url_args.items())}"
+        else:
+            args = ""
+        if self._anchor:
+            anchor = f"#{urllib.parse.quote(self._anchor)}"
+        else:
+            anchor = ""
+        return f"../{self._id}/{path}{args}{anchor}"
 
 
 class Snakemake:
@@ -75,6 +130,15 @@ class Snakemake:
         self.rule = rulename
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
+
+    def report_href(self, path: Union[str, Path]) -> ReportHref:
+        """Return an href to the given path in the report context, assuming that the
+        path is given as it is given to the report marker in the workflow.
+
+        The returned object can be extended to child paths using the `child_path(path)`
+        method. This is useful if the referred item is a directory.
+        """
+        return ReportHref(path)
 
     def log_fmt_shell(
         self, stdout: bool = True, stderr: bool = True, append: bool = False
@@ -1536,6 +1600,11 @@ class BashScript(ScriptBase):
         self._execute_cmd("bash {fname:q}", fname=fname)
 
 
+class XonshScript(PythonScript):
+    def execute_script(self, fname, edit=False):
+        self._execute_cmd("xonsh {fname:q}", fname=fname)
+
+
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
     """Strip a substring matching a regex from a string and return the stripped part
     and the remainder of the original string.
@@ -1598,6 +1667,8 @@ def get_language(source_file, source):
         language = "rust"
     elif filename.endswith(".sh"):
         language = "bash"
+    elif filename.endswith(".xsh"):
+        language = "xonsh"
 
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
@@ -1661,10 +1732,11 @@ def script(
         "julia": JuliaScript,
         "rust": RustScript,
         "bash": BashScript,
+        "xonsh": XonshScript,
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
-            "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd) or Julia (.jl) script."
+            "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd), Julia (.jl), Rust (.rs), Bash (.sh), or Xonsh (.xsh) script."
         )
 
     executor = exec_class(
