@@ -2065,9 +2065,9 @@ def test_issue3338():
 
 
 def test_github_issue_3374():
-    run(dpath("test_github_issue3374"), check_results=False)
+    run(dpath("test_github_issue3271"), check_results=False)
     run(
-        dpath("test_github_issue3374"),
+        dpath("test_github_issue3271"),
         snakefile="Snakefile_should_fail",
         shouldfail=True,
         check_results=False,
