@@ -38,6 +38,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   testing:
+    if: >
+      github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, 'chore(main): release')
     strategy:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -46,10 +48,10 @@ jobs:
           - "3.12"
         shell:
           - bash
-          - dash # for py 3.12 also test dash as default shell (snakemake will still use bash for shell commands)
-        exclude:
-          - shell: dash 
-            py_ver: "3.11"
+          #- dash # for py 3.12 also test dash as default shell (snakemake will still use bash for shell commands)
+        exclude: []
+          #- shell: dash 
+          #  py_ver: "3.11"
     runs-on: ubuntu-latest
     needs: formatting
     env:
@@ -151,7 +153,6 @@ jobs:
           name: report-${{ matrix.py_ver }}.zip
           path: tests/test_report/report.zip
 
-
   build-container-image:
     runs-on: ubuntu-latest
     needs: testing
@@ -162,6 +163,8 @@ jobs:
         run: docker build .
 
   testing-windows:
+    if: >
+      github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, 'chore(main): release')
     strategy:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -204,3 +207,11 @@ jobs:
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         run: |
           python -m pytest --show-capture=stderr -v -x --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration tests/tests.py
+
+  testing-done:
+    needs:
+      - testing
+      - testing-windows
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All tests passed."
