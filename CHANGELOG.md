@@ -1,6 +1,39 @@
 # Changelog
 
 
+## [8.30.0](https://github.com/snakemake/snakemake/compare/v8.29.3...v8.30.0) (2025-03-11)
+
+
+### Features
+
+* Add extra input size properties ([#2424](https://github.com/snakemake/snakemake/issues/2424)) ([359ae2e](https://github.com/snakemake/snakemake/commit/359ae2e17f31f33ba8059d75239c0e064bbd7520))
+* shell function calls inside of the 'run' directive now use conda, container, or envmodules specifications ([#2289](https://github.com/snakemake/snakemake/issues/2289)) ([0193e34](https://github.com/snakemake/snakemake/commit/0193e34f299b4d2aaf2d9330d4d8011a151649a4))
+* xonsh support for script directive ([#3310](https://github.com/snakemake/snakemake/issues/3310)) ([d1c369b](https://github.com/snakemake/snakemake/commit/d1c369bcac77f9818373ca9a7e8940bf5a649c49))
+
+
+### Bug Fixes
+
+* include unit test templates in `setup.py` ([#3362](https://github.com/snakemake/snakemake/issues/3362)) ([b47252c](https://github.com/snakemake/snakemake/commit/b47252c90be2d49e0a04bba4d54fdc456e28ca0a))
+
+
+### Documentation
+
+* clearly explain report rendering to ZIP archive ([#3357](https://github.com/snakemake/snakemake/issues/3357)) ([948e8fb](https://github.com/snakemake/snakemake/commit/948e8fb14a11ee49619e66278f17c66855fbff01))
+
+## [8.29.3](https://github.com/snakemake/snakemake/compare/v8.29.2...v8.29.3) (2025-03-09)
+
+
+### Bug Fixes
+
+* update syntax, folding, and sections vim files ([#3340](https://github.com/snakemake/snakemake/issues/3340)) ([4bf797c](https://github.com/snakemake/snakemake/commit/4bf797c9057a52eadb65d69b7cfd576cecb35410))
+* use local play storage ([#3344](https://github.com/snakemake/snakemake/issues/3344)) ([e86acc4](https://github.com/snakemake/snakemake/commit/e86acc4eaa82af52f3606d50036c86189513f6dc))
+
+
+### Documentation
+
+* add description of codebase ([#3350](https://github.com/snakemake/snakemake/issues/3350)) ([6fe6535](https://github.com/snakemake/snakemake/commit/6fe653566d4bedf5aa496364c3985d13c6908474))
+* simplify test setup description ([#3348](https://github.com/snakemake/snakemake/issues/3348)) ([ec8a0e1](https://github.com/snakemake/snakemake/commit/ec8a0e1a0979063247e98bb760c0cdfad4edd5cc))
+
 ## [8.29.2](https://github.com/snakemake/snakemake/compare/v8.29.1...v8.29.2) (2025-03-05)
 
 
