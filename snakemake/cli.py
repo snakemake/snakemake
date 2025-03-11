@@ -861,10 +861,8 @@ def get_argument_parser(profiles=None):
     )
     group_exec.add_argument(
         "--trust-mtime-cache",
-        action='store_true',
-        help=(
-            "Reload the mtime cache from a previous dry-run, if it exists."
-        ),
+        action="store_true",
+        help=("Reload the mtime cache from a previous dry-run, if it exists."),
     )
 
     try:

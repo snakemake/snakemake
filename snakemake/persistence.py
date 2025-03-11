@@ -742,22 +742,20 @@ class Persistence(PersistenceExecutorInterface):
 
     def save_iocache(self):
         filepath = self._iocache_filename
-        with open(filepath, 'wb') as handle:
+        with open(filepath, "wb") as handle:
             self.dag.workflow.iocache.save(handle)
 
     def load_iocache(self):
         filepath = self._iocache_filename
         if os.path.exists(filepath):
             logger.info(f"Loading trusted IOCache from latest dry-run.")
-            with open(filepath, 'rb') as handle:
+            with open(filepath, "rb") as handle:
                 self.dag.workflow.iocache = IOCache.load(handle)
 
     def drop_iocache(self):
         filepath = self._iocache_filename
         if os.path.exists(filepath):
             os.remove(filepath)
-
-
 
 
 def _bool_or_gen(func, job, file=None):

@@ -122,12 +122,12 @@ class IOCache(IOCacheStorageInterface):
         simplified = type(self)(self.max_wait_time)
 
         # Copy non-dictionary attributes the same.
-        for name in ['remaining_wait_time', 'active']:
+        for name in ["remaining_wait_time", "active"]:
             old_attr = getattr(self, name)
             setattr(simplified, name, old_attr)
 
         # Copy dictionary attributes, casting keys to str.
-        for name in ['_mtime', '_exists_local', '_exists_in_storage', '_size']:
+        for name in ["_mtime", "_exists_local", "_exists_in_storage", "_size"]:
             old_dict = getattr(self, name)
             if isinstance(old_dict, ExistsDict):
                 setattr(simplified, name, ExistsDict(simplified))
@@ -138,7 +138,6 @@ class IOCache(IOCacheStorageInterface):
                 new_dict[str(key)] = old_dict[key]
 
         return simplified
-
 
     def save(self, handle):
         """Dump IOCache to file."""
