@@ -193,7 +193,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def init(self, progress=False):
         """Initialise the DAG."""
-        if self.workflow.execution_settings.trust_mtime_cache:
+        if self.workflow.dag_settings.trust_mtime_cache:
             # The user declares that we can trust the iocache,
             # so we load it from the persisted version.
             self.workflow.persistence.load_iocache()

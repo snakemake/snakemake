@@ -117,7 +117,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     edit_notebook: Optional[NotebookEditMode] = None
     cleanup_scripts: bool = True
     queue_input_wait_time: int = 10
-    trust_mtime_cache: bool = False
 
 
 @dataclass
@@ -203,6 +202,7 @@ class DAGSettings(SettingsBase):
     allowed_rules: AnySet[str] = frozenset()
     rerun_triggers: AnySet[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
+    trust_mtime_cache: bool = False
 
     def _check(self):
         if self.batch is not None and self.forceall:

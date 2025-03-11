@@ -859,11 +859,6 @@ def get_argument_parser(profiles=None):
             "to the working directory."
         ),
     )
-    group_exec.add_argument(
-        "--trust-mtime-cache",
-        action="store_true",
-        help=("Reload the mtime cache from a previous dry-run, if it exists."),
-    )
 
     try:
         import pulp
@@ -1303,6 +1298,11 @@ def get_argument_parser(profiles=None):
         "which jobs need to be executed. However, creating the inventory itself can be slow, e.g. on "
         "network file systems. Hence, we do not spend more than a given amount of time and fall back "
         "to individual checks for the rest.",
+    )
+    group_behavior.add_argument(
+        "--trust-mtime-cache",
+        action="store_true",
+        help=("Reload the mtime cache from a previous dry-run, if it exists."),
     )
     group_behavior.add_argument(
         "--latency-wait",
@@ -2100,6 +2100,7 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
+                            trust_mtime_cache=args.trust_mtime_cache,
                         ),
                     )
 
@@ -2187,7 +2188,6 @@ def args_to_api(args, parser):
                                 edit_notebook=edit_notebook,
                                 cleanup_scripts=not args.skip_script_cleanup,
                                 queue_input_wait_time=args.queue_input_wait_time,
-                                trust_mtime_cache=args.trust_mtime_cache,
                             ),
                             remote_execution_settings=RemoteExecutionSettings(
                                 jobname=args.jobname,
