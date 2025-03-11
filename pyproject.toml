@@ -69,11 +69,22 @@ reports = ["pygments"]
 snakemake = "snakemake.cli:main"
 
 [build-system]
+requires = ["setuptools>=42,<76", 'tomli']
 build-backend = "setuptools.build_meta"
-requires = [
-  # TODO relax upper bound, as of March 9 2025 there is a hash mismatch in setuptools on pypi
-  "setuptools>=42,<76",
-  'tomli; python_version < "3.11"',
+
+[tool.setuptools.packages.find]
+include = ["snakemake", "snakemake.*"]
+
+[tool.setuptools.package-data]
+"*" = [
+  "*.css",
+  "*.sh",
+  "*.html",
+  "*.jinja2",
+  "*.js",
+  "*.svg",
+  "Snakefile.*",
+  "*.rst",
 ]
 
 [tool.versioneer]
