@@ -10,7 +10,6 @@ import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import List, Mapping, Optional, Set, Union
-
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -65,6 +64,7 @@ from snakemake.settings.types import (
     SharedFSUsage,
     StorageSettings,
     WorkflowSettings,
+    StrictDagEvaluation,
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
@@ -861,28 +861,12 @@ def get_argument_parser(profiles=None):
     )
 
     group_exec.add_argument(
-        "--strict-functions-evaluation",
-        "--strict-functions",
-        action="store_true",
-        help="Strictly evaluate functions inside rules' directives. "
-        "Produce an error if a rule's callable raises an exception, even if the rule is not "
-        "strictly required to produce the output files.",
-    )
-    group_exec.add_argument(
-        "--strict-cyclic-graph-evaluation",
-        "--strict-cyclic-graph",
-        action="store_true",
-        help="Strict cycle detection. "
-        "Produce an error if a set of rules produce a cyclic graph, even if the rules are not "
-        "strictly required to produce the output files.",
-    )
-    group_exec.add_argument(
-        "--strict-periodic-wildcards-evaluation",
-        "--strict-periodic-wildcards",
-        action="store_true",
-        help="Strict periodic wildcards detection. "
-        "Produce an error if the value in a wildcards gets periodically repeated, even if the rule is not "
-        "strictly required to produce the output files.",
+        "--strict-dag-evaluation",
+        nargs="+",
+        choices=StrictDagEvaluation.choices(),
+        default=[],
+        parse_func=StrictDagEvaluation.parse_choices_set,
+        help="Strict evaluation of rules' correctness even when not required to produce the output files. ",
     )
 
     try:
@@ -2120,9 +2104,7 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
-                            strict_functions_evaluation=args.strict_functions_evaluation,
-                            strict_cycle_evaluation=args.strict_cyclic_graph_evaluation,
-                            strict_wildcards_recursion_evaluation=args.strict_periodic_wildcards_evaluation,
+                            strict_evaluation=args.strict_dag_evaluation,
                         ),
                     )
 

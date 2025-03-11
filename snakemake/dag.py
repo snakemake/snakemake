@@ -35,7 +35,7 @@ from snakemake.common import (
     group_into_chunks,
     is_local_file,
 )
-from snakemake.settings.types import RerunTrigger
+from snakemake.settings.types import RerunTrigger, StrictDagEvaluation
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,
@@ -1049,12 +1049,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 exceptions.append(ex)
                 discarded_jobs.add(job)
             except (CyclicGraphException,) as ex:
-                if self.workflow.dag_settings.strict_cycle_evaluation:
+                if (
+                    StrictDagEvaluation.CYCLIC_GRAPH
+                    in self.workflow.dag_settings.strict_evaluation
+                ):
                     raise ex
                 exceptions.append(ex)
                 discarded_jobs.add(job)
             except (PeriodicWildcardError,) as ex:
-                if self.workflow.dag_settings.strict_wildcards_recursion_evaluation:
+                if (
+                    StrictDagEvaluation.PERIODIC_WILDCARDS
+                    in self.workflow.dag_settings.strict_evaluation
+                ):
                     raise ex
                 exceptions.append(ex)
                 discarded_jobs.add(job)
@@ -2280,7 +2286,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 )
             except InputFunctionException as e:
                 exceptions.append(e)
-                if self.workflow.dag_settings.strict_functions_evaluation:
+                if (
+                    StrictDagEvaluation.FUNCTIONS
+                    in self.workflow.dag_settings.strict_evaluation
+                ):
                     raise e
         if not jobs:
             if exceptions:
@@ -2292,7 +2301,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 print_exception_warning(
                     e,
                     self.workflow.linemaps,
-                    "Use --strict-functions-evaluation to force strict mode.",
+                    "Use --strict-dag-evaluation to force strict mode.",
                 )
         return jobs
 
