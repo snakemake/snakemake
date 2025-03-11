@@ -72,6 +72,7 @@ from snakemake.utils import available_cpu_count, update_config
 
 def parse_size_in_bytes(value):
     from humanfriendly import parse_size
+
     return parse_size(value)
 
 
