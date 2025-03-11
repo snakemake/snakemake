@@ -1044,10 +1044,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     break
             except (
                 MissingInputException,
-                CyclicGraphException,
-                PeriodicWildcardError,
-                WorkflowError, #TODO maybe CyclicGraphException, PeriodicWildcardError, Workflow?
+                WorkflowError,
             ) as ex:
+                exceptions.append(ex)
+                discarded_jobs.add(job)
+            except (
+                CyclicGraphException,
+            ) as ex:
+                if (self.workflow.dag_settings.strict_cycle_evaluation):
+                    raise ex
+                exceptions.append(ex)
+                discarded_jobs.add(job)
+            except (
+                PeriodicWildcardError,
+            ) as ex:
+                if (self.workflow.dag_settings.strict_wildcards_recursion_evaluation):
+                    raise ex
                 exceptions.append(ex)
                 discarded_jobs.add(job)
             except RecursionError as e:
@@ -1074,6 +1086,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 raise WorkflowError(*exceptions)
             elif len(exceptions) == 1:
                 raise exceptions[0]
+        else:
+            for e in exceptions:
+                if isinstance(e, CyclicGraphException) or isinstance(e, PeriodicWildcardError):
+                    print_exception_warning(e, self.workflow.linemaps)
 
         n = len(self._dependencies)
         if progress and n % 1000 == 0 and n and self._progress != n:
@@ -1179,6 +1195,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             )
                         )
                         known_producers[res.file] = None
+                    if isinstance(ex, CyclicGraphException) or isinstance(ex, PeriodicWildcardError):
+                        print_exception_warning(ex, self.workflow.linemaps)
 
         for file, job_ in producer.items():
             dependencies[job_].add(file)

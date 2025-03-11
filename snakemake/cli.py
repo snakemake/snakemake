@@ -866,7 +866,23 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Strictly evaluate functions inside rules' directives. "
         "Produce an error if a rule's callable raises an exception, even if the rule is not "
-        "strictly required to produce output files.",
+        "strictly required to produce the output files.",
+    )
+    group_exec.add_argument(
+        "--strict-cyclic-graph-evaluation",
+        "--strict-cyclic-graph",
+        action="store_true",
+        help="Strict cycle detection. "
+        "Produce an error if a set of rules produce a cyclic graph, even if the rules are not "
+        "strictly required to produce the output files.",
+    )
+    group_exec.add_argument(
+        "--strict-periodic-wildcards-evaluation",
+        "--strict-periodic-wildcards",
+        action="store_true",
+        help="Strict periodic wildcards detection. "
+        "Produce an error if the value in a wildcards gets periodically repeated, even if the rule is not "
+        "strictly required to produce the output files.",
     )
 
     try:
@@ -2099,7 +2115,9 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
-                            strict_functions_evaluation=args.strict_functions_evaluation
+                            strict_functions_evaluation=args.strict_functions_evaluation,
+                            strict_cycle_evaluation=args.strict_cyclic_graph_evaluation,
+                            strict_wildcards_recursion_evaluation=args.strict_periodic_wildcards_evaluation,
                         ),
                     )
 
