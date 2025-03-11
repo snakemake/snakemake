@@ -1772,6 +1772,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 user_groups.add(job.group)
             all_depending = set()
             has_pipe_or_service = False
+            has_nodelocal = False
             for f in job.output:
                 is_pipe = is_flagged(f, "pipe")
                 is_service = is_flagged(f, "service")
@@ -1787,7 +1788,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             rule=job.rule,
                         )
 
-                    has_pipe_or_service = True
+                    if is_pipe or is_service:
+                        has_pipe_or_service = True
+                    if is_nodelocal:
+                        has_nodelocal = True
+
                     depending = [
                         j for j, files in self.depending[job].items() if f in files
                     ]
@@ -1827,42 +1832,56 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             )
 
                         all_depending.add(dep)
-                        if dep.pipe_group is not None:
+                        if (is_pipe or is_service) and dep.pipe_group is not None:
                             candidate_groups.add(dep.pipe_group)
                         if dep.group is not None:
                             user_groups.add(dep.group)
 
-            if not has_pipe_or_service:
+            if not has_pipe_or_service and not has_nodelocal:
                 continue
 
             # All pipe groups should be contained within one user-defined group
             if len(user_groups) > 1:
                 raise WorkflowError(
                     "An output file is marked as "
-                    "pipe or service, but consuming jobs "
+                    "pipe, service or nodelocal, but consuming jobs "
                     "are part of conflicting "
-                    "groups.",
+                    f"groups. {user_groups}",
                     rule=job.rule,
                 )
 
-            if len(candidate_groups) > 1:
-                # Merge multiple pipe groups together
-                group = candidate_groups.pop()
-                for g in candidate_groups:
-                    g.merge(group)
-            elif candidate_groups:
-                # extend the candidate group to all involved jobs
-                group = candidate_groups.pop()
-            else:
-                # generate a random unique group name
-                group = CandidateGroup()  # str(uuid.uuid4())
+            if has_pipe_or_service:
+                if len(candidate_groups) > 1:
+                    # Merge multiple pipe groups together
+                    group = candidate_groups.pop()
+                    for g in candidate_groups:
+                        g.merge(group)
+                elif candidate_groups:
+                    # extend the candidate group to all involved jobs
+                    group = candidate_groups.pop()
+                else:
+                    # generate a random unique group name
+                    group = CandidateGroup()  # str(uuid.uuid4())
 
-            # Assign the pipe group to all involved jobs.
-            job.pipe_group = group
-            visited.add(job)
-            for j in all_depending:
-                j.pipe_group = group
-                visited.add(j)
+                # Assign the pipe group to all involved jobs.
+                job.pipe_group = group
+                visited.add(job)
+                for j in all_depending:
+                    j.pipe_group = group
+                    visited.add(j)
+
+            if has_nodelocal:
+                # put the dependencies in the same user group (not pipe group as pipes are ran in parallel, whereas we want serial for nodelocal files)
+                if user_groups:
+                    ugroup = user_groups.pop()
+                else:
+                    ugroup = str(uuid.uuid4())
+
+                job.group = ugroup
+                visited.add(job)
+                for j in all_depending:
+                    j.group = ugroup
+                    visited.add(j)
 
         # convert candidate groups to plain string IDs
         for job in visited:
