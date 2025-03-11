@@ -130,7 +130,7 @@ def shellcmd(
     # mount the snakemake cache into the container per detault so that
     # params included with workflow.source_path are allways mounted in the conteiner
     if len(args) == 0:
-        args += "--bind " + os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache")
+        args += "--bind --no-home " + os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache")
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
