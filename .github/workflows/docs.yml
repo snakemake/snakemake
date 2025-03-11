@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   docs:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +38,7 @@ jobs:
           path: docs/_build/html/
   
   apidocs:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
