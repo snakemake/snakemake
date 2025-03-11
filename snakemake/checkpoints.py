@@ -1,4 +1,3 @@
-from snakemake.common import async_run
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
 from snakemake.io import checkpoint_target
 
@@ -7,7 +6,6 @@ class Checkpoints:
     """A namespace for checkpoints so that they can be accessed via dot notation."""
 
     def __init__(self):
-        self.future_output = None
         self.created_output = None
 
     def register(self, rule, fallback_name=None):
@@ -32,11 +30,9 @@ class Checkpoint:
             )
 
         output, _ = self.rule.expand_output(wildcards)
-        if self.checkpoints.future_output is not None:
-            for iofile in output:
-                if iofile in self.checkpoints.future_output:
-                    break
-            else:
+        if self.checkpoints.created_output is not None:
+            may_not_created = set(output) - set(self.checkpoints.created_output)
+            if not may_not_created:
                 return CheckpointJob(self.rule, output)
 
         raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
