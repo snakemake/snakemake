@@ -127,8 +127,8 @@ def shellcmd(
     if container_workdir:
         args += f" --pwd {repr(container_workdir)}"
 
-    # mount the snakemake cache into the container per detault so that
-    # params included with workflow.source_path are allways mounted in the conteiner
+    # mount the snakemake cache into the container per default so that
+    # params included with workflow.source_path are always mounted in the container
     if len(args) == 0:
         args += "--bind --no-home " + os.path.join(
             get_appdirs().user_cache_dir, "snakemake/source-cache"
