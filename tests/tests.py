@@ -2062,3 +2062,8 @@ def test_failed_intermediate():
 @skip_on_windows  # OS agnostic
 def test_issue3338():
     run(dpath("test_issue3338"), targets=["all"])
+
+
+def test_github_issue_3374():
+    run(dpath("test_github_issue3374"), check_results=False)
+    run(dpath("test_github_issue3374"), snakefile = "Snakefile_should_fail", shouldfail=True, check_results=False)
