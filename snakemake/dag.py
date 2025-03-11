@@ -409,7 +409,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if self.workflow.remote_exec:
             logger.info("Storing output in storage.")
             try:
-                for level in self.toposorted(list(self.needrun_jobs(exclude_finished=False))):
+                for level in self.toposorted(
+                    list(self.needrun_jobs(exclude_finished=False))
+                ):
                     async with asyncio.TaskGroup() as tg:
                         for job in level:
                             benchmark = [job.benchmark] if job.benchmark else []
