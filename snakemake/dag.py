@@ -647,7 +647,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         e,
                         rule=job.rule,
                     )
-            return not await f.is_same_checksum(checksum, self.max_checksum_file_size, force=True)
+            return not await f.is_same_checksum(
+                checksum, self.max_checksum_file_size, force=True
+            )
 
         checksum_failed_output = [
             f
@@ -1242,7 +1244,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         # no checksums recorded, we cannot assume them to be the same
                         is_same = False
                     else:
-                        is_same = await f.is_same_checksum(self.max_checksum_file_size, checksums.pop())
+                        is_same = await f.is_same_checksum(
+                            self.max_checksum_file_size, checksums.pop()
+                        )
 
                 is_same_checksum_cache[(f, job)] = is_same
                 return is_same
