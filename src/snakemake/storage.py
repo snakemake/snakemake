@@ -191,17 +191,16 @@ class StorageRegistry:
             if provider_name is None:
                 provider_name = self.infer_provider(query)
 
-            if provider_name != "apd":
-                raise WorkflowError(f"Passing a dict as the query is only valid with the `apd` storage plugin.\nQuery {query} for provider {provider_name} is not valid.")
-
             provider = self._storages.get(provider_name)
 
+            # this probably needs to be more general
             if provider is None:
-                provider = self.register_storage(provider_name)
+                provider = self.register_storage(provider="apd", tag=provider_name)
 
             queries = provider.get_files(query)
             return [
-                self._storage_object(q, provider='xrootd', retrieve=retrieve, keep_local=keep_local
+                self._storage_object(
+                    q, provider="xrootd", retrieve=retrieve, keep_local=keep_local
                 )
                 for q in queries
             ]
