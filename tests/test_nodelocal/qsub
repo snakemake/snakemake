@@ -1,0 +1,4 @@
+#!/bin/sh
+
+mkdir -p scratch local
+unshare --mount --map-root-user ./qsub_stage2 "$@"
