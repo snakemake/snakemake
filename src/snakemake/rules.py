@@ -277,7 +277,7 @@ class Rule(RuleInterface):
             self.name, frozenset()
         )
         for i, item in enumerate(input):
-            if not callable(item) and any(
+            if isinstance(item, collections.abc.Iterable) and any(
                 "multiext" in getattr(x, "_flags", {}) for x in item
             ):
                 for ifile in item:
@@ -361,7 +361,9 @@ class Rule(RuleInterface):
         for item in output:
             # Named multiext have their name set under the flag (MultiextValue), if the first one is named, all of them are named.
             # Any of the output files in item can be multiext, so we do need to check all of them.
-            if any("multiext" in getattr(x, "_flags", {}) for x in item):
+            if isinstance(item, collections.abc.Iterable) and any(
+                "multiext" in getattr(x, "_flags", {}) for x in item
+            ):
                 for ofile in item:
                     if "multiext" in getattr(ofile, "_flags", {}):
                         if ofile._flags["multiext"].isnamed():

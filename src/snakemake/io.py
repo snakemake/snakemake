@@ -1442,9 +1442,7 @@ class MultiextValue:
     name: str = None
 
     def isnamed(self):
-        if isinstance(self.name, str):
-            return True
-        return False
+        return bool(isinstance(self.name, str))
 
 
 def multiext(prefix, *extensions, **named_extensions):
