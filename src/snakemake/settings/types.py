@@ -366,12 +366,19 @@ class ConfigSettings(SettingsBase):
         self.config_args = self._get_config_args()
 
     def _get_overwrite_config(self):
+        from snakemake.logging import logger
+
         overwrite_config = dict()
         if self.configfiles:
             for f in self.configfiles:
                 update_config(overwrite_config, load_configfile(f))
         if self.config:
             update_config(overwrite_config, self.config)
+        if self.replace_workflow and not overwrite_config:
+            logger.warning(
+                "--replace-workflow-config was used but no config entries are provided via"
+                "command line. This flag will be ignored."
+            )
         return overwrite_config
 
     def _get_configfiles(self):
