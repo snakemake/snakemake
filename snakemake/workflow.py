@@ -1632,7 +1632,8 @@ class Workflow(WorkflowExecutorInterface):
         def decorate(ruleinfo):  # type: ignore[no-redef]
             nonlocal name
 
-            ruleinfo.name = name
+            # set the rulename if the name is not specified by the 'name' directive
+            ruleinfo.name = ruleinfo.name if ruleinfo.name else name
 
             # If requested, modify ruleinfo via the modifier.
             ruleinfo.apply_modifier(self.modifier)
