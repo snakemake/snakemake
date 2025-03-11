@@ -267,17 +267,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return self._checkpoint_jobs
 
     @property
-    def finished_checkpoint_jobs(self):
-        for job in self.finished_jobs:
-            if job.is_checkpoint:
+    def finished_and_not_needrun_checkpoint_jobs(self):
+        for job in self.jobs:
+            if job.is_checkpoint and (self.finished(job) or not self.needrun(job)):
                 yield job
 
     def update_checkpoint_outputs(self):
-        workflow.checkpoints.future_output = set(
-            f for job in self.checkpoint_jobs for f in job.output
-        )
         workflow.checkpoints.created_output = set(
-            f for job in self.finished_checkpoint_jobs for f in job.output
+            f
+            for job in self.finished_and_not_needrun_checkpoint_jobs
+            for f in job.output
         )
 
     def update_jobids(self):
