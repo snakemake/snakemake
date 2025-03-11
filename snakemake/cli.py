@@ -1299,7 +1299,8 @@ def get_argument_parser(profiles=None):
         type=int,
         default=1000000,
         metavar="BYTES",
-        help="Compute the checksum only for files that are smaller than the threshold.",
+        help="Compute the checksum during DAG computation and job postprocessing "
+        "only for files that are smaller than the provided threshold.",
     )
     group_behavior.add_argument(
         "--latency-wait",
