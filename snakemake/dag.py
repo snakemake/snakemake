@@ -274,7 +274,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     def update_checkpoint_outputs(self):
         workflow.checkpoints.created_output = set(
-            f for job in self.finished_and_not_needrun_checkpoint_jobs for f in job.output
+            f
+            for job in self.finished_and_not_needrun_checkpoint_jobs
+            for f in job.output
         )
 
     def update_jobids(self):
