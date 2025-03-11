@@ -274,6 +274,14 @@ class Workflow(WorkflowExecutorInterface):
         )
         return self._source_archive
 
+    def cleanup_source_archive(self):
+        """cleanup source archive form remote storage"""
+        if self._source_archive is not None:
+            obj = self.storage_registry.default_storage_provider.object(
+                self._source_archive.query
+            )
+            async_run(obj.managed_remove())
+
     def upload_sources(self):
         assert self.storage_settings is not None
         with tempfile.NamedTemporaryFile(suffix="snakemake-sources.tar.xz") as tf:
@@ -1281,13 +1289,13 @@ class Workflow(WorkflowExecutorInterface):
                 if self.dryrun:
                     self.log_provenance_info()
                 raise e
-
-            if (
-                not self.remote_execution_settings.immediate_submit
-                and not self.dryrun
-                and self.exec_mode == ExecMode.DEFAULT
-            ):
-                self.dag.cleanup_workdir()
+            finally:
+                if (
+                    not self.remote_execution_settings.immediate_submit
+                    and not self.dryrun
+                    and self.exec_mode == ExecMode.DEFAULT
+                ):
+                    self.dag.cleanup_workdir()
 
             if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
