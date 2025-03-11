@@ -78,6 +78,7 @@ def log_verbose_traceback(ex):
     tb = "Full " + "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
     logger.debug(tb)
 
+
 def format_exception_to_string(ex, linemaps=None):
     """
     Returns the error message for a given exception as a string.
@@ -95,7 +96,7 @@ def format_exception_to_string(ex, linemaps=None):
             snakefile=ex.filename,
             show_traceback=True,
         )
-    
+
     origin = get_exception_origin(ex, linemaps) if linemaps is not None else None
     if origin is not None:
         lineno, file = origin
@@ -112,13 +113,16 @@ def format_exception_to_string(ex, linemaps=None):
         error_string = ""
         for e in ex._include:
             if not e.omit:
-                error_string += format_error(
-                    e,
-                    e.lineno,
-                    linemaps=linemaps,
-                    snakefile=e.filename,
-                    show_traceback=True,
-                ) + "\n"
+                error_string += (
+                    format_error(
+                        e,
+                        e.lineno,
+                        linemaps=linemaps,
+                        snakefile=e.filename,
+                        show_traceback=True,
+                    )
+                    + "\n"
+                )
         error_string += format_error(
             ex,
             ex.lineno,
@@ -145,6 +149,7 @@ def format_exception_to_string(ex, linemaps=None):
         return "Cancelling snakemake on user request."
     else:
         return "\n".join(traceback.format_exception(ex))
+
 
 def print_exception_warning(ex, linemaps=None, footer_message=""):
     """
