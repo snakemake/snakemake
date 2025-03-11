@@ -51,7 +51,7 @@ from snakemake.exceptions import (
     RemoteFileException,
     WildcardError,
     WorkflowError,
-    print_exception_warning
+    print_exception_warning,
 )
 from snakemake.io import (
     _IOFile,
@@ -1048,17 +1048,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             ) as ex:
                 exceptions.append(ex)
                 discarded_jobs.add(job)
-            except (
-                CyclicGraphException,
-            ) as ex:
-                if (self.workflow.dag_settings.strict_cycle_evaluation):
+            except (CyclicGraphException,) as ex:
+                if self.workflow.dag_settings.strict_cycle_evaluation:
                     raise ex
                 exceptions.append(ex)
                 discarded_jobs.add(job)
-            except (
-                PeriodicWildcardError,
-            ) as ex:
-                if (self.workflow.dag_settings.strict_wildcards_recursion_evaluation):
+            except (PeriodicWildcardError,) as ex:
+                if self.workflow.dag_settings.strict_wildcards_recursion_evaluation:
                     raise ex
                 exceptions.append(ex)
                 discarded_jobs.add(job)
@@ -1088,7 +1084,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 raise exceptions[0]
         else:
             for e in exceptions:
-                if isinstance(e, CyclicGraphException) or isinstance(e, PeriodicWildcardError):
+                if isinstance(e, CyclicGraphException) or isinstance(
+                    e, PeriodicWildcardError
+                ):
                     print_exception_warning(e, self.workflow.linemaps)
 
         n = len(self._dependencies)
@@ -1195,7 +1193,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             )
                         )
                         known_producers[res.file] = None
-                    if isinstance(ex, CyclicGraphException) or isinstance(ex, PeriodicWildcardError):
+                    if isinstance(ex, CyclicGraphException) or isinstance(
+                        ex, PeriodicWildcardError
+                    ):
                         print_exception_warning(ex, self.workflow.linemaps)
 
         for file, job_ in producer.items():
@@ -2280,7 +2280,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 )
             except InputFunctionException as e:
                 exceptions.append(e)
-                if (self.workflow.dag_settings.strict_functions_evaluation):
+                if self.workflow.dag_settings.strict_functions_evaluation:
                     raise e
         if not jobs:
             if exceptions:
@@ -2290,9 +2290,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             # Warn user of possible errors
             for e in exceptions:
                 print_exception_warning(
-                        e, 
-                        self.workflow.linemaps, 
-                        "Use --strict-functions-evaluation to force strict mode."
+                    e,
+                    self.workflow.linemaps,
+                    "Use --strict-functions-evaluation to force strict mode.",
                 )
         return jobs
 
