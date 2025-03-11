@@ -15,7 +15,6 @@ from snakemake.exceptions import (
     CacheMissException,
 )
 from snakemake.caching.hash import ProvenanceHashMap
-from snakemake.logging import logger
 
 LOCATION_ENVVAR = "SNAKEMAKE_OUTPUT_CACHE"
 

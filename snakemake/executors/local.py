@@ -17,9 +17,6 @@ from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
-from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
-from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
-from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
     SingleJobExecutorInterface,

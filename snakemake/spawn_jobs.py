@@ -1,5 +1,4 @@
 from dataclasses import dataclass, fields
-import hashlib
 import os
 import sys
 from typing import Mapping, TypeVar, TYPE_CHECKING, Any
@@ -9,7 +8,6 @@ from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import PIP_DEPLOYMENTS_PATH
-from snakemake.io import get_flag_value, is_flagged
 from snakemake.settings.types import SharedFSUsage
 
 if TYPE_CHECKING:

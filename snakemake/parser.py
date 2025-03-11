@@ -3,13 +3,11 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from dataclasses import dataclass
 import sys
 import textwrap
 import tokenize
 from typing import Any, Callable, Dict, Generator, List, Optional
 
-import snakemake
 from snakemake import common, sourcecache, workflow
 
 dd = textwrap.dedent

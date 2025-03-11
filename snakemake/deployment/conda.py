@@ -24,7 +24,6 @@ import zipfile
 import uuid
 from enum import Enum
 import threading
-import shutil
 from abc import ABC, abstractmethod
 
 

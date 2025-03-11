@@ -13,7 +13,6 @@ from snakemake.exceptions import (
     is_file_not_found_error,
 )
 from snakemake.common.tbdstring import TBDString
-from snakemake.logging import logger
 
 
 @dataclass

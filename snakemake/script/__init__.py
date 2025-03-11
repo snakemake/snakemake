@@ -10,7 +10,6 @@ import os
 from numbers import Integral, Real, Complex, Number
 from collections.abc import Iterable
 import json
-import os
 import pickle
 import re
 import sys
@@ -19,7 +18,6 @@ import textwrap
 import typing
 import shlex
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
 from pathlib import Path
 from typing import List, Optional, Pattern, Tuple, Union, Dict
 from urllib.error import URLError

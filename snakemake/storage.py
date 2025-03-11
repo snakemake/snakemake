@@ -10,7 +10,6 @@ from snakemake_interface_storage_plugins.storage_object import (
     StorageObjectRead,
 )
 from snakemake.io import MaybeAnnotated
-from snakemake.common import __version__
 
 
 def flag_with_storage_object(path: MaybeAnnotated, storage_object):

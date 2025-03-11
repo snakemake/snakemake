@@ -16,11 +16,9 @@ import io
 from abc import ABC, abstractmethod
 from urllib.parse import unquote
 
-from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake.common import (
     ON_WINDOWS,
     is_local_file,
-    get_appdirs,
     parse_uri,
     smart_join,
 )

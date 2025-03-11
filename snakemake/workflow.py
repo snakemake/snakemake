@@ -60,30 +60,13 @@ from snakemake.exceptions import (
     UnknownRuleException,
     NoRulesException,
     WorkflowError,
-    update_lineno,
 )
 from snakemake.dag import DAG, ChangeType
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
 from snakemake.io import (
-    protected,
-    temp,
-    temporary,
-    ancient,
-    directory,
     expand,
-    glob_wildcards,
-    flag,
-    touch,
-    unpack,
-    local,
-    pipe,
-    service,
-    repeat,
-    report,
-    multiext,
-    ensure,
     from_queue,
     IOFile,
     sourcecache_entry,
@@ -91,12 +74,6 @@ from snakemake.io import (
 
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
-from snakemake.script import script
-from snakemake.notebook import notebook
-from snakemake.wrapper import wrapper
-from snakemake.cwl import cwl
-from snakemake.template_rendering import render_template
-from snakemake_interface_common.utils import not_iterable
 
 import snakemake.wrapper
 from snakemake.common import (
@@ -104,7 +81,6 @@ from snakemake.common import (
     async_run,
     get_appdirs,
     is_local_file,
-    Rules,
     Scatter,
     Gather,
     smart_join,
@@ -124,7 +100,7 @@ from snakemake.sourcecache import (
     infer_source_file,
 )
 from snakemake.deployment.conda import Conda
-from snakemake import api, caching, sourcecache
+from snakemake import caching, sourcecache
 import snakemake.ioutils
 import snakemake.ioflags
 from snakemake.jobs import jobs_to_rulenames

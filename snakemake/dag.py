@@ -16,7 +16,6 @@ import textwrap
 import time
 from typing import Iterable, List, Optional, Set, Union
 import uuid
-import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
 from itertools import chain, filterfalse, groupby

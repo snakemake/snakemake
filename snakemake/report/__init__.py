@@ -13,12 +13,9 @@ import datetime
 import io
 from typing import List, Optional
 import uuid
-import json
-import time
 import itertools
 from collections import defaultdict
 import hashlib
-from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 import numbers
 
@@ -59,7 +56,6 @@ from snakemake_interface_report_plugins.interfaces import (
     FileRecordInterface,
 )
 from snakemake.common import get_report_id
-from snakemake.exceptions import WorkflowError
 
 
 class EmbeddedMixin(object):

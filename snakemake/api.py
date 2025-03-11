@@ -9,7 +9,7 @@ import functools
 import hashlib
 from pathlib import Path
 import sys
-from typing import Dict, List, Mapping, Optional, Set
+from typing import Dict, List, Mapping, Optional
 import os
 import tarfile
 

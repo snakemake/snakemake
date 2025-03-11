@@ -6,7 +6,9 @@ __license__ = "MIT"
 from bisect import bisect
 from collections import defaultdict, deque
 import math
-import os, signal, sys
+import os
+import signal
+import sys
 import threading
 
 from itertools import chain, accumulate, repeat
