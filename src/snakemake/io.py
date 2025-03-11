@@ -1436,13 +1436,36 @@ def expand(*args, **wildcard_values):
         return do_expand(wildcard_values)
 
 
-def multiext(prefix, *extensions):
+@dataclass
+class MultiextValue:
+    prefix: str
+    name: str = None
+
+    def isnamed(self):
+        if isinstance(self.name, str):
+            return True
+        return False
+
+
+def multiext(prefix, *extensions, **named_extensions):
     """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
     if any((r"/" in ext or r"\\" in ext) for ext in extensions):
         raise WorkflowError(
             r"Extensions for multiext may not contain path delimiters (/,\)."
         )
-    return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
+    if any((r"/" in ext or r"\\" in ext) for ext in named_extensions.values()):
+        raise WorkflowError(
+            r"Extensions for multiext may not contain path delimiters (/,\)."
+        )
+    # Ensure either all extensions are named or all are positional
+    if not ((extensions and not named_extensions) or (not extensions and named_extensions)):
+        raise WorkflowError(
+            "multiext should be given with all named extensions or all not-named extensions, not a mix."
+        )
+    if extensions:
+       return [flag(prefix + ext, "multiext", flag_value=MultiextValue(prefix=prefix)) for ext in extensions]
+    else:
+       return [flag(prefix + ext, "multiext", flag_value=MultiextValue(name=name, prefix=prefix)) for name, ext in named_extensions.items()]
 
 
 def limit(pattern: Union[str, AnnotatedString], **wildcards):

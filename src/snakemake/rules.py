@@ -276,9 +276,19 @@ class Rule(RuleInterface):
         consider_ancient = self.workflow.workflow_settings.consider_ancient.get(
             self.name, frozenset()
         )
-
         for i, item in enumerate(input):
-            self._set_inoutput_item(item, mark_ancient=i in consider_ancient)
+            if any('multiext' in getattr(x, '_flags', {}) for x in item):
+                for ifile in item:
+                    if 'multiext' in getattr(ifile, '_flags', {}):
+                        if ifile._flags['multiext'].isnamed():
+                            self._set_inoutput_item(ifile, name=ifile._flags['multiext'].name, mark_ancient=i in consider_ancient)
+                        else:
+                            self._set_inoutput_item(ifile, mark_ancient=i in consider_ancient)
+                    else:
+                        self._set_inoutput_item(ifile, mark_ancient=i in consider_ancient)
+            else:
+                self._set_inoutput_item(item, mark_ancient=i in consider_ancient)
+
         for name, item in kwinput.items():
             self._set_inoutput_item(
                 item, name=name, mark_ancient=name in consider_ancient
@@ -334,7 +344,19 @@ class Rule(RuleInterface):
         output -- the list of output files
         """
         for item in output:
-            self._set_inoutput_item(item, output=True)
+            # Named multiext have their name set under the flag (MultiextValue), if the first one is named, all of them are named.
+            # Any of the output files in item can be multiext, so we do need to check all of them.
+            if any('multiext' in getattr(x, '_flags', {}) for x in item):
+                for ofile in item:
+                    if 'multiext' in getattr(ofile, '_flags', {}):
+                        if ofile._flags['multiext'].isnamed():
+                            self._set_inoutput_item(ofile, output=True, name=ofile._flags['multiext'].name)
+                        else:
+                            self._set_inoutput_item(ofile, output=True)
+                    else:
+                        self._set_inoutput_item(ofile, output=True)
+            else:
+                self._set_inoutput_item(item, output=True)
         for name, item in kwoutput.items():
             self._set_inoutput_item(item, output=True, name=name)
 
