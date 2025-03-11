@@ -2435,3 +2435,8 @@ def test_censored_path():
 
 def test_params_empty_inherit():
     run(dpath("test_params_empty_inherit"))
+
+
+# Currently this is expected to fail, requires a fix
+def test_python_import_from_github_module():
+    run(dpath("test_python_import_from_github_module"))
