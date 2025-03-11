@@ -2047,3 +2047,7 @@ def test_failed_intermediate():
     tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
     run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
+
+# Currently this is expected to fail, requires a fix
+def test_python_import_from_github_module():
+    run(dpath("test_python_import_from_github_module"))
