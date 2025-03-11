@@ -748,7 +748,7 @@ class Persistence(PersistenceExecutorInterface):
     def load_iocache(self):
         filepath = self._iocache_filename
         if os.path.exists(filepath):
-            logger.info(f"Loading trusted IOCache from latest dry-run.")
+            logger.info("Loading trusted IOCache from latest dry-run.")
             with open(filepath, "rb") as handle:
                 self.dag.workflow.iocache = IOCache.load(handle)
 
