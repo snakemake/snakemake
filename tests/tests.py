@@ -372,6 +372,13 @@ def test_config_replacing():
     )
 
 
+def test_config_replacing_nocli():
+    run(
+        dpath("test_config_replacing_nocli"),
+        shellcmd='snakemake -j 1 --replace-workflow-config',
+    )
+
+
 def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
