@@ -69,7 +69,7 @@ reports = ["pygments"]
 snakemake = "snakemake.cli:main"
 
 [build-system]
-requires = ["setuptools>=42", 'tomli; python_version < "3.11"']
+requires = ["setuptools>=42", 'tomli']
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
