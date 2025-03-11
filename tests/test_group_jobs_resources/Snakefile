@@ -15,10 +15,10 @@ rule a:
     group: 0
     threads: 4
     resources:
-        mem_mb=20000,
+        mem_mb="20 GiB",
         fake_res=400,
         global_res=1000,
-        runtime=80,
+        runtime="80 m",
     shell:
         "touch {output}"
 
