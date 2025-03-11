@@ -410,7 +410,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             logger.info("Storing output in storage.")
             try:
                 for level in self.toposorted(
-                    list(self.needrun_jobs(exclude_finished=False))
+                    set(self.needrun_jobs(exclude_finished=False))
                 ):
                     async with asyncio.TaskGroup() as tg:
                         for job in level:
