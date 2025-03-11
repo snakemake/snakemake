@@ -306,6 +306,20 @@ def test_resource_string_in_cli_or_profile():
     )
 
 
+@skip_on_windows
+@conda
+def test_script_xsh():
+    run(
+        dpath("test_script_xsh"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
+
+
+@conda
+def test_conda_run():
+    run(dpath("test_conda_run"), deployment_method={DeploymentMethod.CONDA})
+
+
 # These tests have no explicit dependency on Conda and do not build new conda envs,
 # but will fail if 'conda info --json' does not work as expected, because the wrapper
 # code uses this to examine the installed software environment.
