@@ -1,6 +1,7 @@
 sphinx >=3
 sphinxcontrib-napoleon
 sphinx-argparse
+sphinx-tabs
 docutils
 myst-parser
 configargparse
