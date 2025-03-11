@@ -1,5 +1,6 @@
 #!/bin/bash
 mount --make-rprivate --bind local scratch
+echo "local" > scratch/local
 echo `date` >> qsub.log
 tail -n1 $1 >> qsub.log
 # simulate printing of job id by a random number
