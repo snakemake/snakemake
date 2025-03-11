@@ -18,9 +18,9 @@ from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 from snakemake_interface_common.utils import lazy_property
 
+from snakemake.common import get_appdirs
 
 SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
-
 
 def get_snakemake_searchpath_mountpoints():
     paths = get_snakemake_searchpaths()
@@ -126,6 +126,11 @@ def shellcmd(
 
     if container_workdir:
         args += f" --pwd {repr(container_workdir)}"
+
+    # mount the snakemake cache into the container per detault so that
+    # params included with workflow.source_path are allways mounted in the conteiner
+    if len(args) == 0:
+        args += "--bind " + os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache")
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
