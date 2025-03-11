@@ -151,6 +151,10 @@ jobs:
           name: report-${{ matrix.py_ver }}.zip
           path: tests/test_report/report.zip
 
+  testing-done:
+    needs: testing
+    runs-on: ubuntu-latest
+    steps: []
 
   build-container-image:
     runs-on: ubuntu-latest
