@@ -154,7 +154,8 @@ jobs:
   testing-done:
     needs: testing
     runs-on: ubuntu-latest
-    steps: []
+    steps:
+      - run: echo "All tests passed."
 
   build-container-image:
     runs-on: ubuntu-latest
