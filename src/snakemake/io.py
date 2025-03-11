@@ -1439,7 +1439,7 @@ def expand(*args, **wildcard_values):
 @dataclass
 class MultiextValue:
     prefix: str
-    name: str = None
+    name: Optional[str] = None
 
     def isnamed(self):
         return bool(isinstance(self.name, str))
