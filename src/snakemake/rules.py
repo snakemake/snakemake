@@ -277,7 +277,9 @@ class Rule(RuleInterface):
             self.name, frozenset()
         )
         for i, item in enumerate(input):
-            if any("multiext" in getattr(x, "_flags", {}) for x in item):
+            if not callable(item) and any(
+                "multiext" in getattr(x, "_flags", {}) for x in item
+            ):
                 for ifile in item:
                     if "multiext" in getattr(ifile, "_flags", {}):
                         if ifile._flags["multiext"].isnamed():
