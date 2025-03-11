@@ -1633,7 +1633,8 @@ class Workflow(WorkflowExecutorInterface):
             nonlocal name
 
             # set the rulename if the name is not specified by the 'name' directive
-            ruleinfo.name = ruleinfo.name if ruleinfo.name else name
+            if ruleinfo.name is None:
+                ruleinfo.name = name
 
             # If requested, modify ruleinfo via the modifier.
             ruleinfo.apply_modifier(self.modifier)
