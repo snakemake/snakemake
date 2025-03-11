@@ -1245,7 +1245,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         is_same = False
                     else:
                         is_same = await f.is_same_checksum(
-                            self.max_checksum_file_size, checksums.pop()
+                            checksums.pop(), self.max_checksum_file_size
                         )
 
                 is_same_checksum_cache[(f, job)] = is_same
