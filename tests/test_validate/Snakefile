@@ -7,6 +7,25 @@ from snakemake.utils import validate
 
 configfile: "config.yaml"
 
+
+# Dict
+df = pd.read_table(config["samples"])
+samples = df.iloc[0].to_dict()
+validate(samples, "samples.schema.yaml")
+assert samples["tissue"] == "blood"
+assert samples["n"] == 1
+samples = {k: v for k, v in df.iloc[1].to_dict().items() if pd.notnull(v)}
+validate(samples, "samples.schema.yaml")
+assert samples["tissue"] == "blood"
+assert samples["n"] == 0
+
+# Pandas DataFrame without index
+samples = pd.read_table(config["samples"])
+validate(samples, "samples.schema.yaml")
+assert samples.iloc[0]["tissue"] == "blood"
+assert samples.iloc[0]["n"] == 1
+assert samples.iloc[1]["n"] == 0
+
 # Polars DataFrame
 samples = pl.read_csv(
     config["samples"],
@@ -29,24 +48,6 @@ samples = pl.scan_csv(
 validate(samples, "samples.schema.yaml", set_default=False)
 assert samples.collect()[0, "n"] == 1
 
-# Pandas DataFrame without index
-samples = pd.read_table(config["samples"])
-validate(samples, "samples.schema.yaml")
-assert samples.iloc[0]["tissue"] == "blood"
-assert samples.iloc[0]["n"] == 1
-assert samples.iloc[1]["n"] == 0
-
-# Dict
-df = pd.read_table(config["samples"])
-samples = df.iloc[0].to_dict()
-validate(samples, "samples.schema.yaml")
-assert samples["tissue"] == "blood"
-assert samples["n"] == 1
-samples = {k: v for k, v in df.iloc[1].to_dict().items() if pd.notnull(v)}
-validate(samples, "samples.schema.yaml")
-assert samples["tissue"] == "blood"
-assert samples["n"] == 0
-
 # Pandas DataFrame with index
 validate(config, "config.schema.yaml")
 samples = pd.read_table(config["samples"]).set_index("sample", drop=False)
@@ -59,6 +60,7 @@ assert samples.iloc[1]["n"] == 0
 rule all:
     input:
         expand("test.{sample}.txt", sample=samples.index),
+
 
 module test:
     snakefile:

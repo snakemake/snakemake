@@ -108,9 +108,6 @@ def validate(data, schema, set_default=True):
         logger.warning("Note that schema file may not be validated correctly.")
     DefaultValidator = extend_with_default(Validator)
 
-    import pandas as pd
-    import polars as pl
-
     def _validate_record(record):
         if set_default:
             DefaultValidator(schema, resolver=resolver).validate(record)
@@ -118,84 +115,119 @@ def validate(data, schema, set_default=True):
         else:
             jsonschema.validate(record, schema, resolver=resolver)
 
+    def _validate_pandas(data):
+        try:
+            import pandas as pd
+
+            if isinstance(data, pd.DataFrame):
+                logger.debug("Validating pandas DataFrame")
+
+                recordlist = []
+                for i, record in enumerate(data.to_dict("records")):
+                    # Exclude NULL values
+                    record = {k: v for k, v in record.items() if pd.notnull(v)}
+                    try:
+                        recordlist.append(_validate_record(record))
+                    except jsonschema.exceptions.ValidationError as e:
+                        raise WorkflowError(
+                            f"Error validating row {i} of data frame.", e
+                        )
+
+                if set_default:
+                    newdata = pd.DataFrame(recordlist, data.index)
+                    # Add missing columns
+                    newcol = newdata.columns[~newdata.columns.isin(data.columns)]
+                    data[newcol] = None
+                    # Fill in None values with values from newdata
+                    data.update(newdata)
+
+            else:
+                return False
+        except ImportError:
+            return False
+        return True
+
+    def _validate_polars(data):
+        try:
+            import polars as pl
+
+            if isinstance(data, pl.DataFrame):
+                logger.debug("Validating polars DataFrame")
+
+                recordlist = []
+                for i, record in enumerate(data.iter_rows(named=True)):
+                    # Exclude NULL values
+                    record = {
+                        k: v
+                        for k, v in record.items()
+                        if pl.Series(k, [v]).is_not_null().all()
+                    }
+                    try:
+                        recordlist.append(_validate_record(record))
+                    except jsonschema.exceptions.ValidationError as e:
+                        raise WorkflowError(
+                            f"Error validating row {i} of data frame.", e
+                        )
+
+                if set_default:
+                    newdata = pl.DataFrame(recordlist)
+                    # Add missing columns
+                    newcol = [col for col in newdata.columns if col not in data.columns]
+                    [
+                        data.insert_column(
+                            len(data.columns),
+                            pl.lit(None, newdata[col].dtype).alias(col),
+                        )
+                        for col in newcol
+                    ]
+                    # Fill in None values with values from newdata
+                    for i in range(data.shape[0]):
+                        for j in range(data.shape[1]):
+                            if data[i, j] is None:
+                                data[i, j] = newdata[i, j]
+
+            elif isinstance(data, pl.LazyFrame):
+                # If a LazyFrame is being used, probably it is a large dataframe (so check only first 1000 records)
+                logger.debug("Validating first 1000 rows of polars LazyFrame")
+
+                recordlist = []
+                for i, record in enumerate(
+                    data.head(1000).collect().iter_rows(named=True)
+                ):
+                    # Exclude NULL values
+                    record = {
+                        k: v
+                        for k, v in record.items()
+                        if pl.Series(k, [v]).is_not_null().all()
+                    }
+                    try:
+                        recordlist.append(_validate_record(record))
+                    except jsonschema.exceptions.ValidationError as e:
+                        raise WorkflowError(
+                            f"Error validating row {i} of data frame.", e
+                        )
+
+                if set_default:
+                    logger.warning("LazyFrame does not support setting default values.")
+
+            else:
+                return False
+        except ImportError:
+            return False
+        return True
+
     if isinstance(data, dict):
-        logger.debug("Validating dict")
+        logger.debug("Validating dictionary")
         try:
             _validate_record(data)
         except jsonschema.exceptions.ValidationError as e:
             raise WorkflowError("Error validating config file.", e)
-
-    elif isinstance(data, pd.DataFrame):
-        logger.debug("Validating pandas DataFrame")
-
-        recordlist = []
-        for i, record in enumerate(data.to_dict("records")):
-            # Exclude NULL values
-            record = {k: v for k, v in record.items() if pd.notnull(v)}
-            try:
-                recordlist.append(_validate_record(record))
-            except jsonschema.exceptions.ValidationError as e:
-                raise WorkflowError(f"Error validating row {i} of data frame.", e)
-
-        if set_default:
-            newdata = pd.DataFrame(recordlist, data.index)
-            # Add missing columns
-            newcol = newdata.columns[~newdata.columns.isin(data.columns)]
-            data[newcol] = None
-            # Fill in None values with values from newdata
-            data.update(newdata)
-
-    elif isinstance(data, pl.DataFrame):
-        logger.debug("Validating polars DataFrame")
-
-        recordlist = []
-        for i, record in enumerate(data.iter_rows(named=True)):
-            # Exclude NULL values
-            record = {
-                k: v for k, v in record.items() if pl.Series(k, [v]).is_not_null().all()
-            }
-            try:
-                recordlist.append(_validate_record(record))
-            except jsonschema.exceptions.ValidationError as e:
-                raise WorkflowError(f"Error validating row {i} of data frame.", e)
-
-        if set_default:
-            newdata = pl.DataFrame(recordlist)
-            # Add missing columns
-            newcol = [col for col in newdata.columns if col not in data.columns]
-            [
-                data.insert_column(
-                    len(data.columns),
-                    pl.lit(None, newdata[col].dtype).alias(col),
-                )
-                for col in newcol
-            ]
-            # Fill in None values with values from newdata
-            for i in range(data.shape[0]):
-                for j in range(data.shape[1]):
-                    if data[i, j] is None:
-                        data[i, j] = newdata[i, j]
-
-    elif isinstance(data, pl.LazyFrame):
-        # If a LazyFrame is being used, probably it is a large dataframe (so check only first 1000 records)
-        logger.debug("Validating first 1000 rows of polars LazyFrame")
-
-        recordlist = []
-        for i, record in enumerate(data.head(1000).collect().iter_rows(named=True)):
-            # Exclude NULL values
-            record = {
-                k: v for k, v in record.items() if pl.Series(k, [v]).is_not_null().all()
-            }
-            try:
-                recordlist.append(_validate_record(record))
-            except jsonschema.exceptions.ValidationError as e:
-                raise WorkflowError(f"Error validating row {i} of data frame.", e)
-
-        if set_default:
-            logger.warning("LazyFrame does not support setting default values.")
-
+        logger.debug("Dictionary validated!")
     else:
-        raise WorkflowError("Unsupported data type for validation.")
+        if _validate_pandas(data):
+            logger.debug("Pandas dataframe validated!")
+        elif _validate_polars(data):
+            logger.debug("Polars dataframe validated!")
 
 
 def simplify_path(path):
