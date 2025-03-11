@@ -376,7 +376,7 @@ class ConfigSettings(SettingsBase):
             update_config(overwrite_config, self.config)
         if self.replace_workflow and not overwrite_config:
             logger.warning(
-                "--replace-workflow-config was used but no config entries are provided via"
+                "--replace-workflow-config was used but no config entries are provided via "
                 "command line. This flag will be ignored."
             )
         return overwrite_config
