@@ -22,6 +22,7 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
+import pickle
 from typing import (
     Any,
     Callable,
@@ -115,6 +116,39 @@ class IOCache(IOCacheStorageInterface):
         self.active = True
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
+
+    def _simple_copy(self):
+        """Identical copy except dictionary keys are downcast to str."""
+        simplified = type(self)(self.max_wait_time)
+
+        # Copy non-dictionary attributes the same.
+        for name in ['remaining_wait_time', 'active']:
+            old_attr = getattr(self, name)
+            setattr(simplified, name, old_attr)
+
+        # Copy dictionary attributes, casting keys to str.
+        for name in ['_mtime', '_exists_local', '_exists_in_storage', '_size']:
+            old_dict = getattr(self, name)
+            if isinstance(old_dict, ExistsDict):
+                setattr(simplified, name, ExistsDict(simplified))
+            else:
+                setattr(simplified, name, {})
+            new_dict = getattr(simplified, name)
+            for key in old_dict:
+                new_dict[str(key)] = old_dict[key]
+
+        return simplified
+
+
+    def save(self, handle):
+        """Dump IOCache to file."""
+        simplified = self._simple_copy()
+        pickle.dump(simplified, handle)
+
+    @classmethod
+    def load(cls, handle):
+        """Load an IOCache from file."""
+        return pickle.load(handle)
 
     @property
     def mtime(self):
