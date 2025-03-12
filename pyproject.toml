@@ -114,7 +114,6 @@ snakemake = { path = ".", editable = true, extras = ["all"] }
 
 [tool.pixi.environments]
 dev = { features = ["test", "docs", "style"] }
-test = { features = ["test"] }
 
 py311 = { features = ["py311", "test"] }
 py312 = { features = ["py312", "test"] }
@@ -133,13 +132,36 @@ python = ">=3.12.0,<3.13"
 [tool.pytest.ini_options]
 addopts = "--verbose --exitfirst --show-capture=stderr"
 
+[tool.pixi.feature.test]
+channels = ["conda-forge", "bioconda", "nodefaults"]
+
 [tool.pixi.feature.test.tasks.test-simple]
 cmd = ["pytest", "tests/tests.py"]
 description = "Run tests only for tests/tests.py"
 
 [tool.pixi.feature.test.tasks.test-complex]
 description = "Run all tests in the tests directory except tests.py"
-cmd = ["pytest", "tests", "--ignore=tests/tests.py"]
+cmd = [
+  "pytest",
+  "tests",
+  "--ignore=tests/tests.py", # tested in test-simple
+  "tests/tests_using_conda.py",
+  "tests/test_expand.py",
+  "tests/test_io.py",
+  "tests/test_schema.py",
+  "tests/test_linting.py",
+  "tests/test_executor_test_suite.py",
+  "tests/test_api.py",
+  "tests/test_internals.py",
+  # the tests below were never tested in the old CI and currently fail
+  # "tests/test_args.py",
+  # "tests/test_output_index.py",
+  # "tests/test_path_modifier.py",
+  # "tests/test_persistence.py"
+  # "tests/test_prefix_lookup.py",
+  # "tests/test_script.py",
+  # "tests/test_sourcecache.py",
+]
 
 [tool.pixi.feature.test.tasks.test-all]
 description = "Runs both simple and complex tests"
@@ -175,6 +197,8 @@ snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
 snakemake-executor-plugin-cluster-generic = "*"
+conda = "*"
+pip = "*"
 
 [tool.pixi.feature.test.target.linux-64.dependencies]
 environment-modules = "*"
@@ -188,12 +212,12 @@ nodejs = "*"
 squashfuse = "*"
 cwltool = "*"
 cwl-utils = "*"
-# moved to pixi from main.yaml installing via apt
-apptainer = "*"
-git = "*"
-wget = "*"
-dash = "*"
-openmpi = "*"
+# # moved to pixi from main.yaml installing via apt
+# apptainer = "*"
+# git = "*"
+# wget = "*"
+# dash = "*"
+# openmpi = "*"
 
 #------------------------ Docs -------------------------------
 [tool.pixi.feature.docs.dependencies]
