@@ -29,7 +29,7 @@ class CheckpointsProxy(Checkpoints):
     """A namespace for checkpoints so that they can be accessed via dot notation.
 
     It will be created once a module is created,
-    and differnt module will have differnt checkpoint namespace,
+    and different module will have different checkpoint namespace,
     but share a single created_output set.
     """
 
