@@ -7,7 +7,14 @@ import os
 
 from snakemake.common.prefix_lookup import PrefixLookup
 from snakemake.exceptions import WorkflowError
-from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
+from snakemake.io import (
+    is_callable,
+    is_flagged,
+    AnnotatedString,
+    flag,
+    get_flag_value,
+    MultiextValue,
+)
 from snakemake.logging import logger
 
 PATH_MODIFIER_FLAG = "path_modified"
@@ -52,23 +59,16 @@ class PathModifier:
                 modified_path = AnnotatedString(modified_path)
             modified_path.flags.update(path.flags)
             if is_flagged(modified_path, "multiext"):
-                # test_output_file_cache_storage
-                if isinstance(modified_path.flags["multiext"], str):
-                    modified_path.flags["multiext"] = self.apply_default_storage(
-                        self.replace_prefix(modified_path.flags["multiext"], property)
-                    )
-                # test_module_complex
-                else:
-                    modified_path.flags["multiext"].prefix = self.apply_default_storage(
-                        self.replace_prefix(
-                            modified_path.flags["multiext"].prefix, property
-                        )
-                    )
+                modified_path.flags["multiext"] = self.apply_default_storage(
+                    self.replace_prefix(modified_path.flags["multiext"], property)
+                )
         # Flag the path as modified and return.
         modified_path = flag(modified_path, PATH_MODIFIER_FLAG)
         return modified_path
 
     def replace_prefix(self, path, property=None):
+        if isinstance(path, MultiextValue):
+            return path
         if (self._prefix_replacements is None and self.prefix is None) or (
             property in self.skip_properties
             or os.path.isabs(path)
@@ -117,6 +117,7 @@ class PathModifier:
             or is_flagged(path, "storage_object")
             or is_flagged(path, "local")
             or is_flagged(path, "sourcecache_entry")
+            or is_flagged(path, "multiext")
             or is_annotated_callable(path)
         ):
             # no default remote needed

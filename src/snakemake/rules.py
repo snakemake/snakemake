@@ -281,7 +281,6 @@ class Rule(RuleInterface):
                 for ifile in item:
                     _multiextvalue = get_flag_value(ifile, "multiext")
                     if _multiextvalue:
-                        ifile._flags["multiext"] = _multiextvalue.prefix
                         self._set_inoutput_item(
                             ifile,
                             name=_multiextvalue.name,
@@ -359,7 +358,6 @@ class Rule(RuleInterface):
                 for ofile in item:
                     _multiextvalue = get_flag_value(ofile, "multiext")
                     if _multiextvalue:
-                        ofile._flags["multiext"] = _multiextvalue.prefix
                         self._set_inoutput_item(
                             ofile, output=True, name=_multiextvalue.name
                         )
