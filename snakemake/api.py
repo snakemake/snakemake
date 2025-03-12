@@ -4,7 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from abc import ABC
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 import functools
 import hashlib
 from pathlib import Path
@@ -600,11 +600,6 @@ class DAGApi(ApiBase):
                 event=LogEvent.WORKFLOW_STARTED,
                 workflow_id=uuid.uuid4(),
                 snakefile=self.workflow_api.snakefile,
-                execution_settings=asdict(execution_settings),
-                remote_execution_settings=asdict(remote_execution_settings),
-                scheduling_settings=asdict(scheduling_settings),
-                group_settings=asdict(group_settings),
-                resource_settings=asdict(workflow.resource_settings),
             ),
         )
         workflow.execute(
