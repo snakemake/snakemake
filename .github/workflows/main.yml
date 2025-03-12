@@ -101,16 +101,21 @@ jobs:
 
       - name: Run Tests for Linux (os= 'Linux')
         if: runner.os == 'Linux'
-        run: |
-          pixi run --environment ${{matrix.env}} test-all \
-            --splits 10 \
-            --group ${{ matrix.test_group }} \
+        run: >-
+          pixi run
+            --environment ${{matrix.env}} test-all
+            --splits 10
+            --group ${{ matrix.test_group }}
             --splitting-algorithm=least_duration
       
       - name: Run Tests for Windows (os='Windows')
         if: runner.os == 'Windows'
-        run: |
-          pixi run --environment ${{matrix.env}} test-simple --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration
+        run: >-
+          pixi run
+            --environment ${{matrix.env}} test-simple
+            --splits 10 
+            --group ${{ matrix.test_group }}
+            --splitting-algorithm=least_duration
 
       - name: Run Report Generation Tests (os='Linux')
         if: runner.os == 'Linux'
