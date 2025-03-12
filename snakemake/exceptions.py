@@ -25,7 +25,7 @@ def format_error(
 
     location = ""
     if lineno and snakefile:
-        location = f" in file {snakefile}, line {lineno}"
+        location = f' in file "{snakefile}", line {lineno}'
         if rule:
             location = f" in rule {rule}{location}"
 
