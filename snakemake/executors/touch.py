@@ -70,7 +70,7 @@ class Executor(RealExecutor):
                     if len(non_existing_files) > 0:
                         job.log_warning(
                             msg=f"Missing rule's output files: "
-                            + f"{', '.join(non_existing_files)}. --touch skipped for this job.",
+                            + f"{', '.join(non_existing_files)}. --touch skipped for this job."
                         )
 
                 async_run(touch())

@@ -567,13 +567,10 @@ class Logger:
             if not self.last_msg_was_job_info:
                 msg = "\n" + msg
             self.logger.info(msg)
-        elif level == "job_error" or level == "job_warning":
+        elif level == "job_error":
 
             def job_error():
-                if level == "job_error":
-                    yield "Error in rule {}:".format(msg["name"])
-                else:
-                    yield "Warning in rule {}:".format(msg["name"])
+                yield "Error in rule {}:".format(msg["name"])
                 if msg["msg"]:
                     yield "    message: {}".format(msg["msg"])
                 yield "    jobid: {}".format(msg["jobid"])
@@ -601,10 +598,34 @@ class Logger:
                 yield ""
 
             timestamp()
-            if level == "job_error":
-                self.logger.error("\n".join(map(indent, job_error())))
-            else:
-                self.logger.warning("\n".join(map(indent, job_error())))
+            self.logger.error("\n".join(map(indent, job_error())))
+
+        elif level == "job_warning":
+
+            def job_warning():
+                yield "Warning in rule {}:".format(msg["name"])
+                if msg["msg"]:
+                    yield "    message: {}".format(msg["msg"])
+                yield "    jobid: {}".format(msg["jobid"])
+                if msg["input"]:
+                    yield "    input: {}".format(", ".join(msg["input"]))
+                if msg["output"]:
+                    yield "    output: {}".format(", ".join(msg["output"]))
+                if msg["log"]:
+                    yield "    log: {} (check log file(s) for error details)".format(
+                        ", ".join(msg["log"])
+                    )
+
+                for item in msg["aux"].items():
+                    yield "    {}: {}".format(*item)
+
+                if self.show_failed_logs and msg["log"]:
+                    yield from show_logs(msg["log"])
+
+                yield ""
+
+            timestamp()
+            self.logger.warning("\n".join(map(indent, job_warning())))
         elif level == "group_error":
 
             def group_error():
