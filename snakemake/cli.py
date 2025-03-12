@@ -65,6 +65,7 @@ from snakemake.settings.types import (
     StorageSettings,
     WorkflowSettings,
     StrictDagEvaluation,
+    PrintDag
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
@@ -1026,20 +1027,26 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Show available target rules in given Snakefile.",
     )
-    group_utils.add_argument(
+    group_exec.add_argument(
         "--dag",
-        action="store_true",
+        nargs="?",
+        choices=PrintDag.choices(),
+        default=set(),
+        parse_func=PrintDag.parse_choices_set,
         help="Do not execute anything and print the directed "
-        "acyclic graph of jobs in the dot language. Recommended "
+        "acyclic graph of jobs in the dot language or in mermaid-js. Recommended "
         "use on Unix systems: snakemake `--dag | dot | display`. "
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
     group_utils.add_argument(
         "--rulegraph",
-        action="store_true",
+        nargs="?",
+        choices=PrintDag.choices(),
+        default=set(),
+        parse_func=PrintDag.parse_choices_set,
         help="Do not execute anything and print the dependency graph "
-        "of rules in the dot language. This will be less "
+        "of rules in the dot language or in mermaid-js. This will be less "
         "crowded than above DAG of jobs, but also show less information. "
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
@@ -2037,6 +2044,13 @@ def args_to_api(args, parser):
                 elif args.print_compilation:
                     workflow_api.print_compilation()
                 else:
+                    
+                    print_dag_as = PrintDag.DOT
+                    if (args.dag):
+                        print_dag_as = args.dag
+                    elif (args.rulegraph):
+                        print_dag_as = args.rulegraph
+
                     dag_api = workflow_api.dag(
                         dag_settings=DAGSettings(
                             targets=args.targets,
@@ -2053,6 +2067,7 @@ def args_to_api(args, parser):
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
                             strict_evaluation=args.strict_dag_evaluation,
+                            print_dag_as=print_dag_as
                         ),
                     )
 

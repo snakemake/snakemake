@@ -53,6 +53,7 @@ from snakemake.exceptions import (
     WorkflowError,
     print_exception_warning,
 )
+from snakemake.settings.types import PrintDag
 from snakemake.io import (
     _IOFile,
     PeriodicityDetector,
@@ -2346,7 +2347,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         graph = defaultdict(set)
         for job in self.jobs:
             graph[job.rule].update(dep.rule for dep in self._dependencies[job])
-        return self._dot(graph)
+        if (self.workflow.dag_settings.print_dag_as == PrintDag.DOT):
+            return self._dot(graph)
+        elif (self.workflow.dag_settings.print_dag_as == PrintDag.MERMAID_JS):
+            return self._mermaidJS(graph)
 
     def dot(self):
         def node2style(job):
@@ -2370,7 +2374,79 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return self._dot(
             dag, node2rule=node2rule, node2style=node2style, node2label=node2label
         )
+    
+    def mermaidJS(self):
+        def node2style(job):
+            if not self.needrun(job):
+                return ",stroke-dasharray: 5 5"
+            return ""
 
+        def format_wildcard(wildcard):
+            name, value = wildcard
+            return f"{name}: {value}"
+
+        node2label = lambda job: " - ".join(
+            chain(
+                [job.rule.name], sorted(map(format_wildcard, self.new_wildcards(job)))
+            )
+        )
+
+        dag = {job: self._dependencies[job] for job in self.jobs}
+
+        return self._mermaidJS(
+            dag, node2style=node2style, node2label=node2label
+        )
+
+    def _mermaidJS(
+        self,
+        graph,
+        node2style=lambda node: "",
+        node2label=lambda node: node
+    ):
+        def hsv_to_htmlhexrgb(h, s, v):
+            import colorsys
+            hex_r, hex_g, hex_b = (round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v))
+            return "#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}".format(
+                hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
+            )
+        # color the rules - sorting by name first gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
+        rulecolor = {
+            rule.name: hsv_to_htmlhexrgb(i * huefactor, 0.6, 0.85)
+            for i, rule in enumerate(rules)
+        }
+        nodes_headers = [
+            f"\tid{index}[{node2label(node)}]"
+            for index, node in enumerate(graph)
+        ]
+        nodes_styles = [
+            f"\tstyle id{index} fill:{rulecolor[str(node)]},stroke-width:2px,color:#333333{node2style(node)}"
+            for index, node in enumerate(graph)
+        ]
+        edges = [
+            f"\tid{index} --> id{index_dep}"
+            for index, (_, deps) in enumerate(graph.items())
+            for index_dep, _ in enumerate(deps)
+        ]
+
+        mermaid_string = f"""
+        ---
+        title: DAG
+        ---
+        flowchart TB
+        {'\n'.join(nodes_headers)}
+        {'\n'.join(nodes_styles)}
+        {'\n'.join(edges)}
+        """
+        return textwrap.dedent("""\
+            ---
+            title: DAG
+            ---
+            flowchart TB
+            """
+        ) + f"{'\n'.join(nodes_headers)}\n{'\n'.join(nodes_styles)}\n{'\n'.join(edges)}"
+    
     def _dot(
         self,
         graph,
@@ -2979,7 +3055,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return files
 
     def __str__(self):
-        return self.dot()
+        if (self.workflow.dag_settings.print_dag_as == PrintDag.DOT):
+            return self.dot()
+        if (self.workflow.dag_settings.print_dag_as == PrintDag.MERMAID_JS):
+            return self.mermaidJS()
 
     def __len__(self):
         return self._len
