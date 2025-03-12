@@ -2247,7 +2247,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def module(
         self,
-        name,
+        name = None,
         snakefile=None,
         meta_wrapper=None,
         config=None,
@@ -2255,6 +2255,7 @@ class Workflow(WorkflowExecutorInterface):
         replace_prefix=None,
         prefix=None,
     ):
+
         self.modules[name] = ModuleInfo(
             self,
             name,
