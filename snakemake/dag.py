@@ -1528,7 +1528,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             or not self.priorityfiles.isdisjoint(job.output)
         )
         for job in self.needrun_jobs():
-            self._priority[job] = job.rule.priority
+            self._priority[job] = (
+                job.rule.priority(job.wildcards)
+                if callable(job.rule.priority)
+                else job.rule.priority
+            )
         for job in self.bfs(
             self._dependencies,
             *filter(prioritized, self.needrun_jobs()),
