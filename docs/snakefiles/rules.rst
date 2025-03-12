@@ -2342,7 +2342,7 @@ Here, this means that, e.g., the jobs creating ``a/1.out`` and ``b/1.out`` will 
 However, if we would add ``group: "mygroup"`` to rule ``c``, all jobs would end up in a single group, including the one spawned from rule ``c``, because ``c`` connects all the other jobs.
 
 Alternatively, groups can be defined via the command line interface.
-This enables to almost arbitrarily partition the DAG, e.g. in order to safe network traffic, see :ref:`here <job_grouping>`.
+This enables to almost arbitrarily partition the DAG, e.g. in order to save network traffic, see :ref:`here <job_grouping>`.
 
 For execution on the cloud using Google Life Science API and preemptible instances, we expect all rules in the group to be homogeneously set as preemptible instances (e.g., with command-line option ``--preemptible-rules``), such that a preemptible VM is requested for the execution of the group job.
 
