@@ -57,7 +57,7 @@ class Executor(RealExecutor):
                         set(job.output) - touch_storage_and_local_files - touch_files
                     )
 
-                    if (len(touch_files) + len(touch_storage_and_local_files)) > 0:
+                    if touch_files or touch_storage_and_local_files:
                         time.sleep(Executor.SLEEPING_TIME)
                         for f in touch_storage_and_local_files:
                             await f.touch_storage_and_local()
