@@ -2167,7 +2167,7 @@ def test_printshellcmd():
             with tempfile.NamedTemporaryFile() as tmpfile:
                 run(
                     path,
-                    shellcmd=f"snakemake -j 1 {param} {target} &> {tmpfile.name}",
+                    shellcmd=f"snakemake -j 1 {param} {target} 2> {tmpfile.name}",
                     check_results=False,
                 )
                 # scan stdout of snakemake call for either echo or samtools
