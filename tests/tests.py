@@ -1433,7 +1433,26 @@ def test_modules_all():
 
 
 def test_modules_name():
-    run(dpath("test_modules_name"), targets=["all"])
+    run(
+        dpath("test_modules_name"),
+        targets=["all"],
+    )
+
+
+def test_modules_no_name():
+    run(
+        dpath("test_modules_no_name"),
+        targets=["all"],
+        shouldfail=True,
+    )
+
+
+def test_modules_two_names():
+    run(
+        dpath("test_modules_two_names"),
+        targets=["all"],
+        shouldfail=True,
+    )
 
 
 def test_module_nested():
