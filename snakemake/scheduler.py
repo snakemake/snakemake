@@ -823,7 +823,9 @@ class JobRateLimiter:
     def __init__(self, limit: MaxJobsPerTimespan):
         self._limit: MaxJobsPerTimespan = limit
         self._jobs = deque()
-        logger.debug(f"Submitting maximum {self._limit.max_jobs} job(s) over {self._limit.timespan} second(s).")
+        logger.debug(
+            f"Submitting maximum {self._limit.max_jobs} job(s) over {self._limit.timespan} second(s)."
+        )
 
     @property
     def max_jobs(self) -> int:
