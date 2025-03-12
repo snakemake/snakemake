@@ -1648,7 +1648,7 @@ def get_argument_parser(profiles=None):
         "--conda-frontend",
         default="conda",
         choices=["conda", "mamba"],
-        help="Choose the conda frontend for installing environments."
+        help="Choose the conda frontend for installing environments.",
     )
 
     group_singularity = parser.add_argument_group("APPTAINER/SINGULARITY")
