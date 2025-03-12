@@ -279,13 +279,12 @@ class Rule(RuleInterface):
         for i, item in enumerate(input):
             if isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
                 for ifile in item:
-                    if "multiext" in getattr(ifile, "_flags", {}):
-                        # Revert back multiext part to prefix, to avoid breaking cache later.
-                        _name = ifile._flags["multiext"].name
-                        ifile._flags["multiext"] = ifile._flags["multiext"].prefix
+                    _multiextvalue = get_flag_value(ifile, "multiext")
+                    if _multiextvalue:
+                        ifile._flags["multiext"] = _multiextvalue.prefix
                         self._set_inoutput_item(
                             ifile,
-                            name=_name,
+                            name=_multiextvalue.name,
                             mark_ancient=i in consider_ancient,
                         )
                     else:
@@ -358,13 +357,11 @@ class Rule(RuleInterface):
             # Any of the output files in item can be multiext, so we do need to check all of them.
             if isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
                 for ofile in item:
-                    if "multiext" in getattr(ofile, "_flags", {}):
-                        _name = ofile._flags["multiext"].name
-                        ofile._flags["multiext"] = ofile._flags["multiext"].prefix
+                    _multiextvalue = get_flag_value(ofile, "multiext")
+                    if _multiextvalue:
+                        ofile._flags["multiext"] = _multiextvalue.prefix
                         self._set_inoutput_item(
-                            ofile,
-                            output=True,
-                            name=_name,
+                            ofile, output=True, name=_multiextvalue.name
                         )
                     else:
                         self._set_inoutput_item(ofile, output=True)

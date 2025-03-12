@@ -1444,7 +1444,10 @@ class MultiextValue:
 
 def multiext(prefix, *extensions, **named_extensions):
     """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
-    if any((r"/" in ext or r"\\" in ext) for ext in chain(extensions, named_extensions.values())):
+    if any(
+        (r"/" in ext or r"\\" in ext)
+        for ext in chain(extensions, named_extensions.values())
+    ):
         raise WorkflowError(
             r"Extensions for multiext may not contain path delimiters (/,\)."
         )
