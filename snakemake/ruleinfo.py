@@ -60,7 +60,10 @@ class RuleInfo:
         return ruleinfo
 
     def apply_modifier(
-        self, modifier, prefix_replacables={"input", "output", "log", "benchmark"}
+        self,
+        modifier,
+        rulename,
+        prefix_replacables={"input", "output", "log", "benchmark"},
     ):
         """Update this ruleinfo with the given one (used for 'use rule' overrides)."""
         path_modifier = modifier.path_modifier
@@ -80,7 +83,7 @@ class RuleInfo:
                             if original_positional:
                                 logger.warning(
                                     f"Overwriting positional arguments {original_positional} "
-                                    f"with {modifier_positional} in rule {self.name}"
+                                    f"with {modifier_positional} in rule {rulename}"
                                 )
                             positional = modifier_positional
                         self.__dict__[key] = (
