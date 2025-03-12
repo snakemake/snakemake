@@ -1455,6 +1455,10 @@ def test_modules_two_names():
     )
 
 
+def test_modules_dynamic():
+    run(dpath("test_modules_dynamic"), targets=["all"])
+
+
 def test_module_nested():
     run(dpath("test_module_nested"))
 
