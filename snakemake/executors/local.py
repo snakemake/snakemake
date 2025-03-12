@@ -59,7 +59,7 @@ except ImportError:
 class Executor(RealExecutor):
     def __post_init__(self):
         self.use_threads = self.workflow.execution_settings.use_threads
-        self.keepincomplete = self.workflow.execution_settings.keep_incomplete
+        self.keep_incomplete = self.workflow.execution_settings.keep_incomplete
         cores = self.workflow.resource_settings.cores
 
         # Zero thread jobs do not need a thread, but they occupy additional workers.

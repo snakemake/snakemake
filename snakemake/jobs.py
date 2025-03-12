@@ -17,7 +17,7 @@ import functools
 from itertools import chain, filterfalse
 from operator import attrgetter
 import time
-from typing import Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Iterable, List, Optional, Union
 from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings.types import DeploymentMethod
@@ -61,6 +61,9 @@ from snakemake.common import (
 )
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
+
+if TYPE_CHECKING:
+    from .dag import DAG
 
 
 def format_file(f, is_input: bool):
@@ -232,7 +235,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     def __init__(
         self,
         rule,
-        dag,
+        dag: "DAG",
         wildcards_dict=None,
         format_wildcards=None,
         targetfile=None,
@@ -1123,6 +1126,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,
+            shadow_dir=self.shadow_dir,
         )
 
     def log_error(
@@ -1207,7 +1211,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                         wait_for_local=True,
                         check_output_mtime=check_output_mtime,
                     )
-                self.dag.unshadow_output(self, only_log=error)
+                self.dag.unshadow_output(
+                    self,
+                    only_log=error,
+                    keep=error and self.dag.workflow.execution_settings.keep_incomplete,
+                )
 
                 if (
                     not error

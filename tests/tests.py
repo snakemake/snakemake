@@ -1159,6 +1159,16 @@ def test_issue1037():
     )
 
 
+def test_incomplete_shadow():
+    run(dpath("test_incomplete_shadow"), check_results=False)
+    run(
+        dpath("test_incomplete_shadow"),
+        check_results=False,
+        shouldfail=True,
+        targets=["run2"],
+    )
+
+
 def test_checkpoints():
     run(dpath("test_checkpoints"))
 
