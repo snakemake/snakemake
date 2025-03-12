@@ -178,6 +178,7 @@ def run(
     until=frozenset(),
     omit_from=frozenset(),
     forcerun=frozenset(),
+    trust_mtime_cache=False,
     conda_list_envs=False,
     conda_create_envs=False,
     conda_prefix=None,
@@ -374,6 +375,7 @@ def run(
                         force_incomplete=force_incomplete,
                         forceall=forceall,
                         rerun_triggers=rerun_triggers,
+                        trust_mtime_cache=trust_mtime_cache,
                     ),
                 )
 

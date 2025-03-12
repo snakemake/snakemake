@@ -2051,3 +2051,24 @@ def test_failed_intermediate():
     tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
     run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
+
+
+@pytest.mark.parametrize(
+    "testdir,kwargs",
+    [
+        # ("test01", {}),  # TODO: Figure out how to @skip_on_windows
+        ("test02", {}),
+        ("test03", {"targets": ["test.out"]}),
+        ("test04", {"targets": ["test.out"]}),
+        # ("test05", {}),  # TODO: Figure out how to @skip_on_windows
+        ("test06", {"targets": ["test.bla.out"]}),
+        ("test07", {"targets": ["test.out", "test2.out"]}),
+        ("test08", {"targets": ["test.out", "test2.out"]}),
+        # ("test09", {"shouldfail": True}),  # TODO: Figure out how to only fail in the second pass.
+    ],
+)
+def test_inventory_cache_with_dryrun_first(testdir, kwargs):
+    tmpdir = run(
+        dpath(testdir), executor="dryrun", **kwargs, cleanup=False, check_results=False
+    )
+    run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_mtime_cache=True)
