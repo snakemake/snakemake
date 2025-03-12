@@ -2050,5 +2050,9 @@ def test_failed_intermediate():
 
 
 @skip_on_windows  # OS agnostic
-def test_issue3361():
-    run(dpath("test_issue3361"), shellcmd="snakemake --sdm apptainer", targets=["all"])
+def test_issue3361_pass():
+    run(dpath("test_issue3361_pass"), shellcmd="snakemake --sdm apptainer", targets=["all"])
+
+@skip_on_windows  # OS agnostic
+def test_issue3361_fail():
+    run(dpath("test_issue3361_fail"), shellcmd="snakemake --sdm apptainer", targets=["all"], shouldfail=True)

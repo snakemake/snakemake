@@ -453,7 +453,8 @@ For example, Docker does not pass any host environment variables to the containe
 To override the default behaviour, consider using ``--apptainer-args`` or ``--singularity-args``, e.g. to pass ``--cleanenv``.
 
 Files that are mounted using `params` using `workflow.source_path` are also automatically available in the container. This is realized by mounting the snakemake cache in the container (/home/<user>/.cache/snakemake/snakemake/source-cache) where the sourced files will be cached. 
-Please note that the .cache is located in the user's home directory by default and the container could therefore also gain access to the home directory. In general, only trustworthy containers should be used. 
+
+In general, it should be noted that only trusted containers should be used!
 
 Defining global container images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
