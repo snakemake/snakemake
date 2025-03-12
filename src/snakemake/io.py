@@ -1090,6 +1090,8 @@ def apply_wildcards(pattern, wildcards):
         except KeyError as ex:
             raise WildcardError(str(ex))
 
+    if isinstance(pattern, MultiextValue):
+        return WILDCARD_REGEX.sub(format_match, pattern.prefix)
     return WILDCARD_REGEX.sub(format_match, pattern)
 
 

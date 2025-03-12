@@ -117,7 +117,6 @@ class PathModifier:
             or is_flagged(path, "storage_object")
             or is_flagged(path, "local")
             or is_flagged(path, "sourcecache_entry")
-            or is_flagged(path, "multiext")
             or is_annotated_callable(path)
         ):
             # no default remote needed
@@ -127,7 +126,10 @@ class PathModifier:
         prefix = self.workflow.storage_settings.default_storage_prefix
         if prefix and not prefix.endswith("/"):
             prefix = f"{prefix}/"
-        query = f"{prefix}{os.path.normpath(path)}"
+        if isinstance(path, MultiextValue):
+            query = f"{prefix}{os.path.normpath(path.prefix)}"
+        else:
+            query = f"{prefix}{os.path.normpath(path)}"
         storage_object = self.workflow.storage_registry.default_storage_provider.object(
             query
         )
