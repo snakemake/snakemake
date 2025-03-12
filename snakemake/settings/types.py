@@ -35,7 +35,7 @@ from snakemake.settings.enums import (
     CondaCleanupPkgs,
     Quietness,
     StrictDagEvaluation,
-    PrintDag,
+    PrintDag
 )
 
 

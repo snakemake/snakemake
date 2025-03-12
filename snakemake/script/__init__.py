@@ -660,16 +660,13 @@ class ScriptBase(ABC):
         return self.path.get_path_or_uri()
 
     @abstractmethod
-    def get_preamble(self) -> str:
-        ...
+    def get_preamble(self) -> str: ...
 
     @abstractmethod
-    def write_script(self, preamble, fd) -> None:
-        ...
+    def write_script(self, preamble, fd) -> None: ...
 
     @abstractmethod
-    def execute_script(self, fname, edit=False) -> None:
-        ...
+    def execute_script(self, fname, edit=False) -> None: ...
 
     def _execute_cmd(self, cmd, **kwargs):
         return shell(

@@ -33,15 +33,13 @@ class StrictDagEvaluation(SettingsEnumBase):
     CYCLIC_GRAPH = 1
     PERIODIC_WILDCARDS = 2
 
-
 class PrintDag(SettingsEnumBase):
     DOT = 0
     MERMAID_JS = 1
-
     def parse_choices_set(choice):
-        if choice == "dot":
+        if choice == 'dot':
             return PrintDag.DOT
-        if choice == "mermaid-js":
+        if choice == 'mermaid-js':
             return PrintDag.MERMAID_JS
         if choice == None:
             raise ValueError("--dag option requires an argument")
