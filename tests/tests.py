@@ -1167,6 +1167,10 @@ def test_checkpoints_dir():
     run(dpath("test_checkpoints_dir"))
 
 
+def test_checkpoints_many():
+    run(dpath("test_checkpoints_many"))
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
@@ -2074,3 +2078,8 @@ def test_failed_intermediate():
     tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
     run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
+
+
+@skip_on_windows  # OS agnostic
+def test_issue3338():
+    run(dpath("test_issue3338"), targets=["all"])
