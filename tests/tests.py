@@ -2072,3 +2072,8 @@ def test_inventory_cache_with_dryrun_first(testdir, kwargs):
         dpath(testdir), executor="dryrun", **kwargs, cleanup=False, check_results=False
     )
     run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_mtime_cache=True)
+
+
+@skip_on_windows  # OS agnostic
+def test_issue3338():
+    run(dpath("test_issue3338"), targets=["all"])
