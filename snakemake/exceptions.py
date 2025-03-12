@@ -8,10 +8,17 @@ import traceback
 import textwrap
 from tokenize import TokenError
 from snakemake_interface_common.exceptions import WorkflowError, ApiError
+from snakemake_interface_logger_plugins.common import LogEvent
 
 
 def format_error(
-    ex, lineno, linemaps=None, snakefile=None, show_traceback=False, rule=None
+    ex,
+    lineno,
+    linemaps=None,
+    snakefile=None,
+    show_traceback=False,
+    rule=None,
+    extra=False,
 ):
     if linemaps is None:
         linemaps = dict()
@@ -32,12 +39,26 @@ def format_error(
     tb = ""
     if show_traceback:
         tb = "\n".join(format_traceback(cut_traceback(ex), linemaps=linemaps))
-    return "{}{}{}{}".format(
+
+    formatted_error = "{}{}{}{}".format(
         ex.__class__.__name__,
         location,
         ":\n" + msg if msg else ".",
         f"\n{tb}" if show_traceback and tb else "",
     )
+
+    extra_dict = {
+        "event": LogEvent.ERROR,
+        "exception": ex.__class__.__name__,
+        "location": location.strip() if location else None,
+        "rule": str(rule) if rule is not None else None,
+        "traceback": tb if show_traceback else None,
+        "file": str(snakefile) if snakefile is not None else None,
+        "line": str(lineno) if lineno is not None else None,
+    }
+    if extra:
+        return {"msg": formatted_error, "extra": extra_dict}
+    return formatted_error
 
 
 def get_exception_origin(ex, linemaps):
@@ -93,12 +114,13 @@ def print_exception(ex, linemaps=None):
     log_verbose_traceback(ex)
     if isinstance(ex, SyntaxError) or isinstance(ex, IndentationError):
         logger.error(
-            format_error(
+            **format_error(
                 ex,
                 ex.lineno,
                 linemaps=linemaps,
                 snakefile=ex.filename,
                 show_traceback=True,
+                extra=True,
             )
         )
         return
@@ -106,60 +128,87 @@ def print_exception(ex, linemaps=None):
     if origin is not None:
         lineno, file = origin
         logger.error(
-            format_error(
-                ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
+            **format_error(
+                ex,
+                lineno,
+                linemaps=linemaps,
+                snakefile=file,
+                show_traceback=True,
+                extra=True,
             )
         )
         return
     elif isinstance(ex, TokenError):
-        logger.error(format_error(ex, None, show_traceback=False))
+        logger.error(**format_error(ex, None, show_traceback=False))
     elif isinstance(ex, MissingRuleException):
         logger.error(
-            format_error(
-                ex, None, linemaps=linemaps, snakefile=ex.filename, show_traceback=False
+            **format_error(
+                ex,
+                None,
+                linemaps=linemaps,
+                snakefile=ex.filename,
+                show_traceback=False,
+                extra=True,
             )
         )
     elif isinstance(ex, RuleException):
         for e in ex._include:
             if not e.omit:
                 logger.error(
-                    format_error(
+                    **format_error(
                         e,
                         e.lineno,
                         linemaps=linemaps,
                         snakefile=e.filename,
                         show_traceback=True,
+                        extra=True,
                     )
                 )
         logger.error(
-            format_error(
+            **format_error(
                 ex,
                 ex.lineno,
                 linemaps=linemaps,
                 snakefile=ex.filename,
                 show_traceback=True,
                 rule=ex.rule,
+                extra=True,
             )
         )
     elif isinstance(ex, WorkflowError):
         logger.error(
-            format_error(
+            **format_error(
                 ex,
                 ex.lineno,
                 linemaps=linemaps,
                 snakefile=ex.snakefile,
                 show_traceback=True,
                 rule=ex.rule,
+                extra=True,
             )
         )
     elif isinstance(ex, ApiError):
-        logger.error(f"Error: {ex}")
+        logger.error(
+            f"Error: {ex}", extra=dict(event=LogEvent.ERROR, exception=str(ex))
+        )
     elif isinstance(ex, CliException):
-        logger.error(f"Error: {ex}")
+        logger.error(
+            f"Error: {ex}", extra=dict(event=LogEvent.ERROR, exception=str(ex))
+        )
     elif isinstance(ex, KeyboardInterrupt):
-        logger.info("Cancelling snakemake on user request.")
+        logger.info(
+            "Cancelling snakemake on user request.",
+            extra=dict(event=LogEvent.ERROR, exception=str(ex)),
+        )
     else:
-        logger.error("\n".join(traceback.format_exception(ex)))
+        logger.error(
+            "\n".join(traceback.format_exception(ex)),
+            extra=dict(
+                event=LogEvent.ERROR,
+                exception=str(ex),
+                traceback=traceback.format_exception(ex),
+            ),
+        )
 
 
 def update_lineno(ex: SyntaxError, linemaps):
