@@ -14,6 +14,7 @@ import subprocess
 import tarfile
 import textwrap
 import time
+import json
 from typing import Iterable, List, Optional, Set, Union
 import uuid
 import subprocess
@@ -27,6 +28,7 @@ from snakemake.settings.types import DeploymentMethod
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
+from snakemake_interface_logger_plugins.common import LogEvent
 
 from snakemake import workflow
 from snakemake import workflow as _workflow
@@ -1026,7 +1028,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             )
 
         for i, job in enumerate(jobs):
-            logger.dag_debug(dict(status="candidate", job=job))
+            logger.debug(
+                None, extra=dict(event=LogEvent.DEBUG_DAG, status="candidate", job=job)
+            )
             if file in job.input:
                 cycles.append(job)
                 continue
@@ -1112,14 +1116,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         )
         if ambiguities and not self.workflow.execution_settings.ignore_ambiguity:
             raise AmbiguousRuleException(file, producer, ambiguities[0])
-        logger.dag_debug(dict(status="selected", job=producer))
+        logger.debug(
+            f"Selected {producer.rule.name}",
+            extra=dict(event=LogEvent.DEBUG_DAG, status="selected", job=producer),
+        )
         if exceptions:
-            logger.dag_debug(
-                dict(
+            logger.debug(
+                msg=f"Producer found, hence exceptions are ignored. Exceptions: {WorkflowError(*exceptions)}",
+                extra=dict(
+                    event=LogEvent.DEBUG_DAG,
                     file=file,
-                    msg="Producer found, hence exceptions are ignored.",
                     exception=WorkflowError(*exceptions),
-                )
+                ),
             )
         return producer
 
@@ -1196,12 +1204,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         self.delete_job(job, recursive=False)  # delete job from tree
                         raise ex
                     else:
-                        logger.dag_debug(
-                            dict(
+                        logger.debug(
+                            msg=f"No producers found, but file: {res.file} is present on disk.",
+                            extra=dict(
+                                event=LogEvent.DEBUG_DAG,
                                 file=res.file,
-                                msg="No producers found, but file is present on disk.",
                                 exception=ex,
-                            )
+                            ),
                         )
                         known_producers[res.file] = None
                     if isinstance(ex, CyclicGraphException) or isinstance(
@@ -2773,16 +2782,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         jobs = list(self.jobs)
 
         if len(jobs) > max_jobs:
-            logger.info(f"Job-DAG is too large for visualization (>{max_jobs} jobs).")
+            print(f"Job-DAG is too large for visualization (>{max_jobs} jobs).")
         else:
-            logger.d3dag(
-                nodes=[node(job) for job in jobs],
-                edges=[
-                    edge(dep, job)
-                    for job in jobs
-                    for dep in self._dependencies[job]
-                    if self.needrun(dep)
-                ],
+            print(
+                json.dumps(
+                    dict(
+                        nodes=[node(job) for job in jobs],
+                        edges=[
+                            edge(dep, job)
+                            for job in jobs
+                            for dep in self._dependencies[job]
+                            if self.needrun(dep)
+                        ],
+                    ),
+                )
             )
 
     def print_reasons(self):
@@ -2801,32 +2814,32 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 msg += f"\n    {reason}:\n        {rules}"
             logger.info(msg)
 
-    def stats(self):
+    def stats(self) -> tuple[str, dict[str, int]]:
         from tabulate import tabulate
 
+        # Count the jobs
         rules = Counter()
         rules.update(job.rule for job in self.needrun_jobs())
         rules.update(job.rule for job in self.finished_jobs)
 
-        rows = [
-            {
-                "job": rule.name,
-                "count": count,
-            }
-            for rule, count in sorted(
-                rules.most_common(), key=lambda item: item[0].name
-            )
-        ]
-        rows.append(
-            {
-                "job": "total",
-                "count": sum(rules.values()),
-            }
-        )
+        # Create rows for the table and a dictionary for job stats
+        rows = []
+        stats_dict = {}
+        for rule, count in sorted(rules.most_common(), key=lambda item: item[0].name):
+            row = {"job": rule.name, "count": count}
+            rows.append(row)
+            stats_dict[rule.name] = count
 
-        yield "Job stats:"
-        yield tabulate(rows, headers="keys")
-        yield ""
+        # Add total row
+        total_count = sum(rules.values())
+        rows.append({"job": "total", "count": total_count})
+        stats_dict["total"] = total_count
+
+        # Generate the formatted message
+        message = "Job stats:\n" + tabulate(rows, headers="keys") + "\n"
+
+        # Return both the message and dictionary
+        return message, stats_dict
 
     def toposorted(self, jobs=None, inherit_pipe_dependencies=False):
         if jobs is None:
