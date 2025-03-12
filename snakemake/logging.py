@@ -359,7 +359,7 @@ class DefaultFormatter(logging.Formatter):
             f for info in msg["job_error_info"] for f in info["log"]
         ]
         if self.show_failed_logs and logs:
-            output.extend(self.show_logs(logs))
+            output.extend(show_logs(logs))
 
         return output
 
