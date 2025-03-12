@@ -1661,11 +1661,6 @@ class Workflow(WorkflowExecutorInterface):
                     *ruleinfo.wildcard_constraints[0],
                     **ruleinfo.wildcard_constraints[1],
                 )
-            #if ruleinfo.name:
-            #    rule.name = ruleinfo.name
-            #    del self._rules[name]
-            #    self._rules[ruleinfo.name] = rule
-            #    name = rule.name
             if ruleinfo.input:
                 rule.input_modifier = ruleinfo.input.modifier
                 rule.set_input(*ruleinfo.input.paths, **ruleinfo.input.kwpaths)
