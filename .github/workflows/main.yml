@@ -73,7 +73,6 @@ jobs:
         with:
           miniforge-version: latest
           environment-file: test-environment-${{ matrix.py_ver }}.yml
-          environment-name: snakemake
           auto-update-conda: true
 
       - name: Install snakemake from source
