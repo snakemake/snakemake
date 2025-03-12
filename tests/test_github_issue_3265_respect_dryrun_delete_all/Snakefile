@@ -1,11 +1,17 @@
 shell.executable("bash")
 
+
 rule all:
-    input: "delete_all_output", "delete_temp_output"
-    output: touch("all_ok")
+    input:
+        "delete_all_output",
+        "delete_temp_output",
+    output:
+        touch("all_ok"),
+
 
 rule delete_all_output:
-    output: touch("delete_all_output")
+    output:
+        touch("delete_all_output"),
     shell:
         """
         echo $PATH
@@ -17,8 +23,10 @@ rule delete_all_output:
         test -d empty_dir && test -L dangling && test -d full_dir
         """
 
+
 rule delete_temp_output:
-    output: touch("delete_temp_output")
+    output:
+        touch("delete_temp_output"),
     shell:
         """
         python -m snakemake --cores 1 -s Snakefile_inner --notemp temp && \
@@ -26,7 +34,3 @@ rule delete_temp_output:
         test -f infile && test -f temp_intermediate && \
         test -d temp_empty_dir && test -d temp_full_dir && test -f temp_keep
         """
-
-
-
-

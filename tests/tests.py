@@ -43,8 +43,10 @@ xfail_permissionerror_on_win = (
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
+
 def test_github_issue_3265_respect_dryrun_delete_all():
     run(dpath("test_github_issue_3265_respect_dryrun_delete_all"))
+
 
 def test_github_issue_14():
     """Add cleanup_scripts argument to allow the user to keep scripts"""
