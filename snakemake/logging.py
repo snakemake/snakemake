@@ -539,9 +539,7 @@ class LoggerManager:
         self.initialized = False
         self.queue_listener = None
         self.mode = None
-        self.needs_rulegraph = (
-            False  # flag to indiciate a plugin needs the rulegraph from DAG.
-        )
+        self.needs_rulegraph = False
         self.logfile_handlers = {}
         self.settings: OutputSettingsLoggerInterface = None
 
