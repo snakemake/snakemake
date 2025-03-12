@@ -30,23 +30,31 @@ common_settings = CommonSettings(
 
 
 class Executor(RealExecutor):
+    SLEEPING_TIME = 0.02
     def run_job(
         self,
         job: JobExecutorInterface,
     ):
         job_info = SubmittedJobInfo(job=job)
         try:
-            time.sleep(0.1)
 
             if job.output:
 
                 async def touch():
-                    for f in job.output:
-                        if f.is_storage and await f.exists_in_storage():
-                            await f.touch_storage_and_local()
-                        elif await f.exists_local():
-                            f.touch()
+                    touch_storage_and_local_files = set([
+                        f for f in job.output if f.is_storage and await f.exists_in_storage()
+                    ])
+                    touch_files = [
+                        f for f in job.output if f not in touch_storage_and_local_files and await f.exists_local()
+                    ]
 
+                    if (len(touch_files) + len(touch_storage_and_local_files)) > 0:
+                        time.sleep(Executor.SLEEPING_TIME)
+                    for f in touch_storage_and_local_files:
+                        await f.touch_storage_and_local()
+                    for f in touch_files:
+                        f.touch()
+                            
                 async_run(touch())
 
             self.report_job_submission(job_info)
