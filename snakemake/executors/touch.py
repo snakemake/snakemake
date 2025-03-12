@@ -43,15 +43,15 @@ class Executor(RealExecutor):
 
                 async def touch():
                     touch_storage_and_local_files = {
-                            f
-                            for f in job.output
-                            if f.is_storage and await f.exists_in_storage()
+                        f
+                        for f in job.output
+                        if f.is_storage and await f.exists_in_storage()
                     }
                     touch_files = {
-                            f
-                            for f in job.output
-                            if f not in touch_storage_and_local_files
-                            and await f.exists_local()
+                        f
+                        for f in job.output
+                        if f not in touch_storage_and_local_files
+                        and await f.exists_local()
                     }
                     non_existing_files = (
                         set(job.output) - touch_storage_and_local_files - touch_files
