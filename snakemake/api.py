@@ -290,6 +290,7 @@ class SnakemakeApi(ApiBase):
 def _no_dag(method):
     @functools.wraps(method)
     def _handle_no_dag(self: "WorkflowApi", *args, **kwargs):
+        self.snakemake_api.setup_logger()
         self.resource_settings.cores = 1
         return method(self, *args, **kwargs)
 
