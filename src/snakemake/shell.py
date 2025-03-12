@@ -13,6 +13,7 @@ import shutil
 import stat
 import tempfile
 import threading
+import re
 
 from snakemake.utils import format, argvquote, cmd_exe_quote
 from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
@@ -38,6 +39,9 @@ if not isinstance(sys.stdout, _io.TextIOWrapper):
 # hardcoded in the kernel as 32 pages, or 128kB. On OSX it appears to be
 # close to `getconf ARG_MAX`, about 253kb.
 MAX_ARG_LEN = 16 * 4096 - 1
+
+
+CUSTOM_SCRIPT_RE = re.compile(".*/\\.snakemake/scripts/.*")
 
 
 class shell:
@@ -194,8 +198,15 @@ class shell:
         # add kwargs to context (overwriting the locals of the caller)
         context.update(kwargs)
 
+        # detect shell calls from wrappers or script directives
+        real_file = func_context.get("__real_file__")
+        if real_file and CUSTOM_SCRIPT_RE.match(real_file):
+            context["is_custom_script"] = True
+
         jobid = context.get("jobid")
-        if not context.get("is_shell") and jobid is not None:
+        if context.get("is_custom_script") or (
+            not context.get("is_shell") and jobid is not None
+        ):
             logger.info(None, extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
 
         conda_env = context.get("conda_env", None)
