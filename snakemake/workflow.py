@@ -1633,9 +1633,13 @@ class Workflow(WorkflowExecutorInterface):
         def decorate(ruleinfo):  # type: ignore[no-redef]
             nonlocal name
 
-            # set the rulename if the name is not specified by the 'name' directive
-            if ruleinfo.name is None:
-                ruleinfo.name = name
+            if ruleinfo.name:
+                rule.name = ruleinfo.name
+                del self._rules[name]
+                self._rules[ruleinfo.name] = rule
+                name = rule.name
+            else:
+                rule.name = name
 
             # If requested, modify ruleinfo via the modifier.
             ruleinfo.apply_modifier(self.modifier)
@@ -1645,11 +1649,11 @@ class Workflow(WorkflowExecutorInterface):
                     *ruleinfo.wildcard_constraints[0],
                     **ruleinfo.wildcard_constraints[1],
                 )
-            if ruleinfo.name:
-                rule.name = ruleinfo.name
-                del self._rules[name]
-                self._rules[ruleinfo.name] = rule
-                name = rule.name
+            #if ruleinfo.name:
+            #    rule.name = ruleinfo.name
+            #    del self._rules[name]
+            #    self._rules[ruleinfo.name] = rule
+            #    name = rule.name
             if ruleinfo.input:
                 rule.input_modifier = ruleinfo.input.modifier
                 rule.set_input(*ruleinfo.input.paths, **ruleinfo.input.kwpaths)
