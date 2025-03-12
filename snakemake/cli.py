@@ -1902,34 +1902,20 @@ def args_to_api(args, parser):
 
     wait_for_files = parse_wait_for_files(args)
 
-    output_settings = OutputSettings(
-        dryrun=args.dryrun,
-        printshellcmds=args.printshellcmds,
-        nocolor=args.nocolor,
-        quiet=args.quiet,
-        debug_dag=args.debug_dag,
-        verbose=args.verbose,
-        show_failed_logs=args.show_failed_logs,
-        log_handler_settings=log_handler_settings,
-        keep_logger=False,
-        stdout=args.dryrun,
-        benchmark_extended=args.benchmark_extended,
-    )
-
-    log_handlers = []
-    for name, settings in log_handler_settings.items():
-        plugin = LoggerPluginRegistry().get_plugin(name)
-        plugin.validate_settings(settings)
-        log_handlers.append(plugin.log_handler(output_settings, settings))
-
-    logging.logger_manager.setup(
-        args.mode,
-        log_handlers,
-        output_settings,
-    )
-
     with SnakemakeApi(
-        output_settings,
+        OutputSettings(
+            dryrun=args.dryrun,
+            printshellcmds=args.printshellcmds,
+            nocolor=args.nocolor,
+            quiet=args.quiet,
+            debug_dag=args.debug_dag,
+            verbose=args.verbose,
+            show_failed_logs=args.show_failed_logs,
+            log_handler_settings=log_handler_settings,
+            keep_logger=False,
+            stdout=args.dryrun,
+            benchmark_extended=args.benchmark_extended,
+        )
     ) as snakemake_api:
         deployment_method = args.software_deployment_method
         if args.use_conda:
