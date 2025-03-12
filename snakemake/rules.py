@@ -99,6 +99,7 @@ class Rule(RuleInterface):
         self._expanded_conda_env = _NOT_CACHED
         self._container_img = None
         self.is_containerized = False
+        self._nix_flake = None
         self.env_modules = None
         self._group = None
         self._wildcard_names = None
@@ -260,6 +261,14 @@ class Rule(RuleInterface):
     @container_img.setter
     def container_img(self, container_img):
         self._container_img = container_img
+
+    @property
+    def nix_flake(self):
+        return self._nix_flake
+
+    @nix_flake.setter
+    def nix_flake(self, nix_flake):
+        self._nix_flake = nix_flake
 
     @property
     def input(self):

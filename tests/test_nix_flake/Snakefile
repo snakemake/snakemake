@@ -1,0 +1,21 @@
+rule all:
+    input:
+        expand("test{i}.out2", i=range(3)),
+
+rule a:
+    output:
+        "test{i}.out",
+    nix_flake:
+        ".#pyshell"
+    shell:
+        "python3 --version > {output} || true"
+
+rule b:
+    input:
+        "test{i}.out",
+    output:
+        "test{i}.out2",
+    nix_flake:
+        ".#rshell"
+    shell:
+        "R --version > {output} || true"

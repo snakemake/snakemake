@@ -1817,6 +1817,8 @@ class Workflow(WorkflowExecutorInterface):
 
                 rule.conda_env = ruleinfo.conda_env
 
+            if ruleinfo.nix_flake:
+                rule.nix_flake = ruleinfo.nix_flake
             if ruleinfo.container_img:
                 check_may_use_software_deployment("container/singularity")
                 rule.container_img = ruleinfo.container_img
@@ -2024,6 +2026,13 @@ class Workflow(WorkflowExecutorInterface):
                 container_img if container_img is not None else False
             )
             ruleinfo.is_containerized = False
+            return ruleinfo
+
+        return decorate
+
+    def nixflake(self, nix_flake):
+        def decorate(ruleinfo):
+            ruleinfo.nix_flake = nix_flake
             return ruleinfo
 
         return decorate

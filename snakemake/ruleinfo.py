@@ -26,6 +26,7 @@ class RuleInfo:
         self.benchmark = None
         self.conda_env = None
         self.container_img = None
+        self.nix_flake = None
         self.is_containerized = False
         self.env_modules = None
         self.wildcard_constraints = None
