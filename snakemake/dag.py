@@ -35,7 +35,7 @@ from snakemake.common import (
     group_into_chunks,
     is_local_file,
 )
-from snakemake.settings.types import RerunTrigger
+from snakemake.settings.types import RerunTrigger, StrictDagEvaluation
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,
@@ -51,6 +51,7 @@ from snakemake.exceptions import (
     RemoteFileException,
     WildcardError,
     WorkflowError,
+    print_exception_warning,
 )
 from snakemake.io import (
     _IOFile,
@@ -267,17 +268,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return self._checkpoint_jobs
 
     @property
-    def finished_checkpoint_jobs(self):
-        for job in self.finished_jobs:
-            if job.is_checkpoint:
+    def finished_and_not_needrun_checkpoint_jobs(self):
+        for job in self.jobs:
+            if job.is_checkpoint and (self.finished(job) or not self.needrun(job)):
                 yield job
 
     def update_checkpoint_outputs(self):
-        workflow.checkpoints.future_output = set(
-            f for job in self.checkpoint_jobs for f in job.output
-        )
         workflow.checkpoints.created_output = set(
-            f for job in self.finished_checkpoint_jobs for f in job.output
+            f
+            for job in self.finished_and_not_needrun_checkpoint_jobs
+            for f in job.output
         )
 
     def update_jobids(self):
@@ -409,25 +409,28 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if self.workflow.remote_exec:
             logger.info("Storing output in storage.")
             try:
-                async with asyncio.TaskGroup() as tg:
-                    for job in self.needrun_jobs(exclude_finished=False):
-                        benchmark = [job.benchmark] if job.benchmark else []
+                for level in self.toposorted(
+                    set(self.needrun_jobs(exclude_finished=False))
+                ):
+                    async with asyncio.TaskGroup() as tg:
+                        for job in level:
+                            benchmark = [job.benchmark] if job.benchmark else []
 
-                        async def tostore(f):
-                            return (
-                                f.is_storage
-                                and f
-                                not in self.workflow.storage_settings.unneeded_temp_files
-                                and await f.exists_local()
-                            )
+                            async def tostore(f):
+                                return (
+                                    f.is_storage
+                                    and f
+                                    not in self.workflow.storage_settings.unneeded_temp_files
+                                    and await f.exists_local()
+                                )
 
-                        if self.finished(job):
-                            for f in chain(job.output, benchmark):
+                            if self.finished(job):
+                                for f in chain(job.output, benchmark):
+                                    if await tostore(f):
+                                        tg.create_task(f.store_in_storage())
+                            for f in job.log:
                                 if await tostore(f):
                                     tg.create_task(f.store_in_storage())
-                        for f in job.log:
-                            if await tostore(f):
-                                tg.create_task(f.store_in_storage())
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to store output in storage.", e)
 
@@ -1043,10 +1046,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     break
             except (
                 MissingInputException,
-                CyclicGraphException,
-                PeriodicWildcardError,
                 WorkflowError,
             ) as ex:
+                exceptions.append(ex)
+                discarded_jobs.add(job)
+            except (CyclicGraphException,) as ex:
+                if (
+                    StrictDagEvaluation.CYCLIC_GRAPH
+                    in self.workflow.dag_settings.strict_evaluation
+                ):
+                    raise ex
+                exceptions.append(ex)
+                discarded_jobs.add(job)
+            except (PeriodicWildcardError,) as ex:
+                if (
+                    StrictDagEvaluation.PERIODIC_WILDCARDS
+                    in self.workflow.dag_settings.strict_evaluation
+                ):
+                    raise ex
                 exceptions.append(ex)
                 discarded_jobs.add(job)
             except RecursionError as e:
@@ -1073,6 +1090,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 raise WorkflowError(*exceptions)
             elif len(exceptions) == 1:
                 raise exceptions[0]
+        else:
+            for e in exceptions:
+                if isinstance(e, CyclicGraphException) or isinstance(
+                    e, PeriodicWildcardError
+                ):
+                    print_exception_warning(e, self.workflow.linemaps)
 
         n = len(self._dependencies)
         if progress and n % 1000 == 0 and n and self._progress != n:
@@ -1178,6 +1201,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             )
                         )
                         known_producers[res.file] = None
+                    if isinstance(ex, CyclicGraphException) or isinstance(
+                        ex, PeriodicWildcardError
+                    ):
+                        print_exception_warning(ex, self.workflow.linemaps)
 
         for file, job_ in producer.items():
             dependencies[job_].add(file)
@@ -2261,10 +2288,23 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 )
             except InputFunctionException as e:
                 exceptions.append(e)
+                if (
+                    StrictDagEvaluation.FUNCTIONS
+                    in self.workflow.dag_settings.strict_evaluation
+                ):
+                    raise e
         if not jobs:
             if exceptions:
                 raise exceptions[0]
             raise MissingRuleException(targetfile)
+        else:
+            # Warn user of possible errors
+            for e in exceptions:
+                print_exception_warning(
+                    e,
+                    self.workflow.linemaps,
+                    "Use --strict-dag-evaluation to force strict mode.",
+                )
         return jobs
 
     def rule_dot2(self):
