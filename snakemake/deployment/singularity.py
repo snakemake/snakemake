@@ -130,9 +130,15 @@ def shellcmd(
     # mount the snakemake cache into the container per default so that
     # params included with workflow.source_path are always mounted in the container
     if len(args) == 0:
-        args += "--bind " + os.path.join(
+        source_cache_path = os.path.join(
             get_appdirs().user_cache_dir, "snakemake/source-cache"
         )
+        if os.path.exists(source_cache_path):
+            args += "--bind " + source_cache_path
+        else:
+            logger.debug(
+                f"Source cache directory {source_cache_path} does not exist, skipping bind mount"
+            )
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
