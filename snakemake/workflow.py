@@ -1153,6 +1153,7 @@ class Workflow(WorkflowExecutorInterface):
         async_run(self.dag.update_checkpoint_dependencies())
 
         self.log_rulegraph()
+
     def execute(
         self,
         executor_plugin: ExecutorPlugin,
