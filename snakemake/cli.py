@@ -698,7 +698,7 @@ def get_argument_parser(profiles=None):
         "--rerun-triggers",
         nargs="+",
         choices=RerunTrigger.choices(),
-        default=RerunTrigger.all(),
+        default=RerunTrigger.choices(),
         parse_func=RerunTrigger.parse_choices_set,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
