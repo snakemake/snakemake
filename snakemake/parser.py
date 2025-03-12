@@ -863,6 +863,7 @@ class OnStart(DecoratorKeywordState):
 
 # modules
 
+
 class ModuleKeywordState(SectionKeywordState):
     prefix = "Module"
 
@@ -870,7 +871,7 @@ class ModuleKeywordState(SectionKeywordState):
         yield f"{self.keyword}="
 
     def end(self):
-        yield ','
+        yield ","
 
 
 class ModuleName(ModuleKeywordState):
@@ -953,7 +954,9 @@ class Module(GlobalKeywordState):
             yield f"workflow.module(", token
         else:
             self.error(
-                "Expected name or colon after module keyword.", token, naming_hint="module"
+                "Expected name or colon after module keyword.",
+                token,
+                naming_hint="module",
             )
 
     def block_content(self, token):
@@ -966,8 +969,9 @@ class Module(GlobalKeywordState):
                 if token.string == "name":
                     if self.has_name:
                         raise self.error(
-                           "Ambiguous module name. Name given after module and name keyword.",
-                           token, naming_hint="module"
+                            "Ambiguous module name. Name given after module and name keyword.",
+                            token,
+                            naming_hint="module",
                         )
                     self.has_name = True
                 for t in self.subautomaton(token.string, token=token).consume():
