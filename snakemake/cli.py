@@ -431,52 +431,19 @@ def get_argument_parser(profiles=None):
         dest="dryrun",
         action="store_true",
         help="Do not execute anything, and display what would be done. "
-        "If you have a very large workflow, use --dry-run --quiet to just "
+        "If you have a very large workflow, use `--dry-run --quiet` to just "
         "print a summary of the DAG of jobs.",
     )
 
     group_exec.add_argument(
         "--profile",
-        help=f"""
-            Name of profile to use for configuring
-            Snakemake. Snakemake will search for a corresponding
-            folder in {dirs.site_config_dir} and {dirs.user_config_dir}. Alternatively, this can be an
-            absolute or relative path.
-            The profile folder has to contain a file 'config.yaml'.
-            This file can be used to set default values for command
-            line options in YAML format. For example,
-            '--cluster qsub' becomes 'cluster: qsub' in the YAML
-            file. Profiles can be obtained from
-            https://github.com/snakemake-profiles.
-            The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
-            To override this variable and use no profile at all, provide the value 'none'
-            to this argument.
-            """,
+        help=f"Name of profile to use for configuring Snakemake. Snakemake will search for a corresponding folder in `{dirs.site_config_dir}` and `{dirs.user_config_dir}`. Alternatively, this can be an absolute or relative path. The profile folder has to contain a file `config.yaml`. This file can be used to set default values for command line options in YAML format. For example, `--cluster qsub` becomes `cluster: qsub` in the YAML file. Profiles can be obtained from https://github.com/snakemake-profiles. The profile can also be set via the environment variable `$SNAKEMAKE_PROFILE`. To override this variable and use no profile at all, provide the value `none` to this argument.",
         env_var="SNAKEMAKE_PROFILE",
     )
 
     group_exec.add_argument(
         "--workflow-profile",
-        help="""
-            Path (relative to current directory) to workflow specific profile 
-            folder to use for configuring Snakemake with parameters specific for this
-            workflow (like resources).
-            If this flag is not used, Snakemake will by default use 
-            'profiles/default' if present (searched both relative to current directory
-            and relative to Snakefile, in this order).
-            For skipping any workflow specific profile provide the special value 'none'.
-            Settings made in the workflow profile will override settings made in the
-            general profile (see --profile).
-            The profile folder has to contain a file 'config.yaml'.
-            This file can be used to set default values for command
-            line options in YAML format. For example,
-            '--executor slurm' becomes 'executor: slurm' in the YAML
-            file. It is advisable to use the workflow profile to set
-            or overwrite e.g. workflow specific resources like the amount of threads
-            of a particular rule or the amount of memory needed.
-            Note that in such cases, the arguments may be given as nested YAML mappings 
-            in the profile, e.g. 'set-threads: myrule: 4' instead of 'set-threads: myrule=4'.
-            """,
+        help="Path (relative to current directory) to workflow specific profile folder to use for configuring Snakemake with parameters specific for this workflow (like resources). If this flag is not used, Snakemake will by default use `profiles/default` if present (searched both relative to current directory and relative to Snakefile, in this order). For skipping any workflow specific profile provide the special value `none`. Settings made in the workflow profile will override settings made in the general profile (see `--profile`). The profile folder has to contain a file `config.yaml`. This file can be used to set default values for command line options in YAML format. For example, `--executor slurm` becomes `executor: slurm` in the YAML file. It is advisable to use the workflow profile to set or overwrite e.g. workflow specific resources like the amount of threads of a particular rule or the amount of memory needed. Note that in such cases, the arguments may be given as nested YAML mappings in the profile, e.g. `set-threads: myrule: 4` instead of `set-threads: myrule=4`.",
     )
 
     group_exec.add_argument(
@@ -484,7 +451,7 @@ def get_argument_parser(profiles=None):
         nargs="*",
         metavar="RULE",
         help="Store output files of given rules in a central cache given by the environment "
-        f"variable ${caching.LOCATION_ENVVAR}. Likewise, retrieve output files of the given rules "
+        f"variable `${caching.LOCATION_ENVVAR}`. Likewise, retrieve output files of the given rules "
         "from this cache if they have been created before (by anybody writing to the same cache), "
         "instead of actually executing the rules. Output files are identified by hashing all "
         "steps, parameters and software stack (conda envs or containers) needed to create them.",
@@ -503,7 +470,7 @@ def get_argument_parser(profiles=None):
             "directory, in this order. "
             "Only if you definitely want a different layout, "
             "you need to use this parameter."
-        ).format(", ".join(map("'{}'".format, SNAKEFILE_CHOICES))),
+        ).format(", ".join(map("`{}`".format, SNAKEFILE_CHOICES))),
     )
     group_exec.add_argument(
         "--cores",
@@ -513,7 +480,7 @@ def get_argument_parser(profiles=None):
         type=parse_cores,
         help=(
             "Use at most N CPU cores/jobs in parallel. "
-            "If N is omitted or 'all', the limit is set to the number of "
+            "If N is omitted or `all`, the limit is set to the number of "
             "available CPU cores. "
             "In case of cluster/cloud execution, this argument sets the maximum number "
             "of cores requested from the cluster or cloud scheduler. (See "
@@ -530,8 +497,8 @@ def get_argument_parser(profiles=None):
         type=parse_jobs,
         help=(
             "Use at most N CPU cluster/cloud jobs in parallel. For local execution this is "
-            "an alias for --cores (it is though recommended to use --cores in that case). "
-            "Note: Set to 'unlimited' to allow any number of parallel jobs."
+            "an alias for `--cores` (it is though recommended to use `--cores` in that case). "
+            "Note: Set to `unlimited` to allow any number of parallel jobs."
         ),
     )
     group_exec.add_argument(
@@ -542,8 +509,7 @@ def get_argument_parser(profiles=None):
         help=(
             "In cluster/cloud mode, use at most N cores of the host machine in parallel "
             "(default: number of CPU cores of the host). The cores are used to execute "
-            "local rules. This option is ignored when not in cluster/cloud mode. "
-            "(default: <available CPU count>)"
+            "local rules. This option is ignored when not in cluster/cloud mode."
         ),
     )
     group_exec.add_argument(
@@ -555,11 +521,11 @@ def get_argument_parser(profiles=None):
         parse_func=parse_resources,
         help=(
             "Define additional resources that shall constrain the scheduling "
-            "analogously to --cores (see above). A resource is defined as "
-            "a name and an integer value. E.g. --resources mem_mb=1000. Rules can "
+            "analogously to `--cores` (see above). A resource is defined as "
+            "a name and an integer value. E.g. `--resources mem_mb=1000`. Rules can "
             "use resources by defining the resource keyword, e.g. "
-            "resources: mem_mb=600. If now two rules require 600 of the resource "
-            "'mem_mb' they won't be run in parallel by the scheduler. In "
+            "`resources: mem_mb=600`. If now two rules require 600 of the resource "
+            "`mem_mb` they won't be run in parallel by the scheduler. In "
             "cluster/cloud mode, this argument will also constrain the amount of "
             "resources requested from the server. (See "
             "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
@@ -584,7 +550,7 @@ def get_argument_parser(profiles=None):
         "requesting more threads (via the threads keyword) will have their values "
         "reduced to the maximum. This can be useful when you want to restrict the "
         "maximum number of threads without modifying the workflow definition or "
-        "overwriting rules individually with --set-threads.",
+        "overwriting rules individually with `--set-threads`.",
     )
     group_exec.add_argument(
         "--set-resources",
@@ -616,12 +582,12 @@ def get_argument_parser(profiles=None):
         parse_func=parse_set_resource_scope,
         help="Overwrite resource scopes. A scope determines how a constraint is "
         "reckoned in cluster execution. With RESOURCE=local, a constraint applied to "
-        "RESOURCE using --resources will be considered the limit for each group "
+        "RESOURCE using `--resources` will be considered the limit for each group "
         "submission. With RESOURCE=global, the constraint will apply across all groups "
         "cumulatively. By default, only `mem_mb` and `disk_mb` are considered local, "
         "all other resources are global. This may be modified in the snakefile using "
         "the `resource_scopes:` directive. Note that number of threads, specified via "
-        "--cores, is always considered local. (See "
+        "`--cores`, is always considered local. (See "
         "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
         "resources-remote-execution for more info)",
     )
@@ -633,12 +599,11 @@ def get_argument_parser(profiles=None):
         parse_func=maybe_base64(DefaultResources),
         help=(
             "Define default values of resources for rules that do not define their own values. "
-            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb'). "
+            "In addition to plain integers, python expressions over inputsize are allowed (e.g. `2*input.size_mb`). "
             "The inputsize is the sum of the sizes of all input files of a rule. "
             "By default, Snakemake assumes a default for mem_mb, disk_mb, and tmpdir (see below). "
             "This option allows to add further defaults (e.g. account and partition for slurm) or to overwrite these default values. "
-            "The defaults are 'mem_mb=min(max(2*input.size_mb, 1000), 8000)', "
-            "'disk_mb=max(2*input.size_mb, 1000)' "
+            "The defaults are `mem_mb=min(max(2*input.size_mb, 1000), 8000)`, `disk_mb=max(2*input.size_mb, 1000)` "
             "(i.e., default disk and mem usage is twice the input file size but at least 1GB), and "
             "the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
             "The tmpdir resource is automatically used by shell commands, scripts and wrappers to store temporary data (as it is "
@@ -688,7 +653,7 @@ def get_argument_parser(profiles=None):
             "Set or overwrite values in the workflow config object. "
             "The workflow config object is accessible as variable config inside "
             "the workflow. Default values can be set by providing a YAML JSON file "
-            "(see --configfile and Documentation)."
+            "(see `--configfile` and Documentation)."
         ),
     )
     group_exec.add_argument(
@@ -721,7 +686,7 @@ def get_argument_parser(profiles=None):
             "not yet exist. Note that this will only touch files that would "
             "otherwise be recreated by Snakemake (e.g. because their input "
             "files are newer). For enforcing a touch, combine this with "
-            "--force, --forceall, or --forcerun. Note however that you lose "
+            "`--force`, `--forceall`, or `--forcerun`. Note however that you lose "
             "the provenance information when the files have been created in "
             "reality. Hence, this should be used only as a last resort."
         ),
@@ -736,13 +701,13 @@ def get_argument_parser(profiles=None):
         "--rerun-triggers",
         nargs="+",
         choices=RerunTrigger.choices(),
-        default=RerunTrigger.all(),
+        default=RerunTrigger.choices(),
         parse_func=RerunTrigger.parse_choices_set,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
         "consistent with the workflow code and configuration. If you "
         "rather prefer the traditional way of just considering "
-        "file modification dates, use '--rerun-trigger mtime'.",
+        "file modification dates, use `--rerun-trigger mtime`.",
     )
     group_exec.add_argument(
         "--force",
@@ -860,8 +825,8 @@ def get_argument_parser(profiles=None):
         "--shadow-prefix",
         metavar="DIR",
         help=(
-            "Specify a directory in which the 'shadow' directory is created. "
-            "If not supplied, the value is set to the '.snakemake' directory relative "
+            "Specify a directory in which the `shadow` directory is created. "
+            "If not supplied, the value is set to the `.snakemake` directory relative "
             "to the working directory."
         ),
     )
@@ -910,9 +875,9 @@ def get_argument_parser(profiles=None):
         metavar="NAME=VALUE",
         help=(
             "If the workflow management service accepts extra arguments, provide. "
-            "them in key value pairs with --wms-monitor-arg. For example, to run "
+            "them in key value pairs with `--wms-monitor-arg`. For example, to run "
             "an existing workflow using a wms monitor, you can provide the pair "
-            "id=12345 and the arguments will be provided to the endpoint to "
+            "`id=12345` and the arguments will be provided to the endpoint to "
             "first interact with the workflow"
         ),
     )
@@ -972,13 +937,12 @@ def get_argument_parser(profiles=None):
         help="Create a self-contained HTML report with default statistics, "
         "provenance information and user-specified results. "
         "For smaller datasets with a limited report complexity, you can specify "
-        "an '.html' file and all results will be embedded directly into this file. "
+        "an `.html` file and all results will be embedded directly into this file. "
         "For customized reports on larger sample sizes, it makes more sense to "
-        "specify a '.zip' file. The resulting archive will spread the contents "
+        "specify a `.zip` file. The resulting archive will spread the contents "
         "across a folder structure, for a quicker loading of individual results. "
-        "You can unpack this archive anywhere and open the 'report.html` file in "
-        "its main folder to view the report in any web browser. "
-        "If no filename is given, an embedded report.html is the default.",
+        "You can unpack this archive anywhere and open the `report.html` file in "
+        "its main folder to view the report in any web browser.",
     )
     group_report.add_argument(
         "--report-stylesheet",
@@ -992,7 +956,7 @@ def get_argument_parser(profiles=None):
         metavar="PLUGIN",
         help="Specify a custom report plugin. By default, Snakemake's builtin html "
         "reporter will be used. For custom reporters, check out their command line "
-        "options starting with --report-.",
+        "options starting with `--report-`.",
     )
 
     group_notebooks = parser.add_argument_group("NOTEBOOKS")
@@ -1010,7 +974,7 @@ def get_argument_parser(profiles=None):
         help="Interactively edit the notebook associated with the rule used to generate the given target file. "
         "This will start a local jupyter notebook server. "
         "Any changes to the notebook should be saved, and the server has to be stopped by "
-        "closing the notebook and hitting the 'Quit' button on the jupyter dashboard. "
+        "closing the notebook and hitting the `Quit` button on the jupyter dashboard. "
         "Afterwards, the updated notebook will be automatically stored in the path defined in the rule. "
         "If the notebook is not yet present, this will create an empty draft. ",
     )
@@ -1018,7 +982,7 @@ def get_argument_parser(profiles=None):
         "--notebook-listen",
         metavar="IP:PORT",
         default="localhost:8888",
-        help="The IP address and PORT the notebook server used for editing the notebook (--edit-notebook) will listen on.",
+        help="The IP address and PORT the notebook server used for editing the notebook (`--edit-notebook`) will listen on.",
     )
 
     group_utils = parser.add_argument_group("UTILITIES")
@@ -1039,11 +1003,9 @@ def get_argument_parser(profiles=None):
         type=Path,
         help="Automatically generate unit tests for each workflow rule. "
         "This assumes that all input files of each job are already present. "
-        "Rules without a job with present input files will be skipped (a warning will be issued). "
-        "For each rule, one test case will be "
-        "created in the specified test folder (.tests/unit by default). After "
-        "successful execution, tests can be run with "
-        "'pytest TESTPATH'.",
+        "Jobs without present input files will be skipped (a warning will be issued). "
+        "For each rule, one test case will be created and, after "
+        "successful execution, tests can be run with `pytest TESTPATH`.",
     )
     group_utils.add_argument(
         "--containerize",
@@ -1075,7 +1037,7 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Do not execute anything and print the directed "
         "acyclic graph of jobs in the dot language. Recommended "
-        "use on Unix systems: snakemake --dag | dot | display. "
+        "use on Unix systems: snakemake `--dag | dot | display`. "
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
@@ -1088,7 +1050,7 @@ def get_argument_parser(profiles=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --rulegraph | dot | display. "
+        "Recommended use on Unix systems: snakemake `--rulegraph | dot | display`. "
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
@@ -1192,7 +1154,7 @@ def get_argument_parser(profiles=None):
         help="List all output files for which the defined input files have changed "
         "in the Snakefile (e.g. new input files were added in the rule "
         "definition or files were renamed). For listing input file "
-        "modification in the filesystem, use --summary.",
+        "modification in the filesystem, use `--summary`.",
     )
     group_utils.add_argument(
         "--list-params-changes",
@@ -1213,7 +1175,7 @@ def get_argument_parser(profiles=None):
     group_delete_output.add_argument(
         "--delete-all-output",
         action="store_true",
-        help="Remove all files generated by the workflow. Use together with --dry-run "
+        help="Remove all files generated by the workflow. Use together with `--dry-run` "
         "to list files without actually deleting anything. Note that this will "
         "not recurse into subworkflows. Write-protected files are not removed. "
         "Nevertheless, use with care!",
@@ -1222,7 +1184,7 @@ def get_argument_parser(profiles=None):
         "--delete-temp-output",
         action="store_true",
         help="Remove all temporary files generated by the workflow. Use together "
-        "with --dry-run to list files without actually deleting anything. Note "
+        "with `--dry-run` to list files without actually deleting anything. Note "
         "that this will not recurse into subworkflows.",
     )
     group_utils.add_argument(
@@ -1234,8 +1196,8 @@ def get_argument_parser(profiles=None):
         "--drop-metadata",
         action="store_true",
         help="Drop metadata file tracking information after job finishes. "
-        "Provenance-information based reports (e.g. --report and the "
-        "--list_x_changes functions) will be empty or incomplete.",
+        "Provenance-information based reports (e.g. `--report` and the "
+        "`--list_x_changes` functions) will be empty or incomplete.",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
@@ -1264,7 +1226,7 @@ def get_argument_parser(profiles=None):
         parse_func=parse_quietness,
         help="Do not output certain information. "
         "If used without arguments, do not output any progress or rule "
-        "information. Defining 'all' results in no information being "
+        "information. Defining `all` results in no information being "
         "printed at all.",
     )
     group_output.add_argument(
@@ -1331,15 +1293,14 @@ def get_argument_parser(profiles=None):
         default=5,
         metavar="SECONDS",
         help="Wait given seconds if an output file of a job is not present after "
-        "the job finished. This helps if your filesystem "
-        "suffers from latency (default 5).",
+        "the job finished. This helps if your filesystem suffers from latency.",
     )
     group_behavior.add_argument(
         "--wait-for-files",
         nargs="*",
         metavar="FILE",
         parse_func=set,
-        help="Wait --latency-wait seconds for these "
+        help="Wait `--latency-wait` seconds for these "
         "files to be present before executing the workflow. "
         "This option is used internally to handle filesystem latency in cluster "
         "environments.",
@@ -1347,7 +1308,7 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--wait-for-files-file",
         metavar="FILE",
-        help="Same behaviour as --wait-for-files, but file list is "
+        help="Same behaviour as `--wait-for-files`, but file list is "
         "stored in file instead of being passed on the commandline. "
         "This is useful when the list of files is too long to be "
         "passed on the commandline.",
@@ -1401,6 +1362,7 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--max-jobs-per-timespan",
+        default="100/1s",
         type=MaxJobsPerTimespan.parse_choice,
         help="Maximal number of job submissions/executions per timespan. Format: <number><timespan>, e.g. 50/1m or 0.5/1s.",
     )
@@ -1408,14 +1370,13 @@ def get_argument_parser(profiles=None):
         "--max-jobs-per-second",
         type=int,
         help="Maximal number of job submissions/executions per second. "
-        "Deprecated in favor of --max-jobs-per-timespan.",
+        "Deprecated in favor of `--max-jobs-per-timespan`.",
     )
     group_behavior.add_argument(
         "--max-status-checks-per-second",
         default=10,
         type=float,
-        help="Maximal number of job status checks per second, default is 10, "
-        "fractions allowed.",
+        help="Maximal number of job status checks per second; fractions allowed.",
     )
     group_behavior.add_argument(
         "--seconds-between-status-checks",
@@ -1429,23 +1390,21 @@ def get_argument_parser(profiles=None):
         "-T",
         default=0,
         type=int,
-        help="Number of times to restart failing jobs (defaults to 0).",
+        help="Number of times to restart failing jobs.",
     )
     group_behavior.add_argument(
         "--wrapper-prefix",
         default="https://github.com/snakemake/snakemake-wrappers/raw/",
-        help="Prefix for URL created from wrapper directive (default: "
-        "https://github.com/snakemake/snakemake-wrappers/raw/). Set this to "
-        "a different URL to use your fork or a local clone of the repository, "
-        "e.g., use a git URL like 'git+file://path/to/your/local/clone@'.",
+        help="URL prefix for wrapper directive. Set this to use your fork or a local clone of the repository, "
+        "e.g., use a git URL like `git+file://path/to/your/local/clone@`.",
     )
     group_behavior.add_argument(
         "--default-storage-provider",
         type=optional_str,
         help="Specify default storage provider to be used for "
         "all input and output files that don't yet specify "
-        "one (e.g. 's3'). See https://snakemake.github.io/snakemake-plugin-catalog "
-        "for available storage provider plugins. If not set or explicitly 'none', no "
+        "one (e.g. `s3`). See https://snakemake.github.io/snakemake-plugin-catalog "
+        "for available storage provider plugins. If not set or explicitly `none`, no "
         "default storage provider will be used.",
     )
     group_behavior.add_argument(
@@ -1457,20 +1416,14 @@ def get_argument_parser(profiles=None):
         "--local-storage-prefix",
         default=".snakemake/storage",
         type=maybe_base64(expandvars(Path)),
-        help="Specify prefix for storing local copies of storage files and folders. "
-        "By default, this is a hidden subfolder in the workdir. It can however be "
-        "freely chosen, e.g. in order to store those files on a local scratch disk. "
-        "Environment variables will be expanded.",
+        help="Specify prefix for storing local copies of storage files and folders (e.g. local scratch disk). Environment variables will be expanded.",
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
+        default=".snakemake/storage",
         type=maybe_base64(Path),
-        help="Specify prefix for storing local copies of storage files and folders in "
-        "case of remote jobs (e.g. cluster or cloud jobs). This may differ from "
-        "--local-storage-prefix. If not set, uses value of --local-storage-prefix. "
-        "By default, this is a hidden subfolder in the workdir. It can however be "
-        "freely chosen, e.g. in order to store those files on a local scratch disk. "
-        "Environment variables will be expanded within the remote job.",
+        help="Specify prefix for storing local copies of storage files and folders (e.g. local scratch disk) in "
+        "case of remote jobs (e.g. cluster or cloud jobs). Environment variables will be expanded within the remote job.",
     )
     group_behavior.add_argument(
         "--shared-fs-usage",
@@ -1480,13 +1433,13 @@ def get_argument_parser(profiles=None):
         parse_func=SharedFSUsage.parse_choices_set,
         help="Set assumptions on shared filesystem for non-local "
         "workflow execution. To disable any sharing via the filesystem, "
-        "specify 'none'. "
+        "specify `none`. "
         "Usually, the executor plugin sets this to a correct "
         "default. However, sometimes it is worth tuning this setting, e.g. for "
         "optimizing cluster performance. For example, when using "
-        "'--default-storage-provider fs' together with a cluster executor like "
+        "`--default-storage-provider fs` together with a cluster executor like "
         "slurm, you might want to set "
-        "'--shared-fs-usage persistence software-deployment sources source-cache', "
+        "`--shared-fs-usage persistence software-deployment sources source-cache`, "
         "such that software deployment and data provenance will be handled by NFS "
         "but input and output files will be handled exclusively by the storage "
         "provider.",
@@ -1495,7 +1448,7 @@ def get_argument_parser(profiles=None):
         "--scheduler-greediness",
         "--greediness",
         type=float,
-        default=None,
+        default=1.0,
         help="Set the greediness of scheduling. This value between 0 and 1 "
         "determines how careful jobs are selected for execution. The default "
         "value (1.0) provides the best speed and still acceptable scheduling "
@@ -1537,8 +1490,7 @@ def get_argument_parser(profiles=None):
         "--attempt",
         default=1,
         type=int,
-        help="Internal use only: define the initial value of the attempt "
-        "parameter (default: 1).",
+        help="Internal use only: define the initial value of the attempt parameter.",
     )
     group_behavior.add_argument(
         "--show-failed-logs",
@@ -1549,7 +1501,7 @@ def get_argument_parser(profiles=None):
         "--log-handler-script",
         metavar="FILE",
         default=None,
-        help="Provide a custom script containing a function 'def log_handler(msg):'. "
+        help="Provide a custom script containing a function `def log_handler(msg):`. "
         "Snakemake will call this function for every logging output (given as a dictionary msg) "
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
@@ -1565,7 +1517,7 @@ def get_argument_parser(profiles=None):
         "--job-deploy-sources",
         action="store_true",
         help="Whether the workflow sources shall be deployed before a remote job is "
-        "started. Only applies if --no-shared-fs is set or executors are used that "
+        "started. Only applies if `--no-shared-fs` is set or executors are used that "
         "imply no shared FS (e.g. the kubernetes executor).",
     )
     group_behavior.add_argument(
@@ -1582,7 +1534,7 @@ def get_argument_parser(profiles=None):
         metavar="IMAGE",
         default=get_container_image(),
         help="Docker image to use, e.g., when submitting jobs to kubernetes. "
-        "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
+        "Defaults to https://hub.docker.com/r/snakemake/snakemake, tagged with "
         "the same version as the currently running Snakemake instance. "
         "Note that overwriting this value is up to your responsibility. "
         "Any used image has to contain a working snakemake installation "
@@ -1595,8 +1547,8 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Immediately submit all jobs to the cluster instead of waiting "
         "for present input files. This will fail, unless you make "
-        "the cluster aware of job dependencies, e.g. via:\n"
-        "$ snakemake --cluster 'sbatch --dependency {dependencies}.\n"
+        "the cluster aware of job dependencies, e.g. via: "
+        "`$ snakemake --cluster 'sbatch --dependency {dependencies}'`. "
         "Assuming that your submit script (here sbatch) outputs the "
         "generated job id to the first stdout line, {dependencies} will "
         "be filled with space separated job ids this job depends on. "
@@ -1607,17 +1559,14 @@ def get_argument_parser(profiles=None):
         "--js",
         metavar="SCRIPT",
         help="Provide a custom job script for submission to the cluster. "
-        "The default script resides as 'jobscript.sh' in the "
-        "installation directory.",
+        "The default script resides as `jobscript.sh` in the installation directory.",
     )
     group_cluster.add_argument(
         "--jobname",
         "--jn",
         default="snakejob.{name}.{jobid}.sh",
         metavar="NAME",
-        help="Provide a custom name for the jobscript that is submitted to the "
-        'cluster (see --cluster). NAME is "snakejob.{name}.{jobid}.sh" '
-        "per default. The wildcard {jobid} has to be present in the name.",
+        help="Provide a custom name for the jobscript that is submitted to the cluster (see `--cluster`). The wildcard `{jobid}` has to be present in the name.",
     )
 
     group_flux = parser.add_argument_group("FLUX")
@@ -1627,7 +1576,7 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Execute your workflow on a flux cluster. "
         "Flux can work with both a shared network filesystem (like NFS) or without. "
-        "If you don't have a shared filesystem, additionally specify --no-shared-fs.",
+        "If you don't have a shared filesystem, additionally specify `--no-shared-fs`.",
     )
 
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
@@ -1671,10 +1620,10 @@ def get_argument_parser(profiles=None):
         "--conda-prefix",
         metavar="DIR",
         default=os.environ.get("SNAKEMAKE_CONDA_PREFIX", None),
-        help="Specify a directory in which the 'conda' and 'conda-archive' "
+        help="Specify a directory in which the `conda` and `conda-archive` "
         "directories are created. These are used to store conda environments "
         "and their archives, respectively. If not supplied, the value is set "
-        "to the '.snakemake' directory relative to the invocation directory. "
+        "to the `.snakemake` directory relative to the invocation directory. "
         "If supplied, the `--use-conda` flag must also be set. The value may "
         "be given as a relative path, which will be extrapolated to the "
         "invocation directory, or as an absolute path. The value can also be "
@@ -1683,7 +1632,7 @@ def get_argument_parser(profiles=None):
         "variables which will be properly expanded. "
         "Note that if you use remote execution "
         "e.g. on a cluster and you have node specific values for this, you should "
-        "disable assuming shared fs for software-deployment (see --shared-fs-usage).",
+        "disable assuming shared fs for software-deployment (see `--shared-fs-usage`).",
     )
     group_conda.add_argument(
         "--conda-cleanup-envs",
@@ -1698,11 +1647,11 @@ def get_argument_parser(profiles=None):
         type=CondaCleanupMode,
         const=CondaCleanupMode.tarballs,
         choices=list(CondaCleanupMode),
+        default="tarballs",
         nargs="?",
         help="Cleanup conda packages after creating environments. "
-        "In case of 'tarballs' mode, will clean up all downloaded package tarballs. "
-        "In case of 'cache' mode, will additionally clean up unused package caches. "
-        "If mode is omitted, will default to only cleaning up the tarballs.",
+        "In case of `tarballs` mode, will clean up all downloaded package tarballs. "
+        "In case of `cache` mode, will additionally clean up unused package caches.",
     )
     group_conda.add_argument(
         "--conda-create-envs-only",
@@ -1715,8 +1664,7 @@ def get_argument_parser(profiles=None):
         "--conda-frontend",
         default="conda",
         choices=["conda", "mamba"],
-        help="Choose the conda frontend for installing environments. "
-        "Mamba is much faster and highly recommended.",
+        help="Choose the conda frontend for installing environments.",
     )
 
     group_singularity = parser.add_argument_group("APPTAINER/SINGULARITY")
@@ -1734,14 +1682,14 @@ def get_argument_parser(profiles=None):
         metavar="DIR",
         help="Specify a directory in which apptainer/singularity images will be stored."
         "If not supplied, the value is set "
-        "to the '.snakemake' directory relative to the invocation directory. "
+        "to the `.snakemake` directory relative to the invocation directory. "
         "If supplied, the `--use-apptainer` flag must also be set. The value "
         "may be given as a relative path, which will be extrapolated to the "
         "invocation directory, or as an absolute path. If not supplied, "
         "APPTAINER_CACHEDIR is used. In any case, the prefix may contain environment "
         "variables which will be properly expanded. Note that if you use remote execution "
         "e.g. on a cluster and you have node specific values for this, you should "
-        "disable assuming shared fs for software-deployment (see --shared-fs-usage).",
+        "disable assuming shared fs for software-deployment (see `--shared-fs-usage`).",
     )
     group_singularity.add_argument(
         "--apptainer-args",
@@ -1759,7 +1707,7 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="If defined in the rule, run job within the given environment "
         "modules, loaded in the given order. This can be combined with "
-        "--use-conda and --use-singularity, which will then be only used as a "
+        "`--use-conda` and `--use-singularity`, which will then be only used as a "
         "fallback for rules which don't define environment modules.",
     )
 
