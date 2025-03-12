@@ -10,7 +10,6 @@ import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import List, Mapping, Optional, Set, Union
-
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -65,6 +64,7 @@ from snakemake.settings.types import (
     SharedFSUsage,
     StorageSettings,
     WorkflowSettings,
+    StrictDagEvaluation,
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
@@ -860,6 +860,15 @@ def get_argument_parser(profiles=None):
         ),
     )
 
+    group_exec.add_argument(
+        "--strict-dag-evaluation",
+        nargs="+",
+        choices=StrictDagEvaluation.choices(),
+        default=set(),
+        parse_func=StrictDagEvaluation.parse_choices_set,
+        help="Strict evaluation of rules' correctness even when not required to produce the output files. ",
+    )
+
     try:
         import pulp
 
@@ -1361,7 +1370,7 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--keep-storage-local-copies",
         action="store_true",
-        help="Keep local copies of remote input files.",
+        help="Keep local copies of remote input and output files.",
     )
     group_behavior.add_argument(
         "--target-files-omit-workdir-adjustment",
@@ -2095,6 +2104,7 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
+                            strict_evaluation=args.strict_dag_evaluation,
                         ),
                     )
 
