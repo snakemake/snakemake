@@ -65,7 +65,7 @@ from snakemake.settings.types import (
     StorageSettings,
     WorkflowSettings,
     StrictDagEvaluation,
-    PrintDag
+    PrintDag,
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
@@ -2044,11 +2044,11 @@ def args_to_api(args, parser):
                 elif args.print_compilation:
                     workflow_api.print_compilation()
                 else:
-                    
+
                     print_dag_as = PrintDag.DOT
-                    if (args.dag):
+                    if args.dag:
                         print_dag_as = args.dag
-                    elif (args.rulegraph):
+                    elif args.rulegraph:
                         print_dag_as = args.rulegraph
 
                     dag_api = workflow_api.dag(
@@ -2067,7 +2067,7 @@ def args_to_api(args, parser):
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
                             strict_evaluation=args.strict_dag_evaluation,
-                            print_dag_as=print_dag_as
+                            print_dag_as=print_dag_as,
                         ),
                     )
 
