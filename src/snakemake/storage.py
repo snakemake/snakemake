@@ -193,14 +193,22 @@ class StorageRegistry:
 
             provider = self._storages.get(provider_name)
 
-            # this probably needs to be more general
-            if provider is None:
-                provider = self.register_storage(provider="apd", tag=provider_name)
+            if not hasattr(provider, "base_provider") or not hasattr(
+                provider, "get_files"
+            ):
+                raise WorkflowError(
+                    f"Storage provider {provider_name} does not support dict queries.\n"
+                    f"It must specify a `base_provider` and a `get_files` method.\n"
+                    "See https://github.com/snakemake/snakemake-storage-plugin-apd e.g."
+                )
 
             queries = provider.get_files(query)
             return [
                 self._storage_object(
-                    q, provider="xrootd", retrieve=retrieve, keep_local=keep_local
+                    q,
+                    provider=provider.base_provider,
+                    retrieve=retrieve,
+                    keep_local=keep_local,
                 )
                 for q in queries
             ]
