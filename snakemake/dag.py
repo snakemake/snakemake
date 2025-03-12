@@ -2425,7 +2425,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for index, (_, deps) in enumerate(graph.items())
             for index_dep, _ in enumerate(deps)
         ]
-        
+
+        mermaid_string = f"""
+        ---
+        title: DAG
+        ---
+        flowchart TB
+        {'\n'.join(nodes_headers)}
+        {'\n'.join(nodes_styles)}
+        {'\n'.join(edges)}
+        """
         return (
             textwrap.dedent(
                 """\
