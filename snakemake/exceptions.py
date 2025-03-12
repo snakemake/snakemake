@@ -10,6 +10,7 @@ from tokenize import TokenError
 from snakemake_interface_common.exceptions import WorkflowError, ApiError
 from snakemake_interface_logger_plugins.common import LogEvent
 
+
 def format_error(
     ex, lineno, linemaps=None, snakefile=None, show_traceback=False, rule=None
 ):
