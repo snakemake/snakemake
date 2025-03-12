@@ -417,6 +417,10 @@ class Logger:
         msg["level"] = "job_error"
         self.handler(msg)
 
+    def job_warning(self, **msg):
+        msg["level"] = "job_warning"
+        self.handler(msg)
+
     def group_error(self, **msg):
         msg["level"] = "group_error"
         self.handler(msg)
@@ -563,10 +567,13 @@ class Logger:
             if not self.last_msg_was_job_info:
                 msg = "\n" + msg
             self.logger.info(msg)
-        elif level == "job_error":
+        elif level == "job_error" or level == "job_warning":
 
             def job_error():
-                yield "Error in rule {}:".format(msg["name"])
+                if level == "job_error":
+                    yield "Error in rule {}:".format(msg["name"])
+                else:
+                    yield "Warning in rule {}:".format(msg["name"])
                 if msg["msg"]:
                     yield "    message: {}".format(msg["msg"])
                 yield "    jobid: {}".format(msg["jobid"])
@@ -594,7 +601,10 @@ class Logger:
                 yield ""
 
             timestamp()
-            self.logger.error("\n".join(map(indent, job_error())))
+            if level == "job_error":
+                self.logger.error("\n".join(map(indent, job_error())))
+            else:
+                self.logger.warning("\n".join(map(indent, job_error())))
         elif level == "group_error":
 
             def group_error():
