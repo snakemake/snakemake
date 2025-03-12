@@ -1644,7 +1644,7 @@ class Workflow(WorkflowExecutorInterface):
             nonlocal name
 
             # If requested, modify ruleinfo via the modifier.
-            ruleinfo.apply_modifier(self.modifier)
+            ruleinfo.apply_modifier(self.modifier, rulename=ruleinfo.name or name)
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(

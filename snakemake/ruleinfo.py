@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 from collections import namedtuple
 from copy import copy
+from snakemake.logging import logger
 
 
 InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
@@ -59,7 +60,10 @@ class RuleInfo:
         return ruleinfo
 
     def apply_modifier(
-        self, modifier, prefix_replacables={"input", "output", "log", "benchmark"}
+        self,
+        modifier,
+        rulename,
+        prefix_replacables={"input", "output", "log", "benchmark"},
     ):
         """Update this ruleinfo with the given one (used for 'use rule' overrides)."""
         path_modifier = modifier.path_modifier
@@ -68,7 +72,26 @@ class RuleInfo:
         if modifier.ruleinfo_overwrite:
             for key, value in modifier.ruleinfo_overwrite.__dict__.items():
                 if key != "func" and value is not None:
-                    self.__dict__[key] = value
+                    if key == "params":
+                        # if positional arguments are used after the 'with' statement
+                        # overwrite all positional arguments of the original rule
+                        # for keyword arguments replace only the ones defined after 'with'
+                        original_positional, original_keyword = self.__dict__["params"]
+                        modifier_positional, modifier_keyword = value
+                        positional = original_positional
+                        if modifier_positional:
+                            if original_positional:
+                                logger.warning(
+                                    f"Overwriting positional arguments {original_positional} "
+                                    f"with {modifier_positional} in rule {rulename}"
+                                )
+                            positional = modifier_positional
+                        self.__dict__[key] = (
+                            positional,
+                            {**original_keyword, **modifier_keyword},
+                        )
+                    else:
+                        self.__dict__[key] = value
                     if key in prefix_replacables:
                         skips.add(key)
 

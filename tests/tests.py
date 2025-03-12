@@ -2070,3 +2070,4 @@ def test_issue3361_fail():
         targets=["all"],
         shouldfail=True,
     )
+
