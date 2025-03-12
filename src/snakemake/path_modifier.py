@@ -53,7 +53,9 @@ class PathModifier:
             modified_path.flags.update(path.flags)
             if is_flagged(modified_path, "multiext"):
                 modified_path.flags["multiext"].prefix = self.apply_default_storage(
-                    self.replace_prefix(modified_path.flags["multiext"].prefix, property)
+                    self.replace_prefix(
+                        modified_path.flags["multiext"].prefix, property
+                    )
                 )
         # Flag the path as modified and return.
         modified_path = flag(modified_path, PATH_MODIFIER_FLAG)
