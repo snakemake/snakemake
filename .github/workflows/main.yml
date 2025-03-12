@@ -192,7 +192,6 @@ jobs:
         with:
           miniforge-version: latest
           environment-file: test-environment.yml
-          environment-name: snakemake
           auto-update-conda: true
 
       - name: Install snakemake from source
