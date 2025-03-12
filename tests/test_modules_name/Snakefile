@@ -5,7 +5,7 @@ configfile: "config/config.yaml"
 
 
 module:
-    name: test
+    name: 'test'
     snakefile:
         "module-test/Snakefile"
     config:
