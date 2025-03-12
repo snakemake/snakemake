@@ -95,13 +95,26 @@ class StorageRegistry:
                 f"{plugin.name} is not."
             )
 
+        keep_local = settings["keep_local"] if "keep_local" in settings else self.workflow.storage_settings.keep_storage_local
         provider_instance = plugin.storage_provider(
             local_prefix=local_prefix,
             settings=final_settings,
-            keep_local=self.workflow.storage_settings.keep_storage_local,
+            keep_local=keep_local,
             is_default=is_default,
         )
         self._storages[name] = provider_instance
+        # if a tagged storage provider is registered before the untagged then the
+        # untagged provider is registered later without the settings
+        # prevent the settings loss by registering it here
+        if tag is not None and plugin.name not in self._storages:
+            local_prefix = self.workflow.storage_settings.local_storage_prefix / plugin.name
+            provider_instance = plugin.storage_provider(
+                local_prefix=local_prefix,
+                settings=final_settings,
+                keep_local=keep_local,
+                is_default=is_default,
+            )
+            self._storages[plugin.name] = provider_instance
         return provider_instance
 
     def infer_provider(self, query: str):
@@ -137,7 +150,7 @@ class StorageRegistry:
         self,
         query: str,
         retrieve: bool = True,
-        keep_local: bool = False,
+        keep_local: Optional[bool] = None,
     ):
         return self._storage_object(
             query, provider=None, retrieve=retrieve, keep_local=keep_local
@@ -148,7 +161,7 @@ class StorageRegistry:
         query: Union[str, List[str]],
         provider: Optional[str] = None,
         retrieve: bool = True,
-        keep_local: bool = False,
+        keep_local: Optional[bool] = None,
     ):
         if isinstance(query, list):
             return [
@@ -191,7 +204,7 @@ class StorageProviderProxy:
         self,
         query: str,
         retrieve: bool = True,
-        keep_local: bool = False,
+        keep_local: Optional[bool] = None,
     ):
         return self.registry._storage_object(
             query, provider=self.name, retrieve=retrieve, keep_local=keep_local
