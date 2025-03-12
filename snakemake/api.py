@@ -599,11 +599,12 @@ class DAGApi(ApiBase):
             extra=dict(
                 event=LogEvent.WORKFLOW_STARTED,
                 workflow_id=uuid.uuid4(),
-                snakefile=workflow.snakefile,
+                snakefile=self.workflow_api.snakefile,
                 execution_settings=asdict(execution_settings),
                 remote_execution_settings=asdict(remote_execution_settings),
                 scheduling_settings=asdict(scheduling_settings),
                 group_settings=asdict(group_settings),
+                resource_settings=asdict(workflow.resource_settings),
             ),
         )
         workflow.execute(
