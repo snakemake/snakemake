@@ -27,3 +27,9 @@ class Quietness(SettingsEnumBase):
     ALL = 2
     HOST = 3
     REASON = 4
+
+
+class StrictDagEvaluation(SettingsEnumBase):
+    FUNCTIONS = 0
+    CYCLIC_GRAPH = 1
+    PERIODIC_WILDCARDS = 2

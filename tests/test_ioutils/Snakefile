@@ -8,6 +8,9 @@ configfile: "config.yaml"
 
 assert lookup(dpath="does/not/exist", within=config, default=None) is None
 assert lookup(dpath="does/not/exist", within=config, default=5) == 5
+assert (
+    extract_checksum("samples.md5", file="1.tsv") == "9695eb6f38992d796551f4cb20d7d138"
+)
 
 
 rule all:
@@ -16,10 +19,16 @@ rule all:
 
 
 rule a:
+    input:
+        checksum="samples.md5",
     output:
         "a/{sample}.txt",
+    params:
+        checksum=lambda w, input, output: parse_input(
+            input.checksum, parser=extract_checksum, file=f"{w.sample}.tsv"
+        ),
     shell:
-        "echo a > {output}"
+        "echo {params.checksum} > {output}"
 
 
 rule b:
@@ -46,7 +55,7 @@ rule c:
 
 rule item_access:
     input:
-        txt="in.txt"
+        txt="in.txt",
     output:
         txt="test.txt",
     params:

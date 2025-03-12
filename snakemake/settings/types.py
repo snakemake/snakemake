@@ -38,6 +38,7 @@ from snakemake.settings.enums import (
     ChangeType,
     CondaCleanupPkgs,
     Quietness,
+    StrictDagEvaluation,
 )
 
 
@@ -206,6 +207,10 @@ class DAGSettings(SettingsBase):
     allowed_rules: AnySet[str] = frozenset()
     rerun_triggers: AnySet[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
+    strict_evaluation: AnySet[StrictDagEvaluation] = frozenset()
+    # strict_functions_evaluation: bool = False
+    # strict_cycle_evaluation: bool = False
+    # strict_wildcards_recursion_evaluation: bool = False
 
     def _check(self):
         if self.batch is not None and self.forceall:

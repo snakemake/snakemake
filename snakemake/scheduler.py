@@ -333,7 +333,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         )
                     if runjobs:
                         self.run(runjobs)
-                elif not self.dryrun:
+                if not self.dryrun:
                     logger.info("Waiting for more resources.")
                     if self.job_rate_limiter is not None:
                         # need to reevaluate because after the timespan we can
@@ -852,6 +852,13 @@ class JobRateLimiter:
     def __init__(self, limit: MaxJobsPerTimespan):
         self._limit: MaxJobsPerTimespan = limit
         self._jobs = deque()
+        logger.debug(
+            f"Submitting maximum {self._limit.max_jobs} job(s) over {self._limit.timespan} second(s)."
+        )
+
+    @property
+    def max_jobs(self) -> int:
+        return self._limit.max_jobs
 
     @property
     def timespan(self) -> int:
@@ -863,9 +870,9 @@ class JobRateLimiter:
 
     def get_free_jobs(self):
         # get the index of the last element that is older than the timespan
-        index = bisect(self._jobs, time.time() - self._limit.timespan)
+        index = bisect(self._jobs, time.time() - self.timespan)
         # remove the first index elements from the deque
         for _ in range(index):
             self._jobs.popleft()
-        n_free = max(self._limit.max_jobs - len(self._jobs), 0)
+        n_free = max(self.max_jobs - len(self._jobs), 0)
         return n_free
