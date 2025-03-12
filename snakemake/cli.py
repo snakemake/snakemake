@@ -70,6 +70,12 @@ from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
 
 
+def parse_size_in_bytes(value):
+    from humanfriendly import parse_size
+
+    return parse_size(value)
+
+
 def expandvars(atype):
     def inner(args):
         if isinstance(args, list):
@@ -695,7 +701,7 @@ def get_argument_parser(profiles=None):
         "--rerun-triggers",
         nargs="+",
         choices=RerunTrigger.choices(),
-        default=RerunTrigger.all(),
+        default=RerunTrigger.choices(),
         parse_func=RerunTrigger.parse_choices_set,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
@@ -1269,6 +1275,15 @@ def get_argument_parser(profiles=None):
         "which jobs need to be executed. However, creating the inventory itself can be slow, e.g. on "
         "network file systems. Hence, we do not spend more than a given amount of time and fall back "
         "to individual checks for the rest.",
+    )
+    group_behavior.add_argument(
+        "--max-checksum-file-size",
+        default=1000000,
+        metavar="SIZE",
+        parse_func=parse_size_in_bytes,
+        help="Compute the checksum during DAG computation and job postprocessing "
+        "only for files that are smaller than the provided threshold (given in any valid size "
+        "unit, e.g. 1MB, which is also the default). ",
     )
     group_behavior.add_argument(
         "--latency-wait",
@@ -2052,6 +2067,7 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
+                            max_checksum_file_size=args.max_checksum_file_size,
                             strict_evaluation=args.strict_dag_evaluation,
                         ),
                     )
