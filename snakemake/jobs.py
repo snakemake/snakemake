@@ -107,7 +107,6 @@ class AbstractJob(JobExecutorInterface):
     @abstractmethod
     def products(self, include_logfiles=True): ...
 
-
     def has_products(self, include_logfiles=True):
         for _ in self.products(include_logfiles=include_logfiles):
             return True
