@@ -431,7 +431,7 @@ def get_argument_parser(profiles=None):
 
     group_exec.add_argument(
         "--profile",
-        help=f"Name of profile to use for configuring Snakemake. Snakemake will search for a corresponding folder in {dirs.site_config_dir} and {dirs.user_config_dir}. Alternatively, this can be an absolute or relative path. The profile folder has to contain a file `config.yaml`. This file can be used to set default values for command line options in YAML format. For example, `--cluster qsub` becomes `cluster: qsub` in the YAML file. Profiles can be obtained from https://github.com/snakemake-profiles. The profile can also be set via the environment variable `$SNAKEMAKE_PROFILE`. To override this variable and use no profile at all, provide the value `none` to this argument.",
+        help=f"Name of profile to use for configuring Snakemake. Snakemake will search for a corresponding folder in `{dirs.site_config_dir}` and `{dirs.user_config_dir}`. Alternatively, this can be an absolute or relative path. The profile folder has to contain a file `config.yaml`. This file can be used to set default values for command line options in YAML format. For example, `--cluster qsub` becomes `cluster: qsub` in the YAML file. Profiles can be obtained from https://github.com/snakemake-profiles. The profile can also be set via the environment variable `$SNAKEMAKE_PROFILE`. To override this variable and use no profile at all, provide the value `none` to this argument.",
         env_var="SNAKEMAKE_PROFILE",
     )
 
