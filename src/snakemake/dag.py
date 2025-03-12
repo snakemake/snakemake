@@ -1873,10 +1873,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if has_nodelocal and not self.workflow.local_exec:
                 # put the dependencies in the same user group (not pipe group as pipes are ran in parallel, whereas we want serial for nodelocal files)
                 # NOTE do NOT create usergroup in the node's local inst of snakemake lest the resources get merge, see: resources.py: class GroupResources
-                if user_groups:
-                    ugroup = user_groups.pop()
-                else:
-                    ugroup = str(uuid.uuid4())
+                ugroup = user_groups.pop() if user_groups else str(uuid.uuid4())
 
                 job.group = ugroup
                 visited.add(job)
