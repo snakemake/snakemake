@@ -155,6 +155,7 @@ description = "Run all tests in the tests directory"
 cmd = [
   "pytest",
   "tests",
+  # TODO for the two excluded tests, see https://github.com/snakemake/snakemake/pull/3369#issuecomment-2718056637
   "-m",
   "not needs_envmodules",
   "-k",
