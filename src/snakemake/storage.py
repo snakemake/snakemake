@@ -95,11 +95,21 @@ class StorageRegistry:
                 f"{plugin.name} is not."
             )
 
-        keep_local = settings["keep_local"] if "keep_local" in settings else self.workflow.storage_settings.keep_storage_local
+        keep_local = (
+            settings["keep_local"]
+            if "keep_local" in settings
+            else self.workflow.storage_settings.keep_storage_local
+        )
+        retrieve = (
+            settings["retrieve"]
+            if "retrieve" in settings
+            else self.workflow.storage_settings.retrieve_storage
+        )
         provider_instance = plugin.storage_provider(
             local_prefix=local_prefix,
             settings=final_settings,
             keep_local=keep_local,
+            retrieve=retrieve,
             is_default=is_default,
         )
         self._storages[name] = provider_instance
@@ -107,11 +117,14 @@ class StorageRegistry:
         # untagged provider is registered later without the settings
         # prevent the settings loss by registering it here
         if tag is not None and plugin.name not in self._storages:
-            local_prefix = self.workflow.storage_settings.local_storage_prefix / plugin.name
+            local_prefix = (
+                self.workflow.storage_settings.local_storage_prefix / plugin.name
+            )
             provider_instance = plugin.storage_provider(
                 local_prefix=local_prefix,
                 settings=final_settings,
                 keep_local=keep_local,
+                retrieve=retrieve,
                 is_default=is_default,
             )
             self._storages[plugin.name] = provider_instance
@@ -149,7 +162,7 @@ class StorageRegistry:
     def __call__(
         self,
         query: str,
-        retrieve: bool = True,
+        retrieve: Optional[bool] = None,
         keep_local: Optional[bool] = None,
     ):
         return self._storage_object(
@@ -160,7 +173,7 @@ class StorageRegistry:
         self,
         query: Union[str, List[str]],
         provider: Optional[str] = None,
-        retrieve: bool = True,
+        retrieve: Optional[bool] = None,
         keep_local: Optional[bool] = None,
     ):
         if isinstance(query, list):
@@ -203,7 +216,7 @@ class StorageProviderProxy:
     def __call__(
         self,
         query: str,
-        retrieve: bool = True,
+        retrieve: Optional[bool] = None,
         keep_local: Optional[bool] = None,
     ):
         return self.registry._storage_object(
