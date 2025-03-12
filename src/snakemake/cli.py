@@ -1989,7 +1989,7 @@ def args_to_api(args, parser):
                         config=parse_config(args.config),
                         configfiles=args.configfile,
                         config_args=args.config,
-                        replace_workflow=args.replace_workflow_config,
+                        replace_workflow_config=args.replace_workflow_config,
                     ),
                     storage_settings=storage_settings,
                     storage_provider_settings=storage_provider_settings,

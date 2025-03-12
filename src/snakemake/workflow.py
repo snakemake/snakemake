@@ -1640,7 +1640,7 @@ class Workflow(WorkflowExecutorInterface):
                 update_config(self.config, c)
                 if self.config_settings.overwrite_config:
                     merge_action = "extended"
-                    if self.config_settings.replace_workflow:
+                    if self.config_settings.replace_workflow_config:
                         # discard entire global config before merging
                         self.globals["config"] = {}
                         merge_action = "replaced"

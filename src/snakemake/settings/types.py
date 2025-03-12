@@ -358,7 +358,7 @@ class ConfigSettings(SettingsBase):
     config: Mapping[str, str] = immutables.Map()
     configfiles: Sequence[Path] = tuple()
     config_args: Optional[str] = None
-    replace_workflow: bool = False
+    replace_workflow_config: bool = False
 
     def __post_init__(self):
         self.overwrite_config = self._get_overwrite_config()
@@ -374,11 +374,6 @@ class ConfigSettings(SettingsBase):
                 update_config(overwrite_config, load_configfile(f))
         if self.config:
             update_config(overwrite_config, self.config)
-        if self.replace_workflow and not overwrite_config:
-            logger.warning(
-                "--replace-workflow-config was used but no config entries are provided via "
-                "command line. This flag will be ignored."
-            )
         return overwrite_config
 
     def _get_configfiles(self):
