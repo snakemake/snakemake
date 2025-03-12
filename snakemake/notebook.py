@@ -142,10 +142,12 @@ class JupyterNotebook(ScriptBase):
             del notebook["cells"][preamble]
 
     @abstractmethod
-    def get_language_name(self): ...
+    def get_language_name(self):
+        ...
 
     @abstractmethod
-    def get_interpreter_exec(self): ...
+    def get_interpreter_exec(self):
+        ...
 
 
 class PythonJupyterNotebook(JupyterNotebook):

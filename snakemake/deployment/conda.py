@@ -859,15 +859,16 @@ class Conda:
 
 class CondaEnvSpec(ABC):
     @abstractmethod
-    def apply_wildcards(self, wildcards): ...
+    def apply_wildcards(self, wildcards):
+        ...
 
     @abstractmethod
-    def get_conda_env(
-        self, workflow, envs_dir=None, container_img=None, cleanup=None
-    ): ...
+    def get_conda_env(self, workflow, envs_dir=None, container_img=None, cleanup=None):
+        ...
 
     @abstractmethod
-    def check(self): ...
+    def check(self):
+        ...
 
     @property
     def is_file(self):
@@ -875,13 +876,16 @@ class CondaEnvSpec(ABC):
 
     @property
     @abstractmethod
-    def contains_wildcard(self): ...
+    def contains_wildcard(self):
+        ...
 
     @abstractmethod
-    def __hash__(self): ...
+    def __hash__(self):
+        ...
 
     @abstractmethod
-    def __eq__(self, other): ...
+    def __eq__(self, other):
+        ...
 
 
 class CondaEnvFileSpec(CondaEnvSpec):

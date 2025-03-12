@@ -23,7 +23,8 @@ class WildcardHandlerBase(ABC):
         )
 
     @abstractmethod
-    def apply_func(self, expression, namespace=None): ...
+    def apply_func(self, expression, namespace=None):
+        ...
 
     def handle(self, expression):
         if self.needs_wildcards(expression) or any(
