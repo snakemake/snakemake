@@ -1589,15 +1589,19 @@ def test_use_rule_same_module():
 
 @connected
 def test_module_complex():
+
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
+
         run(dpath("test_module_complex"), executor="dryrun")
 
 
 @connected
 def test_module_complex2():
+
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
+
         run(dpath("test_module_complex2"), executor="dryrun")
 
 
@@ -1619,6 +1623,7 @@ def test_modules_prefix_local():
 
 @connected
 def test_module_with_script():
+
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
         run(dpath("test_module_with_script"))
@@ -2151,6 +2156,30 @@ def test_failed_intermediate():
     tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
     run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
+
+
+def test_printshellcmd():
+    path = dpath("test_printshellcmd")
+    targets = ["mock.shell.txt", "mock.script.txt", "mock.sorted.bam"]
+    for target in targets:
+        # test once without flag (=expected no cmd match) and once with
+        for param, expected in [("", False), ("-p", True)]:
+            with tempfile.NamedTemporaryFile() as tmpfile:
+                tmpdir = run(
+                    path,
+                    shellcmd=f"snakemake -j 1 {param} {target} 2> {tmpfile.name}",
+                    check_results=False,
+                    cleanup=False,
+                )
+                # scan stdout of snakemake call for either echo or samtools
+                found = False
+                with open(tmpfile.name, "r") as o:
+                    for line in o:
+                        if line.startswith("echo Hello World"):
+                            found = True
+                        if line.startswith("samtools"):
+                            found = True
+                assert found == expected
 
 
 @pytest.mark.parametrize(
