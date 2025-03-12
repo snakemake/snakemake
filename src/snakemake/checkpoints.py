@@ -7,41 +7,44 @@ if TYPE_CHECKING:
 
 
 class Checkpoints:
-    """A namespace for checkpoints so that they can be accessed via dot notation."""
+    """A singleton object in a workflow.
+
+    Created_output can be accessed by checkpoint rules in or out modules.
+    This never go into snakefile, so no rules name will be set to it.
+    """
 
     def __init__(self):
-        self.created_output = None
-
-    def module_use(self):
-        return ModuleCheckpoints(self)
-
-
-class ModuleCheckpoints:
-    def __init__(self, parent: Checkpoints):
-        self.parent = parent
+        self._created_output = set()
 
     @property
-    def future_output(self):
-        return self.parent.future_output
+    def created_output(self):
+        return self._created_output
 
-    @future_output.setter
-    def future_output(self, value):
-        self.parent.future_output = value
+    def module_use(self):
+        """Make a new namespace for checkpoints in the module."""
+        return CheckpointsProxy(self)
+
+
+class CheckpointsProxy(Checkpoints):
+    """A namespace for checkpoints so that they can be accessed via dot notation.
+
+    It will be created once a module is created,
+    and differnt module will have differnt checkpoint namespace,
+    but share a single created_output set.
+    """
+
+    def __init__(self, parent: Checkpoints):
+        self.parent = parent
 
     @property
     def created_output(self):
         return self.parent.created_output
 
-    @created_output.setter
-    def created_output(self, value):
-        self.parent.created_output = value
-
-    def register(self, rule, fallback_name=None):
+    def register(self, rule: "Rule", fallback_name=None):
         checkpoint = Checkpoint(rule, self)
         if fallback_name:
             setattr(self, fallback_name, checkpoint)
         setattr(self, rule.name, checkpoint)
-        setattr(self.parent, rule.name, checkpoint)
 
 
 class Checkpoint:
@@ -59,7 +62,7 @@ class Checkpoint:
             )
 
         output, _ = self.rule.expand_output(wildcards)
-        if self.checkpoints.created_output is not None:
+        if self.checkpoints.created_output:
             may_not_created = set(output) - set(self.checkpoints.created_output)
             if not may_not_created:
                 return CheckpointJob(self.rule, output)

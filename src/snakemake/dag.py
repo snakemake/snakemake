@@ -277,7 +277,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 yield job
 
     def update_checkpoint_outputs(self):
-        workflow.checkpoints.created_output = set(
+        workflow.checkpoints.created_output.update(
             f
             for job in self.finished_and_not_needrun_checkpoint_jobs
             for f in job.output
