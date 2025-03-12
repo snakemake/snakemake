@@ -64,9 +64,8 @@ class Executor(RealExecutor):
                         for f in touch_files:
                             f.touch()
                     if len(non_existing_files) > 0:
-                        job.log_warning(
-                            msg=f"Missing rule's output files: "
-                            + f"{', '.join(non_existing_files)}. --touch skipped for this job."
+                        logger.warning(
+                            f"Output files not touched because they don't exist: {', '.join(non_existing_files)}"
                         )
 
                 async_run(touch())
