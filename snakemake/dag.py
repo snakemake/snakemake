@@ -2427,7 +2427,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         ]
         return (
             textwrap.dedent(
-            """\
+                """\
             ---
             title: DAG
             ---
