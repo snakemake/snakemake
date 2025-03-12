@@ -539,7 +539,9 @@ class LoggerManager:
         self.initialized = False
         self.queue_listener = None
         self.mode = None
-
+        self.needs_rulegraph = (
+            False  # flag to indiciate a plugin needs the rulegraph from DAG.
+        )
         self.logfile_handlers = {}
         self.settings: OutputSettingsLoggerInterface = None
 
@@ -566,6 +568,8 @@ class LoggerManager:
             stream_handlers.append(self._default_streamhandler())
         elif handlers:
             for handler in handlers:
+                if handler.needs_rulegraph:
+                    self.needs_rulegraph = True
                 configured_handler = self._configure_plugin_handler(handler)
                 if configured_handler.writes_to_file:
                     self.logfile_handlers[configured_handler] = (
@@ -578,7 +582,7 @@ class LoggerManager:
 
         if len(stream_handlers) > 1:
             raise ValueError("More than 1 stream log handler specified!")
-        else:
+        elif len(stream_handlers) == 0:
             # we dont have any stream_handlers from plugin(s) so give us the default one
             stream_handlers.append(self._default_streamhandler())
         all_handlers = (

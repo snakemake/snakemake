@@ -1087,11 +1087,64 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
         self.persistence.cleanup_containers()
 
+    def log_rulegraph(self):
+        def simple_rulegraph():
+            from snakemake.report.rulegraph_spec import get_representatives
+
+            representatives = dict()
+            toposorted = [
+                get_representatives(level, representatives)
+                for level in self.dag.toposorted()
+            ]
+
+            # Get unique jobs (one per rule)
+            jobs = [job for level in toposorted for job in level]
+
+            # Create nodes with rule names
+            nodes = [{"rule": job.rule.name} for job in jobs]
+            idx = {job: i for i, job in enumerate(jobs)}
+
+            # Create edges for the graph
+            edges = []
+            seen_pairs = set()
+
+            for u in jobs:
+                for v in self.dag.dependencies[u]:
+                    # Get the indices of the representative jobs
+                    target = idx[u]
+                    source = idx[representatives[v]]
+
+                    # Create a unique pair ID
+                    pair = (source, target)
+
+                    # Skip if we've already processed this pair
+                    if pair in seen_pairs:
+                        continue
+
+                    seen_pairs.add(pair)
+
+                    # Add edge to the result
+                    edges.append(
+                        {
+                            "source": source,
+                            "target": target,
+                            "sourcerule": nodes[source]["rule"],
+                            "targetrule": nodes[target]["rule"],
+                        }
+                    )
+
+            return {"nodes": nodes, "links": edges}
+
+        if logger_manager.initialized and logger_manager.needs_rulegraph:
+            rulegraph = simple_rulegraph()
+            logger.info(None, extra=dict(event=LogEvent.RULEGRAPH, rulegraph=rulegraph))
+
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
         async_run(self.dag.init())
         async_run(self.dag.update_checkpoint_dependencies())
 
+        self.log_rulegraph()
     def execute(
         self,
         executor_plugin: ExecutorPlugin,
