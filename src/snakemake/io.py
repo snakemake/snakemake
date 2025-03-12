@@ -1441,12 +1441,6 @@ class MultiextValue:
     prefix: str
     name: Optional[str] = None
 
-    def isnamed(self):
-        return bool(isinstance(self.name, str))
-
-    def __str__(self):
-        return self.prefix
-
 
 def multiext(prefix, *extensions, **named_extensions):
     """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
