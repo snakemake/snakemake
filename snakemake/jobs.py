@@ -1136,8 +1136,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     def log_warning(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
     ):
-        log_info = self.get_log_error_info(msg, indent, aux_logs, **kwargs)
-        logger.job_warning(**log_info)
+        logger.job_warning(**self.get_log_error_info(msg, indent, aux_logs, **kwargs))
 
     def register(self, external_jobid: Optional[str] = None):
         self.dag.workflow.persistence.started(self, external_jobid)
