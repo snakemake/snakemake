@@ -14,17 +14,20 @@ rule delete_all_output:
         touch("delete_all_output"),
     shell:
         """
-        echo $PATH
-        ls
-        python -m snakemake --cores 1 -s Snakefile_inner all
-        rm nothere
-        python -m snakemake --cores 1 -s Snakefile_inner --dry-run --delete-all-output all
-        test -f infile
-        test -f intermediate
-        test -f some_dir/final
-        test -d empty_dir
-        test -L dangling 
-        test -d full_dir
+        set -x
+        trap 'echo "Error occurred in: $BASH_COMMAND on line $LINENO"' ERR
+        echo $PATH || echo "exit 1 echo"
+        ls || echo "exit 1 ls"
+        python -m snakemake --cores 1 -s Snakefile_inner all || echo "exit 1 smk 1"
+        rm -f nothere || echo "exit 1 nothere"
+        python -m snakemake --cores 1 -s Snakefile_inner --dry-run --delete-all-output all || echo "exit 1 smk 2"
+        
+        test -f infile || echo "exit 1 infile"
+        test -f intermediate || echo "exit 1 intermediate"
+        test -f some_dir/final || echo "exit 1 final"
+        test -d empty_dir || echo "exit 1 empty_dir"
+        test -L dangling || echo "exit 1 dangling"
+        test -d full_dir || echo "exit 1 full_dir"
         """
 
 
