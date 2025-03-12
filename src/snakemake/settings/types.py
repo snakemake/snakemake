@@ -366,8 +366,6 @@ class ConfigSettings(SettingsBase):
         self.config_args = self._get_config_args()
 
     def _get_overwrite_config(self):
-        from snakemake.logging import logger
-
         overwrite_config = dict()
         if self.configfiles:
             for f in self.configfiles:
