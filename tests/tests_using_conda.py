@@ -167,6 +167,7 @@ def test_singularity_conda():
 
 
 @conda
+@pytest.mark.needs_envmodules
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
