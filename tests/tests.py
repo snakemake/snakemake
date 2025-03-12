@@ -1442,6 +1442,10 @@ def test_modules_all():
     run(dpath("test_modules_all"), targets=["all"])
 
 
+def test_modules_name():
+    run(dpath("test_modules_name"), targets=["all"])
+
+
 def test_module_nested():
     run(dpath("test_module_nested"))
 
