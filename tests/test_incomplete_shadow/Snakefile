@@ -1,0 +1,36 @@
+rule run:
+    params:
+        ki="--keep-incomplete",
+    shadow:
+        "shallow"
+    run:
+        shell(
+            "(python -m snakemake -s Snakefile fail {params.ki} > fail.log 2>&1) || echo 1"
+        )
+        with open("fail.log") as fi:
+            for line in fi:
+                if line.startswith("Error in rule fail:"):
+                    break
+            for line in fi:
+                if line.startswith("    shadow: "):
+                    break
+            else:
+                raise ValueError("shadow not found")
+            shadow_path = line[12:].strip()
+            with open(f"{shadow_path}/fail.txt") as fi:
+                assert fi.read().strip() == "success"
+
+
+use rule run as run2 with:
+    params:
+        ki="",
+
+
+rule fail:
+    output:
+        "fail.txt",
+    shadow:
+        "shallow"
+    run:
+        shell("echo success > fail.txt")
+        raise
