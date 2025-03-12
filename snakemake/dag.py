@@ -779,9 +779,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         rule=job.rule,
                     )
 
-    def unshadow_output(self, job, only_log=False):
+    def unshadow_output(self, job, only_log=False, keep=False):
         """Move files from shadow directory to real output paths."""
-        if not job.shadow_dir or not job.output:
+        if not job.shadow_dir:
+            return
+        if not job.output:
+            shutil.rmtree(job.shadow_dir)
             return
 
         files = job.log if only_log else chain(job.output, job.log)
@@ -799,7 +802,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if os.path.realpath(shadow_output) == os.path.realpath(real_output):
                 continue
             shutil.move(shadow_output, real_output)
-        shutil.rmtree(job.shadow_dir)
+        if not keep:
+            shutil.rmtree(job.shadow_dir)
 
     def check_periodic_wildcards(self, job):
         """Raise an exception if a wildcard of the given job appears to be periodic,

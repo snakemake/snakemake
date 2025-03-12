@@ -244,6 +244,7 @@ class SnakemakeApi(ApiBase):
         stdout: bool = False,
         mode: ExecMode = ExecMode.DEFAULT,
         dryrun: bool = False,
+        keep_incomplete: bool = False,
     ):
         if not self.output_settings.keep_logger:
             setup_logger(
@@ -257,6 +258,7 @@ class SnakemakeApi(ApiBase):
                 mode=mode,
                 show_failed_logs=self.output_settings.show_failed_logs,
                 dryrun=dryrun,
+                keep_incomplete=keep_incomplete,
             )
 
     def _check_is_in_context(self):
@@ -531,6 +533,7 @@ class DAGApi(ApiBase):
             stdout=executor_plugin.common_settings.dryrun_exec,
             mode=self.workflow_api.workflow_settings.exec_mode,
             dryrun=executor_plugin.common_settings.dryrun_exec,
+            keep_incomplete=execution_settings.keep_incomplete,
         )
 
         if executor_plugin.common_settings.local_exec:

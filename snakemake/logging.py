@@ -322,6 +322,7 @@ class Logger:
         self.show_failed_logs = False
         self.logfile_handler = None
         self.dryrun = False
+        self.log_shadow = False
 
     def setup_logfile(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
@@ -584,6 +585,9 @@ class Logger:
                     yield "    shell:\n        {}\n        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)".format(
                         msg["shellcmd"]
                     )
+                if self.log_shadow and msg["shadow_dir"]:
+                    yield "    shadow: {}".format(msg["shadow_dir"])
+                    yield "        (shadow folder of broken job was kept permanently as `--keep-incomplete` was set)"
 
                 for item in msg["aux"].items():
                     yield "    {}: {}".format(*item)
@@ -738,6 +742,7 @@ def setup_logger(
     mode=None,
     show_failed_logs=False,
     dryrun=False,
+    keep_incomplete=False,
 ):
     from snakemake.settings.types import Quietness
 
@@ -774,3 +779,4 @@ def setup_logger(
     logger.mode = mode
     logger.dryrun = dryrun
     logger.show_failed_logs = show_failed_logs
+    logger.log_shadow = keep_incomplete
