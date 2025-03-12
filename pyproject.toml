@@ -221,7 +221,7 @@ depends-on = ["build-docs"]
 black = "*"
 
 [tool.pixi.feature.style.tasks]
-format = { cmd = "black snakemake tests/**/*.py", description = "Format the code" }
+format = { cmd = "black snakemake tests/*.py", description = "Format the code" }
 
 #------------------------ publish -------------------------------
 [tool.pixi.feature.publish.dependencies]
