@@ -2165,11 +2165,10 @@ def test_printshellcmd():
         # test once without flag (=expected no cmd match) and once with
         for param, expected in [("", False), ("-p", True)]:
             with tempfile.NamedTemporaryFile() as tmpfile:
-                tmpdir = run(
+                run(
                     path,
-                    shellcmd=f"snakemake -j 1 {param} {target} 2> {tmpfile.name}",
+                    shellcmd=f"snakemake -j 1 {param} {target} &> {tmpfile.name}",
                     check_results=False,
-                    cleanup=False,
                 )
                 # scan stdout of snakemake call for either echo or samtools
                 found = False
