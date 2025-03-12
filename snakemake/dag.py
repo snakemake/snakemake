@@ -2434,7 +2434,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             flowchart TB
             """
             )
-            + f"{'\n'.join(nodes_headers)}\n{'\n'.join(nodes_styles)}\n{'\n'.join(edges)}"
+            + "{}\n{}\n{}".format(
+                "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
+            )
         )
 
     def _dot(
