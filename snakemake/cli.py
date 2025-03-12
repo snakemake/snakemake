@@ -1317,7 +1317,7 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--max-checksum-file-size",
         default=1000000,
-        metavar="BYTES",
+        metavar="SIZE",
         parse_func=parse_size_in_bytes,
         help="Compute the checksum during DAG computation and job postprocessing "
         "only for files that are smaller than the provided threshold (given in any valid size "
