@@ -33,7 +33,7 @@ In the workflow, the configuration is accessible via the global variable `config
         input:
             expand("{sample}.{param}.output.pdf", sample=config["samples"], param=config["yourparam"])
 
-If the `configfile` statement is not used, the config variable provides an empty array.
+If the `configfile` statement is not used, the config variable provides an empty dictionary.
 In addition to the `configfile` statement, config values can be overwritten via the command line or the `snakemake.utils API <https://snakemake-api.readthedocs.io/en/stable/api_reference/snakemake_utils.html#snakemake.utils.update_config>`__, e.g.:
 
 .. code-block:: console
@@ -112,8 +112,8 @@ Instead, for data provenance and reproducibility reasons, you are required to pa
 Validation
 ----------
 
-With Snakemake 5.1, it is possible to validate both types of configuration via `JSON schemas <https://json-schema.org>`_.
-The function ``snakemake.utils.validate`` takes a loaded configuration (a config dictionary or a Pandas data frame) and validates it with a given JSON schema.
+With Snakemake 5.1, it is possible to validate both types of configuration (standard and tabular) via `JSON schemas <https://json-schema.org>`_.
+The function ``snakemake.utils.validate`` takes a loaded configuration (a config dictionary, a Pandas DataFrame, Polars DataFrame or Polars LazyFrame) and validates it with a given JSON schema.
 Thereby, the schema can be provided in JSON or YAML format. Also, by using the defaults property it is possible to populate entries with default values. See `jsonschema FAQ on setting default values <https://python-jsonschema.readthedocs.io/en/latest/faq/>`_ for details.
 In case of the data frame, the schema should model the record that is expected in each row of the data frame.
 In the following example,

@@ -16,10 +16,10 @@ rule bench_shell:
     benchmark:
         repeat("{name}.benchmark_shell.{ext}", 2)
     params:
-        timeout=10,
+        timeout = 4,
     threads: 2
     shell:
-        "stress --cpu {threads} --timeout {params.timeout}"
+        "stress-ng --cpu {threads} --timeout {params.timeout}s"
 
 
 rule bench_script:

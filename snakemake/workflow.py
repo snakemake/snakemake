@@ -54,6 +54,7 @@ from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
+    MissingOutputFileCachePathException,
     RuleException,
     CreateRuleException,
     UnknownRuleException,
@@ -123,7 +124,7 @@ from snakemake.sourcecache import (
     infer_source_file,
 )
 from snakemake.deployment.conda import Conda
-from snakemake import api, sourcecache
+from snakemake import api, caching, sourcecache
 import snakemake.ioutils
 import snakemake.ioflags
 from snakemake.jobs import jobs_to_rulenames
@@ -252,6 +253,9 @@ class Workflow(WorkflowExecutorInterface):
     def source_cache_path(self) -> Path:
         assert self.storage_settings is not None
         if SharedFSUsage.SOURCE_CACHE not in self.storage_settings.shared_fs_usage:
+            # TODO can this cause issues with the source cache?
+            # When regenerating it for each remote job, might that accidentally trigger
+            # job reruns where an input file or a source file suddenly becomes newer?
             return self.snakemake_tmp_dir / "source-cache"
         else:
             return Path(
@@ -269,6 +273,14 @@ class Workflow(WorkflowExecutorInterface):
             "uploaded to default storage provider before"
         )
         return self._source_archive
+
+    def cleanup_source_archive(self):
+        """cleanup source archive form remote storage"""
+        if self._source_archive is not None:
+            obj = self.storage_registry.default_storage_provider.object(
+                self._source_archive.query
+            )
+            async_run(obj.managed_remove())
 
     def upload_sources(self):
         assert self.storage_settings is not None
@@ -295,8 +307,12 @@ class Workflow(WorkflowExecutorInterface):
             for f in self.dag.get_sources():
                 if f.startswith(".."):
                     logger.warning(
-                        "Ignoring source file {}. Only files relative "
-                        "to the working directory are allowed.".format(f)
+                        f"Ignoring source file {f}! Only files relative "
+                        "to the working directory are allowed. Most likely the "
+                        "spawned jobs will not properly work. Make sure to start "
+                        "the workflow from a directory below which all the sources "
+                        "are located (may be in subfolders) and also ensure that any "
+                        "config files you refer to are inside that directory."
                     )
                     continue
 
@@ -678,15 +694,26 @@ class Workflow(WorkflowExecutorInterface):
             self.cache_rules.update(
                 {rulename: "all" for rulename in self.workflow_settings.cache}
             )
-            if (
-                self.storage_settings is not None
-                and self.storage_settings.default_storage_provider is not None
-            ):
-                self._output_file_cache = StorageOutputFileCache(
-                    self.storage_registry.default_storage_provider
+            try:
+                if (
+                    self.storage_settings is not None
+                    and self.storage_settings.default_storage_provider is not None
+                ):
+                    self._output_file_cache = StorageOutputFileCache(
+                        self.storage_registry.default_storage_provider
+                    )
+                else:
+                    self._output_file_cache = LocalOutputFileCache()
+            except MissingOutputFileCachePathException:
+                logger.warning(
+                    "Output file cache activated (--cache), but no cache "
+                    "location specified. Hence, Snakemake will not use between workflow "
+                    "caching (see "
+                    "https://snakemake.readthedocs.io/en/stable/executing/caching.html). "
+                    "Please set the environment variable "
+                    f"${caching.LOCATION_ENVVAR} to a reasonable path or storage URI "
+                    "(if you use a storage plugin) to activate the caching."
                 )
-            else:
-                self._output_file_cache = LocalOutputFileCache()
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
@@ -1023,7 +1050,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         print("environment", "container", "location", sep="\t")
         for env in set(job.conda_env for job in self.dag.jobs):
-            if env and not env.is_named:
+            if env and not env.is_externally_managed:
                 print(
                     env.file.simplify_path(),
                     env.container_img_url or "",
@@ -1176,29 +1203,15 @@ class Workflow(WorkflowExecutorInterface):
             ):
                 async_run(self.dag.retrieve_storage_inputs())
 
-            if (
+            should_deploy_sources = (
                 SharedFSUsage.SOURCES not in self.storage_settings.shared_fs_usage
                 and self.exec_mode == ExecMode.DEFAULT
                 and self.remote_execution_settings.job_deploy_sources
                 and not executor_plugin.common_settings.can_transfer_local_files
-            ):
+            )
+            if should_deploy_sources:
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
-
-            def log_missing_metadata_info():
-                no_metadata_jobs = [
-                    job
-                    for job in self.dag.jobs
-                    if self.dag.reason(job).no_metadata and not self.dag.needrun(job)
-                ]
-                if no_metadata_jobs:
-                    logger.info(
-                        f"{len(no_metadata_jobs)} jobs have no recorded "
-                        "provenance/metadata so that they "
-                        "cannot be triggered by that. \n"
-                        "Rules with missing "
-                        f"metadata: {' '.join(jobs_to_rulenames(no_metadata_jobs))}"
-                    )
 
             self.scheduler = JobScheduler(self, executor_plugin)
 
@@ -1259,7 +1272,8 @@ class Workflow(WorkflowExecutorInterface):
                     logger.run_info("\n".join(self.dag.stats()))
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
-                    log_missing_metadata_info()
+                    self.log_missing_metadata_info()
+                    self.log_outdated_metadata_info()
                     return
                 if self.output_settings.quiet:
                     # in case of dryrun and quiet, just print above info and exit
@@ -1268,38 +1282,17 @@ class Workflow(WorkflowExecutorInterface):
             if not self.dryrun and not self.execution_settings.no_hooks:
                 self._onstart(logger.get_logfile())
 
-            def log_provenance_info():
-                provenance_triggered_jobs = [
-                    job
-                    for job in self.dag.needrun_jobs(exclude_finished=False)
-                    if self.dag.reason(job).is_provenance_triggered()
-                ]
-                if provenance_triggered_jobs:
-                    logger.info(
-                        "Some jobs were triggered by provenance information, "
-                        "see 'reason' section in the rule displays above.\n"
-                        "If you prefer that only modification time is used to "
-                        "determine whether a job shall be executed, use the command "
-                        "line option '--rerun-triggers mtime' (also see --help).\n"
-                        "If you are sure that a change for a certain output file (say, <outfile>) won't "
-                        "change the result (e.g. because you just changed the formatting of a script "
-                        "or environment definition), you can also wipe its metadata to skip such a trigger via "
-                        "'snakemake --cleanup-metadata <outfile>'. "
-                    )
-                    logger.info(
-                        "Rules with provenance triggered jobs: "
-                        + " ".join(jobs_to_rulenames(provenance_triggered_jobs))
-                    )
-                    logger.info("")
-
             has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
 
             try:
                 success = self.scheduler.schedule()
             except Exception as e:
                 if self.dryrun:
-                    log_provenance_info()
+                    self.log_provenance_info()
                 raise e
+            finally:
+                if should_deploy_sources:
+                    self.cleanup_source_archive()
 
             if (
                 not self.remote_execution_settings.immediate_submit
@@ -1310,14 +1303,15 @@ class Workflow(WorkflowExecutorInterface):
 
             if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
-                async_run(self.dag.cleanup_storage_objects())
+                if not self.storage_settings.keep_storage_local:
+                    async_run(self.dag.cleanup_storage_objects())
 
             if success:
                 if self.dryrun:
                     if len(self.dag):
                         logger.run_info("\n".join(self.dag.stats()))
                         self.dag.print_reasons()
-                        log_provenance_info()
+                        self.log_provenance_info()
                     logger.info("")
                     logger.info(
                         "This was a dry-run (flag -n). The order of jobs "
@@ -1339,6 +1333,53 @@ class Workflow(WorkflowExecutorInterface):
                 logger.logfile_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
 
+    def log_metadata_info(self, metadata_attr, description):
+        jobs = [
+            job
+            for job in self.dag.jobs
+            if getattr(self.dag.reason(job), metadata_attr)
+            and not self.dag.needrun(job)
+        ]
+        if jobs:
+            logger.info(
+                f"{len(jobs)} jobs have {description} "
+                "provenance/metadata so that it in part "
+                "cannot be used to trigger re-runs.\n"
+                f"Rules with {description} metadata: {' '.join(jobs_to_rulenames(jobs))}"
+            )
+
+    def log_missing_metadata_info(self):
+        self.log_metadata_info("no_metadata", "missing")
+
+    def log_outdated_metadata_info(self):
+        self.log_metadata_info("outdated_metadata", "outdated")
+
+    def log_provenance_info(self):
+        provenance_triggered_jobs = [
+            job
+            for job in self.dag.needrun_jobs(exclude_finished=False)
+            if self.dag.reason(job).is_provenance_triggered()
+        ]
+        if provenance_triggered_jobs:
+            logger.info(
+                "Some jobs were triggered by provenance information, "
+                "see 'reason' section in the rule displays above.\n"
+                "If you prefer that only modification time is used to "
+                "determine whether a job shall be executed, use the command "
+                "line option '--rerun-triggers mtime' (also see --help).\n"
+                "If you are sure that a change for a certain output file (say, <outfile>) won't "
+                "change the result (e.g. because you just changed the formatting of a script "
+                "or environment definition), you can also wipe its metadata to skip such a trigger via "
+                "'snakemake --cleanup-metadata <outfile>'. "
+            )
+            logger.info(
+                "Rules with provenance triggered jobs: "
+                + " ".join(jobs_to_rulenames(provenance_triggered_jobs))
+            )
+            logger.info("")
+        self.log_missing_metadata_info()
+        self.log_outdated_metadata_info()
+
     @property
     def current_basedir(self):
         """Basedir of currently parsed Snakefile."""
@@ -1359,9 +1400,9 @@ class Workflow(WorkflowExecutorInterface):
         assert frame is not None and frame.f_back is not None
         calling_file = frame.f_back.f_code.co_filename
 
-        if (
-            self.included_stack
-            and calling_file == self.included_stack[-1].get_path_or_uri()
+        if self.included_stack and (
+            (calling_file == self.included_stack[-1].get_path_or_uri())
+            or calling_file.startswith(self.current_basedir.get_path_or_uri())
         ):
             # called from current snakefile, we can try to keep the original source
             # file annotation
@@ -1748,66 +1789,41 @@ class Workflow(WorkflowExecutorInterface):
                 )
                 # TODO retrieve suitable singularity image
 
+            def check_may_use_software_deployment(method):
+                if ruleinfo.template_engine:
+                    raise RuleException(
+                        f"{method} directive is only allowed with "
+                        "run, shell, script, notebook, or wrapper "
+                        "directives (not with template_engine)",
+                        rule=rule,
+                    )
+
             if ruleinfo.env_modules:
                 # If using environment modules and they are defined for the rule,
                 # ignore conda and singularity directive below.
                 # The reason is that this is likely intended in order to use
                 # a software stack specifically compiled for a particular
                 # HPC cluster.
-                invalid_rule = not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                )
-                if invalid_rule:
-                    raise RuleException(
-                        "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run or the template_engine)",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("envmodules")
                 from snakemake.deployment.env_modules import EnvModules
 
                 rule.env_modules = EnvModules(*ruleinfo.env_modules)
 
             if ruleinfo.conda_env:
-                if not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                ):
-                    raise RuleException(
-                        "Conda environments are only allowed "
-                        "with shell, script, notebook, or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("conda")
 
                 if isinstance(ruleinfo.conda_env, Path):
                     ruleinfo.conda_env = str(ruleinfo.conda_env)
 
                 rule.conda_env = ruleinfo.conda_env
 
-            invalid_rule = not (
-                ruleinfo.script
-                or ruleinfo.wrapper
-                or ruleinfo.shellcmd
-                or ruleinfo.notebook
-            )
             if ruleinfo.container_img:
-                if invalid_rule:
-                    raise RuleException(
-                        "Singularity directive is only allowed "
-                        "with shell, script, notebook or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("container/singularity")
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule and ruleinfo.container_img != False:
-                    # skip rules with run directive or empty image
+                if not ruleinfo.template_engine and ruleinfo.container_img != False:
+                    # skip rules with template_engine directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
 

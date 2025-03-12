@@ -1,4 +1,4 @@
-$schema: "https://json-schema.org/draft/2020-12/schema#"
+$schema: "https://json-schema.org/draft/2020-12/schema"
 description: an entry in the sample sheet
 properties:
   sample:
@@ -6,7 +6,15 @@ properties:
     description: sample name/identifier
   condition:
     type: string
-    description: sample condition that will be compared during differential expression analysis (e.g. a treatment, a tissue time, a disease)
+    description: sample condition
+  n:
+    type: integer
+    default: 0
+    description: replicate count
+  tissue:
+    type: string
+    default: blood
+    description: sample tissue of origin
 
 required:
   - sample

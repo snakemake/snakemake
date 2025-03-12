@@ -1,7 +1,8 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-  "setuptools>=42",
+  # TODO relax upper bound, as of March 9 2025 there is a hash mismatch in setuptools on pypi
+  "setuptools>=42,<76",
   'tomli; python_version < "3.11"',
 ]
 
