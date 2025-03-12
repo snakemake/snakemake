@@ -15,7 +15,6 @@ jobs:
         with:
           release-type: python
           token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
-          package-name: snakemake
 
       - uses: actions/checkout@v4
         if: ${{ steps.release.outputs.release_created }}
