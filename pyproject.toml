@@ -130,6 +130,20 @@ python = ">=3.11.0,<3.12"
 [tool.pixi.feature.py312.dependencies]
 python = ">=3.12.0,<3.13"
 #------------------------ Test -------------------------------  
+[tool.pytest.ini_options]
+addopts = "--verbose --exitfirst --show-capture=stderr"
+
+[tool.pixi.feature.test.tasks.test-simple]
+cmd = ["pytest", "tests/tests.py"]
+description = "Run tests only for tests/tests.py"
+
+[tool.pixi.feature.test.tasks.test-complex]
+description = "Run all tests in the tests directory except tests.py"
+cmd = ["pytest", "tests", "--ignore=tests/tests.py"]
+
+[tool.pixi.feature.test.tasks.test-all]
+description = "Runs both simple and complex tests"
+depends-on = ["test-simple", "test-complex"]
 
 [tool.pixi.feature.test.dependencies]
 pytest = ">=8.3.5,<9"
