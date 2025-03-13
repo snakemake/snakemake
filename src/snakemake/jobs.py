@@ -56,6 +56,7 @@ from snakemake.exceptions import (
 
 from snakemake.logging import logger
 from snakemake.common import (
+    get_function_params,
     is_local_file,
     get_uuid,
     IO_PROP_LIMIT,
@@ -487,7 +488,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         return {
             name
             for name, val in self.rule.resources.items()
-            if is_callable(val) and "input" in val.__code__.co_varnames
+            if is_callable(val) and "input" in get_function_params(val)
         }
 
     @property
