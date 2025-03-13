@@ -760,7 +760,7 @@ class PythonScript(ScriptBase):
             del script;
             from snakemake.logging import logger;
             from snakemake.script import snakemake;
-            {shell_exec_stmt} logger.printshellcmds = {logger.printshellcmds};
+            {shell_exec_stmt}
             {preamble_addendum}
             """
         return "\n".join(

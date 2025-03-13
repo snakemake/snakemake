@@ -1355,6 +1355,7 @@ def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
 
 
+@pytest.mark.needs_envmodules
 @skip_on_windows
 def test_env_modules():
     run(dpath("test_env_modules"), deployment_method={DeploymentMethod.ENV_MODULES})
