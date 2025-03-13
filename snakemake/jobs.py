@@ -100,13 +100,16 @@ def get_script_mtime(path: str) -> float:
 
 class AbstractJob(JobExecutorInterface):
     @abstractmethod
-    def reset_params_and_resources(self): ...
+    def reset_params_and_resources(self):
+        ...
 
     @abstractmethod
-    def get_target_spec(self): ...
+    def get_target_spec(self):
+        ...
 
     @abstractmethod
-    def products(self, include_logfiles=True): ...
+    def products(self, include_logfiles=True):
+        ...
 
     def has_products(self, include_logfiles=True):
         for _ in self.products(include_logfiles=include_logfiles):
@@ -1147,11 +1150,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             f"Error in rule {self.rule.name}, jobid: {self.dag.jobid(self)}",
             extra=self.get_log_error_info(msg, indent, aux_logs, **kwargs),
         )
-
-    def log_warning(
-        self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
-    ):
-        logger.job_warning(**self.get_log_error_info(msg, indent, aux_logs, **kwargs))
 
     def register(self, external_jobid: Optional[str] = None):
         self.dag.workflow.persistence.started(self, external_jobid)
