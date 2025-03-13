@@ -2375,7 +2375,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             dag, node2rule=node2rule, node2style=node2style, node2label=node2label
         )
 
-    def mermaidJS(self):
+    def mermaid_js(self):
         def node2style(job):
             if not self.needrun(job):
                 return ",stroke-dasharray: 5 5"
