@@ -8,6 +8,7 @@ import traceback
 import textwrap
 from tokenize import TokenError
 from snakemake_interface_common.exceptions import WorkflowError, ApiError
+from snakemake_interface_logger_plugins.common import LogEvent
 
 
 def format_error(
@@ -178,7 +179,10 @@ def print_exception(ex, linemaps=None):
     from snakemake.logging import logger
 
     log_verbose_traceback(ex)
-    logger.error(format_exception_to_string(ex, linemaps))
+    logger.error(
+        format_exception_to_string(ex, linemaps),
+        extra=dict(event=LogEvent.ERROR, exception=ex.__class__.__name__),
+    )
 
 
 def update_lineno(ex: SyntaxError, linemaps):

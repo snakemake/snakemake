@@ -1,6 +1,13 @@
-include versioneer.py
-include snakemake/_version.py
+global-exclude *
+
+include setup.py
+include pyproject.toml
+include README.md
 include LICENSE.md
+include .gitignore
+graft src
 
 # Include tests in sdist, otherwise only tests/test*.py are included by default
 graft tests
+
+global-exclude *~ *.py[cod] *.so
