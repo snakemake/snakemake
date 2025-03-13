@@ -196,7 +196,6 @@ snakemake-storage-plugin-fs = "*"
 snakemake-executor-plugin-cluster-generic = "*"
 conda = "*"
 pip = "*"
-pytest-xdist = "*"
 
 [tool.pixi.feature.test.target.linux-64.dependencies]
 # environment-modules = "*"
