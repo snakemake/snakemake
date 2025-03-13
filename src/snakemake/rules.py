@@ -27,6 +27,7 @@ from snakemake.io import (
     AnnotatedString,
     contains_wildcard,
     contains_wildcard_constraints,
+    is_multiext_items,
     update_wildcard_constraints,
     flag,
     get_flag_value,
@@ -277,20 +278,13 @@ class Rule(RuleInterface):
             self.name, frozenset()
         )
         for i, item in enumerate(input):
-            if isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
+            if is_multiext_items(item):
                 for ifile in item:
-                    _multiextvalue = get_flag_value(ifile, "multiext")
-                    if _multiextvalue:
-                        self._set_inoutput_item(
-                            ifile,
-                            name=_multiextvalue.name,
-                            mark_ancient=i in consider_ancient,
-                        )
-                    else:
-                        self._set_inoutput_item(
-                            ifile,
-                            mark_ancient=i in consider_ancient,
-                        )
+                    self._set_inoutput_item(
+                        ifile,
+                        name=get_flag_value(ifile, "multiext").name,
+                        mark_ancient=i in consider_ancient,
+                    )
             else:
                 self._set_inoutput_item(
                     item,
@@ -354,15 +348,13 @@ class Rule(RuleInterface):
         for item in output:
             # Named multiext have their name set under the flag (MultiextValue), if the first one is named, all of them are named.
             # Any of the output files in item can be multiext, so we do need to check all of them.
-            if isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
+            if is_multiext_items(item):
                 for ofile in item:
-                    _multiextvalue = get_flag_value(ofile, "multiext")
-                    if _multiextvalue:
-                        self._set_inoutput_item(
-                            ofile, output=True, name=_multiextvalue.name
-                        )
-                    else:
-                        self._set_inoutput_item(ofile, output=True)
+                    self._set_inoutput_item(
+                        ofile,
+                        name=get_flag_value(ofile, "multiext").name,
+                        output=True,
+                    )
             else:
                 self._set_inoutput_item(item, output=True)
         for name, item in kwoutput.items():

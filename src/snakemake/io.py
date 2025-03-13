@@ -26,6 +26,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Iterable,
     List,
     Optional,
     Set,
@@ -1473,6 +1474,16 @@ def multiext(prefix, *extensions, **named_extensions):
             )
             for name, ext in named_extensions.items()
         ]
+
+
+def is_multiext_items(
+    items: Union[str, _IOFile, Iterable[str], Iterable[_IOFile]],
+) -> bool:
+    return (
+        isinstance(items, collections.abc.Iterable)
+        and not isinstance(items, str)
+        and all(is_flagged(subitem, "multiext") for subitem in items)
+    )
 
 
 def limit(pattern: Union[str, AnnotatedString], **wildcards):
