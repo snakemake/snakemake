@@ -9,6 +9,7 @@ import re
 import os
 import subprocess
 import sys
+import platform
 from collections import OrderedDict, namedtuple
 from collections.abc import Mapping
 from itertools import filterfalse, chain
@@ -35,7 +36,7 @@ from snakemake.settings.types import (
     WorkflowSettings,
     SharedFSUsage,
 )
-
+from snakemake.settings.enums import Quietness
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import (
     SpawnedJobArgsFactoryExecutorInterface,
@@ -49,8 +50,9 @@ from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
+from snakemake_interface_logger_plugins.common import LogEvent
 
-from snakemake.logging import logger, format_resources
+from snakemake.logging import logger, format_resources, logger_manager
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
@@ -274,6 +276,14 @@ class Workflow(WorkflowExecutorInterface):
             "uploaded to default storage provider before"
         )
         return self._source_archive
+
+    def cleanup_source_archive(self):
+        """cleanup source archive form remote storage"""
+        if self._source_archive is not None:
+            obj = self.storage_registry.default_storage_provider.object(
+                self._source_archive.query
+            )
+            async_run(obj.managed_remove())
 
     def upload_sources(self):
         assert self.storage_settings is not None
@@ -1086,10 +1096,64 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
         self.persistence.cleanup_containers()
 
+    def log_rulegraph(self):
+        def simple_rulegraph():
+            from snakemake.report.rulegraph_spec import get_representatives
+
+            representatives = dict()
+            toposorted = [
+                get_representatives(level, representatives)
+                for level in self.dag.toposorted()
+            ]
+
+            # Get unique jobs (one per rule)
+            jobs = [job for level in toposorted for job in level]
+
+            # Create nodes with rule names
+            nodes = [{"rule": job.rule.name} for job in jobs]
+            idx = {job: i for i, job in enumerate(jobs)}
+
+            # Create edges for the graph
+            edges = []
+            seen_pairs = set()
+
+            for u in jobs:
+                for v in self.dag.dependencies[u]:
+                    # Get the indices of the representative jobs
+                    target = idx[u]
+                    source = idx[representatives[v]]
+
+                    # Create a unique pair ID
+                    pair = (source, target)
+
+                    # Skip if we've already processed this pair
+                    if pair in seen_pairs:
+                        continue
+
+                    seen_pairs.add(pair)
+
+                    # Add edge to the result
+                    edges.append(
+                        {
+                            "source": source,
+                            "target": target,
+                            "sourcerule": nodes[source]["rule"],
+                            "targetrule": nodes[target]["rule"],
+                        }
+                    )
+
+            return {"nodes": nodes, "links": edges}
+
+        if logger_manager.initialized and logger_manager.needs_rulegraph:
+            rulegraph = simple_rulegraph()
+            logger.info(None, extra=dict(event=LogEvent.RULEGRAPH, rulegraph=rulegraph))
+
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
         async_run(self.dag.init())
         async_run(self.dag.update_checkpoint_dependencies())
+
+        self.log_rulegraph()
 
     def execute(
         self,
@@ -1097,7 +1161,7 @@ class Workflow(WorkflowExecutorInterface):
         executor_settings: ExecutorSettingsBase,
         updated_files: Optional[List[str]] = None,
     ):
-        logger.host_info()
+        logger.info(f"host: {platform.node()}")
 
         from snakemake.shell import shell
 
@@ -1196,12 +1260,13 @@ class Workflow(WorkflowExecutorInterface):
             ):
                 async_run(self.dag.retrieve_storage_inputs())
 
-            if (
+            should_deploy_sources = (
                 SharedFSUsage.SOURCES not in self.storage_settings.shared_fs_usage
                 and self.exec_mode == ExecMode.DEFAULT
                 and self.remote_execution_settings.job_deploy_sources
                 and not executor_plugin.common_settings.can_transfer_local_files
-            ):
+            )
+            if should_deploy_sources:
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
@@ -1215,25 +1280,36 @@ class Workflow(WorkflowExecutorInterface):
                     if shell_exec is not None:
                         logger.info(f"Using shell: {shell_exec}")
                     if not self.local_exec:
-                        logger.resources_info(f"Provided remote nodes: {self.nodes}")
+                        logger.info(
+                            f"Provided remote nodes: {self.nodes}",
+                            extra=dict(event=LogEvent.RESOURCES_INFO, nodes=self.nodes),
+                        )
                     else:
                         if self._cores is not None:
-                            warning = (
+                            info = (
                                 ""
                                 if self._cores > 1
                                 else " (use --cores to define parallelism)"
                             )
-                            logger.resources_info(
-                                f"Provided cores: {self._cores}{warning}"
+                            logger.info(
+                                f"Provided cores: {self._cores}{info}",
+                                extra=dict(
+                                    event=LogEvent.RESOURCES_INFO, cores=self._cores
+                                ),
                             )
-                            logger.resources_info(
-                                "Rules claiming more threads will be scaled down."
+                            logger.info(
+                                "Rules claiming more threads will be scaled down.",
+                                extra=dict(event=LogEvent.RESOURCES_INFO),
                             )
 
                     provided_resources = format_resources(self.global_resources)
                     if provided_resources:
-                        logger.resources_info(
-                            f"Provided resources: {provided_resources}"
+                        logger.info(
+                            f"Provided resources: {provided_resources}",
+                            extra=dict(
+                                event=LogEvent.RESOURCES_INFO,
+                                provided_resources=self.global_resources,
+                            ),
                         )
 
                     if self.local_exec and any(rule.group for rule in self.rules):
@@ -1254,25 +1330,33 @@ class Workflow(WorkflowExecutorInterface):
                         logger.info("Singularity containers: ignored")
 
                     if self.exec_mode == ExecMode.DEFAULT:
-                        logger.run_info("\n".join(self.dag.stats()))
+                        stats_msg, stats_dict = self.dag.stats()
+                        logger.info(
+                            stats_msg,
+                            extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
+                        )
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
                     return
             else:
                 # the dryrun case
                 if len(self.dag):
-                    logger.run_info("\n".join(self.dag.stats()))
+                    stats_msg, stats_dict = self.dag.stats()
+                    logger.info(
+                        stats_msg,
+                        extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
+                    )
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
                     self.log_missing_metadata_info()
                     self.log_outdated_metadata_info()
                     return
-                if self.output_settings.quiet:
-                    # in case of dryrun and quiet, just print above info and exit
+                # in case of dryrun and quiet, just print above info and exit. this set is equiv to --quiet
+                if self.output_settings.quiet == {Quietness.RULES, Quietness.PROGRESS}:
                     return
 
             if not self.dryrun and not self.execution_settings.no_hooks:
-                self._onstart(logger.get_logfile())
+                self._onstart(logger_manager.get_logfile())
 
             has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
 
@@ -1282,6 +1366,9 @@ class Workflow(WorkflowExecutorInterface):
                 if self.dryrun:
                     self.log_provenance_info()
                 raise e
+            finally:
+                if should_deploy_sources:
+                    self.cleanup_source_archive()
 
             if (
                 not self.remote_execution_settings.immediate_submit
@@ -1298,10 +1385,14 @@ class Workflow(WorkflowExecutorInterface):
             if success:
                 if self.dryrun:
                     if len(self.dag):
-                        logger.run_info("\n".join(self.dag.stats()))
+                        stats_msg, stats_dict = self.dag.stats()
+                        logger.info(
+                            stats_msg,
+                            extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
+                        )
                         self.dag.print_reasons()
                         self.log_provenance_info()
-                    logger.info("")
+
                     logger.info(
                         "This was a dry-run (flag -n). The order of jobs "
                         "does not reflect the order of execution."
@@ -1313,13 +1404,13 @@ class Workflow(WorkflowExecutorInterface):
                             "jobs (e.g. adding more jobs) after their completion."
                         )
                 else:
-                    logger.logfile_hint()
+                    logger_manager.logfile_hint()
                 if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onsuccess(logger.get_logfile())
+                    self._onsuccess(logger_manager.get_logfile())
             else:
                 if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onerror(logger.get_logfile())
-                logger.logfile_hint()
+                    self._onerror(logger_manager.get_logfile())
+                logger_manager.logfile_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
 
     def log_metadata_info(self, metadata_attr, description):
@@ -1364,8 +1455,8 @@ class Workflow(WorkflowExecutorInterface):
             logger.info(
                 "Rules with provenance triggered jobs: "
                 + " ".join(jobs_to_rulenames(provenance_triggered_jobs))
+                + "\n"
             )
-            logger.info("")
         self.log_missing_metadata_info()
         self.log_outdated_metadata_info()
 
@@ -1639,7 +1730,7 @@ class Workflow(WorkflowExecutorInterface):
             nonlocal name
 
             # If requested, modify ruleinfo via the modifier.
-            ruleinfo.apply_modifier(self.modifier)
+            ruleinfo.apply_modifier(self.modifier, rulename=ruleinfo.name or name)
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(

@@ -17,6 +17,7 @@ from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorI
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
@@ -32,7 +33,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. Look above for error message"
+    "Exiting because a job execution failed. Look below for error messages"
 )
 
 _ERROR_MSG_ISSUE_823 = (
@@ -214,6 +215,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         self._executor.shutdown()
                         if not user_kill:
                             logger.error(_ERROR_MSG_FINAL)
+                            for job in self.failed:
+                                logger.error(
+                                    f"Error in jobid: {self.workflow.dag.jobid(job)}",
+                                    extra=job.get_log_error_info(),
+                                )
                         return False
                     continue
 
@@ -229,6 +235,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
+                        for job in self.failed:
+                            logger.error(
+                                f"Error in jobid: {self.workflow.dag.jobid(job)}",
+                                extra=job.get_log_error_info(),
+                            )
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
                     if self.remaining_jobs and not self.keepgoing:
@@ -293,7 +304,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
                 if run:
                     if not self.dryrun:
-                        logger.info(f"Execute {len(run)} jobs...")
+                        logger.info(
+                            f"Execute {len(run)} jobs...",
+                            extra=dict(
+                                event=LogEvent.JOB_STARTED, jobs=[j.jobid for j in run]
+                            ),
+                        )
 
                     # actually run jobs
                     local_runjobs = [job for job in run if job.is_local]
@@ -317,7 +333,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         )
                     if runjobs:
                         self.run(runjobs)
-                elif not self.dryrun:
+                if not self.dryrun:
                     logger.info("Waiting for more resources.")
                     if self.job_rate_limiter is not None:
                         # need to reevaluate because after the timespan we can
@@ -388,9 +404,15 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 if self.print_progress:
                     if job.is_group():
                         for j in job:
-                            logger.job_finished(jobid=j.jobid)
+                            logger.info(
+                                f"Finished jobid: {j.jobid} (Rule: {j.rule.name})",
+                                extra=dict(event=LogEvent.JOB_FINISHED, job_id=j.jobid),
+                            )
                     else:
-                        logger.job_finished(jobid=job.jobid)
+                        logger.info(
+                            f"Finished jobid: {job.jobid} (Rule: {job.rule.name})",
+                            extra=dict(event=LogEvent.JOB_FINISHED, job_id=job.jobid),
+                        )
                     self.progress()
 
                 await self.workflow.dag.finish(
@@ -816,13 +838,27 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
     def progress(self):
         """Display the progress."""
-        logger.progress(done=self.finished_jobs, total=len(self.workflow.dag))
+        logger.info(
+            None,
+            extra=dict(
+                event=LogEvent.PROGRESS,
+                done=self.finished_jobs,
+                total=len(self.workflow.dag),
+            ),
+        )
 
 
 class JobRateLimiter:
     def __init__(self, limit: MaxJobsPerTimespan):
         self._limit: MaxJobsPerTimespan = limit
         self._jobs = deque()
+        logger.debug(
+            f"Submitting maximum {self._limit.max_jobs} job(s) over {self._limit.timespan} second(s)."
+        )
+
+    @property
+    def max_jobs(self) -> int:
+        return self._limit.max_jobs
 
     @property
     def timespan(self) -> int:
@@ -834,9 +870,9 @@ class JobRateLimiter:
 
     def get_free_jobs(self):
         # get the index of the last element that is older than the timespan
-        index = bisect(self._jobs, time.time() - self._limit.timespan)
+        index = bisect(self._jobs, time.time() - self.timespan)
         # remove the first index elements from the deque
         for _ in range(index):
             self._jobs.popleft()
-        n_free = max(self._limit.max_jobs - len(self._jobs), 0)
+        n_free = max(self.max_jobs - len(self._jobs), 0)
         return n_free

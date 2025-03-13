@@ -14,6 +14,7 @@ import subprocess
 import tarfile
 import textwrap
 import time
+import json
 from typing import Iterable, List, Optional, Set, Union
 import uuid
 import subprocess
@@ -27,6 +28,7 @@ from snakemake.settings.types import DeploymentMethod
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
+from snakemake_interface_logger_plugins.common import LogEvent
 
 from snakemake import workflow
 from snakemake import workflow as _workflow
@@ -35,7 +37,7 @@ from snakemake.common import (
     group_into_chunks,
     is_local_file,
 )
-from snakemake.settings.types import RerunTrigger
+from snakemake.settings.types import RerunTrigger, StrictDagEvaluation
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,
@@ -51,6 +53,7 @@ from snakemake.exceptions import (
     RemoteFileException,
     WildcardError,
     WorkflowError,
+    print_exception_warning,
 )
 from snakemake.io import (
     _IOFile,
@@ -144,6 +147,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._running = set()
         self._jobs_with_finished_queue_input = set()
         self._storage_input_jobs = defaultdict(list)
+        self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -267,17 +271,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return self._checkpoint_jobs
 
     @property
-    def finished_checkpoint_jobs(self):
-        for job in self.finished_jobs:
-            if job.is_checkpoint:
+    def finished_and_not_needrun_checkpoint_jobs(self):
+        for job in self.jobs:
+            if job.is_checkpoint and (self.finished(job) or not self.needrun(job)):
                 yield job
 
     def update_checkpoint_outputs(self):
-        workflow.checkpoints.future_output = set(
-            f for job in self.checkpoint_jobs for f in job.output
-        )
         workflow.checkpoints.created_output = set(
-            f for job in self.finished_checkpoint_jobs for f in job.output
+            f
+            for job in self.finished_and_not_needrun_checkpoint_jobs
+            for f in job.output
         )
 
     def update_jobids(self):
@@ -409,25 +412,28 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if self.workflow.remote_exec:
             logger.info("Storing output in storage.")
             try:
-                async with asyncio.TaskGroup() as tg:
-                    for job in self.needrun_jobs(exclude_finished=False):
-                        benchmark = [job.benchmark] if job.benchmark else []
+                for level in self.toposorted(
+                    set(self.needrun_jobs(exclude_finished=False))
+                ):
+                    async with asyncio.TaskGroup() as tg:
+                        for job in level:
+                            benchmark = [job.benchmark] if job.benchmark else []
 
-                        async def tostore(f):
-                            return (
-                                f.is_storage
-                                and f
-                                not in self.workflow.storage_settings.unneeded_temp_files
-                                and await f.exists_local()
-                            )
+                            async def tostore(f):
+                                return (
+                                    f.is_storage
+                                    and f
+                                    not in self.workflow.storage_settings.unneeded_temp_files
+                                    and await f.exists_local()
+                                )
 
-                        if self.finished(job):
-                            for f in chain(job.output, benchmark):
+                            if self.finished(job):
+                                for f in chain(job.output, benchmark):
+                                    if await tostore(f):
+                                        tg.create_task(f.store_in_storage())
+                            for f in job.log:
                                 if await tostore(f):
                                     tg.create_task(f.store_in_storage())
-                        for f in job.log:
-                            if await tostore(f):
-                                tg.create_task(f.store_in_storage())
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to store output in storage.", e)
 
@@ -646,7 +652,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         e,
                         rule=job.rule,
                     )
-            return not await f.is_same_checksum(checksum, force=True)
+            return not await f.is_same_checksum(
+                checksum, self.max_checksum_file_size, force=True
+            )
 
         checksum_failed_output = [
             f
@@ -1020,7 +1028,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             )
 
         for i, job in enumerate(jobs):
-            logger.dag_debug(dict(status="candidate", job=job))
+            logger.debug(
+                None, extra=dict(event=LogEvent.DEBUG_DAG, status="candidate", job=job)
+            )
             if file in job.input:
                 cycles.append(job)
                 continue
@@ -1043,10 +1053,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     break
             except (
                 MissingInputException,
-                CyclicGraphException,
-                PeriodicWildcardError,
                 WorkflowError,
             ) as ex:
+                exceptions.append(ex)
+                discarded_jobs.add(job)
+            except (CyclicGraphException,) as ex:
+                if (
+                    StrictDagEvaluation.CYCLIC_GRAPH
+                    in self.workflow.dag_settings.strict_evaluation
+                ):
+                    raise ex
+                exceptions.append(ex)
+                discarded_jobs.add(job)
+            except (PeriodicWildcardError,) as ex:
+                if (
+                    StrictDagEvaluation.PERIODIC_WILDCARDS
+                    in self.workflow.dag_settings.strict_evaluation
+                ):
+                    raise ex
                 exceptions.append(ex)
                 discarded_jobs.add(job)
             except RecursionError as e:
@@ -1073,6 +1097,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 raise WorkflowError(*exceptions)
             elif len(exceptions) == 1:
                 raise exceptions[0]
+        else:
+            for e in exceptions:
+                if isinstance(e, CyclicGraphException) or isinstance(
+                    e, PeriodicWildcardError
+                ):
+                    print_exception_warning(e, self.workflow.linemaps)
 
         n = len(self._dependencies)
         if progress and n % 1000 == 0 and n and self._progress != n:
@@ -1086,14 +1116,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         )
         if ambiguities and not self.workflow.execution_settings.ignore_ambiguity:
             raise AmbiguousRuleException(file, producer, ambiguities[0])
-        logger.dag_debug(dict(status="selected", job=producer))
+        logger.debug(
+            f"Selected {producer.rule.name}",
+            extra=dict(event=LogEvent.DEBUG_DAG, status="selected", job=producer),
+        )
         if exceptions:
-            logger.dag_debug(
-                dict(
+            logger.debug(
+                msg=f"Producer found, hence exceptions are ignored. Exceptions: {WorkflowError(*exceptions)}",
+                extra=dict(
+                    event=LogEvent.DEBUG_DAG,
                     file=file,
-                    msg="Producer found, hence exceptions are ignored.",
                     exception=WorkflowError(*exceptions),
-                )
+                ),
             )
         return producer
 
@@ -1170,14 +1204,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         self.delete_job(job, recursive=False)  # delete job from tree
                         raise ex
                     else:
-                        logger.dag_debug(
-                            dict(
+                        logger.debug(
+                            msg=f"No producers found, but file: {res.file} is present on disk.",
+                            extra=dict(
+                                event=LogEvent.DEBUG_DAG,
                                 file=res.file,
-                                msg="No producers found, but file is present on disk.",
                                 exception=ex,
-                            )
+                            ),
                         )
                         known_producers[res.file] = None
+                    if isinstance(ex, CyclicGraphException) or isinstance(
+                        ex, PeriodicWildcardError
+                    ):
+                        print_exception_warning(ex, self.workflow.linemaps)
 
         for file, job_ in producer.items():
             dependencies[job_].add(file)
@@ -1227,7 +1266,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             try:
                 return is_same_checksum_cache[(f, job)]
             except KeyError:
-                if not await f.is_checksum_eligible():
+                if not await f.is_checksum_eligible(self.max_checksum_file_size):
                     # no chance to compute checksum, cannot be assumed the same
                     is_same = False
                 else:
@@ -1241,7 +1280,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         # no checksums recorded, we cannot assume them to be the same
                         is_same = False
                     else:
-                        is_same = await f.is_same_checksum(checksums.pop())
+                        is_same = await f.is_same_checksum(
+                            checksums.pop(), self.max_checksum_file_size
+                        )
 
                 is_same_checksum_cache[(f, job)] = is_same
                 return is_same
@@ -2261,10 +2302,23 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 )
             except InputFunctionException as e:
                 exceptions.append(e)
+                if (
+                    StrictDagEvaluation.FUNCTIONS
+                    in self.workflow.dag_settings.strict_evaluation
+                ):
+                    raise e
         if not jobs:
             if exceptions:
                 raise exceptions[0]
             raise MissingRuleException(targetfile)
+        else:
+            # Warn user of possible errors
+            for e in exceptions:
+                print_exception_warning(
+                    e,
+                    self.workflow.linemaps,
+                    "Use --strict-dag-evaluation to force strict mode.",
+                )
         return jobs
 
     def rule_dot2(self):
@@ -2728,16 +2782,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         jobs = list(self.jobs)
 
         if len(jobs) > max_jobs:
-            logger.info(f"Job-DAG is too large for visualization (>{max_jobs} jobs).")
+            print(f"Job-DAG is too large for visualization (>{max_jobs} jobs).")
         else:
-            logger.d3dag(
-                nodes=[node(job) for job in jobs],
-                edges=[
-                    edge(dep, job)
-                    for job in jobs
-                    for dep in self._dependencies[job]
-                    if self.needrun(dep)
-                ],
+            print(
+                json.dumps(
+                    dict(
+                        nodes=[node(job) for job in jobs],
+                        edges=[
+                            edge(dep, job)
+                            for job in jobs
+                            for dep in self._dependencies[job]
+                            if self.needrun(dep)
+                        ],
+                    ),
+                )
             )
 
     def print_reasons(self):
@@ -2756,32 +2814,32 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 msg += f"\n    {reason}:\n        {rules}"
             logger.info(msg)
 
-    def stats(self):
+    def stats(self) -> tuple[str, dict[str, int]]:
         from tabulate import tabulate
 
+        # Count the jobs
         rules = Counter()
         rules.update(job.rule for job in self.needrun_jobs())
         rules.update(job.rule for job in self.finished_jobs)
 
-        rows = [
-            {
-                "job": rule.name,
-                "count": count,
-            }
-            for rule, count in sorted(
-                rules.most_common(), key=lambda item: item[0].name
-            )
-        ]
-        rows.append(
-            {
-                "job": "total",
-                "count": sum(rules.values()),
-            }
-        )
+        # Create rows for the table and a dictionary for job stats
+        rows = []
+        stats_dict = {}
+        for rule, count in sorted(rules.most_common(), key=lambda item: item[0].name):
+            row = {"job": rule.name, "count": count}
+            rows.append(row)
+            stats_dict[rule.name] = count
 
-        yield "Job stats:"
-        yield tabulate(rows, headers="keys")
-        yield ""
+        # Add total row
+        total_count = sum(rules.values())
+        rows.append({"job": "total", "count": total_count})
+        stats_dict["total"] = total_count
+
+        # Generate the formatted message
+        message = "Job stats:\n" + tabulate(rows, headers="keys") + "\n"
+
+        # Return both the message and dictionary
+        return message, stats_dict
 
     def toposorted(self, jobs=None, inherit_pipe_dependencies=False):
         if jobs is None:

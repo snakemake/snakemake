@@ -1167,6 +1167,10 @@ def test_checkpoints_dir():
     run(dpath("test_checkpoints_dir"))
 
 
+def test_checkpoints_many():
+    run(dpath("test_checkpoints_many"))
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
@@ -1351,6 +1355,7 @@ def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
 
 
+@pytest.mark.needs_envmodules
 @skip_on_windows
 def test_env_modules():
     run(dpath("test_env_modules"), deployment_method={DeploymentMethod.ENV_MODULES})
@@ -2052,3 +2057,8 @@ def test_failed_intermediate():
 # Currently this is expected to fail, requires a fix
 def test_python_import_from_github_module():
     run(dpath("test_python_import_from_github_module"))
+
+
+@skip_on_windows  # OS agnostic
+def test_issue3338():
+    run(dpath("test_issue3338"), targets=["all"])

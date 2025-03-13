@@ -7,7 +7,8 @@ myst-parser
 configargparse
 appdirs
 sphinxawesome-theme
+gitpython
 snakemake-interface-common
 snakemake-interface-executor-plugins
 snakemake-interface-storage-plugins
-gitpython
+snakemake-interface-logger-plugins

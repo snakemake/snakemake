@@ -30,7 +30,7 @@ from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
 from snakemake.io import _IOFile, is_flagged, get_flag_value
 from snakemake_interface_common.exceptions import WorkflowError
-
+from snakemake.settings.types import DeploymentMethod
 
 UNREPRESENTABLE = object()
 RECORD_FORMAT_VERSION = 5
@@ -130,6 +130,9 @@ class Persistence(PersistenceExecutorInterface):
             self.unlock = self.noop
 
         self._read_record = self._read_record_cached
+        self.max_checksum_file_size = (
+            self.dag.workflow.dag_settings.max_checksum_file_size
+        )
 
     @property
     def path(self) -> Path:
@@ -326,8 +329,10 @@ class Persistence(PersistenceExecutorInterface):
                 else fallback_time
             )
 
-            checksums = ((infile, await infile.checksum()) for infile in job.input)
-
+            checksums = (
+                (infile, await infile.checksum(self.max_checksum_file_size))
+                for infile in job.input
+            )
             self._record(
                 self._metadata_path,
                 {
@@ -519,9 +524,17 @@ class Persistence(PersistenceExecutorInterface):
         # TODO move code for retrieval into software deployment plugin interface once
         # available
         md5hash = hashlib.md5()
-        if job.conda_env:
+        if (
+            DeploymentMethod.CONDA
+            in self.dag.workflow.deployment_settings.deployment_method
+            and job.conda_env
+        ):
             md5hash.update(job.conda_env.hash.encode())
-        if job.container_img_url:
+        if (
+            DeploymentMethod.APPTAINER
+            in self.dag.workflow.deployment_settings.deployment_method
+            and job.container_img_url
+        ):
             md5hash.update(job.container_img_url.encode())
         if job.env_modules:
             md5hash.update(job.env_modules.hash.encode())

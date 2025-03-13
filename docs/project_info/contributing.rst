@@ -185,46 +185,32 @@ For the documentation, please adhere to the following guidelines:
 - Put each sentence on its own line, this makes tracking changes through Git SCM easier.
 - Provide hyperlink targets, at least for the first two section levels.
   For this, use the format ``<document_part>-<section_name>``, e.g., ``project_info-doc_guidelines``.
-- Use the section structure from below.
+- Use the `section structure recommended by Sphinx <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#sections>`_, which references the `recommendations in the Python Developer's Guide <https://devguide.python.org/documentation/markup/#sections>`_.
+  Namely, the levels are:
 
 ::
 
-    .. document_part-heading_1:
+    .. document_part-section_heading:
 
-    =========
-    Heading 1
-    =========
-
-
-    .. document_part-heading_2:
-
-    ---------
-    Heading 2
-    ---------
+    ===============
+    Section heading
+    ===============
 
 
-    .. document_part-heading_3:
+    .. document_part-subsection_heading:
 
-    Heading 3
-    =========
+    Subsection heading
+    ------------------
 
+    .. document_part-subsubsection_heading:
 
-    .. document_part-heading_4:
+    Subsubsection heading
+    ^^^^^^^^^^^^^^^^^^^^^
 
-    Heading 4
-    ---------
+    .. document_part-paragraph_heading:
 
-
-    .. document_part-heading_5:
-
-    Heading 5
-    ~~~~~~~~~
-
-
-    .. document_part-heading_6:
-
-    Heading 6
-    :::::::::
+    Paragraph heading
+    """""""""""""""""
 
 .. _doc_setup:
 
@@ -239,7 +225,8 @@ Snakemake development environment via
 
     $ git clone git@github.com:snakemake/snakemake.git
     $ cd snakemake
-    $ conda env create -f doc-environment.yml -n snakemake
+    $ conda env create -f doc-environment.yml -n snakemake_docs
+    $ conda activate snakemake_docs
 
 You will also need to install your development version of Snakemake for the docs to be built correctly
 
@@ -251,7 +238,6 @@ Then, the docs can be built with
 
 .. code-block:: console
 
-    $ conda activate snakemake
     $ cd docs
     $ make html
     $ make clean && make html  # force rebuild

@@ -167,6 +167,7 @@ def test_singularity_conda():
 
 
 @conda
+@pytest.mark.needs_envmodules
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
@@ -318,6 +319,16 @@ def test_script_xsh():
 @conda
 def test_conda_run():
     run(dpath("test_conda_run"), deployment_method={DeploymentMethod.CONDA})
+
+
+# Test that container and conda can be run independently using sdm
+@skip_on_windows
+@apptainer
+@connected
+@conda
+def test_issue_3202():
+    run(dpath("test_issue_3202"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_issue_3202"), deployment_method={DeploymentMethod.CONDA})
 
 
 # These tests have no explicit dependency on Conda and do not build new conda envs,
