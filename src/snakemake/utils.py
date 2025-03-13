@@ -38,8 +38,6 @@ def validate(data, schema, set_default=True):
             https://python-jsonschema.readthedocs.io/en/latest/faq/ for more
             information
     """
-    from snakemake.sourcecache import LocalSourceFile, infer_source_file
-
     frame = inspect.currentframe().f_back
     workflow = frame.f_globals.get("workflow")
 
@@ -47,14 +45,10 @@ def validate(data, schema, set_default=True):
         # skip if a corresponding modifier has been defined
         return
 
-    try:
-        import jsonschema
-        from jsonschema import validators, RefResolver
-    except ImportError:
-        raise WorkflowError(
-            "The Python 3 package jsonschema must be installed "
-            "in order to use the validate directive."
-        )
+    from snakemake.sourcecache import LocalSourceFile, infer_source_file
+    import jsonschema
+    from jsonschema import Draft202012Validator, validators
+    from referencing import Registry, Resource
 
     schemafile = infer_source_file(schema)
 
@@ -68,16 +62,12 @@ def validate(data, schema, set_default=True):
         else schemafile.get_path_or_uri()
     )
     schema = _load_configfile(source, filetype="Schema")
-    if isinstance(schemafile, LocalSourceFile):
-        resolver = RefResolver(
-            urljoin("file:", schemafile.get_path_or_uri()),
-            schema,
-            handlers={
-                "file": lambda uri: _load_configfile(re.sub("^file://", "", uri))
-            },
-        )
-    else:
-        resolver = RefResolver(schemafile.get_path_or_uri(), schema)
+
+    resource = Resource.from_contents(contents=schema)
+    registry = Registry().with_resource(
+        uri=schemafile.get_path_or_uri(), resource=resource
+    )
+    Validator = Draft202012Validator(schema, registry=registry)
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -88,32 +78,36 @@ def validate(data, schema, set_default=True):
                 if "default" in subschema:
                     instance.setdefault(property, subschema["default"])
 
-            for error in validate_properties(validator, properties, instance, schema):
+            for error in validate_properties(
+                validator,
+                properties,
+                instance,
+                schema,
+            ):
                 yield error
 
-        return validators.extend(validator_class, {"properties": set_defaults})
+        return validators.extend(
+            validator_class,
+            {"properties": set_defaults},
+        )
 
-    Validator = validators.validator_for(schema)
+    Defaultvalidator = extend_with_default(Draft202012Validator)
     if Validator.META_SCHEMA["$schema"] != schema["$schema"]:
         logger.warning(
-            "No validator found for JSON Schema version identifier '{}'".format(
-                schema["$schema"]
-            )
+            f"No validator found for JSON Schema version identifier '{schema["$schema"]}'"
         )
         logger.warning(
-            "Defaulting to validator for JSON Schema version '{}'".format(
-                Validator.META_SCHEMA["$schema"]
-            )
+            f"Defaulting to validator for JSON Schema version '{Validator.META_SCHEMA["$schema"]}'"
         )
         logger.warning("Note that schema file may not be validated correctly.")
-    DefaultValidator = extend_with_default(Validator)
-
+    Defaultvalidator = extend_with_default(Validator)
+    print(Validator.META_SCHEMA["$schema"])
     def _validate_record(record):
         if set_default:
-            DefaultValidator(schema, resolver=resolver).validate(record)
+            Defaultvalidator(schema, registry=registry).validate(record)
             return record
         else:
-            jsonschema.validate(record, schema, resolver=resolver)
+            Validator.validate(record)
 
     def _validate_pandas(data):
         try:
