@@ -389,7 +389,8 @@ class _IOFile(str, AnnotatedStringInterface):
 
     @property
     def multiext_prefix(self):
-        return get_flag_value(self._file, "multiext")
+        multiext_value = get_flag_value(self._file, "multiext")
+        return multiext_value.prefix if multiext_value is not None else None
 
     @property
     def should_keep_local(self):
