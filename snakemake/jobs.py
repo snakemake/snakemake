@@ -30,6 +30,7 @@ from snakemake_interface_executor_plugins.jobs import (
     SingleJobExecutorInterface,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_logger_plugins.common import LogEvent
 
 from snakemake.io import (
     _IOFile,
@@ -1064,34 +1065,47 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             if self.benchmark is not None
             else None
         )
-        logger.job_info(
-            jobid=self.dag.jobid(self),
-            msg=self.message,
-            name=self.rule.name,
-            # in dryrun, we don't want to display a decision whether local or not
-            # since we don't know how the user wants to execute
-            local=(
-                not self.dag.workflow.dryrun and self.dag.workflow.is_local(self.rule)
+        logger.info(
+            f" Rule: {self.rule.name}, Jobid: {self.dag.jobid(self)}",
+            extra=dict(
+                event=LogEvent.JOB_INFO,
+                jobid=self.dag.jobid(self),
+                rule_msg=self.message,
+                rule_name=self.rule.name,
+                # in dryrun, we don't want to display a decision whether local or not
+                # since we don't know how the user wants to execute
+                local=(
+                    not self.dag.workflow.dryrun
+                    and self.dag.workflow.is_local(self.rule)
+                ),
+                input=format_files(self.input, is_input=True),
+                output=format_files(self.output, is_input=False),
+                log=format_files(self.log, is_input=False),
+                benchmark=benchmark,
+                wildcards=self.wildcards_dict,
+                reason=str(self.dag.reason(self)),
+                resources=self.resources,
+                priority=(
+                    "highest"
+                    if priority == JobExecutorInterface.HIGHEST_PRIORITY
+                    else priority
+                ),
+                threads=self.threads,
+                indent=indent,
+                is_checkpoint=self.rule.is_checkpoint,
+                printshellcmd=printshellcmd,
+                is_handover=self.rule.is_handover,
+                shellcmd=self.shellcmd,
             ),
-            input=format_files(self.input, is_input=True),
-            output=format_files(self.output, is_input=False),
-            log=format_files(self.log, is_input=False),
-            benchmark=benchmark,
-            wildcards=self.wildcards_dict,
-            reason=str(self.dag.reason(self)),
-            resources=self.resources,
-            priority=(
-                "highest"
-                if priority == JobExecutorInterface.HIGHEST_PRIORITY
-                else priority
-            ),
-            threads=self.threads,
-            indent=indent,
-            is_checkpoint=self.rule.is_checkpoint,
-            printshellcmd=printshellcmd,
-            is_handover=self.rule.is_handover,
         )
-        logger.shellcmd(self.shellcmd, indent=indent)
+        logger.info(
+            f"Shell command: {self.shellcmd}",
+            extra=dict(event=LogEvent.SHELLCMD, shellcmd=self.shellcmd, indent=indent),
+        )
+        if self.rule.is_checkpoint:
+            logger.info("DAG of jobs will be updated after completion.")
+        if self.rule.is_handover:
+            logger.info("Handing over execution to foreign system...")
 
     def get_log_error_info(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
@@ -1112,8 +1126,8 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         )
 
         return dict(
-            name=self.rule.name,
-            msg=msg,
+            rule_name=self.rule.name,
+            rule_msg=msg,
             jobid=self.dag.jobid(self),
             input=format_files(self.input, is_input=True),
             output=format_files(self.output, is_input=False),
@@ -1123,12 +1137,16 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,
+            event=LogEvent.JOB_ERROR,
         )
 
     def log_error(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
     ):
-        logger.job_error(**self.get_log_error_info(msg, indent, aux_logs, **kwargs))
+        logger.error(
+            f"Error in rule {self.rule.name}, jobid: {self.dag.jobid(self)}",
+            extra=self.get_log_error_info(msg, indent, aux_logs, **kwargs),
+        )
 
     def log_warning(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
@@ -1416,7 +1434,12 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         return any(job.is_updated for job in self.jobs)
 
     def log_info(self):
-        logger.group_info(groupid=self.groupid)
+        logger.info(
+            f"Group job {self.groupid} (jobs in lexicogr. order):",
+            extra=dict(
+                event=LogEvent.GROUP_INFO, group_id=self.groupid, jobs=self.jobs
+            ),
+        )
         for job in sorted(self.jobs, key=lambda j: j.rule.name):
             job.log_info(indent=True)
 
@@ -1425,12 +1448,15 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             job.get_log_error_info(indent=True, **kwargs) for job in self.jobs
         ]
         aux_logs = aux_logs or []
-        logger.group_error(
-            groupid=self.groupid,
-            msg=msg,
-            aux_logs=aux_logs,
-            job_error_info=job_error_info,
-            **kwargs,
+        logger.error(
+            f"Error in group {self.groupid}",
+            dict(
+                event=LogEvent.GROUP_ERROR,
+                groupid=self.groupid,
+                aux_logs=aux_logs,
+                job_error_info=job_error_info,
+                **kwargs,
+            ),
         )
 
     def register(self, external_jobid: Optional[str] = None):

@@ -19,6 +19,10 @@ from snakemake_interface_executor_plugins.settings import (
     ExecMode,
     SharedFSUsage,
 )
+from snakemake_interface_logger_plugins.settings import (
+    LogHandlerSettingsBase,
+    OutputSettingsLoggerInterface,
+)
 
 from snakemake.common import (
     dict_to_key_value_args,
@@ -203,6 +207,7 @@ class DAGSettings(SettingsBase):
     allowed_rules: AnySet[str] = frozenset()
     rerun_triggers: AnySet[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
+    max_checksum_file_size: int = 1000000
     strict_evaluation: AnySet[StrictDagEvaluation] = frozenset()
     # strict_functions_evaluation: bool = False
     # strict_cycle_evaluation: bool = False
@@ -379,14 +384,15 @@ class ConfigSettings(SettingsBase):
 
 
 @dataclass
-class OutputSettings(SettingsBase):
+class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
+    dryrun: bool = False
     printshellcmds: bool = False
     nocolor: bool = False
     quiet: Optional[AnySet[Quietness]] = None
     debug_dag: bool = False
     verbose: bool = False
     show_failed_logs: bool = False
-    log_handlers: Sequence[object] = tuple()
+    log_handler_settings: Mapping[str, LogHandlerSettingsBase] = immutables.Map()
     keep_logger: bool = False
     stdout: bool = False
     benchmark_extended: bool = False
