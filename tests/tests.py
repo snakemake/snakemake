@@ -23,7 +23,13 @@ from snakemake.shell import shell
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import run, dpath, apptainer, connected
-from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
+from .conftest import (
+    skip_on_windows,
+    only_on_windows,
+    ON_WINDOWS,
+    needs_strace,
+    ON_MACOS,
+)
 
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
@@ -375,11 +381,13 @@ def test_wildcard_keyword():
 
 
 @skip_on_windows
+@pytest.mark.skipif(ON_MACOS, reason="Requires the stress-ng package")
 def test_benchmark():
     run(dpath("test_benchmark"), benchmark_extended=True, check_md5=False)
 
 
 @skip_on_windows
+@pytest.mark.skipif(ON_MACOS, reason="Requires the stress-ng package")
 def test_benchmark_jsonl():
     run(dpath("test_benchmark_jsonl"), benchmark_extended=True, check_md5=False)
 
@@ -1244,6 +1252,9 @@ def test_issue1281():
 
 
 @skip_on_windows  # TODO on windows, dot command is suddenly not found anymore although it is installed
+@pytest.mark.skipif(
+    ON_MACOS, reason="graphviz dot needs to be configured"
+)  # Error msg: Perhaps "dot -c" needs to be run (with installer's privileges) to register the plugins?
 def test_filegraph():
     workdir = dpath("test_filegraph")
     dot_path = os.path.join(workdir, "fg.dot")
@@ -1317,6 +1328,10 @@ def test_github_issue727():
 
 
 @skip_on_windows
+@pytest.mark.skipif(
+    ON_MACOS,
+    reason="`wc` command spacing differs between macOS and Linux, expected output is from linux",
+)
 def test_github_issue988():
     run(dpath("test_github_issue988"))
 
