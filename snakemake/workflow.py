@@ -2291,7 +2291,9 @@ class Workflow(WorkflowExecutorInterface):
                             if name_modifier.endswith("*"):
                                 modifier = f"{currentframe().f_back.f_globals[name_modifier[:-1]]}*"
                             else:
-                                modifier = currentframe().f_back.f_globals[name_modifier]
+                                modifier = currentframe().f_back.f_globals[
+                                    name_modifier
+                                ]
                     else:
                         raise WorkflowError(
                             "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
