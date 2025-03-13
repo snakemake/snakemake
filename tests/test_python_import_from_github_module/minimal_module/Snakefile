@@ -1,6 +1,6 @@
 import sys
 
-print(sys.path, file=sts.stderr)
+print(sys.path, file=sys.stderr)
 
 from module_scripts.input_functions import input_function_module
 
