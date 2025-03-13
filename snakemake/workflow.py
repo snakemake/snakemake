@@ -2278,8 +2278,8 @@ class Workflow(WorkflowExecutorInterface):
         def decorate(maybe_ruleinfo):
             if from_module is not None:
                 try:
-                    module = self.modules[from_module]
                     modifier = name_modifier
+                    module = self.modules[from_module]
                 except KeyError:
                     from inspect import currentframe
 
@@ -2287,10 +2287,11 @@ class Workflow(WorkflowExecutorInterface):
                         module = self.modules[
                             currentframe().f_back.f_globals[from_module]
                         ]
-                        if name_modifier.endswith("*"):
-                            modifier = f"{currentframe().f_back.f_globals[name_modifier[:-1]]}*"
-                        else:
-                            modifier = currentframe().f_back.f_globals[name_modifier]
+                        if name_modifier is not None:
+                            if name_modifier.endswith("*"):
+                                modifier = f"{currentframe().f_back.f_globals[name_modifier[:-1]]}*"
+                            else:
+                                modifier = currentframe().f_back.f_globals[name_modifier]
                     else:
                         raise WorkflowError(
                             "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(

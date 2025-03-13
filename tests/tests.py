@@ -1464,6 +1464,10 @@ def test_modules_dynamic():
     run(dpath("test_modules_dynamic"), targets=["all"])
 
 
+def test_modules_dynamic_no_as():
+    run(dpath("test_modules_dynamic_no_as"), targets=["all"])
+
+
 def test_module_nested():
     run(dpath("test_module_nested"))
 
