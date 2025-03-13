@@ -1,0 +1,28 @@
+shell.executable("bash")
+
+configfile: "config/config.yaml"
+
+for module_name in ["module1", "module2", "module3"]:
+    module:
+        name: module_name
+        snakefile:
+            f"{module_name}/Snakefile"
+        config:
+            config
+        replace_prefix:
+            {"results/": "results/testmodule/"}
+
+
+use rule a from module1 as rule_a with:
+    output:
+        "results/testmodule/a2/{name}.out"
+
+use rule b,c from module2
+
+use rule * from module3 exclude a,b,c
+
+
+rule all:
+    input:
+        expand("results/testmodule/b2/{name}.txt", name="test"),
+        expand("results/testmodule/b2/{name}.tsv", name="test"),
