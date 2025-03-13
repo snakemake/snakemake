@@ -214,7 +214,7 @@ For this, the module name is not specified directly after the ``module`` keyword
         use rule * from module as use_as*
 
 .. note::
-    If ``use rule`` is used with the optional ``as`` keyword inside the loop as in the example, the alias after ``as`` must be specified using a second variable to ensures a one-to-one mapping between module names and their aliases.
+    If ``use rule`` is used with the optional ``as`` keyword inside the loop as in the example, the alias after ``as`` must be specified using a second variable to ensure a one-to-one mapping between module names and their aliases.
 
     In particular, it is not possible to modify it in the ``use rule`` statement (e.g., writing directly ``use rule * from module as module_*`` is not allowed).
 
