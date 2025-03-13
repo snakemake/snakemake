@@ -199,6 +199,25 @@ Note that the second use statement has to use the original rule name, not the on
 In order to overwrite the rule ``some_task`` that has been imported with the first ``use rule`` statement, it is crucial to ensure that the rule is used with the same name in the second statement, by adding an equivalent ``as`` clause (here ``other_some_task``).
 Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
 
+It is also possible to load multiple modules dynamically by iterating over the modules in a loop.
+For this, the module name is not specified directly after the ``module`` keyword, but a ``name:`` parameter can be specified.
+
+.. code-block:: python
+
+    for module, use_as in zip(['module1', 'module2'], ['module1_', 'module2_'])
+        module:
+            name: module
+            snakefile: f"{module}/Snakefile"
+            config: config["module"]
+
+        use rule * from module as use_as*
+
+.. note::
+    If the optional ``as`` keyword is used, the ``use_as`` parameter needs to be specified for each module individually.
+    It is not possible to modify it in the ``use rule`` statement.
+    If it is not provided, as in the example, directly, it can be modified in a separate variable and the variable is used.
+
+
 Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
 
 ..  _snakefiles-meta-wrappers:
