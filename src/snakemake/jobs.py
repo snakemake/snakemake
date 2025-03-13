@@ -39,20 +39,21 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.io import (
     _IOFile,
     IOFile,
+    ResourceList,
     is_callable,
     Wildcards,
-    Resources,
     is_flagged,
     get_flag_value,
     wait_for_files,
 )
 from snakemake.settings.types import SharedFSUsage
-from snakemake.resources import GroupResources
+from snakemake.resources import GroupResources, Resources
 from snakemake.target_jobs import TargetSpec
 from snakemake.sourcecache import LocalSourceFile, SourceFile, infer_source_file
 from snakemake.utils import format
 from snakemake.exceptions import (
     InputOpenException,
+    ResourceInsufficiencyError,
     RuleException,
     ProtectedOutputException,
     WorkflowError,
@@ -103,16 +104,14 @@ class AbstractJob(JobExecutorInterface, JobSchedulerInterface):
                 res_dict = {
                     k: v
                     for k, v in self.resources.items()
-                    if not isinstance(self.resources[k], TBDString)
+                    if not isinstance(v, TBDString)
                 }
             else:
                 res_dict = {
-                    k: self.resources[k]
-                    for k in (
-                        set(self.resources.keys())
-                        - self.dag.workflow.resource_scopes.locals
-                    )
-                    if not isinstance(self.resources[k], TBDString)
+                    k: v
+                    for k, v in self.resources.items()
+                    if not self.dag.workflow.resource_scopes.is_local(k)
+                    and not isinstance(v, TBDString)
                 }
             res_dict["_job_count"] = 1
             self._scheduler_resources = res_dict
@@ -486,7 +485,7 @@ class Job(
         }
 
     @property
-    def resources(self):
+    def resources(self) -> ResourceList:
         if self._resources is None:
             if self.dag.workflow.local_exec or self.is_local:
                 skip_evaluation = set()
@@ -1336,7 +1335,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
         "_jobid",
     ]
 
-    def __init__(self, id, jobs, global_resources):
+    def __init__(self, id, jobs, global_resources: Resources):
         self.groupid = id
         self._jobs = jobs
         self.global_resources = global_resources
@@ -1519,11 +1518,11 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
                     additive_resources=["runtime"],
                     sortby=["runtime"],
                 )
-            except WorkflowError as err:
+            except (WorkflowError, ResourceInsufficiencyError) as err:
                 raise WorkflowError(
                     f"Error grouping resources in group '{self.groupid}': {err.args[0]}"
-                )
-        return Resources(fromdict=self._resources)
+                ) from err
+        return ResourceList(fromdict=self._resources)
 
     @property
     def scheduler_resources(self) -> Dict[str, Union[int, str]]:
