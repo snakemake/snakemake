@@ -59,16 +59,15 @@ class PathModifier:
                 modified_path = AnnotatedString(modified_path)
             modified_path.flags.update(path.flags)
             if is_flagged(modified_path, "multiext"):
-                modified_path.flags["multiext"] = self.apply_default_storage(
-                    self.replace_prefix(modified_path.flags["multiext"], property)
+                multiext_value = modified_path.flags["multiext"]
+                multiext_value.prefix = self.apply_default_storage(
+                    self.replace_prefix(multiext_value.prefix, property)
                 )
         # Flag the path as modified and return.
         modified_path = flag(modified_path, PATH_MODIFIER_FLAG)
         return modified_path
 
     def replace_prefix(self, path, property=None):
-        if isinstance(path, MultiextValue):
-            return path
         if (self._prefix_replacements is None and self.prefix is None) or (
             property in self.skip_properties
             or os.path.isabs(path)
@@ -126,10 +125,7 @@ class PathModifier:
         prefix = self.workflow.storage_settings.default_storage_prefix
         if prefix and not prefix.endswith("/"):
             prefix = f"{prefix}/"
-        if isinstance(path, MultiextValue):
-            query = f"{prefix}{os.path.normpath(path.prefix)}"
-        else:
-            query = f"{prefix}{os.path.normpath(path)}"
+        query = f"{prefix}{os.path.normpath(path)}"
         storage_object = self.workflow.storage_registry.default_storage_provider.object(
             query
         )
