@@ -1,3 +1,4 @@
+# vim: ft=python
 from pathlib import Path
 
 
@@ -62,14 +63,15 @@ rule:
         "scripts/rel_source.R"
 
 
-rule:
+rule julia:
     input:
         "test.in",
         named_input="test.in"
     output:
         "julia.out"
     params:
-        integer=123
+        integer=123,
+        astring="foo\n'\\\" ", # nasty string
     conda:
         "envs/julia.yaml"
     script:
@@ -81,15 +83,18 @@ rule bash:
         "test2.in",
         named="test.in",
     output:
-        "bash.out"
+        "{bash}{empty}.out"
+    wildcard_constraints:
+        bash = "bash",
+        empty = "()",
     params:
         integer=123,
-        string="foo",
-        d={"a": "foo"}
+        astring="foo\n'\\\" ", # nasty string
+        alist=["a", "b"],
     resources:
         mem_mb=1024
     log:
-        "bash.log"
+        "{bash}{empty}.log"
     conda:
         "envs/bash.yaml"
     script:
