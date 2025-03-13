@@ -198,6 +198,7 @@ def run(
     group_components=dict(),
     max_threads=None,
     overwrite_groups=dict(),
+    local_groupid="local",
     configfiles=list(),
     overwrite_resources=dict(),
     batch=None,
@@ -422,6 +423,7 @@ def run(
                         group_settings=settings.GroupSettings(
                             group_components=group_components,
                             overwrite_groups=overwrite_groups,
+                            local_groupid=local_groupid,
                         ),
                         executor_settings=executor_settings,
                     )

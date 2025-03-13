@@ -2159,6 +2159,13 @@ def test_handle_storage_multi_consumers():
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
 
+@skip_on_windows  # Relies on symlinks
+def test_issues2981_3221():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.symlink(sys.executable, f"{tmpdir}/Badly Named Python")
+        with patch("sys.executable", f"{tmpdir}/Badly Named Python"):
+            run(dpath("test_issues2981_3221"), snakefile="Badly Named Snakefile",
+                                               local_groupid="'\"Badly Named Group")
 
 def test_default_flags():
     run(dpath("test_default_flags"), executor="dryrun", check_results=False)
