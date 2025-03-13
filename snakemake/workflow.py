@@ -2212,15 +2212,27 @@ class Workflow(WorkflowExecutorInterface):
             if from_module is not None:
                 try:
                     module = self.modules[from_module]
+                    modifier = name_modifier
                 except KeyError:
-                    raise WorkflowError(
-                        "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
-                            from_module
+                    from inspect import currentframe
+
+                    if from_module in currentframe().f_back.f_globals:
+                        module = self.modules[
+                            currentframe().f_back.f_globals[from_module]
+                        ]
+                        if name_modifier.endswith("*"):
+                            modifier = f"{currentframe().f_back.f_globals[name_modifier[:-1]]}*"
+                        else:
+                            modifier = currentframe().f_back.f_globals[name_modifier]
+                    else:
+                        raise WorkflowError(
+                            "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
+                                from_module
+                            )
                         )
-                    )
                 module.use_rules(
                     rules,
-                    name_modifier,
+                    modifier,
                     exclude_rules=exclude_rules,
                     ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
                     skip_global_report_caption=self.report_text
