@@ -144,7 +144,7 @@ Unit tests and regression tests are written to be run by `pytest <https://docs.p
 .. _pixi-test-guide:
 
 Testing Guide using ``pixi``
-=========================
+=============================
 
 **Prerequisites**: Make sure you have ``pixi`` installed: See :ref:`pixi-getting_started`.
 
