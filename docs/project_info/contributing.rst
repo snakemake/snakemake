@@ -88,7 +88,7 @@ Feel free to ask questions about this if you want to contribute to Snakemake :)
 .. _pixi-getting_started:
 
 Development with ``pixi``
-=======================
+=========================
 
 `pixi <https://pixi.sh/>`_ is a tool that is designed to help you manage 
 your development environment.It acts as a drop-in replacement for
