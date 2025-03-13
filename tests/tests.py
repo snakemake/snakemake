@@ -2054,6 +2054,11 @@ def test_failed_intermediate():
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
 
 
+# Currently this is expected to fail, requires a fix
+def test_python_import_from_github_module():
+    run(dpath("test_python_import_from_github_module"))
+
+
 @skip_on_windows  # OS agnostic
 def test_issue3338():
     run(dpath("test_issue3338"), targets=["all"])
