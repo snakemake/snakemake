@@ -114,13 +114,23 @@ class Persistence(PersistenceExecutorInterface):
         for d in (
             self._metadata_path,
             self._incomplete_path,
-            self.shadow_path,
             self.conda_env_archive_path,
             self.conda_env_path,
             self.container_img_path,
             self.aux_path,
         ):
             os.makedirs(d, exist_ok=True)
+
+        try:
+            # Allow creation of shadow path to fail,
+            # since it might be node-local storage not available on the login node of a cluster
+            os.makedirs(self.shadow_path, exist_ok=True)
+        except OSError:
+            logger.info(
+                "Cannot create the base shadow directory while initializing. "
+                "Jobs that need it will still attempt to create it in their own environment"
+            )
+            pass
 
         if nolock:
             self.lock = self.noop

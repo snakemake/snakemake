@@ -1926,6 +1926,8 @@ Shadow directories are stored one per rule execution in ``.snakemake/shadow/``,
 and are cleared on successful execution.
 Consider running with the ``--cleanup-shadow`` argument every now and then
 to remove any remaining shadow directories from aborted jobs.
+Note though that this only cleans shadow directories accessible from the machine you are running snakemake on,
+and not e.g. from local storage of compute nodes in a cluster.
 The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
 
 .. _snakefiles_retries:
