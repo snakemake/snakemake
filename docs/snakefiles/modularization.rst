@@ -199,8 +199,9 @@ Note that the second use statement has to use the original rule name, not the on
 In order to overwrite the rule ``some_task`` that has been imported with the first ``use rule`` statement, it is crucial to ensure that the rule is used with the same name in the second statement, by adding an equivalent ``as`` clause (here ``other_some_task``).
 Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
 
-It is also possible to load multiple modules dynamically by iterating over the modules in a loop.
-For this, the module name is not specified directly after the ``module`` keyword, but a ``name:`` parameter can be specified.
+In addition, it is possible to load multiple modules dynamically by providing the ``name`` keyword.
+For example, by reading the module name from a config file or by iterating over several modules in a loop.
+For this, the module name is not specified directly after the ``module`` keyword, but by specifying the ``name`` parameter. 
 
 .. code-block:: python
 
@@ -213,10 +214,12 @@ For this, the module name is not specified directly after the ``module`` keyword
         use rule * from module as use_as*
 
 .. note::
-    If the optional ``as`` keyword is used, the ``use_as`` parameter needs to be specified for each module individually.
-    It is not possible to modify it in the ``use rule`` statement.
-    If it is not provided, as in the example, directly, it can be modified in a separate variable and the variable is used.
+    If ``use rule`` is used with the optional ``as`` keyword inside the loop as in the example, the alias after ``as`` must be specified using a second variable to ensures a one-to-one mapping between module names and their aliases.
 
+    In particular, it is not possible to modify it in the ``use rule`` statement (e.g., writing directly ``use rule * from module as module_*`` is not allowed).
+
+.. note::
+    It is not allowed to specify the module name both after the ``module`` keyword and after the ``name`` parameter.
 
 Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
 
