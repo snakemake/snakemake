@@ -230,21 +230,14 @@ For a full list of available markers, you can run:
 Warnings and oddities
 ---------------------
 
-You will likely see warnings related to deprecated functions in dependent
-libraries, especially botocore.
+You will likely see warnings related to deprecated functions in dependent libraries, especially botocore.
 
-You may also get intermittent failures from tests that rely on external
-connectivity. The default test suite makes connections to multiple external services.
+You may also get intermittent failures from tests that rely on external connectivity. The default test suite makes connections to multiple external services.
 
-Tests that require singularity will be auto-skipped if no singularity or
-apptainer installation is available.
-At the time of writing neither the ``singularity`` package on conda-forge
-nor the ``apptainer`` package are reliable, in that there are multiple failing
-tests on a standard Ubuntu system.
-This is likely due to system security profiles that conda, being a non-root
-application, cannot change.
-The Debian/Ubuntu ``singularity-container`` DEB package, which must be
-installed by the system administrator, does work.
+Tests that require singularity will be auto-skipped if no singularity or apptainer installation is available.
+At the time of writing neither the ``singularity`` package on conda-forge nor the ``apptainer`` package are reliable, in that there are multiple failing tests on a standard Ubuntu system.
+This is likely due to system security profiles that conda, being a non-root application, cannot change.
+The Debian/Ubuntu ``singularity-container`` DEB package, which must be installed by the system administrator, does work.
 The equivalent RPM package should also work on RedHat-type systems.
 
 Depending on how the Snakemake code was downloaded and installed in the test environment, Snakemake may not be able to determine its own version and may think that it is version 0.
