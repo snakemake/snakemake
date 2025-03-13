@@ -1031,8 +1031,8 @@ def get_argument_parser(profiles=None):
         "--dag",
         nargs="?",
         choices=PrintDag.choices(),
-        default=set(),
-        parse_func=PrintDag.parse_choices_set,
+        const=str(PrintDag.DOT),
+        default=None,
         help="Do not execute anything and print the directed "
         "acyclic graph of jobs in the dot language or in mermaid-js. Recommended "
         "use on Unix systems: snakemake `--dag | dot | display`. "
@@ -1043,8 +1043,8 @@ def get_argument_parser(profiles=None):
         "--rulegraph",
         nargs="?",
         choices=PrintDag.choices(),
-        default=set(),
-        parse_func=PrintDag.parse_choices_set,
+        const=str(PrintDag.DOT),
+        default=None,
         help="Do not execute anything and print the dependency graph "
         "of rules in the dot language or in mermaid-js. This will be less "
         "crowded than above DAG of jobs, but also show less information. "
@@ -2045,7 +2045,7 @@ def args_to_api(args, parser):
                     workflow_api.print_compilation()
                 else:
 
-                    print_dag_as = PrintDag.DOT
+                    print_dag_as = None
                     if args.dag:
                         print_dag_as = args.dag
                     elif args.rulegraph:

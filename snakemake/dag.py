@@ -2347,10 +2347,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         graph = defaultdict(set)
         for job in self.jobs:
             graph[job.rule].update(dep.rule for dep in self._dependencies[job])
-        if self.workflow.dag_settings.print_dag_as == PrintDag.DOT:
+        if self.workflow.dag_settings.print_dag_as == str(PrintDag.DOT):
             return self._dot(graph)
-        elif self.workflow.dag_settings.print_dag_as == PrintDag.MERMAID_JS:
-            return self._mermaidJS(graph)
+        elif self.workflow.dag_settings.print_dag_as == str(PrintDag.MERMAID_JS):
+            return self._mermaid_js(graph)
 
     def dot(self):
         def node2style(job):
@@ -2393,7 +2393,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         dag = {job: self._dependencies[job] for job in self.jobs}
 
-        return self._mermaidJS(dag, node2style=node2style, node2label=node2label)
+        return self._mermaid_js(dag, node2style=node2style, node2label=node2label)
 
     def _mermaid_js(
         self, graph, node2style=lambda node: "", node2label=lambda node: node
@@ -3047,10 +3047,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return files
 
     def __str__(self):
-        if self.workflow.dag_settings.print_dag_as == PrintDag.DOT:
+        if self.workflow.dag_settings.print_dag_as == str(PrintDag.DOT):
             return self.dot()
-        if self.workflow.dag_settings.print_dag_as == PrintDag.MERMAID_JS:
-            return self.mermaidJS()
+        if self.workflow.dag_settings.print_dag_as == str(PrintDag.MERMAID_JS):
+            return self.mermaid_js()
 
     def __len__(self):
         return self._len
