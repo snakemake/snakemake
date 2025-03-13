@@ -1,4 +1,10 @@
+import sys
+
+print(sys.path)
+
 from module_scripts.input_functions import input_function_module
+
+
 
 rule create_input:
     output: 'results/input.txt'

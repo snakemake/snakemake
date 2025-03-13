@@ -1571,12 +1571,12 @@ class Workflow(WorkflowExecutorInterface):
 
         snakefile_path_or_uri = snakefile.get_basedir().get_path_or_uri()
         if (
-            isinstance(snakefile, LocalSourceFile)
+            isinstance(snakefile, (LocalSourceFile, HostingProviderFile))
             and snakefile_path_or_uri not in sys.path
         ):
             # insert the current directory into sys.path
             # this allows to import modules from the workflow directory
-            sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
+            sys.path.insert(0, snakefile_path_or_uri)
 
         exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
