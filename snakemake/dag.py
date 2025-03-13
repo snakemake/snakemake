@@ -2395,7 +2395,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         return self._mermaidJS(dag, node2style=node2style, node2label=node2label)
 
-    def _mermaidJS(
+    def _mermaid_js(
         self, graph, node2style=lambda node: "", node2label=lambda node: node
     ):
         def hsv_to_htmlhexrgb(h, s, v):
