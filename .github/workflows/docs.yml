@@ -35,7 +35,7 @@ jobs:
         with:
           name: docs-html
           path: docs/_build/html/
-  
+
   apidocs:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest

@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "snakemake"
-version = "8.30.0"
+dynamic = ["version"]
 description = "Workflow management system to create reproducible and scalable data analyses"
 readme = { content-type = "text/markdown", text = """
   Snakemake is a workflow management system that aims to reduce the
@@ -70,31 +74,10 @@ all = ["slack_sdk", "eido", "peppy", "pygments"]
 [project.scripts]
 snakemake = "snakemake.cli:main"
 
-[build-system]
-requires = ["setuptools>=42,<76", 'tomli']
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-include = ["snakemake", "snakemake.*"]
-
-[tool.setuptools.package-data]
-"*" = [
-  "*.css",
-  "*.sh",
-  "*.html",
-  "*.jinja2",
-  "*.js",
-  "*.svg",
-  "Snakefile.*",
-  "*.rst",
-]
-
-[tool.versioneer]
-VCS = "git"
-style = "pep440"
-tag_prefix = "v"
-versionfile_build = "snakemake/_version.py"
-versionfile_source = "snakemake/_version.py"
+[tool.setuptools_scm]
+version_file = "src/snakemake/_version.py"
+# Ignore Git hash
+local_scheme = "no-local-version"
 
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
@@ -123,13 +106,14 @@ docs = { features = ["docs"] }
 quality = { features = ["style"] }
 publish = { features = ["publish"] }
 
-#----------------------- Python Envs -------------------------
+# Python Envs
 [tool.pixi.feature.py311.dependencies]
 python = ">=3.11.0,<3.12"
 
 [tool.pixi.feature.py312.dependencies]
 python = ">=3.12.0,<3.13"
-#------------------------ Test -------------------------------  
+
+# Test
 [tool.pytest.ini_options]
 addopts = "--verbose --show-capture=stderr" #  --exitfirst
 markers = [
@@ -231,7 +215,7 @@ wget = "*"
 dash = "*"
 openmpi = "*"
 
-#------------------------ Docs -------------------------------
+# Docs
 [tool.pixi.feature.docs.dependencies]
 sphinx = ">=7.2.6,<8"
 sphinx-argparse = ">=0.4.0,<0.6"
@@ -260,16 +244,15 @@ description = "Build the API documentation in the apidocs/ directory"
 cwd = "apidocs"
 cmd = 'make html SPHINXOPTS="--keep-going -n"'
 
-#------------------------ Style -------------------------------
+# Style
 [tool.pixi.feature.style.dependencies]
 black = "*"
 
 [tool.pixi.feature.style.tasks]
-format = { cmd = "black snakemake tests/*.py", description = "Format the code" }
+format = { cmd = "black src/ tests/*.py", description = "Format the code" }
 
-#------------------------ publish -------------------------------
+# Publish
 [tool.pixi.feature.publish.dependencies]
-setuptools = ">=75.8.2,<76"
 twine = ">=6.1.0,<7"
 python-build = ">=1.2.2,<2"
 
