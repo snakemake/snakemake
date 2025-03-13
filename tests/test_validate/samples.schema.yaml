@@ -6,7 +6,15 @@ properties:
     description: sample name/identifier
   condition:
     type: string
-    description: sample condition that will be compared during differential expression analysis (e.g. a treatment, a tissue time, a disease)
+    description: sample condition
+  n:
+    type: integer
+    default: 0
+    description: replicate count
+  tissue:
+    type: string
+    default: blood
+    description: sample tissue of origin
 
 required:
   - sample

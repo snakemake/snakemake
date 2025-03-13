@@ -194,7 +194,6 @@ class Workflow(WorkflowExecutorInterface):
         self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
 
         self._sourcecache = SourceCache(self.source_cache_path)
-
         self._scheduler = None
         self._spawned_job_general_args = None
         self._executor_plugin = None
@@ -273,6 +272,14 @@ class Workflow(WorkflowExecutorInterface):
             "uploaded to default storage provider before"
         )
         return self._source_archive
+
+    def cleanup_source_archive(self):
+        """cleanup source archive form remote storage"""
+        if self._source_archive is not None:
+            obj = self.storage_registry.default_storage_provider.object(
+                self._source_archive.query
+            )
+            async_run(obj.managed_remove())
 
     def upload_sources(self):
         assert self.storage_settings is not None
@@ -1195,12 +1202,13 @@ class Workflow(WorkflowExecutorInterface):
             ):
                 async_run(self.dag.retrieve_storage_inputs())
 
-            if (
+            should_deploy_sources = (
                 SharedFSUsage.SOURCES not in self.storage_settings.shared_fs_usage
                 and self.exec_mode == ExecMode.DEFAULT
                 and self.remote_execution_settings.job_deploy_sources
                 and not executor_plugin.common_settings.can_transfer_local_files
-            ):
+            )
+            if should_deploy_sources:
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
@@ -1281,6 +1289,9 @@ class Workflow(WorkflowExecutorInterface):
                 if self.dryrun:
                     self.log_provenance_info()
                 raise e
+            finally:
+                if should_deploy_sources:
+                    self.cleanup_source_archive()
 
             if (
                 not self.remote_execution_settings.immediate_submit
@@ -1291,7 +1302,8 @@ class Workflow(WorkflowExecutorInterface):
 
             if not dryrun_or_touch:
                 async_run(self.dag.store_storage_outputs())
-                async_run(self.dag.cleanup_storage_objects())
+                if not self.storage_settings.keep_storage_local:
+                    async_run(self.dag.cleanup_storage_objects())
 
             if success:
                 if self.dryrun:
@@ -1402,7 +1414,6 @@ class Workflow(WorkflowExecutorInterface):
             calling_dir = os.path.dirname(calling_file)
             path = smart_join(calling_dir, rel_path)
             orig_path = path
-
         return sourcecache_entry(
             self.sourcecache.get_path(infer_source_file(path)), orig_path
         )
@@ -1633,7 +1644,7 @@ class Workflow(WorkflowExecutorInterface):
             nonlocal name
 
             # If requested, modify ruleinfo via the modifier.
-            ruleinfo.apply_modifier(self.modifier)
+            ruleinfo.apply_modifier(self.modifier, rulename=ruleinfo.name or name)
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
@@ -1776,66 +1787,41 @@ class Workflow(WorkflowExecutorInterface):
                 )
                 # TODO retrieve suitable singularity image
 
+            def check_may_use_software_deployment(method):
+                if ruleinfo.template_engine:
+                    raise RuleException(
+                        f"{method} directive is only allowed with "
+                        "run, shell, script, notebook, or wrapper "
+                        "directives (not with template_engine)",
+                        rule=rule,
+                    )
+
             if ruleinfo.env_modules:
                 # If using environment modules and they are defined for the rule,
                 # ignore conda and singularity directive below.
                 # The reason is that this is likely intended in order to use
                 # a software stack specifically compiled for a particular
                 # HPC cluster.
-                invalid_rule = not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                )
-                if invalid_rule:
-                    raise RuleException(
-                        "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run or the template_engine)",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("envmodules")
                 from snakemake.deployment.env_modules import EnvModules
 
                 rule.env_modules = EnvModules(*ruleinfo.env_modules)
 
             if ruleinfo.conda_env:
-                if not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                ):
-                    raise RuleException(
-                        "Conda environments are only allowed "
-                        "with shell, script, notebook, or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("conda")
 
                 if isinstance(ruleinfo.conda_env, Path):
                     ruleinfo.conda_env = str(ruleinfo.conda_env)
 
                 rule.conda_env = ruleinfo.conda_env
 
-            invalid_rule = not (
-                ruleinfo.script
-                or ruleinfo.wrapper
-                or ruleinfo.shellcmd
-                or ruleinfo.notebook
-            )
             if ruleinfo.container_img:
-                if invalid_rule:
-                    raise RuleException(
-                        "Singularity directive is only allowed "
-                        "with shell, script, notebook or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
+                check_may_use_software_deployment("container/singularity")
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule and ruleinfo.container_img != False:
-                    # skip rules with run directive or empty image
+                if not ruleinfo.template_engine and ruleinfo.container_img != False:
+                    # skip rules with template_engine directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
 
