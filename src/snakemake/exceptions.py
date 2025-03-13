@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 import traceback
 from tokenize import TokenError
+from typing import Sequence
 from snakemake_interface_common.exceptions import WorkflowError, ApiError
 from snakemake_interface_logger_plugins.common import LogEvent
 
@@ -597,6 +598,24 @@ class ResourceScopesException(Exception):
         super().__init__(msg, invalid_resources)
         self.msg = msg
         self.invalid_resources = invalid_resources
+
+
+class ResourceValidationError(TypeError):
+    pass
+
+
+class ResourceConstraintError(TypeError):
+    pass
+
+
+class ResourceDuplicationError(ValueError):
+    def __init__(self, duplicate_resources: Sequence[str]):
+        self.duplicate_resources = duplicate_resources
+        super().__init__(
+            "The following resources are equivalent and cannot be simultaneously "
+            "provided to a rule:",
+            duplicate_resources,
+        )
 
 
 class CliException(Exception):

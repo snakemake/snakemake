@@ -13,6 +13,7 @@ import time
 from os.path import join
 import tempfile
 import hashlib
+from typing import Any, Mapping
 import urllib
 import pytest
 import glob
@@ -25,7 +26,7 @@ from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake import api
 from snakemake.common import ON_WINDOWS
 from snakemake.report.html_reporter import ReportSettings
-from snakemake.resources import ResourceScopes
+from snakemake.resources import ResourceScopes, Resources
 from snakemake.settings import types as settings
 
 
@@ -150,7 +151,7 @@ def print_tree(path, exclude=None):
 
 def run(
     path,
-    shouldfail=False,
+    shouldfail: bool | type[Exception] = False,
     snakefile="Snakefile",
     subpath=None,
     no_tmpdir=False,
@@ -193,8 +194,8 @@ def run(
     cluster=None,
     cluster_status=None,
     retries=0,
-    resources=dict(),
-    default_resources=None,
+    resources: Mapping[str, Any] | None = None,
+    default_resources: Resources | list[str] | None = None,
     group_components=dict(),
     max_threads=None,
     overwrite_groups=dict(),
@@ -334,8 +335,20 @@ def run(
                             else dict()
                         ),
                         overwrite_resources=overwrite_resources,
-                        resources=resources,
-                        default_resources=default_resources,
+                        resources=(
+                            Resources.from_mapping(resources)
+                            if resources is not None
+                            else Resources()
+                        ),
+                        default_resources=(
+                            Resources.parse(
+                                default_resources,
+                                defaults="full",
+                                allow_expressions=True,
+                            )
+                            if isinstance(default_resources, list)
+                            else default_resources
+                        ),
                         max_threads=max_threads,
                         overwrite_scatter=overwrite_scatter,
                     ),
@@ -440,8 +453,11 @@ def run(
                 success = False
                 exception = e
 
-    if shouldfail:
+    if shouldfail is not False:
         assert not success, "expected error on execution"
+        if shouldfail is not True:
+            with pytest.raises(shouldfail):
+                raise exception
     else:
         if not success:
             if snakemake_api is not None and exception is not None:
