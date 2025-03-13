@@ -138,6 +138,68 @@ each time providing a different tag::
         shell:
             "..."
 
+Retrieving and keeping remote files locally
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When the input file is a remote file, the default behaviour is to download the remote
+file to the local area and then remove it after the workflow no longer needs it.
+
+This behaviour can be configured from the command line arguments, using::
+
+    snakemake --keep-storage-local-copies --not-retrieve-storage
+
+where ``--keep-storage-local-copies`` directs snakemake to keep the local copies of
+remote files that it makes and ``--not-retrieve-storage`` directs snakemake to not download
+copies of remote files.
+
+Additionally, this behaviour can be set at the level of the storage directive e.g.::
+
+    storage:
+        provider="http",
+        retrieve=False,
+
+    storage http_local:
+        provider="http",
+        keep_local=True,
+
+    rule example_remote:
+        input:
+            storage.http("http://example.com/example.txt")
+        output:
+            "example_remote.txt"
+        shell:
+            "..."
+
+    rule example_local:
+        input:
+            storage.http_local("http://example.com/example.txt")
+        output:
+            "example_local.txt"
+        shell:
+            "..."
+
+Finally, ``retrieve`` and ``keep_local`` can also be set inside the call to the storage
+plugin within a rule::
+
+    storage:
+        provider="http",
+        retrieve=False,
+
+    rule example_remote:
+        input:
+            storage.http("http://example.com/example.txt", retrieve=False)
+        output:
+            "example_remote.txt"
+        shell:
+            "..."
+
+    rule example_local:
+        input:
+            storage.http("http://example.com/example.txt", keep_local=True)
+        output:
+            "example_local.txt"
+        shell:
+            "..."
 
 Automatic inference
 ^^^^^^^^^^^^^^^^^^^
