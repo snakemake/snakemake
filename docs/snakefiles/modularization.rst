@@ -209,7 +209,7 @@ For this, the module name is not specified directly after the ``module`` keyword
         module:
             name: module
             snakefile: f"{module}/Snakefile"
-            config: config["module"]
+            config: config[module]
 
         use rule * from module as use_as*
 
