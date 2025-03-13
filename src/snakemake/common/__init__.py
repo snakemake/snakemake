@@ -61,8 +61,11 @@ def get_report_id(path: Union[str, Path]) -> str:
     return h.hexdigest()
 
 
-def mb_to_mib(mb):
+def mb_to_mib(mb: int):
     return int(math.ceil(mb * 0.95367431640625))
+
+def mib_to_mb(mib: int):
+    return int(math.floor(mib / 0.95367431640625))
 
 
 def parse_key_value_arg(arg, errmsg, strip_quotes=True):

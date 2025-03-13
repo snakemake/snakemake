@@ -57,6 +57,7 @@ from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
     MissingOutputFileCachePathException,
+    ResourceValidationError,
     RuleException,
     CreateRuleException,
     UnknownRuleException,
@@ -114,7 +115,7 @@ from snakemake.common import (
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoints
-from snakemake.resources import ParsedResource, ResourceScopes
+from snakemake.resources import ParsedResource, ResourceScopes, Resources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
@@ -162,7 +163,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         from snakemake.storage import StorageRegistry
 
-        self.global_resources: dict = dict(self.resource_settings.resources)
+        self.global_resources = self.resource_settings.resources
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
 
@@ -564,11 +565,11 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def _cores(self):
-        return self.global_resources["_cores"]
+        return self.global_resources["_cores"].value
 
     @property
     def nodes(self):
-        return self.global_resources["_nodes"]
+        return self.global_resources["_nodes"].value
 
     @property
     def concrete_files(self):
@@ -625,7 +626,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         return name in self._rules
 
-    def get_rule(self, name):
+    def get_rule(self, name) -> Rule:
         """
         Get rule by name.
 
@@ -1757,35 +1758,43 @@ class Workflow(WorkflowExecutorInterface):
 
             # handle default resources
             if self.resource_settings.default_resources is not None:
-                rule.resources = copy.deepcopy(
-                    self.resource_settings.default_resources.parsed
-                )
+                rule.resources = self.resource_settings.default_resources.copy()
             else:
-                rule.resources = dict()
+                rule.resources = Resources()
             # Always require one node
             rule.resources["_nodes"] = 1
 
-            if ruleinfo.threads is not None:
-                if (
-                    not isinstance(ruleinfo.threads, int)
-                    and not isinstance(ruleinfo.threads, float)
-                    and not callable(ruleinfo.threads)
-                ):
+            overwrite_threads = self.resource_settings.overwrite_threads.get(name)
+            try:
+                if overwrite_threads is not None:
+                    rule.resources["_cores"] = overwrite_threads
+                elif ruleinfo.threads is not None:
+                    rule.resources["_cores"] = ruleinfo.threads
+                else:
+                    rule.resources["_cores"] = 1
+            except ResourceValidationError:
+                raise RuleException(
+                    "Threads value has to be an integer, float, or a callable.",
+                    rule=rule,
+                )
+
+            if ruleinfo.resources:
+                args, resources = ruleinfo.resources
+                if args:
+                    raise RuleException("Resources have to be named.")
+                try:
+                    resources = Resources.from_mapping(resources)
+                except KeyError as err:
                     raise RuleException(
-                        "Threads value has to be an integer, float, or a callable.",
+                        "Resources values have to be integers, strings, or callables "
+                        f"(functions): type({err.args[0]} : {err.args[1]}) == "
+                        f"{type(err.args[1])}",
                         rule=rule,
                     )
-                if name not in self.resource_settings.overwrite_threads:
-                    if isinstance(ruleinfo.threads, float):
-                        ruleinfo.threads = int(ruleinfo.threads)
-                    rule.resources["_cores"] = ruleinfo.threads
-            else:
-                rule.resources["_cores"] = 1
+                rule.resources.update(resources)
 
-            if name in self.resource_settings.overwrite_threads:
-                rule.resources["_cores"] = get_resource_value(
-                    self.resource_settings.overwrite_threads[name]
-                )
+            if name in self.resource_settings.overwrite_resources:
+                rule.resources.update(self.resource_settings.overwrite_resources[name])
 
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (
@@ -1809,31 +1818,6 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth
-
-            if ruleinfo.resources:
-                args, resources = ruleinfo.resources
-                if args:
-                    raise RuleException("Resources have to be named.")
-                if not all(
-                    map(
-                        lambda r: isinstance(r, int)
-                        or isinstance(r, str)
-                        or callable(r),
-                        resources.values(),
-                    )
-                ):
-                    raise RuleException(
-                        "Resources values have to be integers, strings, or callables (functions)",
-                        rule=rule,
-                    )
-                rule.resources.update(resources)
-            if name in self.resource_settings.overwrite_resources:
-                rule.resources.update(
-                    (resource, get_resource_value(value))
-                    for resource, value in self.resource_settings.overwrite_resources[
-                        name
-                    ].items()
-                )
 
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(
@@ -1925,13 +1909,7 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.handover:
                 if not ruleinfo.resources:
                     # give all available resources to the rule
-                    rule.resources.update(
-                        {
-                            name: val
-                            for name, val in self.global_resources.items()
-                            if val is not None
-                        }
-                    )
+                    rule.resources.update(self.global_resources)
                 # This becomes a local rule, which might spawn jobs to a cluster,
                 # depending on its configuration (e.g. nextflow config).
                 self._localrules.add(rule.name)

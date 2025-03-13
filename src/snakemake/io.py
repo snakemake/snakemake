@@ -27,6 +27,8 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    Generic,
+    Iterator,
     List,
     Optional,
     Set,
@@ -1629,11 +1631,14 @@ class AttributeGuard:
 
 # TODO: replace this with Self when Python 3.11 is the minimum supported version for
 #   executing scripts
-_TNamedList = TypeVar("_TNamedList", bound="Namedlist")
+_TNamedList = TypeVar("_TNamedList")
+"Type variable for self returning methods on Namedlist deriving classes"
+
+_TNamedKeys = TypeVar("_TNamedKeys")
 "Type variable for self returning methods on Namedlist deriving classes"
 
 
-class Namedlist(list):
+class Namedlist(list[_TNamedList], Generic[_TNamedKeys, _TNamedList]):
     """
     A list that additionally provides functions to name items. Further,
     it is hashable, however, the hash does not consider the item names.
@@ -1642,7 +1647,7 @@ class Namedlist(list):
     def __init__(
         self,
         toclone=None,
-        fromdict=None,
+        fromdict: dict[_TNamedKeys, _TNamedList] | None=None,
         plainstr=False,
         strip_constraints=False,
         custom_map=None,
@@ -1746,7 +1751,7 @@ class Namedlist(list):
         for name, (i, j) in names:
             self._set_name(name, i, end=j)
 
-    def items(self):
+    def items(self) -> Iterator[tuple[_TNamedKeys, _TNamedList]]:
         for name in self._names:
             yield name, getattr(self, name)
 
@@ -1860,7 +1865,7 @@ class Params(Namedlist):
     pass
 
 
-class Resources(Namedlist):
+class ResourceList(Namedlist[str, str | int]):
     pass
 
 

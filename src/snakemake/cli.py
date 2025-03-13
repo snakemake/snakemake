@@ -40,11 +40,9 @@ from snakemake.exceptions import (
     print_exception,
 )
 from snakemake.resources import (
-    DefaultResources,
+    Resources,
     ParsedResource,
     ResourceScopes,
-    eval_resource_expression,
-    parse_resources,
 )
 from snakemake.settings.types import (
     Batch,
@@ -102,7 +100,7 @@ def optional_str(arg):
 
 def parse_set_threads(args):
     def fallback(orig_value):
-        value = eval_resource_expression(orig_value, threads_arg=False)
+        value = Resources.get_evaluator(orig_value, with_threads_arg=False)
         return ParsedResource(value=value, orig_arg=orig_value)
 
     return parse_set_ints(
@@ -155,38 +153,32 @@ def parse_consider_ancient(
     return consider_ancient
 
 
-def parse_set_resources(args):
+def parse_set_resources(args: list[str] | None) -> dict[str, Resources]:
     errmsg = (
-        "Invalid resource definition: entries have to be defined as RULE:RESOURCE=VALUE, with "
-        "VALUE being a positive integer a quoted string, or a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
+        "Invalid resource definition: entries have to be defined as "
+        "RULE:RESOURCE=VALUE, with VALUE being a positive integer a quoted string, or "
+        "a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
     )
 
     from collections import defaultdict
 
-    assignments = defaultdict(dict)
-    if args is not None:
-        for entry in args:
-            key, orig_value = parse_key_value_arg(
-                entry, errmsg=errmsg, strip_quotes=False
-            )
-            key = key.split(":")
-            if len(key) != 2:
-                raise ValueError(errmsg)
-            rule, resource = key
-            if is_quoted(orig_value):
-                # value is a string, just keep it
-                value = orig_value
-            else:
-                try:
-                    value = int(orig_value)
-                except ValueError:
-                    value = eval_resource_expression(orig_value)
-            if isinstance(value, int) and value < 0:
-                raise ValueError(errmsg)
-            assignments[rule][resource] = ParsedResource(
-                value=value, orig_arg=orig_value
-            )
-    return assignments
+    if args is None:
+        return {}
+
+    assignments: dict[str, list[str]] = defaultdict(list)
+
+    for entry in args:
+        rule, assign = entry.split(":", maxsplit=1)
+        assignments[rule].append(assign)
+
+    try:
+        return {
+            rule: Resources.parse(assigns, allow_expressions=True)
+            for rule, assigns in assignments.items()
+        }
+
+    except ValueError as err:
+        raise ValueError(errmsg) from err
 
 
 def parse_set_scatter(args):
@@ -520,8 +512,8 @@ def get_argument_parser(profiles=None):
         "--res",
         nargs="+",
         metavar="NAME=INT",
-        default=dict(),
-        parse_func=parse_resources,
+        default=Resources(),
+        parse_func=Resources.parser_factory(),
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to `--cores` (see above). A resource is defined as "
@@ -599,7 +591,9 @@ def get_argument_parser(profiles=None):
         "--default-res",
         nargs="*",
         metavar="NAME=INT",
-        parse_func=maybe_base64(DefaultResources),
+        parse_func=maybe_base64(
+            Resources.parser_factory(defaults="full", allow_expressions=True)
+        ),
         help=(
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. `2*input.size_mb`). "
