@@ -213,9 +213,9 @@ For this, the module name is not specified directly after the ``module`` keyword
         use rule * from module as use_as*
 
 .. note::
-    If the optional ``as`` keyword is used, the ``use_as`` parameter needs to be specified for each module individualy.
+    If the optional ``as`` keyword is used, the ``use_as`` parameter needs to be specified for each module individually.
     It is not possible to modify it in the ``use rule`` statement.
-    If it is not provided, as in the example, directly, it can be modified in a seperate variable and the variable is used.
+    If it is not provided, as in the example, directly, it can be modified in a separate variable and the variable is used.
 
 
 Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
