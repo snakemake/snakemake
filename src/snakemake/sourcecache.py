@@ -251,7 +251,12 @@ class HostedGitRepoCheckout:
             self.hosted_repo.repo.git.checkout(self.ref)
             self.hosted_repo.repo.git.pull("origin", self.ref)
         else:
-            self.hosted_repo.repo.git.checkout(self.ref)
+            try:
+                self.hosted_repo.repo.git.checkout(self.ref)
+            except Exception:
+                origin = self.hosted_repo.repo.remote("origin")
+                origin.fetch()
+                self.hosted_repo.repo.git.checkout(self.ref)
 
         self.stale = False
 

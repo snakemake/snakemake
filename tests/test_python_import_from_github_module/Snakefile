@@ -12,7 +12,7 @@ module minimal_module:
         github(
             "snakemake/snakemake", 
             path="tests/test_python_import_from_github_module/minimal_module/Snakefile", 
-            commit="a47b89fb83125018c84cceca44e95780e968322d"
+            commit="213791434ad51f077003f9c8882766d34a8c7797"
         )
 
 use rule * from minimal_module
