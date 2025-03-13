@@ -101,7 +101,6 @@ def validate(data, schema, set_default=True):
         )
         logger.warning("Note that schema file may not be validated correctly.")
     Defaultvalidator = extend_with_default(Validator)
-    print(Validator.META_SCHEMA["$schema"])
 
     def _validate_record(record):
         if set_default:
