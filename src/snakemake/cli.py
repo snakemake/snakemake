@@ -2093,7 +2093,7 @@ def args_to_api(args, parser):
                     elif args.archive:
                         dag_api.archive(args.archive)
                     elif args.delete_all_output:
-                        dag_api.delete_output()
+                        dag_api.delete_output(dryrun=args.dryrun)
                     elif args.delete_temp_output:
                         dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
                     else:
