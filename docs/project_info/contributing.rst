@@ -268,8 +268,6 @@ For the documentation, please adhere to the following guidelines:
 Documentation Setup
 -------------------
 
-The documentation is built using `Sphinx <https://www.sphinx-doc.org>`_.
-
 To get started, make sure you have ``pixi`` installed: 
 See :ref:`pixi-getting_started`.
 We use ``pixi`` to manage the docs environment and tasks to streamline
@@ -278,14 +276,13 @@ the developer experience.
 .. code-block:: console
 
     $ ➜ pixi task list --environment docs
-
     Tasks that can run on this machine:
     -----------------------------------
-    build-docs, docs
+    build-apidocs, build-docs, docs
 
+    - build-apidocs   Build the API documentation in the apidocs/ directory
     - build-docs      Build the documentation in the docs/ directory
     - docs            Serve the documentation on http://localhost:8000 with live reload
-
 
 **Test if the docs build**:
 To only build the documentation, you can use the ``build-docs`` task.
