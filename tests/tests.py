@@ -616,6 +616,7 @@ def test_threads0():
 
 
 @skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
 def test_default_storage(s3_storage):
     prefix, settings = s3_storage
 
@@ -629,6 +630,7 @@ def test_default_storage(s3_storage):
 
 
 @skip_on_windows  # OS-independent
+@pytest.mark.needs_s3
 def test_default_storage_local_job(s3_storage):
     prefix, settings = s3_storage
 
@@ -644,6 +646,7 @@ def test_default_storage_local_job(s3_storage):
 
 
 @skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
 def test_storage(s3_storage):
     prefix, settings = s3_storage
 
@@ -1334,6 +1337,7 @@ def test_output_file_cache():
 
 
 @skip_on_windows
+@pytest.mark.needs_s3
 def test_output_file_cache_storage(s3_storage):
     prefix, settings = s3_storage
     test_path = dpath("test_output_file_cache_storage")
@@ -1490,19 +1494,15 @@ def test_use_rule_same_module():
 
 @connected
 def test_module_complex():
-
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
-
         run(dpath("test_module_complex"), executor="dryrun")
 
 
 @connected
 def test_module_complex2():
-
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
-
         run(dpath("test_module_complex2"), executor="dryrun")
 
 
@@ -1524,7 +1524,6 @@ def test_modules_prefix_local():
 
 @connected
 def test_module_with_script():
-
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
         run(dpath("test_module_with_script"))

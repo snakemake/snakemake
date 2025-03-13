@@ -208,18 +208,43 @@ directly with the test file and the test name.
             --group 1 \
             --splitting-algorithm=least_duration
 
+Marked tests
+------------
+Some tests have been marked using `pytest markers <https://docs.pytest.org/en/stable/mark.html>`_.
+These allow for running specific tests or *excluding* specific tests.
+For example, the `pixi run test-simple` currently excludes the `needs_envmodules` tests.
+There is also another marker for ``needs_s3`` which will skip tests that require an S3 connection.
+If you are not looking to test the S3 functionality, you can modify the
+test command to exclude these tests.
+
+.. code-block:: console
+
+    $ pixi run test-simple -m "not needs_envmodules and not needs_s3"
+
+For a full list of available markers, you can run:
+
+.. code-block:: console
+
+    $ pixi run pytest --markers
 
 Warnings and oddities
 ---------------------
 
-You will likely see warnings related to deprecated functions in dependent libraries, especially botocore.
+You will likely see warnings related to deprecated functions in dependent
+libraries, especially botocore.
 
-You may also get intermittent failures from tests that rely on external connectivity. The default test suite makes connections to multiple external services.
+You may also get intermittent failures from tests that rely on external
+connectivity. The default test suite makes connections to multiple external services.
 
-Tests that require singularity will be auto-skipped if no singularity or apptainer installation is available.
-At the time of writing neither the ``singularity`` package on conda-forge nor the ``apptainer`` package are reliable, in that there are multiple failing tests on a standard Ubuntu system.
-This is likely due to system security profiles that conda, being a non-root application, cannot change.
-The Debian/Ubuntu ``singularity-container`` DEB package, which must be installed by the system administrator, does work.
+Tests that require singularity will be auto-skipped if no singularity or
+apptainer installation is available.
+At the time of writing neither the ``singularity`` package on conda-forge
+nor the ``apptainer`` package are reliable, in that there are multiple failing
+tests on a standard Ubuntu system.
+This is likely due to system security profiles that conda, being a non-root
+application, cannot change.
+The Debian/Ubuntu ``singularity-container`` DEB package, which must be
+installed by the system administrator, does work.
 The equivalent RPM package should also work on RedHat-type systems.
 
 Depending on how the Snakemake code was downloaded and installed in the test environment, Snakemake may not be able to determine its own version and may think that it is version 0.

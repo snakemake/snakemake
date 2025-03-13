@@ -119,6 +119,7 @@ addopts = "--verbose --show-capture=stderr" #  --exitfirst
 markers = [
   #  (use '-m "not needs_envmodules"' to skip these tests)
   "needs_envmodules: marks tests that require environment modules",
+  "needs_s3: marks tests that require S3 credentials",
 ]
 [tool.pixi.feature.test]
 channels = ["conda-forge", "bioconda", "nodefaults"]
@@ -195,6 +196,7 @@ snakemake-storage-plugin-fs = "*"
 snakemake-executor-plugin-cluster-generic = "*"
 conda = "*"
 pip = "*"
+pytest-xdist = "*"
 
 [tool.pixi.feature.test.target.linux-64.dependencies]
 # environment-modules = "*"
