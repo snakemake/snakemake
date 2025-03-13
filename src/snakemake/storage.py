@@ -95,15 +95,11 @@ class StorageRegistry:
                 f"{plugin.name} is not."
             )
 
-        keep_local = (
-            settings["keep_local"]
-            if "keep_local" in settings
-            else self.workflow.storage_settings.keep_storage_local
+        keep_local = settings.get(
+            "keep_local", self.workflow.storage_settings.keep_storage_local
         )
-        retrieve = (
-            settings["retrieve"]
-            if "retrieve" in settings
-            else self.workflow.storage_settings.retrieve_storage
+        retrieve = settings.get(
+            "retrieve", self.workflow.storage_settings.retrieve_storage
         )
         provider_instance = plugin.storage_provider(
             local_prefix=local_prefix,
