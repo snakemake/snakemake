@@ -951,7 +951,7 @@ class Module(GlobalKeywordState):
         elif is_colon(token):
             self.primary_token = token
             self.state = self.block
-            yield f"workflow.module(", token
+            yield "workflow.module(", token
         else:
             self.error(
                 "Expected name or colon after module keyword.",
