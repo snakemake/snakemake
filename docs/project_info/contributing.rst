@@ -85,6 +85,43 @@ If you want to create more pull requests, first run :code:`git checkout main` an
 
 Feel free to ask questions about this if you want to contribute to Snakemake :)
 
+.. _pixi-getting_started:
+
+Development with ``pixi``
+=========================
+
+`pixi <https://pixi.sh/>`_ is a tool that is designed to help you manage 
+your development environment.It acts as a drop-in replacement for
+`conda <https://docs.conda.io/en/latest/>`_, offering:
+
+- **Easy installation & Updating**: `install pixi <https://pixi.sh/latest/#installation>`_ 
+  through many methods and for different shells.
+  Updating ``pixi`` is as simple as ``pixi self-update``
+
+- **Ease of Use**: A streamlined CLI (similar to Yarn or Cargo) for quick
+  environment creation and management. Try commands like ``pixi init``,
+  ``pixi add <package>``, or ``pixi run`` to see how intuitive it is.
+
+- **Multiple Environments**: Define and switch between multiple sets of
+  dependencies under one project.
+  Pixi uses a ``feature`` system to compose an ``environment``.
+  Think of ``features`` as a way to group dependencies and settings together.
+  and an environment is a collection of features.
+  This allows easy management of different environments for multiple use.
+  See the ``pyproject.toml`` file for an example of how the ``test`` feature
+  is used to define the ``dev``, ``py311`` and ``py312`` environments.
+
+- **Cross-Platform Solving**: Target Linux, macOS, and Windows from a single
+  config. Pixi resolves the correct packages for each platform and captures
+  them in a lockfile for reproducible setups—no Docker needed.
+
+- **Speed & Conda Compatibility**: Written in Rust, Pixi downloads and solves
+  packages in parallel for faster operations. It uses the Conda ecosystem
+  and channels, so you get the same packages with improved performance. In
+  many cases, Pixi can outperform both Conda and Mamba.
+
+To learn more, visit the `Pixi docs <https://pixi.sh>`__ or check out helpful
+guides on `prefix.dev <https://prefix.dev/>`__. 
 
 Testing Guidelines
 ==================
@@ -103,57 +140,74 @@ Setup to run the test suite locally
 
 Unit tests and regression tests are written to be run by `pytest <https://docs.pytest.org/en/stable/>`_.
 
-Assuming you are on a Linux system, and have a working Conda installation, the standard way to run the tests is explained in the following.
-With sufficient experience, it is however possible to run the tests in different setups, given the expected dependencies are installed.
 
-1. Ensure your Conda version is at least 24.7.1 (Snakemake's minimum required Conda version).
-   Check the output of ``conda --version`` and update conda if necessary.
-2. Activate strict channel priorities (this is always a good idea when using Conda, see `here <https://conda-forge.org/docs/user/tipsandtricks/#using-multiple-channels>`__ for the rationale), by running ``conda config --set channel_priority strict``.
-3. After checking out the branch you want to test, run these commands:
+.. _pixi-test-guide:
 
-   .. code-block:: console
+Testing Guide using ``pixi``
+=============================
 
-       $ conda env create -f test-environment.yml -n snakemake-testing
-       $ conda activate snakemake-testing
-       $ pip install -e .
+**Prerequisites**: Make sure you have ``pixi`` installed: See :ref:`pixi-getting_started`.
 
-   You may want to set a specific Python version by editing the constraint in ``test-environment.yml`` before doing this.
-   Use of the ``-e``/``--editable`` option to ``pip`` will make your development version of Snakemake the one called when running Snakemake and all the unit tests. You only need to run the ``pip`` command once, not after each time you make code changes.
+**Activate your environment**:
+--------------------------------
 
-4. From the base Snakemake folder you may now run any specific test:
+There are a few environments you can use to run the tests.
 
-   .. code-block:: console
+The ``dev`` environment is most useful for overall development.
+This environment will also install the ``docs`` and ``style`` features
+which will allow you to also build documentation and run ``black``.
 
-      $ pytest tests/tests.py::test_log_input
+.. code-block:: console
 
-   You can also use the ``-k`` flag to select tests by substring match, rather than by the full name, and the ``--co`` option to preview which tests will be run. Try, for example:
+    $ pixi shell -e dev
 
-   .. code-block:: console
+The ``py311`` and ``py312`` environments are what are used in the 
+CI tests which isolate the Python version and the `test` dependencies.
+Use this if you want to test your code against the same environment
+as any failing CI tests.
 
-      $ pytest --co tests/tests.py -k test_modules_all
+.. code-block:: console
 
-Running the full test suite
----------------------------
+    $ pixi shell -e py311
 
-If you simply run ``pytest`` in the top level directory it will scan for and attempt to run every test in the directory, but you will almost certainly get errors as not all tests are working and current.
+**Run a comprehensive, simple, or single test**:
+The test suite defines two types of tests via ``pixi tasks`` that you can run:
 
-The core test suite is run as a `GitHub action <https://docs.github.com/en/actions/about-github-actions/understanding-github-actions>`_ by the code under ``.github/workflows/main.yml``, so you should look in this file for the list of tests actually expected to pass in a regular test environment.
+**test-all**: This task runs the comprehensive test suite, which includes 
+*most* of the tests in the ``tests/`` directory.
 
-At the time of writing this text, the suite is:
+.. code-block:: console
 
-.. code-block::
+    $ pixi run test-all
 
-   tests/tests.py
-   tests/tests_using_conda.py
-   tests/test_expand.py
-   tests/test_io.py
-   tests/test_schema.py
-   tests/test_linting.py
-   tests/test_executor_test_suite.py
-   tests/test_api.py
-   tests/test_internals.py
+**test-simple**: This task runs the main tests located in ``tests/tests.py``.
 
-Other tests in the directory may or may not work.
+.. code-block:: console
+
+    $ pixi run test-simple
+
+**Single test**: You can also run a single test by using ``pytest`` 
+directly with the test file and the test name.
+
+.. code-block:: console
+
+    $ pixi run pytest tests/tests.py::test_log_input
+
+.. tip::
+    This test suite is quite long, and can be run in parts similar to the 
+    CI/CD tests which run it in 1/10 parts.
+
+    To do so, you can use the ``--splits`` and ``--group`` flags to run
+    a subset of the tests. For example, to run the first group of tests
+    in a 10 part split:
+
+    .. code-block:: console
+
+        $ pixi run test-simple \
+            --splits 10 \
+            --group 1 \
+            --splitting-algorithm=least_duration
+
 
 Warnings and oddities
 ---------------------
@@ -167,9 +221,6 @@ At the time of writing neither the ``singularity`` package on conda-forge nor th
 This is likely due to system security profiles that conda, being a non-root application, cannot change.
 The Debian/Ubuntu ``singularity-container`` DEB package, which must be installed by the system administrator, does work.
 The equivalent RPM package should also work on RedHat-type systems.
-
-Tests in ``tests/test_api.py`` require a working ``git``.
-This is not included in ``test-environment.yml`` as it's assumed you must have GIT installed to be working on the source code, but installing git into the conda environment should work if need be.
 
 Depending on how the Snakemake code was downloaded and installed in the test environment, Snakemake may not be able to determine its own version and may think that it is version 0.
 The existing unit tests should all cope with this, and in general you should avoid writing tests that rely on explicit version checks.
@@ -217,46 +268,39 @@ For the documentation, please adhere to the following guidelines:
 Documentation Setup
 -------------------
 
-For building the documentation, you have to install the Sphinx.
-If you have already installed Conda, all you need to do is to create a
-Snakemake development environment via
+To get started, make sure you have ``pixi`` installed: 
+See :ref:`pixi-getting_started`.
+We use ``pixi`` to manage the docs environment and tasks to streamline
+the developer experience.
 
 .. code-block:: console
 
-    $ git clone git@github.com:snakemake/snakemake.git
-    $ cd snakemake
-    $ conda env create -f doc-environment.yml -n snakemake_docs
-    $ conda activate snakemake_docs
+    $ ➜ pixi task list --environment docs
+    Tasks that can run on this machine:
+    -----------------------------------
+    build-apidocs, build-docs, docs
 
-You will also need to install your development version of Snakemake for the docs to be built correctly
+    - build-apidocs   Build the API documentation in the apidocs/ directory
+    - build-docs      Build the documentation in the docs/ directory
+    - docs            Serve the documentation on http://localhost:8000 with live reload
 
-.. code-block:: console
-
-    $ pip install -e .
-
-Then, the docs can be built with
-
-.. code-block:: console
-
-    $ cd docs
-    $ make html
-    $ make clean && make html  # force rebuild
-
-Alternatively, you can use virtualenv.
-The following assumes you have a working Python 3 setup.
+**Test if the docs build**:
+To only build the documentation, you can use the ``build-docs`` task.
 
 .. code-block:: console
 
-    $ git clone git@github.org:snakemake/snakemake.git
-    $ cd snakemake/docs
-    $ virtualenv -p python3 .venv
-    $ source .venv/bin/activate
-    $ pip install --upgrade -r requirements.txt
+    $ pixi run build-docs
 
-Afterwards, the docs can be built with
+**Live server with auto-reload**:
+To serve the documentation on a local server with live reload, 
+use the ``docs`` task.
 
 .. code-block:: console
 
-    $ source .venv/bin/activate
-    $ make html  # rebuild for changed files only
-    $ make clean && make html  # force rebuild
+    $ pixi run docs
+    [sphinx-autobuild] Starting initial build
+    [sphinx-autobuild] > python -m sphinx build docs/ docs/_build/html
+    ...
+    The HTML pages are in docs/_build/html.
+    [sphinx-autobuild] Serving on http://0.0.0.0:8000
+    [sphinx-autobuild] Waiting to detect changes...
