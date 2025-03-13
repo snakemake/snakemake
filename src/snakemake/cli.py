@@ -17,6 +17,9 @@ from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
+from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
+
+
 import snakemake.common.argparse
 from snakemake import logging
 from snakemake.api import (
@@ -68,6 +71,12 @@ from snakemake.settings.types import (
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
+
+
+def parse_size_in_bytes(value):
+    from humanfriendly import parse_size
+
+    return parse_size(value)
 
 
 def expandvars(atype):
@@ -695,7 +704,7 @@ def get_argument_parser(profiles=None):
         "--rerun-triggers",
         nargs="+",
         choices=RerunTrigger.choices(),
-        default=RerunTrigger.all(),
+        default=RerunTrigger.choices(),
         parse_func=RerunTrigger.parse_choices_set,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
@@ -1271,6 +1280,15 @@ def get_argument_parser(profiles=None):
         "to individual checks for the rest.",
     )
     group_behavior.add_argument(
+        "--max-checksum-file-size",
+        default=1000000,
+        metavar="SIZE",
+        parse_func=parse_size_in_bytes,
+        help="Compute the checksum during DAG computation and job postprocessing "
+        "only for files that are smaller than the provided threshold (given in any valid size "
+        "unit, e.g. 1MB, which is also the default). ",
+    )
+    group_behavior.add_argument(
         "--latency-wait",
         "--output-wait",
         "-w",
@@ -1482,21 +1500,13 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Automatically display logs of failed jobs.",
     )
+
     group_behavior.add_argument(
-        "--log-handler-script",
-        metavar="FILE",
-        default=None,
-        help="Provide a custom script containing a function `def log_handler(msg):`. "
-        "Snakemake will call this function for every logging output (given as a dictionary msg) "
-        "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
-    )
-    group_behavior.add_argument(
-        "--log-service",
-        default=None,
-        choices=["none", "slack", "wms"],
-        help="Set a specific messaging service for logging output. "
-        "Snakemake will notify the service on errors and completed execution. "
-        "Currently slack and workflow management system (wms) are supported.",
+        "--logger",
+        nargs="+",
+        default=[],
+        choices=LoggerPluginRegistry().plugins.keys(),
+        help="Specify one or more custom loggers, available via logger plugins.",
     )
     group_behavior.add_argument(
         "--job-deploy-sources",
@@ -1734,6 +1744,7 @@ def get_argument_parser(profiles=None):
     ExecutorPluginRegistry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
     ReportPluginRegistry().register_cli_args(parser)
+    LoggerPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1813,44 +1824,6 @@ def parse_quietness(quietness) -> Set[Quietness]:
     return quietness
 
 
-def setup_log_handlers(args, parser):
-    log_handler = []
-    if args.log_handler_script is not None:
-        if not os.path.exists(args.log_handler_script):
-            print(
-                "Error: no log handler script found, {}.".format(
-                    args.log_handler_script
-                ),
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        log_script = SourceFileLoader("log", args.log_handler_script).load_module()
-        try:
-            log_handler.append(log_script.log_handler)
-        except:
-            print(
-                'Error: Invalid log handler script, {}. Expect python function "log_handler(msg)".'.format(
-                    args.log_handler_script
-                ),
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-    if args.log_service == "slack":
-        slack_logger = logging.SlackLogger()
-        log_handler.append(slack_logger.log_handler)
-
-    elif args.wms_monitor or args.log_service == "wms":
-        # Generate additional metadata for server
-        metadata = generate_parser_metadata(parser, args)
-        wms_logger = logging.WMSLogger(
-            args.wms_monitor, args.wms_monitor_arg, metadata=metadata
-        )
-        log_handler.append(wms_logger.log_handler)
-
-    return log_handler
-
-
 def parse_edit_notebook(args):
     edit_notebook = None
     if args.draft_notebook:
@@ -1910,6 +1883,11 @@ def args_to_api(args, parser):
         for name in StoragePluginRegistry().get_registered_plugins()
     }
 
+    log_handler_settings = {
+        name: LoggerPluginRegistry().get_plugin(name).get_settings(args)
+        for name in args.logger
+    }
+
     if args.reporter:
         report_plugin = ReportPluginRegistry().get_plugin(args.reporter)
         report_settings = report_plugin.get_settings(args)
@@ -1935,21 +1913,20 @@ def args_to_api(args, parser):
 
         yappi.start()
 
-    log_handlers = setup_log_handlers(args, parser)
-
     edit_notebook = parse_edit_notebook(args)
 
     wait_for_files = parse_wait_for_files(args)
 
     with SnakemakeApi(
         OutputSettings(
+            dryrun=args.dryrun,
             printshellcmds=args.printshellcmds,
             nocolor=args.nocolor,
             quiet=args.quiet,
             debug_dag=args.debug_dag,
             verbose=args.verbose,
             show_failed_logs=args.show_failed_logs,
-            log_handlers=log_handlers,
+            log_handler_settings=log_handler_settings,
             keep_logger=False,
             stdout=args.dryrun,
             benchmark_extended=args.benchmark_extended,
@@ -2052,6 +2029,7 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
+                            max_checksum_file_size=args.max_checksum_file_size,
                             strict_evaluation=args.strict_dag_evaluation,
                         ),
                     )
@@ -2115,7 +2093,7 @@ def args_to_api(args, parser):
                     elif args.archive:
                         dag_api.archive(args.archive)
                     elif args.delete_all_output:
-                        dag_api.delete_output()
+                        dag_api.delete_output(dryrun=args.dryrun)
                     elif args.delete_temp_output:
                         dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
                     else:
@@ -2195,7 +2173,7 @@ def args_to_api(args, parser):
 
 def main(argv=None):
     """Main entry point."""
-    logging.setup_logger()
+
     try:
         parser, args = parse_args(argv)
         success = args_to_api(args, parser)

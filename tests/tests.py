@@ -44,6 +44,11 @@ def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
 
+@skip_on_windows
+def test_github_issue_3265_respect_dryrun_delete_all():
+    run(dpath("test_github_issue_3265_respect_dryrun_delete_all"))
+
+
 def test_github_issue_14():
     """Add cleanup_scripts argument to allow the user to keep scripts"""
     # Return temporary directory for inspection - we should keep scripts here
@@ -1355,6 +1360,7 @@ def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
 
 
+@pytest.mark.needs_envmodules
 @skip_on_windows
 def test_env_modules():
     run(dpath("test_env_modules"), deployment_method={DeploymentMethod.ENV_MODULES})

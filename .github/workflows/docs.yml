@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
@@ -25,24 +25,26 @@ jobs:
       - name: Setup doc dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r docs/requirements.txt
-      
+          python -m pip install -r docs/requirements.txt
+          python -m pip install .
+
       - name: Build docs
         run: |
           cd docs
           make html SPHINXOPTS="-W --keep-going -n"
+
       - name: Upload documentation
         uses: actions/upload-artifact@v4
         with:
           name: docs-html
           path: docs/_build/html/
-  
+
   apidocs:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
@@ -50,9 +52,9 @@ jobs:
       - name: Setup doc dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r apidocs/requirements.txt
-          pip install -e .
-      
+          python -m pip install -r apidocs/requirements.txt
+          python -m pip install .
+
       - name: Build docs
         run: |
           cd apidocs
