@@ -2059,6 +2059,20 @@ def test_failed_intermediate():
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
 
 
+def test_issue3338():
+    run(dpath("test_issue3338"), targets=["all"])
+
+
+def test_github_issue_3374():
+    run(dpath("test_github_issue3271"), check_results=False)
+    run(
+        dpath("test_github_issue3271"),
+        snakefile="Snakefile_should_fail",
+        shouldfail=True,
+        check_results=False,
+    )
+
+
 @skip_on_windows  # OS agnostic
 def test_issue3361_pass():
     run(
