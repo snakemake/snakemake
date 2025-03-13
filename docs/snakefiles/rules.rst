@@ -308,6 +308,27 @@ The multiext function
 
 The effect is the same as if you would write ``expand("some/plot{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
 Moreover, defining output with ``multiext`` is the only way to use :ref:`between workflow caching <caching>` for rules with multiple output files.
+It's also possible to get named input/output files in the following way:
+
+.. code-block:: python
+
+    rule plot:
+        input:
+            ...
+        output:
+            multiext("some/plot", out1=".pdf", out2=".svg")
+            "some_other_output"
+            named_output="another_output"
+        shell:
+            """
+            somecommand > {output.out1}
+            othercommand > {output.out2}
+            anothercommand > {output[2]}
+            finalcommand > {output.named_output}
+            """
+
+Do note that all the multiext extensions should be named, or all of them should be unnamed (not both).
+Additionally, if additional input/output statements are given, multiext should be treated as positional arguments (before other named input/output files).
 
 .. _snakefiles-semantic-helpers:
 

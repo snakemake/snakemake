@@ -7,7 +7,14 @@ import os
 
 from snakemake.common.prefix_lookup import PrefixLookup
 from snakemake.exceptions import WorkflowError
-from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
+from snakemake.io import (
+    is_callable,
+    is_flagged,
+    AnnotatedString,
+    flag,
+    get_flag_value,
+    MultiextValue,
+)
 from snakemake.logging import logger
 
 PATH_MODIFIER_FLAG = "path_modified"
@@ -52,8 +59,9 @@ class PathModifier:
                 modified_path = AnnotatedString(modified_path)
             modified_path.flags.update(path.flags)
             if is_flagged(modified_path, "multiext"):
-                modified_path.flags["multiext"] = self.apply_default_storage(
-                    self.replace_prefix(modified_path.flags["multiext"], property)
+                multiext_value = modified_path.flags["multiext"]
+                multiext_value.prefix = self.apply_default_storage(
+                    self.replace_prefix(multiext_value.prefix, property)
                 )
         # Flag the path as modified and return.
         modified_path = flag(modified_path, PATH_MODIFIER_FLAG)
