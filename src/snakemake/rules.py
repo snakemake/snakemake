@@ -27,6 +27,7 @@ from snakemake.io import (
     AnnotatedString,
     contains_wildcard,
     contains_wildcard_constraints,
+    is_multiext_items,
     update_wildcard_constraints,
     flag,
     get_flag_value,
@@ -276,9 +277,20 @@ class Rule(RuleInterface):
         consider_ancient = self.workflow.workflow_settings.consider_ancient.get(
             self.name, frozenset()
         )
-
         for i, item in enumerate(input):
-            self._set_inoutput_item(item, mark_ancient=i in consider_ancient)
+            if is_multiext_items(item):
+                for ifile in item:
+                    self._set_inoutput_item(
+                        ifile,
+                        name=get_flag_value(ifile, "multiext").name,
+                        mark_ancient=i in consider_ancient,
+                    )
+            else:
+                self._set_inoutput_item(
+                    item,
+                    mark_ancient=i in consider_ancient,
+                )
+
         for name, item in kwinput.items():
             self._set_inoutput_item(
                 item, name=name, mark_ancient=name in consider_ancient
@@ -334,7 +346,17 @@ class Rule(RuleInterface):
         output -- the list of output files
         """
         for item in output:
-            self._set_inoutput_item(item, output=True)
+            # Named multiext have their name set under the flag (MultiextValue), if the first one is named, all of them are named.
+            # Any of the output files in item can be multiext, so we do need to check all of them.
+            if is_multiext_items(item):
+                for ofile in item:
+                    self._set_inoutput_item(
+                        ofile,
+                        name=get_flag_value(ofile, "multiext").name,
+                        output=True,
+                    )
+            else:
+                self._set_inoutput_item(item, output=True)
         for name, item in kwoutput.items():
             self._set_inoutput_item(item, output=True, name=name)
 
