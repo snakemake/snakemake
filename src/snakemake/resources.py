@@ -26,7 +26,7 @@ from typing import (
     cast,
 )
 
-from snakemake.common import mb_to_mib, mib_to_mb
+from snakemake.common import get_input_function_aux_params, mb_to_mib, mib_to_mb
 from snakemake.exceptions import (
     ResourceConstraintError,
     ResourceDuplicationError,
@@ -461,6 +461,13 @@ ValidResource: TypeAlias = int | str | float | None | Callable[..., "ValidResour
 SizedResources = {"mem", "disk"}
 
 
+class _NotComputedClass:
+    pass
+
+
+_NotComputed = _NotComputedClass()
+
+
 class Resource:
     """Standardized representation of a resource name and value.
 
@@ -483,6 +490,9 @@ class Resource:
     value: int, str, Callable, None
         The concrete or unevaluated value
     """
+
+    _evaluator: Callable[..., ValidResource] | None
+
     def __init__(self, name: str, value: ValidResource):
         if not (
             isinstance(value, (str, int, float)) or callable(value) or value is None
@@ -503,7 +513,17 @@ class Resource:
                 "Cannot parse 'runtime' value into minutes for setting 'runtime' "
                 f"resource: {value}"
             ) from err
-        self._evaluated = False
+        if callable(self._value):
+            self._evaluator = self._value
+        elif isinstance(self._value, AnnotatedString) and self._value.is_callable():
+            self._evaluator = cast(Callable[..., ValidResource], self._value.callable)
+        else:
+            self._evaluator = None
+
+        if self._evaluator is None:
+            self._evaluable = False
+        else:
+            self._evaluable = True
 
     def __repr__(self):
         if self.is_evaluable():
@@ -532,19 +552,9 @@ class Resource:
             )
         return cast(str | int | None, self._value)
 
-    def _get_evaluator(self) -> Callable[..., ValidResource] | None:
-        if callable(self._value):
-            return self._value
-        if isinstance(self._value, AnnotatedString) and self._value.is_callable():
-            return self._value.callable
-        self._evaluated = True
-        return None
-
     def is_evaluable(self) -> bool:
         """Indicates if a resource has yet to be evaluated."""
-        if self._evaluated:
-            return False
-        return self._get_evaluator() is not None
+        return self._evaluable
 
     def evaluate(self, *args: Any, **kwargs: Any):
         """Evaluate the resource with given args.
@@ -553,10 +563,10 @@ class Resource:
         new ``Resource`` class, validated, and standardized. Resources should thus
         only be evaulated via this method.
         """
-        evaluable = self._get_evaluator()
-        if evaluable is None:
+        if self._evaluator is None:
             return self
-        return self.__class__(self.name, evaluable(*args, **kwargs))
+        kept_args = get_input_function_aux_params(self._evaluator, kwargs)
+        return self.__class__(self.name, self._evaluator(*args, **kept_args))
 
     def constrain(self, other: Resource | int | None):
         """Use ``other`` as the maximum value for ``Self``, but only if both are integers.
@@ -599,7 +609,7 @@ class Resource:
         if isinstance(self._value, TBDString):
             value = self._value
         elif self.is_evaluable():
-            value = evaluable_from_mb_to_mib(self.name, self._get_evaluator())
+            value = evaluable_from_mb_to_mib(self.name, self._evaluator)
         elif not isinstance(self._value, int):
             errmsg = (
                 f"Resource must be of type 'int' to convert to mib. {self.name} == "
@@ -626,7 +636,7 @@ class Resource:
         if isinstance(self._value, TBDString):
             value = self._value
         elif self.is_evaluable():
-            value = evaluable_from_mib_to_mb(self.name, self._get_evaluator())
+            value = evaluable_from_mib_to_mb(self.name, self._evaluator)
         elif not isinstance(self._value, int):
             errmsg = (
                 f"Resource must be of type 'int' to convert to mb. {self.name} == "
@@ -671,6 +681,7 @@ class Resource:
         with_threads_arg: boolean
             If True, include ``threads`` as an argument in the returned function
         """
+
         def threads_evaluator(
             wildcards: Wildcards,
             input: Any,

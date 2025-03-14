@@ -6,7 +6,6 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 import signal
-import sys
 import shlex
 import shutil
 import time
