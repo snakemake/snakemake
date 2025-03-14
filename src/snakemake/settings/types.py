@@ -7,6 +7,7 @@ from typing import Any, Optional, Union
 from typing import Mapping, Sequence, Set
 
 import immutables
+import datetime
 
 from snakemake.common.typing import AnySet
 from snakemake_interface_common.exceptions import ApiError
@@ -385,8 +386,27 @@ class ConfigSettings(SettingsBase):
 
     def write_config_settings(self):
         """
-        Writes config settings for this workflow run to .snakemake/settings/<TIMESTAMP>/xxx.txt
+        Writes config settings for this workflow run to .snakemake/settings/<TIMESTAMP>/settings.txt
         """
+        
+        try:
+            outdir = os.path.join(
+                ".snakemake", 
+                "settings", 
+                datetime.datetime.now().isoformat().replace(":", "")
+            )
+
+            os.makedirs(outdir, exist_ok=True)
+            
+            settings_file = os.path.abspath(
+                os.path.join(outdir, "settings.txt")
+            )
+
+            with open(settings_file, "w") as f:
+                f.write(self.command_line_settings)
+        
+        except OSError as e:
+            self.logger.error(f"Failed to setup settings file: {e}")
         pass
 
 
