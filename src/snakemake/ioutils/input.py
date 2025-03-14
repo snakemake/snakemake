@@ -1,5 +1,6 @@
 from typing import List
 
+
 def parse_input(infile, parser, **kwargs):
     def inner(wildcards, input, output):
         with open(infile, "r") as fh:
