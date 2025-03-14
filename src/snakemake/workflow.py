@@ -2252,7 +2252,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def module(
         self,
-        name,
+        name=None,
         snakefile=None,
         meta_wrapper=None,
         config=None,
@@ -2260,6 +2260,7 @@ class Workflow(WorkflowExecutorInterface):
         replace_prefix=None,
         prefix=None,
     ):
+
         self.modules[name] = ModuleInfo(
             self,
             name,
@@ -2282,16 +2283,51 @@ class Workflow(WorkflowExecutorInterface):
         def decorate(maybe_ruleinfo):
             if from_module is not None:
                 try:
+                    modifier = name_modifier
                     module = self.modules[from_module]
                 except KeyError:
-                    raise WorkflowError(
-                        "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
-                            from_module
+                    # Dynamic module name resolution:
+                    # If the static module name is not found in the registered modules,
+                    # we check if it's a variable in the current scope.
+                    from inspect import currentframe
+
+                    if from_module in currentframe().f_back.f_globals:
+                        module_name = currentframe().f_back.f_globals[from_module]
+                        if module_name not in self.modules:
+                            raise WorkflowError(
+                                "Dynamic module name '{}' resolves to '{}', but has not been registered with a 'module' statement.".format(
+                                    from_module, module_name
+                                )
+                            )
+                        module = self.modules[module_name]
+
+                        # For dynamic module names, the name modifier must also be adjusted dynamically
+                        # to avoid ambiguous module names. If name_modifier ends with '*',
+                        # use the variable value plus '*', otherwise use the variable value directly.
+                        if name_modifier is not None:
+                            try:
+                                if name_modifier.endswith("*"):
+                                    modifier = f"{currentframe().f_back.f_globals[name_modifier[:-1]]}*"
+                                else:
+                                    modifier = currentframe().f_back.f_globals[
+                                        name_modifier
+                                    ]
+                            except KeyError:
+                                raise WorkflowError(
+                                    "Module alias {} not in current frame to resolve dynamic module {} in 'use rule'.".format(
+                                        name_modifier, module_name
+                                    )
+                                )
+
+                    else:
+                        raise WorkflowError(
+                            "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
+                                from_module
+                            )
                         )
-                    )
                 module.use_rules(
                     rules,
-                    name_modifier,
+                    modifier,
                     exclude_rules=exclude_rules,
                     ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
                     skip_global_report_caption=self.report_text
