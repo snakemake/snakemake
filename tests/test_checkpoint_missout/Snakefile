@@ -1,0 +1,33 @@
+rule final:
+    input:
+        "problem.txt",
+    output:
+        "final.txt",
+    shell:
+        "cat {input} > {output}"
+
+
+checkpoint my_checkpoint:
+    output:
+        directory("checkpoint_dir"),
+    shell:
+        "mkdir -p {output}; cd {output}; touch 1 2"
+
+
+def my_input_func(wc):
+    print("!!!!!!!!!! input function called", flush=True)
+    checkpoint_file = checkpoints.my_checkpoint.get().output[0]
+    assert os.path.exists(checkpoint_file), f"{checkpoint_file} does not exist!"
+    print("!!!!!!!!!! checkpoint file exists", flush=True)
+
+    from pathlib import Path
+
+    return list(Path(checkpoint_file).glob("*"))
+
+
+rule problem:
+    input:
+        my_input_func,
+        #"checkpoint_dir",
+    output:
+        touch("problem.txt"),
