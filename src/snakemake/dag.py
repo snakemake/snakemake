@@ -809,7 +809,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if os.path.realpath(shadow_output) == os.path.realpath(real_output):
                 continue
             shutil.move(shadow_output, real_output)
-        if (keep_shadow_dir and os.listdir(job.shadow_dir)):
+        if keep_shadow_dir and os.listdir(job.shadow_dir):
             return str(job.shadow_dir)
         else:
             shutil.rmtree(job.shadow_dir)

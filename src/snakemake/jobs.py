@@ -101,13 +101,16 @@ def get_script_mtime(path: str) -> float:
 
 class AbstractJob(JobExecutorInterface):
     @abstractmethod
-    def reset_params_and_resources(self): ...
+    def reset_params_and_resources(self):
+        ...
 
     @abstractmethod
-    def get_target_spec(self): ...
+    def get_target_spec(self):
+        ...
 
     @abstractmethod
-    def products(self, include_logfiles=True): ...
+    def products(self, include_logfiles=True):
+        ...
 
     def has_products(self, include_logfiles=True):
         for _ in self.products(include_logfiles=include_logfiles):
@@ -1233,11 +1236,13 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 keep_shadow_dir = (
                     error and self.dag.workflow.execution_settings.keep_incomplete
                 )
-                kept_directory = self.dag.unshadow_output(self, only_log=error, keep_shadow_dir=keep_shadow_dir)
+                kept_directory = self.dag.unshadow_output(
+                    self, only_log=error, keep_shadow_dir=keep_shadow_dir
+                )
                 if kept_directory:
                     logger.error(
-                        f"Keeping shadow directory: {kept_directory}.\n" +
-                        "Run snakemake with --cleanup-shadow to clean up shadow directories."
+                        f"Keeping shadow directory: {kept_directory}.\n"
+                        + "Run snakemake with --cleanup-shadow to clean up shadow directories."
                     )
 
                 if (
@@ -1280,9 +1285,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
             await self.cleanup()
-                
-
-        
 
     @property
     def name(self):
