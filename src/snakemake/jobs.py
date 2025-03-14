@@ -82,8 +82,15 @@ def format_file(f, is_input: bool):
         orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
         return f"{orig_path_or_uri} (cached)"
     elif f.is_storage:
-        phrase = "retrieve from" if is_input else "send to"
-        return f"{f.storage_object.query} ({phrase} storage)"
+        if is_input:
+            if f.storage_object.retrieve:
+                phrase = "retrieve from"
+            else:
+                phrase = "keep remote on"
+        else:
+            phrase = "send to"
+        f_str = f.storage_object.print_query
+        return f"{f_str} ({phrase} storage)"
     else:
         return f
 

@@ -2704,7 +2704,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     async def summary(self, detailed=False):
         def fmt_output(f):
             if f.is_storage:
-                return f.storage_object.query
+                return f.storage_object.print_query
             return f
 
         if detailed:
