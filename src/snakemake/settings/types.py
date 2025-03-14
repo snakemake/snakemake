@@ -388,26 +388,26 @@ class ConfigSettings(SettingsBase):
         """
         Writes config settings for this workflow run to .snakemake/settings/<TIMESTAMP>/settings.txt
         """
-        
-        try:
-            outdir = os.path.join(
-                ".snakemake", 
-                "settings", 
-                datetime.datetime.now().isoformat().replace(":", "")
-            )
 
-            os.makedirs(outdir, exist_ok=True)
+        if self.command_line_settings:
+            try:
+                outdir = os.path.join(
+                    ".snakemake", 
+                    "settings", 
+                    datetime.datetime.now().isoformat().replace(":", "")
+                )
+
+                os.makedirs(outdir, exist_ok=True)
+                
+                settings_file = os.path.abspath(
+                    os.path.join(outdir, "settings.txt")
+                )
+
+                with open(settings_file, "w") as f:
+                    f.write(self.command_line_settings)
             
-            settings_file = os.path.abspath(
-                os.path.join(outdir, "settings.txt")
-            )
-
-            with open(settings_file, "w") as f:
-                f.write(self.command_line_settings)
-        
-        except OSError as e:
-            self.logger.error(f"Failed to setup settings file: {e}")
-        pass
+            except OSError as e:
+                self.logger.error(f"Failed to setup settings file: {e}")
 
 
 @dataclass
