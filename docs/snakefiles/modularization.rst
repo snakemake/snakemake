@@ -199,6 +199,14 @@ Note that the second use statement has to use the original rule name, not the on
 In order to overwrite the rule ``some_task`` that has been imported with the first ``use rule`` statement, it is crucial to ensure that the rule is used with the same name in the second statement, by adding an equivalent ``as`` clause (here ``other_some_task``).
 Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
 
+Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
+
+.. _snakefiles-dynamic-modules:
+
+---------------
+Dynamic Modules
+---------------
+
 With Snakemake 9.0 and later, it is possible to load modules dynamically by providing the ``name`` keyword inside the module definition.
 For example, by reading the module name from a config file or by iterating over several modules in a loop.
 For this, the module name is not specified directly after the ``module`` keyword, but by specifying the ``name`` parameter. 
@@ -222,7 +230,7 @@ In the ``use rule`` statement, it is first checked if the module name (here, ``'
 If ``module_name`` was not registered as a module (as in the example above), the module name is resolved dynamically by searching the name in the current python variable scope. In the example, it resolves to ``'module1'`` and ``'module2'``.
 Note that this means that if ``use rule`` is used with the optional ``as`` keyword inside the loop, the alias after ``as`` must be specified using a variable to ensure a one-to-one mapping between module names and their aliases. This can either be the same name variable (as in the above example) or a second variable (as in the example below).
 
-In particular, it is not possible to modify the alias name in the ``use rule`` statement (e.g., writing directly ``use rule * from module as module_*`` is not allowed).
+In particular, it is not possible to modify the alias name in the ``use rule`` statement (e.g., writing directly ``use rule * from module as module_*`` is not allowed for dynamic modules).
 
 .. code-block:: python
 
@@ -233,8 +241,6 @@ In particular, it is not possible to modify the alias name in the ``use rule`` s
             config: config[module_name]
 
         use rule * from module_name as alias*
-
-Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
 
 ..  _snakefiles-meta-wrappers:
 
