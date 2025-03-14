@@ -2281,24 +2281,39 @@ class Workflow(WorkflowExecutorInterface):
                     modifier = name_modifier
                     module = self.modules[from_module]
                 except KeyError:
-                    # check for dynamic module import
-                    # if from_module was not registered, we check if it is a known
-                    # python variable in the current frame
+                    # Dynamic module name resolution:
+                    # If the static module name is not found in the registered modules,
+                    # we check if it's a variable in the current scope.
                     from inspect import currentframe
 
                     if from_module in currentframe().f_back.f_globals:
-                        module = self.modules[
-                            currentframe().f_back.f_globals[from_module]
-                        ]
-                        # for dynamic module names the name modifier must also be adjusted
-                        # to avoid ambiguous module names
+                        module_name = currentframe().f_back.f_globals[from_module]
+                        if module_name not in self.modules:
+                            raise WorkflowError(
+                                "Dynamic module name '{}' resolves to '{}', but has not been registered with a 'module' statement.".format(
+                                    from_module, module_name
+                                )
+                            )
+                        module = self.modules[module_name]
+
+                        # For dynamic module names, the name modifier must also be adjusted dynamically
+                        # to avoid ambiguous module names. If name_modifier ends with '*',
+                        # use the variable value plus '*', otherwise use the variable value directly.
                         if name_modifier is not None:
-                            if name_modifier.endswith("*"):
-                                modifier = f"{currentframe().f_back.f_globals[name_modifier[:-1]]}*"
-                            else:
-                                modifier = currentframe().f_back.f_globals[
-                                    name_modifier
-                                ]
+                            try:
+                                if name_modifier.endswith("*"):
+                                    modifier = f"{currentframe().f_back.f_globals[name_modifier[:-1]]}*"
+                                else:
+                                    modifier = currentframe().f_back.f_globals[
+                                        name_modifier
+                                    ]
+                            except KeyError:
+                                raise WorkflowError(
+                                    "Module alias {} not in current frame to resolve dynamic module {} in 'use rule'.".format(
+                                        name_modifier, module_name
+                                    )
+                                )
+
                     else:
                         raise WorkflowError(
                             "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
