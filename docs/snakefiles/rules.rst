@@ -698,6 +698,18 @@ The ``subpath`` function can be very handy in combination with :ref:`Snakemake's
         shell:
             "somecommand {input} --name {params.basename} --outdir {params.outdir}"
 
+
+.. _snakefiles-flatten:
+
+flatten
+"""""""
+When selecting input files, sometimes you might end up with an irregular list og lists. To flatten in, you can use:
+
+.. code-block:: python
+
+    flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
+
+
 .. _snakefiles-targets:
 
 Target rules
