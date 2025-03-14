@@ -12,7 +12,7 @@ import hashlib
 import inspect
 import shutil
 import sys
-from typing import Callable, List
+from typing import Any, Callable, List, Mapping
 import uuid
 import os
 import asyncio
@@ -63,6 +63,7 @@ def get_report_id(path: Union[str, Path]) -> str:
 
 def mb_to_mib(mb: int):
     return int(math.ceil(mb * 0.95367431640625))
+
 
 def mib_to_mb(mib: int):
     return int(math.floor(mib / 0.95367431640625))
@@ -304,7 +305,9 @@ def overwrite_function_params(func: Callable, params: List[str]):
     setattr(func, FUNC_OVERWRITE_PARAMS_ATTR, params)
 
 
-def get_input_function_aux_params(func, candidate_params):
+def get_input_function_aux_params(
+    func: Callable[..., Any], candidate_params: Mapping[str, Any]
+) -> Mapping[str, Any]:
     func_params = get_function_params(func)
     has_var_keyword = any(
         param.kind == param.VAR_KEYWORD for param in func_params.values()

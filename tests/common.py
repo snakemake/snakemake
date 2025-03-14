@@ -6,7 +6,6 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 import signal
-import sys
 import shlex
 import shutil
 import time
@@ -450,7 +449,7 @@ def run(
                 snakemake_api.print_exception(exception)
             print("Workdir:")
             print_tree(tmpdir, exclude=".snakemake/conda")
-        assert success, exception
+        assert success, exception#, "expected successful workflow run"
 
     if check_results:
         for resultfile in get_expected_files(results_dir):
