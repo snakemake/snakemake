@@ -292,7 +292,7 @@ class Workflow(WorkflowExecutorInterface):
                 checksum = hashlib.file_digest(f, "sha256").hexdigest()
 
             prefix = self.storage_settings.default_storage_prefix
-            if (not prefix or prefix == self.storage_settings.default_storage_protocol):
+            if not prefix or prefix == self.storage_settings.default_storage_protocol:
                 prefix = "s3://snakemake-workflow-sources/"
             else:
                 prefix = f"{prefix}/"
