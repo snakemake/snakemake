@@ -703,7 +703,7 @@ The ``subpath`` function can be very handy in combination with :ref:`Snakemake's
 
 flatten
 """""""
-When selecting input files, sometimes you might end up with an irregular list og lists. To flatten in, you can use:
+When selecting input files, sometimes you might end up with an irregular list of lists. To flatten in, you can use:
 
 .. code-block:: python
 
