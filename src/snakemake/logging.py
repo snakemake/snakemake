@@ -240,9 +240,28 @@ class DefaultFormatter(logging.Formatter):
 
     def format_shellcmd(self, msg):
         """Format for shellcmd log."""
-        if self.printshellcmds:
-            return msg["msg"]
-        return ""
+
+        cmd = msg.get("cmd")
+        jobid = msg.get("jobid")
+        script = msg.get("script")
+
+        if not self.printshellcmds or cmd is None:
+            return ""
+
+        prefix = "Shell command"
+
+        # Add jobid if available
+        if jobid is not None:
+            prefix += f" (jobid: {jobid}"
+            # Add script if available
+            if script is not None:
+                prefix += f", script: {script}"
+            prefix += ")"
+        elif script is not None:
+            # Only script is available
+            prefix += f" (script: {script})"
+
+        return f"{prefix}:\n{textwrap.indent(cmd, '    ')}"
 
     def format_d3dag(self, msg):
         """Format for d3dag log."""
@@ -502,7 +521,7 @@ class ColorizingTextHandler(logging.StreamHandler):
                 formatted_message = self.format(record)
                 if formatted_message == "None":
                     return
-                formatted_message += str(self.mode)
+
                 # Apply color to the formatted message
                 self.stream.write(self.decorate(record, formatted_message))
                 self.stream.write(getattr(self, "terminator", "\n"))
@@ -551,6 +570,10 @@ class LoggerManager:
         settings: OutputSettingsLoggerInterface,
     ):
         from snakemake_interface_executor_plugins.settings import ExecMode
+
+        # clear any exisiting handlers
+        for handler in self.logger.handlers[:]:
+            self.logger.removeHandler(handler)
 
         self.mode = mode
         self.settings = settings
@@ -684,4 +707,17 @@ class LoggerManager:
 
 # Global logger instance
 logger = logging.getLogger(__name__)
+
+# Set logger with reasonable defaults for cases when logger_manager.setup() is not called; i.e in script
+stream_handler = ColorizingTextHandler(nocolor=False, stream=sys.stderr, mode=None)
+default_filter = DefaultFilter(quiet={}, debug_dag=False, dryrun=False)
+stream_handler.addFilter(default_filter)
+default_formatter = DefaultFormatter(
+    quiet=False, show_failed_logs=False, printshellcmds=True
+)
+stream_handler.setFormatter(default_formatter)
+stream_handler.setLevel(logging.INFO)
+logger.addHandler(stream_handler)
+logger.setLevel(logging.INFO)
+
 logger_manager = LoggerManager(logger)
