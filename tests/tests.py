@@ -3,6 +3,8 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import base64
+import json
 import os
 import shutil
 import sys
@@ -2371,3 +2373,27 @@ def test_censored_path():
     assert "my_password" not in stdout
     assert "param_name" not in stdout
     assert "param_value" not in stdout
+
+
+def test_params_names():
+    tmpdir = run(
+        dpath("test_persist_params_names"),
+        cores=1,
+        cleanup=False,
+    )
+    # get metadata of file test
+    with open(
+        os.path.join(
+            tmpdir, ".snakemake", "metadata", base64.b64encode(b"test").decode("ascii")
+        ),
+        "r",
+    ) as jf:
+        assert json.load(jf).get("params_names", None) == [
+            None,
+            "b",
+            None,
+            None,
+            None,
+            "c",
+            "z",
+        ]

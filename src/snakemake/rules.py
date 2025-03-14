@@ -742,7 +742,7 @@ class Rule(RuleInterface):
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
         groupid=None,
-        non_derived_items: typing.List[typing.Any] = None,
+        non_derived_items: Namedlist[typing.Any] = None,
     ):
         incomplete = False
         if aux_params is None:
@@ -830,6 +830,10 @@ class Rule(RuleInterface):
                     newitems.append(concrete)
                     if not is_derived and non_derived_items is not None:
                         non_derived_items.append(concrete)
+                        if name is not None:
+                            non_derived_items._add_name(
+                                name
+                            )  # HACK multiple names might be reused
                     if mapping is not None:
                         mapping[concrete] = olditem
 
@@ -934,7 +938,7 @@ class Rule(RuleInterface):
         threads = lambda: job.resources._cores
 
         params = Params()
-        non_derived_params = []
+        non_derived_params = Namedlist()
         try:
             # When applying wildcards to params, the return type need not be
             # a string, so the check is disabled.

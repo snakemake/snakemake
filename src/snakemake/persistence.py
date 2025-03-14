@@ -315,6 +315,7 @@ class Persistence(PersistenceExecutorInterface):
         input = self._input(job)
         log = self._log(job)
         params = self._params(job)
+        params_names = self._params_names(job)
         shellcmd = job.shellcmd
         conda_env = self._conda_env(job)
         software_stack_hash = self._software_stack_hash(job)
@@ -347,6 +348,7 @@ class Persistence(PersistenceExecutorInterface):
                     "input": input,
                     "log": log,
                     "params": params,
+                    "params_names": params_names,
                     "shellcmd": shellcmd,
                     "incomplete": False,
                     "starttime": starttime,
@@ -437,6 +439,9 @@ class Persistence(PersistenceExecutorInterface):
 
     def params(self, path):
         return self.metadata(path).get("params")
+
+    def params_names(self, path):
+        return self.metadata(path).get("params_names")
 
     def code(self, path):
         return self.metadata(path).get("code")
@@ -630,6 +635,21 @@ class Persistence(PersistenceExecutorInterface):
                 (self._serialize_param(value) for value in job.non_derived_params),
             )
         )
+
+    @lru_cache()
+    def _params_names(self, job: Job):
+        return [
+            t[1]
+            for t in sorted(
+                filter(
+                    lambda p: p[0] is not UNREPRESENTABLE,
+                    (
+                        (self._serialize_param(value), key)
+                        for key, value in job.non_derived_params._allitems()
+                    ),
+                )
+            )
+        ]
 
     @lru_cache()
     def _output(self, job):
