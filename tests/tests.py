@@ -1460,6 +1460,49 @@ def test_modules_all():
     run(dpath("test_modules_all"), targets=["all"])
 
 
+def test_modules_name():
+    run(
+        dpath("test_modules_name"),
+        targets=["all"],
+    )
+
+
+def test_modules_no_name():
+    run(
+        dpath("test_modules_no_name"),
+        targets=["all"],
+        shouldfail=True,
+    )
+
+
+def test_modules_two_names():
+    run(
+        dpath("test_modules_two_names"),
+        targets=["all"],
+        shouldfail=True,
+    )
+
+
+def test_modules_dynamic():
+    run(dpath("test_modules_dynamic"), targets=["all"])
+
+
+def test_modules_dynamic_module_as_alias():
+    run(dpath("test_modules_dynamic_module_as_alias"), targets=["all"])
+
+
+def test_modules_semi_dynamic():
+    run(dpath("test_modules_semi_dynamic"), targets=["all"])
+
+
+def test_modules_dynamic_import_rules():
+    run(dpath("test_modules_dynamic_import_rules"), targets=["all"])
+
+
+def test_modules_dynamic_no_as():
+    run(dpath("test_modules_dynamic_no_as"), targets=["all"])
+
+
 def test_module_nested():
     run(dpath("test_module_nested"))
 

@@ -867,6 +867,16 @@ class OnStart(DecoratorKeywordState):
 class ModuleKeywordState(SectionKeywordState):
     prefix = "Module"
 
+    def start(self):
+        yield f"{self.keyword}="
+
+    def end(self):
+        yield ","
+
+
+class ModuleName(ModuleKeywordState):
+    pass
+
 
 class ModuleSnakefile(ModuleKeywordState):
     pass
@@ -900,6 +910,7 @@ class ModuleReplacePrefix(ModuleKeywordState):
 
 class Module(GlobalKeywordState):
     subautomata = dict(
+        name=ModuleName,
         snakefile=ModuleSnakefile,
         meta_wrapper=ModuleMetaWrapper,
         config=ModuleConfig,
@@ -913,10 +924,21 @@ class Module(GlobalKeywordState):
         self.state = self.name
         self.has_snakefile = False
         self.has_meta_wrapper = False
+        self.modulename = None
         self.has_name = False
         self.primary_token = None
 
     def end(self):
+        if self.modulename is not None:
+            yield f"name={self.modulename!r}\n"
+        elif not self.has_name:
+            self.error(
+                "Missing module name. "
+                "A module name must be provided either after the module keyword or "
+                "inside the module definition after the name keyword.",
+                self.primary_token,
+            )
+
         if not (self.has_snakefile or self.has_meta_wrapper):
             self.error(
                 "A module needs either a path to a Snakefile or a meta wrapper URL.",
@@ -926,14 +948,17 @@ class Module(GlobalKeywordState):
 
     def name(self, token):
         if is_name(token):
-            yield f"workflow.module({token.string!r}", token
+            self.modulename = token.string
             self.has_name = True
-        elif is_colon(token) and self.has_name:
+        elif is_colon(token):
             self.primary_token = token
             self.state = self.block
+            yield "workflow.module(", token
         else:
             self.error(
-                "Expected name after module keyword.", token, naming_hint="module"
+                "Expected name or colon after module keyword.",
+                token,
+                naming_hint="module",
             )
 
     def block_content(self, token):
@@ -943,6 +968,16 @@ class Module(GlobalKeywordState):
                     self.has_snakefile = True
                 if token.string == "meta_wrapper":
                     self.has_meta_wrapper = True
+                if token.string == "name":
+                    if self.has_name:
+                        raise self.error(
+                            "Ambiguous module name. "
+                            "A module name was provided directly after the module keyword. "
+                            "Another module name was provided by the name keyword.",
+                            token,
+                            naming_hint="module",
+                        )
+                    self.has_name = True
                 for t in self.subautomaton(token.string, token=token).consume():
                     yield t
             except KeyError:
