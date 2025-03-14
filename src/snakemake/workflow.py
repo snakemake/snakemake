@@ -297,11 +297,6 @@ class Workflow(WorkflowExecutorInterface):
             else:
                 prefix = f"{prefix}/"
             query = f"{prefix}snakemake-workflow-sources.{checksum}.tar.xz"
-            # prefix = self.storage_settings.default_storage_prefix
-            # if prefix:
-            #     prefix = f"{prefix}/"
-            # query = f"{prefix}snakemake-workflow-sources.{checksum}.tar.xz"
-
             self._source_archive = SourceArchiveInfo(query, checksum)
 
             obj = self.storage_registry.default_storage_provider.object(query)
