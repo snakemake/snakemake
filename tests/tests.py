@@ -2159,6 +2159,7 @@ def test_github_issue_3374():
 
 
 @skip_on_windows  # OS agnostic
+@apptainer
 def test_issue3361_pass():
     run(
         dpath("test_issue3361_pass"),
