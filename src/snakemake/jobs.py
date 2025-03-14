@@ -1477,6 +1477,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 **kwargs,
             ),
         )
+        for job in sorted(self.jobs, key=lambda j: j.rule.name):
+            job.log_error(indent=True)
 
     def register(self, external_jobid: Optional[str] = None):
         for job in self.jobs:
