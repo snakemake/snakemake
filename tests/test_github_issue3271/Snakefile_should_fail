@@ -1,0 +1,18 @@
+rule b:
+    output:
+        "output.txt"
+    input:
+        "input.txt"
+    resources:
+        mem_mb = lambda wildcards, attempt, input: attempt * 1000,
+    params:
+        mem_gb = lambda wildcards, resources: int(resources.mem_mb) / 1000,
+    shell:
+        r"""
+        echo {params.mem_gb} > {output}
+        """
+rule a:
+    output:
+        "input.txt"
+    shell:
+        "touch {output}"
