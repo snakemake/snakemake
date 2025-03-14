@@ -1212,6 +1212,10 @@ def test_checkpoints_many():
     run(dpath("test_checkpoints_many"))
 
 
+def test_module_checkpoint():
+    run(dpath("test_module_checkpoint"))
+
+
 def test_checkpoint_missout():
     run(dpath("test_checkpoint_missout"))
 
@@ -2329,3 +2333,19 @@ def test_retrieve():
             ["snakemake", "-s", snakefile, "-c1", "retrieve_true.flag"], cwd=tmpdir
         )
         assert os.path.exists(local_img)
+
+
+@skip_on_windows
+def test_censored_path():
+    snakefile = os.path.join(dpath("test_censored_path"), "Snakefile")
+    p = sp.Popen(
+        f"snakemake -s {snakefile} -c1 -n",
+        shell=True,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    stdout = stdout.decode()
+    assert "my_password" not in stdout
+    assert "param_name" not in stdout
+    assert "param_value" not in stdout
