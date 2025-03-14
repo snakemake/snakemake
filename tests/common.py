@@ -172,6 +172,7 @@ def run(
     cleanup_scripts=True,
     scheduler_ilp_solver=None,
     report=None,
+    report_after_run=None,
     report_stylesheet=None,
     deployment_method=frozenset(),
     shadow_prefix=None,
@@ -421,6 +422,17 @@ def run(
                             overwrite_groups=overwrite_groups,
                         ),
                         executor_settings=executor_settings,
+                    )
+
+                if report_after_run is not None:
+                    if report_stylesheet is not None:
+                        report_stylesheet = Path(report_stylesheet)
+                    report_settings = ReportSettings(
+                        path=Path(report_after_run), stylesheet_path=report_stylesheet
+                    )
+                    dag_api.create_report(
+                        reporter="html",
+                        report_settings=report_settings,
                     )
             except Exception as e:
                 success = False
