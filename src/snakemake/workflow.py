@@ -414,6 +414,10 @@ class Workflow(WorkflowExecutorInterface):
             return True
 
     @property
+    def non_local_exec_or_dryrun(self):
+        return not self.local_exec or self.dryrun
+
+    @property
     def non_local_exec(self):
         return not self.local_exec
 
