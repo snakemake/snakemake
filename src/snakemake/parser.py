@@ -933,7 +933,9 @@ class Module(GlobalKeywordState):
             yield f"name={self.modulename!r}\n"
         elif not self.has_name:
             self.error(
-                "A module needs a name.",
+                "Missing module name. "
+                "A module name must be provided either after the module keyword or "
+                "inside the module definition after the name keyword.",
                 self.primary_token,
             )
 

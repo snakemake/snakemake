@@ -2281,12 +2281,17 @@ class Workflow(WorkflowExecutorInterface):
                     modifier = name_modifier
                     module = self.modules[from_module]
                 except KeyError:
+                    # check for dynamic module import
+                    # if from_module was not registered, we check if it is a known
+                    # python variable in the current frame
                     from inspect import currentframe
 
                     if from_module in currentframe().f_back.f_globals:
                         module = self.modules[
                             currentframe().f_back.f_globals[from_module]
                         ]
+                        # for dynamic module names the name modifier must also be adjusted
+                        # to avoid ambiguous module names
                         if name_modifier is not None:
                             if name_modifier.endswith("*"):
                                 modifier = f"{currentframe().f_back.f_globals[name_modifier[:-1]]}*"
