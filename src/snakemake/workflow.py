@@ -1655,10 +1655,10 @@ class Workflow(WorkflowExecutorInterface):
             else:
                 # CLI configfiles have been specified, do not throw an error but update with their values
                 update_config(self.config, self.config_settings.overwrite_config)
-            
+
             # Add the updated config to the config_settings
-            self.config_settings.all_config_files=self.configfiles
-            self.config_settings.final_config_settings=self.config
+            self.config_settings.all_config_files = self.configfiles
+            self.config_settings.final_config_settings = self.config
 
     def set_pepfile(self, path):
         try:

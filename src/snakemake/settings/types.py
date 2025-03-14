@@ -363,6 +363,7 @@ class ConfigSettings(SettingsBase):
     command_line_settings: Optional[str] = None
     all_config_files: Sequence[Path] = tuple()
     final_config_settings: dict[str, Any] = None
+
     def __post_init__(self):
         self.overwrite_config = self._get_overwrite_config()
         self.configfiles = self._get_configfiles()
@@ -394,19 +395,19 @@ class ConfigSettings(SettingsBase):
         if self.command_line_settings:
             try:
                 outdir = os.path.join(
-                    ".snakemake", 
-                    "settings", 
-                    datetime.datetime.now().isoformat().replace(":", "")
+                    ".snakemake",
+                    "settings",
+                    datetime.datetime.now().isoformat().replace(":", ""),
                 )
 
                 os.makedirs(outdir, exist_ok=True)
-                
-                settings_file = os.path.abspath(
-                    os.path.join(outdir, "settings.txt")
-                )
+
+                settings_file = os.path.abspath(os.path.join(outdir, "settings.txt"))
 
                 with open(settings_file, "w") as f:
-                    f.write("### Command Line Arguments and Additional Settings From Profiles ###\n")
+                    f.write(
+                        "### Command Line Arguments and Additional Settings From Profiles ###\n"
+                    )
                     for line in self.command_line_settings.splitlines():
                         # Check if the line contains "Defaults:"
                         if "Defaults:" in line:
@@ -424,8 +425,12 @@ class ConfigSettings(SettingsBase):
                     else:
                         f.write("\n\tNone")
                     f.write("\nFinal Config Settings: ")
-                    json.dump(self.final_config_settings, f) if self.final_config_settings else f.write("None")
-            
+                    (
+                        json.dump(self.final_config_settings, f)
+                        if self.final_config_settings
+                        else f.write("None")
+                    )
+
             except OSError as e:
                 self.logger.error(f"Failed to setup settings file: {e}")
 
