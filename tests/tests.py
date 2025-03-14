@@ -287,6 +287,16 @@ def test_report_display_code():
     run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
 
+def test_report_after_run():
+    run(
+        dpath("test_report_after_run"),
+        report="report.html",
+        report_after_run=True,
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
 def test_params():
     run(dpath("test_params"))
 
@@ -2164,4 +2174,19 @@ def test_issue3361_fail():
         shellcmd="snakemake --sdm apptainer",
         targets=["all"],
         shouldfail=True,
+    )
+
+
+@skip_on_windows
+def test_nodelocal():
+    work_path = Path("test_nodelocal")
+    run(
+        dpath(work_path),
+        cluster="./qsub",
+        cores=1,
+        resources={"mem_mb": 120},
+        default_resources=DefaultResources(["mem_mb=120"]),
+    )
+    assert not (work_path / "local/temp.txt").exists() or not any(
+        (work_path / "scratch/").iterdir()
     )
