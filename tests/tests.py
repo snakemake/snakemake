@@ -1004,6 +1004,7 @@ def test_suffixed_resource_constraints_cannot_be_human_readable():
         shouldfail=WorkflowError,
     )
 
+
 @skip_on_windows
 def test_suffixed_resource_declarations_cannot_be_human_readable():
     run(
@@ -1133,6 +1134,7 @@ def test_new_resources_can_be_defined_as_local():
         print(lines)
     assert len(lines) == 2
     shutil.rmtree(tmp)
+
 
 @skip_on_windows
 def test_resource_prefix_does_not_affect_scope_overwrite():
@@ -1475,26 +1477,25 @@ def test_default_resources():
         ),
     )
 
+
 @skip_on_windows
 def test_default_resources_humanreadable():
 
     run(
         dpath("test_default_resources"),
         # use fractional defaults here to test whether they are correctly rounded
-        default_resources=(
-            ["mem_mb='1 Gb'", "disk_mb='0.001 TB'"]
-        ),
+        default_resources=(["mem_mb='1 Gb'", "disk_mb='0.001 TB'"]),
     )
+
 
 @skip_on_windows
 def test_default_resources_mebibytes():
     run(
         dpath("test_default_resources"),
         # use fractional defaults here to test whether they are correctly rounded
-        default_resources=(
-            ["mem_mib=953.67", "disk_mib=953.6743"]
-        ),
+        default_resources=(["mem_mib=953.67", "disk_mib=953.6743"]),
     )
+
 
 @skip_on_windows  # TODO fix the windows case: it somehow does not consistently modify all temp env vars as desired
 def test_tmpdir():
