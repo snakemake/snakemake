@@ -2026,7 +2026,7 @@ def args_to_api(args, parser, settings_sources):
                         config=parse_config(args.config),
                         configfiles=args.configfile,
                         config_args=args.config,
-                        command_line_settings=settings_sources
+                        command_line_settings=settings_sources,
                         replace_workflow_config=args.replace_workflow_config,
                     ),
                     storage_settings=storage_settings,
