@@ -63,6 +63,7 @@ from snakemake.io import (
     is_callable,
     is_flagged,
     wait_for_files,
+    IOCacheLoadError,
 )
 from snakemake.jobs import (
     AbstractJob,
@@ -198,6 +199,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def init(self, progress=False):
         """Initialise the DAG."""
+        if self.workflow.dag_settings.trust_io_cache:
+            # The user declares that we can trust the iocache,
+            # so we load it from the persisted version.
+            try:
+                self.workflow.persistence.load_iocache()
+            except IOCacheLoadError:
+                logger.info(
+                    "Most recently saved inventory has mismatched version. Removing."
+                )
+                self.workflow.persistence.drop_iocache()
+
         for job in [await self.rule2job(rule) for rule in self.targetrules]:
             job = await self.update([job], progress=progress, create_inventory=True)
             self.targetjobs.add(job)
@@ -233,6 +245,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.update_conda_envs()
 
         await self.update_needrun(create_inventory=True)
+        if self.workflow.dryrun:
+            # The iocache is now up-to-date and can be persisted for future
+            # non-dry-runs.
+            self.workflow.persistence.save_iocache()
+        else:
+            # The iocache is now up-to-date, but it's not a dry run,
+            # so we shouldn't trust the previously persisted version.
+            self.workflow.persistence.drop_iocache()
+
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
         self.update_jobids()
