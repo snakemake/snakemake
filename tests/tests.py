@@ -2028,7 +2028,7 @@ def test_service_jobs():
 
 
 def test_incomplete_params():
-    run(dpath("test_incomplete_params"), executor="dryrun", printshellcmds=True)
+    run(dpath("test_incomplete_params"), executor="dryrun", printshellcmds=True, cleanup=False)
 
 
 @skip_on_windows
