@@ -26,7 +26,12 @@ from typing import (
     cast,
 )
 
-from snakemake.common import get_input_function_aux_params, mb_to_mib, mib_to_mb
+
+from snakemake.common import (
+    get_input_function_aux_params,
+    mb_to_mib,
+    mib_to_mb,
+)
 from snakemake.exceptions import (
     ResourceConstraintError,
     ResourceDuplicationError,
@@ -43,12 +48,6 @@ from snakemake.io import AnnotatedString
 if TYPE_CHECKING:
     from snakemake.jobs import Job
     from snakemake.io import Wildcards
-
-
-@dataclass
-class ParsedResource:
-    orig_arg: str
-    value: Any
 
 
 class GroupResources:
@@ -157,7 +156,7 @@ class GroupResources:
                     # specify their resources
                     res = {
                         k: res
-                        for k, res, in job.resources.items()
+                        for k, res in job.resources.items()
                         if not isinstance(res, TBDString)
                     }
                     if job.pipe_group:

@@ -42,7 +42,6 @@ from snakemake.exceptions import (
 from snakemake.resources import (
     Resource,
     Resources,
-    ParsedResource,
     ResourceScopes,
 )
 from snakemake.settings.types import (
