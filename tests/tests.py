@@ -2054,12 +2054,10 @@ def test_github_issue1542():
 
 
 def test_github_issue1550():
-    from snakemake.resources import DefaultResources
-
     run(
         dpath("test_github_issue1550"),
         resources={"mem_mb": 4000},
-        default_resources=DefaultResources(
+        default_resources=(
             ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
         ),
     )
