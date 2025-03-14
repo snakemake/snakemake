@@ -94,7 +94,6 @@ def validate(data, schema, set_default=True):
             {"properties": set_defaults},
         )
 
-    Defaultvalidator = extend_with_default(Draft202012Validator)
     if Validator.META_SCHEMA["$schema"] != schema["$schema"]:
         logger.warning(
             f"No validator found for JSON Schema version identifier '{schema['$schema']}'"
