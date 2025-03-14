@@ -13,7 +13,3 @@ build:
     - rm -rf $READTHEDOCS_OUTPUT/html && mv docs/_build/html $READTHEDOCS_OUTPUT/html
 sphinx:
   configuration: docs/conf.py
-
-python:
-  install:
-    - requirements: docs/requirements.txt
