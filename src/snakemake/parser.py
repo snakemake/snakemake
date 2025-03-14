@@ -969,7 +969,9 @@ class Module(GlobalKeywordState):
                 if token.string == "name":
                     if self.has_name:
                         raise self.error(
-                            "Ambiguous module name. Name given after module and name keyword.",
+                            "Ambiguous module name. "
+                            "A module name was provided directly after the module keyword. "
+                            "Another module name was provided by the name keyword.",
                             token,
                             naming_hint="module",
                         )
