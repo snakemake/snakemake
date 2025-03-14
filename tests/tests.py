@@ -286,6 +286,7 @@ def test_report_dir():
 def test_report_display_code():
     run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
+
 @pytest.mark.skipif(ON_MACOS, reason="shuf is not available on macOS")
 def test_report_after_run():
     run(
