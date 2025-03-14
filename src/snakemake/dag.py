@@ -62,6 +62,7 @@ from snakemake.io import (
     is_callable,
     is_flagged,
     wait_for_files,
+    IOCacheLoadError,
 )
 from snakemake.jobs import (
     AbstractJob,
@@ -200,7 +201,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if self.workflow.dag_settings.trust_mtime_cache:
             # The user declares that we can trust the iocache,
             # so we load it from the persisted version.
-            self.workflow.persistence.load_iocache()
+            try:
+                self.workflow.persistence.load_iocache()
+            except IOCacheLoadError:
+                logger.info(
+                    "Most recently saved inventory has mismatched version. Removing."
+                )
+                self.workflow.persistence.drop_iocache()
 
         for job in [await self.rule2job(rule) for rule in self.targetrules]:
             job = await self.update([job], progress=progress, create_inventory=True)

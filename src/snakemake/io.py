@@ -107,7 +107,15 @@ class ExistsDict(dict):
             return super().__contains__(path)
 
 
+class IOCacheLoadError(Exception):
+    pass
+
+
 class IOCache(IOCacheStorageInterface):
+    # Increment this when the class interface changes to invalidated previously
+    # persisted versions.
+    IOCACHE_VERSION = 0
+
     def __init__(self, max_wait_time):
         self._mtime = dict()
         self._exists_local = ExistsDict(self)
@@ -147,7 +155,16 @@ class IOCache(IOCacheStorageInterface):
     @classmethod
     def load(cls, handle):
         """Load an IOCache from file."""
-        return pickle.load(handle)
+        loaded = pickle.load(handle)
+        if loaded.IOCACHE_VERSION != cls.IOCACHE_VERSION:
+            raise IOCacheLoadError(
+                (
+                    f"Trying to load IOCache object with a mismatched version: "
+                    f"{loaded.IOCache} (loaded) != {cls.IOCACHE_VERSION} (current)"
+                )
+            )
+        else:
+            return loaded
 
     @property
     def mtime(self):
