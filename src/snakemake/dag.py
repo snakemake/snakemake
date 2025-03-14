@@ -451,6 +451,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                     and f
                                     not in self.workflow.storage_settings.unneeded_temp_files
                                     and await f.exists_local()
+                                    and not is_flagged(f, "nodelocal")
                                 )
 
                             if self.finished(job):
