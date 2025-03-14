@@ -1280,7 +1280,7 @@ def get_argument_parser(profiles=None):
         "to individual checks for the rest.",
     )
     group_behavior.add_argument(
-        "--trust-mtime-cache",
+        "--trust-io-cache",
         action="store_true",
         help=("Reload the mtime cache from a previous dry-run, if it exists."),
     )
@@ -2036,7 +2036,7 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
-                            trust_mtime_cache=args.trust_mtime_cache,
+                            trust_io_cache=args.trust_io_cache,
                             max_checksum_file_size=args.max_checksum_file_size,
                             strict_evaluation=args.strict_dag_evaluation,
                         ),
