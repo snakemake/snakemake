@@ -30,7 +30,7 @@ BAR_JSON_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema#",
     "definitions": {
         "jsonbar": {"type": "string", "description": "bar entry", "default": "foo"}
-    }
+    },
 }
 
 DF_SCHEMA = """$schema: "https://json-schema.org/draft/2020-12/schema#"
