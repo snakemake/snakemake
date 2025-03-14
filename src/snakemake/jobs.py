@@ -56,6 +56,7 @@ from snakemake.exceptions import (
 
 from snakemake.logging import logger
 from snakemake.common import (
+    get_function_params,
     is_local_file,
     get_uuid,
     IO_PROP_LIMIT,
@@ -69,6 +70,8 @@ def format_file(f, is_input: bool):
         return f"{f} (pipe)"
     elif is_flagged(f, "service"):
         return f"{f} (service)"
+    elif is_flagged(f, "nodelocal"):
+        return f"{f} (nodelocal)"
     elif is_flagged(f, "update"):
         return f"{f} (update)"
     elif is_flagged(f, "before_update"):
@@ -482,6 +485,14 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self._resources = None
         self._attempt = attempt
 
+    def _get_resources_to_skip(self):
+        """Return a set of resource names that are callable and depend on input files."""
+        return {
+            name
+            for name, val in self.rule.resources.items()
+            if is_callable(val) and "input" in get_function_params(val)
+        }
+
     @property
     def resources(self):
         if self._resources is None:
@@ -492,12 +503,8 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 skip_evaluation = {"tmpdir"}
             if not self._params_and_resources_resetted:
                 # initial evaluation, input files of job are probably not yet present.
-                # Therefore skip all functions
-                skip_evaluation.update(
-                    name
-                    for name, val in self.rule.resources.items()
-                    if is_callable(val)
-                )
+                # Therefore skip all functions that depend on input files.
+                skip_evaluation.update(self._get_resources_to_skip())
             self._resources = self.rule.expand_resources(
                 self.wildcards_dict,
                 self.input,
@@ -1612,7 +1619,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 f
                 for j in self.jobs
                 for f in j.output
-                if is_flagged(f, "temp") and not needed(j, f)
+                if is_flagged(f, "nodelocal")
+                or (is_flagged(f, "temp") and not needed(j, f))
             ]
 
         # Iterate over jobs in toposorted order (see self.__iter__) to

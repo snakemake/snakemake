@@ -119,6 +119,7 @@ addopts = "--verbose --show-capture=stderr" #  --exitfirst
 markers = [
   #  (use '-m "not needs_envmodules"' to skip these tests)
   "needs_envmodules: marks tests that require environment modules",
+  "needs_s3: marks tests that require S3 credentials",
 ]
 [tool.pixi.feature.test]
 channels = ["conda-forge", "bioconda", "nodefaults"]
@@ -133,6 +134,16 @@ cmd = [
   "tests/tests.py",
 ]
 description = "Run tests only for tests/tests.py"
+
+[tool.pixi.feature.test.target.osx-arm64.tasks.test-simple]
+cmd = [
+  "pytest",
+  "-m",
+  "not (needs_s3 or needs_envmodules)", # needs_s3 is not supported on osx-arm64
+  "-k",
+  "not (test_conda_global or queue)", # queue is buggy on osx-arm64
+  "tests/tests.py",
+]
 
 [tool.pixi.feature.test.tasks.test-all]
 description = "Run all tests in the tests directory"

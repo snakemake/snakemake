@@ -39,6 +39,7 @@ from snakemake.settings.enums import (
     CondaCleanupPkgs,
     Quietness,
     StrictDagEvaluation,
+    PrintDag,
 )
 
 
@@ -210,6 +211,7 @@ class DAGSettings(SettingsBase):
     trust_io_cache: bool = False
     max_checksum_file_size: int = 1000000
     strict_evaluation: AnySet[StrictDagEvaluation] = frozenset()
+    print_dag_as: PrintDag = PrintDag.DOT
     # strict_functions_evaluation: bool = False
     # strict_cycle_evaluation: bool = False
     # strict_wildcards_recursion_evaluation: bool = False
@@ -359,6 +361,7 @@ class ConfigSettings(SettingsBase):
     config: Mapping[str, str] = immutables.Map()
     configfiles: Sequence[Path] = tuple()
     config_args: Optional[str] = None
+    replace_workflow_config: bool = False
 
     def __post_init__(self):
         self.overwrite_config = self._get_overwrite_config()

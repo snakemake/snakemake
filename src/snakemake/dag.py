@@ -55,6 +55,7 @@ from snakemake.exceptions import (
     WorkflowError,
     print_exception_warning,
 )
+from snakemake.settings.types import PrintDag
 from snakemake.io import (
     _IOFile,
     PeriodicityDetector,
@@ -520,12 +521,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Check if any output files are incomplete. This is done by looking up
         markers in the persistence module."""
         if not self.ignore_incomplete:
-            incomplete = await self.incomplete_files()
-            if incomplete:
+            incomplete_files = await self.incomplete_files()
+            if any(incomplete_files):
                 if self.workflow.dag_settings.force_incomplete:
-                    self.forcefiles.update(incomplete)
+                    self.forcefiles.update(incomplete_files)
                 else:
-                    raise IncompleteFilesException(incomplete)
+                    raise IncompleteFilesException(incomplete_files)
 
     def incomplete_external_jobid(self, job) -> Optional[str]:
         """Return the external jobid of the job if it is marked as incomplete.
@@ -620,10 +621,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Yield incomplete files."""
         incomplete = list()
         for job in filterfalse(self.needrun, self.jobs):
-            is_incomplete = await self.workflow.persistence.incomplete(job)
-            if is_incomplete:
-                for f in job.output:
-                    incomplete.append(f)
+            incomplete.extend(
+                [
+                    job
+                    for job in await self.workflow.persistence.incomplete(job)
+                    if job is not None
+                ]
+            )
         return incomplete
 
     @property
@@ -947,6 +951,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     and not f.should_not_be_retrieved_from_storage
                     and not is_flagged(f, "pipe")
                     and not is_flagged(f, "service")
+                    and not is_flagged(f, "nodelocal")
                 ):
                     await f.store_in_storage()
                     storage_mtime = (await f.mtime()).storage()
@@ -1789,11 +1794,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 user_groups.add(job.group)
             all_depending = set()
             has_pipe_or_service = False
+            has_nodelocal = False
             for f in job.output:
                 is_pipe = is_flagged(f, "pipe")
                 is_service = is_flagged(f, "service")
-                if is_pipe or is_service:
-                    if job.is_run:
+                is_nodelocal = is_flagged(f, "nodelocal")
+                if is_pipe or is_service or is_nodelocal:
+                    if not is_nodelocal and job.is_run:
                         raise WorkflowError(
                             "Rule defines pipe output but "
                             "uses a 'run' directive. This is "
@@ -1803,7 +1810,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             rule=job.rule,
                         )
 
-                    has_pipe_or_service = True
+                    if is_pipe or is_service:
+                        has_pipe_or_service = True
+                    if is_nodelocal:
+                        has_nodelocal = True
+
                     depending = [
                         j for j, files in self.depending[job].items() if f in files
                     ]
@@ -1816,7 +1827,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             "job".format(f),
                             rule=job.rule,
                         )
-                    elif len(depending) == 0:
+                    elif not is_nodelocal and len(depending) == 0:
                         raise WorkflowError(
                             "Output file {} is marked as pipe or service "
                             "but it has no consumer. This is "
@@ -1832,7 +1843,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         )
 
                     for dep in depending:
-                        if dep.is_run:
+                        if not is_nodelocal and dep.is_run:
                             raise WorkflowError(
                                 "Rule consumes pipe or service input but "
                                 "uses a 'run' directive. This is "
@@ -1843,42 +1854,54 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             )
 
                         all_depending.add(dep)
-                        if dep.pipe_group is not None:
+                        if (is_pipe or is_service) and dep.pipe_group is not None:
                             candidate_groups.add(dep.pipe_group)
                         if dep.group is not None:
                             user_groups.add(dep.group)
 
-            if not has_pipe_or_service:
+            if not has_pipe_or_service and not has_nodelocal:
                 continue
 
             # All pipe groups should be contained within one user-defined group
             if len(user_groups) > 1:
                 raise WorkflowError(
                     "An output file is marked as "
-                    "pipe or service, but consuming jobs "
+                    "pipe, service or nodelocal, but consuming jobs "
                     "are part of conflicting "
-                    "groups.",
+                    f"groups. {user_groups}",
                     rule=job.rule,
                 )
 
-            if len(candidate_groups) > 1:
-                # Merge multiple pipe groups together
-                group = candidate_groups.pop()
-                for g in candidate_groups:
-                    g.merge(group)
-            elif candidate_groups:
-                # extend the candidate group to all involved jobs
-                group = candidate_groups.pop()
-            else:
-                # generate a random unique group name
-                group = CandidateGroup()  # str(uuid.uuid4())
+            if has_pipe_or_service:
+                if len(candidate_groups) > 1:
+                    # Merge multiple pipe groups together
+                    group = candidate_groups.pop()
+                    for g in candidate_groups:
+                        g.merge(group)
+                elif candidate_groups:
+                    # extend the candidate group to all involved jobs
+                    group = candidate_groups.pop()
+                else:
+                    # generate a random unique group name
+                    group = CandidateGroup()  # str(uuid.uuid4())
 
-            # Assign the pipe group to all involved jobs.
-            job.pipe_group = group
-            visited.add(job)
-            for j in all_depending:
-                j.pipe_group = group
-                visited.add(j)
+                # Assign the pipe group to all involved jobs.
+                job.pipe_group = group
+                visited.add(job)
+                for j in all_depending:
+                    j.pipe_group = group
+                    visited.add(j)
+
+            if has_nodelocal and not self.workflow.local_exec:
+                # put the dependencies in the same user group (not pipe group as pipes are ran in parallel, whereas we want serial for nodelocal files)
+                # NOTE do NOT create usergroup in the node's local inst of snakemake lest the resources get merge, see: resources.py: class GroupResources
+                ugroup = user_groups.pop() if user_groups else str(uuid.uuid4())
+
+                job.group = ugroup
+                visited.add(job)
+                for j in all_depending:
+                    j.group = ugroup
+                    visited.add(j)
 
         # convert candidate groups to plain string IDs
         for job in visited:
@@ -2381,7 +2404,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         graph = defaultdict(set)
         for job in self.jobs:
             graph[job.rule].update(dep.rule for dep in self._dependencies[job])
-        return self._dot(graph)
+        if self.workflow.dag_settings.print_dag_as == str(PrintDag.DOT):
+            return self._dot(graph)
+        elif self.workflow.dag_settings.print_dag_as == str(PrintDag.MERMAID_JS):
+            return self._mermaid_js(graph)
 
     def dot(self):
         def node2style(job):
@@ -2404,6 +2430,70 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         return self._dot(
             dag, node2rule=node2rule, node2style=node2style, node2label=node2label
+        )
+
+    def mermaid_js(self):
+        def node2style(job):
+            if not self.needrun(job):
+                return ",stroke-dasharray: 5 5"
+            return ""
+
+        def format_wildcard(wildcard):
+            name, value = wildcard
+            return f"{name}: {value}"
+
+        node2label = lambda job: " - ".join(
+            chain(
+                [job.rule.name], sorted(map(format_wildcard, self.new_wildcards(job)))
+            )
+        )
+
+        dag = {job: self._dependencies[job] for job in self.jobs}
+
+        return self._mermaid_js(dag, node2style=node2style, node2label=node2label)
+
+    def _mermaid_js(
+        self, graph, node2style=lambda node: "", node2label=lambda node: node
+    ):
+        def hsv_to_htmlhexrgb(h, s, v):
+            import colorsys
+
+            hex_r, hex_g, hex_b = (round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v))
+            return "#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}".format(
+                hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
+            )
+
+        # color the rules - sorting by name first gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
+        rulecolor = {
+            rule.name: hsv_to_htmlhexrgb(i * huefactor, 0.6, 0.85)
+            for i, rule in enumerate(rules)
+        }
+        nodes_headers = [
+            f"\tid{index}[{node2label(node)}]" for index, node in enumerate(graph)
+        ]
+        nodes_styles = [
+            f"\tstyle id{index} fill:{rulecolor[str(node)]},stroke-width:2px,color:#333333{node2style(node)}"
+            for index, node in enumerate(graph)
+        ]
+        edges = [
+            f"\tid{index} --> id{index_dep}"
+            for index, (_, deps) in enumerate(graph.items())
+            for index_dep, _ in enumerate(deps)
+        ]
+        return (
+            textwrap.dedent(
+                """\
+            ---
+            title: DAG
+            ---
+            flowchart TB
+            """
+            )
+            + "{}\n{}\n{}".format(
+                "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
+            )
         )
 
     def _dot(
@@ -2633,7 +2723,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
                 status = "ok"
                 if not await f.exists():
-                    if is_flagged(f, "temp"):
+                    if is_flagged(f, "nodelocal"):
+                        status = "file local to node"
+                    elif is_flagged(f, "temp"):
                         status = "removed temp file"
                     elif is_flagged(f, "pipe"):
                         status = "pipe file"
@@ -3018,7 +3110,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return files
 
     def __str__(self):
-        return self.dot()
+        if self.workflow.dag_settings.print_dag_as == str(PrintDag.DOT):
+            return self.dot()
+        if self.workflow.dag_settings.print_dag_as == str(PrintDag.MERMAID_JS):
+            return self.mermaid_js()
 
     def __len__(self):
         return self._len

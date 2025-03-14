@@ -27,6 +27,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Iterable,
     List,
     Optional,
     Set,
@@ -439,7 +440,8 @@ class _IOFile(str, AnnotatedStringInterface):
 
     @property
     def multiext_prefix(self):
-        return get_flag_value(self._file, "multiext")
+        multiext_value = get_flag_value(self._file, "multiext")
+        return multiext_value.prefix if multiext_value is not None else None
 
     @property
     def should_keep_local(self):
@@ -1177,14 +1179,22 @@ def directory(value):
     return flag(value, "directory")
 
 
-def temp(value):
+def temp(value, group_jobs=False):
     """
     A flag for an input or output file that shall be removed after usage.
+
+    When set to true, the extra flag "group_jobs" causes the file to also be flagged as "nodelocal":
+    A flag for an intermediate file that only lives on the compute node executing the group jobs and not accessible from the main snakemake job.
+    e.g. for what some HPC call "local scratch". This will cause snakemake to automatically group rules on the same compute note.
     """
+
     if is_flagged(value, "protected"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "storage_object"):
         raise SyntaxError("Storage and temporary flags are mutually exclusive.")
+
+    if group_jobs:
+        value = flag(value, "nodelocal")
     return flag(value, "temp")
 
 
@@ -1264,6 +1274,8 @@ def protected(value):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "storage_object"):
         raise SyntaxError("Storage and protected flags are mutually exclusive.")
+    if is_flagged(value, "nodelocal"):
+        raise SyntaxError("Protected and nodelocal flags are mutually exclusive.")
     return flag(value, "protected")
 
 
@@ -1486,13 +1498,52 @@ def expand(*args, **wildcard_values):
         return do_expand(wildcard_values)
 
 
-def multiext(prefix, *extensions):
+@dataclass
+class MultiextValue:
+    prefix: str
+    name: Optional[str] = None
+
+
+def multiext(prefix, *extensions, **named_extensions):
     """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
-    if any((r"/" in ext or r"\\" in ext) for ext in extensions):
+    if any(
+        (r"/" in ext or r"\\" in ext)
+        for ext in chain(extensions, named_extensions.values())
+    ):
         raise WorkflowError(
             r"Extensions for multiext may not contain path delimiters (/,\)."
         )
-    return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
+    # Ensure either all extensions are named or all are positional
+    if not (
+        (extensions and not named_extensions) or (not extensions and named_extensions)
+    ):
+        raise WorkflowError(
+            "multiext should be given with all named extensions or all not-named extensions, not a mix."
+        )
+    if extensions:
+        return [
+            flag(prefix + ext, "multiext", flag_value=MultiextValue(prefix=prefix))
+            for ext in extensions
+        ]
+    else:
+        return [
+            flag(
+                prefix + ext,
+                "multiext",
+                flag_value=MultiextValue(name=name, prefix=prefix),
+            )
+            for name, ext in named_extensions.items()
+        ]
+
+
+def is_multiext_items(
+    items: Union[str, _IOFile, Iterable[str], Iterable[_IOFile]],
+) -> bool:
+    return (
+        isinstance(items, collections.abc.Iterable)
+        and not isinstance(items, str)
+        and all(is_flagged(subitem, "multiext") for subitem in items)
+    )
 
 
 def limit(pattern: Union[str, AnnotatedString], **wildcards):
