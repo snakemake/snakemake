@@ -49,10 +49,8 @@ jobs:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         # see pyprojec.toml: [tool.pixi.feature.test] for available test types
-        os: [ubuntu-latest, windows-latest] #  macos-latest, macos-13 not supported yet
+        os: [ubuntu-latest, windows-latest, macos-latest] #  , macos-13 not supported yet
         env: ["py311", "py312"]
-        shell:
-          - bash
 
     runs-on: ${{ matrix.os }}
 
@@ -61,7 +59,6 @@ jobs:
       GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
       ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
       CI: true
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -105,27 +102,35 @@ jobs:
           pixi run --environment ${{matrix.env}} test-all \
             --splits 10 \
             --group ${{ matrix.test_group }} \
-            --splitting-algorithm=least_duration
-      
-      - name: Run Tests for Windows (os='Windows')
-        if: runner.os == 'Windows'
-        run: |
-          pixi run --environment ${{matrix.env}} test-simple --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration
+            --splitting-algorithm=least_duration \
+            --showlocals \
+            --show-capture=all
 
-      - name: Run Report Generation Tests (os='Linux')
-        if: runner.os == 'Linux'
-        shell: bash -el {0}
-        run: |
           cd tests/test_report
           pixi run -e ${{ matrix.env }} snakemake \
             --use-conda \
             --cores 1 \
             --report report.zip
 
+      - name: Run Tests for MacOS (os='macOS')
+        if: runner.os == 'macOS'
+        run: |
+          pixi run --environment ${{matrix.env}} test-simple \
+          --splits 10 \
+          --group ${{ matrix.test_group }} \
+          --splitting-algorithm=least_duration \
+          --showlocals \
+          --show-capture=all
+
+      - name: Run Tests for Windows (os='Windows')
+        if: runner.os == 'Windows'
+        run: |
+          pixi run --environment ${{matrix.env}} test-simple --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration --showlocals --show-capture=all
+
   build-container-image:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
-    needs: tests 
+    needs: tests
     steps:
       - uses: actions/checkout@v4
 
