@@ -471,6 +471,7 @@ class Rule(RuleInterface):
                     if not output and item_flag in [
                         "protected",
                         "temp",
+                        "nodelocal",
                         "temporary",
                         "directory",
                         "touch",
