@@ -1818,6 +1818,30 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
 
 .. _snakefiles-directory_output:
 
+Auto-grouping via temp files upon remote execution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For performance reasons, it is sometimes useful to write intermediate files on a faster storage, e.g., attached locally on the cluster compute node rather than shared over the network (and thus neither visible to the main snakemake process that submits jobs to the cluster, nor to other nodes of the cluster).
+Snakemake (since version 9.0) allows files marked as ``temp`` to use the option ``group_jobs`` to indicate that rules creating and consuming them should be automatically :ref:`grouped  <job_grouping>` together so Snakemake will schedule them to run on the same physical node:
+
+.. code-block:: python
+
+    rule NAME1:
+        input:
+            "path/to/inputfile"
+        output:
+            temp("path/to/intermediatefile", group_jobs=True)
+        shell:
+            "somecommand {input} {output}"
+
+    rule NAME2:
+        input:
+            "path/to/intermediatefile"
+        output:
+            "path/to/outputfile"
+        shell:
+            "someothercommand {input} {output}"
+
 Directories as outputs
 ----------------------
 

@@ -68,6 +68,7 @@ from snakemake.settings.types import (
     StorageSettings,
     WorkflowSettings,
     StrictDagEvaluation,
+    PrintDag,
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
@@ -958,6 +959,12 @@ def get_argument_parser(profiles=None):
         "its main folder to view the report in any web browser.",
     )
     group_report.add_argument(
+        "--report-after-run",
+        action="store_true",
+        help="After finishing the workflow, directly create the report. "
+        "It is required to provide --report.",
+    )
+    group_report.add_argument(
         "--report-stylesheet",
         metavar="CSSFILE",
         type=Path,
@@ -1045,20 +1052,26 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Show available target rules in given Snakefile.",
     )
-    group_utils.add_argument(
+    group_exec.add_argument(
         "--dag",
-        action="store_true",
+        nargs="?",
+        choices=PrintDag.choices(),
+        const=str(PrintDag.DOT),
+        default=None,
         help="Do not execute anything and print the directed "
-        "acyclic graph of jobs in the dot language. Recommended "
+        "acyclic graph of jobs in the dot language or in mermaid-js. Recommended "
         "use on Unix systems: snakemake `--dag | dot | display`. "
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
     group_utils.add_argument(
         "--rulegraph",
-        action="store_true",
+        nargs="?",
+        choices=PrintDag.choices(),
+        const=str(PrintDag.DOT),
+        default=None,
         help="Do not execute anything and print the dependency graph "
-        "of rules in the dot language. This will be less "
+        "of rules in the dot language or in mermaid-js. This will be less "
         "crowded than above DAG of jobs, but also show less information. "
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
@@ -1885,6 +1898,11 @@ def args_to_api(args, parser):
         args.report_html_path = args.report
         args.report_html_stylesheet_path = args.report_stylesheet
 
+    if args.report_after_run and args.report is None:
+        raise CliException(
+            "The option --report-after-run requires the --report option."
+        )
+
     executor_plugin = ExecutorPluginRegistry().get_plugin(args.executor)
     executor_settings = executor_plugin.get_settings(args)
 
@@ -2025,6 +2043,13 @@ def args_to_api(args, parser):
                 elif args.print_compilation:
                     workflow_api.print_compilation()
                 else:
+
+                    print_dag_as = None
+                    if args.dag:
+                        print_dag_as = args.dag
+                    elif args.rulegraph:
+                        print_dag_as = args.rulegraph
+
                     dag_api = workflow_api.dag(
                         dag_settings=DAGSettings(
                             targets=args.targets,
@@ -2042,6 +2067,7 @@ def args_to_api(args, parser):
                             max_inventory_wait_time=args.max_inventory_time,
                             max_checksum_file_size=args.max_checksum_file_size,
                             strict_evaluation=args.strict_dag_evaluation,
+                            print_dag_as=print_dag_as,
                         ),
                     )
 
@@ -2060,7 +2086,7 @@ def args_to_api(args, parser):
 
                     if args.containerize:
                         dag_api.containerize()
-                    elif report_plugin is not None:
+                    elif report_plugin is not None and not args.report_after_run:
                         dag_api.create_report(
                             reporter=args.reporter,
                             report_settings=report_settings,
@@ -2159,6 +2185,12 @@ def args_to_api(args, parser):
                             ),
                             executor_settings=executor_settings,
                         )
+
+                        if report_plugin is not None and args.report_after_run:
+                            dag_api.create_report(
+                                reporter=args.reporter,
+                                report_settings=report_settings,
+                            )
 
         except Exception as e:
             snakemake_api.print_exception(e)
