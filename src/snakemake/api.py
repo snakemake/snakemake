@@ -589,6 +589,8 @@ class DAGApi(ApiBase):
         )
 
         logger_manager.setup_logfile()
+        config_settings = self.workflow_api.config_settings
+        config_settings.write_config_settings()  # writes cli/profile info (if avail) and config to file
 
         workflow = self.workflow_api._workflow
         workflow.execution_settings = execution_settings

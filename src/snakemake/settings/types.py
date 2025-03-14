@@ -358,6 +358,7 @@ class ConfigSettings(SettingsBase):
     config: Mapping[str, str] = immutables.Map()
     configfiles: Sequence[Path] = tuple()
     config_args: Optional[str] = None
+    command_line_settings: Optional[str] = None
 
     def __post_init__(self):
         self.overwrite_config = self._get_overwrite_config()
@@ -381,6 +382,12 @@ class ConfigSettings(SettingsBase):
             return dict_to_key_value_args(self.config, repr_obj=True)
         else:
             return self.config_args
+
+    def write_config_settings(self):
+        """
+        Writes config settings for this workflow run to .snakemake/settings/<TIMESTAMP>/xxx.txt
+        """
+        pass
 
 
 @dataclass
