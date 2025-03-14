@@ -968,8 +968,11 @@ class Resources(Mapping[str, Resource]):
         """
         return cls({key: Resource(key, val) for key, val in mapping.items()})
 
-    def update(self, other: Resources):
-        self._data.update(other._data)
+    def update(self, other: Resources | Mapping[str, ValidResource]):
+        if isinstance(other, Resources):
+            self._data.update(other._data)
+        else:
+            self._data.update(Resources.from_mapping(other))
 
     def keys(self):
         return self._data.keys()
