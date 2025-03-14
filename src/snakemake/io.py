@@ -160,7 +160,7 @@ class IOCache(IOCacheStorageInterface):
             raise IOCacheLoadError(
                 (
                     f"Trying to load IOCache object with a mismatched version: "
-                    f"{loaded.IOCache} (loaded) != {cls.IOCACHE_VERSION} (current)"
+                    f"{loaded.IOCACHE_VERSION} (loaded) != {cls.IOCACHE_VERSION} (current)"
                 )
             )
         else:
