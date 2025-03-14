@@ -63,6 +63,7 @@ from snakemake.io import (
     is_callable,
     is_flagged,
     wait_for_files,
+    IOCacheLoadError,
 )
 from snakemake.jobs import (
     AbstractJob,
@@ -198,6 +199,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def init(self, progress=False):
         """Initialise the DAG."""
+        if self.workflow.dag_settings.trust_io_cache:
+            # The user declares that we can trust the iocache,
+            # so we load it from the persisted version.
+            try:
+                self.workflow.persistence.load_iocache()
+            except IOCacheLoadError:
+                logger.info(
+                    "Most recently saved inventory has mismatched version. Removing."
+                )
+                self.workflow.persistence.drop_iocache()
+
         for job in [await self.rule2job(rule) for rule in self.targetrules]:
             job = await self.update([job], progress=progress, create_inventory=True)
             self.targetjobs.add(job)
@@ -233,6 +245,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.update_conda_envs()
 
         await self.update_needrun(create_inventory=True)
+        if self.workflow.dryrun:
+            # The iocache is now up-to-date and can be persisted for future
+            # non-dry-runs.
+            self.workflow.persistence.save_iocache()
+        else:
+            # The iocache is now up-to-date, but it's not a dry run,
+            # so we shouldn't trust the previously persisted version.
+            self.workflow.persistence.drop_iocache()
+
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
         self.update_jobids()
@@ -450,7 +471,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             ) or (self.workflow.remote_exec and not shared_local_copies):
                 async with asyncio.TaskGroup() as tg:
                     for f in chain(job.input, job.output):
-                        if f.is_storage and f not in cleaned:
+                        if (
+                            f.is_storage
+                            and f not in cleaned
+                            and not f.should_keep_local
+                        ):
                             f.storage_object.cleanup()
                             tg.create_task(
                                 f.remove(remove_non_empty_dir=True, only_local=True)
@@ -788,8 +813,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         rule=job.rule,
                     )
 
-    def unshadow_output(self, job, only_log=False):
+    def unshadow_output(self, job, only_log=False, keep_shadow_dir=False):
         """Move files from shadow directory to real output paths."""
+        """If shadow directory is kept, returns the path of it."""
         if not job.shadow_dir or not job.output:
             return
 
@@ -808,7 +834,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if os.path.realpath(shadow_output) == os.path.realpath(real_output):
                 continue
             shutil.move(shadow_output, real_output)
-        shutil.rmtree(job.shadow_dir)
+        if keep_shadow_dir and os.listdir(job.shadow_dir):
+            return str(job.shadow_dir)
+        else:
+            shutil.rmtree(job.shadow_dir)
+            return None
 
     def check_periodic_wildcards(self, job):
         """Raise an exception if a wildcard of the given job appears to be periodic,

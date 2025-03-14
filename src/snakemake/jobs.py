@@ -963,7 +963,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     async def cleanup(self):
         """Cleanup output files."""
         to_remove = [f for f in self.output if await f.exists()]
-
         to_remove.extend(
             [
                 f
@@ -1232,7 +1231,18 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                         wait_for_local=True,
                         check_output_mtime=check_output_mtime,
                     )
-                self.dag.unshadow_output(self, only_log=error)
+
+                keep_shadow_dir = (
+                    error and self.dag.workflow.execution_settings.keep_incomplete
+                )
+                kept_directory = self.dag.unshadow_output(
+                    self, only_log=error, keep_shadow_dir=keep_shadow_dir
+                )
+                if kept_directory:
+                    logger.error(
+                        f"Keeping shadow directory: {kept_directory}.\n"
+                        + "Run snakemake with --cleanup-shadow to clean up shadow directories."
+                    )
 
                 if (
                     not error

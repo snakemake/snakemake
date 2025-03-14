@@ -1303,13 +1303,26 @@ def get_argument_parser(profiles=None):
         "to individual checks for the rest.",
     )
     group_behavior.add_argument(
+        "--trust-io-cache",
+        action="store_true",
+        help=(
+            "Tell Snakemake to assume that all input and output file existence and modification "
+            "time queries performed in previous dryruns are still valid and therefore don't have to "
+            "be repeated. This can lead to speed-ups, but implies that input and output have not "
+            "been modified manually in between. Non dry-run execution will automatically "
+            "invalidate the cache and lead to redoing the queries."
+        ),
+    )
+    group_behavior.add_argument(
         "--max-checksum-file-size",
         default=1000000,
         metavar="SIZE",
         parse_func=parse_size_in_bytes,
-        help="Compute the checksum during DAG computation and job postprocessing "
-        "only for files that are smaller than the provided threshold (given in any valid size "
-        "unit, e.g. 1MB, which is also the default). ",
+        help=(
+            "Compute the checksum during DAG computation and job postprocessing "
+            "only for files that are smaller than the provided threshold (given in any valid size "
+            "unit, e.g. 1MB, which is also the default). "
+        ),
     )
     group_behavior.add_argument(
         "--latency-wait",
@@ -1373,6 +1386,11 @@ def get_argument_parser(profiles=None):
         "--keep-storage-local-copies",
         action="store_true",
         help="Keep local copies of remote input and output files.",
+    )
+    group_behavior.add_argument(
+        "--not-retrieve-storage",
+        action="store_true",
+        help="Do not retrieve remote files (default is to retrieve remote files).",
     )
     group_behavior.add_argument(
         "--target-files-omit-workdir-adjustment",
@@ -1976,6 +1994,7 @@ def args_to_api(args, parser):
                 remote_job_local_storage_prefix=args.remote_job_local_storage_prefix,
                 shared_fs_usage=args.shared_fs_usage,
                 keep_storage_local=args.keep_storage_local_copies,
+                retrieve_storage=not args.not_retrieve_storage,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
                 unneeded_temp_files=args.unneeded_temp_files,
@@ -2065,6 +2084,7 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
+                            trust_io_cache=args.trust_io_cache,
                             max_checksum_file_size=args.max_checksum_file_size,
                             strict_evaluation=args.strict_dag_evaluation,
                             print_dag_as=print_dag_as,
