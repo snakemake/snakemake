@@ -9,7 +9,7 @@ import re
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import List, Mapping, Optional, Set, Union
+from typing import Dict, List, Mapping, Optional, Set, Union
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -160,7 +160,7 @@ def parse_consider_ancient(
     return consider_ancient
 
 
-def parse_set_resources(args: list[str] | None) -> dict[str, Resources]:
+def parse_set_resources(args: List[str] | None) -> Dict[str, Resources]:
     errmsg = (
         "Invalid resource definition: entries have to be defined as "
         "RULE:RESOURCE=VALUE, with VALUE being a positive integer a quoted string, or "
@@ -172,7 +172,7 @@ def parse_set_resources(args: list[str] | None) -> dict[str, Resources]:
     if args is None:
         return {}
 
-    assignments: dict[str, list[str]] = defaultdict(list)
+    assignments: Dict[str, List[str]] = defaultdict(list)
 
     for entry in args:
         rule, assign = entry.split(":", maxsplit=1)

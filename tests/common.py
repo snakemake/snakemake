@@ -195,7 +195,7 @@ def run(
     cluster_status=None,
     retries=0,
     resources: Mapping[str, Any] | None = None,
-    default_resources: Resources | list[str] | None = None,
+    default_resources: Resources | List[str] | None = None,
     group_components=dict(),
     max_threads=None,
     overwrite_groups=dict(),
