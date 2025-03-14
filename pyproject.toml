@@ -225,6 +225,10 @@ git = "*"
 wget = "*"
 dash = "*"
 openmpi = "*"
+xrootd = ">=5.7.3,<6"
+
+[tool.pixi.feature.test.target.linux-64.pypi-dependencies]
+snakemake-storage-plugin-xrootd = "*"
 
 # Docs
 [tool.pixi.feature.docs.dependencies]
