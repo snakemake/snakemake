@@ -3,26 +3,26 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from pathlib import Path
 import _io
-import sys
-import os
-import subprocess as sp
 import inspect
+import os
+import re
 import shutil
 import stat
+import subprocess as sp
+import sys
 import tempfile
 import threading
-import re
+from pathlib import Path
 
-from snakemake.utils import format, argvquote, cmd_exe_quote
-from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
-from snakemake.logging import logger
 from snakemake_interface_logger_plugins.common import LogEvent
+
+from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
-
+from snakemake.logging import logger
+from snakemake.utils import argvquote, cmd_exe_quote, format
 
 __author__ = "Johannes Köster"
 
@@ -209,13 +209,20 @@ class shell:
         # print(context)
         # print("")
         jobid = context.get("jobid")
+        script = func_context.get("__file__")
+
         if context.get("is_custom_script") or (
             not context.get("is_shell") and jobid is not None
         ):
-            logger.info(None, extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
+            if script is not None:
+                script = Path(script).name
 
-            logger.info(f"Shell command 2: {cmd}", extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
-            logger.error(f"Shell command 3: {cmd}", extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
+            logger.info(
+                None,
+                extra=dict(
+                    event=LogEvent.SHELLCMD, cmd=cmd, jobid=jobid, script=script
+                ),
+            )
 
         conda_env = context.get("conda_env", None)
         conda_base_path = context.get("conda_base_path", None)
