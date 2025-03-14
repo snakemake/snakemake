@@ -305,9 +305,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         may_exists = await asyncio.gather(*(f.exists() for f in noneedrun_files))
 
-        workflow.checkpoints.created_output = done_output | {
+        workflow.checkpoints.created_output.clear()
+        workflow.checkpoints.created_output.update(done_output)
+        workflow.checkpoints.created_output.update(
             j for j, e in zip(noneedrun_files, may_exists) if e
-        }
+        )
 
     def update_jobids(self):
         for job in self.jobs:
