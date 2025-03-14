@@ -1,5 +1,5 @@
 from abc import ABC
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 import os
 from pathlib import Path
 import re
@@ -8,6 +8,7 @@ from typing import Mapping, Sequence, Set
 
 import immutables
 import datetime
+import json
 
 from snakemake.common.typing import AnySet
 from snakemake_interface_common.exceptions import ApiError
@@ -360,7 +361,8 @@ class ConfigSettings(SettingsBase):
     configfiles: Sequence[Path] = tuple()
     config_args: Optional[str] = None
     command_line_settings: Optional[str] = None
-
+    all_config_files: Sequence[Path] = tuple()
+    final_config_settings: dict[str, Any] = None
     def __post_init__(self):
         self.overwrite_config = self._get_overwrite_config()
         self.configfiles = self._get_configfiles()
@@ -369,6 +371,7 @@ class ConfigSettings(SettingsBase):
     def _get_overwrite_config(self):
         overwrite_config = dict()
         if self.configfiles:
+            print(f"{self.configfiles=}")
             for f in self.configfiles:
                 update_config(overwrite_config, load_configfile(f))
         if self.config:
@@ -404,7 +407,28 @@ class ConfigSettings(SettingsBase):
                 )
 
                 with open(settings_file, "w") as f:
-                    f.write(self.command_line_settings)
+                    f.write("### Command Line and Optionally Profile Settings ###\n")
+                    print(f"{self.command_line_settings=}")
+                    for line in self.command_line_settings.splitlines():
+                        # Check if the line contains "Defaults:"
+                        # if "Defaults:" in line:
+                        #     break  # Stop writing lines once "Defaults:" is encountered
+                        f.write(line + "\n")  # Write the line to the file
+                    f.write("\n")
+                    f.write("### Config Settings ###\n")
+                    f.write("CLI Config:\n")
+                    json.dump(self.config, f) if self.config else f.write("\tNone")
+                    f.write("\nConfig files:")
+                    if self.all_config_files:
+                        for file in self.all_config_files:
+                            f.write(f"\n- {file}\n\t")
+                            json.dump(load_configfile(file), f)
+                    else:
+                        f.write("\n\tNone")
+                    f.write("\nConfig Args:\n")
+                    f.write(self.config_args) if self.config_args else f.write("\tNone")
+                    f.write("\nFinal Config Settings:\n\t")
+                    json.dump(self.final_config_settings, f) if self.final_config_settings else f.write("None")
             
             except OSError as e:
                 self.logger.error(f"Failed to setup settings file: {e}")

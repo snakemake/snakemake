@@ -1636,7 +1636,10 @@ class Workflow(WorkflowExecutorInterface):
         if not self.modifier.skip_configfile:
             if os.path.exists(fp):
                 self.configfiles.append(fp)
+                print(f"{self.configfiles=}")
                 c = load_configfile(fp)
+
+                # CLI config is overwritten by configfiles from the Snakefile and the CLI
                 update_config(self.config, c)
                 if self.config_settings.overwrite_config:
                     logger.info(
@@ -1653,6 +1656,10 @@ class Workflow(WorkflowExecutorInterface):
             else:
                 # CLI configfiles have been specified, do not throw an error but update with their values
                 update_config(self.config, self.config_settings.overwrite_config)
+            
+            # Add the updated config to the config_settings
+            self.config_settings.all_config_files=self.configfiles
+            self.config_settings.final_config_settings=self.config
 
     def set_pepfile(self, path):
         try:
