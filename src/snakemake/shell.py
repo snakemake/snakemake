@@ -203,11 +203,6 @@ class shell:
         if real_file and CUSTOM_SCRIPT_RE.match(real_file):
             context["is_custom_script"] = True
 
-        # print("")
-        # print(func_context)
-        # print("")
-        # print(context)
-        # print("")
         jobid = context.get("jobid")
         script = func_context.get("__file__")
 
