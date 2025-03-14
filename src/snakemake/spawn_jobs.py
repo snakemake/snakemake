@@ -11,6 +11,7 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake import PIP_DEPLOYMENTS_PATH
 from snakemake.io import get_flag_value, is_flagged
 from snakemake.settings.types import SharedFSUsage
+from snakemake_interface_common.exceptions import WorkflowError
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -55,6 +56,11 @@ class SpawnedJobArgsFactory:
                     unparse = field.metadata.get("unparse", lambda value: value)
 
                     def fmt_value(tag, value):
+                        if callable(value):
+                            raise WorkflowError(
+                                f"Invalid setting for plugin {plugin_name}. Unable "
+                                "to pass callable value as a setting to spawned jobs."
+                            )
                         value = unparse(value)
                         if tag is not None:
                             return f"{tag}:{value}"
