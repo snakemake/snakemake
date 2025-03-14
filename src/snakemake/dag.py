@@ -912,7 +912,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 await self.handle_temp(j)
             return
 
-        is_temp = lambda f: is_flagged(f, "temp")
+        is_temp = lambda f: is_flagged(f, "temp") and not is_flagged(f, "nodelocal")
 
         def unneeded_files():
             # temp input
@@ -928,11 +928,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 or job.rule.name == self.workflow.default_target
             ):
                 tempfiles = (
-                    f
-                    for f in job.output
-                    if is_temp(f)
-                    and f not in self.targetfiles
-                    and not is_flagged(f, "nodelocal")
+                    f for f in job.output if is_temp(f) and f not in self.targetfiles
                 )
                 yield from filterfalse(partial(self.is_needed_tempfile, job), tempfiles)
 
