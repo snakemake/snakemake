@@ -621,6 +621,8 @@ def test_issue2826_failed_binary_logs():
 def test_threads():
     run(dpath("test_threads"), cores=20)
 
+def test_threads_overwrite():
+    run(dpath("test_threads"), shellcmd="snakemake -c20 --set-threads a='10*2'")
 
 def test_threads0():
     run(dpath("test_threads0"))
