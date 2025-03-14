@@ -225,6 +225,7 @@ class DAGSettings(SettingsBase):
 class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_storage_provider: Optional[str] = None
     default_storage_prefix: Optional[str] = None
+    default_storage_protocol: Optional[str] = None
     shared_fs_usage: AnySet[SharedFSUsage] = SharedFSUsage.all()
     keep_storage_local: bool = False
     local_storage_prefix: Path = Path(".snakemake/storage")
@@ -236,6 +237,9 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     def __post_init__(self):
         if self.remote_job_local_storage_prefix is None:
             self.remote_job_local_storage_prefix = self.local_storage_prefix
+
+        if self.default_storage_provider:
+            self.default_storage_protocol = f"{self.default_storage_provider}://"
 
 
 @dataclass
