@@ -409,8 +409,8 @@ class ConfigSettings(SettingsBase):
                     f.write("### Command Line and Optionally Profile Settings ###\n")
                     for line in self.command_line_settings.splitlines():
                         # Check if the line contains "Defaults:"
-                        # if "Defaults:" in line:
-                        #     break  # Stop writing lines once "Defaults:" is encountered
+                        if "Defaults:" in line:
+                            break  # Stop writing lines once "Defaults:" is encountered
                         f.write(line + "\n")  # Write the line to the file
                     f.write("\n")
                     f.write("### Config Settings ###\n")
