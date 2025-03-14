@@ -204,6 +204,7 @@ snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
 snakemake-executor-plugin-cluster-generic = "*"
+snakemake-storage-plugin-xrootd = ">=0.2.0"
 conda = "*"
 pip = "*"
 
