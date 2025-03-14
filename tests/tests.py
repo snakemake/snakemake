@@ -281,6 +281,16 @@ def test_report_display_code():
     run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
 
+def test_report_after_run():
+    run(
+        dpath("test_report_after_run"),
+        report="report.html",
+        report_after_run=True,
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
 def test_params():
     run(dpath("test_params"))
 
