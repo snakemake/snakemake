@@ -32,6 +32,7 @@ from typing import (
     List,
     Optional,
     Set,
+    Tuple,
     TypeVar,
     Union,
     TYPE_CHECKING,
@@ -1373,7 +1374,7 @@ def expand(*args, **wildcard_values):
 
     def do_expand(
         wildcard_values: Dict[
-            str, dict[str, Union[str, collections.abc.Iterable[str]]]
+            str, Dict[str, Union[str, collections.abc.Iterable[str]]]
         ],
     ):
         def flatten(
@@ -1533,7 +1534,7 @@ def glob_wildcards(pattern, files=None, followlinks=False):
         dirname = "."
 
     _names = [match.group("name") for match in WILDCARD_REGEX.finditer(pattern)]
-    names: list[str] = sorted(set(_names), key=_names.index)
+    names: List[str] = sorted(set(_names), key=_names.index)
     Wildcards = collections.namedtuple("Wildcards", names)  # type: ignore[misc]
     wildcards = Wildcards(*[list() for name in names])
 
@@ -1647,7 +1648,7 @@ class Namedlist(list[_TNamedList], Generic[_TNamedKeys, _TNamedList]):
     def __init__(
         self,
         toclone=None,
-        fromdict: dict[_TNamedKeys, _TNamedList] | None=None,
+        fromdict: Optional[Dict[_TNamedKeys, _TNamedList]]=None,
         plainstr=False,
         strip_constraints=False,
         custom_map=None,
@@ -1751,7 +1752,7 @@ class Namedlist(list[_TNamedList], Generic[_TNamedKeys, _TNamedList]):
         for name, (i, j) in names:
             self._set_name(name, i, end=j)
 
-    def items(self) -> Iterator[tuple[_TNamedKeys, _TNamedList]]:
+    def items(self) -> Iterator[Tuple[_TNamedKeys, _TNamedList]]:
         for name in self._names:
             yield name, getattr(self, name)
 
