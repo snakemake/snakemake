@@ -82,8 +82,15 @@ def format_file(f, is_input: bool):
         orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
         return f"{orig_path_or_uri} (cached)"
     elif f.is_storage:
-        phrase = "retrieve from" if is_input else "send to"
-        return f"{f.storage_object.query} ({phrase} storage)"
+        if is_input:
+            if f.storage_object.retrieve:
+                phrase = "retrieve from"
+            else:
+                phrase = "keep remote on"
+        else:
+            phrase = "send to"
+        f_str = f.storage_object.print_query
+        return f"{f_str} ({phrase} storage)"
     else:
         return f
 
@@ -963,7 +970,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     async def cleanup(self):
         """Cleanup output files."""
         to_remove = [f for f in self.output if await f.exists()]
-
         to_remove.extend(
             [
                 f
@@ -1232,7 +1238,18 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                         wait_for_local=True,
                         check_output_mtime=check_output_mtime,
                     )
-                self.dag.unshadow_output(self, only_log=error)
+
+                keep_shadow_dir = (
+                    error and self.dag.workflow.execution_settings.keep_incomplete
+                )
+                kept_directory = self.dag.unshadow_output(
+                    self, only_log=error, keep_shadow_dir=keep_shadow_dir
+                )
+                if kept_directory:
+                    logger.error(
+                        f"Keeping shadow directory: {kept_directory}.\n"
+                        + "Run snakemake with --cleanup-shadow to clean up shadow directories."
+                    )
 
                 if (
                     not error

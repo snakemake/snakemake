@@ -208,6 +208,7 @@ class DAGSettings(SettingsBase):
     allowed_rules: AnySet[str] = frozenset()
     rerun_triggers: AnySet[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
+    trust_io_cache: bool = False
     max_checksum_file_size: int = 1000000
     strict_evaluation: AnySet[StrictDagEvaluation] = frozenset()
     print_dag_as: PrintDag = PrintDag.DOT
@@ -229,6 +230,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_storage_prefix: Optional[str] = None
     shared_fs_usage: AnySet[SharedFSUsage] = SharedFSUsage.all()
     keep_storage_local: bool = False
+    retrieve_storage: bool = True
     local_storage_prefix: Path = Path(".snakemake/storage")
     remote_job_local_storage_prefix: Optional[Path] = None
     notemp: bool = False

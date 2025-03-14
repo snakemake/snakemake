@@ -22,6 +22,7 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
+import pickle
 from typing import (
     Any,
     Callable,
@@ -107,7 +108,15 @@ class ExistsDict(dict):
             return super().__contains__(path)
 
 
+class IOCacheLoadError(Exception):
+    pass
+
+
 class IOCache(IOCacheStorageInterface):
+    # Increment this when the class interface changes to invalidated previously
+    # persisted versions.
+    IOCACHE_VERSION = 0
+
     def __init__(self, max_wait_time):
         self._mtime = dict()
         self._exists_local = ExistsDict(self)
@@ -116,6 +125,47 @@ class IOCache(IOCacheStorageInterface):
         self.active = True
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
+
+    def _simple_copy(self):
+        """Identical copy except dictionary keys are downcast to str."""
+        simplified = type(self)(self.max_wait_time)
+
+        # Copy non-dictionary attributes the same.
+        for name in ["remaining_wait_time", "active"]:
+            old_attr = getattr(self, name)
+            setattr(simplified, name, old_attr)
+
+        # Copy dictionary attributes, casting keys to str.
+        for name in ["_mtime", "_exists_local", "_exists_in_storage", "_size"]:
+            old_dict = getattr(self, name)
+            if isinstance(old_dict, ExistsDict):
+                setattr(simplified, name, ExistsDict(simplified))
+            else:
+                setattr(simplified, name, {})
+            new_dict = getattr(simplified, name)
+            for key in old_dict:
+                new_dict[str(key)] = old_dict[key]
+
+        return simplified
+
+    def save(self, handle):
+        """Dump IOCache to file."""
+        simplified = self._simple_copy()
+        pickle.dump(simplified, handle)
+
+    @classmethod
+    def load(cls, handle):
+        """Load an IOCache from file."""
+        loaded = pickle.load(handle)
+        if loaded.IOCACHE_VERSION != cls.IOCACHE_VERSION:
+            raise IOCacheLoadError(
+                (
+                    f"Trying to load IOCache object with a mismatched version: "
+                    f"{loaded.IOCACHE_VERSION} (loaded) != {cls.IOCACHE_VERSION} (current)"
+                )
+            )
+        else:
+            return loaded
 
     @property
     def mtime(self):
@@ -662,7 +712,9 @@ class _IOFile(str, AnnotatedStringInterface):
                     return mtime.local() < mtime.storage()
 
                 if not await self.exists_local() or await is_newer_in_storage():
-                    logger.info(f"Retrieving from storage: {self.storage_object.query}")
+                    logger.info(
+                        f"Retrieving from storage: {self.storage_object.print_query}"
+                    )
                     await self.storage_object.managed_retrieve()
                     logger.info("Finished retrieval.")
         else:
@@ -673,7 +725,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
     async def store_in_storage(self):
         if self.is_storage:
-            logger.info(f"Storing in storage: {self.storage_object.query}")
+            logger.info(f"Storing in storage: {self.storage_object.print_query}")
             await self.storage_object.managed_store()
             logger.info("Finished upload.")
 
@@ -889,7 +941,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
 def pretty_print_iofile(iofile: Union[_IOFile, str]) -> str:
     if isinstance(iofile, _IOFile) and iofile.is_storage:
-        return f"{iofile.storage_object.query} (storage)"
+        return f"{iofile.storage_object.print_query} (storage)"
     else:
         return iofile
 
@@ -969,7 +1021,7 @@ async def wait_for_files(
                 and (not wait_for_local or f.should_not_be_retrieved_from_storage)
             ):
                 if not await f.exists_in_storage():
-                    return f"{f.storage_object.query} (missing in storage)"
+                    return f"{f.storage_object.print_query} (missing in storage)"
             elif not os.path.exists(f):
                 parent_dir = os.path.dirname(f)
                 if list_parent:

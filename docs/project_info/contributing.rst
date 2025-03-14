@@ -75,11 +75,12 @@ To create a Pull Request you need to do these steps:
 4. Go to the created snakemake folder with :code:`cd snakemake`.
 5. Create a new branch with :code:`git checkout -b <descriptive_branch_name>`.
 6. Make your changes to the code or documentation.
-7. Run :code:`git add .` to add all the changed files to the commit (to see what files will be added you can run :code:`git add . --dry-run`).
-8. To commit the added files use :code:`git commit`. (This will open a command line editor to write a commit message. These should have a descriptive 80 line header, followed by an empty line, and then a description of what you did and why. To use your command line text editor of choice use (for example) :code:`export GIT_EDITOR=vim` before running :code:`git commit`).
-9. Now you can push your changes to your Github copy of Snakemake by running :code:`git push origin <descriptive_branch_name>`.
-10. If you now go to the webpage for your Github copy of Snakemake you should see a link in the sidebar called "Create Pull Request".
-11. Now you need to choose your PR from the menu and click the "Create pull request" button. Be sure to change the pull request target branch to <descriptive_branch_name>!
+7. Format your changes with `Snakefmt <https://github.com/snakemake/snakefmt>`_ or `BLACK <https://github.com/psf/black>`_.
+8. Run :code:`git add .` to add all the changed files to the commit (to see what files will be added you can run :code:`git add . --dry-run`).
+9. To commit the added files use :code:`git commit`. (This will open a command line editor to write a commit message. These should have a descriptive 80 line header, followed by an empty line, and then a description of what you did and why. To use your command line text editor of choice use (for example) :code:`export GIT_EDITOR=vim` before running :code:`git commit`).
+10. Now you can push your changes to your Github copy of Snakemake by running :code:`git push origin <descriptive_branch_name>`.
+11. If you now go to the webpage for your Github copy of Snakemake you should see a link in the sidebar called "Create Pull Request".
+12. Now you need to choose your PR from the menu and click the "Create pull request" button. Be sure to change the pull request target branch to <descriptive_branch_name>!
 
 If you want to create more pull requests, first run :code:`git checkout main` and then start at step 5. with a new branch name.
 
@@ -208,6 +209,24 @@ directly with the test file and the test name.
             --group 1 \
             --splitting-algorithm=least_duration
 
+Marked tests
+------------
+Some tests have been marked using `pytest markers <https://docs.pytest.org/en/stable/mark.html>`_.
+These allow for running specific tests or *excluding* specific tests.
+For example, the `pixi run test-simple` currently excludes the `needs_envmodules` tests.
+There is also another marker for ``needs_s3`` which will skip tests that require an S3 connection.
+If you are not looking to test the S3 functionality, you can modify the
+test command to exclude these tests.
+
+.. code-block:: console
+
+    $ pixi run test-simple -m "not needs_envmodules and not needs_s3"
+
+For a full list of available markers, you can run:
+
+.. code-block:: console
+
+    $ pixi run pytest --markers
 
 Warnings and oddities
 ---------------------
