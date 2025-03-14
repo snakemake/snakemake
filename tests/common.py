@@ -13,7 +13,7 @@ import time
 from os.path import join
 import tempfile
 import hashlib
-from typing import Any, Mapping
+from typing import Any, List, Mapping
 import urllib
 import pytest
 import glob
