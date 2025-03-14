@@ -39,6 +39,7 @@ from snakemake.settings.enums import (
     CondaCleanupPkgs,
     Quietness,
     StrictDagEvaluation,
+    PrintDag,
 )
 
 
@@ -209,6 +210,7 @@ class DAGSettings(SettingsBase):
     max_inventory_wait_time: int = 20
     max_checksum_file_size: int = 1000000
     strict_evaluation: AnySet[StrictDagEvaluation] = frozenset()
+    print_dag_as: PrintDag = PrintDag.DOT
     # strict_functions_evaluation: bool = False
     # strict_cycle_evaluation: bool = False
     # strict_wildcards_recursion_evaluation: bool = False
