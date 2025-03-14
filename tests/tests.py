@@ -2092,7 +2092,7 @@ def test_inventory_cache_with_dryrun_first_skip_on_windows(testdir, kwargs):
     run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_mtime_cache=True)
 
 
-def test09_inventory_cache_with_dryrun_first_and_fail_second(testdir):
+def test09_inventory_cache_with_dryrun_first_and_fail_second():
     testdir = "test09"
     tmpdir = run(dpath(testdir), executor="dryrun", cleanup=False, check_results=False)
     run(dpath(testdir), tmpdir=tmpdir, trust_mtime_cache=True, shouldfail=True)
