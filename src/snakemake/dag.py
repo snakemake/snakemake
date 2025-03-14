@@ -499,12 +499,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Check if any output files are incomplete. This is done by looking up
         markers in the persistence module."""
         if not self.ignore_incomplete:
-            incomplete = await self.incomplete_files()
-            if incomplete:
+            incomplete_files = await self.incomplete_files()
+            if any(incomplete_files):
                 if self.workflow.dag_settings.force_incomplete:
-                    self.forcefiles.update(incomplete)
+                    self.forcefiles.update(incomplete_files)
                 else:
-                    raise IncompleteFilesException(incomplete)
+                    raise IncompleteFilesException(incomplete_files)
 
     def incomplete_external_jobid(self, job) -> Optional[str]:
         """Return the external jobid of the job if it is marked as incomplete.
@@ -599,10 +599,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Yield incomplete files."""
         incomplete = list()
         for job in filterfalse(self.needrun, self.jobs):
-            is_incomplete = await self.workflow.persistence.incomplete(job)
-            if is_incomplete:
-                for f in job.output:
-                    incomplete.append(f)
+            incomplete.extend(
+                [
+                    job
+                    for job in await self.workflow.persistence.incomplete(job)
+                    if job is not None
+                ]
+            )
         return incomplete
 
     @property

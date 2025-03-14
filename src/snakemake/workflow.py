@@ -866,7 +866,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         failed = []
         for path in paths:
-            success = self.persistence.cleanup_metadata(path)
+            success = self.persistence.cleanup_metadata(IOFile(path))
             if not success:
                 failed.append(str(path))
         if failed:
