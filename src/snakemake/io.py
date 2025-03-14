@@ -449,8 +449,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
     @property
     def should_not_be_retrieved_from_storage(self):
-        return ((not self.storage_object.retrieve)
-            or is_flagged(self._file, "nodelocal"))
+        return not self.storage_object.retrieve
 
     @property
     def storage_object(self):
@@ -1018,6 +1017,7 @@ async def wait_for_files(
                 and f not in consider_local
                 and f.is_storage
                 and (not wait_for_local or f.should_not_be_retrieved_from_storage)
+                and not is_flagged(f, "nodelocal")
             ):
                 if not await f.exists_in_storage():
                     return f"{f.storage_object.query} (missing in storage)"
