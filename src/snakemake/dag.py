@@ -292,18 +292,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def checkpoint_jobs(self):
         return self._checkpoint_jobs
 
-    @property
-    def finished_and_not_needrun_checkpoint_jobs(self):
-        for job in self.jobs:
-            if job.is_checkpoint and (self.finished(job) or not self.needrun(job)):
-                yield job
+    async def update_checkpoint_outputs(self):
+        done_output = set()
+        noneedrun_files = []
 
-    def update_checkpoint_outputs(self):
-        workflow.checkpoints.created_output = set(
-            f
-            for job in self.finished_and_not_needrun_checkpoint_jobs
-            for f in job.output
-        )
+        for job in self.jobs:
+            if job.is_checkpoint:
+                if self.finished(job):
+                    done_output.update(job.output)
+                elif not self.needrun(job):
+                    noneedrun_files.extend(job.output)
+
+        may_exists = await asyncio.gather(*(f.exists() for f in noneedrun_files))
+
+        workflow.checkpoints.created_output = done_output | {
+            j for j, e in zip(noneedrun_files, may_exists) if e
+        }
 
     def update_jobids(self):
         for job in self.jobs:
@@ -1787,7 +1791,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 return
 
         self.update_ready()
-        self.update_checkpoint_outputs()
+        await self.update_checkpoint_outputs()
 
     def handle_pipes_and_services(self):
         """Use pipes and services to determine job groups. Check if every pipe has exactly
@@ -1969,7 +1973,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
         updated = False
-        self.update_checkpoint_outputs()
+        await self.update_checkpoint_outputs()
         if jobs is None:
             jobs = [job for job in self.jobs if not self.needrun(job)]
         all_depending = []

@@ -144,7 +144,7 @@ Plugin authors can extend the catalog documentation for their plugin by providin
 Scaffolding
 """""""""""
 
-Via `poetry <https://github.com/snakemake/poetry-plugin-snakemake>`__, plugins can be automatically scaffolded, leading to all files for plugin implementation, testing and package building being generated as skeletons.
+Via `poetry <https://github.com/snakemake/poetry-snakemake-plugin>`__, plugins can be automatically scaffolded, leading to all files for plugin implementation, testing and package building being generated as skeletons.
 The developer then only needs to implement extensively annotated abstract methods of base classes provided by the respective interface package.
 After pushing the plugin code into a new GitHub repository, testing, release-automation, and pypi upload then work out of the box.
 
