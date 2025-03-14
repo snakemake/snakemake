@@ -1212,6 +1212,10 @@ def test_checkpoints_many():
     run(dpath("test_checkpoints_many"))
 
 
+def test_module_checkpoint():
+    run(dpath("test_module_checkpoint"))
+
+
 def test_checkpoint_missout():
     run(dpath("test_checkpoint_missout"))
 
