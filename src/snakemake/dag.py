@@ -998,6 +998,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         f.is_storage
                         and not await f.protected()
                         and not f.should_keep_local
+                        and not is_flagged(f, "nodelocal")
                     )
 
                 generated_input = set()
