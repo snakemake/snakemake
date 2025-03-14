@@ -1636,7 +1636,6 @@ class Workflow(WorkflowExecutorInterface):
         if not self.modifier.skip_configfile:
             if os.path.exists(fp):
                 self.configfiles.append(fp)
-                print(f"{self.configfiles=}")
                 c = load_configfile(fp)
 
                 # CLI config is overwritten by configfiles from the Snakefile and the CLI
