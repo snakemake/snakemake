@@ -935,6 +935,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     and not f.should_not_be_retrieved_from_storage
                     and not is_flagged(f, "pipe")
                     and not is_flagged(f, "service")
+                    and not is_flagged(f, "nodelocal")
                 ):
                     await f.store_in_storage()
                     storage_mtime = (await f.mtime()).storage()
@@ -1777,11 +1778,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 user_groups.add(job.group)
             all_depending = set()
             has_pipe_or_service = False
+            has_nodelocal = False
             for f in job.output:
                 is_pipe = is_flagged(f, "pipe")
                 is_service = is_flagged(f, "service")
-                if is_pipe or is_service:
-                    if job.is_run:
+                is_nodelocal = is_flagged(f, "nodelocal")
+                if is_pipe or is_service or is_nodelocal:
+                    if not is_nodelocal and job.is_run:
                         raise WorkflowError(
                             "Rule defines pipe output but "
                             "uses a 'run' directive. This is "
@@ -1791,7 +1794,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             rule=job.rule,
                         )
 
-                    has_pipe_or_service = True
+                    if is_pipe or is_service:
+                        has_pipe_or_service = True
+                    if is_nodelocal:
+                        has_nodelocal = True
+
                     depending = [
                         j for j, files in self.depending[job].items() if f in files
                     ]
@@ -1804,7 +1811,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             "job".format(f),
                             rule=job.rule,
                         )
-                    elif len(depending) == 0:
+                    elif not is_nodelocal and len(depending) == 0:
                         raise WorkflowError(
                             "Output file {} is marked as pipe or service "
                             "but it has no consumer. This is "
@@ -1820,7 +1827,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         )
 
                     for dep in depending:
-                        if dep.is_run:
+                        if not is_nodelocal and dep.is_run:
                             raise WorkflowError(
                                 "Rule consumes pipe or service input but "
                                 "uses a 'run' directive. This is "
@@ -1831,42 +1838,54 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             )
 
                         all_depending.add(dep)
-                        if dep.pipe_group is not None:
+                        if (is_pipe or is_service) and dep.pipe_group is not None:
                             candidate_groups.add(dep.pipe_group)
                         if dep.group is not None:
                             user_groups.add(dep.group)
 
-            if not has_pipe_or_service:
+            if not has_pipe_or_service and not has_nodelocal:
                 continue
 
             # All pipe groups should be contained within one user-defined group
             if len(user_groups) > 1:
                 raise WorkflowError(
                     "An output file is marked as "
-                    "pipe or service, but consuming jobs "
+                    "pipe, service or nodelocal, but consuming jobs "
                     "are part of conflicting "
-                    "groups.",
+                    f"groups. {user_groups}",
                     rule=job.rule,
                 )
 
-            if len(candidate_groups) > 1:
-                # Merge multiple pipe groups together
-                group = candidate_groups.pop()
-                for g in candidate_groups:
-                    g.merge(group)
-            elif candidate_groups:
-                # extend the candidate group to all involved jobs
-                group = candidate_groups.pop()
-            else:
-                # generate a random unique group name
-                group = CandidateGroup()  # str(uuid.uuid4())
+            if has_pipe_or_service:
+                if len(candidate_groups) > 1:
+                    # Merge multiple pipe groups together
+                    group = candidate_groups.pop()
+                    for g in candidate_groups:
+                        g.merge(group)
+                elif candidate_groups:
+                    # extend the candidate group to all involved jobs
+                    group = candidate_groups.pop()
+                else:
+                    # generate a random unique group name
+                    group = CandidateGroup()  # str(uuid.uuid4())
 
-            # Assign the pipe group to all involved jobs.
-            job.pipe_group = group
-            visited.add(job)
-            for j in all_depending:
-                j.pipe_group = group
-                visited.add(j)
+                # Assign the pipe group to all involved jobs.
+                job.pipe_group = group
+                visited.add(job)
+                for j in all_depending:
+                    j.pipe_group = group
+                    visited.add(j)
+
+            if has_nodelocal and not self.workflow.local_exec:
+                # put the dependencies in the same user group (not pipe group as pipes are ran in parallel, whereas we want serial for nodelocal files)
+                # NOTE do NOT create usergroup in the node's local inst of snakemake lest the resources get merge, see: resources.py: class GroupResources
+                ugroup = user_groups.pop() if user_groups else str(uuid.uuid4())
+
+                job.group = ugroup
+                visited.add(job)
+                for j in all_depending:
+                    j.group = ugroup
+                    visited.add(j)
 
         # convert candidate groups to plain string IDs
         for job in visited:
@@ -2688,7 +2707,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
                 status = "ok"
                 if not await f.exists():
-                    if is_flagged(f, "temp"):
+                    if is_flagged(f, "nodelocal"):
+                        status = "file local to node"
+                    elif is_flagged(f, "temp"):
                         status = "removed temp file"
                     elif is_flagged(f, "pipe"):
                         status = "pipe file"
