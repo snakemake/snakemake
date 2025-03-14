@@ -1045,7 +1045,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         known_producers=None,
         progress=False,
         create_inventory=False,
-    ):
+    ) -> Job:
         """Update the DAG by adding given jobs and their dependencies."""
         if visited is None:
             visited = set()
@@ -1231,6 +1231,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         known_producers=known_producers,
                         progress=progress,
                     )
+                    if (
+                        is_flagged(res.file, "checkpoint_target")
+                        and not selected_job.rule.is_checkpoint
+                    ):
+                        selected_job.rule.is_checkpoint = True
                     producer[res.file] = selected_job
                 except (
                     MissingInputException,
@@ -2112,7 +2117,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.cache_job(job)
         return job
 
-    def cache_job(self, job):
+    def cache_job(self, job: Job):
         for f in job.products():
             self.job_cache[(job.rule, f)] = job
 

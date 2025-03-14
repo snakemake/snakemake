@@ -836,7 +836,7 @@ class Rule(RuleInterface):
             else:
                 return f.apply_wildcards(wildcards)
 
-        def handle_incomplete_checkpoint(exception):
+        def handle_incomplete_checkpoint(exception: IncompleteCheckpointException):
             """If checkpoint is incomplete, target it such that it is completed
             before this rule gets executed."""
             return exception.targetfile

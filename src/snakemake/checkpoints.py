@@ -18,6 +18,12 @@ class Checkpoints:
             setattr(self, fallback_name, checkpoint)
         setattr(self, rule.name, Checkpoint(rule, self))
 
+    def get(self, file):
+        if self.created_output is not None:
+            if file in set(self.created_output):
+                return file
+        raise IncompleteCheckpointException(None, checkpoint_target(file))
+
 
 class Checkpoint:
     __slots__ = ["rule", "checkpoints"]

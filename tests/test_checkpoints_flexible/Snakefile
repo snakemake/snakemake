@@ -1,0 +1,58 @@
+import os
+
+
+rule all:
+    input:
+        "aggregated/1.txt",
+        "aggregated/2.txt",
+
+
+rule somestep:
+    output:
+        "somestep/{sample}.txt",  # list of dynamic output
+        "someother/{sample}.txt",  # unused file
+        directory("someother/{sample}/"),  # will check outdir
+    run:
+        with open(output[1], "w"):
+            pass
+            # simulate some output vale
+        shell("touch {output[1]}")
+        shell("mkdir -p {output[2]}")
+        dynamic_num = int(wildcards.sample)
+        with open(output[0], "w") as f:
+            for i in range(dynamic_num, dynamic_num * 2):
+                shell("touch {output[2]}/{i}")
+                print(i, file=f)
+
+
+def aggregate_find(wildcards):
+    # decision based on content of output file
+    outdir = checkpoints.get(rules.somestep.output[2].format(**wildcards))
+    return os.path.join(outdir, wildcards.i)
+
+
+rule intermediate:
+    input:
+        aggregate_find,
+    output:
+        touch("post/{sample}/{i}.modify"),
+
+
+def aggregate_modify(wildcards):
+    with open(checkpoints.get(rules.somestep.output[0].format(**wildcards))) as f:
+        return expand(
+            rules.intermediate.output[0],
+            sample=wildcards.sample,
+            i=f.read().strip().split(),
+        )
+
+
+rule aggregate:
+    input:
+        aggregate_modify,
+    output:
+        "aggregated/{sample}.txt",
+    run:
+        print("aggregating", input)
+        assert all(i.endswith(".modify") for i in input)
+        shell("touch {output}")
