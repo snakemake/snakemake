@@ -712,7 +712,9 @@ class _IOFile(str, AnnotatedStringInterface):
                     return mtime.local() < mtime.storage()
 
                 if not await self.exists_local() or await is_newer_in_storage():
-                    logger.info(f"Retrieving from storage: {self.storage_object.query}")
+                    logger.info(
+                        f"Retrieving from storage: {self.storage_object.print_query}"
+                    )
                     await self.storage_object.managed_retrieve()
                     logger.info("Finished retrieval.")
         else:
@@ -723,7 +725,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
     async def store_in_storage(self):
         if self.is_storage:
-            logger.info(f"Storing in storage: {self.storage_object.query}")
+            logger.info(f"Storing in storage: {self.storage_object.print_query}")
             await self.storage_object.managed_store()
             logger.info("Finished upload.")
 
@@ -939,7 +941,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
 def pretty_print_iofile(iofile: Union[_IOFile, str]) -> str:
     if isinstance(iofile, _IOFile) and iofile.is_storage:
-        return f"{iofile.storage_object.query} (storage)"
+        return f"{iofile.storage_object.print_query} (storage)"
     else:
         return iofile
 
@@ -1019,7 +1021,7 @@ async def wait_for_files(
                 and (not wait_for_local or f.should_not_be_retrieved_from_storage)
             ):
                 if not await f.exists_in_storage():
-                    return f"{f.storage_object.query} (missing in storage)"
+                    return f"{f.storage_object.print_query} (missing in storage)"
             elif not os.path.exists(f):
                 parent_dir = os.path.dirname(f)
                 if list_parent:
