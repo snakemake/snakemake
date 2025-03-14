@@ -912,7 +912,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 await self.handle_temp(j)
             return
 
-        is_temp = lambda f: is_flagged(f, "temp") and not is_flagged(f, "nodelocal")
+        is_temp = lambda f: is_flagged(f, "temp")
 
         def unneeded_files():
             # temp input
