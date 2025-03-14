@@ -931,7 +931,9 @@ def get_argument_parser(profiles=None):
     )
     group_report = parser.add_argument_group("REPORTS")
 
-    group_report.add_argument(
+    group_report_parameter = group_report.add_mutually_exclusive_group()
+
+    group_report_parameter.add_argument(
         "--report",
         nargs="?",
         const="report.html",
@@ -939,6 +941,22 @@ def get_argument_parser(profiles=None):
         type=Path,
         help="Create a self-contained HTML report with default statistics, "
         "provenance information and user-specified results. "
+        "For smaller datasets with a limited report complexity, you can specify "
+        "an `.html` file and all results will be embedded directly into this file. "
+        "For customized reports on larger sample sizes, it makes more sense to "
+        "specify a `.zip` file. The resulting archive will spread the contents "
+        "across a folder structure, for a quicker loading of individual results. "
+        "You can unpack this archive anywhere and open the `report.html` file in "
+        "its main folder to view the report in any web browser.",
+    )
+    group_report_parameter.add_argument(
+        "--report-after-run",
+        nargs="?",
+        const="report.html",
+        metavar="FILE",
+        type=Path,
+        help="After finishing the workflow, directly create a self-contained HTML "
+        "report with default statistics, provenance information and user-specified results. "
         "For smaller datasets with a limited report complexity, you can specify "
         "an `.html` file and all results will be embedded directly into this file. "
         "For customized reports on larger sample sizes, it makes more sense to "
@@ -1870,9 +1888,9 @@ def args_to_api(args, parser):
     elif args.executor is None:
         args.executor = "local"
 
-    if args.report:
+    if args.report or args.report_after_run:
         args.reporter = "html"
-        args.report_html_path = args.report
+        args.report_html_path = args.report if args.report else args.report_after_run
         args.report_html_stylesheet_path = args.report_stylesheet
 
     executor_plugin = ExecutorPluginRegistry().get_plugin(args.executor)
@@ -2049,7 +2067,7 @@ def args_to_api(args, parser):
 
                     if args.containerize:
                         dag_api.containerize()
-                    elif report_plugin is not None:
+                    elif report_plugin is not None and args.report:
                         dag_api.create_report(
                             reporter=args.reporter,
                             report_settings=report_settings,
@@ -2148,6 +2166,12 @@ def args_to_api(args, parser):
                             ),
                             executor_settings=executor_settings,
                         )
+
+                        if report_plugin is not None:
+                            dag_api.create_report(
+                                reporter=args.reporter,
+                                report_settings=report_settings,
+                            )
 
         except Exception as e:
             snakemake_api.print_exception(e)
