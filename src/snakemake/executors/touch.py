@@ -15,7 +15,7 @@ from snakemake_interface_executor_plugins.jobs import (
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.common import async_run
-
+from snakemake.logging import logger
 from snakemake.exceptions import print_exception
 
 
@@ -30,22 +30,43 @@ common_settings = CommonSettings(
 
 
 class Executor(RealExecutor):
+    SLEEPING_TIME = 0.1
+
     def run_job(
         self,
         job: JobExecutorInterface,
     ):
         job_info = SubmittedJobInfo(job=job)
         try:
-            time.sleep(0.1)
 
             if job.output:
 
                 async def touch():
-                    for f in job.output:
-                        if f.is_storage and await f.exists_in_storage():
+                    touch_storage_and_local_files = {
+                        f
+                        for f in job.output
+                        if f.is_storage and await f.exists_in_storage()
+                    }
+                    touch_files = {
+                        f
+                        for f in job.output
+                        if f not in touch_storage_and_local_files
+                        and await f.exists_local()
+                    }
+                    non_existing_files = (
+                        set(job.output) - touch_storage_and_local_files - touch_files
+                    )
+
+                    if touch_files or touch_storage_and_local_files:
+                        time.sleep(Executor.SLEEPING_TIME)
+                        for f in touch_storage_and_local_files:
                             await f.touch_storage_and_local()
-                        elif await f.exists_local():
+                        for f in touch_files:
                             f.touch()
+                    if len(non_existing_files) > 0:
+                        logger.warning(
+                            f"Output files not touched because they don't exist: {', '.join(non_existing_files)}"
+                        )
 
                 async_run(touch())
 

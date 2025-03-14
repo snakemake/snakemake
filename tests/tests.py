@@ -281,6 +281,16 @@ def test_report_display_code():
     run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
 
+def test_report_after_run():
+    run(
+        dpath("test_report_after_run"),
+        report="report.html",
+        report_after_run=True,
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
 def test_params():
     run(dpath("test_params"))
 
@@ -367,6 +377,20 @@ def test_config_merging():
     run(
         dpath("test_config_merging"),
         shellcmd='snakemake -j 1 --configfile config_cmdline_01.yaml config_cmdline_02.yaml --config "block={bowser: cmdline_bowser}" "block={toad: cmdline_toad}"',
+    )
+
+
+def test_config_replacing():
+    run(
+        dpath("test_config_replacing"),
+        shellcmd='snakemake -j 1 --configfile cli-config.yaml --config "value=value2" --replace-workflow-config',
+    )
+
+
+def test_config_replacing_nocli():
+    run(
+        dpath("test_config_replacing_nocli"),
+        shellcmd="snakemake -j 1 --replace-workflow-config",
     )
 
 
@@ -1356,6 +1380,10 @@ def test_multiext():
     run(dpath("test_multiext"))
 
 
+def test_multiext_named():
+    run(dpath("test_multiext_named"))
+
+
 def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
 
@@ -1440,6 +1468,49 @@ def test_long_shell():
 
 def test_modules_all():
     run(dpath("test_modules_all"), targets=["all"])
+
+
+def test_modules_name():
+    run(
+        dpath("test_modules_name"),
+        targets=["all"],
+    )
+
+
+def test_modules_no_name():
+    run(
+        dpath("test_modules_no_name"),
+        targets=["all"],
+        shouldfail=True,
+    )
+
+
+def test_modules_two_names():
+    run(
+        dpath("test_modules_two_names"),
+        targets=["all"],
+        shouldfail=True,
+    )
+
+
+def test_modules_dynamic():
+    run(dpath("test_modules_dynamic"), targets=["all"])
+
+
+def test_modules_dynamic_module_as_alias():
+    run(dpath("test_modules_dynamic_module_as_alias"), targets=["all"])
+
+
+def test_modules_semi_dynamic():
+    run(dpath("test_modules_semi_dynamic"), targets=["all"])
+
+
+def test_modules_dynamic_import_rules():
+    run(dpath("test_modules_dynamic_import_rules"), targets=["all"])
+
+
+def test_modules_dynamic_no_as():
+    run(dpath("test_modules_dynamic_no_as"), targets=["all"])
 
 
 def test_module_nested():
@@ -2059,6 +2130,34 @@ def test_failed_intermediate():
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
 
 
-@skip_on_windows  # OS agnostic
 def test_issue3338():
     run(dpath("test_issue3338"), targets=["all"])
+
+
+def test_github_issue_3374():
+    run(dpath("test_github_issue3271"), check_results=False)
+    run(
+        dpath("test_github_issue3271"),
+        snakefile="Snakefile_should_fail",
+        shouldfail=True,
+        check_results=False,
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_issue3361_pass():
+    run(
+        dpath("test_issue3361_pass"),
+        shellcmd="snakemake --sdm apptainer",
+        targets=["all"],
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_issue3361_fail():
+    run(
+        dpath("test_issue3361_fail"),
+        shellcmd="snakemake --sdm apptainer",
+        targets=["all"],
+        shouldfail=True,
+    )
