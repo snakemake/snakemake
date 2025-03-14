@@ -370,6 +370,20 @@ def test_config_merging():
     )
 
 
+def test_config_replacing():
+    run(
+        dpath("test_config_replacing"),
+        shellcmd='snakemake -j 1 --configfile cli-config.yaml --config "value=value2" --replace-workflow-config',
+    )
+
+
+def test_config_replacing_nocli():
+    run(
+        dpath("test_config_replacing_nocli"),
+        shellcmd="snakemake -j 1 --replace-workflow-config",
+    )
+
+
 def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
