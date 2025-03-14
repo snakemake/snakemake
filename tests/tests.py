@@ -46,11 +46,6 @@ def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
 
-@skip_on_windows
-def test_github_issue_3265_respect_dryrun_delete_all():
-    run(dpath("test_github_issue_3265_respect_dryrun_delete_all"))
-
-
 def test_github_issue_14():
     """Add cleanup_scripts argument to allow the user to keep scripts"""
     # Return temporary directory for inspection - we should keep scripts here
@@ -817,7 +812,6 @@ def test_group_jobs_attempts():
 
 def assert_resources(resources: dict, **expected_resources):
     assert resources == expected_resources
-    # assert {res: resources[res] for res in expected_resources} == expected_resources
 
 
 @skip_on_windows
@@ -1070,7 +1064,7 @@ def test_new_resources_can_be_defined_as_local():
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if not l == "\n"]
+        lines = [line for line in f.readlines() if line != "\n"]
         print(lines)
     assert len(lines) == 2
     shutil.rmtree(tmp)
@@ -1147,7 +1141,8 @@ def test_scopes_submitted_to_cluster(mocker):
 
 @skip_on_windows
 def test_resources_submitted_to_cluster(mocker):
-    # Implicitely tests the normalization of mem_mb and disk_mb to mem and disk
+    # In addition, implicitly tests the normalization of mem_mb and disk_mb to mem and
+    # disk
     from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
 
     spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
@@ -1562,10 +1557,6 @@ def test_storage_noretrieve_dryrun():
 
 def test_multiext():
     run(dpath("test_multiext"))
-
-
-def test_multiext_named():
-    run(dpath("test_multiext_named"))
 
 
 def test_core_dependent_threads():

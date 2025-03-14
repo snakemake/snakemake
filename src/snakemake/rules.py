@@ -1045,12 +1045,12 @@ class Rule(RuleInterface):
                     raw_exceptions=True,
                     **aux,
                 )
-            except ResourceValidationError:
+            except ResourceValidationError as err:
                 raise WorkflowError(
                     f"Resource {resource} is neither int, float (would be rounded to "
                     "nearest int), str, or None.",
                     rule=self,
-                )
+                ) from err
 
             except BaseException as e:
                 raise InputFunctionException(e, rule=self, wildcards=wildcards) from e
