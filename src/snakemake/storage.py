@@ -95,13 +95,35 @@ class StorageRegistry:
                 f"{plugin.name} is not."
             )
 
+        keep_local = settings.get(
+            "keep_local", self.workflow.storage_settings.keep_storage_local
+        )
+        retrieve = settings.get(
+            "retrieve", self.workflow.storage_settings.retrieve_storage
+        )
         provider_instance = plugin.storage_provider(
             local_prefix=local_prefix,
             settings=final_settings,
-            keep_local=self.workflow.storage_settings.keep_storage_local,
+            keep_local=keep_local,
+            retrieve=retrieve,
             is_default=is_default,
         )
         self._storages[name] = provider_instance
+        # if a tagged storage provider is registered before the untagged then the
+        # untagged provider is registered later without the settings
+        # prevent the settings loss by registering it here
+        if tag is not None and plugin.name not in self._storages:
+            local_prefix = (
+                self.workflow.storage_settings.local_storage_prefix / plugin.name
+            )
+            provider_instance = plugin.storage_provider(
+                local_prefix=local_prefix,
+                settings=final_settings,
+                keep_local=keep_local,
+                retrieve=retrieve,
+                is_default=is_default,
+            )
+            self._storages[plugin.name] = provider_instance
         return provider_instance
 
     def infer_provider(self, query: str):
@@ -136,8 +158,8 @@ class StorageRegistry:
     def __call__(
         self,
         query: str,
-        retrieve: bool = True,
-        keep_local: bool = False,
+        retrieve: Optional[bool] = None,
+        keep_local: Optional[bool] = None,
     ):
         return self._storage_object(
             query, provider=None, retrieve=retrieve, keep_local=keep_local
@@ -147,8 +169,8 @@ class StorageRegistry:
         self,
         query: Union[str, List[str]],
         provider: Optional[str] = None,
-        retrieve: bool = True,
-        keep_local: bool = False,
+        retrieve: Optional[bool] = None,
+        keep_local: Optional[bool] = None,
     ):
         if isinstance(query, list):
             return [
@@ -190,8 +212,8 @@ class StorageProviderProxy:
     def __call__(
         self,
         query: str,
-        retrieve: bool = True,
-        keep_local: bool = False,
+        retrieve: Optional[bool] = None,
+        keep_local: Optional[bool] = None,
     ):
         return self.registry._storage_object(
             query, provider=self.name, retrieve=retrieve, keep_local=keep_local

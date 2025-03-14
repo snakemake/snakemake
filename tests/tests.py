@@ -2193,3 +2193,95 @@ def test_nodelocal():
     assert not (work_path / "local/temp.txt").exists() or not any(
         (work_path / "scratch/").iterdir()
     )
+
+
+def test_keep_local():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        snakefile = os.path.join(dpath("test_local_and_retrieve"), "keep_local.smk")
+        local_img = os.path.join(
+            tmpdir,
+            ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
+        )
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "keep_local_default.flag"], cwd=tmpdir
+        )
+        assert not os.path.exists(local_img)
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "keep_local_false.flag"], cwd=tmpdir
+        )
+        assert not os.path.exists(local_img)
+
+        p = sp.check_output(
+            [
+                "snakemake",
+                "-s",
+                snakefile,
+                "-c1",
+                "keep_local_default.flag",
+                "--force",
+                "--keep-storage-local-copies",
+            ],
+            cwd=tmpdir,
+        )
+        assert os.path.exists(local_img)
+        shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "keep_local_true.flag"], cwd=tmpdir
+        )
+        assert os.path.exists(local_img)
+        shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "keep_local_true_directive.flag"],
+            cwd=tmpdir,
+        )
+        assert os.path.exists(local_img.replace("http", "http_local"))
+
+
+def test_retrieve():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        snakefile = os.path.join(dpath("test_local_and_retrieve"), "retrieve.smk")
+        local_img = os.path.join(
+            tmpdir,
+            ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
+        )
+
+        p = sp.check_output(
+            [
+                "snakemake",
+                "-s",
+                snakefile,
+                "-c1",
+                "retrieve_default.flag",
+                "--not-retrieve-storage",
+            ],
+            cwd=tmpdir,
+        )
+        assert not os.path.exists(local_img)
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "retrieve_false.flag"], cwd=tmpdir
+        )
+        assert not os.path.exists(local_img)
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "retrieve_false_directive.flag"],
+            cwd=tmpdir,
+        )
+        assert not os.path.exists(local_img.replace("http", "http_ret"))
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "retrieve_default.flag", "--force"],
+            cwd=tmpdir,
+        )
+        assert os.path.exists(local_img)
+
+        shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "retrieve_true.flag"], cwd=tmpdir
+        )
+        assert os.path.exists(local_img)
