@@ -1282,7 +1282,13 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--trust-io-cache",
         action="store_true",
-        help=("Reload the mtime cache from a previous dry-run, if it exists."),
+        help=(
+            "Tell Snakemake to assume that all input and output file existence and modification "
+            "time queries performed in previous dryruns are still valid and therefore don't have to "
+            "be repeated. This can lead to speed-ups, but implies that input and output have not "
+            "been modified manually in between. Non dry-run execution will automatically "
+            "invalidate the cache and lead to redoing the queries."
+        ),
     )
     group_behavior.add_argument(
         "--max-checksum-file-size",
