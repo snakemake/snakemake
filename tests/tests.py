@@ -284,7 +284,8 @@ def test_report_display_code():
 def test_report_after_run():
     run(
         dpath("test_report_after_run"),
-        report_after_run="report.html",
+        report="report.html",
+        report_after_run=True,
         report_stylesheet="custom-stylesheet.css",
         check_md5=False,
     )
