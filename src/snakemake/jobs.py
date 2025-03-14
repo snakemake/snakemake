@@ -48,6 +48,7 @@ from snakemake.sourcecache import LocalSourceFile, SourceFile, infer_source_file
 from snakemake.utils import format
 from snakemake.exceptions import (
     InputOpenException,
+    ResourceInsufficiencyError,
     RuleException,
     ProtectedOutputException,
     WorkflowError,
@@ -105,7 +106,7 @@ class AbstractJob(JobExecutorInterface):
                     k: v
                     for k, v in self.resources.items()
                     if not self.dag.workflow.resource_scopes.is_local(k)
-                    and not isinstance(self.resources[k], TBDString)
+                    and not isinstance(v, TBDString)
                 }
             res_dict["_job_count"] = 1
             self._scheduler_resources = ResourceList(fromdict=res_dict)
@@ -1509,7 +1510,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                     additive_resources=["runtime"],
                     sortby=["runtime"],
                 )
-            except WorkflowError as err:
+            except (WorkflowError, ResourceInsufficiencyError) as err:
                 raise WorkflowError(
                     f"Error grouping resources in group '{self.groupid}': {err.args[0]}"
                 ) from err

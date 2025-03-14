@@ -593,6 +593,32 @@ class LockException(WorkflowError):
         )
 
 
+class ResourceError(Exception):
+    pass
+
+
+class ResourceInsufficiencyError(Exception):
+    def __init__(
+        self, additive_resources: Sequence[str], excess_resources: Sequence[str]
+    ):
+        isare = "is" if len(additive_resources) == 1 else "are"
+        additive_clause = (
+            (f", except for {additive_resources}, which {isare} calculated via max(). ")
+            if additive_resources
+            else ". "
+        )
+        errmsg = (
+            "Not enough resources were provided. This error is typically "
+            "caused by a Pipe group requiring too many resources. Note "
+            "that resources are summed across every member of the pipe "
+            f"group{additive_clause}"
+            f"Excess Resources:\n{excess_resources}"
+        )
+        self.additive_resources = additive_resources
+        self.excess_resources = excess_resources
+        super().__init__(errmsg)
+
+
 class ResourceScopesException(Exception):
     def __init__(self, msg, invalid_resources):
         super().__init__(msg, invalid_resources)

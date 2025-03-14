@@ -1,6 +1,5 @@
 from __future__ import annotations
-from ast import TypeVar
-from collections import UserDict, defaultdict
+from collections import defaultdict
 import copy
 from dataclasses import dataclass
 from humanfriendly import InvalidTimespan, InvalidSize, parse_size, parse_timespan
@@ -27,6 +26,8 @@ from snakemake.common import mb_to_mib, mib_to_mb
 from snakemake.exceptions import (
     ResourceConstraintError,
     ResourceDuplicationError,
+    ResourceError,
+    ResourceInsufficiencyError,
     ResourceScopesException,
     ResourceValidationError,
     WorkflowError,
@@ -127,8 +128,6 @@ class GroupResources:
         )
         sortby = sortby if sortby is not None else ["runtime"]
 
-        total_resources: dict[str, int] = defaultdict(int)
-        total_resources["_nodes"] = 1
         blocks: list[dict[str, str | int]] = []
         # iterate over siblings that can be executed in parallel
         for siblings in toposorted_jobs:
@@ -213,8 +212,8 @@ class GroupResources:
                 layers = cls._get_layers(
                     int_resources, list(sorted_constraints.values()), sortby
                 )
-            except WorkflowError as err:
-                raise cls._get_saturated_resource_error(additive_resources, err.args[0])
+            except ResourceError as err:
+                raise ResourceInsufficiencyError(additive_resources, err.args[0])
 
             # Merge jobs within layers
             intralayer_merge_methods = [
@@ -249,24 +248,6 @@ class GroupResources:
         }
 
     @classmethod
-    def _get_saturated_resource_error(
-        cls, additive_resources: list[str], excess_resources: list[str]
-    ):
-        isare = "is" if len(additive_resources) == 1 else "are"
-        additive_clause = (
-            (f", except for {additive_resources}, which {isare} calculated via max(). ")
-            if additive_resources
-            else ". "
-        )
-        return WorkflowError(
-            "Not enough resources were provided. This error is typically "
-            "caused by a Pipe group requiring too many resources. Note "
-            "that resources are summed across every member of the pipe "
-            f"group{additive_clause}"
-            f"Excess Resources:\n{excess_resources}"
-        )
-
-    @classmethod
     def _is_string_resource(cls, name: str, values: list[str | int]):
         # If any one of the values provided for a resource is not an int, we
         # can't process it in any way. So we constrain all such resource to be
@@ -288,10 +269,12 @@ class GroupResources:
     def _merge_resource_dict(
         cls,
         resources: list[dict[str, str | int]],
-        skip: list[str] = [],
-        methods: dict[str, Callable[[list[int]], int]] = {},
+        skip: list[str] | None = None,
+        methods: dict[str, Callable[[list[int]], int]] | None = None,
         default_method: Callable[[list[int]], int] = max,
     ):
+        skip = skip or []
+        methods = methods or {}
         grouped: dict[str, list[str | int]] = {}
         for job in resources:
             # Wrap every value in job with a list so that lists can be merged later
@@ -385,6 +368,7 @@ class GroupResources:
         def _highest_proportion(group: tuple[int, ...]):
             return max(_proportion(group))
 
+        # Rows should always have at least one empty row to ensure space for insertion.
         rows: list[list[tuple[int, ...]]] = [[]]
 
         # By zipping, we combine the vals into tuples based on job, 1 tuple per
@@ -431,7 +415,7 @@ class GroupResources:
                     f"\t{res}: {amount}/{constraint}"
                     for res, amount, constraint in too_high
                 ]
-                raise WorkflowError("\n".join(error_text))
+                raise ResourceError("\n".join(error_text))
 
         # Remove final empty row. (The above loop ends each cycle by ensuring
         # there's an empty row)
@@ -588,7 +572,7 @@ class Resource:
             return self
 
         self_val = self.value
-        if type(self_val) != type(other_val):
+        if not isinstance(self_val, type(other_val)):
             raise ResourceConstraintError(self_val, other_val)
         if isinstance(self_val, int):
             assert isinstance(other_val, int)
@@ -798,7 +782,7 @@ class Resources(Mapping[str, Resource]):
     }
 
     def __init__(self, mapping: dict[str, Resource] | None = None):
-        if mapping == None:
+        if mapping is None:
             self._data: dict[str, Resource] = {}
             return
         self._data = mapping
