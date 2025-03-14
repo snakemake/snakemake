@@ -229,6 +229,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_storage_prefix: Optional[str] = None
     shared_fs_usage: AnySet[SharedFSUsage] = SharedFSUsage.all()
     keep_storage_local: bool = False
+    retrieve_storage: bool = True
     local_storage_prefix: Path = Path(".snakemake/storage")
     remote_job_local_storage_prefix: Optional[Path] = None
     notemp: bool = False

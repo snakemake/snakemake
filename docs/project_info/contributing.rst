@@ -209,6 +209,24 @@ directly with the test file and the test name.
             --group 1 \
             --splitting-algorithm=least_duration
 
+Marked tests
+------------
+Some tests have been marked using `pytest markers <https://docs.pytest.org/en/stable/mark.html>`_.
+These allow for running specific tests or *excluding* specific tests.
+For example, the `pixi run test-simple` currently excludes the `needs_envmodules` tests.
+There is also another marker for ``needs_s3`` which will skip tests that require an S3 connection.
+If you are not looking to test the S3 functionality, you can modify the
+test command to exclude these tests.
+
+.. code-block:: console
+
+    $ pixi run test-simple -m "not needs_envmodules and not needs_s3"
+
+For a full list of available markers, you can run:
+
+.. code-block:: console
+
+    $ pixi run pytest --markers
 
 Warnings and oddities
 ---------------------

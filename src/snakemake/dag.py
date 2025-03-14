@@ -450,7 +450,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             ) or (self.workflow.remote_exec and not shared_local_copies):
                 async with asyncio.TaskGroup() as tg:
                     for f in chain(job.input, job.output):
-                        if f.is_storage and f not in cleaned:
+                        if (
+                            f.is_storage
+                            and f not in cleaned
+                            and not f.should_keep_local
+                        ):
                             f.storage_object.cleanup()
                             tg.create_task(
                                 f.remove(remove_non_empty_dir=True, only_local=True)
