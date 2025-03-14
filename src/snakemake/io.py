@@ -449,7 +449,8 @@ class _IOFile(str, AnnotatedStringInterface):
 
     @property
     def should_not_be_retrieved_from_storage(self):
-        return not self.storage_object.retrieve
+        return (not self.storage_object.retrieve)
+            or is_flagged(self._file, "nodelocal")
 
     @property
     def storage_object(self):
