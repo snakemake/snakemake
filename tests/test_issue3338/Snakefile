@@ -1,0 +1,53 @@
+rule all:
+    input:
+        "test_file.tsv",
+        "test_file_no_pos.tsv",
+        "test.out",
+        "test2.out",
+        "test2_pos.out"
+
+# Test that the change works as intended for workflows imported as modules
+
+module other_workflow:
+    snakefile:
+        "other_workflow.smk"
+
+use rule test from other_workflow as other_test with:
+    # here we test if the positional parameters from other workflow are overwritten
+    params:
+        "pos3",
+        b = 9
+
+
+use rule test from other_workflow as other_test_no_pos with:
+    # here we test, if the positional parameters from other workflow are imported
+    params:
+        b = 9
+    output:
+        file = "test_file_no_pos.tsv"
+
+# Test that the change works for regular rule inheritance
+rule a:
+    params:
+        a = 3,
+        b = 6
+    output:
+        "test.out"
+    shell:
+        "echo {params} > {output}"
+
+use rule a as b with:
+    # here we test, if the positional parameters from inherited rule are imported
+    params:
+        a = 9
+    output:
+        "test2.out"
+
+
+use rule a as b_pos with:
+    # here we test if the positional parameters from the inherited rule are overwritten
+    params:
+        "pos1",
+        a = 9
+    output:
+        "test2_pos.out"

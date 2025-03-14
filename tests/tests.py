@@ -23,7 +23,13 @@ from snakemake.shell import shell
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import run, dpath, apptainer, connected
-from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
+from .conftest import (
+    skip_on_windows,
+    only_on_windows,
+    ON_WINDOWS,
+    needs_strace,
+    ON_MACOS,
+)
 
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
@@ -42,6 +48,11 @@ xfail_permissionerror_on_win = (
 
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
+
+
+@skip_on_windows
+def test_github_issue_3265_respect_dryrun_delete_all():
+    run(dpath("test_github_issue_3265_respect_dryrun_delete_all"))
 
 
 def test_github_issue_14():
@@ -276,6 +287,17 @@ def test_report_display_code():
     run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
 
+@pytest.mark.skipif(ON_MACOS, reason="shuf is not available on macOS")
+def test_report_after_run():
+    run(
+        dpath("test_report_after_run"),
+        report="report.html",
+        report_after_run=True,
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
 def test_params():
     run(dpath("test_params"))
 
@@ -365,16 +387,32 @@ def test_config_merging():
     )
 
 
+def test_config_replacing():
+    run(
+        dpath("test_config_replacing"),
+        shellcmd='snakemake -j 1 --configfile cli-config.yaml --config "value=value2" --replace-workflow-config',
+    )
+
+
+def test_config_replacing_nocli():
+    run(
+        dpath("test_config_replacing_nocli"),
+        shellcmd="snakemake -j 1 --replace-workflow-config",
+    )
+
+
 def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
 
 @skip_on_windows
+@pytest.mark.skipif(ON_MACOS, reason="Requires the stress-ng package")
 def test_benchmark():
     run(dpath("test_benchmark"), benchmark_extended=True, check_md5=False)
 
 
 @skip_on_windows
+@pytest.mark.skipif(ON_MACOS, reason="Requires the stress-ng package")
 def test_benchmark_jsonl():
     run(dpath("test_benchmark_jsonl"), benchmark_extended=True, check_md5=False)
 
@@ -611,6 +649,7 @@ def test_threads0():
 
 
 @skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
 def test_default_storage(s3_storage):
     prefix, settings = s3_storage
 
@@ -624,6 +663,7 @@ def test_default_storage(s3_storage):
 
 
 @skip_on_windows  # OS-independent
+@pytest.mark.needs_s3
 def test_default_storage_local_job(s3_storage):
     prefix, settings = s3_storage
 
@@ -639,6 +679,7 @@ def test_default_storage_local_job(s3_storage):
 
 
 @skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
 def test_storage(s3_storage):
     prefix, settings = s3_storage
 
@@ -1171,6 +1212,14 @@ def test_checkpoints_many():
     run(dpath("test_checkpoints_many"))
 
 
+def test_module_checkpoint():
+    run(dpath("test_module_checkpoint"))
+
+
+def test_checkpoint_missout():
+    run(dpath("test_checkpoint_missout"))
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
@@ -1236,6 +1285,9 @@ def test_issue1281():
 
 
 @skip_on_windows  # TODO on windows, dot command is suddenly not found anymore although it is installed
+@pytest.mark.skipif(
+    ON_MACOS, reason="graphviz dot needs to be configured"
+)  # Error msg: Perhaps "dot -c" needs to be run (with installer's privileges) to register the plugins?
 def test_filegraph():
     workdir = dpath("test_filegraph")
     dot_path = os.path.join(workdir, "fg.dot")
@@ -1309,6 +1361,10 @@ def test_github_issue727():
 
 
 @skip_on_windows
+@pytest.mark.skipif(
+    ON_MACOS,
+    reason="`wc` command spacing differs between macOS and Linux, expected output is from linux",
+)
 def test_github_issue988():
     run(dpath("test_github_issue988"))
 
@@ -1329,6 +1385,7 @@ def test_output_file_cache():
 
 
 @skip_on_windows
+@pytest.mark.needs_s3
 def test_output_file_cache_storage(s3_storage):
     prefix, settings = s3_storage
     test_path = dpath("test_output_file_cache_storage")
@@ -1351,10 +1408,15 @@ def test_multiext():
     run(dpath("test_multiext"))
 
 
+def test_multiext_named():
+    run(dpath("test_multiext_named"))
+
+
 def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
 
 
+@pytest.mark.needs_envmodules
 @skip_on_windows
 def test_env_modules():
     run(dpath("test_env_modules"), deployment_method={DeploymentMethod.ENV_MODULES})
@@ -1459,6 +1521,49 @@ def test_modules_all():
     run(dpath("test_modules_all"), targets=["all"])
 
 
+def test_modules_name():
+    run(
+        dpath("test_modules_name"),
+        targets=["all"],
+    )
+
+
+def test_modules_no_name():
+    run(
+        dpath("test_modules_no_name"),
+        targets=["all"],
+        shouldfail=True,
+    )
+
+
+def test_modules_two_names():
+    run(
+        dpath("test_modules_two_names"),
+        targets=["all"],
+        shouldfail=True,
+    )
+
+
+def test_modules_dynamic():
+    run(dpath("test_modules_dynamic"), targets=["all"])
+
+
+def test_modules_dynamic_module_as_alias():
+    run(dpath("test_modules_dynamic_module_as_alias"), targets=["all"])
+
+
+def test_modules_semi_dynamic():
+    run(dpath("test_modules_semi_dynamic"), targets=["all"])
+
+
+def test_modules_dynamic_import_rules():
+    run(dpath("test_modules_dynamic_import_rules"), targets=["all"])
+
+
+def test_modules_dynamic_no_as():
+    run(dpath("test_modules_dynamic_no_as"), targets=["all"])
+
+
 def test_module_nested():
     run(dpath("test_module_nested"))
 
@@ -1507,19 +1612,15 @@ def test_use_rule_same_module():
 
 @connected
 def test_module_complex():
-
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
-
         run(dpath("test_module_complex"), executor="dryrun")
 
 
 @connected
 def test_module_complex2():
-
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
-
         run(dpath("test_module_complex2"), executor="dryrun")
 
 
@@ -1541,7 +1642,6 @@ def test_modules_prefix_local():
 
 @connected
 def test_module_with_script():
-
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
         run(dpath("test_module_with_script"))
@@ -2074,3 +2174,201 @@ def test_failed_intermediate():
     tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
     run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
+
+
+@pytest.mark.parametrize(
+    "testdir,kwargs",
+    [
+        ("test02", {}),
+        ("test03", {"targets": ["test.out"]}),
+        ("test04", {"targets": ["test.out"]}),
+        ("test06", {"targets": ["test.bla.out"]}),
+        ("test07", {"targets": ["test.out", "test2.out"]}),
+        ("test08", {"targets": ["test.out", "test2.out"]}),
+    ],
+)
+def test_inventory_cache_with_dryrun_first(testdir, kwargs):
+    tmpdir = run(
+        dpath(testdir), executor="dryrun", **kwargs, cleanup=False, check_results=False
+    )
+    run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_io_cache=True)
+
+
+@skip_on_windows
+@pytest.mark.parametrize(
+    "testdir,kwargs",
+    [
+        ("test01", {}),
+        ("test05", {}),
+    ],
+)
+def test_inventory_cache_with_dryrun_first_skip_on_windows(testdir, kwargs):
+    tmpdir = run(
+        dpath(testdir), executor="dryrun", **kwargs, cleanup=False, check_results=False
+    )
+    run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_io_cache=True)
+
+
+def test09_inventory_cache_with_dryrun_first_and_fail_second():
+    testdir = "test09"
+    tmpdir = run(dpath(testdir), executor="dryrun", cleanup=False, check_results=False)
+    run(dpath(testdir), tmpdir=tmpdir, trust_io_cache=True, shouldfail=True)
+
+
+@skip_on_windows  # OS agnostic
+def test_issue3338():
+    run(dpath("test_issue3338"), targets=["all"])
+
+
+def test_github_issue_3374():
+    run(dpath("test_github_issue3271"), check_results=False)
+    run(
+        dpath("test_github_issue3271"),
+        snakefile="Snakefile_should_fail",
+        shouldfail=True,
+        check_results=False,
+    )
+
+
+@skip_on_windows  # OS agnostic
+@apptainer
+def test_issue3361_pass():
+    run(
+        dpath("test_issue3361_pass"),
+        shellcmd="snakemake --sdm apptainer",
+        targets=["all"],
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_issue3361_fail():
+    run(
+        dpath("test_issue3361_fail"),
+        shellcmd="snakemake --sdm apptainer",
+        targets=["all"],
+        shouldfail=True,
+    )
+
+
+@skip_on_windows
+@pytest.mark.skipif(ON_MACOS, reason="MacOS does not support qsub cluster")
+def test_nodelocal():
+    work_path = Path("test_nodelocal")
+    run(
+        dpath(work_path),
+        cluster="./qsub",
+        cores=1,
+        resources={"mem_mb": 120},
+        default_resources=DefaultResources(["mem_mb=120"]),
+    )
+    assert not (work_path / "local/temp.txt").exists() or not any(
+        (work_path / "scratch/").iterdir()
+    )
+
+
+def test_keep_local():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        snakefile = os.path.join(dpath("test_local_and_retrieve"), "keep_local.smk")
+        local_img = os.path.join(
+            tmpdir,
+            ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
+        )
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "keep_local_default.flag"], cwd=tmpdir
+        )
+        assert not os.path.exists(local_img)
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "keep_local_false.flag"], cwd=tmpdir
+        )
+        assert not os.path.exists(local_img)
+
+        p = sp.check_output(
+            [
+                "snakemake",
+                "-s",
+                snakefile,
+                "-c1",
+                "keep_local_default.flag",
+                "--force",
+                "--keep-storage-local-copies",
+            ],
+            cwd=tmpdir,
+        )
+        assert os.path.exists(local_img)
+        shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "keep_local_true.flag"], cwd=tmpdir
+        )
+        assert os.path.exists(local_img)
+        shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "keep_local_true_directive.flag"],
+            cwd=tmpdir,
+        )
+        assert os.path.exists(local_img.replace("http", "http_local"))
+
+
+def test_retrieve():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        snakefile = os.path.join(dpath("test_local_and_retrieve"), "retrieve.smk")
+        local_img = os.path.join(
+            tmpdir,
+            ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
+        )
+
+        p = sp.check_output(
+            [
+                "snakemake",
+                "-s",
+                snakefile,
+                "-c1",
+                "retrieve_default.flag",
+                "--not-retrieve-storage",
+            ],
+            cwd=tmpdir,
+        )
+        assert not os.path.exists(local_img)
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "retrieve_false.flag"], cwd=tmpdir
+        )
+        assert not os.path.exists(local_img)
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "retrieve_false_directive.flag"],
+            cwd=tmpdir,
+        )
+        assert not os.path.exists(local_img.replace("http", "http_ret"))
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "retrieve_default.flag", "--force"],
+            cwd=tmpdir,
+        )
+        assert os.path.exists(local_img)
+
+        shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
+
+        p = sp.check_output(
+            ["snakemake", "-s", snakefile, "-c1", "retrieve_true.flag"], cwd=tmpdir
+        )
+        assert os.path.exists(local_img)
+
+
+@skip_on_windows
+def test_censored_path():
+    snakefile = os.path.join(dpath("test_censored_path"), "Snakefile")
+    p = sp.Popen(
+        f"snakemake -s {snakefile} -c1 -n",
+        shell=True,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    stdout = stdout.decode()
+    assert "my_password" not in stdout
+    assert "param_name" not in stdout
+    assert "param_value" not in stdout
