@@ -55,6 +55,7 @@ from snakemake.exceptions import (
     WorkflowError,
     print_exception_warning,
 )
+from snakemake.settings.types import PrintDag
 from snakemake.io import (
     _IOFile,
     PeriodicityDetector,
@@ -499,12 +500,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Check if any output files are incomplete. This is done by looking up
         markers in the persistence module."""
         if not self.ignore_incomplete:
-            incomplete = await self.incomplete_files()
-            if incomplete:
+            incomplete_files = await self.incomplete_files()
+            if any(incomplete_files):
                 if self.workflow.dag_settings.force_incomplete:
-                    self.forcefiles.update(incomplete)
+                    self.forcefiles.update(incomplete_files)
                 else:
-                    raise IncompleteFilesException(incomplete)
+                    raise IncompleteFilesException(incomplete_files)
 
     def incomplete_external_jobid(self, job) -> Optional[str]:
         """Return the external jobid of the job if it is marked as incomplete.
@@ -599,10 +600,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Yield incomplete files."""
         incomplete = list()
         for job in filterfalse(self.needrun, self.jobs):
-            is_incomplete = await self.workflow.persistence.incomplete(job)
-            if is_incomplete:
-                for f in job.output:
-                    incomplete.append(f)
+            incomplete.extend(
+                [
+                    job
+                    for job in await self.workflow.persistence.incomplete(job)
+                    if job is not None
+                ]
+            )
         return incomplete
 
     @property
@@ -2360,7 +2364,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         graph = defaultdict(set)
         for job in self.jobs:
             graph[job.rule].update(dep.rule for dep in self._dependencies[job])
-        return self._dot(graph)
+        if self.workflow.dag_settings.print_dag_as == str(PrintDag.DOT):
+            return self._dot(graph)
+        elif self.workflow.dag_settings.print_dag_as == str(PrintDag.MERMAID_JS):
+            return self._mermaid_js(graph)
 
     def dot(self):
         def node2style(job):
@@ -2383,6 +2390,70 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         return self._dot(
             dag, node2rule=node2rule, node2style=node2style, node2label=node2label
+        )
+
+    def mermaid_js(self):
+        def node2style(job):
+            if not self.needrun(job):
+                return ",stroke-dasharray: 5 5"
+            return ""
+
+        def format_wildcard(wildcard):
+            name, value = wildcard
+            return f"{name}: {value}"
+
+        node2label = lambda job: " - ".join(
+            chain(
+                [job.rule.name], sorted(map(format_wildcard, self.new_wildcards(job)))
+            )
+        )
+
+        dag = {job: self._dependencies[job] for job in self.jobs}
+
+        return self._mermaid_js(dag, node2style=node2style, node2label=node2label)
+
+    def _mermaid_js(
+        self, graph, node2style=lambda node: "", node2label=lambda node: node
+    ):
+        def hsv_to_htmlhexrgb(h, s, v):
+            import colorsys
+
+            hex_r, hex_g, hex_b = (round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v))
+            return "#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}".format(
+                hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
+            )
+
+        # color the rules - sorting by name first gives deterministic output
+        rules = sorted(self.rules, key=lambda r: r.name)
+        huefactor = 2 / (3 * len(rules))
+        rulecolor = {
+            rule.name: hsv_to_htmlhexrgb(i * huefactor, 0.6, 0.85)
+            for i, rule in enumerate(rules)
+        }
+        nodes_headers = [
+            f"\tid{index}[{node2label(node)}]" for index, node in enumerate(graph)
+        ]
+        nodes_styles = [
+            f"\tstyle id{index} fill:{rulecolor[str(node)]},stroke-width:2px,color:#333333{node2style(node)}"
+            for index, node in enumerate(graph)
+        ]
+        edges = [
+            f"\tid{index} --> id{index_dep}"
+            for index, (_, deps) in enumerate(graph.items())
+            for index_dep, _ in enumerate(deps)
+        ]
+        return (
+            textwrap.dedent(
+                """\
+            ---
+            title: DAG
+            ---
+            flowchart TB
+            """
+            )
+            + "{}\n{}\n{}".format(
+                "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
+            )
         )
 
     def _dot(
@@ -2997,7 +3068,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return files
 
     def __str__(self):
-        return self.dot()
+        if self.workflow.dag_settings.print_dag_as == str(PrintDag.DOT):
+            return self.dot()
+        if self.workflow.dag_settings.print_dag_as == str(PrintDag.MERMAID_JS):
+            return self.mermaid_js()
 
     def __len__(self):
         return self._len

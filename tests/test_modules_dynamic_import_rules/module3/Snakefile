@@ -1,0 +1,35 @@
+configfile: "config.yaml"  # does not exist, but this statement should be ignored on module import
+
+
+rule a:
+    output:
+        temp("results/a2/{name}.out"),
+    shell:
+        "echo {config[test]} > {output}"
+
+
+rule b:
+    input:
+        expand("results/a2/{name}.out", name="test"),
+    output:
+        "results/b2/{name}.out",
+    shell:
+        "cat {input} > {output}"
+
+
+rule c:
+    input:
+        expand("results/b2/{name}.out", name="test"),
+    output:
+        "results/b2/{name}.txt",
+    shell:
+        "cat {input} > {output}"
+
+
+rule d:
+    input:
+        expand("results/b2/{name}.txt", name="test"),
+    output:
+        "results/b2/{name}.tsv",
+    shell:
+        "cat {input} > {output}"

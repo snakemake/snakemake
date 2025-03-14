@@ -228,7 +228,9 @@ class Persistence(PersistenceExecutorInterface):
         shutil.rmtree(self._lockdir)
 
     def cleanup_metadata(self, path):
-        return self._delete_record(self._metadata_path, path)
+        return self._delete_record(self._incomplete_path, path) or self._delete_record(
+            self._metadata_path, path
+        )
 
     def cleanup_shadow(self):
         if os.path.exists(self.shadow_path):
@@ -364,8 +366,7 @@ class Persistence(PersistenceExecutorInterface):
 
     def cleanup(self, job):
         for f in job.output:
-            self._delete_record(self._incomplete_path, f)
-            self._delete_record(self._metadata_path, f)
+            self.cleanup_metadata(f)
 
     async def incomplete(self, job):
         if self._incomplete_cache is None:
@@ -385,12 +386,12 @@ class Persistence(PersistenceExecutorInterface):
         async def is_incomplete(f):
             exists = await f.exists()
             marked = marked_incomplete(f)
-            return exists and marked
+            return f if exists and marked else None
 
         async with asyncio.TaskGroup() as tg:
             tasks = [tg.create_task(is_incomplete(f)) for f in job.output]
 
-        return any(task.result() for task in tasks)
+        return [task.result() for task in tasks]
 
     def _cache_incomplete_folder(self):
         self._incomplete_cache = {
