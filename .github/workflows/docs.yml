@@ -7,7 +7,7 @@ on:
   pull_request:
 
 concurrency:
-  # Cancel chttps://github.com/snakemake/snakemake/pull/3383/conflict?name=.github%252Fworkflows%252Fmain.yml&ancestor_oid=b48039df22f202c8505165af7df421a73f8ebf9a&base_oid=e920ffb91f4cb75c9932f4cde97a4b7d72af549e&head_oid=1f9b9dea2ba5513e42fca4ab79f54c9a56781834oncurrent flows on PRs
+  # Cancel concurrent flows on PRs
   group: ci-docs-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
