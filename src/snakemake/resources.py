@@ -495,7 +495,7 @@ class Resource:
 
     _evaluator: Callable[..., ValidResource] | None
 
-    def __init__(self, name: str, value: ValidResource):
+    def __init__(self, name: str, value: ValidResource, raw: int | str | None = None):
         if not (
             isinstance(value, (str, int, float)) or callable(value) or value is None
         ):
@@ -515,6 +515,12 @@ class Resource:
                 "Cannot parse 'runtime' value into minutes for setting 'runtime' "
                 f"resource: {value}"
             ) from err
+
+        if raw is None and isinstance(self._value, (int, str)):
+            self.raw = self._value
+        else:
+            self.raw = raw
+
         if callable(self._value):
             self._evaluator = self._value
         elif isinstance(self._value, AnnotatedString) and self._value.is_callable():
@@ -568,7 +574,9 @@ class Resource:
         if self._evaluator is None:
             return self
         kept_args = get_input_function_aux_params(self._evaluator, kwargs)
-        return self.__class__(self.name, self._evaluator(*args, **kept_args))
+        return self.__class__(
+            self.name, self._evaluator(*args, **kept_args), raw=self.raw
+        )
 
     def constrain(self, other: Resource | int | None):
         """Use ``other`` as the maximum value for ``Self``, but only if both are integers.
@@ -710,9 +718,9 @@ class Resource:
             )
 
         if with_threads_arg:
-            return Resource(name, threads_evaluator)
+            return Resource(name, threads_evaluator, raw=value)
 
-        return Resource(name, nonthreads_evaluator)
+        return Resource(name, nonthreads_evaluator, raw=value)
 
     @staticmethod
     def cli_evaluator(
