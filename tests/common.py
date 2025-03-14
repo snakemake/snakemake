@@ -8,6 +8,7 @@ from pathlib import Path
 import signal
 import shlex
 import shutil
+import sys
 import time
 from os.path import join
 import tempfile

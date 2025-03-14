@@ -1719,7 +1719,7 @@ _TNamedKeys = TypeVar("_TNamedKeys")
 "Type variable for self returning methods on Namedlist deriving classes"
 
 
-class Namedlist(list[_TNamedList], Generic[_TNamedKeys, _TNamedList]):
+class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
     """
     A list that additionally provides functions to name items. Further,
     it is hashable, however, the hash does not consider the item names.
