@@ -928,7 +928,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 or job.rule.name == self.workflow.default_target
             ):
                 tempfiles = (
-                    f for f in job.output if is_temp(f) and f not in self.targetfiles
+                    f
+                    for f in job.output
+                    if is_temp(f)
+                    and f not in self.targetfiles
+                    and not is_flagged(f, "nodelocal")
                 )
                 yield from filterfalse(partial(self.is_needed_tempfile, job), tempfiles)
 
