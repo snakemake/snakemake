@@ -18,7 +18,8 @@ properties:
         default: bar
 """
 
-BAR_SCHEMA = """definitions:
+BAR_SCHEMA = """$schema: "https://json-schema.org/draft/2020-12/schema#"
+definitions:
   bar:
     type: string
     description: bar entry
@@ -26,6 +27,7 @@ BAR_SCHEMA = """definitions:
 """
 
 BAR_JSON_SCHEMA = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema#",
     "definitions": {
         "jsonbar": {"type": "string", "description": "bar entry", "default": "foo"}
     }

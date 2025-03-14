@@ -14,7 +14,6 @@ import multiprocessing
 import string
 import shlex
 import sys
-from urllib.parse import urljoin
 
 from snakemake.io import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
@@ -61,10 +60,14 @@ def validate(data, schema, set_default=True):
         if workflow
         else schemafile.get_path_or_uri()
     )
+
     schema = _load_configfile(source, filetype="Schema")
 
+    def retrieve_uri(uri):
+        return Resource.from_contents(contents=_load_configfile(uri, filetype="Schema"))
+
     resource = Resource.from_contents(contents=schema)
-    registry = Registry().with_resource(
+    registry = Registry(retrieve=retrieve_uri).with_resource(
         uri=schemafile.get_path_or_uri(), resource=resource
     )
     Validator = Draft202012Validator(schema, registry=registry)
@@ -94,14 +97,10 @@ def validate(data, schema, set_default=True):
     Defaultvalidator = extend_with_default(Draft202012Validator)
     if Validator.META_SCHEMA["$schema"] != schema["$schema"]:
         logger.warning(
-            "No validator found for JSON Schema version identifier '{}'".format(
-                schema["$schema"]
-            )
+            f"No validator found for JSON Schema version identifier '{schema['$schema']}'"
         )
         logger.warning(
-            "Defaulting to validator for JSON Schema version '{}'".format(
-                Validator.META_SCHEMA["$schema"]
-            )
+            f"Defaulting to validator for JSON Schema version '{Validator.META_SCHEMA['$schema']}'"
         )
         logger.warning("Note that schema file may not be validated correctly.")
     Defaultvalidator = extend_with_default(Validator)
