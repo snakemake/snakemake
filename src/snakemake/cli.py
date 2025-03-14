@@ -40,6 +40,7 @@ from snakemake.exceptions import (
     print_exception,
 )
 from snakemake.resources import (
+    Resource,
     Resources,
     ParsedResource,
     ResourceScopes,
@@ -106,15 +107,15 @@ def optional_str(arg):
 
 
 def parse_set_threads(args):
-    def fallback(orig_value):
-        value = Resources.get_evaluator(orig_value, with_threads_arg=False)
-        return ParsedResource(value=value, orig_arg=orig_value)
+
+    def wrapper(orig_value):
+        return Resource.from_cli_expression("_cores", orig_value, with_threads_arg=False)
 
     return parse_set_ints(
         args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
-        fallback=fallback,
+        wrapper=wrapper,
     )
 
 
@@ -215,7 +216,7 @@ def parse_set_resource_scope(args):
     return ResourceScopes()
 
 
-def parse_set_ints(arg, errmsg, fallback=None):
+def parse_set_ints(arg, errmsg, wrapper=None):
     assignments = dict()
     if arg is not None:
         for entry in arg:
@@ -223,16 +224,17 @@ def parse_set_ints(arg, errmsg, fallback=None):
             try:
                 value = int(value)
             except ValueError:
-                if fallback is not None:
-                    try:
-                        value = fallback(value)
-                    except Exception as e:
-                        raise ValueError(f"{errmsg} Cause: {e}")
-                else:
+                if wrapper is None:
                     raise ValueError(errmsg)
             if isinstance(value, int) and value < 0:
                 raise ValueError(errmsg)
-            assignments[key] = value
+            if wrapper is not None:
+                try:
+                    assignments[key] = wrapper(value)
+                except Exception as e:
+                    raise ValueError(f"{errmsg} Cause: {e}")
+            else:
+                assignments[key] = value
     return assignments
 
 

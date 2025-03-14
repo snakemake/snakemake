@@ -30,7 +30,7 @@ from snakemake.common import (
     get_container_image,
 )
 from snakemake.common.configfile import load_configfile
-from snakemake.resources import Resources
+from snakemake.resources import Resource, Resources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
@@ -348,7 +348,7 @@ class ResourceSettings(SettingsBase):
     local_cores: Optional[int] = None
     max_threads: Optional[int] = None
     resources: Resources = field(default_factory=Resources)
-    overwrite_threads: Mapping[str, int] = immutables.Map()
+    overwrite_threads: Mapping[str, Resource] = immutables.Map()
     overwrite_scatter: Mapping[str, int] = immutables.Map()
     overwrite_resource_scopes: Mapping[str, str] = immutables.Map()
     overwrite_resources: Mapping[str, Resources] = immutables.Map()
