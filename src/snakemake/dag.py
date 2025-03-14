@@ -303,7 +303,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 elif not self.needrun(job):
                     noneedrun_files.extend(job.output)
 
-    def update_checkpoint_outputs(self):
         may_exists = await asyncio.gather(*(f.exists() for f in noneedrun_files))
 
         workflow.checkpoints.created_output = done_output | {
