@@ -459,6 +459,8 @@ def evaluable_from_mib_to_mb(name: str, func: Callable[..., Any]):
 ValidResource: TypeAlias = int | str | float | None | Callable[..., "ValidResource"]
 
 SizedResources = {"mem", "disk"}
+TimeResources = {"runtime"}
+HumanFriendlyResources = TimeResources | SizedResources
 
 
 class _NotComputedClass:
@@ -739,7 +741,7 @@ class Resource:
                 # check if resource is parsable as human friendly (given the correct
                 # name and formatted value). If it is, we return the parsed value to
                 # save a step later.
-                if name in SizedResources:
+                if name in HumanFriendlyResources:
                     return Resource._parse_human_friendly(name, val)
             except (InvalidSize, InvalidTimespan):
                 pass
@@ -766,7 +768,7 @@ class Resource:
             value = value.strip("'\"")
             if name in SizedResources:
                 return max(int(math.ceil(parse_size(value) / 1e6)), 1)
-            elif name == "runtime":
+            elif name in TimeResources:
                 return max(int(round(parse_timespan(value) / 60)), 1)
         return value
 
