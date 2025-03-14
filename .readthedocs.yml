@@ -8,8 +8,8 @@ build:
     python: mambaforge-latest
   commands:
     - mamba install -c conda-forge -c nodefaults pixi
-    - pixi shell --environment docs
-    - pixi run build-docs
+    - pixi install --environment docs
+    - pixi run --environment docs build-docs
     - rm -rf $READTHEDOCS_OUTPUT/html && mv docs/_build/html $READTHEDOCS_OUTPUT/html
 sphinx:
   configuration: docs/conf.py
