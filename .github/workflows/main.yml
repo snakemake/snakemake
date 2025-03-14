@@ -102,7 +102,15 @@ jobs:
           pixi run --environment ${{matrix.env}} test-all \
             --splits 10 \
             --group ${{ matrix.test_group }} \
-            --splitting-algorithm=least_duration
+            --splitting-algorithm=least_duration \
+            --showlocals \
+            --show-capture=all
+
+          cd tests/test_report
+          pixi run -e ${{ matrix.env }} snakemake \
+            --use-conda \
+            --cores 1 \
+            --report report.zip
 
       - name: Run Tests for MacOS (os='macOS')
         if: runner.os == 'macOS'
@@ -117,17 +125,7 @@ jobs:
       - name: Run Tests for Windows (os='Windows')
         if: runner.os == 'Windows'
         run: |
-          pixi run --environment ${{matrix.env}} test-simple --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration
-
-      - name: Run Report Generation Tests (os='Linux')
-        if: runner.os == 'Linux'
-        shell: bash -el {0}
-        run: |
-          cd tests/test_report
-          pixi run -e ${{ matrix.env }} snakemake \
-            --use-conda \
-            --cores 1 \
-            --report report.zip
+          pixi run --environment ${{matrix.env}} test-simple --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration --showlocals --show-capture=all
 
   build-container-image:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
