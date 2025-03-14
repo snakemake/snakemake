@@ -1388,6 +1388,11 @@ def get_argument_parser(profiles=None):
         help="Keep local copies of remote input and output files.",
     )
     group_behavior.add_argument(
+        "--not-retrieve-storage",
+        action="store_true",
+        help="Do not retrieve remote files (default is to retrieve remote files).",
+    )
+    group_behavior.add_argument(
         "--target-files-omit-workdir-adjustment",
         action="store_true",
         help="Do not adjust the paths of given target files relative to the working directory.",
@@ -1989,6 +1994,7 @@ def args_to_api(args, parser):
                 remote_job_local_storage_prefix=args.remote_job_local_storage_prefix,
                 shared_fs_usage=args.shared_fs_usage,
                 keep_storage_local=args.keep_storage_local_copies,
+                retrieve_storage=not args.not_retrieve_storage,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
                 unneeded_temp_files=args.unneeded_temp_files,
