@@ -547,6 +547,9 @@ class CheckSumMismatchException(WorkflowError):
 
     pass
 
+class NestedCoroutineError(WorkflowError):
+    pass
+
 
 class IncompleteCheckpointException(Exception):
     def __init__(self, rule, targetfile):

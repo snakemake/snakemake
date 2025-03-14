@@ -568,14 +568,19 @@ class Resource:
 
         This method ensures the returned resource is correctly returned in a
         new ``Resource`` class, validated, and standardized. Resources should thus
-        only be evaulated via this method.
+        only be evaluated via this method.
         """
         if self._evaluator is None:
             return self
         kept_args = get_input_function_aux_params(self._evaluator, kwargs)
-        return self.__class__(
-            self.name, self._evaluator(*args, **kept_args), raw=self.raw
-        )
+        try:
+            return self.__class__(
+                self.name, self._evaluator(*args, **kept_args), raw=self.raw
+            )
+        except Exception as err:
+            if is_file_not_found_error(err, kwargs["input"]):
+                return self.__class__(self.name, TBDString(), raw=self.raw)
+            raise err
 
     def constrain(self, other: Resource | int | None):
         """Use ``other`` as the maximum value for ``Self``, but only if both are integers.
@@ -752,6 +757,8 @@ class Resource:
                     return Resource._parse_human_friendly(name, val)
             except (InvalidSize, InvalidTimespan):
                 pass
+            # We need to repeat this logic from self.evaluate in order to support the
+            # custom error message below.
             if is_file_not_found_error(e, input):
                 return TBDString()
 
@@ -799,7 +806,7 @@ class Resources(Mapping[str, Resource]):
     DEFAULTS = {
         "full": {
             "mem": "min(max(2*input.size_mb, 1000), 8000)",
-            "disk": "max(2*input.size_mb, 1000)",
+            "disk": "max(2*input.size_mb, 1000) if input else 50000",
             "tmpdir": "system_tmpdir",
         },
         "bare": {"tmpdir": "system_tmpdir"},
