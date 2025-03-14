@@ -414,7 +414,7 @@ class ConfigSettings(SettingsBase):
                         f.write(line + "\n")  # Write the line to the file
                     f.write("\n")
                     f.write("### Config Settings ###\n")
-                    f.write("CLI Config:\n")
+                    f.write("CLI Config:\n\t")
                     json.dump(self.config, f) if self.config else f.write("\tNone")
                     f.write("\nConfig files:")
                     if self.all_config_files:
@@ -423,8 +423,6 @@ class ConfigSettings(SettingsBase):
                             json.dump(load_configfile(file), f)
                     else:
                         f.write("\n\tNone")
-                    f.write("\nConfig Args:\n")
-                    f.write(self.config_args) if self.config_args else f.write("\tNone")
                     f.write("\nFinal Config Settings:\n\t")
                     json.dump(self.final_config_settings, f) if self.final_config_settings else f.write("None")
             
