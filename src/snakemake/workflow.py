@@ -1263,8 +1263,10 @@ class Workflow(WorkflowExecutorInterface):
                 and self.exec_mode == ExecMode.DEFAULT
                 and self.remote_execution_settings.job_deploy_sources
                 and not executor_plugin.common_settings.can_transfer_local_files
+                and not self.dryrun
+                and len(self.dag)
             )
-            if should_deploy_sources and not self.dryrun and len(self.dag):
+            if should_deploy_sources:
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
