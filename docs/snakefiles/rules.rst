@@ -1818,12 +1818,11 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
 
 .. _snakefiles-directory_output:
 
-Node-local files
-~~~~~~~~~~~~~~~~
+Job-grouping temp files
+~~~~~~~~~~~~~~~~~~~~~~~
 
-For performance reasons, it is sometimes useful to write intermediate files on a faster storage, e.g., attached locally on the cluster compute node rather than shared over the network.
-Snakemake (since version 9.0) allows files to be marked with ``nodelocal``.
-Files marked this way will automatically be marked as ``temp`` (unless option ``flag_temp`` is *False*) and rules creating and consuming them will be automatically :ref:`grouped  <job_grouping>` together so Snakemake will schedule them to the same physical node:
+For performance reasons, it is sometimes useful to write intermediate files on a faster storage, e.g., attached locally on the cluster compute node rather than shared over the network (and thus neither visible to the main snakemake process that submits jobs to the cluster, nor to other nodes of the cluster).
+Snakemake (since version 9.0) allows files marked as ``temp`` to use the option ``group_jobs`` to indicate that rules creating and consuming them should be automatically :ref:`grouped  <job_grouping>` together so Snakemake will schedule them to run on the same physical node:
 
 .. code-block:: python
 
@@ -1831,7 +1830,7 @@ Files marked this way will automatically be marked as ``temp`` (unless option ``
         input:
             "path/to/inputfile"
         output:
-            nodelocal("path/to/intermediatefile")
+            temp("path/to/intermediatefile", group_jobs=True)
         shell:
             "somecommand {input} {output}"
 

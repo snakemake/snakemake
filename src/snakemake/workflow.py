@@ -82,7 +82,6 @@ from snakemake.io import (
     local,
     pipe,
     service,
-    nodelocal,
     repeat,
     report,
     multiext,

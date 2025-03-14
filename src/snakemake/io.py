@@ -1129,32 +1129,23 @@ def directory(value):
     return flag(value, "directory")
 
 
-def temp(value):
+def temp(value, group_jobs=False):
     """
     A flag for an input or output file that shall be removed after usage.
+
+    When set to true, the extra flag "group_jobs" causes the file to also be flagged as "nodelocal":
+    A flag for an intermediate file that only lives on the compute node executing the group jobs and not accessible from the main snakemake job.
+    e.g. for what some HPC call "local scratch". This will cause snakemake to automatically group rules on the same compute note.
     """
+
     if is_flagged(value, "protected"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "storage_object"):
         raise SyntaxError("Storage and temporary flags are mutually exclusive.")
+
+    if group_jobs:
+        value = flag(value, "nodelocal")
     return flag(value, "temp")
-
-
-def nodelocal(value, flag_temp=True):
-    """
-    A flag for an intermediate file that only lives on the compute node executing the group jobs and not accessible from the main snakemake job.
-    e.g. for what some HPC call "local scratch". This will cause snakemake to automatically group rules on the same compute note.
-    By default, the file is also flagged as a temp (set flag_temp to False to prevent this default flagging).
-    """
-    if is_flagged(value, "protected"):
-        raise SyntaxError("Node-local may not be protected.")
-    if is_flagged(value, "storage_object"):
-        raise SyntaxError("Node-local cannot be on storage.")
-    # NOTE technically a pipe could be nodelocal (if the FIFO is in /tmp)
-    # NOTE a directory can be nodelocal
-    if flag_temp:
-        value = temp(value)
-    return flag(value, "nodelocal")
 
 
 @dataclass
