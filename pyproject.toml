@@ -227,7 +227,7 @@ dash = "*"
 openmpi = "*"
 
 [tool.pixi.feature.test.target.linux-64.pypi-dependencies]
-snakemake-storage-plugin-xrootd = ">=0.2.0"
+snakemake-storage-plugin-xrootd = "*"
 
 # Docs
 [tool.pixi.feature.docs.dependencies]
