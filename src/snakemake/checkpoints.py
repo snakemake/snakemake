@@ -20,7 +20,7 @@ class Checkpoints:
     def created_output(self):
         return self._created_output
 
-    def module_use(self):
+    def spawn_new_namespace(self):
         """Make a new namespace for checkpoints in the module."""
         return CheckpointsProxy(self)
 
