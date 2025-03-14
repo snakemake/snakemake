@@ -2120,7 +2120,6 @@ def test_failed_intermediate():
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
 
 
-@skip_on_windows  # OS agnostic
 def test_issue3338():
     run(dpath("test_issue3338"), targets=["all"])
 
@@ -2132,4 +2131,23 @@ def test_github_issue_3374():
         snakefile="Snakefile_should_fail",
         shouldfail=True,
         check_results=False,
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_issue3361_pass():
+    run(
+        dpath("test_issue3361_pass"),
+        shellcmd="snakemake --sdm apptainer",
+        targets=["all"],
+    )
+
+
+@skip_on_windows  # OS agnostic
+def test_issue3361_fail():
+    run(
+        dpath("test_issue3361_fail"),
+        shellcmd="snakemake --sdm apptainer",
+        targets=["all"],
+        shouldfail=True,
     )

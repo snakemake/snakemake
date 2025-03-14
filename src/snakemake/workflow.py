@@ -196,7 +196,6 @@ class Workflow(WorkflowExecutorInterface):
         self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
 
         self._sourcecache = SourceCache(self.source_cache_path)
-
         self._scheduler = None
         self._spawned_job_general_args = None
         self._executor_plugin = None
@@ -1494,7 +1493,6 @@ class Workflow(WorkflowExecutorInterface):
             calling_dir = os.path.dirname(calling_file)
             path = smart_join(calling_dir, rel_path)
             orig_path = path
-
         return sourcecache_entry(
             self.sourcecache.get_path(infer_source_file(path)), orig_path
         )
