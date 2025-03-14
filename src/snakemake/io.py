@@ -1140,10 +1140,11 @@ def temp(value):
     return flag(value, "temp")
 
 
-def nodelocal(value, mktemp=True):
+def nodelocal(value, flag_temp=True):
     """
-    A flag for an input or output file that only lives on the compute node executing the group jobs and not accessible from the main snakemake job.
-    e.g. for what some HPC call "local scratch". By default, file is also flagged as a temp
+    A flag for an intermediate file that only lives on the compute node executing the group jobs and not accessible from the main snakemake job.
+    e.g. for what some HPC call "local scratch". This will cause snakemake to automatically group rules on the same compute note.
+    By default, the file is also flagged as a temp (set flag_temp to False to prevent this default flagging).
     """
     if is_flagged(value, "protected"):
         raise SyntaxError("Node-local may not be protected.")
@@ -1151,7 +1152,7 @@ def nodelocal(value, mktemp=True):
         raise SyntaxError("Node-local cannot be on storage.")
     # NOTE technically a pipe could be nodelocal (if the FIFO is in /tmp)
     # NOTE a directory can be nodelocal
-    if mktemp:
+    if flag_temp:
         value = temp(value)
     return flag(value, "nodelocal")
 

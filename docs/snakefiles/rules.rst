@@ -1822,8 +1822,8 @@ Node-local files
 ~~~~~~~~~~~~~~~~
 
 For performance reasons, it is sometimes useful to write intermediate files on a faster storage, e.g., attached locally on the cluster compute node rather than shared over the network.
-Snakemake (since version 8.31.0) allows files to be marked with ``nodelocal``.
-Files marked this way will automatically be marked as ``temp`` (unless option ``mktemp`` is *False*) and rules creating and consuming them will be automatically :ref:`grouped  <job_grouping>` together so Snakemake will schedule them to the same physical node:
+Snakemake (since version 9.0) allows files to be marked with ``nodelocal``.
+Files marked this way will automatically be marked as ``temp`` (unless option ``flag_temp`` is *False*) and rules creating and consuming them will be automatically :ref:`grouped  <job_grouping>` together so Snakemake will schedule them to the same physical node:
 
 .. code-block:: python
 

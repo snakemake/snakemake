@@ -15,7 +15,7 @@ rule create_nodelocal_temp:
 
 rule create_nodelocal_persist:
     output:
-        nodelocal("scratch/persist.txt", mktemp=False),
+        nodelocal("scratch/persist.txt", flag_temp=False),
     shell:
         """
         sleep 4
