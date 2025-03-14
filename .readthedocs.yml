@@ -10,6 +10,7 @@ build:
     - mamba install -c conda-forge -c nodefaults pixi
     - pixi install --environment docs
     - pixi run --environment docs build-docs
+    - mkdir -p $READTHEDOCS_OUTPUT/html
     - rm -rf $READTHEDOCS_OUTPUT/html && mv docs/_build/html $READTHEDOCS_OUTPUT/html
 sphinx:
   configuration: docs/conf.py
