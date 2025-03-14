@@ -51,6 +51,11 @@ jobs:
         # see pyprojec.toml: [tool.pixi.feature.test] for available test types
         os: [ubuntu-latest, windows-latest, macos-latest] #  , macos-13 not supported yet
         env: ["py311", "py312"]
+        exclude:
+          - os: windows-latest
+            env: "py311"
+          - os: macos-latest
+            env: "py311"
 
     runs-on: ${{ matrix.os }}
 
