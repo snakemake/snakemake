@@ -502,6 +502,7 @@ class ColorizingTextHandler(logging.StreamHandler):
                 formatted_message = self.format(record)
                 if formatted_message == "None":
                     return
+                formatted_message += str(self.mode)
                 # Apply color to the formatted message
                 self.stream.write(self.decorate(record, formatted_message))
                 self.stream.write(getattr(self, "terminator", "\n"))
@@ -560,7 +561,7 @@ class LoggerManager:
 
         if self.mode == ExecMode.SUBPROCESS:
             handler = self._default_streamhandler()
-            handler.setLevel(logging.ERROR)
+            handler.setLevel(logging.INFO)
             stream_handlers.append(handler)
         elif self.mode == ExecMode.REMOTE:
             stream_handlers.append(self._default_streamhandler())

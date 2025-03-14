@@ -203,11 +203,19 @@ class shell:
         if real_file and CUSTOM_SCRIPT_RE.match(real_file):
             context["is_custom_script"] = True
 
+        # print("")
+        # print(func_context)
+        # print("")
+        # print(context)
+        # print("")
         jobid = context.get("jobid")
         if context.get("is_custom_script") or (
             not context.get("is_shell") and jobid is not None
         ):
             logger.info(None, extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
+
+            logger.info(f"Shell command 2: {cmd}", extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
+            logger.error(f"Shell command 3: {cmd}", extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
 
         conda_env = context.get("conda_env", None)
         conda_base_path = context.get("conda_base_path", None)
