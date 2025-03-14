@@ -26,7 +26,13 @@ from typing import (
 )
 
 
-from snakemake.common import get_function_params, get_input_function_aux_params, mb_to_mib, mib_to_mb, overwrite_function_params
+from snakemake.common import (
+    get_function_params,
+    get_input_function_aux_params,
+    mb_to_mib,
+    mib_to_mb,
+    overwrite_function_params,
+)
 from snakemake.exceptions import (
     ResourceConstraintError,
     ResourceDuplicationError,
@@ -43,12 +49,6 @@ from snakemake.io import AnnotatedString
 if TYPE_CHECKING:
     from snakemake.jobs import Job
     from snakemake.io import Wildcards
-
-
-@dataclass
-class ParsedResource:
-    orig_arg: str
-    value: Any
 
 
 class GroupResources:
