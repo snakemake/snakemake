@@ -70,6 +70,8 @@ def format_file(f, is_input: bool):
         return f"{f} (pipe)"
     elif is_flagged(f, "service"):
         return f"{f} (service)"
+    elif is_flagged(f, "nodelocal"):
+        return f"{f} (nodelocal)"
     elif is_flagged(f, "update"):
         return f"{f} (update)"
     elif is_flagged(f, "before_update"):
@@ -961,7 +963,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     async def cleanup(self):
         """Cleanup output files."""
         to_remove = [f for f in self.output if await f.exists()]
-
         to_remove.extend(
             [
                 f
@@ -1230,7 +1231,18 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                         wait_for_local=True,
                         check_output_mtime=check_output_mtime,
                     )
-                self.dag.unshadow_output(self, only_log=error)
+
+                keep_shadow_dir = (
+                    error and self.dag.workflow.execution_settings.keep_incomplete
+                )
+                kept_directory = self.dag.unshadow_output(
+                    self, only_log=error, keep_shadow_dir=keep_shadow_dir
+                )
+                if kept_directory:
+                    logger.error(
+                        f"Keeping shadow directory: {kept_directory}.\n"
+                        + "Run snakemake with --cleanup-shadow to clean up shadow directories."
+                    )
 
                 if (
                     not error
@@ -1617,7 +1629,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 f
                 for j in self.jobs
                 for f in j.output
-                if is_flagged(f, "temp") and not needed(j, f)
+                if is_flagged(f, "nodelocal")
+                or (is_flagged(f, "temp") and not needed(j, f))
             ]
 
         # Iterate over jobs in toposorted order (see self.__iter__) to

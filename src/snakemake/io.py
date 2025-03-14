@@ -22,6 +22,7 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
+import pickle
 from typing import (
     Any,
     Callable,
@@ -107,7 +108,15 @@ class ExistsDict(dict):
             return super().__contains__(path)
 
 
+class IOCacheLoadError(Exception):
+    pass
+
+
 class IOCache(IOCacheStorageInterface):
+    # Increment this when the class interface changes to invalidated previously
+    # persisted versions.
+    IOCACHE_VERSION = 0
+
     def __init__(self, max_wait_time):
         self._mtime = dict()
         self._exists_local = ExistsDict(self)
@@ -116,6 +125,47 @@ class IOCache(IOCacheStorageInterface):
         self.active = True
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
+
+    def _simple_copy(self):
+        """Identical copy except dictionary keys are downcast to str."""
+        simplified = type(self)(self.max_wait_time)
+
+        # Copy non-dictionary attributes the same.
+        for name in ["remaining_wait_time", "active"]:
+            old_attr = getattr(self, name)
+            setattr(simplified, name, old_attr)
+
+        # Copy dictionary attributes, casting keys to str.
+        for name in ["_mtime", "_exists_local", "_exists_in_storage", "_size"]:
+            old_dict = getattr(self, name)
+            if isinstance(old_dict, ExistsDict):
+                setattr(simplified, name, ExistsDict(simplified))
+            else:
+                setattr(simplified, name, {})
+            new_dict = getattr(simplified, name)
+            for key in old_dict:
+                new_dict[str(key)] = old_dict[key]
+
+        return simplified
+
+    def save(self, handle):
+        """Dump IOCache to file."""
+        simplified = self._simple_copy()
+        pickle.dump(simplified, handle)
+
+    @classmethod
+    def load(cls, handle):
+        """Load an IOCache from file."""
+        loaded = pickle.load(handle)
+        if loaded.IOCACHE_VERSION != cls.IOCACHE_VERSION:
+            raise IOCacheLoadError(
+                (
+                    f"Trying to load IOCache object with a mismatched version: "
+                    f"{loaded.IOCACHE_VERSION} (loaded) != {cls.IOCACHE_VERSION} (current)"
+                )
+            )
+        else:
+            return loaded
 
     @property
     def mtime(self):
@@ -1129,14 +1179,22 @@ def directory(value):
     return flag(value, "directory")
 
 
-def temp(value):
+def temp(value, group_jobs=False):
     """
     A flag for an input or output file that shall be removed after usage.
+
+    When set to true, the extra flag "group_jobs" causes the file to also be flagged as "nodelocal":
+    A flag for an intermediate file that only lives on the compute node executing the group jobs and not accessible from the main snakemake job.
+    e.g. for what some HPC call "local scratch". This will cause snakemake to automatically group rules on the same compute note.
     """
+
     if is_flagged(value, "protected"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "storage_object"):
         raise SyntaxError("Storage and temporary flags are mutually exclusive.")
+
+    if group_jobs:
+        value = flag(value, "nodelocal")
     return flag(value, "temp")
 
 
@@ -1216,6 +1274,8 @@ def protected(value):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "storage_object"):
         raise SyntaxError("Storage and protected flags are mutually exclusive.")
+    if is_flagged(value, "nodelocal"):
+        raise SyntaxError("Protected and nodelocal flags are mutually exclusive.")
     return flag(value, "protected")
 
 

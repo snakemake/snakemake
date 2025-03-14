@@ -1,5 +1,7 @@
 shell.executable("bash")
 
+print(id(checkpoints))
+
 
 module test_a:
     snakefile:
@@ -25,6 +27,9 @@ module test_b:
 use rule * from test_b as test_b_*
 
 
+assert test_a.config[0] == "AAA"
+
+
 rule all:
     input:
         expand(rules.test_a_aggregate.output, sample="a"),
@@ -32,5 +37,6 @@ rule all:
     default_target: True
 
 
+print(id(checkpoints))
 assert test_a.some_func() == 15
 assert test_b.some_func() == 15
