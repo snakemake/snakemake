@@ -2246,4 +2246,4 @@ def main(argv=None):
     except Exception as e:
         print_exception(e)
         sys.exit(1)
-    # sys.exit(0 if success else 1)
+    sys.exit(0 if success else 1)

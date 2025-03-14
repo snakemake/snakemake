@@ -1,5 +1,5 @@
 from abc import ABC
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import re
@@ -484,3 +484,7 @@ class GroupSettings(SettingsBase):
     overwrite_groups: Mapping[str, str] = immutables.Map()
     group_components: Mapping[str, int] = immutables.Map()
     local_groupid: str = "local"
+
+# Global logger instance
+logger = logging.getLogger(__name__)
+logger_manager = LoggerManager(logger)
