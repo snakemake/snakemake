@@ -398,46 +398,42 @@ class ConfigSettings(SettingsBase):
         """
 
         if self.command_line_settings:
-            try:
-                outdir = os.path.join(
-                    ".snakemake",
-                    "settings",
-                    datetime.datetime.now().isoformat().replace(":", ""),
+            outdir = os.path.join(
+                ".snakemake",
+                "settings",
+                datetime.datetime.now().isoformat().replace(":", ""),
+            )
+
+            os.makedirs(outdir, exist_ok=True)
+
+            settings_file = os.path.abspath(os.path.join(outdir, "settings.txt"))
+
+            with open(settings_file, "w") as f:
+                f.write(
+                    "### Command Line Arguments and Additional Settings From Profiles ###\n"
                 )
-
-                os.makedirs(outdir, exist_ok=True)
-
-                settings_file = os.path.abspath(os.path.join(outdir, "settings.txt"))
-
-                with open(settings_file, "w") as f:
-                    f.write(
-                        "### Command Line Arguments and Additional Settings From Profiles ###\n"
-                    )
-                    for line in self.command_line_settings.splitlines():
-                        # Check if the line contains "Defaults:"
-                        if "Defaults:" in line:
-                            break  # Stop writing lines once "Defaults:" is encountered
-                        f.write(line + "\n")  # Write the line to the file
-                    f.write("\n")
-                    f.write("### Workflow Config ###\n")
-                    f.write("From The CLI `--config` Argument: ")
-                    json.dump(self.config, f) if self.config else f.write("\tNone")
-                    f.write("\nFrom Config Files:")
-                    if self.all_config_files:
-                        for file in self.all_config_files:
-                            f.write(f"\n  - {file}: ")
-                            json.dump(load_configfile(file), f)
-                    else:
-                        f.write("\n\tNone")
-                    f.write("\nFinal Config Settings: ")
-                    (
-                        json.dump(self.final_config_settings, f)
-                        if self.final_config_settings
-                        else f.write("None")
-                    )
-
-            except OSError as e:
-                self.logger.error(f"Failed to setup settings file: {e}")
+                for line in self.command_line_settings.splitlines():
+                    # Check if the line contains "Defaults:"
+                    if "Defaults:" in line:
+                        break  # Stop writing lines once "Defaults:" is encountered
+                    f.write(line + "\n")  # Write the line to the file
+                f.write("\n")
+                f.write("### Workflow Config ###\n")
+                f.write("From The CLI `--config` Argument: ")
+                json.dump(self.config, f) if self.config else f.write("\tNone")
+                f.write("\nFrom Config Files:")
+                if self.all_config_files:
+                    for file in self.all_config_files:
+                        f.write(f"\n  - {file}: ")
+                        json.dump(load_configfile(file), f)
+                else:
+                    f.write("\n\tNone")
+                f.write("\nFinal Config Settings: ")
+                (
+                    json.dump(self.final_config_settings, f)
+                    if self.final_config_settings
+                    else f.write("None")
+                )
 
 
 @dataclass
@@ -484,7 +480,3 @@ class GroupSettings(SettingsBase):
     overwrite_groups: Mapping[str, str] = immutables.Map()
     group_components: Mapping[str, int] = immutables.Map()
     local_groupid: str = "local"
-
-# Global logger instance
-logger = logging.getLogger(__name__)
-logger_manager = LoggerManager(logger)
