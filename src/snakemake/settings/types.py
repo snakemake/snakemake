@@ -371,7 +371,6 @@ class ConfigSettings(SettingsBase):
     def _get_overwrite_config(self):
         overwrite_config = dict()
         if self.configfiles:
-            print(f"{self.configfiles=}")
             for f in self.configfiles:
                 update_config(overwrite_config, load_configfile(f))
         if self.config:
@@ -408,7 +407,6 @@ class ConfigSettings(SettingsBase):
 
                 with open(settings_file, "w") as f:
                     f.write("### Command Line and Optionally Profile Settings ###\n")
-                    print(f"{self.command_line_settings=}")
                     for line in self.command_line_settings.splitlines():
                         # Check if the line contains "Defaults:"
                         # if "Defaults:" in line:
