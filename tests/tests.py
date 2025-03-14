@@ -2145,6 +2145,46 @@ def test_failed_intermediate():
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
 
 
+@pytest.mark.parametrize(
+    "testdir,kwargs",
+    [
+        ("test02", {}),
+        ("test03", {"targets": ["test.out"]}),
+        ("test04", {"targets": ["test.out"]}),
+        ("test06", {"targets": ["test.bla.out"]}),
+        ("test07", {"targets": ["test.out", "test2.out"]}),
+        ("test08", {"targets": ["test.out", "test2.out"]}),
+    ],
+)
+def test_inventory_cache_with_dryrun_first(testdir, kwargs):
+    tmpdir = run(
+        dpath(testdir), executor="dryrun", **kwargs, cleanup=False, check_results=False
+    )
+    run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_io_cache=True)
+
+
+@skip_on_windows
+@pytest.mark.parametrize(
+    "testdir,kwargs",
+    [
+        ("test01", {}),
+        ("test05", {}),
+    ],
+)
+def test_inventory_cache_with_dryrun_first_skip_on_windows(testdir, kwargs):
+    tmpdir = run(
+        dpath(testdir), executor="dryrun", **kwargs, cleanup=False, check_results=False
+    )
+    run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_io_cache=True)
+
+
+def test09_inventory_cache_with_dryrun_first_and_fail_second():
+    testdir = "test09"
+    tmpdir = run(dpath(testdir), executor="dryrun", cleanup=False, check_results=False)
+    run(dpath(testdir), tmpdir=tmpdir, trust_io_cache=True, shouldfail=True)
+
+
+@skip_on_windows  # OS agnostic
 def test_issue3338():
     run(dpath("test_issue3338"), targets=["all"])
 
