@@ -28,7 +28,7 @@ import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
-from snakemake.io import _IOFile, is_flagged, get_flag_value
+from snakemake.io import _IOFile, is_flagged, get_flag_value, IOCache
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake.settings.types import DeploymentMethod
 
@@ -77,6 +77,8 @@ class Persistence(PersistenceExecutorInterface):
 
         self.source_cache = os.path.join(self.path, "source_cache")
 
+        self.iocache_path = os.path.join(self.path, "iocache")
+
         if conda_prefix is None:
             self.conda_env_path = os.path.join(self.path, "conda")
         else:
@@ -119,6 +121,7 @@ class Persistence(PersistenceExecutorInterface):
             self.conda_env_path,
             self.container_img_path,
             self.aux_path,
+            self.iocache_path,
         ):
             os.makedirs(d, exist_ok=True)
 
@@ -228,7 +231,9 @@ class Persistence(PersistenceExecutorInterface):
         shutil.rmtree(self._lockdir)
 
     def cleanup_metadata(self, path):
-        return self._delete_record(self._metadata_path, path)
+        return self._delete_record(self._incomplete_path, path) or self._delete_record(
+            self._metadata_path, path
+        )
 
     def cleanup_shadow(self):
         if os.path.exists(self.shadow_path):
@@ -364,8 +369,7 @@ class Persistence(PersistenceExecutorInterface):
 
     def cleanup(self, job):
         for f in job.output:
-            self._delete_record(self._incomplete_path, f)
-            self._delete_record(self._metadata_path, f)
+            self.cleanup_metadata(f)
 
     async def incomplete(self, job):
         if self._incomplete_cache is None:
@@ -385,12 +389,12 @@ class Persistence(PersistenceExecutorInterface):
         async def is_incomplete(f):
             exists = await f.exists()
             marked = marked_incomplete(f)
-            return exists and marked
+            return f if exists and marked else None
 
         async with asyncio.TaskGroup() as tg:
             tasks = [tg.create_task(is_incomplete(f)) for f in job.output]
 
-        return any(task.result() for task in tasks)
+        return [task.result() for task in tasks]
 
     def _cache_incomplete_folder(self):
         self._incomplete_cache = {
@@ -745,6 +749,27 @@ class Persistence(PersistenceExecutorInterface):
         self._read_record_cached.cache_clear()
         self._read_record = self._read_record_uncached
         self._incomplete_cache = False
+
+    @property
+    def _iocache_filename(self):
+        return os.path.join(self.iocache_path, "latest.pkl")
+
+    def save_iocache(self):
+        filepath = self._iocache_filename
+        with open(filepath, "wb") as handle:
+            self.dag.workflow.iocache.save(handle)
+
+    def load_iocache(self):
+        filepath = self._iocache_filename
+        if os.path.exists(filepath):
+            logger.info("Loading trusted IOCache from latest dry-run.")
+            with open(filepath, "rb") as handle:
+                self.dag.workflow.iocache = IOCache.load(handle)
+
+    def drop_iocache(self):
+        filepath = self._iocache_filename
+        if os.path.exists(filepath):
+            os.remove(filepath)
 
 
 def _bool_or_gen(func, job, file=None):

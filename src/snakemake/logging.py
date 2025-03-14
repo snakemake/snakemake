@@ -206,6 +206,8 @@ class DefaultFormatter(logging.Formatter):
         else:
             output.append("\n".join(self._format_job_info(msg)))
 
+        if msg.get("indent", False):
+            return textwrap.indent("\n".join(output), "    ")
         return "\n".join(output)
 
     def format_group_info(self, msg):
@@ -219,6 +221,9 @@ class DefaultFormatter(logging.Formatter):
         output = []
         output.append(timestamp())
         output.append("\n".join(self._format_job_error(msg)))
+
+        if msg.get("indent", False):
+            return textwrap.indent("\n".join(output), "    ")
         return "\n".join(output)
 
     def format_group_error(self, msg):

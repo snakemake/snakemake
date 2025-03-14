@@ -41,6 +41,7 @@ from snakemake.settings.enums import (
     CondaCleanupPkgs,
     Quietness,
     StrictDagEvaluation,
+    PrintDag,
 )
 
 
@@ -209,8 +210,10 @@ class DAGSettings(SettingsBase):
     allowed_rules: AnySet[str] = frozenset()
     rerun_triggers: AnySet[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
+    trust_io_cache: bool = False
     max_checksum_file_size: int = 1000000
     strict_evaluation: AnySet[StrictDagEvaluation] = frozenset()
+    print_dag_as: PrintDag = PrintDag.DOT
     # strict_functions_evaluation: bool = False
     # strict_cycle_evaluation: bool = False
     # strict_wildcards_recursion_evaluation: bool = False
@@ -229,6 +232,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_storage_prefix: Optional[str] = None
     shared_fs_usage: AnySet[SharedFSUsage] = SharedFSUsage.all()
     keep_storage_local: bool = False
+    retrieve_storage: bool = True
     local_storage_prefix: Path = Path(".snakemake/storage")
     remote_job_local_storage_prefix: Optional[Path] = None
     notemp: bool = False
@@ -363,6 +367,7 @@ class ConfigSettings(SettingsBase):
     command_line_settings: Optional[str] = None
     all_config_files: Sequence[Path] = tuple()
     final_config_settings: dict[str, Any] = None
+    replace_workflow_config: bool = False
 
     def __post_init__(self):
         self.overwrite_config = self._get_overwrite_config()

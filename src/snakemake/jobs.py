@@ -56,6 +56,7 @@ from snakemake.exceptions import (
 
 from snakemake.logging import logger
 from snakemake.common import (
+    get_function_params,
     is_local_file,
     get_uuid,
     IO_PROP_LIMIT,
@@ -69,6 +70,8 @@ def format_file(f, is_input: bool):
         return f"{f} (pipe)"
     elif is_flagged(f, "service"):
         return f"{f} (service)"
+    elif is_flagged(f, "nodelocal"):
+        return f"{f} (nodelocal)"
     elif is_flagged(f, "update"):
         return f"{f} (update)"
     elif is_flagged(f, "before_update"):
@@ -79,8 +82,15 @@ def format_file(f, is_input: bool):
         orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
         return f"{orig_path_or_uri} (cached)"
     elif f.is_storage:
-        phrase = "retrieve from" if is_input else "send to"
-        return f"{f.storage_object.query} ({phrase} storage)"
+        if is_input:
+            if f.storage_object.retrieve:
+                phrase = "retrieve from"
+            else:
+                phrase = "keep remote on"
+        else:
+            phrase = "send to"
+        f_str = f.storage_object.print_query
+        return f"{f_str} ({phrase} storage)"
     else:
         return f
 
@@ -482,6 +492,14 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self._resources = None
         self._attempt = attempt
 
+    def _get_resources_to_skip(self):
+        """Return a set of resource names that are callable and depend on input files."""
+        return {
+            name
+            for name, val in self.rule.resources.items()
+            if is_callable(val) and "input" in get_function_params(val)
+        }
+
     @property
     def resources(self):
         if self._resources is None:
@@ -492,12 +510,8 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 skip_evaluation = {"tmpdir"}
             if not self._params_and_resources_resetted:
                 # initial evaluation, input files of job are probably not yet present.
-                # Therefore skip all functions
-                skip_evaluation.update(
-                    name
-                    for name, val in self.rule.resources.items()
-                    if is_callable(val)
-                )
+                # Therefore skip all functions that depend on input files.
+                skip_evaluation.update(self._get_resources_to_skip())
             self._resources = self.rule.expand_resources(
                 self.wildcards_dict,
                 self.input,
@@ -956,7 +970,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     async def cleanup(self):
         """Cleanup output files."""
         to_remove = [f for f in self.output if await f.exists()]
-
         to_remove.extend(
             [
                 f
@@ -1225,7 +1238,18 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                         wait_for_local=True,
                         check_output_mtime=check_output_mtime,
                     )
-                self.dag.unshadow_output(self, only_log=error)
+
+                keep_shadow_dir = (
+                    error and self.dag.workflow.execution_settings.keep_incomplete
+                )
+                kept_directory = self.dag.unshadow_output(
+                    self, only_log=error, keep_shadow_dir=keep_shadow_dir
+                )
+                if kept_directory:
+                    logger.error(
+                        f"Keeping shadow directory: {kept_directory}.\n"
+                        + "Run snakemake with --cleanup-shadow to clean up shadow directories."
+                    )
 
                 if (
                     not error
@@ -1612,7 +1636,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 f
                 for j in self.jobs
                 for f in j.output
-                if is_flagged(f, "temp") and not needed(j, f)
+                if is_flagged(f, "nodelocal")
+                or (is_flagged(f, "temp") and not needed(j, f))
             ]
 
         # Iterate over jobs in toposorted order (see self.__iter__) to

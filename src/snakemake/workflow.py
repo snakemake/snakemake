@@ -196,7 +196,6 @@ class Workflow(WorkflowExecutorInterface):
         self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
 
         self._sourcecache = SourceCache(self.source_cache_path)
-
         self._scheduler = None
         self._spawned_job_general_args = None
         self._executor_plugin = None
@@ -867,7 +866,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         failed = []
         for path in paths:
-            success = self.persistence.cleanup_metadata(path)
+            success = self.persistence.cleanup_metadata(IOFile(path))
             if not success:
                 failed.append(str(path))
         if failed:
@@ -1264,6 +1263,8 @@ class Workflow(WorkflowExecutorInterface):
                 and self.exec_mode == ExecMode.DEFAULT
                 and self.remote_execution_settings.job_deploy_sources
                 and not executor_plugin.common_settings.can_transfer_local_files
+                and not self.dryrun
+                and len(self.dag)
             )
             if should_deploy_sources:
                 # no shared FS, hence we have to upload the sources to the storage
@@ -1494,7 +1495,6 @@ class Workflow(WorkflowExecutorInterface):
             calling_dir = os.path.dirname(calling_file)
             path = smart_join(calling_dir, rel_path)
             orig_path = path
-
         return sourcecache_entry(
             self.sourcecache.get_path(infer_source_file(path)), orig_path
         )
@@ -1641,9 +1641,14 @@ class Workflow(WorkflowExecutorInterface):
                 # CLI config is overwritten by configfiles from the Snakefile and the CLI
                 update_config(self.config, c)
                 if self.config_settings.overwrite_config:
+                    merge_action = "extended"
+                    if self.config_settings.replace_workflow_config:
+                        # discard entire global config before merging
+                        self.globals["config"] = {}
+                        merge_action = "replaced"
                     logger.info(
-                        "Config file {} is extended by additional config specified via the command line.".format(
-                            fp
+                        "Config file {} is {} by additional config specified via the command line.".format(
+                            fp, merge_action
                         )
                     )
                     update_config(self.config, self.config_settings.overwrite_config)
@@ -2253,7 +2258,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def module(
         self,
-        name,
+        name=None,
         snakefile=None,
         meta_wrapper=None,
         config=None,
@@ -2261,6 +2266,7 @@ class Workflow(WorkflowExecutorInterface):
         replace_prefix=None,
         prefix=None,
     ):
+
         self.modules[name] = ModuleInfo(
             self,
             name,
@@ -2283,16 +2289,51 @@ class Workflow(WorkflowExecutorInterface):
         def decorate(maybe_ruleinfo):
             if from_module is not None:
                 try:
+                    modifier = name_modifier
                     module = self.modules[from_module]
                 except KeyError:
-                    raise WorkflowError(
-                        "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
-                            from_module
+                    # Dynamic module name resolution:
+                    # If the static module name is not found in the registered modules,
+                    # we check if it's a variable in the current scope.
+                    from inspect import currentframe
+
+                    if from_module in currentframe().f_back.f_globals:
+                        module_name = currentframe().f_back.f_globals[from_module]
+                        if module_name not in self.modules:
+                            raise WorkflowError(
+                                "Dynamic module name '{}' resolves to '{}', but has not been registered with a 'module' statement.".format(
+                                    from_module, module_name
+                                )
+                            )
+                        module = self.modules[module_name]
+
+                        # For dynamic module names, the name modifier must also be adjusted dynamically
+                        # to avoid ambiguous module names. If name_modifier ends with '*',
+                        # use the variable value plus '*', otherwise use the variable value directly.
+                        if name_modifier is not None:
+                            try:
+                                if name_modifier.endswith("*"):
+                                    modifier = f"{currentframe().f_back.f_globals[name_modifier[:-1]]}*"
+                                else:
+                                    modifier = currentframe().f_back.f_globals[
+                                        name_modifier
+                                    ]
+                            except KeyError:
+                                raise WorkflowError(
+                                    "Module alias {} not in current frame to resolve dynamic module {} in 'use rule'.".format(
+                                        name_modifier, module_name
+                                    )
+                                )
+
+                    else:
+                        raise WorkflowError(
+                            "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
+                                from_module
+                            )
                         )
-                    )
                 module.use_rules(
                     rules,
-                    name_modifier,
+                    modifier,
                     exclude_rules=exclude_rules,
                     ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
                     skip_global_report_caption=self.report_text
