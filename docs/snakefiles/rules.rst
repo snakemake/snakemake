@@ -70,7 +70,7 @@ It is not clear whether ``dataset=101.B`` and ``group=normal`` or ``dataset=101`
 Hence wildcards can be constrained to given regular expressions.
 Here we could restrict the wildcard ``dataset`` to consist of digits only using ``\d+`` as the corresponding regular expression.
 With Snakemake 3.8.0, there are three ways to constrain wildcards.
-First, a wildcard can be constrained within the file pattern, by appending a regular expression separated by a comma 
+First, a wildcard can be constrained within the file pattern, by appending a regular expression separated by a comma
 (you might want to use the `r` prefix for a raw string to avoid having to escape backslashes, particularly for more complex regular expressions):
 
 .. code-block:: python
@@ -214,7 +214,7 @@ These restrictions do not apply when using ``unpack()``.
 Helpers for defining rules
 --------------------------
 
-Snakemake provides a number of helpers that can be used to define rules and drastically simplify over using 
+Snakemake provides a number of helpers that can be used to define rules and drastically simplify over using
 :ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`.
 Below, we will first start with describing two basic helper functions for specifying aggregations and multiple output files.
 Afterwards, we will further show a set of semantic helper functions should increase readability and simplify code (see :ref:`snakefiles-semantic-helpers`).
@@ -308,6 +308,27 @@ The multiext function
 
 The effect is the same as if you would write ``expand("some/plot{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
 Moreover, defining output with ``multiext`` is the only way to use :ref:`between workflow caching <caching>` for rules with multiple output files.
+It's also possible to get named input/output files in the following way:
+
+.. code-block:: python
+
+    rule plot:
+        input:
+            ...
+        output:
+            multiext("some/plot", out1=".pdf", out2=".svg")
+            "some_other_output"
+            named_output="another_output"
+        shell:
+            """
+            somecommand > {output.out1}
+            othercommand > {output.out2}
+            anothercommand > {output[2]}
+            finalcommand > {output.named_output}
+            """
+
+Do note that all the multiext extensions should be named, or all of them should be unnamed (not both).
+Additionally, if additional input/output statements are given, multiext should be treated as positional arguments (before other named input/output files).
 
 .. _snakefiles-semantic-helpers:
 
@@ -325,14 +346,14 @@ The lookup function
 
 The ``lookup`` function can be used to look up a value in a python mapping (e.g. a ``dict``) or a `pandas dataframe or series <https://pandas.pydata.org>`_.
 It is especially useful for looking up information based on wildcard values.
-The ``lookup`` function has the signature 
+The ``lookup`` function has the signature
 
 .. code-block:: python
 
     lookup(
-        dpath: Optional[str | Callable] = None, 
-        query: Optional[str | Callable] = None, 
-        cols: Optional[List[str]] = None, 
+        dpath: Optional[str | Callable] = None,
+        query: Optional[str | Callable] = None,
+        cols: Optional[List[str]] = None,
         is_nrows: Optional[int],
         within=None,
         default=NODEFAULT
@@ -676,6 +697,18 @@ The ``subpath`` function can be very handy in combination with :ref:`Snakemake's
             outdir=subpath(output.foo, parent=True)
         shell:
             "somecommand {input} --name {params.basename} --outdir {params.outdir}"
+
+
+.. _snakefiles-flatten:
+
+flatten
+"""""""
+When selecting input files, sometimes you might end up with an irregular list of lists. To flatten in, you can use:
+
+.. code-block:: python
+
+    flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
+
 
 .. _snakefiles-targets:
 
@@ -1797,6 +1830,30 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
 
 .. _snakefiles-directory_output:
 
+Auto-grouping via temp files upon remote execution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For performance reasons, it is sometimes useful to write intermediate files on a faster storage, e.g., attached locally on the cluster compute node rather than shared over the network (and thus neither visible to the main snakemake process that submits jobs to the cluster, nor to other nodes of the cluster).
+Snakemake (since version 9.0) allows files marked as ``temp`` to use the option ``group_jobs`` to indicate that rules creating and consuming them should be automatically :ref:`grouped  <job_grouping>` together so Snakemake will schedule them to run on the same physical node:
+
+.. code-block:: python
+
+    rule NAME1:
+        input:
+            "path/to/inputfile"
+        output:
+            temp("path/to/intermediatefile", group_jobs=True)
+        shell:
+            "somecommand {input} {output}"
+
+    rule NAME2:
+        input:
+            "path/to/intermediatefile"
+        output:
+            "path/to/outputfile"
+        shell:
+            "someothercommand {input} {output}"
+
 Directories as outputs
 ----------------------
 
@@ -2647,8 +2704,9 @@ Assuming that the checkpoint is named ``somestep`` as above, the output files fo
 
 .. note::
 
-    Note that output files of checkpoints that are accessed via this mechanism should not be marked as temporary.
-    Otherwise, they would require to trigger reruns of the checkpoint whenever the DAG shall be reevaluated (because they are already missing at that point).
+    Note that output files of checkpoints that are accessed via this mechanism will not be marked as temporary.
+    Even you try to mark them as temporary, Snakemake will ignore the label and keep the output files of the checkpoint.
+    Reruns will not be triggered if the output file do not exist.
 
 Thereby, the ``get`` method throws ``snakemake.exceptions.IncompleteCheckpointException`` if the checkpoint has not yet been executed for these particular wildcard value(s).
 Inside an input function, the exception will be automatically handled by Snakemake, and leads to a re-evaluation after the checkpoint has been successfully passed.
@@ -3174,7 +3232,7 @@ The name is optional and can be left out, creating an anonymous rule. It can als
 
     for tool in ["bcftools", "freebayes"]:
         rule:
-            name: 
+            name:
                 f"call_variants_{tool}"
             input:
                 f"path/to/{tool}/inputfile"
