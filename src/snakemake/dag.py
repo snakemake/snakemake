@@ -283,7 +283,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         may_exists = await asyncio.gather(*(f.exists() for f in noneedrun_files))
 
-        workflow.checkpoints.created_output = done_output | {
+        self.workflow.checkpoints.created_output = done_output | {
             j for j, e in zip(noneedrun_files, may_exists) if e
         }
 
