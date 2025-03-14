@@ -2287,6 +2287,7 @@ def test_retrieve():
         assert os.path.exists(local_img)
 
 
+@skip_on_windows
 def test_censored_path():
     snakefile = os.path.join(dpath("test_censored_path"), "Snakefile")
     p = sp.Popen(
