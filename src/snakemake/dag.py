@@ -786,6 +786,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     def unshadow_output(self, job, only_log=False, keep_shadow_dir=False):
         """Move files from shadow directory to real output paths."""
+        """If shadow directory is kept, returns the path of it."""
         if not job.shadow_dir or not job.output:
             return
 
@@ -805,13 +806,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 continue
             shutil.move(shadow_output, real_output)
         if (keep_shadow_dir and os.listdir(job.shadow_dir)):
-            print(
-                f"Keeping shadow directory. " +
-                f"at path: {job.shadow_dir}.\n" + 
-                "Run snakemake with --cleanup-shadow to clean up shadow directories."
-            )
+            return str(job.shadow_dir)
         else:
             shutil.rmtree(job.shadow_dir)
+            return None
 
     def check_periodic_wildcards(self, job):
         """Raise an exception if a wildcard of the given job appears to be periodic,

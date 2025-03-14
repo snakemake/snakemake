@@ -1228,8 +1228,12 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 keep_shadow_dir = (
                     error and self.dag.workflow.execution_settings.keep_incomplete
                 )
-                
-                self.dag.unshadow_output(self, only_log=error, keep_shadow_dir=keep_shadow_dir)
+                kept_directory = self.dag.unshadow_output(self, only_log=error, keep_shadow_dir=keep_shadow_dir)
+                if kept_directory:
+                    logger.error(
+                        f"Keeping shadow directory: {kept_directory}.\n" +
+                        "Run snakemake with --cleanup-shadow to clean up shadow directories."
+                    )
 
                 if (
                     not error
