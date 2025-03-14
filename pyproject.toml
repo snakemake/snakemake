@@ -79,6 +79,7 @@ version_file = "src/snakemake/_version.py"
 # Ignore Git hash
 local_scheme = "no-local-version"
 
+
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
 skip = '.git,*.pdf,*.svg,versioneer.py,*.css,test_*'
