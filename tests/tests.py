@@ -2062,15 +2062,12 @@ def test_failed_intermediate():
 @pytest.mark.parametrize(
     "testdir,kwargs",
     [
-        # ("test01", {}),  # TODO: Figure out how to @skip_on_windows
         ("test02", {}),
         ("test03", {"targets": ["test.out"]}),
         ("test04", {"targets": ["test.out"]}),
-        # ("test05", {}),  # TODO: Figure out how to @skip_on_windows
         ("test06", {"targets": ["test.bla.out"]}),
         ("test07", {"targets": ["test.out", "test2.out"]}),
         ("test08", {"targets": ["test.out", "test2.out"]}),
-        # ("test09", {"shouldfail": True}),  # TODO: Figure out how to only fail in the second pass.
     ],
 )
 def test_inventory_cache_with_dryrun_first(testdir, kwargs):
@@ -2078,6 +2075,27 @@ def test_inventory_cache_with_dryrun_first(testdir, kwargs):
         dpath(testdir), executor="dryrun", **kwargs, cleanup=False, check_results=False
     )
     run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_mtime_cache=True)
+
+
+@skip_on_windows
+@pytest.mark.parametrize(
+    "testdir,kwargs",
+    [
+        ("test01", {}),
+        ("test05", {}),
+    ],
+)
+def test_inventory_cache_with_dryrun_first_skip_on_windows(testdir, kwargs):
+    tmpdir = run(
+        dpath(testdir), executor="dryrun", **kwargs, cleanup=False, check_results=False
+    )
+    run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_mtime_cache=True)
+
+
+def test09_inventory_cache_with_dryrun_first_and_fail_second(testdir):
+    testdir = "test09"
+    tmpdir = run(dpath(testdir), executor="dryrun", cleanup=False, check_results=False)
+    run(dpath(testdir), tmpdir=tmpdir, trust_mtime_cache=True, shouldfail=True)
 
 
 @skip_on_windows  # OS agnostic
