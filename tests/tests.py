@@ -23,7 +23,13 @@ from snakemake.shell import shell
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import run, dpath, apptainer, connected
-from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
+from .conftest import (
+    skip_on_windows,
+    only_on_windows,
+    ON_WINDOWS,
+    needs_strace,
+    ON_MACOS,
+)
 
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
@@ -281,6 +287,7 @@ def test_report_display_code():
     run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
 
+@pytest.mark.skipif(ON_MACOS, reason="shuf is not available on macOS")
 def test_report_after_run():
     run(
         dpath("test_report_after_run"),
@@ -399,11 +406,13 @@ def test_wildcard_keyword():
 
 
 @skip_on_windows
+@pytest.mark.skipif(ON_MACOS, reason="Requires the stress-ng package")
 def test_benchmark():
     run(dpath("test_benchmark"), benchmark_extended=True, check_md5=False)
 
 
 @skip_on_windows
+@pytest.mark.skipif(ON_MACOS, reason="Requires the stress-ng package")
 def test_benchmark_jsonl():
     run(dpath("test_benchmark_jsonl"), benchmark_extended=True, check_md5=False)
 
@@ -640,6 +649,7 @@ def test_threads0():
 
 
 @skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
 def test_default_storage(s3_storage):
     prefix, settings = s3_storage
 
@@ -653,6 +663,7 @@ def test_default_storage(s3_storage):
 
 
 @skip_on_windows  # OS-independent
+@pytest.mark.needs_s3
 def test_default_storage_local_job(s3_storage):
     prefix, settings = s3_storage
 
@@ -668,6 +679,7 @@ def test_default_storage_local_job(s3_storage):
 
 
 @skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
 def test_storage(s3_storage):
     prefix, settings = s3_storage
 
@@ -1265,6 +1277,9 @@ def test_issue1281():
 
 
 @skip_on_windows  # TODO on windows, dot command is suddenly not found anymore although it is installed
+@pytest.mark.skipif(
+    ON_MACOS, reason="graphviz dot needs to be configured"
+)  # Error msg: Perhaps "dot -c" needs to be run (with installer's privileges) to register the plugins?
 def test_filegraph():
     workdir = dpath("test_filegraph")
     dot_path = os.path.join(workdir, "fg.dot")
@@ -1338,6 +1353,10 @@ def test_github_issue727():
 
 
 @skip_on_windows
+@pytest.mark.skipif(
+    ON_MACOS,
+    reason="`wc` command spacing differs between macOS and Linux, expected output is from linux",
+)
 def test_github_issue988():
     run(dpath("test_github_issue988"))
 
@@ -1358,6 +1377,7 @@ def test_output_file_cache():
 
 
 @skip_on_windows
+@pytest.mark.needs_s3
 def test_output_file_cache_storage(s3_storage):
     prefix, settings = s3_storage
     test_path = dpath("test_output_file_cache_storage")
@@ -1561,19 +1581,15 @@ def test_use_rule_same_module():
 
 @connected
 def test_module_complex():
-
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
-
         run(dpath("test_module_complex"), executor="dryrun")
 
 
 @connected
 def test_module_complex2():
-
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
-
         run(dpath("test_module_complex2"), executor="dryrun")
 
 
@@ -1595,7 +1611,6 @@ def test_modules_prefix_local():
 
 @connected
 def test_module_with_script():
-
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
         run(dpath("test_module_with_script"))
@@ -2145,6 +2160,7 @@ def test_github_issue_3374():
 
 
 @skip_on_windows  # OS agnostic
+@apptainer
 def test_issue3361_pass():
     run(
         dpath("test_issue3361_pass"),
@@ -2164,6 +2180,7 @@ def test_issue3361_fail():
 
 
 @skip_on_windows
+@pytest.mark.skipif(ON_MACOS, reason="MacOS does not support qsub cluster")
 def test_nodelocal():
     work_path = Path("test_nodelocal")
     run(
