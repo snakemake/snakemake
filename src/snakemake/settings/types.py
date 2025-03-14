@@ -406,24 +406,24 @@ class ConfigSettings(SettingsBase):
                 )
 
                 with open(settings_file, "w") as f:
-                    f.write("### Command Line and Optionally Profile Settings ###\n")
+                    f.write("### Command Line Arguments and Additional Settings From Profiles ###\n")
                     for line in self.command_line_settings.splitlines():
                         # Check if the line contains "Defaults:"
                         if "Defaults:" in line:
                             break  # Stop writing lines once "Defaults:" is encountered
                         f.write(line + "\n")  # Write the line to the file
                     f.write("\n")
-                    f.write("### Config Settings ###\n")
-                    f.write("CLI Config:\n\t")
+                    f.write("### Workflow Config ###\n")
+                    f.write("From The CLI `--config` Argument: ")
                     json.dump(self.config, f) if self.config else f.write("\tNone")
-                    f.write("\nConfig files:")
+                    f.write("\nFrom Config Files:")
                     if self.all_config_files:
                         for file in self.all_config_files:
-                            f.write(f"\n- {file}\n\t")
+                            f.write(f"\n  - {file}: ")
                             json.dump(load_configfile(file), f)
                     else:
                         f.write("\n\tNone")
-                    f.write("\nFinal Config Settings:\n\t")
+                    f.write("\nFinal Config Settings: ")
                     json.dump(self.final_config_settings, f) if self.final_config_settings else f.write("None")
             
             except OSError as e:
