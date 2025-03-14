@@ -1473,6 +1473,10 @@ def test_modules_dynamic():
     run(dpath("test_modules_dynamic"), targets=["all"])
 
 
+def test_modules_dynamic_module_as_alias():
+    run(dpath("test_modules_dynamic_module_as_alias"), targets=["all"])
+
+
 def test_modules_semi_dynamic():
     run(dpath("test_modules_semi_dynamic"), targets=["all"])
 
