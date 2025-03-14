@@ -432,3 +432,9 @@ class GroupSettings(SettingsBase):
     overwrite_groups: Mapping[str, str] = immutables.Map()
     group_components: Mapping[str, int] = immutables.Map()
     local_groupid: str = "local"
+
+@dataclass
+class GlobalReportSettings(SettingsBase):
+    """Global settings that apply to all report plugins.
+    """
+    metadata_template: Optional[Path] = None

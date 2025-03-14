@@ -34,6 +34,7 @@ from snakemake.settings.types import (
     SchedulingSettings,
     StorageSettings,
     WorkflowSettings,
+    GlobalReportSettings,
     SharedFSUsage,
 )
 from snakemake.settings.enums import Quietness
@@ -150,6 +151,7 @@ class Workflow(WorkflowExecutorInterface):
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
+    global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
     cache_rules: Dict[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str | Path] = None
@@ -1023,7 +1025,10 @@ class Workflow(WorkflowExecutorInterface):
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
 
     def create_report(
-        self, report_plugin: ReportPlugin, report_settings: ReportSettingsBase
+        self,
+        report_plugin: ReportPlugin,
+        report_settings: ReportSettingsBase,
+        global_report_settings: GlobalReportSettings
     ):
         from snakemake.report import auto_report
 
@@ -1035,7 +1040,14 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        async_run(auto_report(self.dag, report_plugin, report_settings))
+        async_run(
+            auto_report(
+                self.dag,
+                report_plugin,
+                report_settings,
+                global_report_settings
+            )
+        )
 
     def conda_list_envs(self):
         assert self.dag_settings is not None

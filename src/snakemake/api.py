@@ -19,6 +19,7 @@ from snakemake.settings.types import (
     GroupSettings,
     SchedulingSettings,
     WorkflowSettings,
+    GlobalReportSettings,
 )
 
 if sys.version_info < MIN_PY_VERSION:
@@ -637,13 +638,15 @@ class DAGApi(ApiBase):
         self,
         reporter: str = "html",
         report_settings: Optional[ReportSettingsBase] = None,
+        global_report_settings: Optional[GlobalReportSettings] = None,
     ):
         """Create a report for the workflow.
 
         Arguments
         ---------
         report: Path -- The path to the report.
-        report_stylesheet: Optional[Path] -- The path to the report stylesheet.
+        report_settings: Optional[ReportSettingsBase] -- Report settings for the html report.
+        global_report_settings: Optional[GlobalReportSettings] -- Report settings that apply to all report plugins.
         reporter: str -- report plugin to use (default: html)
         """
 
@@ -656,6 +659,7 @@ class DAGApi(ApiBase):
         self.workflow_api._workflow.create_report(
             report_plugin=report_plugin,
             report_settings=report_settings,
+            global_report_settings=global_report_settings,
         )
 
     @_no_exec
