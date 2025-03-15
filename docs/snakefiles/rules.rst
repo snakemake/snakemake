@@ -2708,6 +2708,12 @@ Assuming that the checkpoint is named ``somestep`` as above, the output files fo
     Even you try to mark them as temporary, Snakemake will ignore the label and keep the output files of the checkpoint.
     Reruns will not be triggered if the output file do not exist.
 
+.. note::
+
+    Since Snakemake 9.0, the checkpoint mechanism is also available for ``checkpoints.get(rules.somestep.output.format(sample="a"))``.
+    In this case, rule ``somestep`` is not needed to be declared as ``checkpoint``.
+
+
 Thereby, the ``get`` method throws ``snakemake.exceptions.IncompleteCheckpointException`` if the checkpoint has not yet been executed for these particular wildcard value(s).
 Inside an input function, the exception will be automatically handled by Snakemake, and leads to a re-evaluation after the checkpoint has been successfully passed.
 
@@ -2810,7 +2816,6 @@ Consider the following example where an arbitrary number of files is generated b
         cd my_directory
         for i in 1 2 3; do touch $i.txt; done
         '''
-
 
 
     # input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
