@@ -453,6 +453,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                     and f
                                     not in self.workflow.storage_settings.unneeded_temp_files
                                     and await f.exists_local()
+                                    and not is_flagged(f, "nodelocal")
                                 )
 
                             if self.finished(job):
@@ -999,6 +1000,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         f.is_storage
                         and not await f.protected()
                         and not f.should_keep_local
+                        and not is_flagged(f, "nodelocal")
                     )
 
                 generated_input = set()

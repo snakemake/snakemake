@@ -1011,7 +1011,9 @@ async def wait_for_files(
     async def get_missing(list_parent=False):
         async def eval_file(f):
             if (
-                is_flagged(f, "pipe") or is_flagged(f, "service")
+                is_flagged(f, "pipe")
+                or is_flagged(f, "service")
+                or is_flagged(f, "nodelocal")
             ) and ignore_pipe_or_service:
                 return None
             if (
