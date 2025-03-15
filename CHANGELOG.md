@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.0.1](https://github.com/snakemake/snakemake/compare/v9.0.0...v9.0.1) (2025-03-14)
+
+
+### Bug Fixes
+
+* group job error call ([#3448](https://github.com/snakemake/snakemake/issues/3448)) ([3d53863](https://github.com/snakemake/snakemake/commit/3d5386393b0f580c5e44819ffddfe13562dc248d))
+
 ## [9.0.0](https://github.com/snakemake/snakemake/compare/v8.30.0...v9.0.0) (2025-03-14)
 
 

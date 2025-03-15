@@ -22,6 +22,7 @@ from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.logging import logger
+from snakemake.jobs import GroupJob
 
 from snakemake.settings.types import MaxJobsPerTimespan
 
@@ -216,10 +217,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         if not user_kill:
                             logger.error(_ERROR_MSG_FINAL)
                             for job in self.failed:
-                                logger.error(
-                                    f"Error in jobid: {self.workflow.dag.jobid(job)}",
-                                    extra=job.get_log_error_info(),
-                                )
+                                if isinstance(job, GroupJob):
+                                    job.log_error()
+                                else:
+                                    logger.error(
+                                        f"Error in jobid: {self.workflow.dag.jobid(job)}",
+                                        extra=job.get_log_error_info(),
+                                    )
                         return False
                     continue
 
