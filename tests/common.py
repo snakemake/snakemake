@@ -174,6 +174,7 @@ def run(
     report=None,
     report_after_run=False,
     report_stylesheet=None,
+    report_metadata=None,
     deployment_method=frozenset(),
     shadow_prefix=None,
     until=frozenset(),
@@ -383,12 +384,18 @@ def run(
                 if report is not None and not report_after_run:
                     if report_stylesheet is not None:
                         report_stylesheet = Path(report_stylesheet)
+                    if report_metadata is not None:
+                        report_metadata = Path(report_metadata)
                     report_settings = ReportSettings(
                         path=Path(report), stylesheet_path=report_stylesheet
+                    )
+                    global_report_settings = settings.GlobalReportSettings(
+                        metadata_template = report_metadata
                     )
                     dag_api.create_report(
                         reporter="html",
                         report_settings=report_settings,
+                        global_report_settings=global_report_settings
                     )
                 elif conda_create_envs:
                     dag_api.conda_create_envs()
