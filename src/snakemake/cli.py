@@ -2119,8 +2119,8 @@ def args_to_api(args, parser):
                             reporter=args.reporter,
                             report_settings=report_settings,
                             global_report_settings=GlobalReportSettings(
-                                metadata_template = args.report_metadata
-                            )
+                                metadata_template=args.report_metadata
+                            ),
                         )
                     elif args.generate_unit_tests:
                         dag_api.generate_unit_tests(args.generate_unit_tests)

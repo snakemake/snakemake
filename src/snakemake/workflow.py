@@ -1028,7 +1028,7 @@ class Workflow(WorkflowExecutorInterface):
         self,
         report_plugin: ReportPlugin,
         report_settings: ReportSettingsBase,
-        global_report_settings: GlobalReportSettings
+        global_report_settings: GlobalReportSettings,
     ):
         from snakemake.report import auto_report
 
@@ -1042,10 +1042,7 @@ class Workflow(WorkflowExecutorInterface):
 
         async_run(
             auto_report(
-                self.dag,
-                report_plugin,
-                report_settings,
-                global_report_settings
+                self.dag, report_plugin, report_settings, global_report_settings
             )
         )
 

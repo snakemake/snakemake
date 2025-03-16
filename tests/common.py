@@ -390,12 +390,12 @@ def run(
                         path=Path(report), stylesheet_path=report_stylesheet
                     )
                     global_report_settings = settings.GlobalReportSettings(
-                        metadata_template = report_metadata
+                        metadata_template=report_metadata
                     )
                     dag_api.create_report(
                         reporter="html",
                         report_settings=report_settings,
-                        global_report_settings=global_report_settings
+                        global_report_settings=global_report_settings,
                     )
                 elif conda_create_envs:
                     dag_api.conda_create_envs()

@@ -368,6 +368,7 @@ class MetadataRecord(MetadataRecordInterface):
     snakemake_version: str -- Snakemake version
     metadata_dict: dict -- Parsed key value pairs of the yte template
     """
+
     path: InitVar
     snakemake_version: str = field(init=False)
     metadata_dict: dict = field(init=False)
@@ -757,7 +758,7 @@ async def auto_report(
         rules,
         results,
         configfiles,
-        sorted(records.values(), key=lambda rec: rec.rule), # this contains the jobs
+        sorted(records.values(), key=lambda rec: rec.rule),  # this contains the jobs
         report_settings,
         workflow_description,
         metadata,

@@ -433,8 +433,9 @@ class GroupSettings(SettingsBase):
     group_components: Mapping[str, int] = immutables.Map()
     local_groupid: str = "local"
 
+
 @dataclass
 class GlobalReportSettings(SettingsBase):
-    """Global settings that apply to all report plugins.
-    """
+    """Global settings that apply to all report plugins."""
+
     metadata_template: Optional[Path] = None
