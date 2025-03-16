@@ -1,9 +1,6 @@
 'use strict';
 
 class MetaData extends React.Component {
-    constructor(props) {
-        super(props);
-    }
 
     render() {
         // Iterate over the metadata dictionary and add the entries to the landing page
@@ -11,7 +8,6 @@ class MetaData extends React.Component {
         for (const [key, value] of Object.entries(metadata)) {
             metadatalist.push(... this.innerRender(key, value));
         }
-        console.log(metadatalist);
         return e(
             "ul",
             { },

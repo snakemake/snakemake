@@ -1,7 +1,5 @@
 import json
 
-import snakemake
-
 
 def render_metadata(metadata):
     """Render the metadata from to be displayed on the report landing page.
