@@ -961,14 +961,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     files = chain(files, (job.benchmark,))
             if job.log:
                 files = chain(files, job.log)
-            # Nodelocal files should not be treated as storage here
-            files = filter(lambda f: not is_flagged(f, "nodelocal"), files)
             for f in files:
                 if (
                     f.is_storage
                     and not f.should_not_be_retrieved_from_storage
                     and not is_flagged(f, "pipe")
                     and not is_flagged(f, "service")
+                    and not is_flagged(f, "nodelocal")
                 ):
                     await f.store_in_storage()
                     storage_mtime = (await f.mtime()).storage()
