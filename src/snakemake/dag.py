@@ -63,6 +63,7 @@ from snakemake.io import (
     is_callable,
     is_flagged,
     wait_for_files,
+    IOCacheLoadError,
 )
 from snakemake.jobs import (
     AbstractJob,
@@ -198,6 +199,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def init(self, progress=False):
         """Initialise the DAG."""
+        if self.workflow.dag_settings.trust_io_cache:
+            # The user declares that we can trust the iocache,
+            # so we load it from the persisted version.
+            try:
+                self.workflow.persistence.load_iocache()
+            except IOCacheLoadError:
+                logger.info(
+                    "Most recently saved inventory has mismatched version. Removing."
+                )
+                self.workflow.persistence.drop_iocache()
+
         for job in [await self.rule2job(rule) for rule in self.targetrules]:
             job = await self.update([job], progress=progress, create_inventory=True)
             self.targetjobs.add(job)
@@ -233,6 +245,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.update_conda_envs()
 
         await self.update_needrun(create_inventory=True)
+        if self.workflow.dryrun:
+            # The iocache is now up-to-date and can be persisted for future
+            # non-dry-runs.
+            self.workflow.persistence.save_iocache()
+        else:
+            # The iocache is now up-to-date, but it's not a dry run,
+            # so we shouldn't trust the previously persisted version.
+            self.workflow.persistence.drop_iocache()
+
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
         self.update_jobids()
@@ -271,17 +292,23 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def checkpoint_jobs(self):
         return self._checkpoint_jobs
 
-    @property
-    def finished_and_not_needrun_checkpoint_jobs(self):
-        for job in self.jobs:
-            if job.is_checkpoint and (self.finished(job) or not self.needrun(job)):
-                yield job
+    async def update_checkpoint_outputs(self):
+        done_output = set()
+        noneedrun_files = []
 
-    def update_checkpoint_outputs(self):
-        workflow.checkpoints.created_output = set(
-            f
-            for job in self.finished_and_not_needrun_checkpoint_jobs
-            for f in job.output
+        for job in self.jobs:
+            if job.is_checkpoint:
+                if self.finished(job):
+                    done_output.update(job.output)
+                elif not self.needrun(job):
+                    noneedrun_files.extend(job.output)
+
+        may_exists = await asyncio.gather(*(f.exists() for f in noneedrun_files))
+
+        workflow.checkpoints.created_output.clear()
+        workflow.checkpoints.created_output.update(done_output)
+        workflow.checkpoints.created_output.update(
+            j for j, e in zip(noneedrun_files, may_exists) if e
         )
 
     def update_jobids(self):
@@ -792,8 +819,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         rule=job.rule,
                     )
 
-    def unshadow_output(self, job, only_log=False):
+    def unshadow_output(self, job, only_log=False, keep_shadow_dir=False):
         """Move files from shadow directory to real output paths."""
+        """If shadow directory is kept, returns the path of it."""
         if not job.shadow_dir or not job.output:
             return
 
@@ -812,7 +840,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if os.path.realpath(shadow_output) == os.path.realpath(real_output):
                 continue
             shutil.move(shadow_output, real_output)
-        shutil.rmtree(job.shadow_dir)
+        if keep_shadow_dir and os.listdir(job.shadow_dir):
+            return str(job.shadow_dir)
+        else:
+            shutil.rmtree(job.shadow_dir)
+            return None
 
     def check_periodic_wildcards(self, job):
         """Raise an exception if a wildcard of the given job appears to be periodic,
@@ -1761,7 +1793,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 return
 
         self.update_ready()
-        self.update_checkpoint_outputs()
+        await self.update_checkpoint_outputs()
 
     def handle_pipes_and_services(self):
         """Use pipes and services to determine job groups. Check if every pipe has exactly
@@ -1943,7 +1975,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
         updated = False
-        self.update_checkpoint_outputs()
+        await self.update_checkpoint_outputs()
         if jobs is None:
             jobs = [job for job in self.jobs if not self.needrun(job)]
         all_depending = []
@@ -2672,7 +2704,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     async def summary(self, detailed=False):
         def fmt_output(f):
             if f.is_storage:
-                return f.storage_object.query
+                return f.storage_object.print_query
             return f
 
         if detailed:

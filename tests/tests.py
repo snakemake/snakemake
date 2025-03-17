@@ -1212,6 +1212,14 @@ def test_checkpoints_many():
     run(dpath("test_checkpoints_many"))
 
 
+def test_module_checkpoint():
+    run(dpath("test_module_checkpoint"))
+
+
+def test_checkpoint_missout():
+    run(dpath("test_checkpoint_missout"))
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
@@ -2145,6 +2153,46 @@ def test_failed_intermediate():
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
 
 
+@pytest.mark.parametrize(
+    "testdir,kwargs",
+    [
+        ("test02", {}),
+        ("test03", {"targets": ["test.out"]}),
+        ("test04", {"targets": ["test.out"]}),
+        ("test06", {"targets": ["test.bla.out"]}),
+        ("test07", {"targets": ["test.out", "test2.out"]}),
+        ("test08", {"targets": ["test.out", "test2.out"]}),
+    ],
+)
+def test_inventory_cache_with_dryrun_first(testdir, kwargs):
+    tmpdir = run(
+        dpath(testdir), executor="dryrun", **kwargs, cleanup=False, check_results=False
+    )
+    run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_io_cache=True)
+
+
+@skip_on_windows
+@pytest.mark.parametrize(
+    "testdir,kwargs",
+    [
+        ("test01", {}),
+        ("test05", {}),
+    ],
+)
+def test_inventory_cache_with_dryrun_first_skip_on_windows(testdir, kwargs):
+    tmpdir = run(
+        dpath(testdir), executor="dryrun", **kwargs, cleanup=False, check_results=False
+    )
+    run(dpath(testdir), **kwargs, tmpdir=tmpdir, trust_io_cache=True)
+
+
+def test09_inventory_cache_with_dryrun_first_and_fail_second():
+    testdir = "test09"
+    tmpdir = run(dpath(testdir), executor="dryrun", cleanup=False, check_results=False)
+    run(dpath(testdir), tmpdir=tmpdir, trust_io_cache=True, shouldfail=True)
+
+
+@skip_on_windows  # OS agnostic
 def test_issue3338():
     run(dpath("test_issue3338"), targets=["all"])
 
@@ -2285,3 +2333,19 @@ def test_retrieve():
             ["snakemake", "-s", snakefile, "-c1", "retrieve_true.flag"], cwd=tmpdir
         )
         assert os.path.exists(local_img)
+
+
+@skip_on_windows
+def test_censored_path():
+    snakefile = os.path.join(dpath("test_censored_path"), "Snakefile")
+    p = sp.Popen(
+        f"snakemake -s {snakefile} -c1 -n",
+        shell=True,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    stdout = stdout.decode()
+    assert "my_password" not in stdout
+    assert "param_name" not in stdout
+    assert "param_value" not in stdout
