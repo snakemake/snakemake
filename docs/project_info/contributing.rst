@@ -56,7 +56,9 @@ Write Documentation
 
 Snakemake could always use more documentation, whether as part of the official docs, in docstrings, or even on the web in blog posts, articles, and such.
 
-Snakemake uses `Sphinx <https://sphinx-doc.org>`_ for the user manual (that you are currently reading).
+.. _Sphinx: https://sphinx-doc.org
+
+Snakemake uses `Sphinx`_ for the user manual (that you are currently reading).
 See :ref:`project_info-doc_guidelines` on how the reStructuredText is used for the documentation.
 
 
@@ -250,7 +252,7 @@ The existing unit tests should all cope with this, and in general you should avo
 Documentation Guidelines
 ========================
 
-The documentation uses `Sphinx <https://www.sphinx-doc.org/>`_ and is written in ``reStructuredText``.
+The documentation uses `Sphinx`_ and is written in ``reStructuredText``.
 For details on the syntax, see the `Sphinx primer on reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#rst-primer>`_ and the `Sphinx documentation on cross-references <https://www.sphinx-doc.org/en/master/usage/referencing.html>`_.
 
 For the documentation, please adhere to the following guidelines:
