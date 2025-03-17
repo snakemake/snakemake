@@ -251,7 +251,7 @@ Documentation Guidelines
 ========================
 
 The documentation uses `Sphinx <https://www.sphinx-doc.org/>`_ and is written in ``reStructuredText``.
-For details on the syntax, see the `Sphinx primer on reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#rst-primer>`_ and the `Sphinx documentation on crossreferences <https://www.sphinx-doc.org/en/master/usage/referencing.html>`_.
+For details on the syntax, see the `Sphinx primer on reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#rst-primer>`_ and the `Sphinx documentation on cross-references <https://www.sphinx-doc.org/en/master/usage/referencing.html>`_.
 
 For the documentation, please adhere to the following guidelines:
 
