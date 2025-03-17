@@ -250,11 +250,16 @@ The existing unit tests should all cope with this, and in general you should avo
 Documentation Guidelines
 ========================
 
+The documentation uses `Sphinx <https://www.sphinx-doc.org/en/master/index.html>`_ and is written in ``reStructuredText``.
+For details on the syntax, see the `Sphinx primer on reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#rst-primer>`_ and the `Sphinx documentation on crossreferences <https://www.sphinx-doc.org/en/master/usage/referencing.html>`_.
+
 For the documentation, please adhere to the following guidelines:
 
 - Put each sentence on its own line, this makes tracking changes through Git SCM easier.
-- Provide hyperlink targets, at least for the first two section levels.
-  For this, use the format ``<document_part>-<section_name>``, e.g., ``project_info-doc_guidelines``.
+- Provide `hyperlink targets <https://www.sphinx-doc.org/en/master/usage/referencing.html#cross-referencing-arbitrary-locations>`_, at least for the first two section levels.
+  For this, use the format ``<document_part>-<section_name>``, for example ``project_info-doc_guidelines`` for the current section.
+  Set the hyperlink target right above the section heading with ``.. _project_info-doc_guidelines:``.
+  Reference the hyperlink (i.e. link to it) with ``::ref`project_info-doc_guidelines```.
 - Use the `section structure recommended by Sphinx <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#sections>`_, which references the `recommendations in the Python Developer's Guide <https://devguide.python.org/documentation/markup/#sections>`_.
   Namely, the levels are:
 
