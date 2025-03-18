@@ -286,7 +286,10 @@ class SpawnedJobArgsFactory:
         args = [
             "--force",
             "--target-files-omit-workdir-adjustment",
-            w2a("storage_settings.keep_storage_local", flag="--keep-storage-local-copies"),
+            w2a(
+                "storage_settings.keep_storage_local",
+                flag="--keep-storage-local-copies",
+            ),
             "--max-inventory-time 0",
             "--nocolor",
             "--notemp",
