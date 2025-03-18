@@ -200,9 +200,9 @@ httpretty = ">=1.1.4,<2"
 polars = ">=1.24.0,<2"
 requests-mock = ">=1.12.1,<2"
 docutils = ">=0.20.1,<0.22"
-snakemake-storage-plugin-http = "*"
-snakemake-storage-plugin-s3 = "*"
-snakemake-storage-plugin-fs = "*"
+snakemake-storage-plugin-http = { git="https://github.com/snakemake/snakemake-storage-plugin-http.git" }
+snakemake-storage-plugin-s3 = { git="https://github.com/snakemake/snakemake-storage-plugin-s3.git" }
+snakemake-storage-plugin-fs = { git="https://github.com/snakemake/snakemake-storage-plugin-fs.git" }
 snakemake-executor-plugin-cluster-generic = "*"
 conda = "*"
 pip = "*"
@@ -228,7 +228,7 @@ openmpi = "*"
 xrootd = ">=5.7.3,<6"
 
 [tool.pixi.feature.test.target.linux-64.pypi-dependencies]
-snakemake-storage-plugin-xrootd = ">=0.4.0"
+snakemake-storage-plugin-xrootd = { git="https://github.com/snakemake/snakemake-storage-plugin-xrootd.git" }
 
 # Docs
 [tool.pixi.feature.docs.dependencies]
