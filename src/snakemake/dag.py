@@ -482,6 +482,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             and f not in cleaned
                             and not f.should_keep_local
                         ):
+                            logger.info(
+                                "Cleaning up local remainders of "
+                                f"{f.storage_object.print_query}"
+                            )
                             f.storage_object.cleanup()
                             tg.create_task(
                                 f.remove(remove_non_empty_dir=True, only_local=True)
