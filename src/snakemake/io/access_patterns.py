@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass
 from typing import Optional
 from snakemake.io import flag
@@ -17,6 +16,9 @@ class AccessPattern:
 def access_pattern(
     path, pattern: str, lines: Optional[int] = None, bytes: Optional[int] = None
 ):
+    """Experimental: annotate a file with an access pattern for e.g. usage in storage
+    providers.
+    """
     if pattern not in VALID_PATTERNS:
         raise WorkflowError(
             f"Invalid access pattern: {pattern}. Valid patterns are: {', '.join(VALID_PATTERNS)}"
