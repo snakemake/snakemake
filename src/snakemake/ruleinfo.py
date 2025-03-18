@@ -80,7 +80,9 @@ class RuleInfo:
                         modifier_positional, modifier_keyword = value
                         positional = original_positional
                         if modifier_positional:
-                            if original_positional:
+                            if original_positional and (
+                                len(original_positional) != len(modifier_positional)
+                            ):
                                 logger.warning(
                                     f"Overwriting positional arguments {original_positional} "
                                     f"with {modifier_positional} in rule {rulename}"
