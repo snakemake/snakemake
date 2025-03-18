@@ -339,7 +339,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if runjobs:
                         self.run(runjobs)
                 if not self.dryrun:
-                    
+
                     if self._run_performed is None or self._run_performed:
                         logger.info("Waiting for more resources.")
                     self._run_performed = False

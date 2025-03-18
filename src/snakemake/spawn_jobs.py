@@ -164,7 +164,7 @@ class SpawnedJobArgsFactory:
         skip=False,
         invert=False,
         attr=None,
-        convert_value: Callable = None
+        convert_value: Callable = None,
     ):
         if skip:
             return ""
@@ -291,7 +291,10 @@ class SpawnedJobArgsFactory:
             w2a("execution_settings.keep_incomplete"),
             w2a("output_settings.verbose"),
             w2a("rerun_triggers"),
-            w2a("storage_settings.wait_for_free_local_storage", convert_value="{}s".format),
+            w2a(
+                "storage_settings.wait_for_free_local_storage",
+                convert_value="{}s".format,
+            ),
             w2a(
                 "execution_settings.cleanup_scripts",
                 invert=True,
