@@ -1,26 +1,28 @@
-from dataclasses import dataclass
-from typing import Optional
+from enum import Enum
+from typing import Callable, Iterable, Union
 from snakemake.io import flag
-from snakemake_interface_common.exceptions import WorkflowError
 
-VALID_PATTERNS = frozenset(("head", "tail", "random", "sequential"))
-
-
-@dataclass
-class AccessPattern:
-    pattern: str
-    lines: Optional[int] = None
-    bytes: Optional[int] = None
+VALID_PATTERNS = frozenset(("random", "sequential", "sequential-multi"))
 
 
-def access_pattern(
-    path, pattern: str, lines: Optional[int] = None, bytes: Optional[int] = None
-):
-    """Experimental: annotate a file with an access pattern for e.g. usage in storage
-    providers.
-    """
-    if pattern not in VALID_PATTERNS:
-        raise WorkflowError(
-            f"Invalid access pattern: {pattern}. Valid patterns are: {', '.join(VALID_PATTERNS)}"
-        )
-    return flag(path, "access_pattern", AccessPattern(pattern, lines, bytes))
+class AccessPattern(Enum):
+    RANDOM = "random"
+    SEQUENTIAL = "sequential"
+    MULTI = "multi"
+
+
+item_type = Union[str, Iterable[str], Callable, Iterable[Callable]]
+
+
+class AccessPatternFactory:
+    @classmethod
+    def random(cls, item: item_type):
+        return flag(item, "access_pattern", AccessPattern.RANDOM)
+    
+    @classmethod
+    def sequential(cls, item: item_type):
+        return flag(item, "access_pattern", AccessPattern.SEQUENTIAL)
+    
+    @classmethod
+    def multi(cls, item: item_type):
+        return flag(item, "access_pattern", AccessPattern.MULTI)
