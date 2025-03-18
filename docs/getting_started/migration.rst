@@ -577,7 +577,7 @@ Profiles
 ^^^^^^^^
 
 Profiles can now be versioned.
-If your profile makes use of settings that are available in version 8 or later, use the filename ``config.v8+.yaml`` for the profile configuration (see :ref:`profiles <profiles>`).
+If your profile makes use of settings that are available in version 8 or later, use the filename ``config.v8+.yaml`` for the profile configuration (see :ref:`executing-profiles`).
 
 API
 ^^^
