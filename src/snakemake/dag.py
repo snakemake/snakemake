@@ -989,6 +989,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if (
             not self.workflow.storage_settings.keep_storage_local
             and not self.workflow.remote_exec
+            and not self.workflow.subprocess_exec
         ):
             if not any(f.is_storage for f in job.input):
                 return
