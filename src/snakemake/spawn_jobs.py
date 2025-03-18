@@ -2,7 +2,7 @@ from dataclasses import dataclass, fields
 import hashlib
 import os
 import sys
-from typing import Mapping, TypeVar, TYPE_CHECKING, Any
+from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.resources import ParsedResource
@@ -164,6 +164,7 @@ class SpawnedJobArgsFactory:
         skip=False,
         invert=False,
         attr=None,
+        convert_value: Callable = None
     ):
         if skip:
             return ""
@@ -184,6 +185,9 @@ class SpawnedJobArgsFactory:
 
         if invert and isinstance(value, bool):
             value = not value
+
+        if convert_value is not None and value is not None:
+            value = convert_value(value)
 
         return format_cli_arg(flag, value, base64_encode=base64_encode)
 
@@ -287,6 +291,7 @@ class SpawnedJobArgsFactory:
             w2a("execution_settings.keep_incomplete"),
             w2a("output_settings.verbose"),
             w2a("rerun_triggers"),
+            w2a("storage_settings.wait_for_free_local_storage", convert_value="{}s".format),
             w2a(
                 "execution_settings.cleanup_scripts",
                 invert=True,

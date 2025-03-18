@@ -204,6 +204,7 @@ class SnakemakeApi(ApiBase):
             local_prefix=storage_settings.local_storage_prefix,
             settings=plugin_settings,
             is_default=True,
+            wait_for_free_local_storage=storage_settings.wait_for_free_local_storage,
         )
         query_validity = provider_instance.is_valid_query(query)
         if not query_validity:

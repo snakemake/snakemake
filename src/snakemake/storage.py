@@ -109,6 +109,7 @@ class StorageRegistry:
             keep_local=keep_local,
             retrieve=retrieve,
             is_default=is_default,
+            wait_for_free_local_storage=self.workflow.storage_settings.wait_for_free_local_storage,
         )
         self._storages[name] = provider_instance
         # if a tagged storage provider is registered before the untagged then the
@@ -125,6 +126,7 @@ class StorageRegistry:
                 keep_local=keep_local,
                 retrieve=retrieve,
                 is_default=is_default,
+                wait_for_free_local_storage=self.workflow.storage_settings.wait_for_free_local_storage,
             )
             self._storages[plugin.name] = provider_instance
         return provider_instance
