@@ -11,6 +11,7 @@ from snakemake_interface_storage_plugins.storage_object import (
 )
 from snakemake.io import MaybeAnnotated
 from snakemake.common import __version__
+from snakemake.logging import logger
 
 
 def flag_with_storage_object(path: MaybeAnnotated, storage_object):
@@ -102,6 +103,7 @@ class StorageRegistry:
             "retrieve", self.workflow.storage_settings.retrieve_storage
         )
         provider_instance = plugin.storage_provider(
+            logger=logger,
             local_prefix=local_prefix,
             settings=final_settings,
             keep_local=keep_local,
@@ -117,6 +119,7 @@ class StorageRegistry:
                 self.workflow.storage_settings.local_storage_prefix / plugin.name
             )
             provider_instance = plugin.storage_provider(
+                logger=logger,
                 local_prefix=local_prefix,
                 settings=final_settings,
                 keep_local=keep_local,
