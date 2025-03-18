@@ -162,6 +162,7 @@ class SpawnedJobArgsFactory:
         flag=None,
         base64_encode=False,
         skip=False,
+        force=False,
         invert=False,
         attr=None,
         convert_value: Callable = None,
@@ -185,6 +186,10 @@ class SpawnedJobArgsFactory:
 
         if invert and isinstance(value, bool):
             value = not value
+
+        if force:
+            assert isinstance(value, bool)
+            value = True
 
         if convert_value is not None and value is not None:
             value = convert_value(value)
