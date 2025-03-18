@@ -106,7 +106,7 @@ Snakemake will process beyond the rule ``myrule``, because all of its input file
 Obviously, a good choice of the rule to perform the batching is a rule that has a lot of input files and upstream jobs, for example a central aggregation step within your workflow.
 We advice all workflow developers to inform potential users of the best suited batching rule.
 
-.. _profiles:
+.. _executing-profiles:
 
 --------
 Profiles
