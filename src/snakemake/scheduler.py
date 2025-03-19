@@ -104,6 +104,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._last_update_queue_input_jobs = 0
         self.submit_callback = self._noop
         self.finish_callback = self._proceed
+        self._run_performed = None
 
         if workflow.remote_execution_settings.immediate_submit:
             self.submit_callback = self._proceed
@@ -338,7 +339,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if runjobs:
                         self.run(runjobs)
                 if not self.dryrun:
-                    logger.info("Waiting for more resources.")
+
+                    if self._run_performed is None or self._run_performed:
+                        logger.info("Waiting for more resources.")
+                    self._run_performed = False
                     if self.job_rate_limiter is not None:
                         # need to reevaluate because after the timespan we can
                         # schedule more jobs again
@@ -440,6 +444,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._toerror.clear()
 
     def run(self, jobs, executor=None):
+        self._run_performed = True
         if executor is None:
             executor = self._executor
         executor.run_jobs(jobs)
