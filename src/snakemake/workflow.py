@@ -424,6 +424,10 @@ class Workflow(WorkflowExecutorInterface):
         return self.exec_mode == ExecMode.REMOTE
 
     @property
+    def subprocess_exec(self):
+        return self.exec_mode == ExecMode.SUBPROCESS
+
+    @property
     def exec_mode(self):
         return self.workflow_settings.exec_mode
 
