@@ -482,6 +482,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             and f not in cleaned
                             and not f.should_keep_local
                         ):
+                            logger.info(
+                                "Cleaning up local remainders of "
+                                f"{f.storage_object.print_query}"
+                            )
                             f.storage_object.cleanup()
                             tg.create_task(
                                 f.remove(remove_non_empty_dir=True, only_local=True)
@@ -982,7 +986,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             "read AND write permissions."
                         )
 
-        if not self.workflow.storage_settings.keep_storage_local:
+        if (
+            not self.workflow.storage_settings.keep_storage_local
+            and not self.workflow.remote_exec
+            and not self.workflow.subprocess_exec
+        ):
             if not any(f.is_storage for f in job.input):
                 return
 

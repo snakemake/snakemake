@@ -704,24 +704,20 @@ class _IOFile(str, AnnotatedStringInterface):
         return (await self.mtime()).local_or_storage(follow_symlinks=True) > time
 
     async def retrieve_from_storage(self):
-        if self.is_storage:
-            if not self.should_not_be_retrieved_from_storage:
+        assert self.is_storage
 
-                async def is_newer_in_storage():
-                    mtime = await self.mtime()
-                    return mtime.local() < mtime.storage()
+        if not self.should_not_be_retrieved_from_storage:
 
-                if not await self.exists_local() or await is_newer_in_storage():
-                    logger.info(
-                        f"Retrieving from storage: {self.storage_object.print_query}"
-                    )
-                    await self.storage_object.managed_retrieve()
-                    logger.info("Finished retrieval.")
-        else:
-            raise WorkflowError(
-                "The file to be retrieved does not seem to exist in the storage.",
-                rule=self.rule,
-            )
+            async def is_newer_in_storage():
+                mtime = await self.mtime()
+                return mtime.local() < mtime.storage()
+
+            if not await self.exists_local() or await is_newer_in_storage():
+                logger.info(
+                    f"Retrieving from storage: {self.storage_object.print_query}"
+                )
+                await self.storage_object.managed_retrieve()
+                logger.info("Finished retrieval.")
 
     async def store_in_storage(self):
         if self.is_storage:

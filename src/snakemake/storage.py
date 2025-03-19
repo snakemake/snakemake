@@ -11,6 +11,7 @@ from snakemake_interface_storage_plugins.storage_object import (
 )
 from snakemake.io import MaybeAnnotated
 from snakemake.common import __version__
+from snakemake.logging import logger
 
 
 def flag_with_storage_object(path: MaybeAnnotated, storage_object):
@@ -102,11 +103,13 @@ class StorageRegistry:
             "retrieve", self.workflow.storage_settings.retrieve_storage
         )
         provider_instance = plugin.storage_provider(
+            logger=logger,
             local_prefix=local_prefix,
             settings=final_settings,
             keep_local=keep_local,
             retrieve=retrieve,
             is_default=is_default,
+            wait_for_free_local_storage=self.workflow.storage_settings.wait_for_free_local_storage,
         )
         self._storages[name] = provider_instance
         # if a tagged storage provider is registered before the untagged then the
@@ -117,11 +120,13 @@ class StorageRegistry:
                 self.workflow.storage_settings.local_storage_prefix / plugin.name
             )
             provider_instance = plugin.storage_provider(
+                logger=logger,
                 local_prefix=local_prefix,
                 settings=final_settings,
                 keep_local=keep_local,
                 retrieve=retrieve,
                 is_default=is_default,
+                wait_for_free_local_storage=self.workflow.storage_settings.wait_for_free_local_storage,
             )
             self._storages[plugin.name] = provider_instance
         return provider_instance
