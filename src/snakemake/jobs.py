@@ -76,6 +76,9 @@ def format_file(f, is_input: bool):
         return f"{f} (update)"
     elif is_flagged(f, "before_update"):
         return f"{f} (before update)"
+    elif is_flagged(f, "access_pattern"):
+        pattern = get_flag_value(f, "access_pattern")
+        return f"{f} (access: {pattern})"
     elif is_flagged(f, "checkpoint_target"):
         return TBDString()
     elif is_flagged(f, "sourcecache_entry"):

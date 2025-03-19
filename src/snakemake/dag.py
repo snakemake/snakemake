@@ -23,6 +23,7 @@ from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from snakemake.io.access_patterns import AccessPattern
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
@@ -408,23 +409,48 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             else:
                 jobs = []
 
-        to_retrieve = {
-            f
-            for job in jobs
-            for f in job.input
-            if f.is_storage
-            and (
-                (also_missing_internal and not shared_local_copies)
-                or self.is_external_input(f, job, not_needrun_is_external=True)
-            )
-            and not job.is_norun
-        }
+        def access_pattern(f):
+            if f.is_flagged("access_pattern"):
+                return f.flags["access_pattern"]
+            return None
+
+        to_retrieve = defaultdict(list)
+        for job in jobs:
+            for f in job.input:
+                if (
+                    f.is_storage
+                    and not job.is_norun
+                    and (
+                        (also_missing_internal and not shared_local_copies)
+                        or self.is_external_input(f, job, not_needrun_is_external=True)
+                    )
+                ):
+                    to_retrieve[f].append(access_pattern(f))
 
         if to_retrieve:
             try:
                 async with asyncio.TaskGroup() as tg:
-                    for f in to_retrieve:
+                    for f, access_patterns in to_retrieve.items():
                         logger.info(f"Retrieving {f} from storage.")
+
+                        # METHOD: If the file is at least by one job accessed randomly
+                        # (i.e. non sequential), or multiple times, or if multiple
+                        # jobs access the same file, we should download it.
+                        # Otherwise, it is eligible for on-demand retrieval (i.e. 
+                        # mounting or symlinking it from whatever network storage).
+                        # This information is passed to the storage plugin via the
+                        # attribute is_ondemand_eligible.
+                        f.storage_object.is_ondemand_eligible = (
+                            len(access_patterns) == 1
+                            and AccessPattern.RANDOM not in access_patterns
+                            and AccessPattern.MULTI not in access_patterns
+                            and None not in access_patterns
+                        )
+                        logger.debug(
+                            f"Ondemand eligibility of {f.storage_object.print_query}: "
+                            f"{f.storage_object.is_ondemand_eligible} with access "
+                            f"patterns {','.join(map(str, access_patterns))}"
+                        )
                         tg.create_task(f.retrieve_from_storage())
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to retrieve input from storage.", e)

@@ -10,6 +10,9 @@ class AccessPattern(Enum):
     SEQUENTIAL = "sequential"
     MULTI = "multi"
 
+    def __str__(self):
+        return self.value
+
 
 item_type = Union[str, Iterable[str], Callable, Iterable[Callable]]
 

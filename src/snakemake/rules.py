@@ -27,6 +27,7 @@ from snakemake.io import (
     AnnotatedString,
     contains_wildcard,
     contains_wildcard_constraints,
+    get_flag_name,
     is_multiext_items,
     update_wildcard_constraints,
     flag,
@@ -444,6 +445,22 @@ class Rule(RuleInterface):
         # Check to see if the item is a path, if so, just make it a string
         if isinstance(item, Path):
             item = str(item.as_posix())
+
+        def apply_default_flags(item):
+            default_flags = (
+                self.workflow.modifier.default_output_flags
+                if output
+                else self.workflow.modifier.default_input_flags
+            )
+            for flag_ in default_flags:
+                flag_name = get_flag_name(flag_)
+                if is_flagged(item, flag_name):
+                    continue
+                item = flag_(item)
+
+            print(item)
+            return item
+
         if isinstance(item, str):
             if ON_WINDOWS:
                 if isinstance(item, (_IOFile, AnnotatedString)):
@@ -463,6 +480,8 @@ class Rule(RuleInterface):
                 property = "input"
 
             item = self.apply_path_modifier(item, path_modifier, property=property)
+
+            item = apply_default_flags(item)
 
             # Check to see that all flags are valid
             # Note that "storage", and "expand" are valid for both inputs and outputs.
@@ -547,6 +566,9 @@ class Rule(RuleInterface):
                 raise RuleException(
                     "Only input files can be specified as functions", rule=self
                 )
+
+            item = apply_default_flags(item)
+
             inoutput.append(item)
             if name:
                 inoutput._add_name(name)

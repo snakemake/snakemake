@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+from typing import Callable, List
 
 from snakemake.common.prefix_lookup import PrefixLookup
 from snakemake.exceptions import WorkflowError

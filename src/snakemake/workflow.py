@@ -18,8 +18,8 @@ import copy
 from pathlib import Path
 import tarfile
 import tempfile
-from typing import Dict, Iterable, List, Optional, Set, Union
-from snakemake.io.access_patterns import AccessPatternFactory, access_pattern
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union
+from snakemake.io.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     ConfigSettings,
@@ -1177,7 +1177,7 @@ class Workflow(WorkflowExecutorInterface):
         assert self.output_settings is not None
         shell.conda_block_conflicting_envvars = (
             not self.deployment_settings.conda_not_block_search_path_envvars
-        )
+        )            
 
         if self.remote_execution_settings.envvars:
             self.register_envvars(*self.remote_execution_settings.envvars)
@@ -2371,6 +2371,12 @@ class Workflow(WorkflowExecutorInterface):
                     )(orig_ruleinfo)
 
         return decorate
+
+    def set_default_input_flags(self, *flags: Callable):
+        self.modifier.default_input_flags = flags
+
+    def set_default_output_flags(self, *flags: Callable):
+        self.modifier.default_output_flags = flags
 
     @staticmethod
     def _empty_decorator(f):

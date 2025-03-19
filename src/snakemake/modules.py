@@ -6,6 +6,7 @@ __license__ = "MIT"
 from pathlib import Path
 import types
 import re
+from typing import Callable, List
 from snakemake.common import Rules
 
 from snakemake.exceptions import WorkflowError
@@ -210,6 +211,8 @@ class WorkflowModifier:
         self.path_modifier = PathModifier(replace_prefix, prefix, workflow)
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
+        self.default_input_flags: List[Callable] = []
+        self.default_output_flags: List[Callable] = []
 
     def inherit_rule_proxies(self, child_modifier):
         for name, rule in child_modifier.rule_proxies._rules.items():
