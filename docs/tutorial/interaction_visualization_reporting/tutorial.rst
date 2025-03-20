@@ -277,7 +277,7 @@ In this case, this config file shall be stored in ``resources/datavzrd/cars.yaml
             name:
               link-to-url:
                 Wikipedia:
-                url: "https://en.wikipedia.org/wiki/{value}"
+                    url: "https://en.wikipedia.org/wiki/{value}"
             miles per gallon:
               plot:
                 ticks:
