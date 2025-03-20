@@ -9,6 +9,7 @@ import sys
 import subprocess as sp
 from pathlib import Path
 import tempfile
+import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -2349,3 +2350,20 @@ def test_censored_path():
     assert "my_password" not in stdout
     assert "param_name" not in stdout
     assert "param_value" not in stdout
+
+def test_settings_persistence():
+   
+    tmpdir = run(
+        dpath("test_settings_persistence"),
+        shellcmd="snakemake",
+        check_results=False,
+        cleanup=False,
+    )
+    
+    print(os.listdir(os.path.join(tmpdir, ".snakemake", "settings")))
+
+    # assert timestamped file exists in a .snamemake/settings
+    assert len(os.listdir(os.path.join(tmpdir, ".snakemake", "settings"))) == 1
+
+
+
