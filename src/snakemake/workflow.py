@@ -2381,10 +2381,10 @@ class Workflow(WorkflowExecutorInterface):
         return decorate
 
     def set_default_input_flags(self, *flags: Callable):
-        self.modifier.default_input_flags = flags
+        self.modifier.default_input_flags.register_flags(*flags)
 
     def set_default_output_flags(self, *flags: Callable):
-        self.modifier.default_output_flags = flags
+        self.modifier.default_output_flags.register_flags(*flags)
 
     @staticmethod
     def _empty_decorator(f):

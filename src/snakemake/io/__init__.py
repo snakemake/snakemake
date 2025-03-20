@@ -987,8 +987,8 @@ def flag(value, flag_type, flag_value=True):
     return [flag(v, flag_type, flag_value=flag_value) for v in value]
 
 
-def get_flag_name(flag_func: Callable) -> str:
-    return next(iter(flag_func("dummy").flags.keys()))
+def get_flag_store_keys(flag_func: Callable) -> Set[str]:
+    return set(flag_func("dummy").flags.keys())
 
 
 _double_slash_regex = (

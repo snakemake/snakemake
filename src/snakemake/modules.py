@@ -10,6 +10,7 @@ from typing import Callable, List
 from snakemake.common import Rules
 
 from snakemake.exceptions import WorkflowError
+from snakemake.io.flags import DefaultFlags
 from snakemake.path_modifier import PathModifier
 from snakemake import wrapper
 
@@ -211,8 +212,8 @@ class WorkflowModifier:
         self.path_modifier = PathModifier(replace_prefix, prefix, workflow)
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
-        self.default_input_flags: List[Callable] = []
-        self.default_output_flags: List[Callable] = []
+        self.default_input_flags: DefaultFlags = DefaultFlags()
+        self.default_output_flags: DefaultFlags = DefaultFlags()
 
     def inherit_rule_proxies(self, child_modifier):
         for name, rule in child_modifier.rule_proxies._rules.items():

@@ -27,7 +27,7 @@ from snakemake.io import (
     AnnotatedString,
     contains_wildcard,
     contains_wildcard_constraints,
-    get_flag_name,
+    get_flag_store_keys,
     is_multiext_items,
     update_wildcard_constraints,
     flag,
@@ -453,8 +453,8 @@ class Rule(RuleInterface):
                 else self.workflow.modifier.default_input_flags
             )
             for flag_ in default_flags:
-                flag_name = get_flag_name(flag_)
-                if is_flagged(item, flag_name):
+                store_keys = default_flags.get_store_keys(flag_)
+                if any(is_flagged(item, store_key) for store_key in store_keys):
                     continue
                 item = flag_(item)
             return item
