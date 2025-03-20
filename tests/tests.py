@@ -2352,6 +2352,11 @@ def test_censored_path():
     assert "param_value" not in stdout
 
 def test_settings_persistence():
+
+    # To do
+    # - Add a profile
+    # - Add shellcmd config
+    # - Assert that the settings are persisted
    
     tmpdir = run(
         dpath("test_settings_persistence"),
