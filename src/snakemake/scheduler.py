@@ -22,6 +22,7 @@ from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.logging import logger
+from snakemake.jobs import GroupJob
 
 from snakemake.settings.types import MaxJobsPerTimespan
 
@@ -103,6 +104,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._last_update_queue_input_jobs = 0
         self.submit_callback = self._noop
         self.finish_callback = self._proceed
+        self._run_performed = None
 
         if workflow.remote_execution_settings.immediate_submit:
             self.submit_callback = self._proceed
@@ -216,10 +218,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         if not user_kill:
                             logger.error(_ERROR_MSG_FINAL)
                             for job in self.failed:
-                                logger.error(
-                                    f"Error in jobid: {self.workflow.dag.jobid(job)}",
-                                    extra=job.get_log_error_info(),
-                                )
+                                if isinstance(job, GroupJob):
+                                    job.log_error()
+                                else:
+                                    logger.error(
+                                        f"Error in jobid: {self.workflow.dag.jobid(job)}",
+                                        extra=job.get_log_error_info(),
+                                    )
                         return False
                     continue
 
@@ -334,7 +339,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if runjobs:
                         self.run(runjobs)
                 if not self.dryrun:
-                    logger.info("Waiting for more resources.")
+
+                    if self._run_performed is None or self._run_performed:
+                        logger.info("Waiting for more resources.")
+                    self._run_performed = False
                     if self.job_rate_limiter is not None:
                         # need to reevaluate because after the timespan we can
                         # schedule more jobs again
@@ -436,6 +444,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._toerror.clear()
 
     def run(self, jobs, executor=None):
+        self._run_performed = True
         if executor is None:
             executor = self._executor
         executor.run_jobs(jobs)

@@ -200,9 +200,11 @@ class SnakemakeApi(ApiBase):
         plugin.validate_settings(plugin_settings)
 
         provider_instance = plugin.storage_provider(
+            logger=logger,
             local_prefix=storage_settings.local_storage_prefix,
             settings=plugin_settings,
             is_default=True,
+            wait_for_free_local_storage=storage_settings.wait_for_free_local_storage,
         )
         query_validity = provider_instance.is_valid_query(query)
         if not query_validity:
@@ -615,6 +617,7 @@ class DAGApi(ApiBase):
         @functools.wraps(method)
         def _handle_no_exec(self, *args, **kwargs):
             self.workflow_api.resource_settings.cores = 1
+            self.snakemake_api.setup_logger()
             return method(self, *args, **kwargs)
 
         return _handle_no_exec
@@ -773,6 +776,7 @@ class DAGApi(ApiBase):
         """
         self.workflow_api._workflow.delete_output(only_temp=only_temp, dryrun=dryrun)
 
+    @_no_exec
     def export_to_cwl(self, path: Path):
         """Export the workflow to CWL.
 

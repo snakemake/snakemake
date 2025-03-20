@@ -19,6 +19,7 @@ from pathlib import Path
 import tarfile
 import tempfile
 from typing import Dict, Iterable, List, Optional, Set, Union
+from snakemake.io.access_patterns import access_pattern
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     ConfigSettings,
@@ -217,6 +218,7 @@ class Workflow(WorkflowExecutorInterface):
         snakemake.ioutils.register_in_globals(_globals)
         snakemake.ioflags.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
+        _globals["access_pattern"] = access_pattern
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -420,6 +422,10 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def remote_exec(self):
         return self.exec_mode == ExecMode.REMOTE
+
+    @property
+    def subprocess_exec(self):
+        return self.exec_mode == ExecMode.SUBPROCESS
 
     @property
     def exec_mode(self):

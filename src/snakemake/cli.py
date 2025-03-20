@@ -80,6 +80,12 @@ def parse_size_in_bytes(value):
     return parse_size(value)
 
 
+def parse_timespan(value):
+    from humanfriendly import parse_timespan
+
+    return parse_timespan(value)
+
+
 def expandvars(atype):
     def inner(args):
         if isinstance(args, list):
@@ -1335,6 +1341,14 @@ def get_argument_parser(profiles=None):
         "the job finished. This helps if your filesystem suffers from latency.",
     )
     group_behavior.add_argument(
+        "--wait-for-free-local-storage",
+        parse_func=parse_timespan,
+        help=(
+            "Wait for given timespan for enough free local storage when downloading "
+            "remote storage files. If not set, no waiting is performed."
+        ),
+    )
+    group_behavior.add_argument(
         "--wait-for-files",
         nargs="*",
         metavar="FILE",
@@ -1998,6 +2012,7 @@ def args_to_api(args, parser, settings_sources):
                 notemp=args.notemp,
                 all_temp=args.all_temp,
                 unneeded_temp_files=args.unneeded_temp_files,
+                wait_for_free_local_storage=args.wait_for_free_local_storage,
             )
 
             if args.deploy_sources:
