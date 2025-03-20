@@ -17,7 +17,6 @@ import time
 import json
 from typing import Iterable, List, Optional, Set, Union
 import uuid
-import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
 from itertools import chain, filterfalse, groupby
@@ -436,7 +435,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         # METHOD: If the file is at least by one job accessed randomly
                         # (i.e. non sequential), or multiple times, or if multiple
                         # jobs access the same file, we should download it.
-                        # Otherwise, it is eligible for on-demand retrieval (i.e. 
+                        # Otherwise, it is eligible for on-demand retrieval (i.e.
                         # mounting or symlinking it from whatever network storage).
                         # This information is passed to the storage plugin via the
                         # attribute is_ondemand_eligible.
