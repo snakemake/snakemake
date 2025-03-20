@@ -1012,11 +1012,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             "read AND write permissions."
                         )
 
-        if (
-            not self.workflow.storage_settings.keep_storage_local
-            and not self.workflow.remote_exec
-            and not self.workflow.subprocess_exec
-        ):
+        if not self.workflow.keep_storage_local_at_runtime:
             if not any(f.is_storage for f in job.input):
                 return
 

@@ -867,11 +867,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.benchmark.prepare()
 
         # wait for input files, respecting keep_storage_local
-        wait_for_local = self.dag.workflow.storage_settings.keep_storage_local
         try:
             await wait_for_files(
                 self.input,
-                wait_for_local=wait_for_local,
+                wait_for_local=self.dag.workflow.keep_storage_local_at_runtime,
                 latency_wait=self.dag.workflow.execution_settings.latency_wait,
                 consider_local={
                     f for f in self.input if self.is_pipe_or_service_input(f)

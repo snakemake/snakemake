@@ -431,6 +431,14 @@ class Workflow(WorkflowExecutorInterface):
     def exec_mode(self):
         return self.workflow_settings.exec_mode
 
+    @property
+    def keep_storage_local_at_runtime(self) -> bool:
+        return (
+            self.storage_settings.keep_storage_local
+            or self.remote_exec
+            or self.subprocess_exec
+        )
+
     @lazy_property
     def spawned_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
         from snakemake.spawn_jobs import SpawnedJobArgsFactory
