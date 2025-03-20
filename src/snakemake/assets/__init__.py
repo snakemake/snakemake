@@ -148,11 +148,13 @@ class Assets:
         # The license file included in the NPM package does not exist directly
         # in https://github.com/DefinitelyTyped/DefinitelyTyped, so we use an
         # unpkg URL to reference the contents of the NPM package instead.
-        "@types-estree/LICENSE": Asset(
-            url="https://unpkg.com/@types/estree@{version}/LICENSE",
-            sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
-            version="0.0.50",
-        ),
+        # TODO estree license is not present on unpkg anymore.
+        # TODO Also, the repo referenced about _does_ contain a license.
+        # "@types-estree/LICENSE": Asset(
+        #     url="https://unpkg.com/@types/estree@{version}/LICENSE",
+        #     sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+        #     version="0.0.50",
+        # ),
         # Via vega-force
         "d3-force/LICENSE": Asset(
             url="https://raw.githubusercontent.com/d3/d3-force/refs/tags/v{version}/LICENSE",
