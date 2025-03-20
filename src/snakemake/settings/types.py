@@ -395,21 +395,19 @@ class ConfigSettings(SettingsBase):
 
     def write_config_settings(self):
         """
-        Writes config settings for this workflow run to .snakemake/settings/<TIMESTAMP>/settings.txt
+        Writes config settings for this workflow run to .snakemake/settings/<TIMESTAMP>.txt
         """
 
         if self.command_line_settings:
-            outdir = os.path.join(
+            out_path = os.path.join(
                 ".snakemake",
                 "settings",
-                datetime.datetime.now().isoformat().replace(":", ""),
+                datetime.datetime.now().isoformat().replace(":", "") + ".txt",
             )
 
-            os.makedirs(outdir, exist_ok=True)
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
-            settings_file = os.path.abspath(os.path.join(outdir, "settings.txt"))
-
-            with open(settings_file, "w") as f:
+            with open(out_path, "w") as f:
                 f.write(
                     "### Command Line Arguments and Additional Settings From Profiles ###\n"
                 )
