@@ -21,11 +21,11 @@ class AccessPatternFactory:
     @classmethod
     def random(cls, item: item_type):
         return flag(item, "access_pattern", AccessPattern.RANDOM)
-    
+
     @classmethod
     def sequential(cls, item: item_type):
         return flag(item, "access_pattern", AccessPattern.SEQUENTIAL)
-    
+
     @classmethod
     def multi(cls, item: item_type):
         return flag(item, "access_pattern", AccessPattern.MULTI)

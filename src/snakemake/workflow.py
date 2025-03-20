@@ -1185,7 +1185,7 @@ class Workflow(WorkflowExecutorInterface):
         assert self.output_settings is not None
         shell.conda_block_conflicting_envvars = (
             not self.deployment_settings.conda_not_block_search_path_envvars
-        )            
+        )
 
         if self.remote_execution_settings.envvars:
             self.register_envvars(*self.remote_execution_settings.envvars)
