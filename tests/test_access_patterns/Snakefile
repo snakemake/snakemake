@@ -22,7 +22,7 @@ rule b:
     log:
         "logs/b/{dataset}.log"
     shell:
-        "set +eo pipefail; readlink {input} > {output} || true"
+        "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"
 
 
 rule c:
@@ -33,7 +33,7 @@ rule c:
     log:
         "logs/c/{dataset}.log"
     shell:
-        "set +eo pipefail; readlink {input} > {output} || true"
+        "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"
 
 
 rule d:
@@ -44,7 +44,7 @@ rule d:
     log:
         "logs/d/{dataset}.log"
     shell:
-        "set +eo pipefail; readlink {input} > {output} || true"
+        "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"
 
 
 rule e:
@@ -55,7 +55,7 @@ rule e:
     log:
         "logs/e/{dataset}.log"
     shell:
-        "set +eo pipefail; readlink {input} > {output} || true"
+        "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"
 
 
 rule f:
@@ -66,4 +66,4 @@ rule f:
     log:
         "logs/f/{dataset}.log"
     shell:
-        "set +eo pipefail; readlink {input} > {output} || true"
+        "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"

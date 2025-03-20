@@ -457,8 +457,6 @@ class Rule(RuleInterface):
                 if is_flagged(item, flag_name):
                     continue
                 item = flag_(item)
-
-            print(item)
             return item
 
         if isinstance(item, str):
