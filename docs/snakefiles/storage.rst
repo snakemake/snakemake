@@ -223,3 +223,58 @@ Usually, this can be done via environment variables, e.g. for S3::
 
     export SNAKEMAKE_STORAGE_S3_ACCESS_KEY=...
     export SNAKEMAKE_STORAGE_S3_SECRET_KEY=...
+
+Annotating access patterns
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Storage providers can automatically optimize the provision of files based on how the files will be accessed by the respective job.
+For example, if a file is only read sequentially, the storage provider can avoid downloading it and instead mount or symlink it (depending on the protocol) for ondemand access.
+This can be beneficial, in particular if the sequential access involves only a small part of an otherwise large file.
+The three access patterns that can be annotated are:
+
+* ``access.sequential``: The file is read sequentially either from start to end or in (potentially disjoint) chunks, but always in order from the start to the end.
+* ``access.random``: The file is read in a non-sequential order.
+* ``access.multi``: The file is read sequentially, but potentially multiple times in parallel.
+
+Snakemake considers an input file eligible for on-demand provisioning if it is accessed sequentially by one job in parallel.
+In all other cases, multi-access, random access, or sequential access by multiple jobs in parallel, the storage provider will download the file to the local filesystem before it is accessed by jobs.
+In case no access pattern is annotated (the default), Snakemake will also download the file.
+
+The access patterns can be annotated via flags.
+Usually, one would define sequential access as the default pattern (it should usually be the most common pattern in a workflow).
+This can be done via the ``inputflags`` directive before defining any rule.
+For specific files, the access pattern can be annotated by the respective flags ``access.sequential``, ``access.random``, or ``access.multi``.
+
+.. code-block:: python
+
+    inputflags:
+    access.sequential
+
+
+    rule a:
+        input:
+            access.random("test1.in")  # expected as local copy (because accessed randomly)
+        output:
+            "test1.out"
+        shell:
+            "cmd_b {input} {output}"
+
+
+    rule b:
+        input:
+            access.multi("test1.out") # expected as local copy (because accessed multiple times)
+        output:
+            "test2.{dataset}.out"
+        shell:
+            "cmd_b {input} {output}"
+
+
+    rule c:
+        input:
+            "test2.{dataset}.out" # expected as on-demand provisioning (because accessed sequentially, the default defined above)
+        output:
+            "test3.{dataset}.out"
+        shell:
+            "cmd_c {input} {output}"
+
+Note that there is no guarantee that the storage provider makes use of this information, since the possibilities can vary between storage protocols and the development stage of the storage plugin.
