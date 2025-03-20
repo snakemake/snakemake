@@ -140,9 +140,10 @@ def get_packages():
             ),
             # Begin dependencies for vega-lite, included in vega-lite/vega-lite.js
             # (excluding those shared with vega and therefore already documented)
-            "@types-clone": Package(
-                license_path="@types-estree/LICENSE",
-            ),
+            # TODO reactivate once we have a license again in the assets
+            # "@types-clone": Package(
+            #     license_path="@types-estree/LICENSE",
+            # ),
             "array-flat-polyfill": Package(
                 license_path="array-flat-polyfill/LICENSE",
             ),
