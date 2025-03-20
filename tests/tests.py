@@ -2359,11 +2359,11 @@ def test_settings_persistence():
         check_results=False,
         cleanup=False,
     )
-    
-    print(os.listdir(os.path.join(tmpdir, ".snakemake", "settings")))
 
     # assert timestamped file exists in a .snamemake/settings
     assert len(os.listdir(os.path.join(tmpdir, ".snakemake", "settings"))) == 1
+
+    shutil.rmtree(tmpdir)
 
 
 
