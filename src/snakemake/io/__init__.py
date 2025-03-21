@@ -987,6 +987,10 @@ def flag(value, flag_type, flag_value=True):
     return [flag(v, flag_type, flag_value=flag_value) for v in value]
 
 
+def get_flag_store_keys(flag_func: Callable) -> Set[str]:
+    return set(flag_func("dummy").flags.keys())
+
+
 _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )

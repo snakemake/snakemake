@@ -73,7 +73,11 @@ Non-local execution
 ^^^^^^^^^^^^^^^^^^^
 
 Non-local execution on cluster or cloud infrastructure is implemented via plugins.
-The `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_ lists available plugins and their documentation.
+The `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`__ lists available plugins and their documentation.
+In general, the configuration boils down to specifying an executor plugin (e.g. for SLURM or Kubernetes) and, if needed, a :ref:`storage <default_storage>` plugin (e.g. in order to use S3 for input and output files or in order to efficiently use a shared network filesystem).
+For maximizing the I/O performance over the network, it can be advisable to :ref:`annotate the input file access patterns of rules <storage-access-patterns>`.
+Snakemake provides lots of tunables for non-local execution, which can all be found under :ref:`all_options` and in the plugin descriptions of the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`__.
+In any case, the cluster or cloud specific configuration will entail lots of command line options to be chosen and set, which should be persisted in a :ref:`profile <executing-profiles>`.
 
 Dealing with very large workflows
 ---------------------------------
