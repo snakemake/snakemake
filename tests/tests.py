@@ -1220,6 +1220,11 @@ def test_checkpoint_missout():
     run(dpath("test_checkpoint_missout"))
 
 
+@skip_on_windows
+def test_checkpoints_flexible():
+    run(dpath("test_checkpoints_flexible"))
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
