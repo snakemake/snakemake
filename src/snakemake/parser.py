@@ -8,8 +8,10 @@ import textwrap
 import tokenize
 from typing import Any, Callable, Dict, Generator, List, Optional, TYPE_CHECKING
 
+from snakemake import common
+
 if TYPE_CHECKING:
-    from snakemake import common, sourcecache, workflow
+    from snakemake import sourcecache, workflow
 
 dd = textwrap.dedent
 
