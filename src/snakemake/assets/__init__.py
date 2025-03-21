@@ -7,6 +7,7 @@ import hashlib
 import importlib.resources
 from pathlib import Path
 from typing import Dict, Optional
+import urllib.parse
 import urllib.request
 import urllib.error
 
@@ -146,15 +147,42 @@ class Assets:
         ),
         # Via vega-expression (vega-lite also depends on vega-expression)
         # The license file included in the NPM package does not exist directly
-        # in https://github.com/DefinitelyTyped/DefinitelyTyped, so we use an
-        # unpkg URL to reference the contents of the NPM package instead.
-        # TODO estree license is not present on unpkg anymore.
-        # TODO Also, the repo referenced about _does_ contain a license.
-        # "@types-estree/LICENSE": Asset(
-        #     url="https://unpkg.com/@types/estree@{version}/LICENSE",
-        #     sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
-        #     version="0.0.50",
-        # ),
+        # in https://github.com/DefinitelyTyped/DefinitelyTyped, so (lacking
+        # any other usable URL) we use a data: URL to provide the precise
+        # license text that is in the actual NPM package.
+        # See: https://github.com/DefinitelyTyped/DefinitelyTyped/issues/50580
+        "@types-clone/LICENSE": Asset(
+            url="data:text/plain;charset=US-ASCII,{}".format(
+                urllib.parse.quote(
+                    """    MIT License
+
+    Copyright (c) Microsoft Corporation.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE
+""",
+                    safe="",
+                    encoding="ascii",
+                )
+            ),
+            sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+            version="0.0.50",
+        ),
         # Via vega-force
         "d3-force/LICENSE": Asset(
             url="https://raw.githubusercontent.com/d3/d3-force/refs/tags/v{version}/LICENSE",
@@ -363,13 +391,43 @@ class Assets:
         ),
         # Begin dependencies for vega-lite, included in vega-lite/vega-lite.js
         # Versions from https://github.com/vega/vega-lite/blob/v5.2.0/yarn.lock.
-        # TODO: file not present on unpkg, disable for now and seek for a better source
-        # in the future
-        # "@types-clone/LICENSE": Asset(
-        #     url="https://unpkg.com/@types/clone@{version}/LICENSE",
-        #     sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
-        #     version="2.1.1",
-        # ),
+        # The license file included in the NPM package does not exist directly
+        # in https://github.com/DefinitelyTyped/DefinitelyTyped, so (lacking
+        # any other usable URL) we use a data: URL to provide the precise
+        # license text that is in the actual NPM package.
+        # See: https://github.com/DefinitelyTyped/DefinitelyTyped/issues/50580
+        "@types-estree/LICENSE": Asset(
+            url="data:text/plain;charset=US-ASCII,{}".format(
+                urllib.parse.quote(
+                    """    MIT License
+
+    Copyright (c) Microsoft Corporation.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE
+""",
+                    safe="",
+                    encoding="ascii",
+                )
+            ),
+            sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+            version="2.1.1",
+        ),
         "array-flat-polyfill/LICENSE": Asset(
             # Releases are not tagged in git; we use the commit hash
             # corresponding to the 1.0.1 release
