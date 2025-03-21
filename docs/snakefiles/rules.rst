@@ -3084,7 +3084,7 @@ Consider the following example:
 Would automatically mark the output file of rule ``a`` as temporary.
 The most convenient use case of this mechanism occurs in combination with :ref:`access pattern annotation <storage-access-patterns>`.
 In this case, the default access pattern can be set globally for all output files of a workflow.
-Only a few cases that differ have then to deal with explicit access pattern annotation (see :ref:`<storage-access-patterns>` for an example).
+Only a few cases that differ have then to deal with explicit access pattern annotation (see :ref:`storage-access-patterns` for an example).
 Whenever a rule defines a flag for a file, this flag will override the default flag of the same kind or any contradicting default flags (e.g. ``temp`` will override ``protected``).
 
 Such default input and output flag specifications are always valid for all rules that follow them in the workflow definition.
