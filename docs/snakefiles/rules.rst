@@ -1799,6 +1799,8 @@ or the short form
 will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
 
 
+.. _snakefiles_protected_temp:
+
 Protected and Temporary Files
 -----------------------------
 
@@ -3057,6 +3059,37 @@ To avoid such leaks (only required if your template does something like that wit
         group: "some-group"
         shell:
             "sometool {input} {output}"
+
+.. _snakefiles_default_flags:
+
+Setting default flags
+---------------------
+
+Snakemake allows the annotation of input and output files via so-called flags (see e.g. :ref:`snakefiles_protected_temp`).
+Sometimes, it can be useful to define that a certain flag shall be applied to all input or output files of a workflow.
+This can be achieved via the global ``inputflags`` and ``outputflags`` directives.
+Consider the following example:
+
+.. code-block:: python
+
+    outputflags:
+        temp
+
+    rule a:
+        output:
+            "test.out"
+        shell:
+            "echo test > {output}"
+
+Would automatically mark the output file of rule ``a`` as temporary.
+The most convenient use case of this mechanism occurs in combination with :ref:`access pattern annotation <storage-access-patterns>`.
+In this case, the default access pattern can be set globally for all output files of a workflow.
+Only a few cases that differ have then to deal with explicit access pattern annotation (see :ref:`storage-access-patterns` for an example).
+Whenever a rule defines a flag for a file, this flag will override the default flag of the same kind or any contradicting default flags (e.g. ``temp`` will override ``protected``).
+
+Such default input and output flag specifications are always valid for all rules that follow them in the workflow definition.
+Importantly, they are also "namespaced" per module, meaning that ``inputflags`` and ``outputflags`` directives in a module only apply to the rules defined in that module.
+
 
 .. _snakefiles_mpi_support:
 

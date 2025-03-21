@@ -411,6 +411,18 @@ class GlobalConda(GlobalKeywordState):
         return "global_conda"
 
 
+class DefaultInputFlags(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "set_default_input_flags"
+
+
+class DefaultOutputFlags(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "set_default_output_flags"
+
+
 class Localrules(GlobalKeywordState):
     def block_content(self, token):
         if is_comma(token):
@@ -1265,6 +1277,8 @@ class Python(TokenAutomaton):
         containerized=GlobalContainerized,
         conda=GlobalConda,
         scattergather=Scattergather,
+        inputflags=DefaultInputFlags,
+        outputflags=DefaultOutputFlags,
         storage=Storage,
         resource_scopes=ResourceScope,
         module=Module,
