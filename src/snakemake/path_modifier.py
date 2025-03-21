@@ -13,7 +13,6 @@ from snakemake.io import (
     AnnotatedString,
     flag,
     get_flag_value,
-    MultiextValue,
 )
 from snakemake.logging import logger
 

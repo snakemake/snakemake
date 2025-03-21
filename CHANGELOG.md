@@ -1,6 +1,34 @@
 # Changelog
 
 
+## [9.1.0](https://github.com/snakemake/snakemake/compare/v9.0.1...v9.1.0) (2025-03-21)
+
+
+### Features
+
+* adapt to changes in storage plugin interface, now passing the logger to the storage provider ([#3460](https://github.com/snakemake/snakemake/issues/3460)) ([ac34f11](https://github.com/snakemake/snakemake/commit/ac34f11e704730c0bf0b9a89adcfb8909fb0baf0))
+* finalized support for access pattern annotation (sequential, random, multi), allowing storage plugins to decide about the most efficient provisioning approach (e.g. mounting vs. downloading a local copy) ([#3461](https://github.com/snakemake/snakemake/issues/3461)) ([871c5ab](https://github.com/snakemake/snakemake/commit/871c5ab83def456f7f239f212080bcef447dc08b))
+* introduce ability to annotate access pattern (will e.g. be usable for optimizations in storage plugins) ([#3459](https://github.com/snakemake/snakemake/issues/3459)) ([6e5e65b](https://github.com/snakemake/snakemake/commit/6e5e65b4184b842df1519469f62e847fc52c2d20))
+
+
+### Bug Fixes
+
+* only warn upon positional parameter overwrite with "use rule"  in case the number of positional parameters changes ([#3457](https://github.com/snakemake/snakemake/issues/3457)) ([ec18f98](https://github.com/snakemake/snakemake/commit/ec18f98fd94e6133980b4575f932be841e3d2dbf))
+* setup logger for non-executing subcommands ([de5c7a3](https://github.com/snakemake/snakemake/commit/de5c7a35a5d439c073194cf8c30984463180a471))
+
+
+### Documentation
+
+* Fix indentation of datavzrd configuration of tutorial ([#3465](https://github.com/snakemake/snakemake/issues/3465)) ([96ec187](https://github.com/snakemake/snakemake/commit/96ec18700e3616794c4da72937e879f7e789b8e7))
+* fix profiles linking, add Sphinx rst syntax infos ([#3453](https://github.com/snakemake/snakemake/issues/3453)) ([bbb0284](https://github.com/snakemake/snakemake/commit/bbb0284347351b46e8f05679a54aa1e262402e1d))
+
+## [9.0.1](https://github.com/snakemake/snakemake/compare/v9.0.0...v9.0.1) (2025-03-14)
+
+
+### Bug Fixes
+
+* group job error call ([#3448](https://github.com/snakemake/snakemake/issues/3448)) ([3d53863](https://github.com/snakemake/snakemake/commit/3d5386393b0f580c5e44819ffddfe13562dc248d))
+
 ## [9.0.0](https://github.com/snakemake/snakemake/compare/v8.30.0...v9.0.0) (2025-03-14)
 
 
@@ -11,7 +39,7 @@
 ### Features
 
 * [#3412](https://github.com/snakemake/snakemake/issues/3412) - keep shadow folder of failed job if --keep-incomplete flag is set. ([#3430](https://github.com/snakemake/snakemake/issues/3430)) ([22978c3](https://github.com/snakemake/snakemake/commit/22978c3a9479d0f0a94f33ea74e91ce06f83d2d7))
-* add flag --report-after-run to automatically generate the report after a successfull workflow run ([#3428](https://github.com/snakemake/snakemake/issues/3428)) ([b0a7f03](https://github.com/snakemake/snakemake/commit/b0a7f03e824beae5985e542d80d46c3d75bfc823))
+* add flag --report-after-run to automatically generate the report after a successful workflow run ([#3428](https://github.com/snakemake/snakemake/issues/3428)) ([b0a7f03](https://github.com/snakemake/snakemake/commit/b0a7f03e824beae5985e542d80d46c3d75bfc823))
 * add flatten function to IO utils ([#3424](https://github.com/snakemake/snakemake/issues/3424)) ([67fa392](https://github.com/snakemake/snakemake/commit/67fa392c1eedab2c7b0aaa5c38ac1d9403912497))
 * add helper functions to parse input files ([#2918](https://github.com/snakemake/snakemake/issues/2918)) ([63e45a7](https://github.com/snakemake/snakemake/commit/63e45a70ae57bc46b345c69b7c2f18d7c811b176))
 * Add option to print redacted file names ([#3089](https://github.com/snakemake/snakemake/issues/3089)) ([ba4d264](https://github.com/snakemake/snakemake/commit/ba4d2644aab18b43a8704e883f48c428d8b35d5a))

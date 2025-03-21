@@ -226,4 +226,4 @@ Usually, it is preferred to only set the working directory via the command line,
 Cluster Configuration (not supported anymore)
 ---------------------------------------------
 
-The previously supported cluster configuration has been replaced by configuration profiles (see :ref:`profiles`).
+The previously supported cluster configuration has been replaced by configuration profiles (see :ref:`executing-profiles`).

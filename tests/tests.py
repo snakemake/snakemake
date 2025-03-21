@@ -2075,6 +2075,24 @@ def test_storage_localrule():
         )
 
 
+@skip_on_windows
+def test_access_patterns():
+    run(
+        dpath("test_access_patterns"),
+        cluster="./sbatch",
+        nodes=1,
+        group_components={"g1": 2},
+        overwrite_groups={"b": "g1", "c": "g1"},
+        default_storage_provider="fs",
+        default_storage_prefix="fs-storage",
+        shared_fs_usage=[
+            SharedFSUsage.PERSISTENCE,
+            SharedFSUsage.SOURCE_CACHE,
+            SharedFSUsage.SOURCES,
+        ],
+    )
+
+
 @skip_on_windows  # OS agnostic
 def test_update_flag():
     run(dpath("test_update_flag"))
@@ -2122,6 +2140,10 @@ def test_handle_storage_multi_consumers():
 @skip_on_windows  # OS agnostic
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
+
+
+def test_default_flags():
+    run(dpath("test_default_flags"), executor="dryrun", check_results=False)
 
 
 @skip_on_windows
