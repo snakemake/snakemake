@@ -1,8 +1,6 @@
 from enum import Enum
-from typing import Callable, Iterable, Union
 from snakemake.io import flag
-
-VALID_PATTERNS = frozenset(("random", "sequential", "sequential-multi"))
+from snakemake.io.flags import FlaggableItemOrIterable
 
 
 class AccessPattern(Enum):
@@ -14,18 +12,15 @@ class AccessPattern(Enum):
         return self.value
 
 
-item_type = Union[str, Iterable[str], Callable, Iterable[Callable]]
-
-
 class AccessPatternFactory:
     @classmethod
-    def random(cls, item: item_type):
+    def random(cls, item: FlaggableItemOrIterable):
         return flag(item, "access_pattern", AccessPattern.RANDOM)
 
     @classmethod
-    def sequential(cls, item: item_type):
+    def sequential(cls, item: FlaggableItemOrIterable):
         return flag(item, "access_pattern", AccessPattern.SEQUENTIAL)
 
     @classmethod
-    def multi(cls, item: item_type):
+    def multi(cls, item: FlaggableItemOrIterable):
         return flag(item, "access_pattern", AccessPattern.MULTI)

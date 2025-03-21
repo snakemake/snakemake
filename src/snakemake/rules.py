@@ -442,22 +442,15 @@ class Rule(RuleInterface):
 
         inoutput = self.output if output else self.input
 
+        default_flags = (
+            self.workflow.modifier.default_output_flags
+            if output
+            else self.workflow.modifier.default_input_flags
+        )
+
         # Check to see if the item is a path, if so, just make it a string
         if isinstance(item, Path):
             item = str(item.as_posix())
-
-        def apply_default_flags(item):
-            default_flags = (
-                self.workflow.modifier.default_output_flags
-                if output
-                else self.workflow.modifier.default_input_flags
-            )
-            for flag_ in default_flags:
-                store_keys = default_flags.get_store_keys(flag_)
-                if any(is_flagged(item, store_key) for store_key in store_keys):
-                    continue
-                item = flag_(item)
-            return item
 
         if isinstance(item, str):
             if ON_WINDOWS:
@@ -479,7 +472,7 @@ class Rule(RuleInterface):
 
             item = self.apply_path_modifier(item, path_modifier, property=property)
 
-            item = apply_default_flags(item)
+            item = default_flags.apply(item)
 
             # Check to see that all flags are valid
             # Note that "storage", and "expand" are valid for both inputs and outputs.
@@ -565,7 +558,7 @@ class Rule(RuleInterface):
                     "Only input files can be specified as functions", rule=self
                 )
 
-            item = apply_default_flags(item)
+            item = default_flags.apply(item)
 
             inoutput.append(item)
             if name:

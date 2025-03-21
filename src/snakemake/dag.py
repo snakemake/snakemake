@@ -22,7 +22,7 @@ from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
-from snakemake.io.access_patterns import AccessPattern
+from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface

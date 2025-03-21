@@ -43,6 +43,8 @@ In general, there are four ways to use a storage provider.
 Using the S3 storage plugin, we will provide an example for all of the cases below.
 For provider specific options (also for all options of the S3 plugin which are omitted here for brevity) and all available plugins see the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_.
 
+.. _default_storage:
+
 As default provider
 ^^^^^^^^^^^^^^^^^^^
 If you want all your input and output (which is not explicitly marked to come from 
@@ -224,8 +226,10 @@ Usually, this can be done via environment variables, e.g. for S3::
     export SNAKEMAKE_STORAGE_S3_ACCESS_KEY=...
     export SNAKEMAKE_STORAGE_S3_SECRET_KEY=...
 
-Annotating access patterns
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _storage-access-patterns:
+
+Access pattern annotation
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Storage providers can automatically optimize the provision of files based on how the files will be accessed by the respective job.
 For example, if a file is only read sequentially, the storage provider can avoid downloading it and instead mount or symlink it (depending on the protocol) for ondemand access.
