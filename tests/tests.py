@@ -298,6 +298,15 @@ def test_report_after_run():
     )
 
 
+def test_report_metadata():
+    run(
+        dpath("test_report_metadata"),
+        report="report.html",
+        report_metadata="yte_template.yaml",
+        check_md5=False,
+    )
+
+
 def test_params():
     run(dpath("test_params"))
 

@@ -329,3 +329,27 @@ For example, this allows you to set a logo at the top (by using CSS to inject a 
 For an example with a custom stylesheet defining a logo, see :download:`the report here <../../tests/test_report/expected-results/report.html>` (with a custom branding for the University of Duisburg-Essen).
 For the complete mechanics, you can also have a look at the `full example source code  <https://github.com/snakemake/snakemake/tree/main/tests/test_report/>`__ and :download:`the custom stylesheet with the logo definition <../../tests/test_report/custom-stylesheet.css>`.
 
+Custom report metadata
+^^^^^^^^^^^^^^^^^^^^^^
+
+You can define custom metadata that is displayed on the landing page of the report.
+By default, only the used Snakemake version is displayed. 
+The metadata is provided as a `YTE <https://yte-template-engine.github.io>`_ yaml template.
+
+.. code-block:: bash
+
+    snakemake --report report.html --report-metadata yte_template.yaml
+
+An example metadata yaml template that contains information about the work directory in which the workflow was run contains the following definitions.
+
+.. code-block:: yaml
+
+    __definitions__:
+    - import os
+
+    Workflow name: Test Workflow
+    Workdir: ?os.getcwd()
+    Contributors:
+      - Test Contributor
+      - Another Contributor
+
