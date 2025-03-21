@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import os
 from pathlib import Path
+import subprocess as sp
 import shutil
 import tempfile
 import re
@@ -66,12 +67,27 @@ class JupyterNotebook(ScriptBase):
         fname_out = self.log.get("notebook", None)
 
         with tempfile.TemporaryDirectory() as tmp:
+            try:
+                self._execute_cmd("papermill --version", read=True)
+                has_papermill = True
+            except sp.CalledProcessError:
+                has_papermill = False
+
             if edit is not None:
                 assert not edit.draft_only
-                logger.info("Opening notebook for editing.")
+                logger.info(f"Opening notebook for editing at {edit.ip}:{edit.port}")
                 cmd = (
                     "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
-                    "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
+                    "--ServerApp.quit_button=True {{fname:q}}".format(edit=edit)
+                )
+            elif has_papermill:
+                if fname_out is None:
+                    output_parameter = fname
+                else:
+                    output_parameter = "{fname_out}"
+                cmd = (
+                    "papermill --log-level ERROR {{fname:q}} "
+                    "{output_parameter}".format(output_parameter=output_parameter)
                 )
             else:
                 if fname_out is None:
