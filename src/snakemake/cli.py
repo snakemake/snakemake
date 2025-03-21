@@ -1914,7 +1914,7 @@ def parse_rerun_triggers(values):
     return {RerunTrigger[x] for x in values}
 
 
-def args_to_api(args, parser):
+def args_to_api(args, parser, settings_sources):
     """Convert argparse args to API calls."""
 
     # handle legacy executor names
@@ -2041,6 +2041,7 @@ def args_to_api(args, parser):
                         config=parse_config(args.config),
                         configfiles=args.configfile,
                         config_args=args.config,
+                        command_line_settings=settings_sources,
                         replace_workflow_config=args.replace_workflow_config,
                     ),
                     storage_settings=storage_settings,
@@ -2254,7 +2255,9 @@ def main(argv=None):
 
     try:
         parser, args = parse_args(argv)
-        success = args_to_api(args, parser)
+        settings_sources = parser.format_values()
+
+        success = args_to_api(args, parser, settings_sources)
     except Exception as e:
         print_exception(e)
         sys.exit(1)
