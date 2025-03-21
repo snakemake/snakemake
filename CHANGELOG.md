@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.1.1](https://github.com/snakemake/snakemake/compare/v9.1.0...v9.1.1) (2025-03-21)
+
+
+### Bug Fixes
+
+* avoid a circular import in the parse code  ([#3468](https://github.com/snakemake/snakemake/issues/3468)) ([7c6f232](https://github.com/snakemake/snakemake/commit/7c6f232cb5abc37c942f4d143106cc90830c6036))
+
 ## [9.1.0](https://github.com/snakemake/snakemake/compare/v9.0.1...v9.1.0) (2025-03-21)
 
 
