@@ -59,6 +59,7 @@ from snakemake.settings.types import PrintDag
 from snakemake.io import (
     _IOFile,
     PeriodicityDetector,
+    flags,
     get_flag_value,
     is_callable,
     is_flagged,
@@ -409,9 +410,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 jobs = []
 
         def access_pattern(f):
-            if f.is_flagged("access_pattern"):
-                return f.flags["access_pattern"]
-            return None
+            return f.flags.get(flags.access_patterns.STORE_KEY)
 
         to_retrieve = defaultdict(list)
         for job in jobs:
@@ -429,7 +428,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         if to_retrieve:
             try:
                 async with asyncio.TaskGroup() as tg:
-                    for f, access_patterns in to_retrieve.items():
+                    for f, file_access_patterns in to_retrieve.items():
                         logger.info(f"Retrieving {f} from storage.")
 
                         # METHOD: If the file is at least by one job accessed randomly
@@ -440,15 +439,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         # This information is passed to the storage plugin via the
                         # attribute is_ondemand_eligible.
                         f.storage_object.is_ondemand_eligible = (
-                            len(access_patterns) == 1
-                            and AccessPattern.RANDOM not in access_patterns
-                            and AccessPattern.MULTI not in access_patterns
-                            and None not in access_patterns
+                            len(file_access_patterns) == 1
+                            and AccessPattern.RANDOM not in file_access_patterns
+                            and AccessPattern.MULTI not in file_access_patterns
+                            and None not in file_access_patterns
                         )
                         logger.debug(
                             f"Ondemand eligibility of {f.storage_object.print_query}: "
                             f"{f.storage_object.is_ondemand_eligible} with access "
-                            f"patterns {','.join(map(str, access_patterns))}"
+                            f"patterns {','.join(map(str, file_access_patterns))}"
                         )
                         tg.create_task(f.retrieve_from_storage())
             except ExceptionGroup as e:
