@@ -1607,12 +1607,23 @@ class XonshScript(PythonScript):
         fd.write(preamble.encode())
 
         if self.conda_env:
-            fd.write(f"\nconda activate {self.conda_env}\n".encode())
+            fd.write(
+                "\n".join(
+                    [
+                        '__xonsh__.execer.exec($("$CONDA_EXE" "shell.xonsh" "hook"))',
+                        f"conda activate {self.conda_env}",
+                        "\n",
+                    ]
+                ).encode()
+            )
 
         fd.write(self.source.encode())
 
     def execute_script(self, fname, edit=False):
-        self._execute_cmd("xonsh -DRAISE_SUBPROC_ERROR=True {fname:q}", fname=fname)
+        self._execute_cmd(
+            "xonsh -DRAISE_SUBPROC_ERROR=True -DXONSH_SHOW_TRACEBACK=True {fname:q}",
+            fname=fname,
+        )
 
 
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
