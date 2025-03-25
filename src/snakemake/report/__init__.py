@@ -743,7 +743,7 @@ async def auto_report(
                         snakemake=Snakemake, categories=results, files=files
                     ),
                     writer_name="html",
-                )["body"]
+                )["html_body"] # html_body is required to extract also the title, if given
             except UndefinedError as e:
                 raise WorkflowError(
                     "Error rendering global report caption {}:".format(

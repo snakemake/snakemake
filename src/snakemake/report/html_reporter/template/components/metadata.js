@@ -3,12 +3,29 @@
 class MetaData extends React.Component {
 
     render() {
+        let metadatalist = []
+        // If workflow description is given, show it on the landing page with the metadata
+        if (workflow_desc) {
+            metadatalist.push(...
+            [
+                e(
+                    "div",
+                    {
+                        className: "prose prose-sm max-w-lg",
+                        dangerouslySetInnerHTML: { __html: workflow_desc }
+                    }
+                ),
+            ]
+            );
+        }
+
         // Iterate over the metadata dictionary and add the entries to the landing page
-        let metadatalist = [];
         for (const [key, value] of Object.entries(metadata)) {
             metadatalist.push(... this.innerRender(key, value));
         }
+        console.log(workflow_desc)
         return e(
+            //workflow_desc,
             "ul",
             { },
             metadatalist

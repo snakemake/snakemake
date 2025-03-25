@@ -1,5 +1,7 @@
 shell.executable("bash")
 
+report: 'report.rst'
+
 rule a:
     output:
         "test.out"
