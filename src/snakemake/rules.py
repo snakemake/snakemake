@@ -107,6 +107,7 @@ class Rule(RuleInterface):
         self._lineno = lineno
         self._snakefile = snakefile
         self.run_func = None
+        self.run_func_src = None
         self.shellcmd = None
         self.script = None
         self.notebook = None

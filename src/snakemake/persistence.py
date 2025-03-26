@@ -553,11 +553,13 @@ class Persistence(PersistenceExecutorInterface):
 
     @lru_cache()
     def _code(self, rule):
-        # We only consider shell commands for now.
-        # Plain python code rules are hard to capture because the pickling of the code
-        # can change with different python versions.
         # Scripts and notebooks are triggered by changes in the script mtime.
-        return rule.shellcmd if rule.shellcmd is not None else None
+        # Changes to python and shell rules are triggered by changes in the plain text.
+        if rule.shellcmd is not None:
+            return rule.shellcmd
+        if rule.run_func_src is not None:
+            return rule.run_func_src
+        return None
 
     @lru_cache()
     def _conda_env(self, job):
