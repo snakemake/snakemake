@@ -590,8 +590,6 @@ class DAGApi(ApiBase):
             or not executor_plugin.common_settings.local_exec
         )
 
-        logger_manager.setup_logfile()
-
         workflow = self.workflow_api._workflow
         workflow.execution_settings = execution_settings
         workflow.remote_execution_settings = remote_execution_settings
