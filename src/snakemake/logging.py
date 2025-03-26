@@ -645,8 +645,8 @@ class LoggerManager:
         stream_handler.name = "DefaultStreamHandler"
         return stream_handler
 
-    def get_logfile(self):
-        return self.logfile_handlers.values()
+    def get_logfile(self) -> list[str]:
+        return list(self.logfile_handlers.values())
 
     def logfile_hint(self):
         from snakemake_interface_executor_plugins.settings import ExecMode

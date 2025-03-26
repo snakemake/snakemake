@@ -1,3 +1,6 @@
+onsuccess:
+    shell("echo {log}")
+
 rule all:
     input:
         expand("results/{i}.txt", i=range(5)),
