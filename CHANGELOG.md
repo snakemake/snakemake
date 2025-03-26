@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.1.2](https://github.com/snakemake/snakemake/compare/v9.1.1...v9.1.2) (2025-03-26)
+
+
+### Bug Fixes
+
+* inherit flags of input functions ([#3483](https://github.com/snakemake/snakemake/issues/3483)) ([6bd981e](https://github.com/snakemake/snakemake/commit/6bd981e1ec1bcd230e9cf389c981862a93289e33))
+
 ## [9.1.1](https://github.com/snakemake/snakemake/compare/v9.1.0...v9.1.1) (2025-03-21)
 
 
