@@ -588,6 +588,9 @@ class LoggerManager:
         elif len(stream_handlers) == 0:
             # we dont have any stream_handlers from plugin(s) so give us the default one
             stream_handlers.append(self._default_streamhandler())
+
+        self.setup_logfile()
+
         all_handlers = (
             stream_handlers + other_handlers + list(self.logfile_handlers.keys())
         )
@@ -678,6 +681,7 @@ class LoggerManager:
                 )
                 handler = self._default_filehandler(logfile)
                 self.logfile_handlers[handler] = logfile
+
             except OSError as e:
                 self.logger.error(f"Failed to setup log file: {e}")
 
