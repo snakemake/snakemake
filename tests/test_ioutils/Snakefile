@@ -25,7 +25,7 @@ rule a:
         "a/{sample}.txt",
     params:
         checksum=parse_input(
-            input.checksum, parser=extract_checksum, file=f"{w.sample}.tsv"
+            input.checksum, parser=extract_checksum, file="{sample}.tsv"
         ),
     shell:
         "echo {params.checksum} > {output}"
