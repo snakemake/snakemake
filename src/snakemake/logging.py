@@ -664,6 +664,9 @@ class LoggerManager:
         if self.mode == ExecMode.DEFAULT:
             for handler in self.logfile_handlers.keys():
                 handler.close()
+                if hasattr(handler, "stream") and not handler.stream.closed:
+                    handler.stream.flush()
+                    handler.stream.close()
 
     def setup_logfile(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
