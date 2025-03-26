@@ -645,7 +645,7 @@ class LoggerManager:
         stream_handler.name = "DefaultStreamHandler"
         return stream_handler
 
-    def get_logfile(self) -> list[str]:
+    def get_logfile(self) -> List[str]:
         return list(self.logfile_handlers.values())
 
     def logfile_hint(self):
