@@ -60,12 +60,12 @@ def test_github_issue_14():
     # Return temporary directory for inspection - we should keep scripts here
     tmpdir = run(dpath("test_github_issue_14"), cleanup=False, cleanup_scripts=False)
     assert os.listdir(os.path.join(tmpdir, ".snakemake", "scripts"))
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
     # And not here
     tmpdir = run(dpath("test_github_issue_14"), cleanup=False, cleanup_scripts=True)
     assert not os.listdir(os.path.join(tmpdir, ".snakemake", "scripts"))
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 def test_issue956():
