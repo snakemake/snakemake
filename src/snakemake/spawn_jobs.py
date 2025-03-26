@@ -283,7 +283,9 @@ class SpawnedJobArgsFactory:
         else:
             # this is used in the main process when submitting jobs to a local executor
             # or when a remote executor spawns an inner executor
-            local_storage_prefix = w2a("storage_settings.local_storage_prefix", base64_encode=True)
+            local_storage_prefix = w2a(
+                "storage_settings.local_storage_prefix", base64_encode=True
+            )
 
         args = [
             "--force",
