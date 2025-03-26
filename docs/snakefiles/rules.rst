@@ -585,7 +585,7 @@ The function will return the extracted value and this can, for example, be used 
         output:
             "samples.id",
         params:
-            id=lambda w, input: parse_input(input.samples, parser=extract_id)
+            id=parse_input(input.samples, parser=extract_id)
         shell:
             "echo {params.id} > {output}"
 
