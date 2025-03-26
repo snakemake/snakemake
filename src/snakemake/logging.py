@@ -663,6 +663,7 @@ class LoggerManager:
 
         if self.mode == ExecMode.DEFAULT:
             for handler in self.logfile_handlers.keys():
+                self.logger.removeHandler(handler)
                 handler.close()
 
     def setup_logfile(self):
