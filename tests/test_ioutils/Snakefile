@@ -24,7 +24,7 @@ rule a:
     output:
         "a/{sample}.txt",
     params:
-        checksum=lambda w, input, output: parse_input(
+        checksum=lambda w, input: parse_input(
             input.checksum, parser=extract_checksum, file=f"{w.sample}.tsv"
         ),
     shell:

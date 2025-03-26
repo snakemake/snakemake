@@ -2,7 +2,7 @@ from typing import List
 
 
 def parse_input(infile, parser, **kwargs):
-    def inner(wildcards, input, output):
+    def inner(wildcards, input):
         with open(infile, "r") as fh:
             if parser is None:
                 return fh.read().strip()
