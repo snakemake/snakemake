@@ -802,7 +802,9 @@ class Rule(RuleInterface):
                         for name, item in item.items()
                     ]
             else:
-                apply_results = [(name, item, _is_callable, is_derived)]
+                apply_results = [
+                    (name, item, olditem if _is_callable else None, is_derived)
+                ]
 
             for name, item, from_callable, is_derived in apply_results:
                 is_iterable = True
@@ -821,12 +823,16 @@ class Rule(RuleInterface):
                             wildcards=wildcards,
                         )
 
-                    if from_callable and path_modifier is not None and not incomplete:
+                    if (
+                        from_callable is not None
+                        and not incomplete
+                        and path_modifier is not None
+                    ):
                         item_ = self.apply_path_modifier(
                             item_, path_modifier, property=property
                         )
 
-                    concrete = concretize(item_, wildcards, _is_callable)
+                    concrete = concretize(item_, wildcards, from_callable)
                     newitems.append(concrete)
                     if not is_derived and non_derived_items is not None:
                         non_derived_items.append(concrete)
@@ -841,11 +847,20 @@ class Rule(RuleInterface):
         return incomplete
 
     def expand_input(self, wildcards, groupid=None):
-        def concretize_iofile(f, wildcards, is_from_callable):
-            if is_from_callable:
+        def concretize_iofile(f, wildcards, from_callable):
+            if from_callable is not None:
                 if isinstance(f, Path):
                     f = str(f)
-                return IOFile(f, rule=self).apply_wildcards(wildcards)
+                iofile = IOFile(f, rule=self).apply_wildcards(wildcards)
+
+                # inherit flags from callable
+                if hasattr(from_callable, "flags"):
+                    for key, value in from_callable.flags.items():
+                        if key in iofile.flags:
+                            continue
+                        iofile.flags[key] = value
+
+                return self.workflow.modifier.default_input_flags.apply(iofile)
             else:
                 return f.apply_wildcards(wildcards)
 
