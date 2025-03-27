@@ -11,7 +11,17 @@ assert lookup(dpath="does/not/exist", within=config, default=5) == 5
 assert (
     extract_checksum("samples.md5", file="1.tsv") == "9695eb6f38992d796551f4cb20d7d138"
 )
-assert flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) == ["1", "a", "2", "b", "c", "d", "e", "3"]
+assert flatten([1, "a", [2, "b"], ["c", "d", ["e", 3]]]) == [
+    "1",
+    "a",
+    "2",
+    "b",
+    "c",
+    "d",
+    "e",
+    "3",
+]
+
 
 rule all:
     input:
@@ -24,8 +34,8 @@ rule a:
     output:
         "a/{sample}.txt",
     params:
-        checksum=parse_input(
-            input.checksum, parser=extract_checksum, file="{sample}.tsv"
+        checksum=lambda w, input: parse_input(
+            input.checksum, parser=extract_checksum, file=f"{w.sample}.tsv"
         ),
     shell:
         "echo {params.checksum} > {output}"
