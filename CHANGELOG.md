@@ -1,6 +1,21 @@
 # Changelog
 
 
+## [9.1.3](https://github.com/snakemake/snakemake/compare/v9.1.2...v9.1.3) (2025-03-26)
+
+
+### Bug Fixes
+
+* pass correct local storage prefix in case an executor spawns an inner job ([#3488](https://github.com/snakemake/snakemake/issues/3488)) ([1454ca1](https://github.com/snakemake/snakemake/commit/1454ca1721d45a826e5a8de597ae9c05f42db3c7))
+* setup_logfile in setup logger to ensure logfile handler is added ([#3486](https://github.com/snakemake/snakemake/issues/3486)) ([2ed13fc](https://github.com/snakemake/snakemake/commit/2ed13fcdd46f2e2b455fb96743815a77edac9dd4))
+
+## [9.1.2](https://github.com/snakemake/snakemake/compare/v9.1.1...v9.1.2) (2025-03-26)
+
+
+### Bug Fixes
+
+* inherit flags of input functions ([#3483](https://github.com/snakemake/snakemake/issues/3483)) ([6bd981e](https://github.com/snakemake/snakemake/commit/6bd981e1ec1bcd230e9cf389c981862a93289e33))
+
 ## [9.1.1](https://github.com/snakemake/snakemake/compare/v9.1.0...v9.1.1) (2025-03-21)
 
 
