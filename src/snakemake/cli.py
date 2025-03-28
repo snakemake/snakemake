@@ -13,7 +13,7 @@ from typing import List, Mapping, Optional, Set, Union
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
-from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
+from snakemake_interface_executor_plugins.utils import maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
@@ -180,8 +180,8 @@ def parse_set_resources(args):
             if len(key) != 2:
                 raise ValueError(errmsg)
             rule, resource = key
-            if is_quoted(orig_value):
-                # value is a string, just keep it
+            if re.fullmatch(r"""(['"]).*\1"""):
+                # A quoted value. Keep it.
                 value = orig_value
             else:
                 try:

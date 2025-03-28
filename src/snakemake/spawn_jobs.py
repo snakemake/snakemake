@@ -2,7 +2,7 @@ from dataclasses import dataclass, fields
 import hashlib
 import os
 import sys
-from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any
+from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any, Iterable
 from snakemake_interface_executor_plugins.utils import ShellRunner
 from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.resources import ParsedResource
@@ -95,13 +95,13 @@ class SpawnedJobArgsFactory:
             yield ("--set-resources", {
                     f"{rule}:{name}": get_orig_arg(value)
                     for rule, res in self.workflow.resource_settings.overwrite_resources.items()
-                    for name, value in res.items()
+                    for name, value in res.items() }
                   )
 
         if self.workflow.resource_settings.overwrite_threads:
             yield ("--set-threads", {
                     rule: get_orig_arg(value)
-                    for rule, value in self.workflow.resource_settings.overwrite_threads.items()
+                    for rule, value in self.workflow.resource_settings.overwrite_threads.items() }
                   )
 
     def get_resource_scopes_arg(self):
@@ -207,7 +207,6 @@ class SpawnedJobArgsFactory:
                                         "--deploy-sources",
                                         archive.query, archive.checksum],
                                         args = storage_provider_args )
-            )
 
         return precommand
 
@@ -238,24 +237,23 @@ class SpawnedJobArgsFactory:
         w2a = self.workflow_property_to_arg
 
         # Fixed args
-        args = { k: True for k in
+        args = { k: True for k in [
                     "--force",
                     "--target-files-omit-workdir-adjustment",
                     "--nocolor",
                     "--notemp",
                     "--no-hooks",
                     "--nolock",
-                    "--ignore-incomplete" }
+                    "--ignore-incomplete" ] }
         args["--max-inventory-time"] = 0
-
-        if shared_deployment:
-            args["--scheduler-solver-path"] = os.path.dirname(sys.executable)
 
         # Other properties
         shared_deployment = (
             SharedFSUsage.SOFTWARE_DEPLOYMENT
             in self.workflow.storage_settings.shared_fs_usage
         )
+        if shared_deployment:
+            args["--scheduler-solver-path"] = os.path.dirname(sys.executable)
 
         # base64 encode the prefix to ensure that eventually unexpanded env vars
         # are not replaced with values (or become empty if missing) by the shell
