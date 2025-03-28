@@ -30,15 +30,19 @@ rule all:
 
 rule a:
     input:
+        "dummy1.tsv",
         checksum="samples.md5",
     output:
         "a/{sample}.txt",
     params:
-        checksum=lambda w, input: parse_input(
+        checksum1=lambda w, input: parse_input(
+            input[1], parser=extract_checksum, file=f"{w.sample}.tsv"
+        ),
+        checksum2=lambda w, input: parse_input(
             input.checksum, parser=extract_checksum, file=f"{w.sample}.tsv"
         ),
     shell:
-        "echo {params.checksum} > {output}"
+        "echo -e '{params.checksum1}\n{params.checksum2}' | sort -u > {output}"
 
 
 rule b:

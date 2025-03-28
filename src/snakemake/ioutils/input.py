@@ -2,14 +2,14 @@ from typing import List
 
 
 def parse_input(infile, parser, **kwargs):
-    def inner(wildcards, input):
+    def _parse_input(wildcards, input):
         with open(infile, "r") as fh:
             if parser is None:
                 return fh.read().strip()
             else:
                 return parser(fh, **kwargs)
 
-    return inner
+    return _parse_input
 
 
 def extract_checksum(infile, **kwargs):
