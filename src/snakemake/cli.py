@@ -1617,6 +1617,15 @@ def get_argument_parser(profiles=None):
         default="snakejob.{name}.{jobid}.sh",
         metavar="NAME",
         help="Provide a custom name for the jobscript that is submitted to the cluster (see `--cluster`). The wildcard `{jobid}` has to be present in the name.",
+    ) 
+    group_cluster.add_argument(
+        "--source-file-manifest",
+        metavar="FILE",
+        type=Path,
+        help="Provide a file listing paths to workflow source files to deploy before "
+        "a remote job is started. If not provided git ls-files will be used to define "
+        "source files to upload. Only applies if --no-shared-fs is set or executors are "
+        "used that imply no shared FS (e.g. the kubernetes executor).",
     )
 
     group_flux = parser.add_argument_group("FLUX")
@@ -2202,6 +2211,7 @@ def args_to_api(args, parser):
                                 envvars=args.envvars,
                                 immediate_submit=args.immediate_submit,
                                 job_deploy_sources=args.job_deploy_sources,
+                                source_file_manifest=args.source_file_manifest,
                             ),
                             scheduling_settings=SchedulingSettings(
                                 prioritytargets=args.prioritize,
