@@ -424,7 +424,7 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     preemptible_rules: PreemptibleRules = field(default_factory=PreemptibleRules)
     envvars: Sequence[str] = tuple()
     immediate_submit: bool = False
-    precommand: Optional[str] = None
+    precommand: Optional[tuple] = None
     job_deploy_sources: bool = True
 
 

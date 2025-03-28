@@ -3,7 +3,7 @@ import hashlib
 import os
 import sys
 from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any
-from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
+from snakemake_interface_executor_plugins.utils import ShellRunner
 from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
@@ -25,25 +25,15 @@ else:
 class SpawnedJobArgsFactory:
     workflow: TWorkflow
 
-    def get_default_storage_provider_args(self) -> str:
+    def get_default_storage_provider_args(self) -> Iterable[tuple[str, str]]:
         has_default_storage_provider = (
             self.workflow.storage_registry.default_storage_provider is not None
         )
         if has_default_storage_provider:
-            return join_cli_args(
-                [
-                    format_cli_arg(
-                        "--default-storage-prefix",
-                        self.workflow.storage_settings.default_storage_prefix,
-                    ),
-                    format_cli_arg(
-                        "--default-storage-provider",
-                        self.workflow.storage_settings.default_storage_provider,
-                    ),
-                ]
-            )
-        else:
-            return ""
+            yield ("--default-storage-prefix",
+                   self.workflow.storage_settings.default_storage_prefix)
+            yield ("--default-storage-provider",
+                   self.workflow.storage_settings.default_storage_provider)
 
     def _get_storage_provider_setting_items(self):
         for (
@@ -77,7 +67,7 @@ class SpawnedJobArgsFactory:
                     if field_settings:
                         yield plugin, field, field_settings
 
-    def get_storage_provider_args(self):
+    def get_storage_provider_args(self) -> Iterable[tuple[str, str]]:
         for plugin, field, field_settings in self._get_storage_provider_setting_items():
             if not field.metadata.get("env_var", False):
                 cli_arg = plugin.get_cli_arg(field.name)
@@ -85,7 +75,7 @@ class SpawnedJobArgsFactory:
                     # so far no tagged settings for flags with default value False
                     assert len(field_settings) == 1
                     field_settings = field_settings[0]
-                yield format_cli_arg(cli_arg, field_settings)
+                yield (cli_arg, field_settings)
 
     def get_storage_provider_envvars(self):
         return {
@@ -94,67 +84,45 @@ class SpawnedJobArgsFactory:
             if field.metadata.get("env_var")
         }
 
-    def get_set_resources_args(self):
+    def get_set_resources_args(self) -> Iterable[tuple[str, str]]:
         def get_orig_arg(value):
             if isinstance(value, ParsedResource):
                 return value.orig_arg
             else:
                 return value
 
-        return [
-            format_cli_arg(
-                "--set-resources",
-                [
-                    f"{rule}:{name}={get_orig_arg(value)}"
+        if self.workflow.resource_settings.overwrite_resources:
+            yield ("--set-resources", {
+                    f"{rule}:{name}": get_orig_arg(value)
                     for rule, res in self.workflow.resource_settings.overwrite_resources.items()
                     for name, value in res.items()
-                ],
-                skip=not self.workflow.resource_settings.overwrite_resources,
-                base64_encode=True,
-            ),
-            format_cli_arg(
-                "--set-threads",
-                [
-                    f"{rule}={get_orig_arg(value)}"
+                  )
+
+        if self.workflow.resource_settings.overwrite_threads:
+            yield ("--set-threads", {
+                    rule: get_orig_arg(value)
                     for rule, value in self.workflow.resource_settings.overwrite_threads.items()
-                ],
-                skip=not self.workflow.resource_settings.overwrite_threads,
-                base64_encode=True,
-            ),
-        ]
+                  )
 
     def get_resource_scopes_arg(self):
-        return format_cli_arg(
-            "--set-resource-scopes",
-            self.workflow.resource_settings.overwrite_resource_scopes,
-        )
+        return {
+            "--set-resource-scopes":
+            self.workflow.resource_settings.overwrite_resource_scopes
+        }
 
     def get_shared_fs_usage_arg(self, executor_common_settings: CommonSettings):
         if executor_common_settings.spawned_jobs_assume_shared_fs:
             usage = SharedFSUsage.all()
         else:
             usage = self.workflow.storage_settings.shared_fs_usage
-        return format_cli_arg(
-            "--shared-fs-usage",
-            usage if usage else "none",
-        )
+        return {
+            "--shared-fs-usage": usage or "none"
+        }
 
-    def get_group_args(self):
+    def get_group_args(self) -> Iterable[tuple[str, dict]]:
         group_settings = self.workflow.group_settings
-        groups = format_cli_arg(
-            "--groups",
-            [
-                f"{rule}={group}"
-                for rule, group in group_settings.overwrite_groups.items()
-            ],
-            skip=not group_settings.overwrite_groups,
-        )
-        group_components = format_cli_arg(
-            "--group-components",
-            [f"{group}={n}" for group, n in group_settings.group_components.items()],
-            skip=not group_settings.group_components,
-        )
-        return join_cli_args([groups, group_components])
+        return { "--groups": group_settings.overwrite_groups or False,
+                 "--group-components": group_settings.group_components or False }
 
     def workflow_property_to_arg(
         self,
@@ -167,8 +135,10 @@ class SpawnedJobArgsFactory:
         attr=None,
         convert_value: Callable = None,
     ):
+        """Returns the specified property as a single-item dict.
+        """
         if skip:
-            return ""
+            return {}
 
         # Get the value of the property. If property is nested, follow the hierarchy until
         # reaching the final value.
@@ -194,7 +164,7 @@ class SpawnedJobArgsFactory:
         if convert_value is not None and value is not None:
             value = convert_value(value)
 
-        return format_cli_arg(flag, value, base64_encode=base64_encode)
+        return {flag: value}
 
     def envvars(self) -> Mapping[str, str]:
         envvars = {
@@ -208,10 +178,11 @@ class SpawnedJobArgsFactory:
         self,
         executor_common_settings: CommonSettings,
         python_executable: str = "python",
-    ) -> str:
-        precommand = []
+    ) -> ShellRunner:
+        precommand = ShellRunner()
         if self.workflow.remote_execution_settings.precommand:
-            precommand.append(self.workflow.remote_execution_settings.precommand)
+            # This now needs to be a list/tuple, not a string
+            precommand.append_command(self.workflow.remote_execution_settings.precommand)
         if (
             executor_common_settings.auto_deploy_default_storage_provider
             and self.workflow.storage_settings.default_storage_provider is not None
@@ -220,9 +191,9 @@ class SpawnedJobArgsFactory:
                 StoragePluginRegistry().get_plugin_package_name(pkg)
                 for pkg in self.workflow.storage_provider_settings.keys()
             )
-            pkgs = " ".join(packages_to_install)
-
-            precommand.append(f"pip install --target '{PIP_DEPLOYMENTS_PATH}' {pkgs}")
+            precommand.append_command( ["pip", "install",
+                                        "--target", PIP_DEPLOYMENTS_PATH,
+                                        *packages_to_install] )
 
         if (
             SharedFSUsage.SOURCES not in self.workflow.storage_settings.shared_fs_usage
@@ -230,15 +201,15 @@ class SpawnedJobArgsFactory:
             and not executor_common_settings.can_transfer_local_files
         ):
             archive = self.workflow.source_archive
-            default_storage_provider_args = self.get_default_storage_provider_args()
-            storage_provider_args = " ".join(self.get_storage_provider_args())
-            precommand.append(
-                f"{python_executable} -m snakemake --deploy-sources "
-                f"{archive.query} {archive.checksum} {default_storage_provider_args} "
-                f"{storage_provider_args}"
+            storage_provider_args = dict( self.get_default_storage_provider_args() )
+            storage_provider_args.update(self.get_storage_provider_args())
+            precommand.append_command( [python_executable, "-m", "snakemake",
+                                        "--deploy-sources",
+                                        archive.query, archive.checksum],
+                                        args = storage_provider_args )
             )
 
-        return " && ".join(precommand)
+        return precommand
 
     def get_configfiles_arg(self):
         # If not shared FS, use relpath for the configfiles (deployed via source archive)
@@ -251,21 +222,36 @@ class SpawnedJobArgsFactory:
         else:
             configfiles = self.workflow.overwrite_configfiles
         if configfiles:
-            return format_cli_arg("--configfiles", configfiles)
+            return {"--configfiles": configfiles}
         else:
-            return ""
+            return {}
 
     def general_args(
         self,
         executor_common_settings: CommonSettings,
-    ) -> str:
-        """Return a string to add to self.exec_job that includes additional
+    ) -> dict[str: Any]:
+        """Return a dict of arguments to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
         ClusterExecutor and CPUExecutor, as both were using the same
         code. Both have base class of the RealExecutor.
         """
         w2a = self.workflow_property_to_arg
 
+        # Fixed args
+        args = { k: True for k in
+                    "--force",
+                    "--target-files-omit-workdir-adjustment",
+                    "--nocolor",
+                    "--notemp",
+                    "--no-hooks",
+                    "--nolock",
+                    "--ignore-incomplete" }
+        args["--max-inventory-time"] = 0
+
+        if shared_deployment:
+            args["--scheduler-solver-path"] = os.path.dirname(sys.executable)
+
+        # Other properties
         shared_deployment = (
             SharedFSUsage.SOFTWARE_DEPLOYMENT
             in self.workflow.storage_settings.shared_fs_usage
@@ -287,22 +273,14 @@ class SpawnedJobArgsFactory:
                 "storage_settings.local_storage_prefix", base64_encode=True
             )
 
-        args = [
-            "--force",
-            "--target-files-omit-workdir-adjustment",
+        for prop_arg in [
+            w2a("execution_settings.keep_incomplete"),
+            w2a("output_settings.verbose"),
+            w2a("rerun_triggers"),
             w2a(
                 "storage_settings.keep_storage_local",
                 flag="--keep-storage-local-copies",
             ),
-            "--max-inventory-time 0",
-            "--nocolor",
-            "--notemp",
-            "--no-hooks",
-            "--nolock",
-            "--ignore-incomplete",
-            w2a("execution_settings.keep_incomplete"),
-            w2a("output_settings.verbose"),
-            w2a("rerun_triggers"),
             w2a(
                 "storage_settings.wait_for_free_local_storage",
                 convert_value="{}s".format,
@@ -337,11 +315,6 @@ class SpawnedJobArgsFactory:
             w2a("scheduling_settings.scheduler", flag="--scheduler"),
             w2a("workflow_settings.cache"),
             local_storage_prefix,
-            format_cli_arg(
-                "--scheduler-solver-path",
-                os.path.dirname(sys.executable),
-                skip=not shared_deployment,
-            ),
             w2a(
                 "overwrite_workdir",
                 flag="--directory",
@@ -349,13 +322,16 @@ class SpawnedJobArgsFactory:
             ),
             self.get_resource_scopes_arg(),
             self.get_configfiles_arg(),
-        ]
-        args.extend(self.get_storage_provider_args())
-        args.extend(self.get_set_resources_args())
+        ]:
+            args.update(prop_arg)
+
+        args.update(self.get_storage_provider_args())
+        args.update(self.get_set_resources_args())
+
         if executor_common_settings.pass_default_storage_provider_args:
-            args.append(self.get_default_storage_provider_args())
+            args.update(self.get_default_storage_provider_args())
         if executor_common_settings.pass_default_resources_args:
-            args.append(
+            args.update(
                 w2a(
                     "resource_settings.default_resources",
                     attr="args",
@@ -363,10 +339,9 @@ class SpawnedJobArgsFactory:
                 )
             )
         if executor_common_settings.pass_group_args:
-            args.append(self.get_group_args())
+            args.update(self.get_group_args())
 
         from snakemake.logging import logger
-
         logger.debug(f"General args: {args}")
 
-        return join_cli_args(args)
+        return args
