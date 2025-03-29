@@ -1607,22 +1607,28 @@ class XonshScript(PythonScript):
         fd.write(preamble.encode())
 
         if self.conda_env:
-            fd.write(
-                "\n".join(
-                    [
-                        # Workaround for [this issue](https://github.com/conda/conda/issues/7980)
-                        '__xonsh__.execer.exec($("$CONDA_EXE" "shell.xonsh" "hook"))',
-                        f"conda activate {self.conda_env}",
-                        "\n",
-                    ]
-                ).encode()
+            xonsh_conda_preamble = textwrap.dedent(
+                f"""
+                    # Workaround for [this issue](https://github.com/conda/conda/issues/7980)
+                    __xonsh__.execer.exec($("$CONDA_EXE" "shell.xonsh" "hook"))
+                    conda activate {self.conda_env}
+                    """
             )
+
+            fd.write(xonsh_conda_preamble.encode())
 
         fd.write(self.source.encode())
 
     def execute_script(self, fname, edit=False):
         self._execute_cmd(
-            "xonsh -DRAISE_SUBPROC_ERROR=True -DXONSH_SHOW_TRACEBACK=True {fname:q}",
+            textwrap.dedent(
+                """
+            export RAISE_SUBPROC_ERROR=true
+            export XONSH_SHOW_TRACEBACK=true
+
+            xonsh {fname:q}
+            """
+            ),
             fname=fname,
         )
 
