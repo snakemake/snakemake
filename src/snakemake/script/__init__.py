@@ -1606,11 +1606,11 @@ class XonshScript(PythonScript):
     def write_script(self, preamble, fd):
         fd.write(preamble.encode())
 
-        # Workaround for [this issue](https://github.com/conda/conda/issues/7980)
         if self.conda_env:
             fd.write(
                 "\n".join(
                     [
+                        # Workaround for [this issue](https://github.com/conda/conda/issues/7980)
                         '__xonsh__.execer.exec($("$CONDA_EXE" "shell.xonsh" "hook"))',
                         f"conda activate {self.conda_env}",
                         "\n",
