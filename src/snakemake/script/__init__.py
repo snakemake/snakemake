@@ -1621,12 +1621,7 @@ class XonshScript(PythonScript):
 
     def execute_script(self, fname, edit=False):
         self._execute_cmd(
-            """
-            export RAISE_SUBPROC_ERROR=true
-            export XONSH_SHOW_TRACEBACK=true
-
-            xonsh {fname:q}
-            """,
+            "xonsh -DRAISE_SUBPROC_ERROR=true -DXONSH_SHOW_TRACEBACK=true {fname:q}",
             fname=fname,
         )
 
