@@ -1607,7 +1607,7 @@ class XonshScript(PythonScript):
         fd.write(preamble.encode())
 
         if self.conda_env:
-            xonsh_conda_preamble = textwrap.dedent(
+            conda_xonsh_preamble = textwrap.dedent(
                 f"""
                     # Workaround for [this issue](https://github.com/conda/conda/issues/7980)
                     __xonsh__.execer.exec($("$CONDA_EXE" "shell.xonsh" "hook"))
@@ -1615,7 +1615,7 @@ class XonshScript(PythonScript):
                     """
             )
 
-            fd.write(xonsh_conda_preamble.encode())
+            fd.write(conda_xonsh_preamble.encode())
 
         fd.write(self.source.encode())
 
