@@ -1621,14 +1621,12 @@ class XonshScript(PythonScript):
 
     def execute_script(self, fname, edit=False):
         self._execute_cmd(
-            textwrap.dedent(
-                """
+            """
             export RAISE_SUBPROC_ERROR=true
             export XONSH_SHOW_TRACEBACK=true
 
             xonsh {fname:q}
-            """
-            ),
+            """,
             fname=fname,
         )
 
