@@ -2246,6 +2246,11 @@ def test_issue3338():
     run(dpath("test_issue3338"), targets=["all"])
 
 
+@skip_on_windows
+def test_issue3495():
+    run(dpath("test_issue3495"))
+
+
 def test_github_issue_3374():
     run(dpath("test_github_issue3271"), check_results=False)
     run(

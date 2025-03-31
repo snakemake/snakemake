@@ -1,0 +1,14 @@
+
+rule one:
+    output:
+        "one.txt",
+    shell:
+        "echo {params} > {output[0]}"
+
+
+use rule one as two with:
+    params:
+        output="goor job",
+
+
+print(UseRuleWith.INHERIT)
