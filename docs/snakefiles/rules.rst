@@ -23,7 +23,7 @@ However, rules can be much more complex, may use :ref:`plain python <snakefiles-
 
 Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_.
 Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
-From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
+From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}"``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 
 .. note::
 
@@ -842,7 +842,7 @@ Snakemake will always round the calculated value down (while enforcing a minimum
 
 Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards[, input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
 
-Both threads can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` see :ref:`all_options` and via workflow profiles, see :ref:`profiles`.
+Both threads can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` see :ref:`all_options` and via workflow profiles, see :ref:`executing-profiles`.
 To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
 
 .. code-block:: yaml
@@ -957,7 +957,7 @@ Here, the value that the function ``get_mem_mb`` returns, grows linearly with th
 Of course, any other arithmetic could be performed in that function.
 
 Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`all_options`.
-Or they can be defined via workflow :ref:`profiles`, with the variables listed above in the signature for usable callables.
+Or they can be defined via workflow :ref:`executing-profiles`, with the variables listed above in the signature for usable callables.
 You could, for example, provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
 
 .. code-block:: yaml
@@ -1798,6 +1798,8 @@ or the short form
 
 will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
 
+
+.. _snakefiles_protected_temp:
 
 Protected and Temporary Files
 -----------------------------
@@ -3057,6 +3059,37 @@ To avoid such leaks (only required if your template does something like that wit
         group: "some-group"
         shell:
             "sometool {input} {output}"
+
+.. _snakefiles_default_flags:
+
+Setting default flags
+---------------------
+
+Snakemake allows the annotation of input and output files via so-called flags (see e.g. :ref:`snakefiles_protected_temp`).
+Sometimes, it can be useful to define that a certain flag shall be applied to all input or output files of a workflow.
+This can be achieved via the global ``inputflags`` and ``outputflags`` directives.
+Consider the following example:
+
+.. code-block:: python
+
+    outputflags:
+        temp
+
+    rule a:
+        output:
+            "test.out"
+        shell:
+            "echo test > {output}"
+
+Would automatically mark the output file of rule ``a`` as temporary.
+The most convenient use case of this mechanism occurs in combination with :ref:`access pattern annotation <storage-access-patterns>`.
+In this case, the default access pattern can be set globally for all output files of a workflow.
+Only a few cases that differ have then to deal with explicit access pattern annotation (see :ref:`storage-access-patterns` for an example).
+Whenever a rule defines a flag for a file, this flag will override the default flag of the same kind or any contradicting default flags (e.g. ``temp`` will override ``protected``).
+
+Such default input and output flag specifications are always valid for all rules that follow them in the workflow definition.
+Importantly, they are also "namespaced" per module, meaning that ``inputflags`` and ``outputflags`` directives in a module only apply to the rules defined in that module.
+
 
 .. _snakefiles_mpi_support:
 

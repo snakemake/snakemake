@@ -17,12 +17,12 @@ import time
 import json
 from typing import Iterable, List, Optional, Set, Union
 import uuid
-import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
@@ -59,6 +59,7 @@ from snakemake.settings.types import PrintDag
 from snakemake.io import (
     _IOFile,
     PeriodicityDetector,
+    flags,
     get_flag_value,
     is_callable,
     is_flagged,
@@ -408,23 +409,46 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             else:
                 jobs = []
 
-        to_retrieve = {
-            f
-            for job in jobs
-            for f in job.input
-            if f.is_storage
-            and (
-                (also_missing_internal and not shared_local_copies)
-                or self.is_external_input(f, job, not_needrun_is_external=True)
-            )
-            and not job.is_norun
-        }
+        def access_pattern(f):
+            return f.flags.get(flags.access_patterns.STORE_KEY)
+
+        to_retrieve = defaultdict(list)
+        for job in jobs:
+            for f in job.input:
+                if (
+                    f.is_storage
+                    and not job.is_norun
+                    and (
+                        (also_missing_internal and not shared_local_copies)
+                        or self.is_external_input(f, job, not_needrun_is_external=True)
+                    )
+                ):
+                    to_retrieve[f].append(access_pattern(f))
 
         if to_retrieve:
             try:
                 async with asyncio.TaskGroup() as tg:
-                    for f in to_retrieve:
+                    for f, file_access_patterns in to_retrieve.items():
                         logger.info(f"Retrieving {f} from storage.")
+
+                        # METHOD: If the file is at least by one job accessed randomly
+                        # (i.e. non sequential), or multiple times, or if multiple
+                        # jobs access the same file, we should download it.
+                        # Otherwise, it is eligible for on-demand retrieval (i.e.
+                        # mounting or symlinking it from whatever network storage).
+                        # This information is passed to the storage plugin via the
+                        # attribute is_ondemand_eligible.
+                        f.storage_object.is_ondemand_eligible = (
+                            len(file_access_patterns) == 1
+                            and AccessPattern.RANDOM not in file_access_patterns
+                            and AccessPattern.MULTI not in file_access_patterns
+                            and None not in file_access_patterns
+                        )
+                        logger.debug(
+                            f"Ondemand eligibility of {f.storage_object.print_query}: "
+                            f"{f.storage_object.is_ondemand_eligible} with access "
+                            f"patterns {','.join(map(str, file_access_patterns))}"
+                        )
                         tg.create_task(f.retrieve_from_storage())
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to retrieve input from storage.", e)
@@ -482,6 +506,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             and f not in cleaned
                             and not f.should_keep_local
                         ):
+                            logger.info(
+                                "Cleaning up local remainders of "
+                                f"{f.storage_object.print_query}"
+                            )
                             f.storage_object.cleanup()
                             tg.create_task(
                                 f.remove(remove_non_empty_dir=True, only_local=True)
@@ -982,7 +1010,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             "read AND write permissions."
                         )
 
-        if not self.workflow.storage_settings.keep_storage_local:
+        if not self.workflow.keep_storage_local_at_runtime:
             if not any(f.is_storage for f in job.input):
                 return
 

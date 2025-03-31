@@ -18,7 +18,8 @@ import copy
 from pathlib import Path
 import tarfile
 import tempfile
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union
+from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     ConfigSettings,
@@ -217,6 +218,7 @@ class Workflow(WorkflowExecutorInterface):
         snakemake.ioutils.register_in_globals(_globals)
         snakemake.ioflags.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
+        _globals["access"] = AccessPatternFactory
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -422,8 +424,20 @@ class Workflow(WorkflowExecutorInterface):
         return self.exec_mode == ExecMode.REMOTE
 
     @property
+    def subprocess_exec(self):
+        return self.exec_mode == ExecMode.SUBPROCESS
+
+    @property
     def exec_mode(self):
         return self.workflow_settings.exec_mode
+
+    @property
+    def keep_storage_local_at_runtime(self) -> bool:
+        return (
+            self.storage_settings.keep_storage_local
+            or self.remote_exec
+            or self.subprocess_exec
+        )
 
     @lazy_property
     def spawned_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
@@ -2365,6 +2379,12 @@ class Workflow(WorkflowExecutorInterface):
                     )(orig_ruleinfo)
 
         return decorate
+
+    def set_default_input_flags(self, *flags: Callable):
+        self.modifier.default_input_flags.register_flags(*flags)
+
+    def set_default_output_flags(self, *flags: Callable):
+        self.modifier.default_output_flags.register_flags(*flags)
 
     @staticmethod
     def _empty_decorator(f):

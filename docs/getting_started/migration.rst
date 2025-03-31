@@ -11,6 +11,12 @@ Sometimes, new features are added that do not require, but make it strongly advi
 
 Below are migration hints for particular Snakemake versions.
 
+Migrating to Snakemake 9
+------------------------
+
+Between Snakemake 8 and Snakemake 9, there is only a single breaking change in how custom loggers are provided, such that hardly any user should be affected.
+The new way to specify custom log handlers is specifying a logger plugin via ``--logger`` or ``OutputSettings.log_handler_settings`` in the API.
+
 Migrating to Snakemake 8
 ------------------------
 
@@ -571,7 +577,7 @@ Profiles
 ^^^^^^^^
 
 Profiles can now be versioned.
-If your profile makes use of settings that are available in version 8 or later, use the filename ``config.v8+.yaml`` for the profile configuration (see :ref:`profiles <profiles>`).
+If your profile makes use of settings that are available in version 8 or later, use the filename ``config.v8+.yaml`` for the profile configuration (see :ref:`executing-profiles`).
 
 API
 ^^^

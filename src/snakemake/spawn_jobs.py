@@ -2,7 +2,7 @@ from dataclasses import dataclass, fields
 import hashlib
 import os
 import sys
-from typing import Mapping, TypeVar, TYPE_CHECKING, Any
+from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.resources import ParsedResource
@@ -11,6 +11,7 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake import PIP_DEPLOYMENTS_PATH
 from snakemake.io import get_flag_value, is_flagged
 from snakemake.settings.types import SharedFSUsage
+from snakemake_interface_common.exceptions import WorkflowError
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -55,6 +56,11 @@ class SpawnedJobArgsFactory:
                     unparse = field.metadata.get("unparse", lambda value: value)
 
                     def fmt_value(tag, value):
+                        if callable(value):
+                            raise WorkflowError(
+                                f"Invalid setting for plugin {plugin_name}. Unable "
+                                "to pass callable value as a setting to spawned jobs."
+                            )
                         value = unparse(value)
                         if tag is not None:
                             return f"{tag}:{value}"
@@ -156,8 +162,10 @@ class SpawnedJobArgsFactory:
         flag=None,
         base64_encode=False,
         skip=False,
+        force=False,
         invert=False,
         attr=None,
+        convert_value: Callable = None,
     ):
         if skip:
             return ""
@@ -178,6 +186,13 @@ class SpawnedJobArgsFactory:
 
         if invert and isinstance(value, bool):
             value = not value
+
+        if force:
+            assert isinstance(value, bool)
+            value = True
+
+        if convert_value is not None and value is not None:
+            value = convert_value(value)
 
         return format_cli_arg(flag, value, base64_encode=base64_encode)
 
@@ -258,20 +273,27 @@ class SpawnedJobArgsFactory:
 
         # base64 encode the prefix to ensure that eventually unexpanded env vars
         # are not replaced with values (or become empty if missing) by the shell
-        local_storage_prefix = (
-            w2a(
+        if executor_common_settings.non_local_exec and not self.workflow.remote_exec:
+            # this is used when the main process submits a job via a remote executor
+            local_storage_prefix = w2a(
                 "storage_settings.remote_job_local_storage_prefix",
                 flag="--local-storage-prefix",
                 base64_encode=True,
             )
-            if executor_common_settings.non_local_exec
-            else w2a("storage_settings.local_storage_prefix", base64_encode=True)
-        )
+        else:
+            # this is used in the main process when submitting jobs to a local executor
+            # or when a remote executor spawns an inner executor
+            local_storage_prefix = w2a(
+                "storage_settings.local_storage_prefix", base64_encode=True
+            )
 
         args = [
             "--force",
             "--target-files-omit-workdir-adjustment",
-            "--keep-storage-local-copies",
+            w2a(
+                "storage_settings.keep_storage_local",
+                flag="--keep-storage-local-copies",
+            ),
             "--max-inventory-time 0",
             "--nocolor",
             "--notemp",
@@ -281,6 +303,10 @@ class SpawnedJobArgsFactory:
             w2a("execution_settings.keep_incomplete"),
             w2a("output_settings.verbose"),
             w2a("rerun_triggers"),
+            w2a(
+                "storage_settings.wait_for_free_local_storage",
+                convert_value="{}s".format,
+            ),
             w2a(
                 "execution_settings.cleanup_scripts",
                 invert=True,

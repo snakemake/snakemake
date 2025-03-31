@@ -76,6 +76,9 @@ def format_file(f, is_input: bool):
         return f"{f} (update)"
     elif is_flagged(f, "before_update"):
         return f"{f} (before update)"
+    elif is_flagged(f, "access_pattern"):
+        pattern = get_flag_value(f, "access_pattern")
+        return f"{f} (access: {pattern})"
     elif is_flagged(f, "checkpoint_target"):
         return TBDString()
     elif is_flagged(f, "sourcecache_entry"):
@@ -864,11 +867,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.benchmark.prepare()
 
         # wait for input files, respecting keep_storage_local
-        wait_for_local = self.dag.workflow.storage_settings.keep_storage_local
         try:
             await wait_for_files(
                 self.input,
-                wait_for_local=wait_for_local,
+                wait_for_local=self.dag.workflow.keep_storage_local_at_runtime,
                 latency_wait=self.dag.workflow.execution_settings.latency_wait,
                 consider_local={
                     f for f in self.input if self.is_pipe_or_service_input(f)
@@ -1477,6 +1479,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 **kwargs,
             ),
         )
+        for job in sorted(self.jobs, key=lambda j: j.rule.name):
+            job.log_error(indent=True)
 
     def register(self, external_jobid: Optional[str] = None):
         for job in self.jobs:

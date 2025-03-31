@@ -42,14 +42,14 @@ dependencies = [
   "nbformat",
   "packaging",
   "psutil",
-  "pulp>=2.3.1,<2.10",
+  "pulp>=2.3.1,<3.1",
   "pyyaml",
   "requests>=2.8.1,<3.0",
   "reretry",
   "smart-open>=4.0,<8.0",
   "snakemake-interface-executor-plugins>=9.3.2,<10.0",
   "snakemake-interface-common>=1.17.0,<2.0",
-  "snakemake-interface-storage-plugins>=3.5.0,<4.0",
+  "snakemake-interface-storage-plugins>=4.1.0,<5.0",
   "snakemake-interface-report-plugins>=1.1.0,<2.0.0",
   "snakemake-interface-logger-plugins>=1.1.0,<2.0.0",
   "tabulate",
@@ -200,12 +200,17 @@ httpretty = ">=1.1.4,<2"
 polars = ">=1.24.0,<2"
 requests-mock = ">=1.12.1,<2"
 docutils = ">=0.20.1,<0.22"
+conda = "*"
+pip = "*"
+
+[tool.pixi.feature.test.pypi-dependencies]
+snakemake-executor-plugin-cluster-generic = "*"
 snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
-snakemake-executor-plugin-cluster-generic = "*"
-conda = "*"
-pip = "*"
+
+[tool.pixi.feature.test.target.linux-64.pypi-dependencies]
+snakemake-storage-plugin-xrootd = "*"
 
 [tool.pixi.feature.test.target.linux-64.dependencies]
 # environment-modules = "*"
@@ -226,9 +231,6 @@ wget = "*"
 dash = "*"
 openmpi = "*"
 xrootd = ">=5.7.3,<6"
-
-[tool.pixi.feature.test.target.linux-64.pypi-dependencies]
-snakemake-storage-plugin-xrootd = "*"
 
 # Docs
 [tool.pixi.feature.docs.dependencies]

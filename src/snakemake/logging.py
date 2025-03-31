@@ -206,6 +206,8 @@ class DefaultFormatter(logging.Formatter):
         else:
             output.append("\n".join(self._format_job_info(msg)))
 
+        if msg.get("indent", False):
+            return textwrap.indent("\n".join(output), "    ")
         return "\n".join(output)
 
     def format_group_info(self, msg):
@@ -219,6 +221,9 @@ class DefaultFormatter(logging.Formatter):
         output = []
         output.append(timestamp())
         output.append("\n".join(self._format_job_error(msg)))
+
+        if msg.get("indent", False):
+            return textwrap.indent("\n".join(output), "    ")
         return "\n".join(output)
 
     def format_group_error(self, msg):
@@ -606,6 +611,9 @@ class LoggerManager:
         elif len(stream_handlers) == 0:
             # we dont have any stream_handlers from plugin(s) so give us the default one
             stream_handlers.append(self._default_streamhandler())
+
+        self.setup_logfile()
+
         all_handlers = (
             stream_handlers + other_handlers + list(self.logfile_handlers.keys())
         )
@@ -660,8 +668,8 @@ class LoggerManager:
         stream_handler.name = "DefaultStreamHandler"
         return stream_handler
 
-    def get_logfile(self):
-        return self.logfile_handlers.values()
+    def get_logfile(self) -> List[str]:
+        return list(self.logfile_handlers.values())
 
     def logfile_hint(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
@@ -678,6 +686,7 @@ class LoggerManager:
 
         if self.mode == ExecMode.DEFAULT:
             for handler in self.logfile_handlers.keys():
+                self.logger.removeHandler(handler)
                 handler.close()
 
     def setup_logfile(self):
@@ -696,6 +705,7 @@ class LoggerManager:
                 )
                 handler = self._default_filehandler(logfile)
                 self.logfile_handlers[handler] = logfile
+
             except OSError as e:
                 self.logger.error(f"Failed to setup log file: {e}")
 
