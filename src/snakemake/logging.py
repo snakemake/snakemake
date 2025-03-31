@@ -571,10 +571,9 @@ class LoggerManager:
     ):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
-        # clear any exisiting handlers
+        # clear any existing handlers
         for handler in self.logger.handlers[:]:
             self.logger.removeHandler(handler)
-
         self.mode = mode
         self.settings = settings
         self.initialized = True
