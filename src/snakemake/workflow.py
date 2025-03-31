@@ -1952,7 +1952,7 @@ class Workflow(WorkflowExecutorInterface):
                 rule.name = ruleinfo.name
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
-            if rule.run_func is not None:
+            if rule.run_func is not None and not rule.norun:
                 rule.run_func_src = self.get_rule_source(rule.run_func)
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
