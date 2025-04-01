@@ -190,6 +190,10 @@ class AbstractResults extends React.Component {
                 }
             });
         }
+        // Only allow one toggle label for now, in order to avoid confusion in the UI
+        if (toggleLabels.size > 1) {
+            toggleLabels = new Map();
+        }
 
         let entries = new Map();
         let entryLabelValues = [];

@@ -937,9 +937,11 @@ class Rule(RuleInterface):
                 return TBDString()
             else:
                 raise WorkflowError(
-                    "Rule parameter depends on checkpoint but checkpoint output is "
-                    "not defined as input file for the rule. Please add the output "
-                    "of the respective checkpoint to the rule inputs.",
+                    "Rule parameter depends on checkpoint but checkpoint output is not "
+                    "defined as input file for the rule. Please add the output of the "
+                    "respective checkpoint to the rule inputs. "
+                    f"Input: {','.join(input)} "
+                    f"Checkpoint file: {exception.targetfile}",
                     rule=self,
                 )
 
