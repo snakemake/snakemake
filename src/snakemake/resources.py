@@ -541,6 +541,8 @@ def eval_resource_expression(val, threads_arg=True):
         except Exception as e:
             if is_humanfriendly_resource(val):
                 return val
+            if is_ordinary_string(val):
+                return val
             if not is_file_not_found_error(e, kwargs["input"]):
                 # Missing input files are handled by the caller
                 raise WorkflowError(
@@ -657,6 +659,15 @@ def infer_resources(name, value, resources: dict):
         resources["runtime"] = parsed
 
 
+def is_ordinary_string(val):
+    """
+    Check if this string is an ordinary string.
+    Ordinary strings are not evaluated and are not
+    expected to be python expressions.
+    """
+    return isinstance(val, str) and not val.startswith("'") and not val.startswith('"')
+
+
 def is_humanfriendly_resource(value):
     from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
 
@@ -671,5 +682,8 @@ def is_humanfriendly_resource(value):
         return True
     except InvalidTimespan:
         pass
+
+    if is_ordinary_string(value):
+        return True
 
     return False
