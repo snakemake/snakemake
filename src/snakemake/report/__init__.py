@@ -192,7 +192,7 @@ async def expand_report_argument(item, wildcards, job):
         )
         io_items = ["input", "output"]
         if any(io_item in aux_params for io_item in io_items):
-            # retreive all input or output files from storage before evaluating function
+            # retrieve all input or output files from storage before evaluating function
             async with TaskGroup() as tg:
                 for io_item in io_items:
                     if io_item in aux_params:
