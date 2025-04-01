@@ -563,7 +563,7 @@ async def auto_report(
                             )
                         else:
                             return cat_name
-                    
+
                     category = Category(
                         name=await expand_cat_name(report_obj.category),
                         wildcards=wildcards,
