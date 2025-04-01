@@ -2931,6 +2931,12 @@ In reality, one will often change more.
 Analogously to the ``use rule`` from external modules, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be modified, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
 All unmodified properties are inherited from the parent rule.
 
+.. note::
+    Modification of `params` allows the replacement of single keyword arguments.
+    Keyword `params` arguments of the original rule that are not defined after `with` are inherited.
+    Positional `params` arguments of the original rule are overwritten, if positional `params` arguments are given after `with`.
+    All other properties (``input``, ``output``, ...) are entirely overwritten with the values specified after `with`.
+
 .. _snakefiles-aux_source_files:
 
 Accessing auxiliary source files
