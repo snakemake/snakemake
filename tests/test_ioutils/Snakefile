@@ -35,11 +35,11 @@ rule a:
     output:
         "a/{sample}.txt",
     params:
-        checksum1=lambda w, input: parse_input(
-            input[1], parser=extract_checksum, file=f"{w.sample}.tsv"
+        checksum1=parse_input(
+            input[1], parser=extract_checksum, file="1.tsv"
         ),
-        checksum2=lambda w, input: parse_input(
-            input.checksum, parser=extract_checksum, file=f"{w.sample}.tsv"
+        checksum2=lambda w: parse_input(
+            input.checksum, parser=extract_checksum, file="{w.sample}.tsv"
         ),
     shell:
         "echo -e '{params.checksum1}\n{params.checksum2}' | sort -u > {output}"
