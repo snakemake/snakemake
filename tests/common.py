@@ -272,7 +272,7 @@ def run(
     if shellcmd:
         if not shellcmd.startswith("snakemake"):
             raise ValueError("shellcmd does not start with snakemake")
-        shellcmd = "{} -m {}".format(sys.executable, shellcmd)
+        shellcmd = "{} -m {}".format(shlex.quote(sys.executable), shellcmd)
         try:
             if sigint_after is None:
                 res = subprocess.run(

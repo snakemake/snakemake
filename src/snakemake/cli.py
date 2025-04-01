@@ -180,7 +180,7 @@ def parse_set_resources(args):
             if len(key) != 2:
                 raise ValueError(errmsg)
             rule, resource = key
-            if re.fullmatch(r"""(['"]).*\1"""):
+            if re.fullmatch(r"""(['"]).*\1""", orig_value):
                 # A quoted value. Keep it.
                 value = orig_value
             else:
