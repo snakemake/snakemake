@@ -3,7 +3,8 @@ from typing import List
 
 def parse_input(infile, parser, **kwargs):
     def _parse_input(wildcards, input):
-        with open(infile, "r") as fh:
+        _infile = infile(wildcards, input) if callable(infile) else infile
+        with open(_infile, "r") as fh:
             if parser is None:
                 return fh.read().strip()
             else:
