@@ -1,6 +1,22 @@
 # Changelog
 
 
+## [9.1.4](https://github.com/snakemake/snakemake/compare/v9.1.3...v9.1.4) (2025-04-01)
+
+
+### Bug Fixes
+
+* Fix map call in report creation ([#3503](https://github.com/snakemake/snakemake/issues/3503)) ([44754cc](https://github.com/snakemake/snakemake/commit/44754ccbafaf94d30b9e507b81e8fb5f38409e3d))
+* in the report, do not render toggle labels if there is more than one label eligible for a toggle ([#3502](https://github.com/snakemake/snakemake/issues/3502)) ([3be8ca9](https://github.com/snakemake/snakemake/commit/3be8ca9308df72494cbca4d6f572486c8486418a))
+* only inform about storage cleanup in case of --verbose mode ([#3494](https://github.com/snakemake/snakemake/issues/3494)) ([62bbbf5](https://github.com/snakemake/snakemake/commit/62bbbf5129b2fe9ed125245fd90b69d53db8b6ce))
+* provide causing rule to workflow error during checkpoint handling ([#3499](https://github.com/snakemake/snakemake/issues/3499)) ([b4cbe5d](https://github.com/snakemake/snakemake/commit/b4cbe5d2e9d5d985466a5dac4c985caa66efb5ad))
+* rerun-trigger regression ([#3492](https://github.com/snakemake/snakemake/issues/3492)) ([811742d](https://github.com/snakemake/snakemake/commit/811742d5db425219a3018f04190a99f53b3b742d))
+
+
+### Documentation
+
+* note about parameter inheritance when using the "use rule with" pattern ([#3500](https://github.com/snakemake/snakemake/issues/3500)) ([8f6a8eb](https://github.com/snakemake/snakemake/commit/8f6a8eb783bf003dbf804df737a2adfbfa9818ef))
+
 ## [9.1.3](https://github.com/snakemake/snakemake/compare/v9.1.2...v9.1.3) (2025-03-26)
 
 
