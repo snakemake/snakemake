@@ -217,13 +217,11 @@ async def expand_report_argument(item, wildcards, job):
 
 @dataclass(slots=True)
 class Category(CategoryInterface):
-    wildcards: InitVar
-    job: InitVar
     name: Optional[str]
     is_other: bool = field(init=False)
     id: str = field(init=False)
 
-    def __post_init__(self, wildcards, job):
+    def __post_init__(self):
         if self.name is None:
             self.name = "Other"
 
@@ -556,7 +554,7 @@ async def auto_report(
                 ):
                     wildcards = wildcards_overwrite or job.wildcards
 
-                    async def expand_cat_name(cat_name):
+                    async def expand_cat_name(cat_name, wildcards, job):
                         if cat_name is not None:
                             return await expand_report_argument(
                                 cat_name, wildcards, job
@@ -565,14 +563,12 @@ async def auto_report(
                             return cat_name
 
                     category = Category(
-                        name=await expand_cat_name(report_obj.category),
-                        wildcards=wildcards,
-                        job=job,
+                        name=await expand_cat_name(report_obj.category, wildcards, job),
                     )
                     subcategory = Category(
-                        name=await expand_cat_name(report_obj.subcategory),
-                        wildcards=wildcards,
-                        job=job,
+                        name=await expand_cat_name(
+                            report_obj.subcategory, wildcards, job
+                        ),
                     )
                     labels = await expand_labels(report_obj.labels, wildcards, job)
 
