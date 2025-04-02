@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 
 import hashlib
-
+import shlex
 
 class EnvModules:
     def __init__(self, *module_names):
@@ -14,7 +14,7 @@ class EnvModules:
     def shellcmd(self, cmd):
         """Return shell command with given modules loaded."""
         return "module purge && module load {to_load}; {cmd}".format(
-            to_load=" ".join(self.names), cmd=cmd
+            to_load=" ".join(shlex.quote(n) for n in self.names), cmd=cmd
         )
 
     def __str__(self):

@@ -833,7 +833,8 @@ class PythonScript(ScriptBase):
             fallback_prefix = Path(self.conda_base_path) / "envs" / prefix
             return contains_python(prefix) or contains_python(fallback_prefix)
         elif self.env_modules is not None:
-            prefix = Path(self._execute_cmd("echo $PATH", read=True).split(":")[0])
+            # Does this need to work on Windows?
+            prefix = Path(self._execute_cmd('echo "$PATH"', read=True).split(":")[0])
             return contains_python(prefix)
         else:
             raise NotImplementedError()
