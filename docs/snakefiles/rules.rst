@@ -1182,17 +1182,13 @@ Sometimes you may want to define certain parameters separately from the rule bod
         input:
             ...
         params:
-            prefix="somedir/{sample}"
+            threshold=0.4
         output:
             "somedir/{sample}.csv"
         shell:
-            "somecommand -o {params.prefix}"
+            "somecommand --threshold {params.threshold} -o {output}"
 
-The ``params`` keyword allows you to specify additional parameters depending on the wildcards values. This allows you to circumvent the need to use ``run:`` and python code for non-standard commands like in the above case.
-Here, the command ``somecommand`` expects the prefix of the output file instead of the actual one. The ``params`` keyword helps here since you cannot simply add the prefix as an output file (as the file won't be created, Snakemake would throw an error after execution of the rule).
-
-Furthermore, for enhanced readability and clarity, the ``params`` section is also an excellent place to name and assign parameters and variables for your subsequent command.
-
+The ``params`` section is an excellent place to name and assign parameters and variables for your subsequent command.
 Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefiles-input_functions`), e.g. you can write
 
 .. code-block:: python
@@ -1201,22 +1197,19 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
         input:
             ...
         params:
-            prefix=lambda wildcards, output: output[0][:-4]
+            prefix=lambda wildcards: config["thresholds"][wildcards.sample]
         output:
             "somedir/{sample}.csv"
         shell:
             "somecommand -o {params.prefix}"
 
-.. note::
-
-    When accessing auxiliary source files (i.e. files that are located relative to the current Snakefile, e.g. some additional configuration)
-    it is crucial to not manually build their path but rather rely on Snakemake's special registration for these files, see :ref:`snakefiles-aux_source_files`.
-
-to get the same effect as above. Note that in contrast to the ``input`` directive, the
+Above example mimics a case where one would have to look up the value of some threshold in a config dictionary.
+Note that in contrast to the ``input`` directive, functions passed to the
 ``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, ``threads``, and ``resources``.
-From the Python perspective, they can be seen as optional keyword arguments without a default value.
 Their order does not matter, apart from the fact that ``wildcards`` has to be the first argument.
-In the example above, this allows you to derive the prefix name from the output file.
+This way, params can be used to dynamically adjust those values into whatever format is needed for your command or script.
+
+The ``params`` directive is particularly powerful in combination with Snakemake's :ref:`semantic helper functions <snakefiles-semantic-helpers>`.
 
 .. _snakefiles-plain-python-rules:
 
