@@ -1994,6 +1994,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 for job in self.jobs
                 if job.is_checkpoint and await is_output_present(job)
             ]
+        else:
+            # called with finished jobs, no need to check if output is present
+            jobs = [job for job in jobs if job.is_checkpoint]
         for job in jobs:
             for depending in self.depending[job]:
                 job_queue[depending].add(job)
