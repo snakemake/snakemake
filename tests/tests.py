@@ -36,7 +36,30 @@ from snakemake_interface_executor_plugins.settings import (
     SharedFSUsage,
 )
 
+def test_logger_queue():
+    import glob
 
+    tmpdir = run(dpath("test_logger_queue"), cleanup=False, check_results=False)
+    cache_stmt = "Workflow defines that rule a is eligible for caching between workflows (use the --cache argument to enable this)."
+
+    log_dir = os.path.join(tmpdir, ".snakemake", "log")
+    assert os.path.exists(log_dir), "Log directory not found"
+
+    log_files = glob.glob(os.path.join(log_dir, "*.snakemake.log"))
+    assert log_files, "No log files found"
+
+    log_files.sort(key=os.path.getmtime, reverse=True)
+    latest_log = log_files[0]
+
+    with open(latest_log, "r") as f:
+        log_content = f.read()
+
+    cache_stmt_count = log_content.count(cache_stmt)
+    assert cache_stmt_count == 1, (
+        f"Cache statement appears {cache_stmt_count} times, expected exactly once"
+    )
+
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 def test_logfile():
     import glob
 
