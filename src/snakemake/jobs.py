@@ -16,10 +16,9 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-import time
 from typing import Iterable, List, Optional, Union
 from collections.abc import AsyncGenerator
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
@@ -57,7 +56,6 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 from snakemake.common import (
     get_function_params,
-    is_local_file,
     get_uuid,
     IO_PROP_LIMIT,
 )

@@ -757,6 +757,8 @@ class Rule(RuleInterface):
             if _is_callable:
                 if omit_callable:
                     continue
+                if non_derived_items is not None:
+                    is_derived = self._is_deriving_function(item)
                 item, incomplete = self.apply_input_function(
                     item,
                     wildcards,
@@ -765,8 +767,6 @@ class Rule(RuleInterface):
                     groupid=groupid,
                     **aux_params,
                 )
-                if non_derived_items is not None:
-                    is_derived = self._is_deriving_function(item)
 
             if is_unpack and not incomplete:
                 if not allow_unpack:
