@@ -282,7 +282,7 @@ class AbstractResults extends React.Component {
         let state = this.state;
 
         return data.entryLabelValues.map(function (entryLabels) {
-            let toggleLabels = Array.from(data.toggleLabels.keys().map((label) => state.toggles.get(label)));
+            let toggleLabels = Array.from(data.toggleLabels.keys()).map((label) => state.toggles.get(label));
             let entryPath = data.entries.get(arrayKey(entryLabels)).get(arrayKey(toggleLabels));
 
             let actions = e(
