@@ -1983,17 +1983,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
 
-        def is_noneedrun(job):
-            return self.finished(job) or not self.needrun(job)
+        async def is_output_present(job):
+            return (self.finished(job) or not self.needrun(job)) and all(
+                await asyncio.gather(*(out.exists() for out in job.output))
+            )
 
         job_queue = defaultdict(set)
         if jobs is None:
-            jobs = [job for job in self.jobs if is_noneedrun(job)]
+            jobs = [
+                job
+                for job in self.jobs
+                if job.is_checkpoint and await is_output_present(job)
+            ]
         for job in jobs:
-            if job.is_checkpoint:
-                for depending in self.depending[job]:
-                    job_queue[depending].add(job)
-                workflow.checkpoints.created_output.update(job.output)
+            for depending in self.depending[job]:
+                job_queue[depending].add(job)
+            workflow.checkpoints.created_output.update(job.output)
 
         updated = len(job_queue) > 0
         if updated:
