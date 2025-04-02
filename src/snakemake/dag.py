@@ -1982,6 +1982,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
+
         def is_noneedrun(job):
             return self.finished(job) or not self.needrun(job)
 
@@ -2007,16 +2008,26 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
             candidate_job_queue = defaultdict(set)
             for job in job_queue.keys():
-                prior_checkpoint_targets = {infile for infile in job.input if is_flagged(infile, "checkpoint_target")}
+                prior_checkpoint_targets = {
+                    infile
+                    for infile in job.input
+                    if is_flagged(infile, "checkpoint_target")
+                }
                 updated_job = await job.updated()
 
                 await self.replace_job(job, updated_job, recursive=False)
 
                 posterior_checkpoint_targets = {
-                    infile for infile in updated_job.input if is_flagged(infile, "checkpoint_target") and infile not in prior_checkpoint_targets
+                    infile
+                    for infile in updated_job.input
+                    if is_flagged(infile, "checkpoint_target")
+                    and infile not in prior_checkpoint_targets
                 }
                 posterior_checkpoint_deps = {
-                    dep for dep, files in self.dependencies[updated_job].items() if dep.is_checkpoint and not files.isdisjoint(posterior_checkpoint_targets)
+                    dep
+                    for dep, files in self.dependencies[updated_job].items()
+                    if dep.is_checkpoint
+                    and not files.isdisjoint(posterior_checkpoint_targets)
                 }
                 if posterior_checkpoint_deps:
                     # there is at least one dep that is a new potentially
