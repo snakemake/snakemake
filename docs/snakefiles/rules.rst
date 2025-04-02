@@ -1197,11 +1197,11 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
         input:
             ...
         params:
-            prefix=lambda wildcards: config["thresholds"][wildcards.sample]
+            threshold=lambda wildcards: config["thresholds"][wildcards.sample]
         output:
             "somedir/{sample}.csv"
         shell:
-            "somecommand -o {params.prefix}"
+            "somecommand --threshold {params.threshold} -o {output}"
 
 Above example mimics a case where one would have to look up the value of some threshold in a config dictionary.
 Note that in contrast to the ``input`` directive, functions passed to the
