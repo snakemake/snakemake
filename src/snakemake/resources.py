@@ -541,8 +541,6 @@ def eval_resource_expression(val, threads_arg=True):
         except Exception as e:
             if is_humanfriendly_resource(val):
                 return val
-            if is_ordinary_string(val):
-                return val
             if not is_file_not_found_error(e, kwargs["input"]):
                 # Missing input files are handled by the caller
                 raise WorkflowError(
@@ -665,7 +663,7 @@ def is_ordinary_string(val):
     Ordinary strings are not evaluated and are not
     expected to be python expressions.
     """
-    return isinstance(val, str) and not re.match(r'^[a-zA-Z_]\w*\(.+\)$', val)
+    return isinstance(val, str) and not re.match(r"^[a-zA-Z_]\w*\(.+\)$", val)
 
 
 def is_humanfriendly_resource(value):
@@ -683,7 +681,4 @@ def is_humanfriendly_resource(value):
     except InvalidTimespan:
         pass
 
-    if is_ordinary_string(value):
-        return True
-
-    return False
+    return is_ordinary_string(value) or eval(value)
