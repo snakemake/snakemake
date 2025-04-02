@@ -30,7 +30,6 @@ from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
 from snakemake_interface_logger_plugins.common import LogEvent
 
-from snakemake import workflow
 from snakemake import workflow as _workflow
 from snakemake.common import (
     ON_WINDOWS,
@@ -1998,7 +1997,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         for job in jobs:
             for depending in self.depending[job]:
                 job_queue[depending].add(job)
-            workflow.checkpoints.created_output.update(job.output)
+            self.workflow.checkpoints.created_output.update(job.output)
 
         updated = len(job_queue) > 0
         if updated:
@@ -2009,7 +2008,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             logger.debug(f"Checkpoint dependency update round {i}")
             for noneedrun_checkpoint_deps in job_queue.values():
                 for checkpoint in noneedrun_checkpoint_deps:
-                    workflow.checkpoints.created_output.update(checkpoint.output)
+                    self.workflow.checkpoints.created_output.update(checkpoint.output)
 
             candidate_job_queue = defaultdict(set)
             for job in job_queue.keys():
