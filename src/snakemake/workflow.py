@@ -202,13 +202,14 @@ class Workflow(WorkflowExecutorInterface):
         self._executor_plugin = None
         self._storage_registry = StorageRegistry(self)
         self._source_archive = None
+        self._checkpoints = Checkpoints()
 
         _globals = globals()
         from snakemake.shell import shell
 
         _globals["shell"] = shell
         _globals["workflow"] = self
-        _globals["checkpoints"] = Checkpoints()
+        _globals["checkpoints"] = self._checkpoints
         _globals["scatter"] = Scatter()
         _globals["gather"] = Gather()
         _globals["github"] = sourcecache.GithubFile
@@ -226,6 +227,10 @@ class Workflow(WorkflowExecutorInterface):
         self.cache_rules = dict()
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
+
+    @property
+    def checkpoints(self):
+        return self._checkpoints
 
     @property
     def parent_groupids(self):
