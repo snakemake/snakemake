@@ -9,6 +9,7 @@ import sys
 import os
 import subprocess as sp
 import inspect
+import shlex
 import shutil
 import stat
 import tempfile
