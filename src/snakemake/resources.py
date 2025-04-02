@@ -665,7 +665,7 @@ def is_ordinary_string(val):
     Ordinary strings are not evaluated and are not
     expected to be python expressions.
     """
-    return isinstance(val, str) and not val.startswith("'") and not val.startswith('"')
+    return isinstance(val, str) and not re.match(r'^[a-zA-Z_]\w*\(.+\)$', val)
 
 
 def is_humanfriendly_resource(value):
