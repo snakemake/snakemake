@@ -681,4 +681,7 @@ def is_humanfriendly_resource(value):
     except InvalidTimespan:
         pass
 
-    return is_ordinary_string(value) or eval(value)
+    try:
+        return is_ordinary_string(value) or eval(value)
+    except (NameError, SyntaxError):
+        return False
