@@ -33,7 +33,7 @@ from snakemake_interface_common.exceptions import WorkflowError
 from snakemake.settings.types import DeploymentMethod
 
 UNREPRESENTABLE = object()
-RECORD_FORMAT_VERSION = 5
+RECORD_FORMAT_VERSION = 6
 
 
 class Persistence(PersistenceExecutorInterface):
@@ -477,8 +477,12 @@ class Persistence(PersistenceExecutorInterface):
 
         for outfile in files:
             fmt_version = self.record_format_version(outfile)
-            if fmt_version is None or fmt_version < 4:
-                # no reliable params stored
+            if fmt_version is None or fmt_version < 6:
+                # no reliable params stored (version 4 refactored params storage
+                # and version 6 fixed a bug in determination of whether params are
+                # derived from e.g. input or output files). If they are,
+                # there is the risk to store storage paths here. Derived param
+                # changes will also be captured by input changes.
                 continue
             recorded = self.params(outfile)
             if recorded is not None:

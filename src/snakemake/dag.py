@@ -293,25 +293,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def checkpoint_jobs(self):
         return self._checkpoint_jobs
 
-    async def update_checkpoint_outputs(self):
-        done_output = set()
-        noneedrun_files = []
-
-        for job in self.jobs:
-            if job.is_checkpoint:
-                if self.finished(job):
-                    done_output.update(job.output)
-                elif not self.needrun(job):
-                    noneedrun_files.extend(job.output)
-
-        may_exists = await asyncio.gather(*(f.exists() for f in noneedrun_files))
-
-        workflow.checkpoints.created_output.clear()
-        workflow.checkpoints.created_output.update(done_output)
-        workflow.checkpoints.created_output.update(
-            j for j, e in zip(noneedrun_files, may_exists) if e
-        )
-
     def update_jobids(self):
         for job in self.jobs:
             if job not in self._jobid:
@@ -1821,7 +1802,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 return
 
         self.update_ready()
-        await self.update_checkpoint_outputs()
 
     def handle_pipes_and_services(self):
         """Use pipes and services to determine job groups. Check if every pipe has exactly
@@ -2002,21 +1982,59 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
-        updated = False
-        await self.update_checkpoint_outputs()
+        def is_noneedrun(job):
+            return self.finished(job) or not self.needrun(job)
+
+        job_queue = defaultdict(set)
         if jobs is None:
-            jobs = [job for job in self.jobs if not self.needrun(job)]
-        all_depending = []
+            jobs = [job for job in self.jobs if is_noneedrun(job)]
         for job in jobs:
             if job.is_checkpoint:
-                depending = list(self.depending[job])
-                all_depending.extend(depending)
-        for j in all_depending:
-            newjob = await j.updated()
-            await self.replace_job(j, newjob, recursive=False)
-            updated = True
+                for depending in self.depending[job]:
+                    job_queue[depending].add(job)
+                workflow.checkpoints.created_output.update(job.output)
+
+        updated = len(job_queue) > 0
+        if updated:
+            logger.info("Updating checkpoint dependencies.")
+
+        i = 1
+        while job_queue:
+            logger.debug(f"Checkpoint dependency update round {i}")
+            for noneedrun_checkpoint_deps in job_queue.values():
+                for checkpoint in noneedrun_checkpoint_deps:
+                    workflow.checkpoints.created_output.update(checkpoint.output)
+
+            candidate_job_queue = defaultdict(set)
+            for job in job_queue.keys():
+                prior_checkpoint_targets = {infile for infile in job.input if is_flagged(infile, "checkpoint_target")}
+                updated_job = await job.updated()
+
+                await self.replace_job(job, updated_job, recursive=False)
+
+                posterior_checkpoint_targets = {
+                    infile for infile in updated_job.input if is_flagged(infile, "checkpoint_target") and infile not in prior_checkpoint_targets
+                }
+                posterior_checkpoint_deps = {
+                    dep for dep, files in self.dependencies[updated_job].items() if dep.is_checkpoint and not files.isdisjoint(posterior_checkpoint_targets)
+                }
+                if posterior_checkpoint_deps:
+                    # there is at least one dep that is a new potentially
+                    # unfinished checkpoint target
+                    candidate_job_queue[updated_job].update(posterior_checkpoint_deps)
+
+            job_queue = defaultdict(set)
+            if candidate_job_queue:
+                await self.update_needrun()
+                for job, posterior_checkpoint_deps in candidate_job_queue.items():
+                    for checkpoint in posterior_checkpoint_deps:
+                        if not self.needrun(checkpoint):
+                            job_queue[job].add(checkpoint)
+            i += 1
+
         if updated:
             await self.postprocess_after_update()
+
         return updated
 
     async def postprocess_after_update(self):
