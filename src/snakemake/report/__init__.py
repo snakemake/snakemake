@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from asyncio import TaskGroup
 from dataclasses import InitVar, dataclass, field
 import os
 import sys
@@ -13,12 +14,9 @@ import datetime
 import io
 from typing import List, Optional
 import uuid
-import json
-import time
 import itertools
 from collections import defaultdict
 import hashlib
-from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 import numbers
 
@@ -113,7 +111,7 @@ def report(
     if outmime != "text/html":
         raise ValueError("Path to report output has to be an HTML file.")
     definitions = textwrap.dedent(
-        """
+        """[]
     .. role:: raw-html(raw)
        :format: html
 
@@ -187,11 +185,21 @@ def report(
     )
 
 
-def expand_report_argument(item, wildcards, job):
+async def expand_report_argument(item, wildcards, job):
     if is_callable(item):
         aux_params = get_input_function_aux_params(
             item, {"params": job.params, "input": job.input, "output": job.output}
         )
+        io_items = ["input", "output"]
+        if any(io_item in aux_params for io_item in io_items):
+            # retrieve all input or output files from storage before evaluating function
+            async with TaskGroup() as tg:
+                for io_item in io_items:
+                    if io_item in aux_params:
+                        for f in aux_params[io_item]:
+                            if f.is_storage:
+                                tg.create_task(f.retrieve_from_storage())
+
         try:
             item = item(wildcards, **aux_params)
         except Exception as e:
@@ -209,15 +217,11 @@ def expand_report_argument(item, wildcards, job):
 
 @dataclass(slots=True)
 class Category(CategoryInterface):
-    wildcards: InitVar
-    job: InitVar
     name: Optional[str]
     is_other: bool = field(init=False)
     id: str = field(init=False)
 
-    def __post_init__(self, wildcards, job):
-        if self.name is not None:
-            self.name = expand_report_argument(self.name, wildcards, job)
+    def __post_init__(self):
         if self.name is None:
             self.name = "Other"
 
@@ -447,10 +451,10 @@ class FileRecord(FileRecordInterface):
         return self.job.rule.workflow
 
 
-def expand_labels(labels, wildcards, job):
+async def expand_labels(labels, wildcards, job):
     if labels is None:
         return None
-    labels = expand_report_argument(labels, wildcards, job)
+    labels = await expand_report_argument(labels, wildcards, job)
 
     if labels is None:
         return None
@@ -469,7 +473,7 @@ def expand_labels(labels, wildcards, job):
             rule=job.rule,
         )
     return {
-        name: expand_report_argument(col, wildcards, job)
+        name: await expand_report_argument(col, wildcards, job)
         for name, col in labels.items()
     }
 
@@ -541,7 +545,7 @@ async def auto_report(
                     )
                 report_obj = get_flag_value(f, "report")
 
-                def register_file(
+                async def register_file(
                     f,
                     parent_path=None,
                     wildcards_overwrite=None,
@@ -549,13 +553,24 @@ async def auto_report(
                     name_overwrite=None,
                 ):
                     wildcards = wildcards_overwrite or job.wildcards
+
+                    async def expand_cat_name(cat_name, wildcards, job):
+                        if cat_name is not None:
+                            return await expand_report_argument(
+                                cat_name, wildcards, job
+                            )
+                        else:
+                            return cat_name
+
                     category = Category(
-                        name=report_obj.category, wildcards=wildcards, job=job
+                        name=await expand_cat_name(report_obj.category, wildcards, job),
                     )
                     subcategory = Category(
-                        name=report_obj.subcategory, wildcards=wildcards, job=job
+                        name=await expand_cat_name(
+                            report_obj.subcategory, wildcards, job
+                        ),
                     )
-                    labels = expand_labels(report_obj.labels, wildcards, job)
+                    labels = await expand_labels(report_obj.labels, wildcards, job)
 
                     results[category][subcategory].append(
                         FileRecord(
@@ -577,7 +592,7 @@ async def auto_report(
                 if f.is_storage:
                     await f.retrieve_from_storage()
                 if os.path.isfile(f):
-                    register_file(f)
+                    await register_file(f)
                 elif os.path.isdir(f):
                     if report_obj.htmlindex:
                         aux_files = []
@@ -598,7 +613,7 @@ async def auto_report(
                                 "Given htmlindex {} not found in directory "
                                 "marked for report".format(report_obj.htmlindex)
                             )
-                        register_file(
+                        await register_file(
                             os.path.join(f, report_obj.htmlindex),
                             aux_files=aux_files,
                             name_overwrite=f"{os.path.basename(f)}.html",
@@ -621,7 +636,7 @@ async def auto_report(
                                 w.update(job.wildcards_dict)
                                 w = Wildcards(fromdict=w)
                                 subfile = apply_wildcards(pattern, w)
-                                register_file(
+                                await register_file(
                                     subfile, parent_path=f, wildcards_overwrite=w
                                 )
                         if not found_something:
