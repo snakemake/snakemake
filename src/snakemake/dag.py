@@ -506,7 +506,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             and f not in cleaned
                             and not f.should_keep_local
                         ):
-                            logger.info(
+                            logger.debug(
                                 "Cleaning up local remainders of "
                                 f"{f.storage_object.print_query}"
                             )
