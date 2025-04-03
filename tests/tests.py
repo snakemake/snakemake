@@ -2168,6 +2168,7 @@ def test_assume_checkpoint_safe_temp_files():
         shouldfail=True,
     )
 
+
 def test_default_flags():
     run(dpath("test_default_flags"), executor="dryrun", check_results=False)
 
