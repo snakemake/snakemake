@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.1.6](https://github.com/snakemake/snakemake/compare/v9.1.5...v9.1.6) (2025-04-03)
+
+
+### Bug Fixes
+
+* Fix map call in report creation ([#3509](https://github.com/snakemake/snakemake/issues/3509)) ([287920d](https://github.com/snakemake/snakemake/commit/287920d1ec1fbf05e65226f8b519e62c4da1edf6))
+
 ## [9.1.5](https://github.com/snakemake/snakemake/compare/v9.1.4...v9.1.5) (2025-04-02)
 
 
