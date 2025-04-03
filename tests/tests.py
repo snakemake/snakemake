@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from snakemake.persistence import Persistence
-from snakemake.resources import DefaultResources, GroupResources
+from snakemake.resources import DefaultResources, GroupResources, is_ordinary_string
 from snakemake.settings.enums import RerunTrigger
 from snakemake.utils import min_version  # import so we can patch out if needed
 
@@ -35,8 +35,6 @@ from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
     SharedFSUsage,
 )
-
-from ..resources import is_ordinary_string
 
 
 def test_logfile():
