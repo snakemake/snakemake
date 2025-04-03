@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [9.1.6](https://github.com/snakemake/snakemake/compare/v9.1.5...v9.1.6) (2025-04-03)
+
+
+### Bug Fixes
+
+* Fix map call in report creation ([#3509](https://github.com/snakemake/snakemake/issues/3509)) ([287920d](https://github.com/snakemake/snakemake/commit/287920d1ec1fbf05e65226f8b519e62c4da1edf6))
+
+## [9.1.5](https://github.com/snakemake/snakemake/compare/v9.1.4...v9.1.5) (2025-04-02)
+
+
+### Bug Fixes
+
+* correctly determine if a param has been derived from a function that uses e.g. input or output (and do not use such params for rerun triggers); make checkpoint handling robust in case there are multiple checkpoints depend upon in a single input function. ([#3507](https://github.com/snakemake/snakemake/issues/3507)) ([eb8fa3c](https://github.com/snakemake/snakemake/commit/eb8fa3c49117cf18e44b2285d806ce3d7139346a))
+
 ## [9.1.4](https://github.com/snakemake/snakemake/compare/v9.1.3...v9.1.4) (2025-04-01)
 
 
