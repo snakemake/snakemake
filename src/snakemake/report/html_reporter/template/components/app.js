@@ -7,7 +7,7 @@ let app;
 class App extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { hideNavbar: false, navbarMode: "menu", content: "rulegraph", ruleinfo: undefined, category: undefined, subcategory: undefined, searchTerm: undefined, resultPath: undefined, contentPath: undefined, renderTrigger: undefined };
+        this.state = { hideNavbar: false, navbarMode: "menu", content: "metadata", ruleinfo: undefined, category: undefined, subcategory: undefined, searchTerm: undefined, resultPath: undefined, contentPath: undefined, renderTrigger: undefined };
         this.setView = this.setView.bind(this);
         this.showCategory = this.showCategory.bind(this);
         this.showResultInfo = this.showResultInfo.bind(this);

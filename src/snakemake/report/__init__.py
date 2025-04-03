@@ -19,6 +19,7 @@ from collections import defaultdict
 import hashlib
 from pathlib import Path
 import numbers
+from yte import process_yaml
 
 
 from docutils.parsers.rst.directives.images import Image, Figure
@@ -26,6 +27,7 @@ from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 from humanfriendly import format_size
 
+import snakemake
 from snakemake import script, wrapper, notebook
 from snakemake.jobs import Job
 from snakemake.report.common import data_uri_from_file, mime_from_file
@@ -49,12 +51,14 @@ from snakemake.common import (
 from snakemake import logging
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake.settings.types import GlobalReportSettings
 from snakemake_interface_report_plugins.interfaces import (
     CategoryInterface,
     RuleRecordInterface,
     ConfigFileRecordInterface,
     JobRecordInterface,
     FileRecordInterface,
+    MetadataRecordInterface,
 )
 from snakemake.common import get_report_id
 from snakemake.exceptions import WorkflowError
@@ -358,6 +362,35 @@ class JobRecord(JobRecordInterface):
 
 
 @dataclass(slots=True)
+class MetadataRecord(MetadataRecordInterface):
+    """This class holds the metadata that is rendered into
+    the report.
+
+    Arguments
+    ---------
+    path: InitVar -- Path to the yte template containing user defined metadata
+    snakemake_version: str -- Snakemake version
+    metadata_dict: dict -- Parsed key value pairs of the yte template
+    """
+
+    path: InitVar
+    snakemake_version: str = field(init=False)
+    metadata_dict: dict = field(init=False)
+
+    def __post_init__(self, path):
+        self.path = path
+        self.snakemake_version = snakemake.__version__.split("+")[0]
+        self.metadata_dict = self.parse_yte()
+
+    def parse_yte(self):
+        if self.path:
+            with open(self.path, "r") as template:
+                return process_yaml(template)
+        else:
+            return None
+
+
+@dataclass(slots=True)
 class FileRecord(FileRecordInterface):
     path: Path
     job: Job
@@ -482,6 +515,7 @@ async def auto_report(
     dag,
     report_plugin: ReportPlugin,
     report_settings: ReportSettingsBase,
+    global_report_settings: GlobalReportSettings,
 ):
     try:
         from jinja2 import Environment, PackageLoader, UndefinedError
@@ -724,7 +758,9 @@ async def auto_report(
                         snakemake=Snakemake, categories=results, files=files
                     ),
                     writer_name="html",
-                )["body"]
+                )[
+                    "html_body"
+                ]  # html_body is required to extract also the title, if given
             except UndefinedError as e:
                 raise WorkflowError(
                     "Error rendering global report caption {}:".format(
@@ -733,13 +769,16 @@ async def auto_report(
                     e,
                 )
 
+    metadata = MetadataRecord(global_report_settings.metadata_template)
+
     reporter = report_plugin.reporter(
         rules,
         results,
         configfiles,
-        sorted(records.values(), key=lambda rec: rec.rule),
+        sorted(records.values(), key=lambda rec: rec.rule),  # this contains the jobs
         report_settings,
         workflow_description,
+        metadata,
         dag=dag,
     )
 
