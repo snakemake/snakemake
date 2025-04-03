@@ -1,0 +1,25 @@
+shell.executable("bash")
+
+
+configfile: "config/config.yaml"
+
+for module_name in ["module1", "module2"]:
+    module:
+        name: module_name
+        snakefile:
+            f"{module_name}/Snakefile"
+        config:
+            config
+        replace_prefix:
+            {"results/": "results/testmodule/"}
+
+    use rule * from module_name
+
+rule all:
+    input:
+        multiext(expand("results/testmodule/c1/{name}.", name="test")[0], "tsv", "txt"),
+        multiext(expand("results/testmodule/c2/{name}.", name="test")[0], "tsv", "txt"),
+
+
+assert module1.some_func() == 15
+assert module2.some_func() == 25

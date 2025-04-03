@@ -1,0 +1,38 @@
+checkpoint somestep:
+    output:
+        "somestep/{sample}.txt",
+    shell:
+        # simulate some output vale
+        "echo {config} > {output}"
+
+
+rule intermediate:
+    output:
+        "post/{sample}.txt",
+    shell:
+        "echo post_{wildcards.sample} > {output}"
+
+
+rule alt_intermediate:
+    output:
+        "alt/{sample}.txt",
+    shell:
+        "echo alt_{wildcards.sample} > {output}"
+
+
+def aggregate_input(wildcards):
+    # decision based on content of output file
+    with checkpoints.somestep.get(**wildcards).output[0].open() as f:
+        if f.read().strip() == "AAA":
+            return "post/{sample}.txt"
+        else:
+            return "alt/{sample}.txt"
+
+
+rule aggregate:
+    input:
+        aggregate_input,
+    output:
+        "aggregated/{sample}.txt",
+    shell:
+        "touch {output}"

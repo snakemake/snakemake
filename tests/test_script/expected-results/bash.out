@@ -1,3 +1,8 @@
 The first input file is test2.in
 The named input file is test.in
 The requested number of threads is 1
+snakemake_config is type A
+The list passed as a parameter is *a b*
+The wildcards are *bash* and **
+The config items are *True* *123* *7.65432*
+The config item with quotes in is *let's go*

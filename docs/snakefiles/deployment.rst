@@ -285,8 +285,12 @@ At the moment, only a single, random conda environment is shown.
 
 .. note::
 
-   Note that conda environments are only used with ``shell``, ``script``, ``notebook`` and the ``wrapper`` directive, not the ``run`` directive.
-   The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself. If used with ``notebook`` directive, the associated conda environment should have package ``jupyter`` installed (this package contains dependencies required to execute the notebook).
+   Note that conda environments can be used with the ``shell``, ``script``, ``notebook``, ``wrapper`` and ``run`` directives.
+   
+   However, the ``run`` directive is a special case, as it has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself. 
+   The ``conda`` directive for rules with a ``run`` directive therefore only affects ``shell`` function calls that are executed from the within ``run`` script.
+   
+   If used with ``notebook`` directive, the associated conda environment should have package ``jupyter`` installed (this package contains dependencies required to execute the notebook).
 
    Further, note that search path modifying environment variables like ``R_LIBS`` and ``PYTHONPATH`` can interfere with your conda environments.
    Therefore, Snakemake automatically deactivates them for a job when a conda environment definition is used.
@@ -422,7 +426,7 @@ otherwise, it assumes the given specification to point to an existing environmen
 Running jobs in containers
 --------------------------
 
-As an alternative to using Conda (see above), it is possible to define, for each rule, a (docker) container to use, e.g.,
+As an alternative to using Conda (see above), it is possible to define, for each rule, a (Docker) container to use, e.g.,
 
 .. code-block:: python
 
@@ -448,13 +452,23 @@ it will execute the job within a container that is spawned from the given image.
 Allowed image urls entail everything supported by apptainer (e.g., ``shub://`` and ``docker://``).
 However, ``docker://`` is preferred, as other container runtimes will be supported in the future (e.g. podman).
 
+Note that the isolation of jobs running in containers depends on the container engine.
+For example, Docker does not pass any host environment variables to the container, whereas Apptainer/Singularity passes everything.
+To override the default behaviour, consider using ``--apptainer-args`` or ``--singularity-args``, e.g. to pass ``--cleanenv``.
+
+Files that are mounted using `params` using `workflow.source_path` are also automatically available in the container. This is realized by mounting the snakemake cache in the container (/home/<user>/.cache/snakemake/snakemake/source-cache) where the sourced files will be cached. 
+
+In general, it should be noted that only trusted containers should be used!
+
 Defining global container images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. note::
 
-   Note that apptainer integration is only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
-   The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
+   Note that apptainer integration can be used with the ``shell``, ``script``, ``wrapper`` and ``run`` directives.
+   
+   However, the ``run`` directive is a special case, as it has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself. 
+   The ``container`` directive for rules with a ``run`` directive therefore only affects ``shell`` function calls that are executed from within the ``run`` script.
 
 A global definition of a container image can be given:
 
@@ -633,10 +647,10 @@ and reproduce the data analysis at any time in the future.
 Global workflow dependencies
 ----------------------------
 
-Often, your workflow will depend on some additional packages that need to be present 
+Often, your workflow will depend on some additional packages that need to be present
 along with Snakemake in order to handle actions before any rule is executed.
-Classical examples for this are `pandas <https://pandas.pydata.org/>`_, 
-`pep <https://pep.databio.org>`_ (also see :ref:`snakefiles-peps`) and 
+Classical examples for this are `pandas <https://pandas.pydata.org/>`_,
+`pep <https://pep.databio.org>`_ (also see :ref:`snakefiles-peps`) and
 :ref:`storage plugins <storage-support>`.
 
 Snakemake allows to define such global dependencies using a global ``conda`` directive
@@ -655,8 +669,8 @@ With ``envs/global.yaml`` containing e.g.::
     dependencies:
       - pandas=1.0.3
       - snakemake-storage-plugin-s3
-    
-Under the hood, this is implemented using `conda-inject <https://github.com/koesterlab/conda-inject>`_, 
+
+Under the hood, this is implemented using `conda-inject <https://github.com/koesterlab/conda-inject>`_,
 which modifies the python searchpath and the PATH variable on the fly during execution,
 pointing to additional environments that do not alter the environment in which Snakemake
 has been installed.

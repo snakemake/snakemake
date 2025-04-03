@@ -1,0 +1,61 @@
+name: docs
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  # Cancel concurrent flows on PRs
+  group: ci-docs-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pixi
+        uses: prefix-dev/setup-pixi@v0.8.4
+        with:
+          environments: "docs"
+          pixi-version: v0.42.1
+          cache: false # no pixi.lock
+          locked: false
+      
+      - name: Build Docs
+        run: |
+          pixi run --environment docs build-docs
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: docs/_build/html/
+
+  apidocs:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pixi
+        uses: prefix-dev/setup-pixi@v0.8.4
+        with:
+          environments: "docs"
+          pixi-version: v0.42.1
+          cache: false # no pixi.lock
+          locked: false
+
+      - name: Build API Docs
+        run: |
+          pixi run --environment docs build-apidocs
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: apidocs-html
+          path: apidocs/_build/html/

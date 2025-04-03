@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - uses: GoogleCloudPlatform/release-please-action@v4
+      - uses: googleapis/release-please-action@v4
         id: release
         with:
           release-type: python
-          package-name: snakemake
+          token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
 
       - uses: actions/checkout@v4
         if: ${{ steps.release.outputs.release_created }}

@@ -172,12 +172,14 @@ def run(
     cleanup_scripts=True,
     scheduler_ilp_solver=None,
     report=None,
+    report_after_run=False,
     report_stylesheet=None,
     deployment_method=frozenset(),
     shadow_prefix=None,
     until=frozenset(),
     omit_from=frozenset(),
     forcerun=frozenset(),
+    trust_io_cache=False,
     conda_list_envs=False,
     conda_create_envs=False,
     conda_prefix=None,
@@ -215,6 +217,7 @@ def run(
     benchmark_extended=False,
     assume_checkpoint_safe_temp_files=False,
     apptainer_args="",
+    tmpdir=None,
 ):
     """
     Test the Snakefile in the path.
@@ -238,28 +241,32 @@ def run(
 
     results_dir = join(path, "expected-results")
     original_snakefile = join(path, snakefile)
+    original_dirname = os.path.basename(os.path.dirname(original_snakefile))
     assert os.path.exists(original_snakefile)
     if check_results:
         assert os.path.exists(results_dir) and os.path.isdir(
             results_dir
         ), "{} does not exist".format(results_dir)
 
-    # If we need to further check results, we won't cleanup tmpdir
-    tmpdir = next(tempfile._get_candidate_names())
-    tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
-    os.mkdir(tmpdir)
+    if tmpdir is None:
+        # If we need to further check results, we won't cleanup tmpdir
+        tmpdir = next(tempfile._get_candidate_names())
+        tmpdir = os.path.join(
+            tempfile.gettempdir(), f"snakemake-{original_dirname}-{tmpdir}"
+        )
+        os.mkdir(tmpdir)
 
-    config = dict(config)
-
-    # copy files
-    for f in os.listdir(path):
-        copy(os.path.join(path, f), tmpdir)
+        # copy files
+        for f in os.listdir(path):
+            copy(os.path.join(path, f), tmpdir)
 
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
 
     snakemake_api = None
     exception = None
+
+    config = dict(config)
 
     # run snakemake
     if shellcmd:
@@ -371,10 +378,11 @@ def run(
                         forceall=forceall,
                         rerun_triggers=rerun_triggers,
                         assume_checkpoint_safe_temp_files=assume_checkpoint_safe_temp_files,
+                        trust_io_cache=trust_io_cache,
                     ),
                 )
 
-                if report is not None:
+                if report is not None and not report_after_run:
                     if report_stylesheet is not None:
                         report_stylesheet = Path(report_stylesheet)
                     report_settings = ReportSettings(
@@ -419,6 +427,17 @@ def run(
                         ),
                         executor_settings=executor_settings,
                     )
+
+                if report_after_run and report:
+                    if report_stylesheet is not None:
+                        report_stylesheet = Path(report_stylesheet)
+                    report_settings = ReportSettings(
+                        path=Path(report), stylesheet_path=report_stylesheet
+                    )
+                    dag_api.create_report(
+                        reporter="html",
+                        report_settings=report_settings,
+                    )
             except Exception as e:
                 success = False
                 exception = e
@@ -431,6 +450,7 @@ def run(
                 snakemake_api.print_exception(exception)
             print("Workdir:")
             print_tree(tmpdir, exclude=".snakemake/conda")
+            raise exception
         assert success, "expected successful execution"
 
     if check_results:

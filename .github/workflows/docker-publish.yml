@@ -1,12 +1,13 @@
 name: Publish to Docker Hub
 
-on:    
+on:
   push:
     branches:
       - main
 
 jobs:
   update:
+    if: github.repository == 'snakemake/snakemake'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

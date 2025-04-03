@@ -89,6 +89,8 @@ When using Snakemake, please cite our "rolling" paper
 This paper will also be regularly updated when Snakemake receives new features.
 See :doc:`Citations <project_info/citations>` for more information.
 
+.. _maintainers:
+
 -----------
 Maintainers
 -----------
@@ -101,6 +103,8 @@ The Snakemake maintainers are:
 * `Michael B. Hall <https://github.com/mbhall88>`_
 * `Filipe G. Vieira <https://github.com/fgvieira>`_
 * `Morten E. Lund <https://github.com/melund>`_
+* `Michael Jahn <https://github.com/m-jahn>`_
+* `Cade Mirchandani <https://github.com/cademirch>`_
 
 .. _main-resources:
 
@@ -147,7 +151,7 @@ Resources
 
 .. toctree::
   :caption: Executing workflows
-  :name: execution
+  :name: execution-toctree
   :hidden:
   :maxdepth: 1
 
@@ -184,6 +188,7 @@ Resources
     project_info/more_resources
     project_info/faq
     project_info/contributing
+    project_info/codebase
     project_info/authors
     project_info/history
     project_info/license
