@@ -835,6 +835,7 @@ class Workflow(WorkflowExecutorInterface):
                 self.storage_settings is not None
                 and SharedFSUsage.PERSISTENCE
                 not in self.storage_settings.shared_fs_usage
+                and self.remote_exec
             )
             else None
         )
