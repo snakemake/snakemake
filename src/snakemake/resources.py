@@ -536,7 +536,7 @@ def eval_resource_expression(val, threads_arg=True):
                 args,
             )
         # Triggers for string arguments like n1-standard-4
-        except NameError:
+        except NameError or SyntaxError:
             return val
         except Exception as e:
             if is_humanfriendly_resource(val):
@@ -659,7 +659,7 @@ def infer_resources(name, value, resources: dict):
 
 def is_ordinary_string(val):
     """
-    Check if this string is an ordinary string.
+    Check if a string is an ordinary string.
     Ordinary strings are not evaluated and are not
     expected to be python expressions and be returned as is.
 
