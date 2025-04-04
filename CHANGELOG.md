@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [9.1.7](https://github.com/snakemake/snakemake/compare/v9.1.6...v9.1.7) (2025-04-04)
+
+
+### Bug Fixes
+
+* only use temporary persistence directory in remote jobs when persistence is not shared via the FS ([#3513](https://github.com/snakemake/snakemake/issues/3513)) ([818a385](https://github.com/snakemake/snakemake/commit/818a3851a075e3439d0f77234992fbba07016319))
+
+
+### Documentation
+
+* fix definition of --default-resources behavior ([8e54115](https://github.com/snakemake/snakemake/commit/8e541150873d42d97f08e502fc46af433f0c4a61))
+
 ## [9.1.6](https://github.com/snakemake/snakemake/compare/v9.1.5...v9.1.6) (2025-04-03)
 
 
