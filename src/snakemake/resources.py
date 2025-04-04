@@ -536,7 +536,7 @@ def eval_resource_expression(val, threads_arg=True):
                 args,
             )
         # Triggers for string arguments like n1-standard-4
-        except NameError:
+        except (NameError, SyntaxError):
             return val
         except Exception as e:
             if is_humanfriendly_resource(val):
@@ -657,6 +657,41 @@ def infer_resources(name, value, resources: dict):
         resources["runtime"] = parsed
 
 
+def is_ordinary_string(val):
+    """
+    Check if a string is an ordinary string.
+    Ordinary strings are not evaluated and are not
+    expected to be python expressions and be returned as is.
+
+    Additionally, strings representing function calls, dictionary literals,
+    or lambda expressions are considered offending strings.
+    This function is useful for determining if a string can be safely
+    returned to represent a resource value without further evaluation.
+    It is important to note that this function does not check if the string
+    is a valid Python identifier or a valid expression. It only checks
+    if the string is an instance of `str` and does not match certain
+    patterns that indicate it is a Python expression or callable.
+
+    An ordinary string is defined as a string that:
+    - Is an instance of the `str` type.
+    - Does not match patterns that indicate it is a Python expression or a callable.
+
+    The regular expression used for validation:
+    - `^[a-zA-Z_]\w*\(.*\)$`: Matches function calls (e.g., `func_name(...)`).
+    - `^\{.*\}$`: Matches strings that look like dictionary literals (e.g., `{...}`).
+    - `^lambda\s.*:.*$`: Matches lambda expressions (e.g., `lambda x: x + 1`).
+
+    Parameters:
+        val (any): The value to check.
+
+    Returns:
+        bool: True if the value is an ordinary string in this sense, False otherwise.
+    """
+    return isinstance(val, str) and not re.match(
+        r"^[a-zA-Z_]\w*\(.*\)$|^\{.*\}$|^lambda\s.*:.*$", val
+    )
+
+
 def is_humanfriendly_resource(value):
     from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
 
@@ -672,4 +707,9 @@ def is_humanfriendly_resource(value):
     except InvalidTimespan:
         pass
 
-    return False
+    # we need to accept an ordinary string and expressions such as
+    # '{"mem_mb": 60000}', too:
+    if is_ordinary_string(value):
+        return True
+    else:
+        return False
