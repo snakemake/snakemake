@@ -536,7 +536,7 @@ def eval_resource_expression(val, threads_arg=True):
                 args,
             )
         # Triggers for string arguments like n1-standard-4
-        except NameError or SyntaxError:
+        except (NameError, SyntaxError):
             return val
         except Exception as e:
             if is_humanfriendly_resource(val):
