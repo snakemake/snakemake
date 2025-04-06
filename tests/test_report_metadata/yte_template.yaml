@@ -1,0 +1,12 @@
+__definitions__:
+- import os
+
+Workflow name: Test Workflow
+Workdir: /test/workdir
+Contributors:
+  - Test Contributor
+  - Another Contributor
+recursion_test:
+  test1:
+    test2: level
+    test3: level2
