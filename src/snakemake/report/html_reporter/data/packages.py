@@ -60,10 +60,9 @@ def get_packages():
             "d3-scale": Package(
                 license_path="d3-scale/LICENSE",
             ),
-            # TODO reactivate once we have a license again in the assets
-            # "@types-estree": Package(
-            #     license_path="@types-estree/LICENSE",
-            # ),
+            "@types-estree": Package(
+                license_path="@types-estree/LICENSE",
+            ),
             "d3-force": Package(
                 license_path="d3-force/LICENSE",
             ),
@@ -141,10 +140,9 @@ def get_packages():
             ),
             # Begin dependencies for vega-lite, included in vega-lite/vega-lite.js
             # (excluding those shared with vega and therefore already documented)
-            # TODO reactivate once we have a license again in the assets
-            # "@types-clone": Package(
-            #     license_path="@types-estree/LICENSE",
-            # ),
+            "@types-clone": Package(
+                license_path="@types-estree/LICENSE",
+            ),
             "array-flat-polyfill": Package(
                 license_path="array-flat-polyfill/LICENSE",
             ),
