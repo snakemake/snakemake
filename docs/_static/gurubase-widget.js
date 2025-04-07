@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     Object.entries({
         "data-widget-id": "XDztDiqWzDJbUC8HgYE3QTKfoY1r1dXsdkfTzLIzH9g",
         "data-text": "Ask AI",
+        "data-margins": JSON.stringify({ bottom: "100px", right: "20px" }),
         "data-overlap-content": "false"
     }).forEach(([key, value]) => {
         guruScript.setAttribute(key, value);
