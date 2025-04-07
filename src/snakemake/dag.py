@@ -23,6 +23,7 @@ from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
 from snakemake.io.flags.access_patterns import AccessPattern
+from snakemake.io.fmt import fmt_iofile
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
@@ -409,7 +410,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             try:
                 async with asyncio.TaskGroup() as tg:
                     for f, file_access_patterns in to_retrieve.items():
-                        logger.info(f"Retrieving {f} from storage.")
+                        logger.info(f"Retrieving {fmt_iofile(f)} from storage.")
 
                         # METHOD: If the file is at least by one job accessed randomly
                         # (i.e. non sequential), or multiple times, or if multiple
@@ -873,7 +874,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Write-protect output files that are marked with protected()."""
         for f in job.output:
             if f in job.protected_output:
-                logger.info(f"Write-protecting output file {f}.")
+                logger.info(f"Write-protecting output file {fmt_iofile(f)}.")
                 f.protect()
 
     def handle_touch(self, job):
@@ -881,7 +882,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         for f in job.output:
             if f in job.touch_output:
                 f = job.shadowed_path(f)
-                logger.info(f"Touching output file {f}.")
+                logger.info(f"Touching output file {fmt_iofile(f)}.")
                 f.touch_or_create()
                 assert os.path.exists(f)
 
@@ -943,9 +944,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         for f in unneeded_files():
             if self.workflow.dryrun:
-                logger.info(f"Would remove temporary output {f}")
+                logger.info(f"Would remove temporary output {fmt_iofile(f)}")
             else:
-                logger.info(f"Removing temporary output {f}.")
+                logger.info(f"Removing temporary output {fmt_iofile(f)}.")
                 await f.remove(remove_non_empty_dir=True)
 
     async def handle_log(self, job):
@@ -1037,7 +1038,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
             async for f in unneeded_files():
                 if await f.exists_local():
-                    logger.info(f"Removing local copy of storage file: {f}")
+                    logger.info(f"Removing local copy of storage file: {fmt_iofile(f)}")
                     await f.remove()
 
     def jobid(self, job):
@@ -1859,7 +1860,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         )
                     elif is_pipe and depending[0].is_norun:
                         raise WorkflowError(
-                            f"Output file {f} is marked as pipe but is requested by a rule that "
+                            f"Output file {fmt_iofile(f)} is marked as pipe but is requested by a rule that "
                             "does not execute anything. This is not allowed because it would lead "
                             "to a dead lock."
                         )
@@ -2271,7 +2272,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if update_job is not None and job.priority <= update_job.priority:
                 logger.info(
                     f"Raising priority of job {job} such that it runs before "
-                    f"job {update_job} because of flag 'before_update' on {f}"
+                    f"job {update_job} because of flag 'before_update' on {fmt_iofile(f)}"
                 )
                 self._priority[job] = update_job.priority + 1
                 f_hash = hashlib.sha256()
@@ -2926,7 +2927,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     # symlinks fail f.exists.
                     if await f.exists() or os.path.islink(f):
                         if await f.protected():
-                            logger.error(f"Skipping write-protected file {f}.")
+                            logger.error(
+                                f"Skipping write-protected file {fmt_iofile(f)}."
+                            )
                         else:
                             msg = "Deleting {}" if not dryrun else "Would delete {}"
                             logger.info(msg.format(f))
