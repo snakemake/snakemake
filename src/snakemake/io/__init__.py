@@ -935,13 +935,6 @@ class _IOFile(str, AnnotatedStringInterface):
         return self._file.__hash__()
 
 
-def pretty_print_iofile(iofile: Union[_IOFile, str]) -> str:
-    if isinstance(iofile, _IOFile) and iofile.is_storage:
-        return f"{iofile.storage_object.print_query} (storage)"
-    else:
-        return iofile
-
-
 class AnnotatedString(str, AnnotatedStringInterface):
     def __init__(self, value):
         self._flags = dict()
@@ -1006,6 +999,9 @@ async def wait_for_files(
     consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
 ):
     """Wait for given files to be present in the filesystem."""
+
+    from snakemake.io.fmt import fmt_iofile
+
     files = list(files)
 
     async def get_missing(list_parent=False):
@@ -1030,9 +1026,9 @@ async def wait_for_files(
                         if os.path.exists(parent_dir)
                         else " not present"
                     )
-                    return f"{f} (missing locally, parent dir{parent_msg})"
+                    return f"{fmt_iofile(f)} (missing locally, parent dir{parent_msg})"
                 else:
-                    return f"{f} (missing locally)"
+                    return f"{fmt_iofile(f)} (missing locally)"
             return None
 
         return list(filter(None, [await eval_file(f) for f in files]))
