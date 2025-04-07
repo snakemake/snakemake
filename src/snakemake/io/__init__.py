@@ -36,7 +36,6 @@ from typing import (
     TYPE_CHECKING,
 )
 
-from snakemake.io.fmt import fmt_iofile
 from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
 from snakemake_interface_common.utils import not_iterable
