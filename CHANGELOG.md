@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.1.9](https://github.com/snakemake/snakemake/compare/v9.1.8...v9.1.9) (2025-04-07)
+
+
+### Documentation
+
+* tune gurubase margins ([98c273b](https://github.com/snakemake/snakemake/commit/98c273b641cd3826b1bcfa164b38737f1335806a))
+
 ## [9.1.8](https://github.com/snakemake/snakemake/compare/v9.1.7...v9.1.8) (2025-04-07)
 
 
