@@ -64,34 +64,43 @@ from snakemake_interface_report_plugins.interfaces import JobReportInterface
 
 
 def format_file(f, is_input: bool):
+    if f.is_storage:
+        if is_input:
+            if f.storage_object.retrieve:
+                storage_phrase = "retrieve from"
+            else:
+                storage_phrase = "keep remote on"
+        else:
+            storage_phrase = "send to"
+        f_str = f.storage_object.print_query
+        storage_phrase = f"{phrase} storage"
+    else:
+        f_str = f
+        storage_phrase = ""
+
+    def annotate(f_str, label):
+        sep = ", " if label and storage_phrase else ""
+        ann = f" ({label}{sep}{storage_phrase})" if label or storage_phrase else ""
+        return f"{f_str}{ann}"
+
     if is_flagged(f, "pipe"):
-        return f"{f} (pipe)"
+        return annotate(f_str, "pipe")
     elif is_flagged(f, "service"):
-        return f"{f} (service)"
+        return annotate(f_str, "service")
     elif is_flagged(f, "nodelocal"):
-        return f"{f} (nodelocal)"
+        return annotate(f_str, "nodelocal")
     elif is_flagged(f, "update"):
-        return f"{f} (update)"
+        return annotate(f_str, "update")
     elif is_flagged(f, "before_update"):
-        return f"{f} (before update)"
+        return annotate(f_str, "before update")
     elif is_flagged(f, "access_pattern"):
-        pattern = get_flag_value(f, "access_pattern")
-        return f"{f} (access: {pattern})"
+        pattern = f"access: {get_flag_value(f, 'access_pattern')}"
+        return annotate(f_str, pattern)
     elif is_flagged(f, "checkpoint_target"):
         return TBDString()
     elif is_flagged(f, "sourcecache_entry"):
         orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
-        return f"{orig_path_or_uri} (cached)"
-    elif f.is_storage:
-        if is_input:
-            if f.storage_object.retrieve:
-                phrase = "retrieve from"
-            else:
-                phrase = "keep remote on"
-        else:
-            phrase = "send to"
-        f_str = f.storage_object.print_query
-        return f"{f_str} ({phrase} storage)"
+        return annotate(orig_path_or_uri, "cached")
     else:
         return f
 
