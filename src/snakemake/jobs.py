@@ -67,11 +67,11 @@ def format_file(f, is_input: bool):
     if f.is_storage:
         if is_input:
             if f.storage_object.retrieve:
-                storage_phrase = "retrieve from"
+                phrase = "retrieve from"
             else:
-                storage_phrase = "keep remote on"
+                phrase = "keep remote on"
         else:
-            storage_phrase = "send to"
+            phrase = "send to"
         f_str = f.storage_object.print_query
         storage_phrase = f"{phrase} storage"
     else:
