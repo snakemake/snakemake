@@ -410,8 +410,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             try:
                 async with asyncio.TaskGroup() as tg:
                     for f, file_access_patterns in to_retrieve.items():
-                        logger.info(f"Retrieving {fmt_iofile(f)} from storage.")
-
                         # METHOD: If the file is at least by one job accessed randomly
                         # (i.e. non sequential), or multiple times, or if multiple
                         # jobs access the same file, we should download it.
