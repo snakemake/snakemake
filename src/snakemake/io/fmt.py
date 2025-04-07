@@ -26,8 +26,8 @@ def fmt_iofile(f, as_input: bool = False, as_output: bool = False):
         return f"{f_str}{ann}"
 
     if is_flagged(f, "sourcecache_entry"):
-            orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
-            return annotate(orig_path_or_uri, "cached")
+        orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
+        return annotate(orig_path_or_uri, "cached")
     if as_io:
         if is_flagged(f, "pipe"):
             return annotate(f_str, "pipe")

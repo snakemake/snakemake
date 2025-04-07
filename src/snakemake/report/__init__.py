@@ -27,6 +27,7 @@ from docutils.core import publish_file, publish_parts
 from humanfriendly import format_size
 
 from snakemake import script, wrapper, notebook
+from snakemake.io.fmt import fmt_iofile
 from snakemake.jobs import Job
 from snakemake.report.common import data_uri_from_file, mime_from_file
 from snakemake.rules import Rule
@@ -642,7 +643,7 @@ async def auto_report(
                         if not found_something:
                             logger.warning(
                                 "No files found for patterns given to report marker "
-                                "in rule {job.rule.name} for output {fmt_iofile(f)}. Make sure "
+                                f"in rule {job.rule.name} for output {fmt_iofile(f)}. Make sure "
                                 "that the patterns are correctly specified."
                             )
                     else:

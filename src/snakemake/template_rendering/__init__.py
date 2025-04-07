@@ -65,7 +65,7 @@ def check_template_output(job):
                 if f.is_storage and f in l:
                     raise WorkflowError(
                         "Output of template_engine rule contains local path to input file "
-                        f"from storage: {fmt_iofile(f)} for {f.storage_object.query}. "
+                        f"from storage: {f} for {f.storage_object.print_query}. "
                         "However, this path is variable as it can change between runs (e.g. when "
                         "the storage local prefix is modified). To circumvent this issue, place the "
                         "rule in one group with the consumer(s) and mark the output as temp()."
