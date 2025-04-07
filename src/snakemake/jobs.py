@@ -59,54 +59,13 @@ from snakemake.common import (
     get_uuid,
     IO_PROP_LIMIT,
 )
+from snakemake.io.fmt import fmt_iofile
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
 
 
-def format_file(f, is_input: bool):
-    if f.is_storage:
-        if is_input:
-            if f.storage_object.retrieve:
-                phrase = "retrieve from"
-            else:
-                phrase = "keep remote on"
-        else:
-            phrase = "send to"
-        f_str = f.storage_object.print_query
-        storage_phrase = f"{phrase} storage"
-    else:
-        f_str = f
-        storage_phrase = ""
-
-    def annotate(f_str, label):
-        sep = ", " if label and storage_phrase else ""
-        ann = f" ({label}{sep}{storage_phrase})" if label or storage_phrase else ""
-        return f"{f_str}{ann}"
-
-    if is_flagged(f, "pipe"):
-        return annotate(f_str, "pipe")
-    elif is_flagged(f, "service"):
-        return annotate(f_str, "service")
-    elif is_flagged(f, "nodelocal"):
-        return annotate(f_str, "nodelocal")
-    elif is_flagged(f, "update"):
-        return annotate(f_str, "update")
-    elif is_flagged(f, "before_update"):
-        return annotate(f_str, "before update")
-    elif is_flagged(f, "access_pattern"):
-        pattern = f"access: {get_flag_value(f, 'access_pattern')}"
-        return annotate(f_str, pattern)
-    elif is_flagged(f, "checkpoint_target"):
-        return TBDString()
-    elif is_flagged(f, "sourcecache_entry"):
-        orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
-        return annotate(orig_path_or_uri, "cached")
-    else:
-        return f
-
-
 def format_files(io, is_input: bool):
-    return [format_file(f, is_input=is_input) for f in io]
+    return [fmt_iofile(f, as_input=is_input, as_output=not is_input) for f in io]
 
 
 def jobfiles(jobs, type):
@@ -1083,7 +1042,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         priority = self.priority
 
         benchmark = (
-            format_file(self.benchmark, is_input=False)
+            fmt_iofile(self.benchmark, as_input=False, as_output=True)
             if self.benchmark is not None
             else None
         )

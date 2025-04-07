@@ -1030,9 +1030,9 @@ async def wait_for_files(
                         if os.path.exists(parent_dir)
                         else " not present"
                     )
-                    return f"{f} (missing locally, parent dir{parent_msg})"
+                    return f"{fmt_iofile(f)} (missing locally, parent dir{parent_msg})"
                 else:
-                    return f"{f} (missing locally)"
+                    return f"{fmt_iofile(f)} (missing locally)"
             return None
 
         return list(filter(None, [await eval_file(f) for f in files]))

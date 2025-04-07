@@ -642,7 +642,7 @@ async def auto_report(
                         if not found_something:
                             logger.warning(
                                 "No files found for patterns given to report marker "
-                                "in rule {job.rule.name} for output {f}. Make sure "
+                                "in rule {job.rule.name} for output {fmt_iofile(f)}. Make sure "
                                 "that the patterns are correctly specified."
                             )
                     else:
