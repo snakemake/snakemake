@@ -148,13 +148,11 @@ class Assets:
         # The license file included in the NPM package does not exist directly
         # in https://github.com/DefinitelyTyped/DefinitelyTyped, so we use an
         # unpkg URL to reference the contents of the NPM package instead.
-        # TODO estree license is not present on unpkg anymore.
-        # TODO Also, the repo referenced about _does_ contain a license.
-        # "@types-estree/LICENSE": Asset(
-        #     url="https://unpkg.com/@types/estree@{version}/LICENSE",
-        #     sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
-        #     version="0.0.50",
-        # ),
+        "@types-estree/LICENSE": Asset(
+            url="https://unpkg.com/@types/estree@{version}/LICENSE",
+            sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+            version="0.0.50",
+        ),
         # Via vega-force
         "d3-force/LICENSE": Asset(
             url="https://raw.githubusercontent.com/d3/d3-force/refs/tags/v{version}/LICENSE",
@@ -363,13 +361,11 @@ class Assets:
         ),
         # Begin dependencies for vega-lite, included in vega-lite/vega-lite.js
         # Versions from https://github.com/vega/vega-lite/blob/v5.2.0/yarn.lock.
-        # TODO: file not present on unpkg, disable for now and seek for a better source
-        # in the future
-        # "@types-clone/LICENSE": Asset(
-        #     url="https://unpkg.com/@types/clone@{version}/LICENSE",
-        #     sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
-        #     version="2.1.1",
-        # ),
+        "@types-clone/LICENSE": Asset(
+            url="https://unpkg.com/@types/clone@{version}/LICENSE",
+            sha256="c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+            version="2.1.1",
+        ),
         "array-flat-polyfill/LICENSE": Asset(
             # Releases are not tagged in git; we use the commit hash
             # corresponding to the 1.0.1 release
