@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 import os
 import traceback
-import textwrap
 from tokenize import TokenError
 from snakemake_interface_common.exceptions import WorkflowError, ApiError
 from snakemake_interface_logger_plugins.common import LogEvent
@@ -281,20 +280,17 @@ class ChildIOException(WorkflowError):
 class IOException(RuleException):
     def __init__(self, prefix, job, files, include=None, lineno=None, snakefile=None):
         from snakemake.logging import format_wildcards
-        from snakemake.io import pretty_print_iofile
+        from snakemake.io.fmt import fmt_iofile
 
         msg = ""
         if files:
             msg = f"{prefix} for rule {job.rule}:"
             if job.output:
-                msg += (
-                    "\n"
-                    + f"    output: {', '.join(map(pretty_print_iofile, job.output))}"
-                )
+                msg += "\n" + f"    output: {', '.join(map(fmt_iofile, job.output))}"
             if job.wildcards:
                 msg += "\n" + f"    wildcards: {format_wildcards(job.wildcards)}"
             msg += "\n    affected files:\n        " + "\n        ".join(
-                map(pretty_print_iofile, files)
+                map(fmt_iofile, files)
             )
         super().__init__(
             message=msg,
@@ -377,9 +373,9 @@ class ImproperShadowException(RuleException):
 class AmbiguousRuleException(RuleException):
     def __init__(self, filename, job_a, job_b, lineno=None, snakefile=None):
         from snakemake import utils
-        from snakemake.io import pretty_print_iofile
+        from snakemake.io.fmt import fmt_iofile
 
-        filename = pretty_print_iofile(filename)
+        filename = fmt_iofile(filename)
 
         wildcards_a = utils.format("{}", job_a._format_wildcards)
         wildcards_b = utils.format("{}", job_b._format_wildcards)
@@ -416,10 +412,10 @@ class CyclicGraphException(RuleException):
 
 class MissingRuleException(RuleException):
     def __init__(self, file, lineno=None, snakefile=None):
-        from snakemake.io import pretty_print_iofile
+        from snakemake.io.fmt import fmt_iofile
 
         super().__init__(
-            f"No rule to produce {pretty_print_iofile(file)} (if you use input "
+            f"No rule to produce {fmt_iofile(file)} (if you use input "
             "functions make sure that they don't raise unexpected exceptions).",
             lineno=lineno,
             snakefile=snakefile,
@@ -443,7 +439,7 @@ class NoRulesException(RuleException):
 
 class IncompleteFilesException(RuleException):
     def __init__(self, files):
-        from snakemake.io import pretty_print_iofile
+        from snakemake.io.fmt import fmt_iofile
 
         super().__init__(
             "The files below seem to be incomplete. "
@@ -452,7 +448,7 @@ class IncompleteFilesException(RuleException):
             "    snakemake --cleanup-metadata <filenames>\n\n"
             "To re-generate the files rerun your command with the "
             "--rerun-incomplete flag.\nIncomplete files:\n{}".format(
-                "\n".join(map(pretty_print_iofile, files))
+                "\n".join(map(fmt_iofile, files))
             )
         )
 

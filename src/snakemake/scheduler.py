@@ -218,13 +218,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         if not user_kill:
                             logger.error(_ERROR_MSG_FINAL)
                             for job in self.failed:
-                                if isinstance(job, GroupJob):
-                                    job.log_error()
-                                else:
-                                    logger.error(
-                                        f"Error in jobid: {self.workflow.dag.jobid(job)}",
-                                        extra=job.get_log_error_info(),
-                                    )
+                                job.log_error()
                         return False
                     continue
 
@@ -241,10 +235,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
                         for job in self.failed:
-                            logger.error(
-                                f"Error in jobid: {self.workflow.dag.jobid(job)}",
-                                extra=job.get_log_error_info(),
-                            )
+                            job.log_error()
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
                     if self.remaining_jobs and not self.keepgoing:

@@ -1,6 +1,26 @@
 # Changelog
 
 
+## [9.1.9](https://github.com/snakemake/snakemake/compare/v9.1.8...v9.1.9) (2025-04-07)
+
+
+### Documentation
+
+* tune gurubase margins ([98c273b](https://github.com/snakemake/snakemake/commit/98c273b641cd3826b1bcfa164b38737f1335806a))
+
+## [9.1.8](https://github.com/snakemake/snakemake/compare/v9.1.7...v9.1.8) (2025-04-07)
+
+
+### Bug Fixes
+
+* improve labelling of input and output files when logging rules ([#3516](https://github.com/snakemake/snakemake/issues/3516)) ([56203a4](https://github.com/snakemake/snakemake/commit/56203a4a58cc0f3ea5d6e693dce4d1f1a78862db))
+* unify error logging in scheduler, fixing a missing attribute error for group jobs ([#3515](https://github.com/snakemake/snakemake/issues/3515)) ([245ec10](https://github.com/snakemake/snakemake/commit/245ec1065c4cb10df0c79a741d79bbda59d772a8))
+
+
+### Documentation
+
+* activate gurubase AI ([#3517](https://github.com/snakemake/snakemake/issues/3517)) ([eaffc6e](https://github.com/snakemake/snakemake/commit/eaffc6e63e3f501f2ed9897162d9a50eaa018863))
+
 ## [9.1.7](https://github.com/snakemake/snakemake/compare/v9.1.6...v9.1.7) (2025-04-04)
 
 
