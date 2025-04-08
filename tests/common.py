@@ -41,7 +41,7 @@ def md5sum(filename, ignore_newlines=False):
             data = f.read().strip().encode("utf8", errors="surrogateescape")
     else:
         data = open(filename, "rb").read().strip()
-    return hashlib.md5(data).hexdigest()
+    return hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
 # test skipping

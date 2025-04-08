@@ -531,7 +531,7 @@ class Persistence(PersistenceExecutorInterface):
     def _software_stack_hash(self, job):
         # TODO move code for retrieval into software deployment plugin interface once
         # available
-        md5hash = hashlib.md5()
+        md5hash = hashlib.md5(usedforsecurity=False)
         if (
             DeploymentMethod.CONDA
             in self.dag.workflow.deployment_settings.deployment_method
