@@ -85,7 +85,7 @@ class Executor(RealExecutor):
         return {"--quiet": ["progress", "rules", "host"]}
 
     def get_job_args(self, job: JobExecutorInterface, **kwargs):
-        return f"{super().get_job_args(job, **kwargs)}"
+        return super().get_job_args(job, **kwargs)
 
     def run_job(
         self,
