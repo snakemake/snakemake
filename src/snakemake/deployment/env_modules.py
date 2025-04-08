@@ -7,6 +7,7 @@ __license__ = "MIT"
 import hashlib
 import shlex
 
+
 class EnvModules:
     def __init__(self, *module_names):
         self.names = module_names
