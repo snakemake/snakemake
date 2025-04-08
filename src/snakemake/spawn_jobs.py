@@ -137,7 +137,6 @@ class SpawnedJobArgsFactory:
         self,
         property,
         flag=None,
-        base64_encode=False,
         skip=False,
         force=False,
         invert=False,
@@ -282,21 +281,16 @@ class SpawnedJobArgsFactory:
         if shared_deployment:
             args["--scheduler-solver-path"] = os.path.dirname(sys.executable)
 
-        # base64 encode the prefix to ensure that eventually unexpanded env vars
-        # are not replaced with values (or become empty if missing) by the shell
         if executor_common_settings.non_local_exec and not self.workflow.remote_exec:
             # this is used when the main process submits a job via a remote executor
             local_storage_prefix = w2a(
                 "storage_settings.remote_job_local_storage_prefix",
                 flag="--local-storage-prefix",
-                base64_encode=True,
             )
         else:
             # this is used in the main process when submitting jobs to a local executor
             # or when a remote executor spawns an inner executor
-            local_storage_prefix = w2a(
-                "storage_settings.local_storage_prefix", base64_encode=True
-            )
+            local_storage_prefix = w2a("storage_settings.local_storage_prefix")
 
         for prop_arg in [
             w2a("execution_settings.keep_incomplete"),
@@ -324,7 +318,7 @@ class SpawnedJobArgsFactory:
                 skip=not shared_deployment,
             ),
             w2a("deployment_settings.apptainer_prefix"),
-            w2a("deployment_settings.apptainer_args", base64_encode=True),
+            w2a("deployment_settings.apptainer_args"),
             w2a("resource_settings.max_threads"),
             self.get_shared_fs_usage_arg(executor_common_settings),
             w2a(
@@ -360,7 +354,6 @@ class SpawnedJobArgsFactory:
                 w2a(
                     "resource_settings.default_resources",
                     attr="args",
-                    base64_encode=True,
                 )
             )
         if executor_common_settings.pass_group_args:

@@ -13,7 +13,6 @@ from typing import List, Mapping, Optional, Set, Union
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
-from snakemake_interface_executor_plugins.utils import maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 
@@ -547,7 +546,6 @@ def get_argument_parser(profiles=None):
         metavar="RULE=THREADS",
         nargs="+",
         default=dict(),
-        parse_func=maybe_base64(parse_set_threads),
         help="Overwrite thread usage of rules. This allows to fine-tune workflow "
         "parallelization. In particular, this is helpful to target certain cluster nodes "
         "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
@@ -567,7 +565,6 @@ def get_argument_parser(profiles=None):
         metavar="RULE:RESOURCE=VALUE",
         nargs="+",
         default=dict(),
-        parse_func=maybe_base64(parse_set_resources),
         help="Overwrite resource usage of rules. This allows to fine-tune workflow "
         "resources. In particular, this is helpful to target certain cluster nodes "
         "by e.g. defining a certain partition for a rule, or overriding a temporary directory. "
@@ -606,7 +603,6 @@ def get_argument_parser(profiles=None):
         "--default-res",
         nargs="*",
         metavar="NAME=INT",
-        parse_func=maybe_base64(DefaultResources),
         help=(
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. `2*input.size_mb`). "
@@ -1473,13 +1469,13 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--local-storage-prefix",
         default=".snakemake/storage",
-        type=maybe_base64(expandvars(Path)),
+        type=expandvars(Path),
         help="Specify prefix for storing local copies of storage files and folders (e.g. local scratch disk). Environment variables will be expanded.",
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
         default=".snakemake/storage",
-        type=maybe_base64(Path),
+        type=Path,
         help="Specify prefix for storing local copies of storage files and folders (e.g. local scratch disk) in "
         "case of remote jobs (e.g. cluster or cloud jobs). Environment variables will be expanded within the remote job.",
     )
@@ -1746,7 +1742,6 @@ def get_argument_parser(profiles=None):
         "--singularity-args",
         default="",
         metavar="ARGS",
-        parse_func=maybe_base64(str),
         help="Pass additional args to apptainer/singularity.",
     )
 
