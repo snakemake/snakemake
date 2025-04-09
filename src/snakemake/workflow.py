@@ -975,7 +975,7 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=True,
             lock_warn_only=True,
         )
-        self._build_dag()
+        self._build_dag(verbose=False)
         print(self.dag)
 
     def printrulegraph(self):
@@ -985,7 +985,7 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=True,
             lock_warn_only=True,
         )
-        self._build_dag()
+        self._build_dag(verbose=False)
         print(self.dag.rule_dot())
 
     def printfilegraph(self):
@@ -995,7 +995,7 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=True,
             lock_warn_only=True,
         )
-        self._build_dag()
+        self._build_dag(verbose=False)
         print(self.dag.filegraph_dot())
 
     def printd3dag(self):
@@ -1005,7 +1005,7 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=True,
             lock_warn_only=True,
         )
-        self._build_dag()
+        self._build_dag(verbose=False)
 
         self.dag.d3dag()
 
@@ -1166,8 +1166,9 @@ class Workflow(WorkflowExecutorInterface):
             rulegraph = simple_rulegraph()
             logger.info(None, extra=dict(event=LogEvent.RULEGRAPH, rulegraph=rulegraph))
 
-    def _build_dag(self):
-        logger.info("Building DAG of jobs...")
+    def _build_dag(self, verbose=True):
+        if verbose:
+            logger.info("Building DAG of jobs...")
         async_run(self.dag.init())
         async_run(self.dag.update_checkpoint_dependencies())
 
