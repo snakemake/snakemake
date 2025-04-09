@@ -709,7 +709,5 @@ def is_humanfriendly_resource(value):
 
     # we need to accept an ordinary string and expressions such as
     # '{"mem_mb": 60000}', too:
-    if is_ordinary_string(value):
-        return True
-    else:
-        return False
+    # the function will return "True" for an ordinary string and false otherwise
+    return is_ordinary_string(value)
