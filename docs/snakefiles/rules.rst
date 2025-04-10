@@ -575,8 +575,7 @@ The parse_input function
 
 The ``parse_input`` function allows to parse an input file and return a value.
 It has the signature ``parse_input(input_item, parser, kwargs)``, with ``input_item`` being the key of an input file, ``parser`` being a callable to extract the desired information, and ``kwargs`` extra arguments passed to the parser.
-The function will return the extracted value.
-It can for example be used to extract a value from inside an input file.
+The function will return the extracted value and this can, for example, be used as a parameter.
 
 .. code-block:: python
 
