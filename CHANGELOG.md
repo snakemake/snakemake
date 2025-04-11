@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [9.1.10](https://github.com/snakemake/snakemake/compare/v9.1.9...v9.1.10) (2025-04-11)
+
+
+### Bug Fixes
+
+* fix double slash issue in source archive if default storage prefix is given with a trailing slash ([5be6183](https://github.com/snakemake/snakemake/commit/5be6183cee8b4a488ea5de1fc23f057207d1c92a))
+* remove superfluous log message ([6800a2b](https://github.com/snakemake/snakemake/commit/6800a2baf5500a009c01c9d3585d607fd276e8c8))
+
 ## [9.1.9](https://github.com/snakemake/snakemake/compare/v9.1.8...v9.1.9) (2025-04-07)
 
 
