@@ -1,0 +1,5 @@
+rule:
+    output: "hello.out"
+    run:
+        with open(str(output), "x") as fh:
+            print("Hello, you", file=fh)

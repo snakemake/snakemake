@@ -43,6 +43,11 @@ def s3_storage():
     import uuid
     import boto3
 
+    # The tests that use this fixture now rely on having a minio server running locally.
+    # If you have the minio binary downloaded (from https://github.com/minio/minio), run:
+    # $ env MINIO_ROOT_USER=minio MINIO_ROOT_PASSWORD=minio123 \
+    #     ./minio server --address 127.0.0.1:9000 /tmp/minio_test
+
     endpoint_url = "http://127.0.0.1:9000"
     access_key = "minio"
     secret_key = "minio123"

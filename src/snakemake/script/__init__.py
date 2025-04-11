@@ -833,7 +833,8 @@ class PythonScript(ScriptBase):
             fallback_prefix = Path(self.conda_base_path) / "envs" / prefix
             return contains_python(prefix) or contains_python(fallback_prefix)
         elif self.env_modules is not None:
-            prefix = Path(self._execute_cmd("echo $PATH", read=True).split(":")[0])
+            # Does this need to work on Windows?
+            prefix = Path(self._execute_cmd('echo "$PATH"', read=True).split(":")[0])
             return contains_python(prefix)
         else:
             raise NotImplementedError()
@@ -883,9 +884,10 @@ class PythonScript(ScriptBase):
             # use forward slashes so script command still works even if
             # bash is configured as executable on Windows
             py_exec = py_exec.replace("\\", "/")
+
         # use the same Python as the running process or the one from the environment
         self._execute_cmd(
-            "{py_exec} {fname:q}", py_exec=py_exec, fname=fname, is_python_script=True
+            "{py_exec:q} {fname:q}", py_exec=py_exec, fname=fname, is_python_script=True
         )
 
 

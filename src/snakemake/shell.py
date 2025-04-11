@@ -9,6 +9,7 @@ import sys
 import os
 import subprocess as sp
 import inspect
+import shlex
 import shutil
 import stat
 import tempfile
@@ -247,7 +248,11 @@ class shell:
             with open(script, "w") as script_fd:
                 print(cmd, file=script_fd)
             os.chmod(script, os.stat(script).st_mode | stat.S_IXUSR | stat.S_IRUSR)
-            cmd = '"{}" "{}"'.format(cls.get_executable() or "/bin/sh", script)
+            cmd = (
+                shlex.quote(cls.get_executable() or "/bin/sh")
+                + " "
+                + shlex.quote(script)
+            )
 
         if container_img:
             cmd = singularity.shellcmd(
