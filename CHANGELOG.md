@@ -1,6 +1,76 @@
 # Changelog
 
 
+## [9.1.10](https://github.com/snakemake/snakemake/compare/v9.1.9...v9.1.10) (2025-04-11)
+
+
+### Bug Fixes
+
+* fix double slash issue in source archive if default storage prefix is given with a trailing slash ([5be6183](https://github.com/snakemake/snakemake/commit/5be6183cee8b4a488ea5de1fc23f057207d1c92a))
+* remove superfluous log message ([6800a2b](https://github.com/snakemake/snakemake/commit/6800a2baf5500a009c01c9d3585d607fd276e8c8))
+
+## [9.1.9](https://github.com/snakemake/snakemake/compare/v9.1.8...v9.1.9) (2025-04-07)
+
+
+### Documentation
+
+* tune gurubase margins ([98c273b](https://github.com/snakemake/snakemake/commit/98c273b641cd3826b1bcfa164b38737f1335806a))
+
+## [9.1.8](https://github.com/snakemake/snakemake/compare/v9.1.7...v9.1.8) (2025-04-07)
+
+
+### Bug Fixes
+
+* improve labelling of input and output files when logging rules ([#3516](https://github.com/snakemake/snakemake/issues/3516)) ([56203a4](https://github.com/snakemake/snakemake/commit/56203a4a58cc0f3ea5d6e693dce4d1f1a78862db))
+* unify error logging in scheduler, fixing a missing attribute error for group jobs ([#3515](https://github.com/snakemake/snakemake/issues/3515)) ([245ec10](https://github.com/snakemake/snakemake/commit/245ec1065c4cb10df0c79a741d79bbda59d772a8))
+
+
+### Documentation
+
+* activate gurubase AI ([#3517](https://github.com/snakemake/snakemake/issues/3517)) ([eaffc6e](https://github.com/snakemake/snakemake/commit/eaffc6e63e3f501f2ed9897162d9a50eaa018863))
+
+## [9.1.7](https://github.com/snakemake/snakemake/compare/v9.1.6...v9.1.7) (2025-04-04)
+
+
+### Bug Fixes
+
+* only use temporary persistence directory in remote jobs when persistence is not shared via the FS ([#3513](https://github.com/snakemake/snakemake/issues/3513)) ([818a385](https://github.com/snakemake/snakemake/commit/818a3851a075e3439d0f77234992fbba07016319))
+
+
+### Documentation
+
+* fix definition of --default-resources behavior ([8e54115](https://github.com/snakemake/snakemake/commit/8e541150873d42d97f08e502fc46af433f0c4a61))
+
+## [9.1.6](https://github.com/snakemake/snakemake/compare/v9.1.5...v9.1.6) (2025-04-03)
+
+
+### Bug Fixes
+
+* Fix map call in report creation ([#3509](https://github.com/snakemake/snakemake/issues/3509)) ([287920d](https://github.com/snakemake/snakemake/commit/287920d1ec1fbf05e65226f8b519e62c4da1edf6))
+
+## [9.1.5](https://github.com/snakemake/snakemake/compare/v9.1.4...v9.1.5) (2025-04-02)
+
+
+### Bug Fixes
+
+* correctly determine if a param has been derived from a function that uses e.g. input or output (and do not use such params for rerun triggers); make checkpoint handling robust in case there are multiple checkpoints depend upon in a single input function. ([#3507](https://github.com/snakemake/snakemake/issues/3507)) ([eb8fa3c](https://github.com/snakemake/snakemake/commit/eb8fa3c49117cf18e44b2285d806ce3d7139346a))
+
+## [9.1.4](https://github.com/snakemake/snakemake/compare/v9.1.3...v9.1.4) (2025-04-01)
+
+
+### Bug Fixes
+
+* Fix map call in report creation ([#3503](https://github.com/snakemake/snakemake/issues/3503)) ([44754cc](https://github.com/snakemake/snakemake/commit/44754ccbafaf94d30b9e507b81e8fb5f38409e3d))
+* in the report, do not render toggle labels if there is more than one label eligible for a toggle ([#3502](https://github.com/snakemake/snakemake/issues/3502)) ([3be8ca9](https://github.com/snakemake/snakemake/commit/3be8ca9308df72494cbca4d6f572486c8486418a))
+* only inform about storage cleanup in case of --verbose mode ([#3494](https://github.com/snakemake/snakemake/issues/3494)) ([62bbbf5](https://github.com/snakemake/snakemake/commit/62bbbf5129b2fe9ed125245fd90b69d53db8b6ce))
+* provide causing rule to workflow error during checkpoint handling ([#3499](https://github.com/snakemake/snakemake/issues/3499)) ([b4cbe5d](https://github.com/snakemake/snakemake/commit/b4cbe5d2e9d5d985466a5dac4c985caa66efb5ad))
+* rerun-trigger regression ([#3492](https://github.com/snakemake/snakemake/issues/3492)) ([811742d](https://github.com/snakemake/snakemake/commit/811742d5db425219a3018f04190a99f53b3b742d))
+
+
+### Documentation
+
+* note about parameter inheritance when using the "use rule with" pattern ([#3500](https://github.com/snakemake/snakemake/issues/3500)) ([8f6a8eb](https://github.com/snakemake/snakemake/commit/8f6a8eb783bf003dbf804df737a2adfbfa9818ef))
+
 ## [9.1.3](https://github.com/snakemake/snakemake/compare/v9.1.2...v9.1.3) (2025-03-26)
 
 
