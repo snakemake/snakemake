@@ -1520,6 +1520,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         missing_output = [f async for f in job_.missing_output(files)]
                         reason(job_).missing_output.update(missing_output)
                         if missing_output and job_ not in visited:
+                            logger.debug(
+                                f"Need to rerun job {job_} because of missing output required by {job}."
+                            )
                             visited.add(job_)
                             queue.append(job_)
 
@@ -1532,6 +1535,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                 continue
                             visited.add(job_)
                             queue.append(job_)
+                        logger.debug(
+                            f"Need to rerun job {job_} because job {job} has to be rerun."
+                        )
                         reason(job_).updated_input_run.update(files)
 
         # update _n_until_ready
