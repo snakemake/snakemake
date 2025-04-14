@@ -510,7 +510,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         dryrun |= self.workflow.dryrun
         touch = self.workflow.touch
         for env in self.conda_envs.values():
-            if not touch and (not dryrun or not quiet) and not env.is_externally_managed:
+            if (
+                not touch
+                and (not dryrun or not quiet)
+                and not env.is_externally_managed
+            ):
                 env.create(self.workflow.dryrun)
 
     def update_container_imgs(self):
