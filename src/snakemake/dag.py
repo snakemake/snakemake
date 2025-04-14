@@ -508,8 +508,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
+        touch = self.workflow.touch
         for env in self.conda_envs.values():
-            if (not dryrun or not quiet) and not env.is_externally_managed:
+            if not touch and (not dryrun or not quiet) and not env.is_externally_managed:
                 env.create(self.workflow.dryrun)
 
     def update_container_imgs(self):
@@ -527,7 +528,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     def pull_container_imgs(self, quiet=False):
         for img in self.container_imgs.values():
-            if not self.workflow.dryrun or not quiet:
+            if not self.workflow.touch and (not self.workflow.dryrun or not quiet):
                 img.pull(self.workflow.dryrun)
 
     def update_output_index(self):
