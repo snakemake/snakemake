@@ -181,8 +181,8 @@ def parse_set_resources(args):
                 raise ValueError(errmsg)
             rule, resource = key
             if is_quoted(orig_value):
-                # value is a string, just keep it
-                value = orig_value
+                # value is a string, just keep it but remove surrounding quotes
+                value = orig_value[1:-1]
             else:
                 try:
                     value = int(orig_value)
@@ -1963,9 +1963,6 @@ def args_to_api(args, parser):
         elif executor_plugin.common_settings.dryrun_exec:
             args.cores = 1
             args.jobs = None
-
-    if args.cores is None:
-        args.cores = available_cpu_count()
 
     # start profiler if requested
     if args.runtime_profile:

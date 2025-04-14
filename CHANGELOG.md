@@ -1,6 +1,26 @@
 # Changelog
 
 
+## [9.2.0](https://github.com/snakemake/snakemake/compare/v9.1.11...v9.2.0) (2025-04-14)
+
+
+### Features
+
+* auto detect string resources in resource definitions given by --default-resources and --set-resources in the string yields a syntax error when being interpreted as a python expression; this will obviate the need to quote such expressions in many cases; further, fix interpretation of quoted resources by removing quotes after intepretation ([#3532](https://github.com/snakemake/snakemake/issues/3532)) ([81f09bd](https://github.com/snakemake/snakemake/commit/81f09bd923a0fe62595a606195c96baec511d585))
+
+
+### Bug Fixes
+
+* restore accidentally changed behavior of --cores. If not specified, Snakemake now complains again, asking for --cores to be specified (of --jobs in case of remote exec). As before, if a default is desired, it can be easily set via a profile ([#3531](https://github.com/snakemake/snakemake/issues/3531)) ([11b2b30](https://github.com/snakemake/snakemake/commit/11b2b307002c2cb16c2b0faf334c068b68e83a24))
+
+## [9.1.11](https://github.com/snakemake/snakemake/compare/v9.1.10...v9.1.11) (2025-04-14)
+
+
+### Bug Fixes
+
+* consider software deployment method upon --touch; before, touch always stored no software deployment upon execution, causing metadata records that triggered a software-triggered rerun upon the next real execution. ([#3528](https://github.com/snakemake/snakemake/issues/3528)) ([49a5bda](https://github.com/snakemake/snakemake/commit/49a5bda333ad16891ea718680c92dbc8645f0ffe))
+* extended info about needrun determination in --verbose mode and fixed bug occurring when providing an unknown target file to snakemake ([6871cc2](https://github.com/snakemake/snakemake/commit/6871cc272c3777dc4eac6ed767a5dcba4ba80d78))
+
 ## [9.1.10](https://github.com/snakemake/snakemake/compare/v9.1.9...v9.1.10) (2025-04-11)
 
 

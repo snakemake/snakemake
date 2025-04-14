@@ -13,7 +13,6 @@ from snakemake.exceptions import (
     is_file_not_found_error,
 )
 from snakemake.common.tbdstring import TBDString
-from snakemake.logging import logger
 
 
 @dataclass
@@ -536,7 +535,7 @@ def eval_resource_expression(val, threads_arg=True):
                 args,
             )
         # Triggers for string arguments like n1-standard-4
-        except NameError:
+        except (NameError, SyntaxError):
             return val
         except Exception as e:
             if is_humanfriendly_resource(val):

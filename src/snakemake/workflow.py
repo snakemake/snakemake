@@ -400,7 +400,7 @@ class Workflow(WorkflowExecutorInterface):
     def touch(self):
         import snakemake.executors.touch
 
-        return issubclass(
+        return self.executor_plugin is not None and issubclass(
             self.executor_plugin.executor, snakemake.executors.touch.Executor
         )
 

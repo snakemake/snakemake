@@ -448,7 +448,8 @@ def run(
                 snakemake_api.print_exception(exception)
             print("Workdir:")
             print_tree(tmpdir, exclude=".snakemake/conda")
-            raise exception
+            if exception is not None:
+                raise exception
         assert success, "expected successful execution"
 
     if check_results:

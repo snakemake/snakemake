@@ -281,7 +281,7 @@ def test_ancient():
 def test_ancient_cli():
     run(
         dpath("test_ancient_cli"),
-        shellcmd="snakemake --consider-ancient A=0 B=x",
+        shellcmd="snakemake --consider-ancient A=0 B=x --cores 1",
     )
 
 
@@ -2261,8 +2261,46 @@ def test_github_issue_3374():
 def test_issue3361_pass():
     run(
         dpath("test_issue3361_pass"),
-        shellcmd="snakemake --sdm apptainer",
+        shellcmd="snakemake --sdm apptainer --cores 1",
         targets=["all"],
+    )
+
+
+@skip_on_windows
+def test_resource_quoting_profile():
+    run(
+        dpath("test_resource_quoting"),
+        shellcmd="snakemake --executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1 --profile test-profile",
+    )
+
+
+@skip_on_windows
+def test_resource_quoting_cli():
+    run(
+        dpath("test_resource_quoting"),
+        shellcmd="snakemake --set-resources \"a:test='foo'\" "
+        "--executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1",
+    )
+
+
+@skip_on_windows
+def test_default_resource_quoting_cli():
+    run(
+        dpath("test_resource_quoting"),
+        shellcmd="snakemake --default-resources \"test='foo'\" "
+        "--executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1",
+    )
+
+
+@skip_on_windows
+def test_default_resource_quoting_profile():
+    run(
+        dpath("test_resource_quoting"),
+        shellcmd="snakemake --executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1 --profile test-profile-default",
     )
 
 
