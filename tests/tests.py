@@ -2285,6 +2285,25 @@ def test_resource_quoting_cli():
     )
 
 
+@skip_on_windows
+def test_default_resource_quoting_cli():
+    run(
+        dpath("test_resource_quoting"),
+        shellcmd="snakemake --default-resources \"test='foo'\" "
+        "--executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1",
+    )
+
+
+@skip_on_windows
+def test_default_resource_quoting_profile():
+    run(
+        dpath("test_resource_quoting"),
+        shellcmd="snakemake --executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1 --profile test-profile-default",
+    )
+
+
 @skip_on_windows  # OS agnostic
 def test_issue3361_fail():
     run(
