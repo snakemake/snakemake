@@ -1066,7 +1066,7 @@ def get_argument_parser(profiles=None):
         default=None,
         help="Do not execute anything and print the directed "
         "acyclic graph of jobs in the dot language or in mermaid-js. Recommended "
-        "use on Unix systems: snakemake `--dag | dot | display`. "
+        "use on Unix systems: `snakemake --dag | dot | display`. "
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
