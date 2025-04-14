@@ -845,8 +845,11 @@ class Conda:
         if ON_WINDOWS:
             activate = activate.replace("\\", "/")
             env_address = env_address.replace("\\", "/")
+        else:
+            activate = shlex.quote(activate)
+            env_address = shlex.quote(env_address)
 
-        return f"source {activate} '{env_address}'; {cmd}"
+        return f"source {activate} {env_address}; {cmd}"
 
     def shellcmd_win(self, env_address, cmd):
         """Prepend the windows activate bat script."""

@@ -75,17 +75,17 @@ class Executor(RealExecutor):
     def job_specific_local_groupid(self):
         return False
 
-    def get_job_exec_prefix(self, job: JobExecutorInterface):
-        return f"cd {shlex.quote(self.workflow.workdir_init)}"
+    def get_job_exec_dir(self, job: JobExecutorInterface) -> str:
+        return self.workflow.workdir_init
 
     def get_python_executable(self):
         return sys.executable
 
     def additional_general_args(self):
-        return "--quiet progress rules host"
+        return {"--quiet": ["progress", "rules", "host"]}
 
     def get_job_args(self, job: JobExecutorInterface, **kwargs):
-        return f"{super().get_job_args(job, **kwargs)}"
+        return super().get_job_args(job, **kwargs)
 
     def run_job(
         self,
@@ -225,11 +225,11 @@ class Executor(RealExecutor):
                     )
 
     def spawn_job(self, job: SingleJobExecutorInterface):
-        cmd = self.format_job_exec(job)
-        logger.debug(f"spawned job: {cmd}")
+        shell_runner = self.format_job_exec(job)
+        logger.debug(f"spawned job: {shell_runner.quote_command()}")
 
         try:
-            subprocess.check_call(cmd, shell=True)
+            shell_runner.check_call()
         except subprocess.CalledProcessError:
             raise SpawnedJobError()
 
