@@ -1964,9 +1964,6 @@ def args_to_api(args, parser):
             args.cores = 1
             args.jobs = None
 
-    if args.cores is None:
-        args.cores = available_cpu_count()
-
     # start profiler if requested
     if args.runtime_profile:
         import yappi
