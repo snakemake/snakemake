@@ -2266,6 +2266,7 @@ def test_issue3361_pass():
     )
 
 
+@skip_on_windows
 def test_resource_quoting_profile():
     run(
         dpath("test_resource_quoting"),
@@ -2274,6 +2275,7 @@ def test_resource_quoting_profile():
     )
 
 
+@skip_on_windows
 def test_resource_quoting_cli():
     run(
         dpath("test_resource_quoting"),
