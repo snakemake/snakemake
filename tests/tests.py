@@ -885,6 +885,7 @@ def test_resource_is_ordinary_string():
     assert is_ordinary_string("func_name(arg1, arg2)") is False  # Function call
     assert is_ordinary_string("{'key': 'value'}") is False  # Dictionary literal
     assert is_ordinary_string("lambda x: x + 1") is False  # Lambda expression
+    assert is_ordinary_string("2 * input.size") is False  # calculation
 
     # Non-string inputs
     assert is_ordinary_string(123) is False  # Integer

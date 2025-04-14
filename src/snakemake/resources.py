@@ -539,7 +539,10 @@ def eval_resource_expression(val, threads_arg=True):
         except (NameError, SyntaxError):
             return val
         except Exception as e:
-            if is_humanfriendly_resource(val):
+            if is_humanfriendly_resource(val) or is_ordinary_string(val):
+                # case 1: resource can be parsed by humanfriendly package, just return
+                # it
+                # case 2: resource is an ordinary string, just return it
                 return val
             if not is_file_not_found_error(e, kwargs["input"]):
                 # Missing input files are handled by the caller
@@ -707,7 +710,4 @@ def is_humanfriendly_resource(value):
     except InvalidTimespan:
         pass
 
-    # we need to accept an ordinary string and expressions such as
-    # '{"mem_mb": 60000}', too:
-    # the function will return "True" for an ordinary string and false otherwise
-    return is_ordinary_string(value)
+    return False
