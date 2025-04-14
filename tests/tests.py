@@ -281,7 +281,7 @@ def test_ancient():
 def test_ancient_cli():
     run(
         dpath("test_ancient_cli"),
-        shellcmd="snakemake --consider-ancient A=0 B=x",
+        shellcmd="snakemake --consider-ancient A=0 B=x --cores 1",
     )
 
 
@@ -2261,7 +2261,7 @@ def test_github_issue_3374():
 def test_issue3361_pass():
     run(
         dpath("test_issue3361_pass"),
-        shellcmd="snakemake --sdm apptainer",
+        shellcmd="snakemake --sdm apptainer --cores 1",
         targets=["all"],
     )
 
