@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [9.2.1](https://github.com/snakemake/snakemake/compare/v9.2.0...v9.2.1) (2025-04-14)
+
+
+### Bug Fixes
+
+* Resolve issues with hashlib.md5() on systems in FIPS mode ([#3522](https://github.com/snakemake/snakemake/issues/3522)) ([06cbcf7](https://github.com/snakemake/snakemake/commit/06cbcf7def36971ebb3bac16307dd0ec03ca8b5c))
+
+
+### Documentation
+
+* add argument for `--dag` flag ([#3524](https://github.com/snakemake/snakemake/issues/3524)) ([6b5d304](https://github.com/snakemake/snakemake/commit/6b5d3047fe025d73889d7f6c303f3c09d1f4f709))
+* fix quoting in --dag help ([91bb40d](https://github.com/snakemake/snakemake/commit/91bb40d93295a23746242a1fabeac09bbbd92135))
+
 ## [9.2.0](https://github.com/snakemake/snakemake/compare/v9.1.11...v9.2.0) (2025-04-14)
 
 
