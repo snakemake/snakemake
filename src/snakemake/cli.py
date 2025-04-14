@@ -181,8 +181,8 @@ def parse_set_resources(args):
                 raise ValueError(errmsg)
             rule, resource = key
             if is_quoted(orig_value):
-                # value is a string, just keep it
-                value = orig_value
+                # value is a string, just keep it but remove surrounding quotes
+                value = orig_value[1:-1]
             else:
                 try:
                     value = int(orig_value)
