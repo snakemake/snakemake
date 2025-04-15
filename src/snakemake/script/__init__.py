@@ -1603,23 +1603,7 @@ class BashScript(ScriptBase):
 
 
 class XonshScript(PythonScript):
-    def write_script(self, preamble, fd):
-        fd.write(preamble.encode())
-
-        if self.conda_env:
-            conda_xonsh_preamble = textwrap.dedent(
-                f"""
-                    # Workaround for [this issue](https://github.com/conda/conda/issues/7980)
-                    __xonsh__.execer.exec($("$CONDA_EXE" "shell.xonsh" "hook"))
-                    conda activate {self.conda_env}
-                    """
-            )
-
-            fd.write(conda_xonsh_preamble.encode())
-
-        fd.write(self.source.encode())
-
-    def execute_script(self, fname, edit=False):
+   def execute_script(self, fname, edit=False):
         self._execute_cmd(
             "xonsh -DRAISE_SUBPROC_ERROR=true -DXONSH_SHOW_TRACEBACK=true {fname:q}",
             fname=fname,
