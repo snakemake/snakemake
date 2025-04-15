@@ -683,6 +683,7 @@ def is_ordinary_string(val):
     - `^[a-zA-Z_]\w*\(.*\)$`: Matches function calls (e.g., `func_name(...)`).
     - `^\{.*\}$`: Matches strings that look like dictionary literals (e.g., `{...}`).
     - `^lambda\s.*:.*$`: Matches lambda expressions (e.g., `lambda x: x + 1`).
+    - `.*[\+\-\*/\%].*|.*\.\w+.*`: Matches strings containing math operators or attribute access
 
     Parameters:
         val (any): The value to check.
@@ -691,7 +692,7 @@ def is_ordinary_string(val):
         bool: True if the value is an ordinary string in this sense, False otherwise.
     """
     return isinstance(val, str) and not re.match(
-        r"^[a-zA-Z_]\w*\(.*\)$|^\{.*\}$|^lambda\s.*:.*$", val
+        r"^[a-zA-Z_]\w*\(.*\)$|^\{.*\}$|^lambda\s.*:.*$|.*[\+\-\*/\%].*|.*\.\w+.*", val
     )
 
 
