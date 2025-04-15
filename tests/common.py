@@ -41,7 +41,7 @@ def md5sum(filename, ignore_newlines=False):
             data = f.read().strip().encode("utf8", errors="surrogateescape")
     else:
         data = open(filename, "rb").read().strip()
-    return hashlib.md5(data).hexdigest()
+    return hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
 # test skipping
@@ -450,7 +450,8 @@ def run(
                 snakemake_api.print_exception(exception)
             print("Workdir:")
             print_tree(tmpdir, exclude=".snakemake/conda")
-            raise exception
+            if exception is not None:
+                raise exception
         assert success, "expected successful execution"
 
     if check_results:

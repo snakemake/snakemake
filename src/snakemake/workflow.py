@@ -299,7 +299,7 @@ class Workflow(WorkflowExecutorInterface):
                 checksum = hashlib.file_digest(f, "sha256").hexdigest()
 
             prefix = self.storage_settings.default_storage_prefix
-            if prefix:
+            if prefix and not prefix.endswith("/"):
                 prefix = f"{prefix}/"
             query = f"{prefix}snakemake-workflow-sources.{checksum}.tar.xz"
 
@@ -400,7 +400,7 @@ class Workflow(WorkflowExecutorInterface):
     def touch(self):
         import snakemake.executors.touch
 
-        return issubclass(
+        return self.executor_plugin is not None and issubclass(
             self.executor_plugin.executor, snakemake.executors.touch.Executor
         )
 

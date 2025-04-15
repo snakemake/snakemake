@@ -235,7 +235,7 @@ class Env:
         return self._content_hash
 
     def _get_hash(self, include_location: bool, include_container_img: bool) -> str:
-        md5hash = hashlib.md5()
+        md5hash = hashlib.md5(usedforsecurity=False)
         if self.name:
             md5hash.update(self.name.encode())
         elif self.dir:
