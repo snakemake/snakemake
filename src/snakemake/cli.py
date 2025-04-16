@@ -1474,7 +1474,8 @@ def get_argument_parser(profiles=None):
         "--local-storage-prefix",
         default=".snakemake/storage",
         type=maybe_base64(expandvars(Path)),
-        help="Specify prefix for storing local copies of storage files and folders (e.g. local scratch disk). Environment variables will be expanded.",
+        help="Specify prefix for storing local copies of storage files and folders "
+        "(e.g. local scratch disk). Environment variables will be expanded.",
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
@@ -2001,6 +2002,7 @@ def args_to_api(args, parser):
             storage_settings = StorageSettings(
                 default_storage_provider=args.default_storage_provider,
                 default_storage_prefix=args.default_storage_prefix,
+                default_storage_for_output=args.default_storage_for_output,
                 local_storage_prefix=args.local_storage_prefix,
                 remote_job_local_storage_prefix=args.remote_job_local_storage_prefix,
                 shared_fs_usage=args.shared_fs_usage,

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import itertools as it
 import operator as op
 import re
+import shutil
 import tempfile
 import math
 from typing import Any
@@ -526,6 +527,7 @@ def eval_resource_expression(val, threads_arg=True):
             "input": kwargs["input"],
             "attempt": kwargs["attempt"],
             "system_tmpdir": tempfile.gettempdir(),
+            "shutil": shutil,
         }
         if threads_arg:
             args["threads"] = kwargs["threads"]
