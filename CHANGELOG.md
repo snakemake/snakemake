@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [9.3.0](https://github.com/snakemake/snakemake/compare/v9.2.1...v9.3.0) (2025-04-16)
+
+
+### Features
+
+* keep temp files in case they are an input of target rules that that don't have their own output ([#3536](https://github.com/snakemake/snakemake/issues/3536)) ([a2caa0b](https://github.com/snakemake/snakemake/commit/a2caa0b0fc0e6f9976c4614cad289270cd50458b))
+* make shutil available in resource expressions (i.e. for --default-resources and --set-resources), can be used to e.g. dynamically decide about the tmpdir to be used based on shutil.disk_usage(system_tmpdir) ([#3535](https://github.com/snakemake/snakemake/issues/3535)) ([aeab67f](https://github.com/snakemake/snakemake/commit/aeab67f384944f13e60cafb4bdc2f115d25bb0ef))
+
 ## [9.2.1](https://github.com/snakemake/snakemake/compare/v9.2.0...v9.2.1) (2025-04-14)
 
 
