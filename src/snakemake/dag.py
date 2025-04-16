@@ -240,7 +240,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             self.forcefiles.update(job.output)
 
         self.derived_targetfiles = {
-            f for f in job.input for job in self.targetjobs if not job.output
+            f for job in self.targetjobs if not job.output for f in job.input
         } | self.targetfiles
 
         self.cleanup()
