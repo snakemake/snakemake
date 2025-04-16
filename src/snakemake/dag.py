@@ -138,6 +138,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
+        self.derived_targetfiles = None
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
         self._jobid = dict()
@@ -237,6 +238,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             )
             self.targetjobs.add(job)
             self.forcefiles.update(job.output)
+
+        self.derived_targetfiles = {
+            f for job in self.targetjobs if not job.output for f in job.input
+        } | self.targetfiles
 
         self.cleanup()
 
@@ -909,10 +914,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return sum([await f.size() for f in self.temp_input(job)])
 
     def is_needed_tempfile(self, job, tempfile):
-        return any(
-            tempfile in files
-            for j, files in self.depending[job].items()
-            if not self.finished(j) and self.needrun(j) and j != job
+        return (
+            any(
+                tempfile in files
+                for j, files in self.depending[job].items()
+                if not self.finished(j) and self.needrun(j) and j != job
+            )
+            or tempfile in self.derived_targetfiles
         )
 
     async def handle_temp(self, job):
