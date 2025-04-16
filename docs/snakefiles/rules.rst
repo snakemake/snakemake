@@ -3095,26 +3095,10 @@ Importantly, they are also "namespaced" per module, meaning that ``inputflags`` 
 MPI support
 -----------
 
-Highly parallel programs may use the MPI (:ref: [message passing interface](https://en.wikipedia.org/wiki/Message_Passing_Interface)) to enable a program to span work across an individual compute node's boundary.
-To actually use an HPC cluster with Snakemake, an [executor plugin is provided for the SLURM batch system](https://github.com/snakemake/snakemake-executor-plugin-slurm). You can find its documentation [here](https://github.com/snakemake/snakemake-executor-plugin-slurm/blob/main/docs/further.md).
-Users of different batch systems are encouraged to [provide further plugins](https://snakemake.github.io/snakemake-plugin-catalog/#contributing) and/or share their Snakemake configuration via the [Snakemake profiles project](https://github.com/Snakemake-Profiles) project.
-
-The command to run the MPI program (in below example we assume there exists a program ``calc-pi-mpi``) has to be specified in the ``mpi``-resource, e.g.:
-
-.. code-block:: python
-
-  rule calc_pi:
-    output:
-        "pi.calc",
-    log:
-        "logs/calc_pi.log",
-    resources:
-        tasks=10,
-        mpi="mpiexec",
-    shell:
-        "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
-
-Thereby, additional parameters may be passed to the MPI-starter, e.g.:
+Some highly parallel programs or scripts implement the `message passing interface (MPI)) <https://en.wikipedia.org/wiki/Message_Passing_Interface>`_, which enables a program to span work across multiple compute nodes on a compute cluster (where a node is an individual machine, which will usually have multiple CPUs nowadays).
+Let us assume, we have such a program that can parallelize using the MPI and its name is ``calc-pi-mpi``.
+To run such a program, the user will usually launch it via the `mpirun <https://docs.open-mpi.org/en/v5.0.x/launching-apps/quickstart.html>`_ command from Open MPI.
+But because it can make sense to use another MPI launch command in some circumstances, we recommend the following pattern for a snakemake rule using an MPI-parallelized tool:
 
 .. code-block:: python
 
@@ -3124,19 +3108,37 @@ Thereby, additional parameters may be passed to the MPI-starter, e.g.:
     log:
         "logs/calc_pi.log",
     resources:
+    resources:
         tasks=10,
-        mpi="mpiexec -arch x86",
+        mpi="mpirun",
     shell:
         "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
 
-As any other resource, the `mpi`-resource can be overwritten via the command line e.g. in order to adapt to a specific platform (see :ref:`snakefiles-resources`). For instance,
-users of the SLURM executor plugin can use `srun` as the MPI-starter:
+Here, you provide the MPI wrapper command used to launch the program under ``resources: mpi=``.
+This enables users to override this command if their execution environment requires this, via providing the ``mpi`` resource in :ref:`executing-profiles` or via the command line option |set-resources|_.
+To find out if and which command your execution environment provides, you will have to consult local documentation, check out if any known mpi wrapper commands are available or ask your system's administrators.
+A good reference point for getting mpirun to work on your execution environment is the `documentation of the mpirun prerequisites <https://docs.open-mpi.org/en/v5.0.x/launching-apps/prerequisites.html>`_.
+
+.. |set-resources| replace:: ``--set-resources``
+.. _set-resources: https://snakemake.readthedocs.io/en/stable/executing/cli.html#snakemake.cli-get_argument_parser-execution
+
+While a number of cluster scheduling systems are able to figure the ``tasks`` resource out for you, other execution environments will require setting ``-n`` manually.
+This includes running a snakemake workflow with an MPI program `on a single host <https://docs.open-mpi.org/en/v5.0.x/launching-apps/quickstart.html#launching-on-a-single-host>`_ or `in a non-scheduled environment via ssh <https://docs.open-mpi.org/en/v5.0.x/launching-apps/quickstart.html#launching-in-a-non-scheduled-environments-via-ssh>`_, but will also include snakemake remote execution plugins for cluster systems that don't integrate handling this for you.
+It is thus good practice to provide this explicitly.
+To understand how a remote execution plugin for a particular cluster scheduling system supports MPI job execution, please consult the `documentation for the respective plugin <https://snakemake.github.io/snakemake-plugin-catalog/>`_.
+
+In addition to overriding the MPI wrapper command, you can also provide extra parameters to the MPI wrapper command with the above construct, should your execution environment require it, for example:
+
+.. code-block:: console
+
+  $ snakemake --set-resources calc_pi:mpi="mpirun -arch x86" ...
+
+or:
 
 .. code-block:: console
 
   $ snakemake --set-resources calc_pi:mpi="srun --hint nomultithread" ...
 
-Note that in case of distributed, remote execution (cluster, cloud), MPI support might not be available.
 
 .. _snakefiles_continuous_input:
 
