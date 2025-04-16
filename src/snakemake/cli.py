@@ -618,7 +618,10 @@ def get_argument_parser(profiles=None):
             "the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
             "The tmpdir resource is automatically used by shell commands, scripts and wrappers to store temporary data (as it is "
             "mirrored into $TMPDIR, $TEMP, and $TMP for the executed subprocesses). "
-            "If this argument is not specified at all, Snakemake just uses the tmpdir resource as outlined above."
+            "If this argument is not specified at all, Snakemake just uses the tmpdir resource as outlined above. "
+            "The tmpdir resource can also be overwritten in the same way as e.g. mem_mb above. "
+            "Thereby, it is even possible to use shutil.disk_usage(system_tmpdir).free and comparing this to input.size in order to "
+            "determine if one can expect the system_tmpdir to be big enough and switch to another tmpdir in case it is not. "
         ),
     )
 
