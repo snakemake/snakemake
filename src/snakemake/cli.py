@@ -2002,7 +2002,6 @@ def args_to_api(args, parser):
             storage_settings = StorageSettings(
                 default_storage_provider=args.default_storage_provider,
                 default_storage_prefix=args.default_storage_prefix,
-                default_storage_for_output=args.default_storage_for_output,
                 local_storage_prefix=args.local_storage_prefix,
                 remote_job_local_storage_prefix=args.remote_job_local_storage_prefix,
                 shared_fs_usage=args.shared_fs_usage,
