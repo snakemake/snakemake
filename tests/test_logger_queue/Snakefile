@@ -1,0 +1,11 @@
+rule all:
+    input:
+        expand("results/{i}.txt", i=range(5)),
+
+
+rule a:
+    output:
+        "results/{i}.txt",
+    cache: True
+    run:
+        shell("echo {resources.tmpdir} > {output}")
