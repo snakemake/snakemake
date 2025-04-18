@@ -8,7 +8,7 @@ def render_metadata(metadata):
     ---------
     metadata: MetadataRecord -- Metadata object containing (user specified) metadata
     """
-    result_dict = {"Snakemake version": metadata.snakemake_version}
     if metadata.metadata_dict:
-        result_dict.update(metadata.metadata_dict)
-    return json.dumps(result_dict)
+        return json.dumps(metadata.metadata_dict)
+    else:
+        return json.dumps({})
