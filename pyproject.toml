@@ -205,12 +205,12 @@ pip = "*"
 
 [tool.pixi.feature.test.pypi-dependencies]
 snakemake-executor-plugin-cluster-generic = "*"
-snakemake-storage-plugin-http = { git="https://github.com/snakemake/snakemake-storage-plugin-http.git" }
-snakemake-storage-plugin-s3 = { git="https://github.com/snakemake/snakemake-storage-plugin-s3.git" }
-snakemake-storage-plugin-fs = { git="https://github.com/snakemake/snakemake-storage-plugin-fs.git" }
+snakemake-storage-plugin-http = "*"
+snakemake-storage-plugin-s3 = "*"
+snakemake-storage-plugin-fs = "*"
 
 [tool.pixi.feature.test.target.linux-64.pypi-dependencies]
-snakemake-storage-plugin-xrootd = { git="https://github.com/snakemake/snakemake-storage-plugin-xrootd.git" }
+snakemake-storage-plugin-xrootd = "*"
 
 [tool.pixi.feature.test.target.linux-64.dependencies]
 # environment-modules = "*"
@@ -266,7 +266,7 @@ cmd = 'make html SPHINXOPTS="--keep-going -n"'
 black = "*"
 
 [tool.pixi.feature.style.tasks]
-format = { cmd = "black src/ tests/*.py", description = "Format the code" }
+format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format the code" }
 
 # Publish
 [tool.pixi.feature.publish.dependencies]
