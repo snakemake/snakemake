@@ -3116,6 +3116,7 @@ But because it can make sense to use another MPI launch command in some circumst
 
 Here, you provide the MPI wrapper command used to launch the program under ``resources: mpi=``.
 This enables users to override this command if their execution environment requires this, via providing the ``mpi`` resource in :ref:`executing-profiles` or via the command line option |set-resources|_.
+While ``mpirun`` `should work in most compute environments, including cluster systems like Slurm, LSF or PBS <https://docs.open-mpi.org/en/v5.0.x/launching-apps/quickstart.html>`_, the exact MPI wrapper command to launch programs may differ on your system.
 To find out if and which command your execution environment provides, you will have to consult local documentation, check out if any known mpi wrapper commands are available or ask your system's administrators.
 A good reference point for getting mpirun to work on your execution environment is the `documentation of the mpirun prerequisites <https://docs.open-mpi.org/en/v5.0.x/launching-apps/prerequisites.html>`_.
 
