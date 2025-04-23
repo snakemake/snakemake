@@ -138,6 +138,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
+        self.derived_targetfiles = None
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
         self._jobid = dict()
@@ -237,6 +238,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             )
             self.targetjobs.add(job)
             self.forcefiles.update(job.output)
+
+        self.derived_targetfiles = {
+            f for job in self.targetjobs if not job.output for f in job.input
+        } | self.targetfiles
 
         self.cleanup()
 
@@ -508,8 +513,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
+        touch = self.workflow.touch
         for env in self.conda_envs.values():
-            if (not dryrun or not quiet) and not env.is_externally_managed:
+            if (
+                not touch
+                and (not dryrun or not quiet)
+                and not env.is_externally_managed
+            ):
                 env.create(self.workflow.dryrun)
 
     def update_container_imgs(self):
@@ -527,7 +537,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     def pull_container_imgs(self, quiet=False):
         for img in self.container_imgs.values():
-            if not self.workflow.dryrun or not quiet:
+            if not self.workflow.touch and (not self.workflow.dryrun or not quiet):
                 img.pull(self.workflow.dryrun)
 
     def update_output_index(self):
@@ -904,10 +914,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         return sum([await f.size() for f in self.temp_input(job)])
 
     def is_needed_tempfile(self, job, tempfile):
-        return any(
-            tempfile in files
-            for j, files in self.depending[job].items()
-            if not self.finished(j) and self.needrun(j) and j != job
+        return (
+            any(
+                tempfile in files
+                for j, files in self.depending[job].items()
+                if not self.finished(j) and self.needrun(j) and j != job
+            )
+            or tempfile in self.derived_targetfiles
         )
 
     async def handle_temp(self, job):
@@ -1520,6 +1533,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         missing_output = [f async for f in job_.missing_output(files)]
                         reason(job_).missing_output.update(missing_output)
                         if missing_output and job_ not in visited:
+                            logger.debug(
+                                f"Need to rerun job {job_} because of missing output required by {job}."
+                            )
                             visited.add(job_)
                             queue.append(job_)
 
@@ -1532,6 +1548,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                 continue
                             visited.add(job_)
                             queue.append(job_)
+                        logger.debug(
+                            f"Need to rerun job {job_} because job {job} has to be rerun."
+                        )
                         reason(job_).updated_input_run.update(files)
 
         # update _n_until_ready

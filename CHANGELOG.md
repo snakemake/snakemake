@@ -1,6 +1,55 @@
 # Changelog
 
 
+## [9.3.0](https://github.com/snakemake/snakemake/compare/v9.2.1...v9.3.0) (2025-04-16)
+
+
+### Features
+
+* keep temp files in case they are an input of target rules that that don't have their own output ([#3536](https://github.com/snakemake/snakemake/issues/3536)) ([a2caa0b](https://github.com/snakemake/snakemake/commit/a2caa0b0fc0e6f9976c4614cad289270cd50458b))
+* make shutil available in resource expressions (i.e. for --default-resources and --set-resources), can be used to e.g. dynamically decide about the tmpdir to be used based on shutil.disk_usage(system_tmpdir) ([#3535](https://github.com/snakemake/snakemake/issues/3535)) ([aeab67f](https://github.com/snakemake/snakemake/commit/aeab67f384944f13e60cafb4bdc2f115d25bb0ef))
+
+## [9.2.1](https://github.com/snakemake/snakemake/compare/v9.2.0...v9.2.1) (2025-04-14)
+
+
+### Bug Fixes
+
+* Resolve issues with hashlib.md5() on systems in FIPS mode ([#3522](https://github.com/snakemake/snakemake/issues/3522)) ([06cbcf7](https://github.com/snakemake/snakemake/commit/06cbcf7def36971ebb3bac16307dd0ec03ca8b5c))
+
+
+### Documentation
+
+* add argument for `--dag` flag ([#3524](https://github.com/snakemake/snakemake/issues/3524)) ([6b5d304](https://github.com/snakemake/snakemake/commit/6b5d3047fe025d73889d7f6c303f3c09d1f4f709))
+* fix quoting in --dag help ([91bb40d](https://github.com/snakemake/snakemake/commit/91bb40d93295a23746242a1fabeac09bbbd92135))
+
+## [9.2.0](https://github.com/snakemake/snakemake/compare/v9.1.11...v9.2.0) (2025-04-14)
+
+
+### Features
+
+* auto detect string resources in resource definitions given by --default-resources and --set-resources in the string yields a syntax error when being interpreted as a python expression; this will obviate the need to quote such expressions in many cases; further, fix interpretation of quoted resources by removing quotes after interpretation ([#3532](https://github.com/snakemake/snakemake/issues/3532)) ([81f09bd](https://github.com/snakemake/snakemake/commit/81f09bd923a0fe62595a606195c96baec511d585))
+
+
+### Bug Fixes
+
+* restore accidentally changed behavior of --cores. If not specified, Snakemake now complains again, asking for --cores to be specified (of --jobs in case of remote exec). As before, if a default is desired, it can be easily set via a profile ([#3531](https://github.com/snakemake/snakemake/issues/3531)) ([11b2b30](https://github.com/snakemake/snakemake/commit/11b2b307002c2cb16c2b0faf334c068b68e83a24))
+
+## [9.1.11](https://github.com/snakemake/snakemake/compare/v9.1.10...v9.1.11) (2025-04-14)
+
+
+### Bug Fixes
+
+* consider software deployment method upon --touch; before, touch always stored no software deployment upon execution, causing metadata records that triggered a software-triggered rerun upon the next real execution. ([#3528](https://github.com/snakemake/snakemake/issues/3528)) ([49a5bda](https://github.com/snakemake/snakemake/commit/49a5bda333ad16891ea718680c92dbc8645f0ffe))
+* extended info about needrun determination in --verbose mode and fixed bug occurring when providing an unknown target file to snakemake ([6871cc2](https://github.com/snakemake/snakemake/commit/6871cc272c3777dc4eac6ed767a5dcba4ba80d78))
+
+## [9.1.10](https://github.com/snakemake/snakemake/compare/v9.1.9...v9.1.10) (2025-04-11)
+
+
+### Bug Fixes
+
+* fix double slash issue in source archive if default storage prefix is given with a trailing slash ([5be6183](https://github.com/snakemake/snakemake/commit/5be6183cee8b4a488ea5de1fc23f057207d1c92a))
+* remove superfluous log message ([6800a2b](https://github.com/snakemake/snakemake/commit/6800a2baf5500a009c01c9d3585d607fd276e8c8))
+
 ## [9.1.9](https://github.com/snakemake/snakemake/compare/v9.1.8...v9.1.9) (2025-04-07)
 
 
