@@ -332,8 +332,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 if not self.dryrun:
 
                     if self._run_performed is None or self._run_performed:
-                        logger.info("Waiting for more resources.")
-                    self._run_performed = False
+                        if self.running:
+                            logger.debug("Waiting for running jobs to complete.")
+                        else:
+                            logger.debug("Waiting for more resources.")
                     if self.job_rate_limiter is not None:
                         # need to reevaluate because after the timespan we can
                         # schedule more jobs again
