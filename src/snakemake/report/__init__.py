@@ -59,7 +59,6 @@ from snakemake_interface_report_plugins.interfaces import (
     ConfigFileRecordInterface,
     JobRecordInterface,
     FileRecordInterface,
-    MetadataRecordInterface,
 )
 from snakemake.common import get_report_id
 from snakemake.exceptions import WorkflowError
@@ -360,35 +359,6 @@ class JobRecord(JobRecordInterface):
     output: list = field(default_factory=list)
     conda_env_file: Optional[Path] = field(init=False)
     container_img_url: Optional[Path] = field(init=False)
-
-
-@dataclass(slots=True)
-class MetadataRecord(MetadataRecordInterface):
-    """This class holds the metadata that is rendered into
-    the report.
-
-    Arguments
-    ---------
-    path: InitVar -- Path to the yte template containing user defined metadata
-    snakemake_version: str -- Snakemake version
-    metadata_dict: dict -- Parsed key value pairs of the yte template
-    """
-
-    path: InitVar
-    snakemake_version: str = field(init=False)
-    metadata_dict: dict = field(init=False)
-
-    def __post_init__(self, path):
-        self.path = path
-        self.snakemake_version = snakemake.__version__.split("+")[0]
-        self.metadata_dict = self.parse_yte()
-
-    def parse_yte(self):
-        if self.path:
-            with open(self.path, "r") as template:
-                return process_yaml(template)
-        else:
-            return None
 
 
 @dataclass(slots=True)
@@ -770,7 +740,11 @@ async def auto_report(
                     e,
                 )
 
-    metadata = MetadataRecord(global_report_settings.metadata_template)
+    metadata = {}
+    if global_report_settings.metadata_template:
+        # parse metadata from yte template
+        with open(global_report_settings.metadata_template, "r") as template:
+            metadata = process_yaml(template)
 
     reporter = report_plugin.reporter(
         rules,
@@ -779,7 +753,7 @@ async def auto_report(
         sorted(records.values(), key=lambda rec: rec.rule),  # this contains the jobs
         report_settings,
         workflow_description,
-        metadata,
+        metadata=metadata,
         dag=dag,
     )
 
