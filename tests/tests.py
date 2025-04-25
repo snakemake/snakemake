@@ -2093,6 +2093,27 @@ def test_storage_localrule():
         )
 
 
+def test_group_fail_upload():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        run(
+            dpath("test_group_fail_upload"),
+            cluster="./qsub",
+            default_storage_provider="fs",
+            default_storage_prefix="storage",
+            local_storage_prefix=Path(tmpdir),
+            shared_fs_usage=[
+                SharedFSUsage.PERSISTENCE,
+                SharedFSUsage.SOURCE_CACHE,
+                SharedFSUsage.SOURCES,
+            ],
+            overwrite_groups={"a": "group1"},
+            group_components={"group1": 4},
+            shouldfail=True,
+            check_results=True,
+            cores=4,
+        )
+
+
 @skip_on_windows
 def test_access_patterns():
     run(

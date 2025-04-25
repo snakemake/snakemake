@@ -1,0 +1,13 @@
+rule all:
+    input:
+        collect("results/{sample}.txt", sample=range(4))
+
+rule a:
+    output:
+        "results/{sample}.txt"
+    run:
+        if wildcards.sample == "0":
+            raise ValueError("This is a test error")
+        else:
+            with open(output[0], "w") as f:
+                f.write("Hello, world!")
