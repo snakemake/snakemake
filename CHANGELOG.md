@@ -1,6 +1,22 @@
 # Changelog
 
 
+## [9.3.1](https://github.com/snakemake/snakemake/compare/v9.3.0...v9.3.1) (2025-04-24)
+
+
+### Bug Fixes
+
+* improve xonsh script support ([#3493](https://github.com/snakemake/snakemake/issues/3493)) ([c0653f5](https://github.com/snakemake/snakemake/commit/c0653f5385c766abad2eaac026c84ff1cd88106c))
+* log scheduler waiting to debug, make statements more accurate ([#3547](https://github.com/snakemake/snakemake/issues/3547)) ([987cc1a](https://github.com/snakemake/snakemake/commit/987cc1ae73bfdf134d303a7da11ea6cc2473516f))
+* Removed output from parse_input ([#3481](https://github.com/snakemake/snakemake/issues/3481)) ([496cc8f](https://github.com/snakemake/snakemake/commit/496cc8f3e7dff5f5eac7d6b082b7acda28ac9e3e))
+
+
+### Documentation
+
+* remove twitter in favor of mastodon and bluesky ([f470ed6](https://github.com/snakemake/snakemake/commit/f470ed64bffac944cb8de29ca5aaa47bcd9be0cb))
+* rewrite the mpi job execution section ([#3538](https://github.com/snakemake/snakemake/issues/3538)) ([09ca822](https://github.com/snakemake/snakemake/commit/09ca82252e104b434d1d4d10673f5488e8d984b7))
+* update highlights ([eb7be9d](https://github.com/snakemake/snakemake/commit/eb7be9d47b9f3e5044f45b8355ba483b10d5569b))
+
 ## [9.3.0](https://github.com/snakemake/snakemake/compare/v9.2.1...v9.3.0) (2025-04-16)
 
 
