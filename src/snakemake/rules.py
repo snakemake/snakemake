@@ -1213,6 +1213,22 @@ class Rule(RuleInterface):
 
         return conda_env
 
+    def expand_container_img(self, wildcards):
+        """
+        Expand the given container wildcards
+        """
+        if callable(self.container_img):
+            container_url, _ = self.apply_input_function(
+                self.container_img, wildcards=wildcards
+            )
+            return container_url
+
+        elif isinstance(self.container_img, str):
+            resolved_url = apply_wildcards(self.container_img, wildcards)
+            return resolved_url
+
+        return self.container_img
+
     def is_producer(self, requested_output):
         """
         Returns True if this rule is a producer of the requested output.
