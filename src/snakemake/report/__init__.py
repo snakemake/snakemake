@@ -19,6 +19,7 @@ from collections import defaultdict
 import hashlib
 from pathlib import Path
 import numbers
+from yte import process_yaml
 
 
 from docutils.parsers.rst.directives.images import Image, Figure
@@ -26,6 +27,7 @@ from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 from humanfriendly import format_size
 
+import snakemake
 from snakemake import script, wrapper, notebook
 from snakemake.io.fmt import fmt_iofile
 from snakemake.jobs import Job
@@ -50,6 +52,7 @@ from snakemake.common import (
 from snakemake import logging
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake.settings.types import GlobalReportSettings
 from snakemake_interface_report_plugins.interfaces import (
     CategoryInterface,
     RuleRecordInterface,
@@ -483,6 +486,7 @@ async def auto_report(
     dag,
     report_plugin: ReportPlugin,
     report_settings: ReportSettingsBase,
+    global_report_settings: GlobalReportSettings,
 ):
     try:
         from jinja2 import Environment, PackageLoader, UndefinedError
@@ -725,7 +729,9 @@ async def auto_report(
                         snakemake=Snakemake, categories=results, files=files
                     ),
                     writer_name="html",
-                )["body"]
+                )[
+                    "html_body"
+                ]  # html_body is required to extract also the title, if given
             except UndefinedError as e:
                 raise WorkflowError(
                     "Error rendering global report caption {}:".format(
@@ -734,13 +740,20 @@ async def auto_report(
                     e,
                 )
 
+    metadata = {}
+    if global_report_settings.metadata_template:
+        # parse metadata from yte template
+        with open(global_report_settings.metadata_template, "r") as template:
+            metadata = process_yaml(template)
+
     reporter = report_plugin.reporter(
         rules,
         results,
         configfiles,
-        sorted(records.values(), key=lambda rec: rec.rule),
+        sorted(records.values(), key=lambda rec: rec.rule),  # this contains the jobs
         report_settings,
         workflow_description,
+        metadata=metadata,
         dag=dag,
     )
 
