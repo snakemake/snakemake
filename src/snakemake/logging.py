@@ -539,10 +539,11 @@ class ColorizingTextHandler(logging.StreamHandler):
 
 
 class LoggerManager:
-    def __init__(self, logger: logging.Logger):
+    def __init__(self, logger: logging.Logger, q: Queue):
         self.logger = logger
         self.initialized = False
         self.queue_listener = None
+        self.queue = q
         self.mode = None
         self.needs_rulegraph = False
         self.logfile_handlers = {}
@@ -566,6 +567,7 @@ class LoggerManager:
         if self.mode == ExecMode.SUBPROCESS:
             handler = self._default_streamhandler()
             handler.setLevel(logging.ERROR)
+            handler = logging.NullHandler()
             stream_handlers.append(handler)
         elif self.mode == ExecMode.REMOTE:
             stream_handlers.append(self._default_streamhandler())
@@ -595,15 +597,13 @@ class LoggerManager:
             stream_handlers + other_handlers + list(self.logfile_handlers.keys())
         )
 
-        q = Queue(-1)
         self.queue_listener = logging.handlers.QueueListener(
-            q,
+            self.queue,
             *all_handlers,
             respect_handler_level=True,
         )
         self.queue_listener.start()
         self.logger.setLevel(logging.DEBUG if settings.verbose else logging.INFO)
-        self.logger.addHandler(logging.handlers.QueueHandler(q))
 
     def _configure_plugin_handler(self, plugin):
         if not plugin.has_filter:
@@ -692,5 +692,7 @@ class LoggerManager:
 
 
 # Global logger instance
+q = Queue(-1)
 logger = logging.getLogger(__name__)
-logger_manager = LoggerManager(logger)
+logger.addHandler(logging.handlers.QueueHandler(q))
+logger_manager = LoggerManager(logger, q)
