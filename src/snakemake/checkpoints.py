@@ -47,12 +47,15 @@ class CheckpointsProxy(Checkpoints):
             setattr(self, fallback_name, checkpoint)
         setattr(self, rule.name, checkpoint)
 
+
 def dictproduct(listdict):
     """itertools.product() for dict of lists that yields a dict for each combination of values"""
     import itertools
-    assert(all(isinstance(v, list) for v in listdict.values()))
+
+    assert all(isinstance(v, list) for v in listdict.values())
     for x in itertools.product(*listdict.values()):
         yield dict(zip(listdict.keys(), x))
+
 
 class Checkpoint:
     __slots__ = ["rule", "checkpoints"]
@@ -68,7 +71,13 @@ class Checkpoint:
                 "Missing wildcard values for {}".format(", ".join(missing))
             )
 
-        listify = lambda x: [x,] if not isinstance(x, list) else x
+        listify = lambda x: (
+            [
+                x,
+            ]
+            if not isinstance(x, list)
+            else x
+        )
         listified = {k: listify(v) for k, v in wildcards.items()}
         missing_outputs = []
         complete_jobs = []
