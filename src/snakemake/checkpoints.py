@@ -71,13 +71,8 @@ class Checkpoint:
                 "Missing wildcard values for {}".format(", ".join(missing))
             )
 
-        listify = lambda x: (
-            [
-                x,
-            ]
-            if not isinstance(x, list)
-            else x
-        )
+        def listify(x):
+            return [x] if not isinstance(x, list) else x
         listified = {k: listify(v) for k, v in wildcards.items()}
         missing_outputs = []
         complete_jobs = []
@@ -93,6 +88,8 @@ class Checkpoint:
                         f"(wildcards: {wc}): {','.join(missing_output)} of {','.join(output)}"
                     )
                     missing_outputs.append(checkpoint_target(output[0]))
+            else: # no outputs created at all, so all missing
+                missing_outputs.append(checkpoint_target(output[0]))
         if not missing_outputs:
             return complete_jobs
         raise IncompleteCheckpointException(self.rule, missing_outputs)
