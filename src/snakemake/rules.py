@@ -867,7 +867,7 @@ class Rule(RuleInterface):
         def handle_incomplete_checkpoint(exception):
             """If checkpoint is incomplete, target it such that it is completed
             before this rule gets executed."""
-            return exception.targetfile
+            return exception.targetfiles
 
         input = InputFiles()
         mapping = dict()
@@ -933,17 +933,18 @@ class Rule(RuleInterface):
         def handle_incomplete_checkpoint(exception):
             """If checkpoint is incomplete, target it such that it is completed
             before this rule gets executed."""
-            if exception.targetfile in input:
-                return TBDString()
-            else:
-                raise WorkflowError(
-                    "Rule parameter depends on checkpoint but checkpoint output is not "
-                    "defined as input file for the rule. Please add the output of the "
-                    "respective checkpoint to the rule inputs. "
-                    f"Input: {','.join(input)} "
-                    f"Checkpoint file: {exception.targetfile}",
-                    rule=self,
-                )
+            for tf in exception.targetfiles:
+                if tf in input:
+                    return TBDString()
+                else:
+                    raise WorkflowError(
+                        "Rule parameter depends on checkpoint but checkpoint output is not "
+                        "defined as input file for the rule. Please add the output of the "
+                        "respective checkpoint to the rule inputs. "
+                        f"Input: {','.join(input)} "
+                        f"Checkpoint file: {exception.targetfile}",
+                        rule=self,
+                    )
 
         # We make sure that resources are only evaluated if a param function
         # actually needs them by turning them into callables and delegating their

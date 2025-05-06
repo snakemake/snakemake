@@ -47,6 +47,12 @@ class CheckpointsProxy(Checkpoints):
             setattr(self, fallback_name, checkpoint)
         setattr(self, rule.name, checkpoint)
 
+def dictproduct(listdict):
+    """itertools.product() for dict of lists that yields a dict for each combination of values"""
+    import itertools
+    assert(all(isinstance(v, list) for v in listdict.values()))
+    for x in itertools.product(*listdict.values()):
+        yield dict(zip(listdict.keys(), x))
 
 class Checkpoint:
     __slots__ = ["rule", "checkpoints"]
@@ -62,18 +68,25 @@ class Checkpoint:
                 "Missing wildcard values for {}".format(", ".join(missing))
             )
 
-        output, _ = self.rule.expand_output(wildcards)
-        if self.checkpoints.created_output:
-            missing_output = set(output) - set(self.checkpoints.created_output)
-            if not missing_output:
-                return CheckpointJob(self.rule, output)
-            else:
-                logger.debug(
-                    f"Missing checkpoint output for {self.rule.name} "
-                    f"(wildcards: {wildcards}): {','.join(missing_output)} of {','.join(output)}"
-                )
-
-        raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
+        listify = lambda x: [x,] if not isinstance(x, list) else x
+        listified = {k: listify(v) for k, v in wildcards.items()}
+        missing_outputs = []
+        complete_jobs = []
+        for wc in dictproduct(listified):
+            output, _ = self.rule.expand_output(wc)
+            if self.checkpoints.created_output:
+                missing_output = set(output) - set(self.checkpoints.created_output)
+                if not missing_output:
+                    complete_jobs.append(CheckpointJob(self.rule, output))
+                else:
+                    logger.debug(
+                        f"Missing checkpoint output for {self.rule.name} "
+                        f"(wildcards: {wc}): {','.join(missing_output)} of {','.join(output)}"
+                    )
+            missing_outputs.append(checkpoint_target(output[0]))
+        if not missing_outputs:
+            return complete_jobs
+        raise IncompleteCheckpointException(self.rule, missing_outputs)
 
 
 class CheckpointJob:
