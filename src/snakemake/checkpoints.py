@@ -92,7 +92,7 @@ class Checkpoint:
                         f"Missing checkpoint output for {self.rule.name} "
                         f"(wildcards: {wc}): {','.join(missing_output)} of {','.join(output)}"
                     )
-            missing_outputs.append(checkpoint_target(output[0]))
+                    missing_outputs.append(checkpoint_target(output[0]))
         if not missing_outputs:
             return complete_jobs
         raise IncompleteCheckpointException(self.rule, missing_outputs)
