@@ -1647,18 +1647,31 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 # Since groups might have been merged, we need
                 # to update each job j in group.
                 groups[j] = group
-        
+
         # check if all groups are valid
-        for group, jobs in groupby(groups, key=lambda job: groups[job]):
-            for job in jobs:
+        for group in set(groups.values()):
+            for job in group.jobs:
                 external_but_returning_rules = set()
+                returned_to = set()
+
+                def stop_if(job, returned_to=returned_to):
+                    if job in group.jobs:
+                        returned_to.add(job.rule.name)
+                        return True
+                    return False
+
                 for dep in self._dependencies[job]:
-                    external_but_returning_rules.update(job.rule.name for job in self.bfs(self._dependencies, dep, stop=lambda j: groups.get(j) == group))
+                    external_but_returning_rules.update(
+                        job.rule.name
+                        for job in self.bfs(self._dependencies, dep, stop=stop_if)
+                        if job is not dep
+                    )
                 if external_but_returning_rules:
                     raise WorkflowError(
                         f"Error in group {job.group}. Job of rule {job.rule.name} "
-                        f"depends on {','.join(external_but_returning_rules)} from "
-                        f"outside the group, but they in turn depend on job(s) "
+                        f"depends on rule(s) {','.join(external_but_returning_rules)} "
+                        "from outside the group, but they in turn depend on rule(s) "
+                        f"{','.join(returned_to)} from "
                         f"inside the group again. This is not allowed. Ensure that "
                         "those rules are part of the group as well, either by "
                         "using further --group statements or by adding them to the "
