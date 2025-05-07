@@ -1654,7 +1654,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 external_but_returning_rules = set()
                 for dep in self._dependencies[job]:
                     external_but_returning_rules.update(job.rule.name for job in self.bfs(self._dependencies, dep, stop=lambda j: groups.get(j) == group))
-                if external_but_returning_jobs:
+                if external_but_returning_rules:
                     raise WorkflowError(
                         f"Error in group {job.group}. Job of rule {job.rule.name} "
                         f"depends on {','.join(external_but_returning_rules)} from "
