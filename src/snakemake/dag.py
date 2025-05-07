@@ -1650,42 +1650,45 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         # check if all groups are valid
         for group in set(groups.values()):
-            for job in group.jobs:
-                external_but_returning_rules = set()
-                returned_to = set()
-
-                def stop_if(job, returned_to=returned_to):
-                    if job in group.jobs:
-                        returned_to.add(job.rule.name)
-                        return True
-                    return False
-
-                for dep in self._dependencies[job]:
-                    external_but_returning_rules.update(
-                        job.rule.name
-                        for job in self.bfs(self._dependencies, dep, stop=stop_if)
-                        if job is not dep
-                    )
-                if external_but_returning_rules:
-                    raise WorkflowError(
-                        f"Error in group {job.group}. Job of rule {job.rule.name} "
-                        f"depends on rule(s) {','.join(external_but_returning_rules)} "
-                        "from outside the group, but they in turn depend on rule(s) "
-                        f"{','.join(returned_to)} from "
-                        f"inside the group again. This is not allowed. Ensure that "
-                        "those rules are part of the group as well, either by "
-                        "using further --group statements or by adding them to the "
-                        "same group in the workflow definition. Note that for "
-                        "rules that are generic and might be used in multiple groups "
-                        "you can use rule inheritance to obtain multiple instances "
-                        "of the same rule with different group assignments."
-                    )
+            self.validate_group(group)
 
         self._group = groups
 
         self._update_group_components()
 
         self._check_groups()
+
+    def validate_group(self, group: GroupJob) -> None:
+        for job in group.jobs:
+            external_but_returning_rules = set()
+            returned_to = set()
+
+            def stop_if(job, returned_to=returned_to):
+                if job in group.jobs:
+                    returned_to.add(job.rule.name)
+                    return True
+                return False
+
+            for dep in self._dependencies[job]:
+                external_but_returning_rules.update(
+                    job.rule.name
+                    for job in self.bfs(self._dependencies, dep, stop=stop_if)
+                    if job is not dep
+                )
+            if external_but_returning_rules:
+                raise WorkflowError(
+                    f"Error in group {job.group}. Job of rule {job.rule.name} "
+                    f"depends on rule(s) {','.join(external_but_returning_rules)} "
+                    "from outside the group, but they in turn depend on rule(s) "
+                    f"{','.join(returned_to)} from "
+                    f"inside the group again. This is not allowed. Ensure that "
+                    "those rules are part of the group as well, either by "
+                    "using further --group statements or by adding them to the "
+                    "same group in the workflow definition. Note that for "
+                    "rules that are generic and might be used in multiple groups "
+                    "you can use rule inheritance to obtain multiple instances "
+                    "of the same rule with different group assignments."
+                )
 
     def _update_group_components(self):
         # span connected components if requested
