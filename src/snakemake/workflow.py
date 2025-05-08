@@ -1225,7 +1225,7 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         with self.persistence.lock():
-            async_run(self.dag.postprocess(update_needrun=False))
+            async_run(self.dag.postprocess(update_needrun=False, check_initial=True))
             if not self.dryrun:
                 # deactivate IOCache such that from now on we always get updated
                 # size, existence and mtime information

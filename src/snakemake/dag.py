@@ -1648,11 +1648,47 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 # to update each job j in group.
                 groups[j] = group
 
+        # check if all groups are valid
+        for group in set(groups.values()):
+            self.validate_group(group)
+
         self._group = groups
 
         self._update_group_components()
 
         self._check_groups()
+
+    def validate_group(self, group: GroupJob) -> None:
+        for job in group.jobs:
+            external_but_returning_rules = set()
+            returned_to = set()
+
+            def stop_if(job, returned_to=returned_to):
+                if job in group.jobs:
+                    returned_to.add(job.rule.name)
+                    return True
+                return False
+
+            for dep in self._dependencies[job]:
+                external_but_returning_rules.update(
+                    job.rule.name
+                    for job in self.bfs(self._dependencies, dep, stop=stop_if)
+                    if job is not dep
+                )
+            if external_but_returning_rules and returned_to:
+                raise WorkflowError(
+                    f"Error in group {job.group}. Job of rule {job.rule.name} "
+                    f"depends on rule(s) {','.join(external_but_returning_rules)} "
+                    "from outside the group, but they in turn depend on rule(s) "
+                    f"{','.join(returned_to)} from "
+                    f"inside the group again. This is not allowed. Ensure that "
+                    "those rules are part of the group as well, either by "
+                    "using further --group statements or by adding them to the "
+                    "same group in the workflow definition. Note that for "
+                    "rules that are generic and might be used in multiple groups "
+                    "you can use rule inheritance to obtain multiple instances "
+                    "of the same rule with different group assignments."
+                )
 
     def _update_group_components(self):
         # span connected components if requested
@@ -1753,6 +1789,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if job in self._ready_jobs or job in self._running:
                 # job has been seen before or is running, no need to process again
                 continue
+            logger.debug(f"{job.output}: {self._ready(job)} {self._n_until_ready[job]}")
             if (
                 not self.finished(job)
                 and self._ready(job)
@@ -1786,7 +1823,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 yield group
 
     async def postprocess(
-        self, update_needrun=True, update_incomplete_input_expand_jobs=True
+        self,
+        update_needrun=True,
+        update_incomplete_input_expand_jobs=True,
+        check_initial=False,
     ):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
@@ -1819,6 +1859,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 return
 
         self.update_ready()
+
+        if check_initial:
+            assert not (not self.ready_jobs and any(self.needrun_jobs())), (
+                "bug: DAG contains jobs that have to be executed but no such job is "
+                "ready for execution."
+            )
 
     def handle_pipes_and_services(self):
         """Use pipes and services to determine job groups. Check if every pipe has exactly
@@ -1953,6 +1999,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
         group = self._group.get(job, None)
+
         if group is None:
             return self._n_until_ready[job] == 0
         else:
