@@ -867,7 +867,7 @@ class Rule(RuleInterface):
         def handle_incomplete_checkpoint(exception):
             """If checkpoint is incomplete, target it such that it is completed
             before this rule gets executed."""
-            return exception.targetfile
+            return exception.targetfiles
 
         input = InputFiles()
         mapping = dict()
@@ -933,15 +933,16 @@ class Rule(RuleInterface):
         def handle_incomplete_checkpoint(exception):
             """If checkpoint is incomplete, target it such that it is completed
             before this rule gets executed."""
-            if exception.targetfile in input:
+            missing = set(exception.targetfiles) - set(input)
+            if not missing:
                 return TBDString()
             else:
                 raise WorkflowError(
                     "Rule parameter depends on checkpoint but checkpoint output is not "
                     "defined as input file for the rule. Please add the output of the "
                     "respective checkpoint to the rule inputs. "
-                    f"Input: {','.join(input)} "
-                    f"Checkpoint file: {exception.targetfile}",
+                    f"Input: {', '.join(input)} "
+                    f"Checkpoint file: {', '.join(missing)}",
                     rule=self,
                 )
 
