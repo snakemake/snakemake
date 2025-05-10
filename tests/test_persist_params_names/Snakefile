@@ -1,0 +1,20 @@
+rule all:
+    input:
+        "test"
+
+rule test:
+    params:
+        7,
+        0,
+        [2, 3],
+        5,
+        z=[],
+        b=1,
+        c=[4,6],
+    output:
+        "test"
+    shell:
+        """
+        echo test > "{output}"
+        """
+
