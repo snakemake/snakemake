@@ -1600,7 +1600,11 @@ def get_argument_parser(profiles=None):
         "and localrules will fail. The additional argument `--notemp` "
         "should be specified. Most often, `--not-retrieve-storage` is "
         "also required to avoid Snakemake trying to download output files "
+<<<<<<< HEAD
         "before the jobs producing them are executed. "
+=======
+        "before the jobs producing them are executed. ",
+>>>>>>> c5773572 (docs: updated docs for --immediate-submit)
     )
     group_cluster.add_argument(
         "--jobscript",
