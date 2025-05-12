@@ -1240,7 +1240,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 )
                 if not error:
                     self.dag.handle_protected(self)
-            elif not shared_input_output and not wait_for_local and not error:
+            elif not shared_input_output and not wait_for_local and not error and not ignore_missing_output:
                 expanded_output = list(self.output)
                 if self.benchmark:
                     expanded_output.append(self.benchmark)

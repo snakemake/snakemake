@@ -364,6 +364,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def _finish_jobs(self):
         # must be called from within lock
         # clear the global tofinish such that parallel calls do not interfere
+
+        # shortcut to "--immediate-submit" flag
+        immediate_submit = self.workflow.remote_execution_settings.immediate_submit 
         async def postprocess():
             for job in self._tofinish:
                 # IMPORTANT: inside of this loop, there may be no calls that have
@@ -376,13 +379,14 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 store_in_storage=not self.touch,
                                 handle_log=True,
                                 handle_touch=not self.touch,
-                                ignore_missing_output=self.touch,
+                                ignore_missing_output=self.touch or immediate_submit,
                             )
                         elif self.workflow.exec_mode == ExecMode.SUBPROCESS:
                             await job.postprocess(
                                 store_in_storage=False,
                                 handle_log=True,
                                 handle_touch=True,
+                                ignore_missing_output=immediate_submit,
                             )
                         else:
                             await job.postprocess(
@@ -392,12 +396,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 store_in_storage=False,
                                 handle_log=True,
                                 handle_touch=True,
+                                ignore_missing_output=immediate_submit,
                             )
                     except (RuleException, WorkflowError) as e:
                         # if an error occurs while processing job output,
                         # we do the same as in case of errors during execution
                         print_exception(e, self.workflow.linemaps)
-                        await job.postprocess(error=True)
+                        await job.postprocess(error=True, ignore_missing_output=immediate_submit)
                         self._handle_error(job, postprocess_job=False)
                         continue
 
