@@ -37,6 +37,22 @@ from snakemake_interface_executor_plugins.settings import (
 )
 
 
+def test_logging_config():
+    """Relevant issue: https://github.com/snakemake/snakemake/issues/3044"""
+    snakefile = os.path.join(dpath("test_logging_config"), "Snakefile")
+    p = sp.Popen(
+        f"snakemake -s {snakefile}",
+        shell=True,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+    )
+    stdout, stderr = p.communicate()
+
+    stdout = stdout.decode()
+    assert p.returncode == 1
+    assert "[TESTLOGGINGCONFIG]" in stdout
+
+
 def test_logfile():
     import glob
 
@@ -65,6 +81,7 @@ Finished jobid: 0 (Rule: all)
 
 
 def test_logger_in_workflow():
+    """relevant issue: https://github.com/snakemake/snakemake/issues/3558"""
     import glob
 
     tmpdir = run(dpath("test_workflow_logger"), cleanup=False, check_results=False)
