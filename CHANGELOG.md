@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.3.4](https://github.com/snakemake/snakemake/compare/v9.3.3...v9.3.4) (2025-05-08)
+
+
+### Bug Fixes
+
+* detect DAG paths in job groups that first exit and then return to the group; they are invalid, now leading to an error ([#3563](https://github.com/snakemake/snakemake/issues/3563)) ([6407c46](https://github.com/snakemake/snakemake/commit/6407c46c6c146029245e79e9db253fb4a660889d))
+
 ## [9.3.3](https://github.com/snakemake/snakemake/compare/v9.3.2...v9.3.3) (2025-04-29)
 
 
