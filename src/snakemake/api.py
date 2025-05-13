@@ -600,7 +600,6 @@ class DAGApi(ApiBase):
         @functools.wraps(method)
         def _handle_no_exec(self, *args, **kwargs):
             self.workflow_api.resource_settings.cores = 1
-            self.snakemake_api.setup_logger()
             return method(self, *args, **kwargs)
 
         return _handle_no_exec
