@@ -82,9 +82,9 @@ def test_logger_in_workflow():
     with open(latest_log, "r") as f:
         log_content = f.read()
     for stmt in stmts:
-        assert stmt.strip() in log_content.strip(), (
-            f"Expected statement {stmt} not found in log file. Log content: {log_content}"
-        )
+        assert (
+            stmt.strip() in log_content.strip()
+        ), f"Expected statement {stmt} not found in log file. Log content: {log_content}"
 
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
