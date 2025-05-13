@@ -46,7 +46,7 @@ Finished jobid: 0 (Rule: all)
 6 of 6 steps (100%) done"""
 
     log_dir = os.path.join(tmpdir, ".snakemake", "log")
-    assert os.path.exists(log_dir), "Log directory not found"
+    assert os.path.exists(log_dir), f"Log directory {log_dir} not found"
 
     log_files = glob.glob(os.path.join(log_dir, "*.snakemake.log"))
     assert log_files, "No log files found"
@@ -60,6 +60,31 @@ Finished jobid: 0 (Rule: all)
     assert (
         finished_stmt.strip() in log_content.strip()
     ), f"Expected statement not found in log file. Log content: {log_content}"
+
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_logger_in_workflow():
+    import glob
+
+    tmpdir = run(dpath("test_workflow_logger"), cleanup=False, check_results=False)
+    stmts = ["TESTINFO", "TESTWARN", "TESTERROR"]
+
+    log_dir = os.path.join(tmpdir, ".snakemake", "log")
+    assert os.path.exists(log_dir), f"Log directory {log_dir} not found"
+
+    log_files = glob.glob(os.path.join(log_dir, "*.snakemake.log"))
+    assert log_files, "No log files found"
+
+    log_files.sort(key=os.path.getmtime, reverse=True)
+    latest_log = log_files[0]
+
+    with open(latest_log, "r") as f:
+        log_content = f.read()
+    for stmt in stmts:
+        assert stmt.strip() in log_content.strip(), (
+            f"Expected statement {stmt} not found in log file. Log content: {log_content}"
+        )
 
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 

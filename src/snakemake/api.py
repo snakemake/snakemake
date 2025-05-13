@@ -101,6 +101,9 @@ class SnakemakeApi(ApiBase):
     _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
     _is_in_context: bool = field(init=False, default=False)
 
+    def __post_init__(self):
+        self.setup_logger()
+
     def workflow(
         self,
         resource_settings: ResourceSettings,
@@ -142,7 +145,7 @@ class SnakemakeApi(ApiBase):
         self._check_default_storage_provider(storage_settings=storage_settings)
 
         snakefile = resolve_snakefile(snakefile)
-
+        logger_manager.setup_logfile(workdir=workdir)
         self._workflow_api = WorkflowApi(
             snakemake_api=self,
             snakefile=snakefile,
@@ -154,6 +157,7 @@ class SnakemakeApi(ApiBase):
             deployment_settings=deployment_settings,
             storage_provider_settings=storage_provider_settings,
         )
+
         return self._workflow_api
 
     def _cleanup(self):
@@ -242,22 +246,16 @@ class SnakemakeApi(ApiBase):
             linemaps = self._workflow_api._workflow_store.linemaps
         print_exception(ex, linemaps)
 
-    def setup_logger(
-        self,
-        stdout: bool = False,
-        mode: ExecMode = ExecMode.DEFAULT,
-        dryrun: bool = False,
-    ):
-        if not self.output_settings.keep_logger and not logger_manager.initialized:
+    def setup_logger(self):
+        if not self.output_settings.keep_logger:
             log_handlers = []
             for name, settings in self.output_settings.log_handler_settings.items():
                 plugin = LoggerPluginRegistry().get_plugin(name)
                 plugin.validate_settings(settings)
                 log_handlers.append(plugin.log_handler(self.output_settings, settings))
 
-            self.output_settings.dryrun = dryrun
             logger_manager.setup(
-                mode=mode,
+                mode=self.output_settings.mode,
                 handlers=log_handlers,
                 settings=self.output_settings,
             )
@@ -292,7 +290,6 @@ class SnakemakeApi(ApiBase):
 def _no_dag(method):
     @functools.wraps(method)
     def _handle_no_dag(self: "WorkflowApi", *args, **kwargs):
-        self.snakemake_api.setup_logger()
         self.resource_settings.cores = 1
         return method(self, *args, **kwargs)
 
@@ -492,12 +489,6 @@ class DAGApi(ApiBase):
         if executor_plugin.common_settings.implies_no_shared_fs:
             # no shared FS at all
             self.workflow_api.storage_settings.shared_fs_usage = frozenset()
-
-        self.snakemake_api.setup_logger(
-            stdout=executor_plugin.common_settings.dryrun_exec,
-            mode=self.workflow_api.workflow_settings.exec_mode,
-            dryrun=executor_plugin.common_settings.dryrun_exec,
-        )
 
         if (
             executor_plugin.common_settings.local_exec

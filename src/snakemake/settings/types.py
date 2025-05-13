@@ -402,6 +402,7 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     keep_logger: bool = False
     stdout: bool = False
     benchmark_extended: bool = False
+    mode: ExecMode = ExecMode.DEFAULT
 
 
 @dataclass

@@ -1991,6 +1991,7 @@ def args_to_api(args, parser):
             keep_logger=False,
             stdout=args.dryrun,
             benchmark_extended=args.benchmark_extended,
+            mode=args.mode,
         )
     ) as snakemake_api:
         deployment_method = args.software_deployment_method

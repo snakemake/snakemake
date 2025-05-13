@@ -407,6 +407,8 @@ class DefaultFilter:
         # Handle dag_debug specifically
         if event == LogEvent.DEBUG_DAG and not self.debug_dag:
             return False
+        if event == LogEvent.WORKFLOW_STARTED:
+            return False
 
         return True
 
@@ -541,7 +543,6 @@ class ColorizingTextHandler(logging.StreamHandler):
 class LoggerManager:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
-        self.initialized = False
         self.queue_listener = None
         self.mode = None
         self.needs_rulegraph = False
@@ -558,7 +559,6 @@ class LoggerManager:
 
         self.mode = mode
         self.settings = settings
-        self.initialized = True
 
         stream_handlers = []
         other_handlers = []
@@ -566,9 +566,9 @@ class LoggerManager:
         if self.mode == ExecMode.SUBPROCESS:
             handler = self._default_streamhandler()
             handler.setLevel(logging.ERROR)
-            stream_handlers.append(handler)
+            self.logger.addHandler(handler)
         elif self.mode == ExecMode.REMOTE:
-            stream_handlers.append(self._default_streamhandler())
+            self.logger.addHandler(self._default_streamhandler())
         elif handlers:
             for handler in handlers:
                 if handler.needs_rulegraph:
@@ -587,23 +587,19 @@ class LoggerManager:
             raise ValueError("More than 1 stream log handler specified!")
         elif len(stream_handlers) == 0:
             # we dont have any stream_handlers from plugin(s) so give us the default one
-            stream_handlers.append(self._default_streamhandler())
+            self.logger.addHandler(self._default_streamhandler())
 
-        self.setup_logfile()
+        if other_handlers:
+            self._queue = Queue(-1)
+            self.queue_listener = logging.handlers.QueueListener(
+                self._queue,
+                *other_handlers,
+                respect_handler_level=True,
+            )
+            self.queue_listener.start()
+            self.logger.addHandler(logging.handlers.QueueHandler(self._queue))
 
-        all_handlers = (
-            stream_handlers + other_handlers + list(self.logfile_handlers.keys())
-        )
-
-        q = Queue(-1)
-        self.queue_listener = logging.handlers.QueueListener(
-            q,
-            *all_handlers,
-            respect_handler_level=True,
-        )
-        self.queue_listener.start()
         self.logger.setLevel(logging.DEBUG if settings.verbose else logging.INFO)
-        self.logger.addHandler(logging.handlers.QueueHandler(q))
 
     def _configure_plugin_handler(self, plugin):
         if not plugin.has_filter:
@@ -666,21 +662,25 @@ class LoggerManager:
                 self.logger.removeHandler(handler)
                 handler.close()
 
-    def setup_logfile(self):
+    def setup_logfile(self, workdir: Optional[os.PathLike] = None):
         from snakemake_interface_executor_plugins.settings import ExecMode
 
         if self.mode == ExecMode.DEFAULT and not self.settings.dryrun:
+            if workdir:
+                logdir = os.path.join(workdir, ".snakemake", "log")
+            else:
+                logdir = os.path.join(".snakemake", "log")
             try:
-                os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
+                os.makedirs(logdir, exist_ok=True)
                 logfile = os.path.abspath(
                     os.path.join(
-                        ".snakemake",
-                        "log",
+                        logdir,
                         datetime.datetime.now().isoformat().replace(":", "")
                         + ".snakemake.log",
                     )
                 )
                 handler = self._default_filehandler(logfile)
+                self.logger.addHandler(handler)
                 self.logfile_handlers[handler] = logfile
 
             except OSError as e:
