@@ -1,6 +1,10 @@
+import logging
+logger.addHandler(logging.FileHandler("mylog.txt"))
 logger.info("TESTINFO")
 logger.warning("TESTWARN")
 logger.error("TESTERROR")
+
+
 
 rule all:
     input:
