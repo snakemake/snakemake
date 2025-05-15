@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.4.1](https://github.com/snakemake/snakemake/compare/v9.4.0...v9.4.1) (2025-05-15)
+
+
+### Documentation
+
+* fix syntax highlighting for light and dark theme ([9c5c6f7](https://github.com/snakemake/snakemake/commit/9c5c6f7f7a8bb1747ed4896c17df9b55d153c570))
+
 ## [9.4.0](https://github.com/snakemake/snakemake/compare/v9.3.5...v9.4.0) (2025-05-15)
 
 
