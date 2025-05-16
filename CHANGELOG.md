@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [9.4.0](https://github.com/snakemake/snakemake/compare/v9.3.5...v9.4.0) (2025-05-15)
+
+
+### Features
+
+* allow md5 and sha256 in ensure() flag  ([#3575](https://github.com/snakemake/snakemake/issues/3575)) ([639ea91](https://github.com/snakemake/snakemake/commit/639ea9157aa2457950ef6cb51027189923f5dc49))
+
+## [9.3.5](https://github.com/snakemake/snakemake/compare/v9.3.4...v9.3.5) (2025-05-15)
+
+
+### Bug Fixes
+
+* upon source deployment, only validate storage plugin settings if they are not None ([#3572](https://github.com/snakemake/snakemake/issues/3572)) ([2568ec8](https://github.com/snakemake/snakemake/commit/2568ec89bbf0e33b12deedba55334f0cc46b14e3))
+
 ## [9.3.4](https://github.com/snakemake/snakemake/compare/v9.3.3...v9.3.4) (2025-05-08)
 
 

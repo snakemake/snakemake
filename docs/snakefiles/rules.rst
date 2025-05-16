@@ -1913,7 +1913,7 @@ Above, the output file ``test.txt`` is marked as non-empty.
 If the command ``somecommand`` happens to generate an empty output,
 the job will fail with an error listing the unexpected empty file.
 
-A sha256 checksum can be compared as follows:
+A sha256 (or md5 or sha1) checksum can be compared as follows (using corresponding keyword arguments ``sha256=``, ``md5=``, or ``sha1=``).:
 
 .. code-block:: python
 

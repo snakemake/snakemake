@@ -692,9 +692,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             )
 
         # handle checksum
-        async def is_not_same_checksum(f, checksum):
-            if checksum is None:
+        async def is_not_same_checksum(f, ensure):
+            if not ensure.get("checksum_algorithm"):
                 return False
+            checksum_algorithm = ensure["checksum_algorithm"]
+            checksum = ensure["checksum"]
             if is_callable(checksum):
                 try:
                     checksum = checksum(job.wildcards)
@@ -705,13 +707,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         rule=job.rule,
                     )
             return not await f.is_same_checksum(
-                checksum, self.max_checksum_file_size, force=True
+                checksum,
+                self.max_checksum_file_size,
+                force=True,
+                algorithm=checksum_algorithm,
             )
 
         checksum_failed_output = [
             f
             for f, ensure in ensured_output.items()
-            if await is_not_same_checksum(f, ensure.get("sha256"))
+            if await is_not_same_checksum(f, ensure)
         ]
         if checksum_failed_output:
             raise WorkflowError(

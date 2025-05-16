@@ -8,6 +8,7 @@ import collections
 import collections.abc
 import copy
 import functools
+import hashlib
 import os
 import queue
 import re
@@ -18,7 +19,6 @@ import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
@@ -656,12 +656,12 @@ class _IOFile(str, AnnotatedStringInterface):
             and not self.is_fifo()
         )
 
-    async def checksum(self, threshold, force=False):
+    async def checksum(self, threshold, force=False, algorithm=hashlib.sha256):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist. If force is True,
         omit eligibility check."""
         if force or await self.is_checksum_eligible(threshold):
-            checksum = sha256()
+            checksum = algorithm()
             if await self.size() > 0:
                 # only read if file is bigger than zero
                 # otherwise the checksum is the same as taking hexdigest
@@ -675,8 +675,10 @@ class _IOFile(str, AnnotatedStringInterface):
         else:
             return None
 
-    async def is_same_checksum(self, other_checksum, threshold, force=False):
-        checksum = await self.checksum(threshold, force=force)
+    async def is_same_checksum(
+        self, other_checksum, threshold, force=False, algorithm=hashlib.sha256
+    ):
+        checksum = await self.checksum(threshold, force=force, algorithm=algorithm)
         if checksum is None or other_checksum is None:
             # if no checksum available or files too large, not the same
             return False
@@ -1281,8 +1283,28 @@ def touch(value):
     return flag(value, "touch")
 
 
-def ensure(value, non_empty=False, sha256=None):
-    return flag(value, "ensure", {"non_empty": non_empty, "sha256": sha256})
+def ensure(value, non_empty=False, sha256=None, md5=None, sha1=None):
+    if sum(1 for x in (sha256, md5, sha1) if x is not None) > 1:
+        raise SyntaxError(
+            "Only one checksum type (sha256, md5, or sha1) can be specified."
+        )
+    checksum = sha256 or md5 or sha1
+    checksum_algorithm = None
+    if sha256 is not None:
+        checksum_algorithm = hashlib.sha256
+    elif md5 is not None:
+        checksum_algorithm = hashlib.md5
+    elif sha1 is not None:
+        checksum_algorithm = hashlib.sha1
+    return flag(
+        value,
+        "ensure",
+        {
+            "non_empty": non_empty,
+            "checksum": checksum,
+            "checksum_algorithm": checksum_algorithm,
+        },
+    )
 
 
 def unpack(value):
