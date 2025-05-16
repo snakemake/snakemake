@@ -1162,7 +1162,7 @@ class Workflow(WorkflowExecutorInterface):
 
             return {"nodes": nodes, "links": edges}
 
-        if logger_manager.initialized and logger_manager.needs_rulegraph:
+        if logger_manager.needs_rulegraph:
             rulegraph = simple_rulegraph()
             logger.info(None, extra=dict(event=LogEvent.RULEGRAPH, rulegraph=rulegraph))
 
