@@ -280,7 +280,7 @@ By executing
 
 .. code:: console
 
-    $ snakemake --dag dot sorted_reads/{A,B}.bam.bai | dot -Tsvg > dag.svg
+    $ snakemake --dag sorted_reads/{A,B}.bam.bai | dot -Tsvg > dag.svg
 
 
 .. note::
