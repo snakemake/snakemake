@@ -104,7 +104,7 @@ py312 = { features = ["py312", "test"] }
 
 docs = { features = ["docs"] }
 quality = { features = ["style"] }
-publish = { features = ["publish"] }
+build = { features = ["build"] }
 
 # Python Envs
 [tool.pixi.feature.py311.dependencies]
