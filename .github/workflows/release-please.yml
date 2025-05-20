@@ -33,7 +33,7 @@ jobs:
       - name: Build and check package
         if: ${{ steps.release.outputs.release_created }}
         run: |
-          pixi run --environment build build-check
+          pixi run --environment publish build-check
 
       - name: Publish to PyPI
         if: ${{ steps.release.outputs.release_created }}

@@ -104,7 +104,7 @@ py312 = { features = ["py312", "test"] }
 
 docs = { features = ["docs"] }
 quality = { features = ["style"] }
-build = { features = ["build"] }
+publish = { features = ["publish"] }
 
 # Python Envs
 [tool.pixi.feature.py311.dependencies]
@@ -269,11 +269,11 @@ black = "*"
 format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format the code" }
 
 # Build
-[tool.pixi.feature.build.dependencies]
+[tool.pixi.feature.publish.dependencies]
 twine = ">=6.1.0,<7"
 python-build = ">=1.2.2,<2"
 
-[tool.pixi.feature.build.tasks]
+[tool.pixi.feature.publish.tasks]
 build = { cmd = "python -m build", description = "Build the package into the dist/ directory" }
 build-check = { cmd = "python -m twine check --strict dist/*", depends-on = [
   "build",
