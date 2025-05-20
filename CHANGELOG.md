@@ -1,6 +1,41 @@
 # Changelog
 
 
+## [9.4.0](https://github.com/snakemake/snakemake/compare/v9.3.5...v9.4.0) (2025-05-15)
+
+
+### Features
+
+* allow md5 and sha256 in ensure() flag  ([#3575](https://github.com/snakemake/snakemake/issues/3575)) ([639ea91](https://github.com/snakemake/snakemake/commit/639ea9157aa2457950ef6cb51027189923f5dc49))
+
+## [9.3.5](https://github.com/snakemake/snakemake/compare/v9.3.4...v9.3.5) (2025-05-15)
+
+
+### Bug Fixes
+
+* upon source deployment, only validate storage plugin settings if they are not None ([#3572](https://github.com/snakemake/snakemake/issues/3572)) ([2568ec8](https://github.com/snakemake/snakemake/commit/2568ec89bbf0e33b12deedba55334f0cc46b14e3))
+
+## [9.3.4](https://github.com/snakemake/snakemake/compare/v9.3.3...v9.3.4) (2025-05-08)
+
+
+### Bug Fixes
+
+* detect DAG paths in job groups that first exit and then return to the group; they are invalid, now leading to an error ([#3563](https://github.com/snakemake/snakemake/issues/3563)) ([6407c46](https://github.com/snakemake/snakemake/commit/6407c46c6c146029245e79e9db253fb4a660889d))
+
+## [9.3.3](https://github.com/snakemake/snakemake/compare/v9.3.2...v9.3.3) (2025-04-29)
+
+
+### Bug Fixes
+
+* fixed accidental None display when annotating access patterns in input/output file display ([#3553](https://github.com/snakemake/snakemake/issues/3553)) ([f4a5bd6](https://github.com/snakemake/snakemake/commit/f4a5bd6cd50165e7957a7460c3debae5bfcc6275))
+
+## [9.3.2](https://github.com/snakemake/snakemake/compare/v9.3.1...v9.3.2) (2025-04-26)
+
+
+### Bug Fixes
+
+* fix recent regression when printing remote storage output or log files (local path shown instead of query) ([#3550](https://github.com/snakemake/snakemake/issues/3550)) ([a1e93ce](https://github.com/snakemake/snakemake/commit/a1e93ce14f3dcedbdfc812632a0c477b14523af1))
+
 ## [9.3.1](https://github.com/snakemake/snakemake/compare/v9.3.0...v9.3.1) (2025-04-24)
 
 
