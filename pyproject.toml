@@ -275,6 +275,6 @@ python-build = ">=1.2.2,<2"
 
 [tool.pixi.feature.build.tasks]
 build = { cmd = "python -m build", description = "Build the package into the dist/ directory" }
-check-build = { cmd = "python -m twine check --strict dist/*", depends-on = [
+build-check = { cmd = "python -m twine check --strict dist/*", depends-on = [
   "build",
 ], description = "Check that the package can be uploaded" }
