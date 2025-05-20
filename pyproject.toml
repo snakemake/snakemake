@@ -15,7 +15,7 @@ readme = { content-type = "text/markdown", text = """
   how to create output files from input files.
 """ }
 requires-python = ">= 3.11"
-license-files = ["LICENSE.md"]
+license = "MIT"
 authors = [{ name = "Johannes Köster", email = "johannes.koester@uni-due.de" }]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
