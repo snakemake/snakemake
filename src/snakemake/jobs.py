@@ -16,10 +16,9 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-import time
 from typing import Iterable, List, Optional, Union
 from collections.abc import AsyncGenerator
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
@@ -57,49 +56,16 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 from snakemake.common import (
     get_function_params,
-    is_local_file,
     get_uuid,
     IO_PROP_LIMIT,
 )
+from snakemake.io.fmt import fmt_iofile
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
 
 
-def format_file(f, is_input: bool):
-    if is_flagged(f, "pipe"):
-        return f"{f} (pipe)"
-    elif is_flagged(f, "service"):
-        return f"{f} (service)"
-    elif is_flagged(f, "nodelocal"):
-        return f"{f} (nodelocal)"
-    elif is_flagged(f, "update"):
-        return f"{f} (update)"
-    elif is_flagged(f, "before_update"):
-        return f"{f} (before update)"
-    elif is_flagged(f, "access_pattern"):
-        pattern = get_flag_value(f, "access_pattern")
-        return f"{f} (access: {pattern})"
-    elif is_flagged(f, "checkpoint_target"):
-        return TBDString()
-    elif is_flagged(f, "sourcecache_entry"):
-        orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
-        return f"{orig_path_or_uri} (cached)"
-    elif f.is_storage:
-        if is_input:
-            if f.storage_object.retrieve:
-                phrase = "retrieve from"
-            else:
-                phrase = "keep remote on"
-        else:
-            phrase = "send to"
-        f_str = f.storage_object.print_query
-        return f"{f_str} ({phrase} storage)"
-    else:
-        return f
-
-
 def format_files(io, is_input: bool):
-    return [format_file(f, is_input=is_input) for f in io]
+    return [fmt_iofile(f, as_input=is_input, as_output=not is_input) for f in io]
 
 
 def jobfiles(jobs, type):
@@ -1076,7 +1042,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         priority = self.priority
 
         benchmark = (
-            format_file(self.benchmark, is_input=False)
+            fmt_iofile(self.benchmark, as_input=False, as_output=True)
             if self.benchmark is not None
             else None
         )

@@ -1,0 +1,9 @@
+rule all:
+    input:
+        "foo.txt"
+
+rule a:
+    output:
+        temp("foo.txt")
+    shell:
+        "touch {output}"

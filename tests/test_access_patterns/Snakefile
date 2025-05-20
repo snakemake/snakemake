@@ -47,9 +47,13 @@ rule d:
         "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"
 
 
+def get_e_input(wildcards):
+    return f"test4.{wildcards.dataset}.out"
+
+
 rule e:
     input:
-        "test4.{dataset}.out" # expected as symlink (because of sequential access once per cluster job)
+        get_e_input # expected as symlink (because of sequential access once per cluster job)
     output:
         "test5.{dataset}.out"
     log:
@@ -58,9 +62,13 @@ rule e:
         "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"
 
 
+def get_f_input(wildcards):
+    return f"test5.{wildcards.dataset}.out"
+
+
 rule f:
     input:
-        access.multi("test5.{dataset}.out") # expected as local copy (because of multi-sequential access)
+        access.multi(get_f_input) # expected as local copy (because of multi-sequential access)
     output:
         "test6.{dataset}.out"
     log:

@@ -1604,7 +1604,10 @@ class BashScript(ScriptBase):
 
 class XonshScript(PythonScript):
     def execute_script(self, fname, edit=False):
-        self._execute_cmd("xonsh {fname:q}", fname=fname)
+        self._execute_cmd(
+            "xonsh -DRAISE_SUBPROC_ERROR=true -DXONSH_SHOW_TRACEBACK=true {fname:q}",
+            fname=fname,
+        )
 
 
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:

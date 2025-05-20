@@ -45,7 +45,7 @@ class Image:
 
     @lazy_property
     def hash(self):
-        md5hash = hashlib.md5()
+        md5hash = hashlib.md5(usedforsecurity=False)
         md5hash.update(self.url.encode())
         return md5hash.hexdigest()
 

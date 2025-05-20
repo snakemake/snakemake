@@ -22,7 +22,7 @@ class EnvModules:
 
     @property
     def hash(self) -> str:
-        md5hash = hashlib.md5()
+        md5hash = hashlib.md5(usedforsecurity=False)
         for name in self.names:
             md5hash.update(name.encode())
         return md5hash.hexdigest()

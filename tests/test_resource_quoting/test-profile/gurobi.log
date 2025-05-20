@@ -1,0 +1,9 @@
+
+Gurobi 11.0.2 (linux64, gurobi_cl) logging started Mon Apr 14 22:29:16 2025
+
+Set parameter WLSAccessID
+Set parameter WLSSecret
+Set parameter LicenseID to value 2525558
+Set parameter LogFile to value "gurobi.log"
+Using license file /home/johannes/Documents/UK-Essen-Cloud/Documents/Keys/gurobi.lic
+Academic license 2525558 - for non-commercial use only - registered to jo___@uk-essen.de

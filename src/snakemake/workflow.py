@@ -202,13 +202,14 @@ class Workflow(WorkflowExecutorInterface):
         self._executor_plugin = None
         self._storage_registry = StorageRegistry(self)
         self._source_archive = None
+        self._checkpoints = Checkpoints()
 
         _globals = globals()
         from snakemake.shell import shell
 
         _globals["shell"] = shell
         _globals["workflow"] = self
-        _globals["checkpoints"] = Checkpoints()
+        _globals["checkpoints"] = self._checkpoints
         _globals["scatter"] = Scatter()
         _globals["gather"] = Gather()
         _globals["github"] = sourcecache.GithubFile
@@ -226,6 +227,10 @@ class Workflow(WorkflowExecutorInterface):
         self.cache_rules = dict()
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
+
+    @property
+    def checkpoints(self):
+        return self._checkpoints
 
     @property
     def parent_groupids(self):
@@ -294,7 +299,7 @@ class Workflow(WorkflowExecutorInterface):
                 checksum = hashlib.file_digest(f, "sha256").hexdigest()
 
             prefix = self.storage_settings.default_storage_prefix
-            if prefix:
+            if prefix and not prefix.endswith("/"):
                 prefix = f"{prefix}/"
             query = f"{prefix}snakemake-workflow-sources.{checksum}.tar.xz"
 
@@ -395,7 +400,7 @@ class Workflow(WorkflowExecutorInterface):
     def touch(self):
         import snakemake.executors.touch
 
-        return issubclass(
+        return self.executor_plugin is not None and issubclass(
             self.executor_plugin.executor, snakemake.executors.touch.Executor
         )
 
@@ -830,6 +835,7 @@ class Workflow(WorkflowExecutorInterface):
                 self.storage_settings is not None
                 and SharedFSUsage.PERSISTENCE
                 not in self.storage_settings.shared_fs_usage
+                and self.remote_exec
             )
             else None
         )
@@ -1219,7 +1225,7 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         with self.persistence.lock():
-            async_run(self.dag.postprocess(update_needrun=False))
+            async_run(self.dag.postprocess(update_needrun=False, check_initial=True))
             if not self.dryrun:
                 # deactivate IOCache such that from now on we always get updated
                 # size, existence and mtime information
