@@ -1457,6 +1457,12 @@ def test_container():
 
 
 @skip_on_windows
+@apptainer
+def test_dynamic_container():
+    run(dpath("test_dynamic_container"), deployment_method={DeploymentMethod.APPTAINER})
+
+
+@skip_on_windows
 def test_string_resources():
     from snakemake.resources import DefaultResources
 
