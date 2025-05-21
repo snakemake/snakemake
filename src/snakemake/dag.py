@@ -1669,7 +1669,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             returned_to = set()
 
             for dep in self._dependencies[job]:
-                # METHOD: from dependencies that are outside of the group, 
+                # METHOD: from dependencies that are outside of the group,
                 # we try to get back into the group.
                 if dep in group.jobs:
                     continue
@@ -1689,7 +1689,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     if job is not dep and job not in group.jobs
                 )
                 if dep_returned_to:
-                    external_but_returning_rules.update(dep_external_but_returning_rules)
+                    external_but_returning_rules.update(
+                        dep_external_but_returning_rules
+                    )
                     returned_to.update(dep_returned_to)
             if external_but_returning_rules and returned_to:
                 raise WorkflowError(
