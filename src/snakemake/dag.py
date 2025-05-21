@@ -1668,18 +1668,29 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             external_but_returning_rules = set()
             returned_to = set()
 
-            def stop_if(job, returned_to=returned_to):
-                if job in group.jobs:
-                    returned_to.add(job.rule.name)
-                    return True
-                return False
-
             for dep in self._dependencies[job]:
-                external_but_returning_rules.update(
+                # METHOD: from dependencies that are outside of the group, 
+                # we try to get back into the group.
+                if dep in group.jobs:
+                    continue
+
+                dep_external_but_returning_rules = set()
+                dep_returned_to = set()
+
+                def stop_if(job, returned_to=dep_returned_to):
+                    if job in group.jobs:
+                        returned_to.add(job.rule.name)
+                        return True
+                    return False
+
+                dep_external_but_returning_rules.update(
                     job.rule.name
                     for job in self.bfs(self._dependencies, dep, stop=stop_if)
-                    if job is not dep
+                    if job is not dep and job not in group.jobs
                 )
+                if dep_returned_to:
+                    external_but_returning_rules.update(dep_external_but_returning_rules)
+                    returned_to.update(dep_returned_to)
             if external_but_returning_rules and returned_to:
                 raise WorkflowError(
                     f"Error in group {job.group}. Job of rule {job.rule.name} "
