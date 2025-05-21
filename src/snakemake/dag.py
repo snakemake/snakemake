@@ -1664,6 +1664,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._check_groups()
 
     def validate_group(self, group: GroupJob) -> None:
+        """
+        Validates that a job group does not have cyclic dependencies involving jobs outside the group.
+        
+        Checks for cases where a job in the group depends on an external job, which in turn depends back on a job within the group. Raises a WorkflowError if such a dependency cycle is detected, as all involved rules must be grouped together to avoid invalid workflow execution.
+        """
         for job in group.jobs:
             external_but_returning_rules = set()
             returned_to = set()
