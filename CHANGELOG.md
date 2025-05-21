@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [9.4.1](https://github.com/snakemake/snakemake/compare/v9.4.0...v9.4.1) (2025-05-21)
+
+
+### Bug Fixes
+
+* fix a typo in the docs:`nescessay` ([#3578](https://github.com/snakemake/snakemake/issues/3578)) ([b6961fd](https://github.com/snakemake/snakemake/commit/b6961fdc5e182e2fb25f424aa9f5b1d4a86c2417))
+* fix spurious errors about external but returning dependencies in group jobs ([#3593](https://github.com/snakemake/snakemake/issues/3593)) ([1f7e254](https://github.com/snakemake/snakemake/commit/1f7e254dadd16697ca7b70f6566b11ec3fdb3ed2))
+
+
+### Documentation
+
+* fix syntax highlighting for light and dark theme ([9c5c6f7](https://github.com/snakemake/snakemake/commit/9c5c6f7f7a8bb1747ed4896c17df9b55d153c570))
+
 ## [9.4.0](https://github.com/snakemake/snakemake/compare/v9.3.5...v9.4.0) (2025-05-15)
 
 
