@@ -1686,7 +1686,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 dep_external_but_returning_rules.update(
                     job.rule.name
                     for job in self.bfs(self._dependencies, dep, stop=stop_if)
-                    if job is not dep and job not in group.jobs
+                    if job not in group.jobs
                 )
                 if dep_returned_to:
                     external_but_returning_rules.update(
