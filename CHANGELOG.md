@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [9.5.0](https://github.com/snakemake/snakemake/compare/v9.4.1...v9.5.0) (2025-05-22)
+
+
+### Features
+
+* wildcards/callable function for container url ([#3590](https://github.com/snakemake/snakemake/issues/3590)) ([86733ee](https://github.com/snakemake/snakemake/commit/86733ee3f53d46f9c76050a81d24343f3cf06f5d))
+
+
+### Bug Fixes
+
+* fix errors with --list-changes (async generator error and --list-changes params yielding spurious files) ([#3598](https://github.com/snakemake/snakemake/issues/3598)) ([1c95cfa](https://github.com/snakemake/snakemake/commit/1c95cfa996d20c626088b58eabad89ae809f8d9e))
+
+
+### Documentation
+
+* Fix typo when generating DAG ([#3568](https://github.com/snakemake/snakemake/issues/3568)) ([4f3d609](https://github.com/snakemake/snakemake/commit/4f3d609c1f4e58c4904118e6831074f760994f81))
+
 ## [9.4.1](https://github.com/snakemake/snakemake/compare/v9.4.0...v9.4.1) (2025-05-21)
 
 
