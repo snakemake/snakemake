@@ -3196,7 +3196,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for job in self.jobs:
                 if not job.is_group() and (include_needrun or not self.needrun(job)):
                     changed.extend(
-                        list(await job.outputs_older_than_script_or_notebook())
+                        [f async for f in job.outputs_older_than_script_or_notebook()]
                     )
         return changed
 
