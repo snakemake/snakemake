@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [9.5.1](https://github.com/snakemake/snakemake/compare/v9.5.0...v9.5.1) (2025-05-23)
+
+
+### Bug Fixes
+
+* format output files in job cleanup message such that their remote query is shown instead of the local copy ([#3600](https://github.com/snakemake/snakemake/issues/3600)) ([91cc3ef](https://github.com/snakemake/snakemake/commit/91cc3ef0f24b1b0e96cb751cdc806cad84491425))
+* skip unnecessary schema validation inside of remote jobs ([#3601](https://github.com/snakemake/snakemake/issues/3601)) ([9129654](https://github.com/snakemake/snakemake/commit/91296543360e276a2317c8831b6635c29839afd2))
+
 ## [9.5.0](https://github.com/snakemake/snakemake/compare/v9.4.1...v9.5.0) (2025-05-22)
 
 
