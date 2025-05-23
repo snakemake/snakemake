@@ -957,9 +957,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             ]
         )
         if to_remove:
+            formatted = ", ".join(map(fmt_iofile, to_remove))
             logger.info(
-                "Removing output files of failed job {}"
-                " since they might be corrupted:\n{}".format(self, ", ".join(to_remove))
+                f"Removing output files of failed job {self}"
+                f" since they might be corrupted:\n{formatted}"
             )
             for f in to_remove:
                 await f.remove()
