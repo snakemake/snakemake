@@ -26,7 +26,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
             )
 
         def format_one_level_dict(d):
-            return [f"{key}={val}" for key, val in d.items()]
+            return [f"{key}={os.path.expandvars(str(val))}" for key, val in d.items()]
 
         def format_two_level_dict(d, item: str):
             if not all(isinstance(val, dict) for val in d.values()):
@@ -34,7 +34,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                     f"Invalid {item} format in profile. Expected two-level mapping, got {d}"
                 )
             return [
-                f"{key}:{key2}={val2}"
+                f"{key}:{key2}={os.path.expandvars(str(val2))}"
                 for key, val in d.items()
                 for key2, val2 in val.items()
             ]
