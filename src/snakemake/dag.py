@@ -2415,7 +2415,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                 ),
                                 False,
                             )
-                    except MissingRuleException as ex:
+                    except MissingRuleException:
                         # no dependency found
                         yield PotentialDependency(file, None, False)
 
