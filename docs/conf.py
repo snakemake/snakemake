@@ -13,7 +13,6 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
 import os
 from datetime import datetime
 from sphinxawesome_theme.postprocess import Icons
@@ -22,7 +21,7 @@ from sphinxawesome_theme.postprocess import Icons
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath("../"))
+# sys.path.insert(0, os.path.abspath("../src/"))
 
 # -- General configuration ------------------------------------------------
 
@@ -38,6 +37,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinxarg.ext",
     "sphinx.ext.autosectionlabel",
+    "sphinx_tabs.tabs",
     "myst_parser",
 ]
 
@@ -116,7 +116,7 @@ suppress_warnings = ["autosectionlabel.*"]
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = "sphinx"
+# pygments_style = "sphinx"
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
@@ -169,6 +169,7 @@ html_permalinks_icon = Icons.permalinks_icon
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+html_js_files = ["gurubase-widget.js"]  # gurubase AI widget
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied

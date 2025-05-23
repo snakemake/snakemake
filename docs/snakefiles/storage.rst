@@ -43,6 +43,8 @@ In general, there are four ways to use a storage provider.
 Using the S3 storage plugin, we will provide an example for all of the cases below.
 For provider specific options (also for all options of the S3 plugin which are omitted here for brevity) and all available plugins see the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_.
 
+.. _default_storage:
+
 As default provider
 ^^^^^^^^^^^^^^^^^^^
 If you want all your input and output (which is not explicitly marked to come from 
@@ -138,6 +140,68 @@ each time providing a different tag::
         shell:
             "..."
 
+Retrieving and keeping remote files locally
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When the input file is a remote file, the default behaviour is to download the remote
+file to the local area and then remove it after the workflow no longer needs it.
+
+This behaviour can be configured from the command line arguments, using::
+
+    snakemake --keep-storage-local-copies --not-retrieve-storage
+
+where ``--keep-storage-local-copies`` directs snakemake to keep the local copies of
+remote files that it makes and ``--not-retrieve-storage`` directs snakemake to not download
+copies of remote files.
+
+Additionally, this behaviour can be set at the level of the storage directive e.g.::
+
+    storage:
+        provider="http",
+        retrieve=False,
+
+    storage http_local:
+        provider="http",
+        keep_local=True,
+
+    rule example_remote:
+        input:
+            storage.http("http://example.com/example.txt")
+        output:
+            "example_remote.txt"
+        shell:
+            "..."
+
+    rule example_local:
+        input:
+            storage.http_local("http://example.com/example.txt")
+        output:
+            "example_local.txt"
+        shell:
+            "..."
+
+Finally, ``retrieve`` and ``keep_local`` can also be set inside the call to the storage
+plugin within a rule::
+
+    storage:
+        provider="http",
+        retrieve=False,
+
+    rule example_remote:
+        input:
+            storage.http("http://example.com/example.txt", retrieve=False)
+        output:
+            "example_remote.txt"
+        shell:
+            "..."
+
+    rule example_local:
+        input:
+            storage.http("http://example.com/example.txt", keep_local=True)
+        output:
+            "example_local.txt"
+        shell:
+            "..."
 
 Automatic inference
 ^^^^^^^^^^^^^^^^^^^
@@ -161,3 +225,60 @@ Usually, this can be done via environment variables, e.g. for S3::
 
     export SNAKEMAKE_STORAGE_S3_ACCESS_KEY=...
     export SNAKEMAKE_STORAGE_S3_SECRET_KEY=...
+
+.. _storage-access-patterns:
+
+Access pattern annotation
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Storage providers can automatically optimize the provision of files based on how the files will be accessed by the respective job.
+For example, if a file is only read sequentially, the storage provider can avoid downloading it and instead mount or symlink it (depending on the protocol) for ondemand access.
+This can be beneficial, in particular if the sequential access involves only a small part of an otherwise large file.
+The three access patterns that can be annotated are:
+
+* ``access.sequential``: The file is read sequentially either from start to end or in (potentially disjoint) chunks, but always in order from the start to the end.
+* ``access.random``: The file is read in a non-sequential order.
+* ``access.multi``: The file is read sequentially, but potentially multiple times in parallel.
+
+Snakemake considers an input file eligible for on-demand provisioning if it is accessed sequentially by one job in parallel.
+In all other cases, multi-access, random access, or sequential access by multiple jobs in parallel, the storage provider will download the file to the local filesystem before it is accessed by jobs.
+In case no access pattern is annotated (the default), Snakemake will also download the file.
+
+The access patterns can be annotated via flags.
+Usually, one would define sequential access as the default pattern (it should usually be the most common pattern in a workflow).
+This can be done via the ``inputflags`` directive before defining any rule.
+For specific files, the access pattern can be annotated by the respective flags ``access.sequential``, ``access.random``, or ``access.multi``.
+
+.. code-block:: python
+
+    inputflags:
+    access.sequential
+
+
+    rule a:
+        input:
+            access.random("test1.in")  # expected as local copy (because accessed randomly)
+        output:
+            "test1.out"
+        shell:
+            "cmd_b {input} {output}"
+
+
+    rule b:
+        input:
+            access.multi("test1.out") # expected as local copy (because accessed multiple times)
+        output:
+            "test2.{dataset}.out"
+        shell:
+            "cmd_b {input} {output}"
+
+
+    rule c:
+        input:
+            "test2.{dataset}.out" # expected as on-demand provisioning (because accessed sequentially, the default defined above)
+        output:
+            "test3.{dataset}.out"
+        shell:
+            "cmd_c {input} {output}"
+
+Note that there is no guarantee that the storage provider makes use of this information, since the possibilities can vary between storage protocols and the development stage of the storage plugin.

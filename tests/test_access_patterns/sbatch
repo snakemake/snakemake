@@ -1,0 +1,11 @@
+#!/bin/bash
+set -x
+echo --sbatch-- >> sbatch.log
+echo `date` >> sbatch.log
+tail -n1 $1 >> sbatch.log
+cat $1 >> sbatch.log
+# daemonize job script
+#nohup sh $1 0<&- &>/dev/null &
+# print PID for job number
+#echo $!
+sh $1

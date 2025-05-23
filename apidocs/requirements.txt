@@ -1,4 +1,4 @@
-sphinx >=3
+sphinx ==8.1  # TODO workaround for bug in 8.2.0, update as soon as fixed
 sphinxcontrib-napoleon
 sphinx-argparse
 sphinx-autodoc-typehints
@@ -10,3 +10,4 @@ sphinxawesome-theme
 snakemake-interface-common
 snakemake-interface-executor-plugins
 snakemake-interface-storage-plugins
+snakemake-interface-logger-plugins
