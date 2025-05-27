@@ -960,9 +960,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         for f in unneeded_files():
             if self.workflow.dryrun:
-                logger.info(f"Would remove temporary output {fmt_iofile(f)}")
+                logger.info(f"Would remove temporary output {fmt_iofile(f)}", extra=dict(event=LogEvent.JOB_INFO))
             else:
-                logger.info(f"Removing temporary output {fmt_iofile(f)}.")
+                logger.info(f"Removing temporary output {fmt_iofile(f)}.", extra=dict(event=LogEvent.JOB_INFO))
                 await f.remove(remove_non_empty_dir=True)
 
     async def handle_log(self, job):
