@@ -376,7 +376,7 @@ Let us now add equivalent annotations to the two plot rules by editing them into
                 "results/plots/horsepower_vs_mpg.ggplot.svg",
                 category="Plots",
                 labels={"plot": "horsepower_vs_mpg", "approach": "ggplot"},
-                caption="report/horsepower_vs_mpg.rst",
+                caption="report/horsepower_vs_mpg_plot_with_r.rst",
             ),
         log:
             notebook="logs/plot_horsepower_vs_mpg.r.ipynb"
@@ -394,7 +394,7 @@ Let us now add equivalent annotations to the two plot rules by editing them into
                 "results/plots/horsepower_vs_mpg.altair.html",
                 category="Plots",
                 labels={"plot": "horsepower_vs_mpg", "approach": "altair"},
-                caption="report/horsepower_vs_mpg.rst",
+                caption="report/horsepower_vs_mpg_plot_with_python.rst",
             ),
         log:
             notebook="logs/plot_horsepower_vs_mpg.py.ipynb"
@@ -410,13 +410,13 @@ Create the file ``workflow/report/cars.rst`` with the following content:
 
     The cars dataset as provided by the vega project: https://github.com/vega/vega-datasets.
 
-Create the file ``workflow/report/horsepower_vs_mpg.r.rst`` with the following content:
+Create the file ``workflow/report/horsepower_vs_mpg_plot_with_r.rst`` with the following content:
 
 .. code-block:: rst
 
     A plot of the horsepower vs. miles per gallon from the cars dataset, created with ggplot2.
 
-Create the file ``workflow/report/horsepower_vs_mpg.py.rst`` with the following content:
+Create the file ``workflow/report/horsepower_vs_mpg_plot_with_python.rst`` with the following content:
 
 .. code-block:: rst
 
@@ -426,7 +426,7 @@ Finally, add a global report directive to the top of the ``Snakefile``
 
 .. code-block:: python
 
-    report: "workflow/report/workflow.rst"
+    report: "report/workflow.rst"
 
 and create the file ``workflow/report/workflow.rst`` with the following content:
 
