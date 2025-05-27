@@ -38,7 +38,8 @@ Setup
 Requirements
 ::::::::::::
 
-To go through this tutorial, you need the following software installed:
+**Please wait to install the tools listed below, as this tutorial will guide you through better and more reliable setup processes in the next sections.**
+For your reference, the following tools will be used:
 
 * Python_ ≥3.5
 * Snakemake_ ≥5.24.1
@@ -51,7 +52,6 @@ To go through this tutorial, you need the following software installed:
 * NetworkX_ 2.5
 * Matplotlib_ 3.3
 
-However, don't install any of these this manually now, we guide you through better ways below.
 
 .. _tutorial-free-on-gitpod:
 
