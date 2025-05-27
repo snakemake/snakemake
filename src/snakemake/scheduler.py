@@ -21,6 +21,7 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
+from snakemake.settings.enums import Quietness
 from snakemake.logging import logger
 from snakemake.jobs import GroupJob
 
@@ -69,7 +70,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._toerror = []
         self.handle_job_success = True
         self.update_resources = True
-        self.print_progress = not self.quiet and not self.dryrun
+        self.print_progress = (not self.quiet or Quietness.PROGRESS not in self.quiet) and not self.dryrun
         self.update_checkpoint_dependencies = not self.dryrun
         self.job_rate_limiter = (
             JobRateLimiter(self.workflow.scheduling_settings.max_jobs_per_timespan)
