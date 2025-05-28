@@ -370,12 +370,13 @@ class DefaultFormatter(logging.Formatter):
 
 
 class DefaultFilter:
-    def __init__(self, quiet, debug_dag, dryrun) -> None:
+    def __init__(self, quiet, debug_dag, dryrun, printshellcmds) -> None:
         if quiet is None:
             quiet = set()
         self.quiet = quiet
         self.debug_dag = debug_dag
         self.dryrun = dryrun
+        self.printshellcmds = printshellcmds
 
     def filter(self, record):
         from snakemake.settings.enums import Quietness
@@ -393,11 +394,15 @@ class DefaultFilter:
             LogEvent.JOB_ERROR: Quietness.RULES,
             LogEvent.GROUP_ERROR: Quietness.RULES,
             LogEvent.PROGRESS: Quietness.PROGRESS,
-            LogEvent.SHELLCMD: Quietness.PROGRESS,
+            LogEvent.SHELLCMD: Quietness.RULES,
             LogEvent.JOB_FINISHED: Quietness.PROGRESS,
             LogEvent.RESOURCES_INFO: Quietness.PROGRESS,
             LogEvent.RUN_INFO: Quietness.PROGRESS,
         }
+
+        # Handle shell commands
+        if event == LogEvent.SHELLCMD and not self.printshellcmds:
+            return False
 
         # Check quietness for specific levels
         if event in quietness_map:
@@ -614,7 +619,10 @@ class LoggerManager:
 
     def _default_filter(self):
         return DefaultFilter(
-            self.settings.quiet, self.settings.debug_dag, self.settings.dryrun
+            self.settings.quiet,
+            self.settings.debug_dag,
+            self.settings.dryrun,
+            self.settings.printshellcmds,
         )
 
     def _default_formatter(self):
