@@ -134,11 +134,9 @@ class DefaultFormatter(logging.Formatter):
         self,
         quiet: "Quietness",
         show_failed_logs: bool = False,
-        printshellcmds: bool = False,
     ):
         self.quiet = set() if quiet is None else quiet
         self.show_failed_logs = show_failed_logs
-        self.printshellcmds = printshellcmds
         self.last_msg_was_job_info = False
 
     def format(self, record):
@@ -245,9 +243,7 @@ class DefaultFormatter(logging.Formatter):
 
     def format_shellcmd(self, msg):
         """Format for shellcmd log."""
-        if self.printshellcmds:
-            return msg["msg"]
-        return ""
+        return msg["msg"]
 
     def format_d3dag(self, msg):
         """Format for d3dag log."""
@@ -629,7 +625,6 @@ class LoggerManager:
         return DefaultFormatter(
             self.settings.quiet,
             self.settings.show_failed_logs,
-            self.settings.printshellcmds,
         )
 
     def _default_filehandler(self, logfile):
