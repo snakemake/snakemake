@@ -55,6 +55,7 @@ from snakemake.resources import (
 )
 from snakemake.exceptions import (
     InputOpenException,
+    NestedCoroutineError,
     RuleException,
     IOFileException,
     WildcardError,
@@ -1088,7 +1089,12 @@ class Rule(RuleInterface):
                     "nearest int), str, or None.",
                     rule=self,
                 ) from err
-
+            except NestedCoroutineError:
+                # Need to catch this because both input.size_mb and the inital
+                # dag construction routine are run as independent asynchronous loops.
+                # If input.size_mb is run in an input method, the loops will be nested
+                # and error.
+                return Resource(resource, TBDString())
             except BaseException as e:
                 raise InputFunctionException(e, rule=self, wildcards=wildcards) from e
             return val

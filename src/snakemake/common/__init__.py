@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Union
 
 from snakemake import __version__
-from snakemake_interface_common.exceptions import WorkflowError
+from snakemake.exceptions import NestedCoroutineError
 
 
 MIN_PY_VERSION = (3, 7)
@@ -103,7 +103,7 @@ def async_run(coroutine):
         return asyncio.run(coroutine)
     except RuntimeError as e:
         coroutine.close()
-        raise WorkflowError(
+        raise NestedCoroutineError(
             "Error running coroutine in event loop. Snakemake currently does not "
             "support being executed from an already running event loop. "
             "If you run Snakemake e.g. from a Jupyter notebook, make sure to spawn a "

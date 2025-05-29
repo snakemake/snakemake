@@ -568,7 +568,7 @@ class Resource:
 
         This method ensures the returned resource is correctly returned in a
         new ``Resource`` class, validated, and standardized. Resources should thus
-        only be evaulated via this method.
+        only be evaluated via this method.
         """
         if self._evaluator is None:
             return self
