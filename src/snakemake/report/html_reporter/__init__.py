@@ -109,6 +109,7 @@ class Reporter(ReporterBase):
         runtimes = data.render_runtimes(runtimes)
         timeline = data.render_timeline(timeline)
         packages = data.get_packages()
+        metadata = data.render_metadata(self.metadata)
 
         template = self.env.get_template("index.html.jinja2")
 
@@ -121,6 +122,7 @@ class Reporter(ReporterBase):
             runtimes=runtimes,
             timeline=timeline,
             packages=packages,
+            metadata=metadata,
             pygments_css=HtmlFormatter(style="stata-dark").get_style_defs(".source"),
             custom_stylesheet=self.custom_stylesheet,
             logo=data_uri_from_file(Path(__file__).parent / "template" / "logo.svg"),
