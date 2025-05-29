@@ -1,3 +1,4 @@
+from __future__ import annotations
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -5,6 +6,7 @@ __license__ = "MIT"
 
 from bisect import bisect
 from collections import defaultdict, deque
+import copy
 import math
 import os, signal, sys
 import threading
@@ -12,6 +14,7 @@ import threading
 from itertools import chain, accumulate, repeat
 from contextlib import ContextDecorator
 import time
+from typing import TYPE_CHECKING
 
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -25,6 +28,9 @@ from snakemake.logging import logger
 from snakemake.jobs import GroupJob
 
 from snakemake.settings.types import MaxJobsPerTimespan
+
+if TYPE_CHECKING:
+    from snakemake.workflow import Workflow
 
 registry = ExecutorPluginRegistry()
 
@@ -52,7 +58,7 @@ class DummyRateLimiter(ContextDecorator):
 
 
 class JobScheduler(JobSchedulerExecutorInterface):
-    def __init__(self, workflow, executor_plugin: ExecutorPlugin):
+    def __init__(self, workflow: Workflow, executor_plugin: ExecutorPlugin):
         """Create a new instance of KnapsackJobScheduler."""
         self.workflow = workflow
 
@@ -82,7 +88,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
-            for name, res in workflow.global_resources.items()
+            for name, res in workflow.global_resources.unwrapped_nonstr_items()
         }
 
         if not nodes_unset:
@@ -91,7 +97,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # register job count resource (always initially unrestricted)
         self.global_resources["_job_count"] = sys.maxsize
 
-        self.resources = dict(self.global_resources)
+        self.resources = copy.copy(self.global_resources)
 
         self._open_jobs = threading.Semaphore(0)
         self._lock = threading.Lock()
