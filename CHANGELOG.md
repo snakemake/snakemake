@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.5.2](https://github.com/snakemake/snakemake/compare/v9.5.1...v9.5.2) (2025-05-30)
+
+
+### Bug Fixes
+
+* expandvars for special profile keys ([#3597](https://github.com/snakemake/snakemake/issues/3597)) ([4020188](https://github.com/snakemake/snakemake/commit/4020188d9250e4302da4a4e70d30c2637f54096a))
+
 ## [9.5.1](https://github.com/snakemake/snakemake/compare/v9.5.0...v9.5.1) (2025-05-23)
 
 
