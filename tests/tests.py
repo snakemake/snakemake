@@ -37,6 +37,33 @@ from snakemake_interface_executor_plugins.settings import (
 )
 
 
+def test_logfile():
+    import glob
+
+    tmpdir = run(dpath("test_logfile"), cleanup=False, check_results=False)
+    finished_stmt = """
+Finished jobid: 0 (Rule: all)
+6 of 6 steps (100%) done"""
+
+    log_dir = os.path.join(tmpdir, ".snakemake", "log")
+    assert os.path.exists(log_dir), "Log directory not found"
+
+    log_files = glob.glob(os.path.join(log_dir, "*.snakemake.log"))
+    assert log_files, "No log files found"
+
+    log_files.sort(key=os.path.getmtime, reverse=True)
+    latest_log = log_files[0]
+
+    with open(latest_log, "r") as f:
+        log_content = f.read()
+
+    assert (
+        finished_stmt.strip() in log_content.strip()
+    ), f"Expected statement not found in log file. Log content: {log_content}"
+
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
@@ -60,12 +87,12 @@ def test_github_issue_14():
     # Return temporary directory for inspection - we should keep scripts here
     tmpdir = run(dpath("test_github_issue_14"), cleanup=False, cleanup_scripts=False)
     assert os.listdir(os.path.join(tmpdir, ".snakemake", "scripts"))
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
     # And not here
     tmpdir = run(dpath("test_github_issue_14"), cleanup=False, cleanup_scripts=True)
     assert not os.listdir(os.path.join(tmpdir, ".snakemake", "scripts"))
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 def test_issue956():
@@ -254,7 +281,7 @@ def test_ancient():
 def test_ancient_cli():
     run(
         dpath("test_ancient_cli"),
-        shellcmd="snakemake --consider-ancient A=0 B=x",
+        shellcmd="snakemake --consider-ancient A=0 B=x --cores 1",
     )
 
 
@@ -1430,6 +1457,12 @@ def test_container():
 
 
 @skip_on_windows
+@apptainer
+def test_dynamic_container():
+    run(dpath("test_dynamic_container"), deployment_method={DeploymentMethod.APPTAINER})
+
+
+@skip_on_windows
 def test_string_resources():
     from snakemake.resources import DefaultResources
 
@@ -2066,6 +2099,24 @@ def test_storage_localrule():
         )
 
 
+@skip_on_windows
+def test_access_patterns():
+    run(
+        dpath("test_access_patterns"),
+        cluster="./sbatch",
+        nodes=1,
+        group_components={"g1": 2},
+        overwrite_groups={"b": "g1", "c": "g1"},
+        default_storage_provider="fs",
+        default_storage_prefix="fs-storage",
+        shared_fs_usage=[
+            SharedFSUsage.PERSISTENCE,
+            SharedFSUsage.SOURCE_CACHE,
+            SharedFSUsage.SOURCES,
+        ],
+    )
+
+
 @skip_on_windows  # OS agnostic
 def test_update_flag():
     run(dpath("test_update_flag"))
@@ -2113,6 +2164,10 @@ def test_handle_storage_multi_consumers():
 @skip_on_windows  # OS agnostic
 def test_github_issue2732():
     run(dpath("test_github_issue2732"))
+
+
+def test_default_flags():
+    run(dpath("test_default_flags"), executor="dryrun", check_results=False)
 
 
 @skip_on_windows
@@ -2212,8 +2267,46 @@ def test_github_issue_3374():
 def test_issue3361_pass():
     run(
         dpath("test_issue3361_pass"),
-        shellcmd="snakemake --sdm apptainer",
+        shellcmd="snakemake --sdm apptainer --cores 1",
         targets=["all"],
+    )
+
+
+@skip_on_windows
+def test_resource_quoting_profile():
+    run(
+        dpath("test_resource_quoting"),
+        shellcmd="snakemake --executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1 --profile test-profile",
+    )
+
+
+@skip_on_windows
+def test_resource_quoting_cli():
+    run(
+        dpath("test_resource_quoting"),
+        shellcmd="snakemake --set-resources \"a:test='foo'\" "
+        "--executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1",
+    )
+
+
+@skip_on_windows
+def test_default_resource_quoting_cli():
+    run(
+        dpath("test_resource_quoting"),
+        shellcmd="snakemake --default-resources \"test='foo'\" "
+        "--executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1",
+    )
+
+
+@skip_on_windows
+def test_default_resource_quoting_profile():
+    run(
+        dpath("test_resource_quoting"),
+        shellcmd="snakemake --executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1 --profile test-profile-default",
     )
 
 
@@ -2241,6 +2334,10 @@ def test_nodelocal():
     assert not (work_path / "local/temp.txt").exists() or not any(
         (work_path / "scratch/").iterdir()
     )
+
+
+def test_temp_and_all_input():
+    run(dpath("test_temp_and_all_input"))
 
 
 def test_keep_local():

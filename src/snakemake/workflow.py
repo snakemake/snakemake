@@ -18,8 +18,8 @@ import copy
 from pathlib import Path
 import tarfile
 import tempfile
-from typing import Dict, Iterable, List, Optional, Set, Union
-from snakemake.io.access_patterns import access_pattern
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union
+from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     ConfigSettings,
@@ -202,13 +202,14 @@ class Workflow(WorkflowExecutorInterface):
         self._executor_plugin = None
         self._storage_registry = StorageRegistry(self)
         self._source_archive = None
+        self._checkpoints = Checkpoints()
 
         _globals = globals()
         from snakemake.shell import shell
 
         _globals["shell"] = shell
         _globals["workflow"] = self
-        _globals["checkpoints"] = Checkpoints()
+        _globals["checkpoints"] = self._checkpoints
         _globals["scatter"] = Scatter()
         _globals["gather"] = Gather()
         _globals["github"] = sourcecache.GithubFile
@@ -218,7 +219,7 @@ class Workflow(WorkflowExecutorInterface):
         snakemake.ioutils.register_in_globals(_globals)
         snakemake.ioflags.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
-        _globals["access_pattern"] = access_pattern
+        _globals["access"] = AccessPatternFactory
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -226,6 +227,10 @@ class Workflow(WorkflowExecutorInterface):
         self.cache_rules = dict()
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
+
+    @property
+    def checkpoints(self):
+        return self._checkpoints
 
     @property
     def parent_groupids(self):
@@ -294,7 +299,7 @@ class Workflow(WorkflowExecutorInterface):
                 checksum = hashlib.file_digest(f, "sha256").hexdigest()
 
             prefix = self.storage_settings.default_storage_prefix
-            if prefix:
+            if prefix and not prefix.endswith("/"):
                 prefix = f"{prefix}/"
             query = f"{prefix}snakemake-workflow-sources.{checksum}.tar.xz"
 
@@ -395,7 +400,7 @@ class Workflow(WorkflowExecutorInterface):
     def touch(self):
         import snakemake.executors.touch
 
-        return issubclass(
+        return self.executor_plugin is not None and issubclass(
             self.executor_plugin.executor, snakemake.executors.touch.Executor
         )
 
@@ -428,8 +433,20 @@ class Workflow(WorkflowExecutorInterface):
         return self.exec_mode == ExecMode.REMOTE
 
     @property
+    def subprocess_exec(self):
+        return self.exec_mode == ExecMode.SUBPROCESS
+
+    @property
     def exec_mode(self):
         return self.workflow_settings.exec_mode
+
+    @property
+    def keep_storage_local_at_runtime(self) -> bool:
+        return (
+            self.storage_settings.keep_storage_local
+            or self.remote_exec
+            or self.subprocess_exec
+        )
 
     @lazy_property
     def spawned_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
@@ -822,6 +839,7 @@ class Workflow(WorkflowExecutorInterface):
                 self.storage_settings is not None
                 and SharedFSUsage.PERSISTENCE
                 not in self.storage_settings.shared_fs_usage
+                and self.remote_exec
             )
             else None
         )
@@ -1211,7 +1229,7 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         with self.persistence.lock():
-            async_run(self.dag.postprocess(update_needrun=False))
+            async_run(self.dag.postprocess(update_needrun=False, check_initial=True))
             if not self.dryrun:
                 # deactivate IOCache such that from now on we always get updated
                 # size, existence and mtime information
@@ -2371,6 +2389,12 @@ class Workflow(WorkflowExecutorInterface):
                     )(orig_ruleinfo)
 
         return decorate
+
+    def set_default_input_flags(self, *flags: Callable):
+        self.modifier.default_input_flags.register_flags(*flags)
+
+    def set_default_output_flags(self, *flags: Callable):
+        self.modifier.default_output_flags.register_flags(*flags)
 
     @staticmethod
     def _empty_decorator(f):
