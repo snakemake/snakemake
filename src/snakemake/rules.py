@@ -157,7 +157,7 @@ class Rule(RuleInterface):
 
     @property
     def group(self):
-        if self.workflow.local_exec:
+        if not self.workflow.non_local_exec_or_dryrun:
             return None
         else:
             overwrite_group = self.workflow.group_settings.overwrite_groups.get(
