@@ -70,7 +70,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._toerror = []
         self.handle_job_success = True
         self.update_resources = True
-        self.print_progress = (not self.quiet or Quietness.PROGRESS not in self.quiet) and not self.dryrun
+        self.print_progress = (
+            not self.quiet or Quietness.PROGRESS not in self.quiet
+        ) and not self.dryrun
         self.update_checkpoint_dependencies = not self.dryrun
         self.job_rate_limiter = (
             JobRateLimiter(self.workflow.scheduling_settings.max_jobs_per_timespan)

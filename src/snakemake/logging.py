@@ -506,7 +506,7 @@ class ColorizingTextHandler(logging.StreamHandler):
                     # Reset flag if the message is not a 'job_info'
                     self.last_msg_was_job_info = False
                 formatted_message = self.format(record)
-                if formatted_message == "None" or formatted_message=="":
+                if formatted_message == "None" or formatted_message == "":
                     return
                 # Apply color to the formatted message
                 self.stream.write(self.decorate(record, formatted_message))

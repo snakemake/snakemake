@@ -961,10 +961,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         for f in unneeded_files():
             if self.workflow.dryrun:
-                if not self.workflow.output_settings.quiet or Quietness.RULES not in self.workflow.output_settings.quiet:
+                if (
+                    not self.workflow.output_settings.quiet
+                    or Quietness.RULES not in self.workflow.output_settings.quiet
+                ):
                     logger.info(f"Would remove temporary output {fmt_iofile(f)}")
             else:
-                if not self.workflow.output_settings.quiet or Quietness.RULES not in self.workflow.output_settings.quiet:
+                if (
+                    not self.workflow.output_settings.quiet
+                    or Quietness.RULES not in self.workflow.output_settings.quiet
+                ):
                     logger.info(f"Removing temporary output {fmt_iofile(f)}.")
                 await f.remove(remove_non_empty_dir=True)
 
