@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [9.5.2](https://github.com/snakemake/snakemake/compare/v9.5.1...v9.5.2) (2025-06-03)
+
+
+### Bug Fixes
+
+* display group jobs on dryrun ([#3435](https://github.com/snakemake/snakemake/issues/3435)) ([3bebef4](https://github.com/snakemake/snakemake/commit/3bebef42496c9be660c32f0a998e839f08fb59b0))
+* expandvars for special profile keys ([#3597](https://github.com/snakemake/snakemake/issues/3597)) ([4020188](https://github.com/snakemake/snakemake/commit/4020188d9250e4302da4a4e70d30c2637f54096a))
+
 ## [9.5.1](https://github.com/snakemake/snakemake/compare/v9.5.0...v9.5.1) (2025-05-23)
 
 
