@@ -56,7 +56,7 @@ from snakemake.common import (
     MIN_PY_VERSION,
     __version__,
 )
-from snakemake.resources import DefaultResources
+from snakemake.resources import Resources
 
 
 class ApiBase(ABC):
@@ -572,7 +572,7 @@ class DAGApi(ApiBase):
             if self.workflow_api.resource_settings.default_resources is None:
                 # use full default resources if in cluster or cloud mode
                 self.workflow_api.resource_settings.default_resources = (
-                    DefaultResources(mode="full")
+                    Resources.default("full")
                 )
             if execution_settings.edit_notebook is not None:
                 raise ApiError(
