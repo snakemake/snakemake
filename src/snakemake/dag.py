@@ -961,17 +961,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         for f in unneeded_files():
             if self.workflow.dryrun:
-                if (
-                    not self.workflow.output_settings.quiet
-                    or Quietness.RULES not in self.workflow.output_settings.quiet
-                ):
-                    logger.info(f"Would remove temporary output {fmt_iofile(f)}")
+                logger.info(
+                    f"Would remove temporary output {fmt_iofile(f)}",
+                    extra={"quietness": Quietness.RULES},
+                )
             else:
-                if (
-                    not self.workflow.output_settings.quiet
-                    or Quietness.RULES not in self.workflow.output_settings.quiet
-                ):
-                    logger.info(f"Removing temporary output {fmt_iofile(f)}.")
+                logger.info(
+                    f"Removing temporary output {fmt_iofile(f)}.",
+                    extra={"quietness": Quietness.RULES},
+                )
                 await f.remove(remove_non_empty_dir=True)
 
     async def handle_log(self, job):

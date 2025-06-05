@@ -384,6 +384,10 @@ class DefaultFilter:
         if Quietness.ALL in self.quiet and not self.dryrun:
             return False
 
+        if hasattr(record, "quietness"):
+            if record.quietness in self.quiet:
+                return False
+
         quietness_map = {
             LogEvent.JOB_INFO: Quietness.RULES,
             LogEvent.GROUP_INFO: Quietness.RULES,
