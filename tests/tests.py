@@ -1473,6 +1473,29 @@ def test_string_resources():
     )
 
 
+def test_jupyter_notebook():
+    run(dpath("test_jupyter_notebook"), deployment_method={DeploymentMethod.CONDA})
+
+
+def test_jupyter_notebook_nbconvert():
+    run(
+        dpath("test_jupyter_notebook_nbconvert"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
+
+
+def test_jupyter_notebook_draft():
+    from snakemake.settings.types import NotebookEditMode
+
+    run(
+        dpath("test_jupyter_notebook_draft"),
+        deployment_method={DeploymentMethod.CONDA},
+        edit_notebook=NotebookEditMode(draft_only=True),
+        targets=["results/result_intermediate.txt"],
+        check_md5=False,
+    )
+
+
 def test_github_issue456():
     run(dpath("test_github_issue456"))
 
