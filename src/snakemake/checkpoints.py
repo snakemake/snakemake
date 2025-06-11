@@ -82,7 +82,7 @@ class Checkpoint:
             if self.checkpoints.created_output:
                 missing_output = set(output) - set(self.checkpoints.created_output)
                 if not missing_output:
-                    complete_jobs.append(CheckpointJob(self.rule, output))
+                    complete_jobs.append(CheckpointJob(self.rule, output, wc))
                 else:
                     logger.debug(
                         f"Missing checkpoint output for {self.rule.name} "
@@ -97,8 +97,9 @@ class Checkpoint:
 
 
 class CheckpointJob:
-    __slots__ = ["rule", "output"]
+    __slots__ = ["rule", "output", "wildcards"]
 
-    def __init__(self, rule: "Rule", output):
+    def __init__(self, rule: "Rule", output, wildcards=None):
         self.output = output
         self.rule = rule
+        self.wildcards = wildcards
