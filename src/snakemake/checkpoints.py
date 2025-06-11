@@ -92,6 +92,8 @@ class Checkpoint:
             else:  # no outputs created at all, so all missing
                 missing_outputs.append(checkpoint_target(output[0]))
         if not missing_outputs:
+            if len(complete_jobs) == 1:
+                return complete_jobs[0]
             return complete_jobs
         raise IncompleteCheckpointException(self.rule, missing_outputs)
 
