@@ -67,13 +67,16 @@ class AbstractResults extends React.Component {
     getInitToggleState(toggleLabels) {
         let toggles = new Map();
         toggleLabels.forEach(function (value, key) {
-            toggles.set(key, value[0]);
+            // Prefer "yes" as initial value if present, otherwise use the first value.
+            let initialValue = value[1] === "yes" ? value[1] : value[0];
+            toggles.set(key, initialValue);
         })
         return toggles;
     }
 
     getToggleControls(toggleLabels) {
         let toggleCallback = this.toggleCallback;
+        let toggleState = this.state.toggles;
         return toggleLabels.entries().map(function (entry) {
             let [name, values] = entry;
             return e(
@@ -81,6 +84,7 @@ class AbstractResults extends React.Component {
                 {
                     label: name,
                     values: values,
+                    defaultValue: toggleState.get(name),
                     callback: function (selected) {
                         toggleCallback(name, selected);
                     }
