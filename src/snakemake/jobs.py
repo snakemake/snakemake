@@ -16,10 +16,9 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-import time
 from typing import Iterable, List, Optional, Union
 from collections.abc import AsyncGenerator
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
@@ -57,46 +56,16 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 from snakemake.common import (
     get_function_params,
-    is_local_file,
     get_uuid,
     IO_PROP_LIMIT,
 )
+from snakemake.io.fmt import fmt_iofile
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
 
 
-def format_file(f, is_input: bool):
-    if is_flagged(f, "pipe"):
-        return f"{f} (pipe)"
-    elif is_flagged(f, "service"):
-        return f"{f} (service)"
-    elif is_flagged(f, "nodelocal"):
-        return f"{f} (nodelocal)"
-    elif is_flagged(f, "update"):
-        return f"{f} (update)"
-    elif is_flagged(f, "before_update"):
-        return f"{f} (before update)"
-    elif is_flagged(f, "checkpoint_target"):
-        return TBDString()
-    elif is_flagged(f, "sourcecache_entry"):
-        orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
-        return f"{orig_path_or_uri} (cached)"
-    elif f.is_storage:
-        if is_input:
-            if f.storage_object.retrieve:
-                phrase = "retrieve from"
-            else:
-                phrase = "keep remote on"
-        else:
-            phrase = "send to"
-        f_str = f.storage_object.print_query
-        return f"{f_str} ({phrase} storage)"
-    else:
-        return f
-
-
 def format_files(io, is_input: bool):
-    return [format_file(f, is_input=is_input) for f in io]
+    return [fmt_iofile(f, as_input=is_input, as_output=not is_input) for f in io]
 
 
 def jobfiles(jobs, type):
@@ -224,6 +193,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         "_resources",
         "_conda_env_file",
         "_conda_env",
+        "_container_img_url",
         "_shadow_dir",
         "_inputsize",
         "temp_output",
@@ -280,6 +250,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self._benchmark = None
         self._resources = None
         self._conda_env_spec = None
+        self._container_img_url = None
         self._scheduler_resources = None
         self._conda_env = None
         self._group = None
@@ -570,7 +541,12 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
 
     @property
     def container_img_url(self):
-        return self.rule.container_img
+        if self._container_img_url is None:
+            self._container_img_url = self.rule.expand_container_img(
+                self.wildcards_dict
+            )
+
+        return self._container_img_url
 
     @property
     def is_containerized(self):
@@ -864,11 +840,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.benchmark.prepare()
 
         # wait for input files, respecting keep_storage_local
-        wait_for_local = self.dag.workflow.storage_settings.keep_storage_local
         try:
             await wait_for_files(
                 self.input,
-                wait_for_local=wait_for_local,
+                wait_for_local=self.dag.workflow.keep_storage_local_at_runtime,
                 latency_wait=self.dag.workflow.execution_settings.latency_wait,
                 consider_local={
                     f for f in self.input if self.is_pipe_or_service_input(f)
@@ -982,9 +957,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             ]
         )
         if to_remove:
+            formatted = ", ".join(map(fmt_iofile, to_remove))
             logger.info(
-                "Removing output files of failed job {}"
-                " since they might be corrupted:\n{}".format(self, ", ".join(to_remove))
+                f"Removing output files of failed job {self}"
+                f" since they might be corrupted:\n{formatted}"
             )
             for f in to_remove:
                 await f.remove()
@@ -1074,7 +1050,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         priority = self.priority
 
         benchmark = (
-            format_file(self.benchmark, is_input=False)
+            fmt_iofile(self.benchmark, as_input=False, as_output=True)
             if self.benchmark is not None
             else None
         )

@@ -23,7 +23,7 @@ However, rules can be much more complex, may use :ref:`plain python <snakefiles-
 
 Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_.
 Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
-From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
+From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}"``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 
 .. note::
 
@@ -575,8 +575,7 @@ The parse_input function
 
 The ``parse_input`` function allows to parse an input file and return a value.
 It has the signature ``parse_input(input_item, parser, kwargs)``, with ``input_item`` being the key of an input file, ``parser`` being a callable to extract the desired information, and ``kwargs`` extra arguments passed to the parser.
-The function will return the extracted value.
-It can for example be used to extract a value from inside an input file.
+The function will return the extracted value and this can, for example, be used as a parameter.
 
 .. code-block:: python
 
@@ -1012,7 +1011,7 @@ Since it could be cumbersome to define these standard resources for every rule, 
 As with ``--set-resources``, this can be done dynamically, using the variables specified for the callables in the section on :ref:`snakefiles-dynamic-resources`.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
-If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
+If ``--default-resources`` are specified without any further arguments, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`__.
 If ``--default-resources`` is specified with some definitions, but any of the above defaults (e.g. ``mem_mb``) is omitted, these are still used.
 In order to explicitly unset these defaults, assign them a value of ``None``, e.g. ``--default-resources mem_mb=None``.
@@ -1182,17 +1181,13 @@ Sometimes you may want to define certain parameters separately from the rule bod
         input:
             ...
         params:
-            prefix="somedir/{sample}"
+            threshold=0.4
         output:
             "somedir/{sample}.csv"
         shell:
-            "somecommand -o {params.prefix}"
+            "somecommand --threshold {params.threshold} -o {output}"
 
-The ``params`` keyword allows you to specify additional parameters depending on the wildcards values. This allows you to circumvent the need to use ``run:`` and python code for non-standard commands like in the above case.
-Here, the command ``somecommand`` expects the prefix of the output file instead of the actual one. The ``params`` keyword helps here since you cannot simply add the prefix as an output file (as the file won't be created, Snakemake would throw an error after execution of the rule).
-
-Furthermore, for enhanced readability and clarity, the ``params`` section is also an excellent place to name and assign parameters and variables for your subsequent command.
-
+The ``params`` section is an excellent place to name and assign parameters and variables for your subsequent command.
 Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefiles-input_functions`), e.g. you can write
 
 .. code-block:: python
@@ -1201,22 +1196,19 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
         input:
             ...
         params:
-            prefix=lambda wildcards, output: output[0][:-4]
+            threshold=lambda wildcards: config["thresholds"][wildcards.sample]
         output:
             "somedir/{sample}.csv"
         shell:
-            "somecommand -o {params.prefix}"
+            "somecommand --threshold {params.threshold} -o {output}"
 
-.. note::
-
-    When accessing auxiliary source files (i.e. files that are located relative to the current Snakefile, e.g. some additional configuration)
-    it is crucial to not manually build their path but rather rely on Snakemake's special registration for these files, see :ref:`snakefiles-aux_source_files`.
-
-to get the same effect as above. Note that in contrast to the ``input`` directive, the
+Above example mimics a case where one would have to look up the value of some threshold in a config dictionary.
+Note that in contrast to the ``input`` directive, functions passed to the
 ``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, ``threads``, and ``resources``.
-From the Python perspective, they can be seen as optional keyword arguments without a default value.
 Their order does not matter, apart from the fact that ``wildcards`` has to be the first argument.
-In the example above, this allows you to derive the prefix name from the output file.
+This way, params can be used to dynamically adjust those values into whatever format is needed for your command or script.
+
+The ``params`` directive is particularly powerful in combination with Snakemake's :ref:`semantic helper functions <snakefiles-semantic-helpers>`.
 
 .. _snakefiles-plain-python-rules:
 
@@ -1810,6 +1802,8 @@ or the short form
 will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
 
 
+.. _snakefiles_protected_temp:
+
 Protected and Temporary Files
 -----------------------------
 
@@ -1930,7 +1924,7 @@ Above, the output file ``test.txt`` is marked as non-empty.
 If the command ``somecommand`` happens to generate an empty output,
 the job will fail with an error listing the unexpected empty file.
 
-A sha256 checksum can be compared as follows:
+A sha256 (or md5 or sha1) checksum can be compared as follows (using corresponding keyword arguments ``sha256=``, ``md5=``, or ``sha1=``).:
 
 .. code-block:: python
 
@@ -2856,7 +2850,7 @@ which automatically unpacks the wildcards as keyword arguments (this is standard
 If the checkpoint has not yet been executed, accessing ``checkpoints.somestep.get(**wildcards)`` ensures that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
 Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
 Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
-Because the wildcard ``i`` is evaluated only after completion of the checkpoint, it is nescessay to use ``directory`` to declare its output, instead of using the full wildcard patterns as output.
+Because the wildcard ``i`` is evaluated only after completion of the checkpoint, it is necessary to use ``directory`` to declare its output, instead of using the full wildcard patterns as output.
 
 A more practical example building on the previous one is a clustering process with an unknown number of clusters for different samples, where each cluster shall be saved into a separate file.
 In this example the clusters are being processed by an intermediate rule before being aggregated:
@@ -2939,6 +2933,12 @@ As can be seen, we first declare a rule a, and then we reuse the rule a as rule 
 In reality, one will often change more.
 Analogously to the ``use rule`` from external modules, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be modified, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
 All unmodified properties are inherited from the parent rule.
+
+.. note::
+    Modification of `params` allows the replacement of single keyword arguments.
+    Keyword `params` arguments of the original rule that are not defined after `with` are inherited.
+    Positional `params` arguments of the original rule are overwritten, if positional `params` arguments are given after `with`.
+    All other properties (``input``, ``output``, ...) are entirely overwritten with the values specified after `with`.
 
 .. _snakefiles-aux_source_files:
 
@@ -3069,31 +3069,46 @@ To avoid such leaks (only required if your template does something like that wit
         shell:
             "sometool {input} {output}"
 
+.. _snakefiles_default_flags:
+
+Setting default flags
+---------------------
+
+Snakemake allows the annotation of input and output files via so-called flags (see e.g. :ref:`snakefiles_protected_temp`).
+Sometimes, it can be useful to define that a certain flag shall be applied to all input or output files of a workflow.
+This can be achieved via the global ``inputflags`` and ``outputflags`` directives.
+Consider the following example:
+
+.. code-block:: python
+
+    outputflags:
+        temp
+
+    rule a:
+        output:
+            "test.out"
+        shell:
+            "echo test > {output}"
+
+Would automatically mark the output file of rule ``a`` as temporary.
+The most convenient use case of this mechanism occurs in combination with :ref:`access pattern annotation <storage-access-patterns>`.
+In this case, the default access pattern can be set globally for all output files of a workflow.
+Only a few cases that differ have then to deal with explicit access pattern annotation (see :ref:`storage-access-patterns` for an example).
+Whenever a rule defines a flag for a file, this flag will override the default flag of the same kind or any contradicting default flags (e.g. ``temp`` will override ``protected``).
+
+Such default input and output flag specifications are always valid for all rules that follow them in the workflow definition.
+Importantly, they are also "namespaced" per module, meaning that ``inputflags`` and ``outputflags`` directives in a module only apply to the rules defined in that module.
+
+
 .. _snakefiles_mpi_support:
 
 MPI support
 -----------
 
-Highly parallel programs may use the MPI (:ref: [message passing interface](https://en.wikipedia.org/wiki/Message_Passing_Interface)) to enable a program to span work across an individual compute node's boundary.
-To actually use an HPC cluster with Snakemake, an [executor plugin is provided for the SLURM batch system](https://github.com/snakemake/snakemake-executor-plugin-slurm). You can find its documentation [here](https://github.com/snakemake/snakemake-executor-plugin-slurm/blob/main/docs/further.md).
-Users of different batch systems are encouraged to [provide further plugins](https://snakemake.github.io/snakemake-plugin-catalog/#contributing) and/or share their Snakemake configuration via the [Snakemake profiles project](https://github.com/Snakemake-Profiles) project.
-
-The command to run the MPI program (in below example we assume there exists a program ``calc-pi-mpi``) has to be specified in the ``mpi``-resource, e.g.:
-
-.. code-block:: python
-
-  rule calc_pi:
-    output:
-        "pi.calc",
-    log:
-        "logs/calc_pi.log",
-    resources:
-        tasks=10,
-        mpi="mpiexec",
-    shell:
-        "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
-
-Thereby, additional parameters may be passed to the MPI-starter, e.g.:
+Some highly parallel programs or scripts implement the `message passing interface (MPI)) <https://en.wikipedia.org/wiki/Message_Passing_Interface>`_, which enables a program to span work across multiple compute nodes on a compute cluster (where a node is an individual machine, which will usually have multiple CPUs nowadays).
+Let us assume, we have such a program that can parallelize using the MPI and its name is ``calc-pi-mpi``.
+To run such a program, the user will usually launch it via the `mpirun <https://docs.open-mpi.org/en/v5.0.x/launching-apps/quickstart.html>`_ command from Open MPI.
+But because it can make sense to use another MPI launch command in some circumstances, we recommend the following pattern for a snakemake rule using an MPI-parallelized tool:
 
 .. code-block:: python
 
@@ -3103,19 +3118,38 @@ Thereby, additional parameters may be passed to the MPI-starter, e.g.:
     log:
         "logs/calc_pi.log",
     resources:
+    resources:
         tasks=10,
-        mpi="mpiexec -arch x86",
+        mpi="mpirun",
     shell:
         "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
 
-As any other resource, the `mpi`-resource can be overwritten via the command line e.g. in order to adapt to a specific platform (see :ref:`snakefiles-resources`). For instance,
-users of the SLURM executor plugin can use `srun` as the MPI-starter:
+Here, you provide the MPI wrapper command used to launch the program under ``resources: mpi=``.
+This enables users to override this command if their execution environment requires this, via providing the ``mpi`` resource in :ref:`executing-profiles` or via the command line option |set-resources|_.
+While ``mpirun`` `should work in most compute environments, including cluster systems like Slurm, LSF or PBS <https://docs.open-mpi.org/en/v5.0.x/launching-apps/quickstart.html>`_, the exact MPI wrapper command to launch programs may differ on your system.
+To find out if and which command your execution environment provides, you will have to consult local documentation, check out if any known mpi wrapper commands are available or ask your system's administrators.
+A good reference point for getting mpirun to work on your execution environment is the `documentation of the mpirun prerequisites <https://docs.open-mpi.org/en/v5.0.x/launching-apps/prerequisites.html>`_.
+
+.. |set-resources| replace:: ``--set-resources``
+.. _set-resources: https://snakemake.readthedocs.io/en/stable/executing/cli.html#snakemake.cli-get_argument_parser-execution
+
+While a number of cluster scheduling systems are able to figure the ``tasks`` resource out for you, other execution environments will require setting ``-n`` manually.
+This includes running a snakemake workflow with an MPI program `on a single host <https://docs.open-mpi.org/en/v5.0.x/launching-apps/quickstart.html#launching-on-a-single-host>`_ or `in a non-scheduled environment via ssh <https://docs.open-mpi.org/en/v5.0.x/launching-apps/quickstart.html#launching-in-a-non-scheduled-environments-via-ssh>`_, but will also include snakemake remote execution plugins for cluster systems that don't integrate handling this for you.
+It is thus good practice to provide this explicitly.
+To understand how a remote execution plugin for a particular cluster scheduling system supports MPI job execution, please consult the `documentation for the respective plugin <https://snakemake.github.io/snakemake-plugin-catalog/>`_.
+
+In addition to overriding the MPI wrapper command, you can also provide extra parameters to the MPI wrapper command with the above construct, should your execution environment require it, for example:
+
+.. code-block:: console
+
+  $ snakemake --set-resources calc_pi:mpi="mpirun -arch x86" ...
+
+or:
 
 .. code-block:: console
 
   $ snakemake --set-resources calc_pi:mpi="srun --hint nomultithread" ...
 
-Note that in case of distributed, remote execution (cluster, cloud), MPI support might not be available.
 
 .. _snakefiles_continuous_input:
 

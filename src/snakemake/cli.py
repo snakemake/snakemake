@@ -80,6 +80,12 @@ def parse_size_in_bytes(value):
     return parse_size(value)
 
 
+def parse_timespan(value):
+    from humanfriendly import parse_timespan
+
+    return parse_timespan(value)
+
+
 def expandvars(atype):
     def inner(args):
         if isinstance(args, list):
@@ -175,8 +181,8 @@ def parse_set_resources(args):
                 raise ValueError(errmsg)
             rule, resource = key
             if is_quoted(orig_value):
-                # value is a string, just keep it
-                value = orig_value
+                # value is a string, just keep it but remove surrounding quotes
+                value = orig_value[1:-1]
             else:
                 try:
                     value = int(orig_value)
@@ -612,7 +618,10 @@ def get_argument_parser(profiles=None):
             "the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
             "The tmpdir resource is automatically used by shell commands, scripts and wrappers to store temporary data (as it is "
             "mirrored into $TMPDIR, $TEMP, and $TMP for the executed subprocesses). "
-            "If this argument is not specified at all, Snakemake just uses the tmpdir resource as outlined above."
+            "If this argument is not specified at all, Snakemake just uses the tmpdir resource as outlined above. "
+            "The tmpdir resource can also be overwritten in the same way as e.g. mem_mb above. "
+            "Thereby, it is even possible to use shutil.disk_usage(system_tmpdir).free and comparing this to input.size in order to "
+            "determine if one can expect the system_tmpdir to be big enough and switch to another tmpdir in case it is not. "
         ),
     )
 
@@ -715,7 +724,7 @@ def get_argument_parser(profiles=None):
         "--rerun-triggers",
         nargs="+",
         choices=RerunTrigger.choices(),
-        default=RerunTrigger.choices(),
+        default=RerunTrigger.all(),
         parse_func=RerunTrigger.parse_choices_set,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
@@ -1060,7 +1069,7 @@ def get_argument_parser(profiles=None):
         default=None,
         help="Do not execute anything and print the directed "
         "acyclic graph of jobs in the dot language or in mermaid-js. Recommended "
-        "use on Unix systems: snakemake `--dag | dot | display`. "
+        "use on Unix systems: `snakemake --dag | dot | display`. "
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
@@ -1335,6 +1344,14 @@ def get_argument_parser(profiles=None):
         "the job finished. This helps if your filesystem suffers from latency.",
     )
     group_behavior.add_argument(
+        "--wait-for-free-local-storage",
+        parse_func=parse_timespan,
+        help=(
+            "Wait for given timespan for enough free local storage when downloading "
+            "remote storage files. If not set, no waiting is performed."
+        ),
+    )
+    group_behavior.add_argument(
         "--wait-for-files",
         nargs="*",
         metavar="FILE",
@@ -1460,7 +1477,8 @@ def get_argument_parser(profiles=None):
         "--local-storage-prefix",
         default=".snakemake/storage",
         type=maybe_base64(expandvars(Path)),
-        help="Specify prefix for storing local copies of storage files and folders (e.g. local scratch disk). Environment variables will be expanded.",
+        help="Specify prefix for storing local copies of storage files and folders "
+        "(e.g. local scratch disk). Environment variables will be expanded.",
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
@@ -1950,9 +1968,6 @@ def args_to_api(args, parser):
             args.cores = 1
             args.jobs = None
 
-    if args.cores is None:
-        args.cores = available_cpu_count()
-
     # start profiler if requested
     if args.runtime_profile:
         import yappi
@@ -1998,6 +2013,7 @@ def args_to_api(args, parser):
                 notemp=args.notemp,
                 all_temp=args.all_temp,
                 unneeded_temp_files=args.unneeded_temp_files,
+                wait_for_free_local_storage=args.wait_for_free_local_storage,
             )
 
             if args.deploy_sources:

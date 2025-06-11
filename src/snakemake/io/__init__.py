@@ -8,6 +8,7 @@ import collections
 import collections.abc
 import copy
 import functools
+import hashlib
 import os
 import queue
 import re
@@ -18,7 +19,6 @@ import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
@@ -656,12 +656,12 @@ class _IOFile(str, AnnotatedStringInterface):
             and not self.is_fifo()
         )
 
-    async def checksum(self, threshold, force=False):
+    async def checksum(self, threshold, force=False, algorithm=hashlib.sha256):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist. If force is True,
         omit eligibility check."""
         if force or await self.is_checksum_eligible(threshold):
-            checksum = sha256()
+            checksum = algorithm()
             if await self.size() > 0:
                 # only read if file is bigger than zero
                 # otherwise the checksum is the same as taking hexdigest
@@ -675,8 +675,10 @@ class _IOFile(str, AnnotatedStringInterface):
         else:
             return None
 
-    async def is_same_checksum(self, other_checksum, threshold, force=False):
-        checksum = await self.checksum(threshold, force=force)
+    async def is_same_checksum(
+        self, other_checksum, threshold, force=False, algorithm=hashlib.sha256
+    ):
+        checksum = await self.checksum(threshold, force=force, algorithm=algorithm)
         if checksum is None or other_checksum is None:
             # if no checksum available or files too large, not the same
             return False
@@ -704,24 +706,20 @@ class _IOFile(str, AnnotatedStringInterface):
         return (await self.mtime()).local_or_storage(follow_symlinks=True) > time
 
     async def retrieve_from_storage(self):
-        if self.is_storage:
-            if not self.should_not_be_retrieved_from_storage:
+        assert self.is_storage
 
-                async def is_newer_in_storage():
-                    mtime = await self.mtime()
-                    return mtime.local() < mtime.storage()
+        if not self.should_not_be_retrieved_from_storage:
 
-                if not await self.exists_local() or await is_newer_in_storage():
-                    logger.info(
-                        f"Retrieving from storage: {self.storage_object.print_query}"
-                    )
-                    await self.storage_object.managed_retrieve()
-                    logger.info("Finished retrieval.")
-        else:
-            raise WorkflowError(
-                "The file to be retrieved does not seem to exist in the storage.",
-                rule=self.rule,
-            )
+            async def is_newer_in_storage():
+                mtime = await self.mtime()
+                return mtime.local() < mtime.storage()
+
+            if not await self.exists_local() or await is_newer_in_storage():
+                logger.info(
+                    f"Retrieving from storage: {self.storage_object.print_query}"
+                )
+                await self.storage_object.managed_retrieve()
+                logger.info("Finished retrieval.")
 
     async def store_in_storage(self):
         if self.is_storage:
@@ -939,13 +937,6 @@ class _IOFile(str, AnnotatedStringInterface):
         return self._file.__hash__()
 
 
-def pretty_print_iofile(iofile: Union[_IOFile, str]) -> str:
-    if isinstance(iofile, _IOFile) and iofile.is_storage:
-        return f"{iofile.storage_object.print_query} (storage)"
-    else:
-        return iofile
-
-
 class AnnotatedString(str, AnnotatedStringInterface):
     def __init__(self, value):
         self._flags = dict()
@@ -991,6 +982,10 @@ def flag(value, flag_type, flag_value=True):
     return [flag(v, flag_type, flag_value=flag_value) for v in value]
 
 
+def get_flag_store_keys(flag_func: Callable) -> Set[str]:
+    return set(flag_func("dummy").flags.keys())
+
+
 _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
@@ -1006,6 +1001,9 @@ async def wait_for_files(
     consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
 ):
     """Wait for given files to be present in the filesystem."""
+
+    from snakemake.io.fmt import fmt_iofile
+
     files = list(files)
 
     async def get_missing(list_parent=False):
@@ -1030,9 +1028,9 @@ async def wait_for_files(
                         if os.path.exists(parent_dir)
                         else " not present"
                     )
-                    return f"{f} (missing locally, parent dir{parent_msg})"
+                    return f"{fmt_iofile(f)} (missing locally, parent dir{parent_msg})"
                 else:
-                    return f"{f} (missing locally)"
+                    return f"{fmt_iofile(f)} (missing locally)"
             return None
 
         return list(filter(None, [await eval_file(f) for f in files]))
@@ -1285,8 +1283,28 @@ def touch(value):
     return flag(value, "touch")
 
 
-def ensure(value, non_empty=False, sha256=None):
-    return flag(value, "ensure", {"non_empty": non_empty, "sha256": sha256})
+def ensure(value, non_empty=False, sha256=None, md5=None, sha1=None):
+    if sum(1 for x in (sha256, md5, sha1) if x is not None) > 1:
+        raise SyntaxError(
+            "Only one checksum type (sha256, md5, or sha1) can be specified."
+        )
+    checksum = sha256 or md5 or sha1
+    checksum_algorithm = None
+    if sha256 is not None:
+        checksum_algorithm = hashlib.sha256
+    elif md5 is not None:
+        checksum_algorithm = hashlib.md5
+    elif sha1 is not None:
+        checksum_algorithm = hashlib.sha1
+    return flag(
+        value,
+        "ensure",
+        {
+            "non_empty": non_empty,
+            "checksum": checksum,
+            "checksum_algorithm": checksum_algorithm,
+        },
+    )
 
 
 def unpack(value):

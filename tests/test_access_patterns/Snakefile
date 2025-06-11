@@ -1,0 +1,77 @@
+inputflags:
+    access.sequential
+
+
+rule all:
+    input:
+        collect("test6.{dataset}.out", dataset=range(1, 3))
+
+
+rule a:
+    output:
+        "test1.out"
+    shell:
+        "echo test > {output}"
+
+
+rule b:
+    input:
+        "test1.out" # expected as local copy (because accessed multiple times in group, see test parameters)
+    output:
+        "test2.{dataset}.out"
+    log:
+        "logs/b/{dataset}.log"
+    shell:
+        "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"
+
+
+rule c:
+    input:
+        "test2.{dataset}.out" # expected as local copy (because accessed locally in group, no download from storage)
+    output:
+        "test3.{dataset}.out"
+    log:
+        "logs/c/{dataset}.log"
+    shell:
+        "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"
+
+
+rule d:
+    input:
+        access.random("test3.{dataset}.out") # expected as local copy (because of random access)
+    output:
+        "test4.{dataset}.out"
+    log:
+        "logs/d/{dataset}.log"
+    shell:
+        "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"
+
+
+def get_e_input(wildcards):
+    return f"test4.{wildcards.dataset}.out"
+
+
+rule e:
+    input:
+        get_e_input # expected as symlink (because of sequential access once per cluster job)
+    output:
+        "test5.{dataset}.out"
+    log:
+        "logs/e/{dataset}.log"
+    shell:
+        "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"
+
+
+def get_f_input(wildcards):
+    return f"test5.{wildcards.dataset}.out"
+
+
+rule f:
+    input:
+        access.multi(get_f_input) # expected as local copy (because of multi-sequential access)
+    output:
+        "test6.{dataset}.out"
+    log:
+        "logs/f/{dataset}.log"
+    shell:
+        "(set +eo pipefail; readlink {input} > {output} || true) 2> {log}"

@@ -197,12 +197,15 @@ class SnakemakeApi(ApiBase):
             storage_settings.default_storage_provider
         ).get_settings(None)
 
-        plugin.validate_settings(plugin_settings)
+        if plugin_settings is not None:
+            plugin.validate_settings(plugin_settings)
 
         provider_instance = plugin.storage_provider(
+            logger=logger,
             local_prefix=storage_settings.local_storage_prefix,
             settings=plugin_settings,
             is_default=True,
+            wait_for_free_local_storage=storage_settings.wait_for_free_local_storage,
         )
         query_validity = provider_instance.is_valid_query(query)
         if not query_validity:
@@ -578,17 +581,11 @@ class DAGApi(ApiBase):
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
 
-        if executor_plugin.common_settings.touch_exec:
-            # no actual execution happening, hence we can omit any deployment
-            self.workflow_api.deployment_settings.deployment_method = frozenset()
-
         execution_settings.use_threads = (
             execution_settings.use_threads
             or (os.name not in ["posix"])
             or not executor_plugin.common_settings.local_exec
         )
-
-        logger_manager.setup_logfile()
 
         workflow = self.workflow_api._workflow
         workflow.execution_settings = execution_settings
