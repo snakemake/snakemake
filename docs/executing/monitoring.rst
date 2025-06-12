@@ -26,4 +26,4 @@ Multiple logger plugins can be used simultaneously by specifying the ``--logger`
 Available logger plugins and their configuration options can be found in the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_.
 The catalog provides detailed documentation for each plugin, including installation instructions, configuration examples, and usage guidelines.
 
-For information on developing custom logger plugins, see the plugin development documentation in the `plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_.
+For details on developing logger plugins, see the documentation in the `Snakemake logger plugin interface repository <https://github.com/snakemake/snakemake-interface-logger-plugins>`_.
