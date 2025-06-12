@@ -203,7 +203,12 @@ The corresponding Conda environment in ``envs/pystats.yaml`` is:
 In addition to the packages already used for the download step, we now require ``altair``, ``altair_saver`` and ``vl-convert-python`` for output format support in Altair_. In addition, adding the two ``vegafusion`` packages, enables support for efficient plotting that involves a lot of datapoints.
 While we don't need that in this example, it is a good practice to include them in the environment file in order to be prepared for such cases.
 
-Adapt the edit notebook command from above to edit this notebook interactively.
+Again, recall the terminal command from the previous step and run the equivalent for the new rule:
+
+.. code-block:: console
+
+    $ snakemake --sdm conda --cores 1 --edit-notebook results/plots/horsepower_vs_mpg.altair.html
+
 The content of the notebook shall be:
 
 .. code-block:: python
