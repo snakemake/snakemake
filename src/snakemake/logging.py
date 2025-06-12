@@ -134,11 +134,9 @@ class DefaultFormatter(logging.Formatter):
         self,
         quiet: "Quietness",
         show_failed_logs: bool = False,
-        printshellcmds: bool = False,
     ):
         self.quiet = set() if quiet is None else quiet
         self.show_failed_logs = show_failed_logs
-        self.printshellcmds = printshellcmds
         self.last_msg_was_job_info = False
 
     def format(self, record):
@@ -245,9 +243,7 @@ class DefaultFormatter(logging.Formatter):
 
     def format_shellcmd(self, msg):
         """Format for shellcmd log."""
-        if self.printshellcmds:
-            return msg["msg"]
-        return ""
+        return msg["msg"]
 
     def format_d3dag(self, msg):
         """Format for d3dag log."""
@@ -370,12 +366,13 @@ class DefaultFormatter(logging.Formatter):
 
 
 class DefaultFilter:
-    def __init__(self, quiet, debug_dag, dryrun) -> None:
+    def __init__(self, quiet, debug_dag, dryrun, printshellcmds) -> None:
         if quiet is None:
             quiet = set()
         self.quiet = quiet
         self.debug_dag = debug_dag
         self.dryrun = dryrun
+        self.printshellcmds = printshellcmds
 
     def filter(self, record):
         from snakemake.settings.enums import Quietness
@@ -387,17 +384,25 @@ class DefaultFilter:
         if Quietness.ALL in self.quiet and not self.dryrun:
             return False
 
+        if hasattr(record, "quietness"):
+            if record.quietness in self.quiet:
+                return False
+
         quietness_map = {
             LogEvent.JOB_INFO: Quietness.RULES,
             LogEvent.GROUP_INFO: Quietness.RULES,
             LogEvent.JOB_ERROR: Quietness.RULES,
             LogEvent.GROUP_ERROR: Quietness.RULES,
             LogEvent.PROGRESS: Quietness.PROGRESS,
-            LogEvent.SHELLCMD: Quietness.PROGRESS,
+            LogEvent.SHELLCMD: Quietness.RULES,
             LogEvent.JOB_FINISHED: Quietness.PROGRESS,
             LogEvent.RESOURCES_INFO: Quietness.PROGRESS,
             LogEvent.RUN_INFO: Quietness.PROGRESS,
         }
+
+        # Handle shell commands
+        if event == LogEvent.SHELLCMD and not self.printshellcmds:
+            return False
 
         # Check quietness for specific levels
         if event in quietness_map:
@@ -507,7 +512,7 @@ class ColorizingTextHandler(logging.StreamHandler):
                     # Reset flag if the message is not a 'job_info'
                     self.last_msg_was_job_info = False
                 formatted_message = self.format(record)
-                if formatted_message == "None":
+                if formatted_message == "None" or formatted_message == "":
                     return
                 # Apply color to the formatted message
                 self.stream.write(self.decorate(record, formatted_message))
@@ -610,14 +615,16 @@ class LoggerManager:
 
     def _default_filter(self):
         return DefaultFilter(
-            self.settings.quiet, self.settings.debug_dag, self.settings.dryrun
+            self.settings.quiet,
+            self.settings.debug_dag,
+            self.settings.dryrun,
+            self.settings.printshellcmds,
         )
 
     def _default_formatter(self):
         return DefaultFormatter(
             self.settings.quiet,
             self.settings.show_failed_logs,
-            self.settings.printshellcmds,
         )
 
     def _default_filehandler(self, logfile):

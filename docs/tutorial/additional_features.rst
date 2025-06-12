@@ -171,23 +171,23 @@ A wrapper is a short script that wraps (typically)
 a command line application and makes it directly addressable from within Snakemake.
 For this, Snakemake provides the ``wrapper`` directive that can be used instead of
 ``shell``, ``script``, or ``run``.
-For example, the rule ``bwa_map`` could alternatively look like this:
+For example, the rule ``samtools_index`` could alternatively look like this:
 
 .. code:: python
 
-  rule bwa_mem:
+  rule samtools_index:
     input:
-        ref="data/genome.fa",
-        sample=lambda wildcards: config["samples"][wildcards.sample]
+        "sorted_reads/{sample}.bam"
     output:
-        temp("mapped_reads/{sample}.bam")
+        "sorted_reads/{sample}.bam.bai"
+    conda:
+        "envs/samtools.yaml"
     log:
-        "logs/bwa_mem/{sample}.log"
+        "logs/samtools_index/{sample}.log",
     params:
-        "-R '@RG\tID:{sample}\tSM:{sample}'"
-    threads: 8
+        extra="",  # optional params string
     wrapper:
-        "0.15.3/bio/bwa/mem"
+        "v6.2.0/bio/samtools/index"
 
 .. note::
 

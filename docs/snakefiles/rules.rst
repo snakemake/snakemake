@@ -1715,6 +1715,17 @@ This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` d
 
     It is possible to refer to wildcards and params in the notebook path, e.g. by specifying ``"notebook/{params.name}.py"`` or ``"notebook/{wildcards.name}.py"``.
 
+Normally, notebooks are executed headlessly (without a Jupyter interface being presented to you).
+This is achieved with Papermill_ if that is installed in your software environment,
+or `nbconvert`_ otherwise.
+The latter will be installed automatically along with Jupyter, but will not output
+an executed (logfile) notebook until the entire execution is complete, and won't output
+a notebook if execution encounters an error.
+
+.. _Papermill: https://github.com/nteract/papermill
+
+.. _nbconvert: https://nbconvert.readthedocs.io/en/latest/
+
 In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake provides an interactive edit mode for notebook rules.
 Let us assume you have written above rule, but the notebook does not yet exist.
 By running
@@ -1913,7 +1924,7 @@ Above, the output file ``test.txt`` is marked as non-empty.
 If the command ``somecommand`` happens to generate an empty output,
 the job will fail with an error listing the unexpected empty file.
 
-A sha256 checksum can be compared as follows:
+A sha256 (or md5 or sha1) checksum can be compared as follows (using corresponding keyword arguments ``sha256=``, ``md5=``, or ``sha1=``).:
 
 .. code-block:: python
 
@@ -2839,7 +2850,7 @@ which automatically unpacks the wildcards as keyword arguments (this is standard
 If the checkpoint has not yet been executed, accessing ``checkpoints.somestep.get(**wildcards)`` ensures that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
 Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
 Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
-Because the wildcard ``i`` is evaluated only after completion of the checkpoint, it is nescessay to use ``directory`` to declare its output, instead of using the full wildcard patterns as output.
+Because the wildcard ``i`` is evaluated only after completion of the checkpoint, it is necessary to use ``directory`` to declare its output, instead of using the full wildcard patterns as output.
 
 A more practical example building on the previous one is a clustering process with an unknown number of clusters for different samples, where each cluster shall be saved into a separate file.
 In this example the clusters are being processed by an intermediate rule before being aggregated:

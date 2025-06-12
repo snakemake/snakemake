@@ -1508,6 +1508,12 @@ def test_container():
 
 
 @skip_on_windows
+@apptainer
+def test_dynamic_container():
+    run(dpath("test_dynamic_container"), deployment_method={DeploymentMethod.APPTAINER})
+
+
+@skip_on_windows
 def test_string_resources():
     from snakemake.resources import DefaultResources
 
@@ -1515,6 +1521,29 @@ def test_string_resources():
         dpath("test_string_resources"),
         default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
         cluster="./qsub.py",
+    )
+
+
+def test_jupyter_notebook():
+    run(dpath("test_jupyter_notebook"), deployment_method={DeploymentMethod.CONDA})
+
+
+def test_jupyter_notebook_nbconvert():
+    run(
+        dpath("test_jupyter_notebook_nbconvert"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
+
+
+def test_jupyter_notebook_draft():
+    from snakemake.settings.types import NotebookEditMode
+
+    run(
+        dpath("test_jupyter_notebook_draft"),
+        deployment_method={DeploymentMethod.CONDA},
+        edit_notebook=NotebookEditMode(draft_only=True),
+        targets=["results/result_intermediate.txt"],
+        check_md5=False,
     )
 
 

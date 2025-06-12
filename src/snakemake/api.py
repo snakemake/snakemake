@@ -201,7 +201,8 @@ class SnakemakeApi(ApiBase):
             storage_settings.default_storage_provider
         ).get_settings(None)
 
-        plugin.validate_settings(plugin_settings)
+        if plugin_settings is not None:
+            plugin.validate_settings(plugin_settings)
 
         provider_instance = plugin.storage_provider(
             logger=logger,

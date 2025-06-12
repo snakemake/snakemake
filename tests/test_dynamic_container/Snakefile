@@ -1,0 +1,35 @@
+shell.executable("sh")
+IMAGE = ["bash", "alpine"]
+
+rule a:
+    input:
+        expand("test_str_{image}.out", image=IMAGE),
+        expand("test_func_{image}.out", image=IMAGE)
+ 
+rule b:
+    input:
+        "test_str_{image}.txt"
+    output:
+        "test_str_{image}.out"
+    container:
+        "docker://{image}"
+    shell:
+        'ls {input}; echo "test" > {output}'
+
+rule c:
+    input:
+        "test_func_{image}.txt"
+    output:
+        "test_func_{image}.out"
+    container:
+        lambda wildcards: f"docker://{wildcards.image}"
+    shell:
+        'ls {input}; echo "test" > {output}'
+
+rule d:
+    output:
+        expand("test_str_{image}.txt", image=IMAGE),
+        expand("test_func_{image}.txt", image=IMAGE)
+    shell:
+        'touch {output}'
+

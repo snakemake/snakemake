@@ -30,6 +30,7 @@ from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake.settings.enums import Quietness
 
 from snakemake import workflow as _workflow
 from snakemake.common import (
@@ -692,9 +693,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             )
 
         # handle checksum
-        async def is_not_same_checksum(f, checksum):
-            if checksum is None:
+        async def is_not_same_checksum(f, ensure):
+            if not ensure.get("checksum_algorithm"):
                 return False
+            checksum_algorithm = ensure["checksum_algorithm"]
+            checksum = ensure["checksum"]
             if is_callable(checksum):
                 try:
                     checksum = checksum(job.wildcards)
@@ -705,13 +708,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         rule=job.rule,
                     )
             return not await f.is_same_checksum(
-                checksum, self.max_checksum_file_size, force=True
+                checksum,
+                self.max_checksum_file_size,
+                force=True,
+                algorithm=checksum_algorithm,
             )
 
         checksum_failed_output = [
             f
             for f, ensure in ensured_output.items()
-            if await is_not_same_checksum(f, ensure.get("sha256"))
+            if await is_not_same_checksum(f, ensure)
         ]
         if checksum_failed_output:
             raise WorkflowError(
@@ -955,9 +961,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         for f in unneeded_files():
             if self.workflow.dryrun:
-                logger.info(f"Would remove temporary output {fmt_iofile(f)}")
+                logger.info(
+                    f"Would remove temporary output {fmt_iofile(f)}",
+                    extra={"quietness": Quietness.RULES},
+                )
             else:
-                logger.info(f"Removing temporary output {fmt_iofile(f)}.")
+                logger.info(
+                    f"Removing temporary output {fmt_iofile(f)}.",
+                    extra={"quietness": Quietness.RULES},
+                )
                 await f.remove(remove_non_empty_dir=True)
 
     async def handle_log(self, job):
@@ -1663,18 +1675,31 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             external_but_returning_rules = set()
             returned_to = set()
 
-            def stop_if(job, returned_to=returned_to):
-                if job in group.jobs:
-                    returned_to.add(job.rule.name)
-                    return True
-                return False
-
             for dep in self._dependencies[job]:
-                external_but_returning_rules.update(
+                # METHOD: from dependencies that are outside of the group,
+                # we try to get back into the group.
+                if dep in group.jobs:
+                    continue
+
+                dep_external_but_returning_rules = set()
+                dep_returned_to = set()
+
+                def stop_if(job, returned_to=dep_returned_to):
+                    if job in group.jobs:
+                        returned_to.add(job.rule.name)
+                        return True
+                    return False
+
+                dep_external_but_returning_rules.update(
                     job.rule.name
                     for job in self.bfs(self._dependencies, dep, stop=stop_if)
-                    if job is not dep
+                    if job not in group.jobs
                 )
+                if dep_returned_to:
+                    external_but_returning_rules.update(
+                        dep_external_but_returning_rules
+                    )
+                    returned_to.update(dep_returned_to)
             if external_but_returning_rules and returned_to:
                 raise WorkflowError(
                     f"Error in group {job.group}. Job of rule {job.rule.name} "
@@ -2397,7 +2422,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                 ),
                                 False,
                             )
-                    except MissingRuleException as ex:
+                    except MissingRuleException:
                         # no dependency found
                         yield PotentialDependency(file, None, False)
 
@@ -3178,7 +3203,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for job in self.jobs:
                 if not job.is_group() and (include_needrun or not self.needrun(job)):
                     changed.extend(
-                        list(await job.outputs_older_than_script_or_notebook())
+                        [f async for f in job.outputs_older_than_script_or_notebook()]
                     )
         return changed
 

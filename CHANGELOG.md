@@ -1,6 +1,58 @@
 # Changelog
 
 
+## [9.5.1](https://github.com/snakemake/snakemake/compare/v9.5.0...v9.5.1) (2025-05-23)
+
+
+### Bug Fixes
+
+* format output files in job cleanup message such that their remote query is shown instead of the local copy ([#3600](https://github.com/snakemake/snakemake/issues/3600)) ([91cc3ef](https://github.com/snakemake/snakemake/commit/91cc3ef0f24b1b0e96cb751cdc806cad84491425))
+* skip unnecessary schema validation inside of remote jobs ([#3601](https://github.com/snakemake/snakemake/issues/3601)) ([9129654](https://github.com/snakemake/snakemake/commit/91296543360e276a2317c8831b6635c29839afd2))
+
+## [9.5.0](https://github.com/snakemake/snakemake/compare/v9.4.1...v9.5.0) (2025-05-22)
+
+
+### Features
+
+* wildcards/callable function for container url ([#3590](https://github.com/snakemake/snakemake/issues/3590)) ([86733ee](https://github.com/snakemake/snakemake/commit/86733ee3f53d46f9c76050a81d24343f3cf06f5d))
+
+
+### Bug Fixes
+
+* fix errors with --list-changes (async generator error and --list-changes params yielding spurious files) ([#3598](https://github.com/snakemake/snakemake/issues/3598)) ([1c95cfa](https://github.com/snakemake/snakemake/commit/1c95cfa996d20c626088b58eabad89ae809f8d9e))
+
+
+### Documentation
+
+* Fix typo when generating DAG ([#3568](https://github.com/snakemake/snakemake/issues/3568)) ([4f3d609](https://github.com/snakemake/snakemake/commit/4f3d609c1f4e58c4904118e6831074f760994f81))
+
+## [9.4.1](https://github.com/snakemake/snakemake/compare/v9.4.0...v9.4.1) (2025-05-21)
+
+
+### Bug Fixes
+
+* fix a typo in the docs:`nescessay` ([#3578](https://github.com/snakemake/snakemake/issues/3578)) ([b6961fd](https://github.com/snakemake/snakemake/commit/b6961fdc5e182e2fb25f424aa9f5b1d4a86c2417))
+* fix spurious errors about external but returning dependencies in group jobs ([#3593](https://github.com/snakemake/snakemake/issues/3593)) ([1f7e254](https://github.com/snakemake/snakemake/commit/1f7e254dadd16697ca7b70f6566b11ec3fdb3ed2))
+
+
+### Documentation
+
+* fix syntax highlighting for light and dark theme ([9c5c6f7](https://github.com/snakemake/snakemake/commit/9c5c6f7f7a8bb1747ed4896c17df9b55d153c570))
+
+## [9.4.0](https://github.com/snakemake/snakemake/compare/v9.3.5...v9.4.0) (2025-05-15)
+
+
+### Features
+
+* allow md5 and sha256 in ensure() flag  ([#3575](https://github.com/snakemake/snakemake/issues/3575)) ([639ea91](https://github.com/snakemake/snakemake/commit/639ea9157aa2457950ef6cb51027189923f5dc49))
+
+## [9.3.5](https://github.com/snakemake/snakemake/compare/v9.3.4...v9.3.5) (2025-05-15)
+
+
+### Bug Fixes
+
+* upon source deployment, only validate storage plugin settings if they are not None ([#3572](https://github.com/snakemake/snakemake/issues/3572)) ([2568ec8](https://github.com/snakemake/snakemake/commit/2568ec89bbf0e33b12deedba55334f0cc46b14e3))
+
 ## [9.3.4](https://github.com/snakemake/snakemake/compare/v9.3.3...v9.3.4) (2025-05-08)
 
 

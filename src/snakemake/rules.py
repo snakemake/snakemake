@@ -157,7 +157,7 @@ class Rule(RuleInterface):
 
     @property
     def group(self):
-        if self.workflow.local_exec:
+        if not self.workflow.non_local_exec_or_dryrun:
             return None
         else:
             overwrite_group = self.workflow.group_settings.overwrite_groups.get(
@@ -1212,6 +1212,22 @@ class Rule(RuleInterface):
             self._expanded_conda_env = conda_env
 
         return conda_env
+
+    def expand_container_img(self, wildcards):
+        """
+        Expand the given container wildcards
+        """
+        if callable(self.container_img):
+            container_url, _ = self.apply_input_function(
+                self.container_img, wildcards=wildcards
+            )
+            return container_url
+
+        elif isinstance(self.container_img, str):
+            resolved_url = apply_wildcards(self.container_img, wildcards)
+            return resolved_url
+
+        return self.container_img
 
     def is_producer(self, requested_output):
         """
