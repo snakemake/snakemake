@@ -3,14 +3,13 @@
 class Toggle extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { value: this.props.values[0] };
+        this.state = { value: this.props.defaultValue };
         this.selectValue = this.selectValue.bind(this);
 
     }
 
     selectValue(selected) {
         // swap the value
-        console.log(selected);
         this.setState({ value: selected });
         this.props.callback(selected);
     }
