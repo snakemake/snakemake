@@ -79,7 +79,7 @@ class RuleInfo:
                         original_positional, original_keyword = (
                             self.__dict__["params"]
                             if self.params is not None
-                            else ((), dict())
+                            else ((), {})
                         )
                         modifier_positional, modifier_keyword = value
                         positional = original_positional
