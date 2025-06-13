@@ -72,15 +72,11 @@ class RuleInfo:
         if modifier.ruleinfo_overwrite:
             for key, value in modifier.ruleinfo_overwrite.__dict__.items():
                 if key != "func" and value is not None:
-                    if key == "params":
+                    if key == "params" and self.params is not None:
                         # if positional arguments are used after the 'with' statement
                         # overwrite all positional arguments of the original rule
                         # for keyword arguments replace only the ones defined after 'with'
-                        original_positional, original_keyword = (
-                            self.__dict__["params"]
-                            if self.params is not None
-                            else ((), {})
-                        )
+                        original_positional, original_keyword = self.__dict__["params"]
                         modifier_positional, modifier_keyword = value
                         positional = original_positional
                         if modifier_positional:
