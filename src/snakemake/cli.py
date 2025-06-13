@@ -2203,6 +2203,7 @@ def args_to_api(args, parser):
                                 envvars=args.envvars,
                                 immediate_submit=args.immediate_submit,
                                 job_deploy_sources=args.job_deploy_sources,
+                                precommand=args.precommand,
                             ),
                             scheduling_settings=SchedulingSettings(
                                 prioritytargets=args.prioritize,
