@@ -2469,3 +2469,7 @@ def test_censored_path():
     assert "my_password" not in stdout
     assert "param_name" not in stdout
     assert "param_value" not in stdout
+
+
+def test_params_empty_inherit():
+    run(dpath("test_params_empty_inherit"))
