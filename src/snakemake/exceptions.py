@@ -548,7 +548,7 @@ class CheckSumMismatchException(WorkflowError):
 
 
 class IncompleteCheckpointException(Exception):
-    def __init__(self, rule, targetfile):
+    def __init__(self, rule, targetfiles):
         super().__init__(
             "The requested checkpoint output is not yet created. "
             "If you see this error, you have likely tried to use "
@@ -565,7 +565,7 @@ class IncompleteCheckpointException(Exception):
         self.rule = rule
         from snakemake.io import checkpoint_target
 
-        self.targetfile = checkpoint_target(targetfile)
+        self.targetfiles = [checkpoint_target(targetfile) for targetfile in targetfiles]
 
 
 class InputOpenException(Exception):
