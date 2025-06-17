@@ -133,6 +133,7 @@ class WorkflowSettings(SettingsBase):
     consider_ancient: Mapping[str, AnySet[Union[str, int]]] = field(
         default_factory=dict
     )
+    experimental_software_deployment_methods: AnySet[str] = frozenset()
 
 
 class Batch:
@@ -244,7 +245,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
 
 
 @dataclass
-class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
+class LegacyDeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     """
     Parameters
     ----------
