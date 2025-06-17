@@ -203,7 +203,12 @@ The corresponding Conda environment in ``envs/pystats.yaml`` is:
 In addition to the packages already used for the download step, we now require ``altair``, ``altair_saver`` and ``vl-convert-python`` for output format support in Altair_. In addition, adding the two ``vegafusion`` packages, enables support for efficient plotting that involves a lot of datapoints.
 While we don't need that in this example, it is a good practice to include them in the environment file in order to be prepared for such cases.
 
-Adapt the edit notebook command from above to edit this notebook interactively.
+Again, recall the terminal command from the previous step and run the equivalent for the new rule:
+
+.. code-block:: console
+
+    $ snakemake --sdm conda --cores 1 --edit-notebook results/plots/horsepower_vs_mpg.altair.html
+
 The content of the notebook shall be:
 
 .. code-block:: python
@@ -376,7 +381,7 @@ Let us now add equivalent annotations to the two plot rules by editing them into
                 "results/plots/horsepower_vs_mpg.ggplot.svg",
                 category="Plots",
                 labels={"plot": "horsepower_vs_mpg", "approach": "ggplot"},
-                caption="report/horsepower_vs_mpg.rst",
+                caption="report/horsepower_vs_mpg_plot_with_r.rst",
             ),
         log:
             notebook="logs/plot_horsepower_vs_mpg.r.ipynb"
@@ -394,7 +399,7 @@ Let us now add equivalent annotations to the two plot rules by editing them into
                 "results/plots/horsepower_vs_mpg.altair.html",
                 category="Plots",
                 labels={"plot": "horsepower_vs_mpg", "approach": "altair"},
-                caption="report/horsepower_vs_mpg.rst",
+                caption="report/horsepower_vs_mpg_plot_with_python.rst",
             ),
         log:
             notebook="logs/plot_horsepower_vs_mpg.py.ipynb"
@@ -410,13 +415,13 @@ Create the file ``workflow/report/cars.rst`` with the following content:
 
     The cars dataset as provided by the vega project: https://github.com/vega/vega-datasets.
 
-Create the file ``workflow/report/horsepower_vs_mpg.r.rst`` with the following content:
+Create the file ``workflow/report/horsepower_vs_mpg_plot_with_r.rst`` with the following content:
 
 .. code-block:: rst
 
     A plot of the horsepower vs. miles per gallon from the cars dataset, created with ggplot2.
 
-Create the file ``workflow/report/horsepower_vs_mpg.py.rst`` with the following content:
+Create the file ``workflow/report/horsepower_vs_mpg_plot_with_python.rst`` with the following content:
 
 .. code-block:: rst
 
@@ -426,7 +431,7 @@ Finally, add a global report directive to the top of the ``Snakefile``
 
 .. code-block:: python
 
-    report: "workflow/report/workflow.rst"
+    report: "report/workflow.rst"
 
 and create the file ``workflow/report/workflow.rst`` with the following content:
 

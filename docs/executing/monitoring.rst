@@ -4,28 +4,26 @@
 Monitoring
 ==========
 
-Snakemake supports `panoptes <https://github.com/panoptes-organization/panoptes>`_ a server (under development) that lets you monitor the execution of snakemake workflows.
-Snakemake communicates with panoptes via the :code:`--wms-monitor` flag. The flag specifies the ip and port where panoptes is running (e.g. :code:`--wms-monitor http://127.0.0.1:5000`).
+Since Snakemake 9.0, Snakemake supports monitoring workflow execution through logger plugins.
+These plugins enable integration with various monitoring systems and services, allowing you to track workflow progress, collect runtime statistics, and analyze execution patterns.
 
-For panoptes versions 0.1.1 and lower, Snakemake sends the following requests to wms monitor:
+Logger plugins can capture detailed information about workflow execution, including:
 
-.. csv-table::
-   :header: "API", "Method", "Data", "Description"
-   :widths: 40, 20, 20, 60
-
-   ":code:`/api/service-info`", "GET", "json", "Snakemake gets the status of panoptes. Snakemake continues to run if the status (:code:`json['status']`) is :code:`'running'`. In all other cases snakemake exits with an error message."
-   ":code:`/create_workflow`", "GET", "json", "Snakemake gets a unique id/name :code:`str(uuid.uuid4())` for each workflow triggered."
-   ":code:`/update_workflow_status`", "POST", "dictionary", "Snakemake posts updates for workflows/jobs. The dictionary sent contains the log message dictionary , the current timestamp and the unique id/name of the workflow.
-   
-    .. code:: python
-
-        {
-            'msg': repr(msg), 
-            'timestamp': time.asctime(), 
-            'id': id
-        }"
+* Job start and completion times
+* Resource usage statistics
+* Error messages and debugging information
+* Workflow topology and dependencies
 
 
-For future versions, Panoptes will implement`a more structured schema <https://github.com/panoptes-organization/monitor-schema>`_
-to interact with the server. This means that for Snakemake 3.30.1 and lower, you should use Panoptes 0.1.1 and lower.
-The documentation here will be updated when a new version of Panoptes with the Monitor Schema is released.
+To use a logger plugin, specify it via the ``--logger`` command line option:
+
+.. code-block:: console
+
+    $ snakemake --logger <plugin-name> --cores 4
+
+Multiple logger plugins can be used simultaneously by specifying the ``--logger`` option multiple times.
+
+Available logger plugins and their configuration options can be found in the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_.
+The catalog provides detailed documentation for each plugin, including installation instructions, configuration examples, and usage guidelines.
+
+For details on developing logger plugins, see the documentation in the `Snakemake logger plugin interface repository <https://github.com/snakemake/snakemake-interface-logger-plugins>`_.

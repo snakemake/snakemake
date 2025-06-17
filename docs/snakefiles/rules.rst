@@ -1715,6 +1715,17 @@ This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` d
 
     It is possible to refer to wildcards and params in the notebook path, e.g. by specifying ``"notebook/{params.name}.py"`` or ``"notebook/{wildcards.name}.py"``.
 
+Normally, notebooks are executed headlessly (without a Jupyter interface being presented to you).
+This is achieved with Papermill_ if that is installed in your software environment,
+or `nbconvert`_ otherwise.
+The latter will be installed automatically along with Jupyter, but will not output
+an executed (logfile) notebook until the entire execution is complete, and won't output
+a notebook if execution encounters an error.
+
+.. _Papermill: https://github.com/nteract/papermill
+
+.. _nbconvert: https://nbconvert.readthedocs.io/en/latest/
+
 In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake provides an interactive edit mode for notebook rules.
 Let us assume you have written above rule, but the notebook does not yet exist.
 By running

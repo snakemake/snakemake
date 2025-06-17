@@ -1,0 +1,14 @@
+rule all:
+    input:
+        "test.txt"
+
+rule parent:
+    run:
+        with open(output[0], "w") as f:
+            f.write(params.a)
+
+use rule parent as child with:
+    output:
+        "test.txt"
+    params:
+        a="a"
