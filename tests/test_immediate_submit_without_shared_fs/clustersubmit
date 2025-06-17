@@ -1,0 +1,125 @@
+#!/bin/env python3
+
+import asyncio
+import json
+import sys
+from argparse import ArgumentParser 
+import logging 
+import sqlite3
+import string
+import random
+import os
+
+## Configuration 
+DATABASE_FILE = "/tmp/clustersubmit.sqlite3"
+LOG_FILE = "/tmp/clustersubmit.log"
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s | %(levelname)-8s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    stream=open(LOG_FILE, "a")
+)
+
+QUERY_RUNNABLE = """
+    SELECT child.jobid, child.jobscript 
+    FROM jobs AS child
+    WHERE done = 0 AND NOT EXISTS (
+        SELECT * FROM jobs AS parents
+        JOIN edges AS e ON e.parent = parents.jobid
+        WHERE e.child = child.jobid AND done = 0
+    );
+"""
+
+
+## Arguments 
+parser = ArgumentParser("Mock script representing cluster-managed DAG execution")
+parser.add_argument("-d", "--dependencies", help="Space-separated job ids", default="")
+parser.add_argument("--execute", action='store_true', help="Execute pending jobs and exits")
+parser.add_argument("jobscript", type=str, default=None, nargs='?')
+args = parser.parse_args()
+
+
+## Initialization
+with sqlite3.connect(DATABASE_FILE) as db:
+    db.execute("CREATE TABLE IF NOT EXISTS jobs(jobid TEXT, jobscript TEXT, done INT, testtime)") 
+    db.execute("CREATE TABLE IF NOT EXISTS edges(parent TEXT, child TEXT, testtime)") 
+    db.execute("DELETE FROM jobs WHERE testtime <= datetime('now', '-1 hour')")
+    db.execute("DELETE FROM edges WHERE testtime <= datetime('now', '-1 hour')")
+
+
+
+## execution
+async def execute_single_job(jobid, jobscript):
+    """
+    Coroutine executing one job
+    """
+    logging.info(f"Executing {jobid}")
+    proc = await asyncio.create_subprocess_shell(jobscript)
+    await proc.communicate()
+    with sqlite3.connect(DATABASE_FILE) as db:
+        db.execute("UPDATE jobs SET done = 1 WHERE jobid = ?", (jobid,))
+    logging.info(f"Marked {jobid} as done")
+
+async def execute_jobs():
+    """
+    Simplistic scheduler checking jobs that can run and executing them
+    """
+    for _ in range(100):
+        with sqlite3.connect(DATABASE_FILE) as db:
+            result = db.execute(QUERY_RUNNABLE).fetchall()
+        if len(result):
+            async with asyncio.TaskGroup() as tg:
+                for row in result:
+                    tg.create_task(execute_single_job(*row))
+        else:
+            logging.info("Could not find any other job to execute.")
+            return 
+                
+
+if args.execute:
+    asyncio.run(execute_jobs())
+    exit(0)
+elif args.jobscript is None:
+    raise ValueError("Expected jobscript as the last positional argument")
+
+    
+
+
+## Submission 
+with open(args.jobscript) as input_file:
+    for line in input_file:
+        if line.startswith("# properties = "):
+            properties = json.loads(line[len("# properties = "):-1])
+            break
+
+logging.info(f"---")
+logging.info(f"Processing rule: {properties['rule']}")
+
+job_name = ''.join(
+    [properties['rule'], '-'] + 
+    [random.choice(string.ascii_lowercase) for _ in range(5)]
+)
+
+dependencies = [s for s in args.dependencies.split(" ") if s not in [' ', '', None]]
+logging.info(f"Submitting `{job_name}` which depends on {dependencies}")
+
+with sqlite3.connect(DATABASE_FILE) as db:
+    db.execute(
+        "INSERT INTO jobs(jobid, jobscript, done, testtime) VALUES (?, ?, 0, datetime('now'))",
+        (job_name, open(args.jobscript).read())
+    )
+
+    for dependency in dependencies:
+        db.execute(
+            "INSERT INTO edges(parent, child, testtime) VALUES (?, ?, datetime('now'))",
+            (dependency, job_name)
+        )
+
+        
+
+print(job_name)
+
+
+
+
