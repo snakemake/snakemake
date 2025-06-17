@@ -101,6 +101,8 @@ dev = { features = ["test", "docs", "style"] }
 
 py311 = { features = ["py311", "test"] }
 py312 = { features = ["py312", "test"] }
+py313 = { features = ["py313", "test"] }
+
 
 docs = { features = ["docs"] }
 quality = { features = ["style"] }
@@ -226,8 +228,8 @@ xorg-libsm = "*"
 stress-ng = "*"
 nodejs = "*"
 squashfuse = "*"
-cwltool = "*"
-cwl-utils = "*"
+#cwltool = "*"
+#cwl-utils = "*"
 # # moved to pixi from main.yaml installing via apt
 apptainer = "*"
 git = "*"
