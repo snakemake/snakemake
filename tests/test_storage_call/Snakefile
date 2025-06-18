@@ -14,4 +14,4 @@ rule b:
     output:
         "test.txt"
     shell:
-        "echo '{input}' > {output}"
+        "cat {input} > {output}"
