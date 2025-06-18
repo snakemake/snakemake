@@ -278,6 +278,8 @@ def notebook(
     Load a script from the given basedir + path and execute it.
     """
     draft = False
+    if isinstance(path, Path):
+        path = str(path)
     path = format(path, wildcards=wildcards, params=params)
     if edit is not None:
         if is_local_file(path):
