@@ -6,7 +6,7 @@ rule a:
     output:
         storage(f"{config['s3_prefix']}/test.txt", retries=5)
     shell:
-        "echo 'call' {output}"
+        "echo 'call' > {output}"
 
 rule b:
     input:
@@ -14,4 +14,4 @@ rule b:
     output:
         "test.txt"
     shell:
-        "echo '{input}' {output}"
+        "echo '{input}' > {output}"
