@@ -1,0 +1,39 @@
+rule all:
+    input: "report.yaml"
+    
+
+rule produce:
+    output:
+        txt="{fname}.txt"
+
+    
+    shell: "printf '%s\n' {wildcards.fname} > {output.txt}"
+
+
+rule count:
+    input:
+        txt="{fname}.txt"
+    output:
+        dat="{fname}.dat"
+
+    shell: "wc -m < {input.txt} > {output.dat}"
+
+rule sum:
+    input:
+        counts=expand("{f}.dat", f=['foo', 'bar', 'baz', 'qux', 'quux']),
+
+    output:
+        yaml="report.yaml"
+
+    shell: 
+        """
+        SUM=0
+        for i in {input.counts}; do
+            SUM=$(($SUM + $(cat "$i")));
+        done;
+        echo "sum: $SUM" > {output.yaml}
+        """
+
+    
+
+            
