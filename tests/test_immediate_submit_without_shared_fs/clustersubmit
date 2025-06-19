@@ -17,9 +17,9 @@ logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s | %(levelname)-8s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    stream=open(LOG_FILE, "a")
+    filename=LOG_FILE,
+    filemode="a",
 )
-
 QUERY_RUNNABLE = """
     SELECT child.jobid, child.jobscript 
     FROM jobs AS child
