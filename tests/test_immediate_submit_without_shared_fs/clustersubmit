@@ -49,6 +49,8 @@ with sqlite3.connect(DATABASE_FILE) as db:
 
 
 ## execution
+db_lock = asyncio.Lock()
+
 async def execute_single_job(jobid, jobscript):
     """
     Coroutine executing one job
@@ -56,10 +58,11 @@ async def execute_single_job(jobid, jobscript):
     logging.info(f"Executing {jobid}")
     proc = await asyncio.create_subprocess_shell(jobscript)
     await proc.communicate()
-    with sqlite3.connect(DATABASE_FILE) as db:
-        db.execute("UPDATE jobs SET done = 1 WHERE jobid = ?", (jobid,))
+    async with db_lock:
+        with sqlite3.connect(DATABASE_FILE, timeout=30) as db:
+            db.execute("PRAGMA journal_mode=WAL")
+            db.execute("UPDATE jobs SET done = 1 WHERE jobid = ?", (jobid,))
     logging.info(f"Marked {jobid} as done")
-
 async def execute_jobs():
     """
     Simplistic scheduler checking jobs that can run and executing them
