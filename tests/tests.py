@@ -2440,14 +2440,14 @@ def test_params_empty_inherit():
 def test_immediate_submit_without_shared_fs():
     run(
         dpath("test_immediate_submit_without_shared_fs"), 
-        shellcmd="snakemake "
-        "--executor cluster-generic "
-        "--cluster-generic-submit-cmd \"./clustersubmit --dependencies \\\"{dependencies}\\\"\" "
-        "--forceall " 
-        "--immediate-submit "
-        "--notemp "
-        "--jobs 10 " 
-        "; ./clustersubmit --execute" 
+        shellcmd="""snakemake \
+        --executor cluster-generic \
+        --cluster-generic-submit-cmd "./clustersubmit --dependencies \\\"{dependencies}\\\"" \
+        --forceall \
+        --immediate-submit \
+        --notemp \
+        --jobs 10 \
+        ; ./clustersubmit --execute """
     )
 
 
