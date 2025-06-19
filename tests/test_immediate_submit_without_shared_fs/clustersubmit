@@ -79,9 +79,13 @@ async def execute_single_job(jobid, jobscript):
     proc = await asyncio.create_subprocess_shell(jobscript)
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:
-        logging.critical(stdout)
-        logging.critical(stderr)
-        raise RuntimeError(f"Falied executing job {jobid}")
+        logging.error(f"Job {jobid} failed with return code {proc.returncode}")
+        if stdout:
+            logging.debug(f"Job {jobid} stdout: {stdout.decode()[:500]}...") 
+        if stderr:
+            logging.error(f"Job {jobid} stderr: {stderr.decode()[:500]}...")
+
+        raise RuntimeError(f"Faied executing job {jobid}")
 
     async with db_lock:
         with sqlite3.connect(DATABASE_FILE, timeout=30) as db:
