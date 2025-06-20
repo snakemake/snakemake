@@ -11,7 +11,7 @@ import subprocess
 import sys
 import platform
 from collections import OrderedDict, namedtuple
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from itertools import filterfalse, chain
 from functools import partial
 import copy
@@ -174,7 +174,7 @@ class Workflow(WorkflowExecutorInterface):
         self._localrules = set()
         self._linemaps = dict()
         self.rule_count = 0
-        self.included = []
+        self._included = OrderedDict()
         self.included_stack: list[SourceFile] = []
         self._persistence: Optional[Persistence] = None
         self._dag: Optional[DAG] = None
@@ -227,6 +227,13 @@ class Workflow(WorkflowExecutorInterface):
         self.cache_rules = dict()
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
+
+    @property
+    def included(self) -> Iterator[SourceFile]:
+        """
+        Return the included Snakefiles.
+        """
+        yield from self._included.values()
 
     @property
     def checkpoints(self):
@@ -492,7 +499,7 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def main_snakefile(self) -> str:
-        return self.included[0].get_path_or_uri()
+        return next(self.included).get_path_or_uri()
 
     @property
     def output_file_cache(self):
@@ -1489,6 +1496,9 @@ class Workflow(WorkflowExecutorInterface):
         """Basedir of currently parsed Snakefile."""
         assert self.included_stack
         snakefile = self.included_stack[-1]
+        return self._get_basedir(snakefile)    
+
+    def _get_basedir(self, snakefile: SourceFile) -> SourceFile:
         basedir = snakefile.get_basedir()
         if isinstance(basedir, LocalSourceFile):
             return basedir.abspath()
@@ -1504,24 +1514,20 @@ class Workflow(WorkflowExecutorInterface):
         assert frame is not None and frame.f_back is not None
         calling_file = frame.f_back.f_code.co_filename
 
-        if self.included_stack and (
-            (calling_file == self.included_stack[-1].get_path_or_uri())
-            or calling_file.startswith(self.current_basedir.get_path_or_uri())
-        ):
-            # called from current snakefile, we can try to keep the original source
-            # file annotation
-            # This will only work if the method is evaluated during parsing mode.
-            # Otherwise, the stack can be empty already.
-            path = self.current_basedir.join(rel_path)
+        if calling_file in self._included:
+            # calling file known as SourceFile
+            calling_file = self._included[calling_file]
+            path = self._get_basedir(calling_file).join(rel_path)
             orig_path = path.get_path_or_uri()
+            return sourcecache_entry(self.sourcecache.get_path(path), orig_path)
         else:
             # heuristically determine path
             calling_dir = os.path.dirname(calling_file)
             path = smart_join(calling_dir, rel_path)
             orig_path = path
-        return sourcecache_entry(
-            self.sourcecache.get_path(infer_source_file(path)), orig_path
-        )
+            return sourcecache_entry(
+                self.sourcecache.get_path(infer_source_file(path)), orig_path
+            )
 
     @property
     def snakefile(self):
@@ -1570,7 +1576,7 @@ class Workflow(WorkflowExecutorInterface):
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
             logger.info(f"Multiple includes of {snakefile} ignored")
             return
-        self.included.append(snakefile)
+        self._included[snakefile.get_path_or_uri()] = snakefile
         self.included_stack.append(snakefile)
 
         default_target = self.default_target

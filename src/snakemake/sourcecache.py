@@ -39,7 +39,7 @@ def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
 
 class SourceFile(ABC):
     @abstractmethod
-    def get_path_or_uri(self): ...
+    def get_path_or_uri(self) -> str: ...
 
     @abstractmethod
     def is_persistently_cacheable(self): ...
@@ -87,7 +87,7 @@ class GenericSourceFile(SourceFile):
     def __init__(self, path_or_uri):
         self.path_or_uri = path_or_uri
 
-    def get_path_or_uri(self):
+    def get_path_or_uri(self) -> str:
         return self.path_or_uri
 
     def get_filename(self):
@@ -105,7 +105,7 @@ class LocalSourceFile(SourceFile):
     def __init__(self, path):
         self.path = path
 
-    def get_path_or_uri(self):
+    def get_path_or_uri(self) -> str:
         return self.path
 
     def is_persistently_cacheable(self):
@@ -145,7 +145,7 @@ class LocalGitFile(SourceFile):
         self.repo_path = repo_path
         self.path = path
 
-    def get_path_or_uri(self):
+    def get_path_or_uri(self) -> str:
         return "git+file://{}/{}@{}".format(
             os.path.abspath(self.repo_path), self.path, self.ref
         )
@@ -286,7 +286,7 @@ class GithubFile(HostingProviderFile):
             )
         self.token = os.environ.get("GITHUB_TOKEN", "")
 
-    def get_path_or_uri(self):
+    def get_path_or_uri(self) -> str:
         auth = f":{self.token}@" if self.token else ""
         # TODO find out how this URL looks like with Github enterprise server and support
         # self.host being not none by removing the check in __post_init__
@@ -299,7 +299,7 @@ class GitlabFile(HostingProviderFile):
             self.host = "gitlab.com"
         self.token = os.environ.get("GITLAB_TOKEN", "")
 
-    def get_path_or_uri(self):
+    def get_path_or_uri(self) -> str:
         from urllib.parse import quote
 
         auth = f"&private_token={self.token}" if self.token else ""
@@ -312,7 +312,7 @@ class GitlabFile(HostingProviderFile):
         )
 
 
-def infer_source_file(path_or_uri, basedir: SourceFile = None):
+def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> SourceFile:
     if isinstance(path_or_uri, SourceFile):
         if basedir is None or isinstance(path_or_uri, HostingProviderFile):
             return path_or_uri
@@ -390,7 +390,6 @@ class SourceCache:
         file_cache_path = source_file.get_cache_path()
         assert file_cache_path
 
-        # TODO add git support to smart_open!
         if source_file.is_persistently_cacheable():
             # check cache
             return self.cache_path / file_cache_path
