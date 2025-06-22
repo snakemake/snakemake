@@ -1496,7 +1496,7 @@ class Workflow(WorkflowExecutorInterface):
         """Basedir of currently parsed Snakefile."""
         assert self.included_stack
         snakefile = self.included_stack[-1]
-        return self._get_basedir(snakefile)    
+        return self._get_basedir(snakefile)
 
     def _get_basedir(self, snakefile: SourceFile) -> SourceFile:
         basedir = snakefile.get_basedir()
