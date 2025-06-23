@@ -2325,6 +2325,10 @@ def test_temp_and_all_input():
     run(dpath("test_temp_and_all_input"))
 
 
+def test_python_import_from_github_module():
+    run(dpath("test_python_import_from_github_module"))
+
+
 def test_keep_local():
     with tempfile.TemporaryDirectory() as tmpdir:
         snakefile = os.path.join(dpath("test_local_and_retrieve"), "keep_local.smk")
