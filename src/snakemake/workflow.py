@@ -121,6 +121,7 @@ from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
+    HostingProviderFile,
     LocalSourceFile,
     SourceCache,
     SourceFile,
@@ -1577,6 +1578,10 @@ class Workflow(WorkflowExecutorInterface):
         Include a snakefile.
         """
         basedir = self.current_basedir if self.included_stack else None
+
+        if isinstance(snakefile, HostingProviderFile):
+            snakefile.cache_path = self.sourcecache.cache_path
+
         snakefile = infer_source_file(snakefile, basedir)
 
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
@@ -1602,12 +1607,12 @@ class Workflow(WorkflowExecutorInterface):
 
         snakefile_path_or_uri = snakefile.get_basedir().get_path_or_uri()
         if (
-            isinstance(snakefile, LocalSourceFile)
+            isinstance(snakefile, (LocalSourceFile, HostingProviderFile))
             and snakefile_path_or_uri not in sys.path
         ):
             # insert the current directory into sys.path
             # this allows to import modules from the workflow directory
-            sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
+            sys.path.insert(0, snakefile_path_or_uri)
 
         exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 

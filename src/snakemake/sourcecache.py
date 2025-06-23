@@ -16,11 +16,11 @@ import io
 from abc import ABC, abstractmethod
 from urllib.parse import unquote
 
-from snakemake_interface_executor_plugins.settings import ExecMode
+
+from git import Repo
 from snakemake.common import (
     ON_WINDOWS,
     is_local_file,
-    get_appdirs,
     parse_uri,
     smart_join,
 )
@@ -184,6 +184,93 @@ class LocalGitFile(SourceFile):
         return True
 
 
+class HostedGitRepo:
+    def __init__(
+        self,
+        repo: str,
+        cache_path: Path,
+        auth: str,
+        host: str,
+    ):
+        repo_url = f"https://{auth}{host}/{repo}"
+
+        self.repo_clone = cache_path / host / repo
+
+        self._existed_before = self.repo_clone.exists()
+
+        if self._existed_before:
+            self._repo = Repo(self.repo_clone)
+        else:
+            # lock-free cloning of the repository
+            logger.info(f"Cloning {host}/{repo} to {self.repo_clone}")
+            self.repo_clone.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix=f"{self.repo_clone}.") as tmpdir:
+                # the clone is not atomic, hence we do that in a temporary directory
+                Repo.clone_from(repo_url, to_path=tmpdir)
+                # move is atomic, so we can safely move the directory to the final
+                # location
+                shutil.move(tmpdir, self.repo_clone)
+            self._repo = Repo(self.repo_clone)
+
+        self._checkout = None
+
+    @property
+    def repo(self) -> Repo:
+        return self._repo
+
+    def checkout(
+        self,
+        branch: Optional[str] = None,
+        tag_or_commit: Optional[str] = None,
+    ):
+        if self._checkout is not None:
+            if (
+                self._checkout.branch == branch
+                and self._checkout.tag_or_commit == tag_or_commit
+            ):
+                return self._checkout
+            else:
+                self._checkout.stale = True
+        return HostedGitRepoCheckout(self, branch, tag_or_commit)
+
+
+class HostedGitRepoCheckout:
+    def __init__(
+        self,
+        hosted_repo: HostedGitRepo,
+        branch: Optional[str] = None,
+        tag_or_commit: Optional[str] = None,
+    ):
+        self.hosted_repo = hosted_repo
+        self.ref = tag_or_commit or branch
+
+        if self.hosted_repo._existed_before and branch:
+            # clone existed before and shall point to branch, update it
+            origin = self.hosted_repo.repo.remote("origin")
+            origin.fetch()
+            self.hosted_repo.repo.git.checkout(self.ref)
+            self.hosted_repo.repo.git.pull("origin", self.ref)
+        else:
+            try:
+                self.hosted_repo.repo.git.checkout(self.ref)
+            except Exception:
+                origin = self.hosted_repo.repo.remote("origin")
+                origin.fetch()
+                self.hosted_repo.repo.git.checkout(self.ref)
+
+        self.stale = False
+
+    def mtime(self, path: Path) -> float:
+        # Every change in the repo is a potential change in the input, hence,
+        # the mtime is just the mtime of the file in the cloned repo.
+        # If that file is changed, the mtime is accordingly updated.
+        return os.stat(self.source_path(path)).st_mtime
+
+    def source_path(self, path: Path) -> Path:
+        assert not self.stale, "bug: source_path called on stale checkout"
+        return self.hosted_repo.repo_clone / path
+
+
 class HostingProviderFile(SourceFile):
     """Marker for denoting github source files from releases."""
 
@@ -191,12 +278,13 @@ class HostingProviderFile(SourceFile):
 
     def __init__(
         self,
-        repo: str = None,
-        path: str = None,
-        tag: str = None,
-        branch: str = None,
-        commit: str = None,
-        host: str = None,
+        repo: Optional[str] = None,
+        path: Optional[str] = None,
+        tag: Optional[str] = None,
+        branch: Optional[str] = None,
+        commit: Optional[str] = None,
+        host: Optional[str] = None,
+        cache_path: Optional[Path] = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -222,27 +310,74 @@ class HostingProviderFile(SourceFile):
         self.commit = commit
         self.branch = branch
         self.path = path.strip("/")
-        self.token = ""
         self.host = host
+
+        self._hosted_repo: Optional[HostedGitRepo] = None
+        self._cache_path: Optional[Path] = cache_path
 
         # Via __post_init__ implementing subclasses can do additional things without
         # replicating the constructor args.
         self.__post_init__()
 
+        if self.host.startswith("https://") or self.host.startswith("http://"):
+            raise WorkflowError(
+                "host must be given as domain name without protocol prefix "
+                f"(e.g. github.com, but found {self.host})  for git-hosted source "
+                f"file {self.path} in repo {self.repo}."
+            )
+
     def __post_init__(self):
         pass
 
-    def mtime(self) -> Optional[float]:
-        # Intentionally None, hence causing any caching to generate an updated mtime.
-        # Switching commits/branches/refs in the same repo should cause rerun triggers
-        # if those files are used as input files for jobs and have changed checksums.
-        return None
+    @property
+    def auth(self) -> str:
+        return ""
+
+    @property
+    def cache_path(self) -> Path:
+        assert self._cache_path, "bug: cache_dir not set, should be done by SourceCache"
+
+        return self._cache_path
+
+    @cache_path.setter
+    def cache_path(self, cache_path: Path):
+        self._cache_path = cache_path / "snakemake-git-cache"
+
+    @property
+    def hosted_repo(self) -> HostedGitRepo:
+        if self._hosted_repo is None:
+            self._hosted_repo = HostedGitRepo(
+                self.repo, self.cache_path, self.auth, self.host
+            )
+        return self._hosted_repo
+
+    @hosted_repo.setter
+    def hosted_repo(self, hosted_repo: HostedGitRepo):
+        self._hosted_repo = hosted_repo
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
 
     def get_filename(self):
         return os.path.basename(self.path)
+
+    def get_path_or_uri(self):
+        checkout = self._checkout()
+        return str(checkout.source_path(self.path))
+
+    def mtime(self) -> float:
+        checkout = self._checkout()
+        return checkout.mtime(self.path)
+
+    def _checkout(self):
+        try:
+            return self.hosted_repo.checkout(self.branch, self.commit or self.tag)
+        except Exception as e:
+            raise WorkflowError(
+                "Failed to clone/checkout git repository "
+                f"{self.host}/{self.repo} at {self.branch or self.commit or self.tag}.",
+                e,
+            )
 
     @property
     def ref(self):
@@ -256,6 +391,7 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
             host=self.host,
+            cache_path=self.cache_path,
         )
 
     def join(self, path):
@@ -271,6 +407,7 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
             host=self.host,
+            cache_path=self.cache_path,
         )
 
     @property
@@ -280,17 +417,15 @@ class HostingProviderFile(SourceFile):
 
 class GithubFile(HostingProviderFile):
     def __post_init__(self):
-        if self.host is not None:
-            raise WorkflowError(
-                "host keyword argument is not yet supported by GithubFile."
-            )
+        if self.host is None:
+            self.host = "github.com"
         self.token = os.environ.get("GITHUB_TOKEN", "")
 
-    def get_path_or_uri(self) -> str:
-        auth = f":{self.token}@" if self.token else ""
-        # TODO find out how this URL looks like with Github enterprise server and support
-        # self.host being not none by removing the check in __post_init__
-        return f"https://{auth}raw.githubusercontent.com/{self.repo}/{self.ref}/{self.path}"
+    @property
+    def auth(self) -> str:
+        if self.token:
+            return f"{self.token}@"
+        return ""
 
 
 class GitlabFile(HostingProviderFile):
@@ -299,17 +434,11 @@ class GitlabFile(HostingProviderFile):
             self.host = "gitlab.com"
         self.token = os.environ.get("GITLAB_TOKEN", "")
 
-    def get_path_or_uri(self) -> str:
-        from urllib.parse import quote
-
-        auth = f"&private_token={self.token}" if self.token else ""
-        return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
-            self.host,
-            quote(self.repo, safe=""),
-            quote(self.path, safe=""),
-            self.ref,
-            auth,
-        )
+    @property
+    def auth(self) -> str:
+        if self.token:
+            return f"{self.token}@"
+        return ""
 
 
 def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> SourceFile:
@@ -354,7 +483,7 @@ class SourceCache:
         self.cache_path = cache_path
         os.makedirs(self.cache_path, exist_ok=True)
         if runtime_cache_path is None:
-            runtime_cache_parent = self.cache_path / "runtime-cache"
+            runtime_cache_parent = self.cache_path / "snakemake-runtime-cache"
             os.makedirs(runtime_cache_parent, exist_ok=True)
             self.runtime_cache = tempfile.TemporaryDirectory(
                 dir=runtime_cache_parent, ignore_cleanup_errors=True
@@ -387,6 +516,9 @@ class SourceCache:
         return str(cache_entry)
 
     def _cache_entry(self, source_file: SourceFile) -> Path:
+        if isinstance(source_file, HostingProviderFile):
+            source_file.cache_path = self.cache_path
+
         file_cache_path = source_file.get_cache_path()
         assert file_cache_path
 
