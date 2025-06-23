@@ -9,7 +9,7 @@ import re
 import os
 import shutil
 import stat
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from snakemake import utils
 import tempfile
 import io
