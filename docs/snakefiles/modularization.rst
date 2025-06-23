@@ -191,11 +191,56 @@ This modification can be performed after a general import, and will overwrite an
 
 By such a modifying use statement, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be overwritten, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
 
+.. note::
+    Modification of `params` allows the replacement of single keyword arguments. Keyword `params` arguments of the original rule that are not defined after `with` are inherited. Positional `params` arguments of the original rule are overwritten, if positional `params` arguments are given after `with`.
+    All other properties are overwritten with the values specified after `with`.
+
 Note that the second use statement has to use the original rule name, not the one that has been prefixed with ``other_`` via the first use statement (there is no rule ``other_some_task`` in the module ``other_workflow``).
 In order to overwrite the rule ``some_task`` that has been imported with the first ``use rule`` statement, it is crucial to ensure that the rule is used with the same name in the second statement, by adding an equivalent ``as`` clause (here ``other_some_task``).
 Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
 
 Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
+
+.. _snakefiles-dynamic-modules:
+
+---------------
+Dynamic Modules
+---------------
+
+With Snakemake 9.0 and later, it is possible to load modules dynamically by providing the ``name`` keyword inside the module definition.
+For example, by reading the module name from a config file or by iterating over several modules in a loop.
+For this, the module name is not specified directly after the ``module`` keyword, but by specifying the ``name`` parameter. 
+
+
+.. code-block:: python
+
+    for module_name in ['module1', 'module2']:
+        module:
+            name: module_name
+            snakefile: f"{module_name}/Snakefile"
+            config: config[module_name]
+
+        use rule * from module_name as module_name*
+
+.. note::
+    It is not allowed to specify the module name both after the ``module`` keyword and inside the module definition after the ``name`` parameter.
+
+In the ``use rule`` statement, it is first checked if the module name (here, ``'module_name'``) corresponds to a loaded module. If yes, the rules are imported from the loaded module and an arbitrary alias can be provided after the ``as`` keyword.
+
+If ``module_name`` was not registered as a module (as in the example above), the module name is resolved dynamically by searching the name in the current python variable scope. In the example, it resolves to ``'module1'`` and ``'module2'``.
+Note that this means that if ``use rule`` is used with the optional ``as`` keyword inside the loop, the alias after ``as`` must be specified using a variable to ensure a one-to-one mapping between module names and their aliases. This can either be the same name variable (as in the above example) or a second variable (as in the example below).
+
+In particular, it is not possible to modify the alias name in the ``use rule`` statement (e.g., writing directly ``use rule * from module as module_*`` is not allowed for dynamic modules).
+
+.. code-block:: python
+
+    for module_name, alias in zip(['module1', 'module2'], ['module1_', 'module2_']):
+        module:
+            name: module_name
+            snakefile: f"{module_name}/Snakefile"
+            config: config[module_name]
+
+        use rule * from module_name as alias*
 
 ..  _snakefiles-meta-wrappers:
 

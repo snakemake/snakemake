@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   formatting:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     permissions:
       contents: read # for actions/checkout to fetch code
       pull-requests: write # for marocchino/sticky-pull-request-comment to create or update PR comment
@@ -20,155 +21,131 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: mamba-org/setup-micromamba@v1
+      - name: Install Pixi
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
-          environment-name: black
-          create-args: black
-          cache-environment: false
+          environments: "quality"
+          pixi-version: v0.42.1
+          cache: false # no pixi.lock
+          locked: false
 
-      - name: Check formatting
-        shell: bash -el {0}
-        run: black --check --diff .
+      - name: Run black
+        run: pixi run -e quality format --check --diff .
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v2.8.0
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
           message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  testing:
+  ################################################################################################
+  # Testing: Run tests using Pixi
+  ################################################################################################
+  tests:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     strategy:
+      fail-fast: false
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        py_ver: ["3.11", "3.12"]
-    runs-on: ubuntu-latest
-    needs: formatting
+        # see pyprojec.toml: [tool.pixi.feature.test] for available test types
+        os: [ubuntu-latest, windows-latest, macos-latest] #  , macos-13 not supported yet
+        env: ["py311", "py312"]
+        exclude:
+          - os: windows-latest
+            env: "py311"
+          - os: macos-latest
+            env: "py311"
+
+    runs-on: ${{ matrix.os }}
+
     env:
       AWS_AVAILABLE: "${{ secrets.AWS_ACCESS_KEY_ID }}"
       GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
+      ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
+      CI: true
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Modify python version in test env
-        shell: bash -el {0}
-        run: |
-          cp test-environment.yml test-environment-${{ matrix.py_ver }}.yml
-          sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment-${{ matrix.py_ver }}.yml
-
-      - name: Setup snakemake environment
-        uses: conda-incubator/setup-miniconda@v3
+      - name: Install Pixi
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
-          miniforge-version: latest
-          environment-file: test-environment-${{ matrix.py_ver }}.yml
-          environment-name: snakemake
-          auto-update-conda: true
-
-      - name: Install snakemake from source
-        shell: bash -el {0}
-        run: |
-          conda config --set channel_priority strict
-
-          pip install -e .
-
-      # - name: Configure fast APT mirror
-      #   uses: vegardit/fast-apt-mirror.sh@1.0.0
-
-      - name: Setup apt dependencies
-        run: |
-          sudo add-apt-repository -y ppa:apptainer/ppa
-          sudo apt-get update
-          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev apptainer
+          environments: ${{ matrix.env }}
+          pixi-version: v0.42.1
+          cache: false # no pixi.lock
+          locked: false
 
       # See https://github.com/apptainer/apptainer/pull/2262
-      - name: Disable apparmor namespace restrictions for apptainer
+      - name: Disable apparmor namespace restrictions for apptainer (os='Linux')
+        if: runner.os == 'Linux'
         run: |
           sudo sh -c 'echo kernel.apparmor_restrict_unprivileged_userns=0 \
               >/etc/sysctl.d/90-disable-userns-restrictions.conf'
           sudo sysctl -p /etc/sysctl.d/90-disable-userns-restrictions.conf
 
-      - name: Test local
-        env:
-          CI: true
-          ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
-          #PYTHONTRACEMALLOC: 10
-        shell: bash -el {0}
-        run: |
-          pytest -v -x --show-capture=stderr \
-            --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration \
-            tests/tests.py \
-            tests/test_expand.py \
-            tests/test_io.py \
-            tests/test_schema.py \
-            tests/test_linting.py \
-            tests/test_executor_test_suite.py \
-            tests/test_api.py \
-            tests/test_internals.py
-
-      - name: Run tests/test_report/Snakefile to generate report
-        shell: bash -el {0}
-        run: |
-          cd tests/test_report
-          snakemake --use-conda --cores 1 --report report.zip
-
-      - name: List directory structure
-        run: |
-          ls -R
-
-      - name: Upload report
-        if: ${{ matrix.test_group == 1 }}
-        uses: actions/upload-artifact@v4
+      - name: Setup MinIO for AWS S3 testing (os='Linux', for AWS S3 testing)
+        if: runner.os == 'Linux'
+        uses: comfuture/minio-action@v1
         with:
-          name: report-${{ matrix.py_ver }}.zip
-          path: tests/test_report/report.zip
+          access_key: minio
+          secret_key: minio123
+          port: 9000
 
+      - name: Test MinIO (os='Linux')
+        if: runner.os == 'Linux'
+        run: |
+          export AWS_ACCESS_KEY_ID=minio
+          export AWS_SECRET_ACCESS_KEY=minio123
+          export AWS_EC2_METADATA_DISABLED=true
+          aws --endpoint-url http://127.0.0.1:9000/ s3 mb s3://test
+
+      - name: Run Tests for Linux (os= 'Linux')
+        if: runner.os == 'Linux'
+        run: |
+          pixi run --environment ${{matrix.env}} test-all \
+            --splits 10 \
+            --group ${{ matrix.test_group }} \
+            --splitting-algorithm=least_duration \
+            --showlocals \
+            --show-capture=all
+
+          cd tests/test_report
+          pixi run -e ${{ matrix.env }} snakemake \
+            --use-conda \
+            --cores 1 \
+            --report report.zip
+
+      - name: Run Tests for MacOS (os='macOS')
+        if: runner.os == 'macOS'
+        run: |
+          pixi run --environment ${{matrix.env}} test-simple \
+          --splits 10 \
+          --group ${{ matrix.test_group }} \
+          --splitting-algorithm=least_duration \
+          --showlocals \
+          --show-capture=all
+
+      - name: Run Tests for Windows (os='Windows')
+        if: runner.os == 'Windows'
+        run: |
+          pixi run --environment ${{matrix.env}} test-simple --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration --showlocals --show-capture=all
 
   build-container-image:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
-    needs: testing
+    needs: tests
     steps:
       - uses: actions/checkout@v4
 
       - name: Build container image
         run: docker build .
 
-  testing-windows:
-    strategy:
-      matrix:
-        test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    runs-on: windows-latest
-    needs: formatting
+  testing-done:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
+    needs:
+      - tests
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Remove unix-only dependencies
-        shell: python
-        run: |
-          import fileinput
-          excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
-          for line in fileinput.input("test-environment.yml", inplace=True):
-              if all(pkg not in line for pkg in excluded_on_win):
-                  print(line, end="")
-
-      - name: Setup snakemake environment
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          miniforge-version: latest
-          environment-file: test-environment.yml
-          environment-name: snakemake
-          auto-update-conda: true
-
-      - name: Install snakemake from source
-        run: |
-
-          pip install .
-
-      - name: Run tests
-        env:
-          CI: true
-          ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
-        run: |
-          python -m pytest --show-capture=stderr -v -x --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration tests/tests.py
+      - run: echo "All tests passed."
