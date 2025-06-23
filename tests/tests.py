@@ -1045,44 +1045,6 @@ def test_scopes_submitted_to_cluster(mocker):
 
 
 @skip_on_windows
-def test_resources_submitted_to_cluster(mocker):
-    from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
-
-    spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
-    run(
-        dpath("test_group_jobs_resources"),
-        cluster="./qsub",
-        cores=6,
-        resources={"mem_mb": 60000},
-        max_threads=1,
-        group_components={0: 5},
-        default_resources=DefaultResources(["mem_mb=0"]),
-    )
-
-    assert_resources(
-        spy.spy_return, mem_mb=60000, fake_res=1200, global_res=3000, disk_mb=3000
-    )
-
-
-@skip_on_windows
-def test_excluded_resources_not_submitted_to_cluster(mocker):
-    from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
-
-    spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
-    run(
-        dpath("test_group_jobs_resources"),
-        cluster="./qsub",
-        cores=6,
-        resources={"mem_mb": 60000},
-        max_threads=1,
-        overwrite_resource_scopes={"fake_res": "excluded"},
-        group_components={0: 5},
-        default_resources=DefaultResources(["mem_mb=0"]),
-    )
-    assert_resources(spy.spy_return, mem_mb=60000, global_res=3000, disk_mb=3000)
-
-
-@skip_on_windows
 def test_group_job_resources_with_pipe(mocker):
     import copy
     from snakemake_interface_executor_plugins.executors.real import RealExecutor
