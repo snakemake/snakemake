@@ -28,6 +28,10 @@ from snakemake.common.git import split_git_path
 from snakemake.logging import logger
 
 
+if TYPE_CHECKING:
+    import git
+
+
 def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
     n_refs = sum(1 for ref in (tag, branch, commit) if ref is not None)
     if n_refs != 1:
@@ -216,7 +220,7 @@ class HostedGitRepo:
         self._checkout = None
 
     @property
-    def repo(self) -> Repo:
+    def repo(self) -> "git.Repo":
         return self._repo
 
     def checkout(
