@@ -576,7 +576,7 @@ class Workflow(WorkflowExecutorInterface):
             return self.cache_rules.get(rule.name)
 
     @property
-    def rules(self):
+    def rules(self) -> Iterable[Rule]:
         return self._rules.values()
 
     @property
@@ -811,19 +811,24 @@ class Workflow(WorkflowExecutorInterface):
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
 
-        rules = (
-            [
+        if self.dag_settings.allowed_rules and not any(
+            rule.is_checkpoint for rule in self.rules
+        ):
+            dag_rules = [
                 rule
                 for rule in self.rules
                 if rule.name in self.dag_settings.allowed_rules
             ]
-            if self.dag_settings.allowed_rules
-            else self.rules
-        )
+            allowed_needrun = None
+        else:
+            dag_rules = self.rules
+            # If the if-case is skipped because of checkpoints, we still want
+            # allowed_rules to restrict the rules that are allowed to be run.
+            allowed_needrun = self.dag_settings.allowed_rules
 
         self._dag = DAG(
             self,
-            rules,
+            dag_rules,
             targetfiles=targetfiles,
             targetrules=targetrules,
             # when cleaning up conda or containers, we should enforce all possible jobs
@@ -838,6 +843,7 @@ class Workflow(WorkflowExecutorInterface):
             omitfiles=omitfiles,
             omitrules=omitrules,
             ignore_incomplete=ignore_incomplete,
+            rules_allowed_for_needrun=allowed_needrun,
         )
 
         persistence_path = (

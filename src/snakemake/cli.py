@@ -1399,7 +1399,7 @@ def get_argument_parser(profiles=None):
         nargs="+",
         help="Only consider given rules. If omitted, all rules in Snakefile are "
         "used. Note that this is intended primarily for internal use and may "
-        "lead to unexpected results otherwise.",
+        "lead to unexpected results otherwise. Meant for internal use or debugging.",
     )
     group_behavior.add_argument(
         "--max-jobs-per-timespan",
