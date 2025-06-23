@@ -17,7 +17,6 @@ from abc import ABC, abstractmethod
 from urllib.parse import unquote
 
 
-from git import Repo
 from snakemake.common import (
     ON_WINDOWS,
     is_local_file,
@@ -192,6 +191,8 @@ class HostedGitRepo:
         auth: str,
         host: str,
     ):
+        from git import Repo
+
         repo_url = f"https://{auth}{host}/{repo}"
 
         self.repo_clone = cache_path / host / repo
