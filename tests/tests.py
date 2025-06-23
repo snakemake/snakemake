@@ -2230,6 +2230,9 @@ def test09_inventory_cache_with_dryrun_first_and_fail_second():
     testdir = "test09"
     tmpdir = run(dpath(testdir), executor="dryrun", cleanup=False, check_results=False)
     run(dpath(testdir), tmpdir=tmpdir, trust_io_cache=True, shouldfail=True)
+# Currently this is expected to fail, requires a fix
+def test_python_import_from_github_module():
+    run(dpath("test_python_import_from_github_module"))
 
 
 @skip_on_windows  # OS agnostic

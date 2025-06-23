@@ -8,6 +8,8 @@ configargparse
 appdirs
 immutables
 sphinxawesome-theme
+gitpython
+humanfriendly
 snakemake-interface-common
 snakemake-interface-executor-plugins
 snakemake-interface-storage-plugins
