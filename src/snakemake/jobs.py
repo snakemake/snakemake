@@ -1792,6 +1792,9 @@ class Reason:
     ]
 
     def __init__(self):
+        self.clear()
+
+    def clear(self) -> None:
         from snakemake.persistence import NO_PARAMS_CHANGE
 
         self.finished = False
