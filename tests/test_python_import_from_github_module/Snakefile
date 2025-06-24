@@ -1,0 +1,18 @@
+rule all:
+    output: 
+        "results/output.txt"
+    input:
+        "results/intermediate.txt"
+    shell:
+        "touch {output}"
+
+
+module minimal_module:
+    snakefile:
+        github(
+            "snakemake/snakemake", 
+            path="tests/test_python_import_from_github_module/minimal_module/Snakefile", 
+            commit="f4d5854841d79e0393d118745c7dbe856268ed59"
+        )
+
+use rule * from minimal_module
