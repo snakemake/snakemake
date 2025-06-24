@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.6.2](https://github.com/snakemake/snakemake/compare/v9.6.1...v9.6.2) (2025-06-23)
+
+
+### Bug Fixes
+
+* if workflow contains checkpoints, only use --allowed-rules to restrict whether jobs are considered to be run, not for the plain DAG computation ([#3640](https://github.com/snakemake/snakemake/issues/3640)) ([10b4ddf](https://github.com/snakemake/snakemake/commit/10b4ddfc00c590c60ab579a59e8345061d99039d))
+
 ## [9.6.1](https://github.com/snakemake/snakemake/compare/v9.6.0...v9.6.1) (2025-06-22)
 
 
