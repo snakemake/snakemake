@@ -1,0 +1,17 @@
+rule all:
+    input:
+        "test.txt"
+    
+rule a:
+    output:
+        storage(f"{config['s3_prefix']}/test.txt", retries=5)
+    shell:
+        "echo 'call' > {output}"
+
+rule b:
+    input:
+        rules.a.output
+    output:
+        "test.txt"
+    shell:
+        "cat {input} > {output}"

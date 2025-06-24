@@ -165,9 +165,10 @@ class StorageRegistry:
         query: str,
         retrieve: Optional[bool] = None,
         keep_local: Optional[bool] = None,
+        **kwargs,
     ):
         return self._storage_object(
-            query, provider=None, retrieve=retrieve, keep_local=keep_local
+            query, provider=None, retrieve=retrieve, keep_local=keep_local, **kwargs
         )
 
     def _storage_object(
@@ -176,11 +177,16 @@ class StorageRegistry:
         provider: Optional[str] = None,
         retrieve: Optional[bool] = None,
         keep_local: Optional[bool] = None,
+        **kwargs,
     ):
         if isinstance(query, list):
             return [
                 self._storage_object(
-                    q, provider=provider, retrieve=retrieve, keep_local=keep_local
+                    q,
+                    provider=provider,
+                    retrieve=retrieve,
+                    keep_local=keep_local,
+                    **kwargs,
                 )
                 for q in query
             ]
@@ -192,7 +198,7 @@ class StorageRegistry:
 
         provider = self._storages.get(provider_name)
         if provider is None:
-            provider = self.register_storage(provider_name)
+            provider = self.register_storage(provider_name, **kwargs)
 
         query_validity = provider.is_valid_query(query)
         if not query_validity:
