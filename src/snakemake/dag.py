@@ -22,14 +22,17 @@ from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
+from snakemake.rules import Rule
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake.settings.enums import Quietness
 
 from snakemake import workflow as _workflow
 from snakemake.common import (
@@ -104,7 +107,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def __init__(
         self,
         workflow,
-        rules=None,
+        rules: Iterable[Rule],
         targetfiles: Set[str] = None,
         targetrules=None,
         forceall=False,
@@ -117,6 +120,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         omitfiles=None,
         omitrules=None,
         ignore_incomplete=False,
+        rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
         self._queue_input_jobs = None
         self._dependencies = defaultdict(partial(defaultdict, set))
@@ -130,6 +134,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._len = 0
         self.workflow: _workflow.Workflow = workflow
         self.rules = set(rules)
+        self.rules_allowed_for_needrun = rules_allowed_for_needrun
         self.targetfiles = targetfiles
         self.targetrules = targetrules
         self.target_jobs_rules = {
@@ -960,9 +965,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         for f in unneeded_files():
             if self.workflow.dryrun:
-                logger.info(f"Would remove temporary output {fmt_iofile(f)}")
+                logger.info(
+                    f"Would remove temporary output {fmt_iofile(f)}",
+                    extra={"quietness": Quietness.RULES},
+                )
             else:
-                logger.info(f"Removing temporary output {fmt_iofile(f)}.")
+                logger.info(
+                    f"Removing temporary output {fmt_iofile(f)}.",
+                    extra={"quietness": Quietness.RULES},
+                )
                 await f.remove(remove_non_empty_dir=True)
 
     async def handle_log(self, job):
@@ -1363,6 +1374,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         async def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
+
+            if (
+                self.rules_allowed_for_needrun
+                and job.rule.name not in self.rules_allowed_for_needrun
+            ):
+                reason.clear()
+                return reason
 
             if is_forced(job):
                 reason.forced = True
