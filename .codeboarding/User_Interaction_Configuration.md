@@ -34,29 +34,12 @@ graph LR
 
 ## Details
 
-
-
-One paragraph explaining the functionality which is represented by this graph. What the main flow is and what is its purpose.
-
-
-
 ### CLI
 
 The `CLI` component is the primary entry point for users to interact with Snakemake via the command line. It is responsible for parsing and validating command-line arguments, translating them into structured configurations, and orchestrating the initial setup and execution flow of the workflow. It acts as the "command" part of the CQRS pattern, interpreting user directives.
 
-
-
-
-
 **Related Classes/Methods**:
-
-
-
 - <a href="https://github.com/snakemake/snakemake/blob/main/src/snakemake/cli.py#L1-L1" target="_blank" rel="noopener noreferrer">`snakemake.cli` (1:1)</a>
-
-
-
-
 
 ### API Layer
 
