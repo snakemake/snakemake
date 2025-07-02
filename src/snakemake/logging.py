@@ -558,10 +558,10 @@ class LoggerManager:
             # Equivalent to ExecMode.SUBPROCESS behavior
             handler = self._default_streamhandler()
             handler.setLevel(logging.ERROR)
-            self.logger.addHandler(handler)
+            stream_handlers.append(handler)
         elif settings.use_default_stream and not handlers:
             # Equivalent to ExecMode.REMOTE behavior or default when no handlers
-            self.logger.addHandler(self._default_streamhandler())
+            stream_handlers.append(self._default_streamhandler())
         elif handlers:
             for handler in handlers:
                 if handler.needs_rulegraph:
@@ -581,6 +581,9 @@ class LoggerManager:
         elif len(stream_handlers) == 0:
             # we dont have any stream_handlers from plugin(s) so give us the default one
             self.logger.addHandler(self._default_streamhandler())
+
+        if stream_handlers:
+            self.logger.addHandler(stream_handlers[0])
 
         if other_handlers and settings.enable_queue_listener:
             self._queue = Queue(-1)
