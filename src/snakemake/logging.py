@@ -25,7 +25,6 @@ from snakemake_interface_logger_plugins.settings import OutputSettingsLoggerInte
 from snakemake_interface_logger_plugins.common import LogEvent
 
 if TYPE_CHECKING:
-    from snakemake_interface_executor_plugins.settings import ExecMode
     from snakemake.settings.enums import Quietness
 
 
@@ -447,39 +446,30 @@ class ColorizingTextHandler(logging.StreamHandler):
         self,
         nocolor=False,
         stream=sys.stderr,
-        mode=None,
         formatter: Optional[logging.Formatter] = None,
         filter: Optional[logging.Filter] = None,
     ):
         super().__init__(stream=stream)
         self.last_msg_was_job_info = False
         self._output_lock = threading.Lock()
-        self.nocolor = nocolor or not self.can_color_tty(mode)
-        self.mode = mode
+        self.nocolor = nocolor or not self.can_color_tty()
 
         if formatter:
             self.setFormatter(formatter)
         if filter:
             self.addFilter(filter)
 
-    def can_color_tty(self, mode):
+    def can_color_tty(self):
         """
         Colors are supported when:
         1. Terminal is not "dumb"
-        2. Running in subprocess mode
-        3. Using a TTY on non-Windows systems
+        2. Using a TTY on non-Windows systems
         """
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
         # Case 1: Check if terminal is "dumb"
         if os.environ.get("TERM") == "dumb":
             return False
 
-        # Case 2: Always support colors in subprocess mode
-        if mode == ExecMode.SUBPROCESS:
-            return True
-
-        # Case 3: Support colors on TTY except for Windows
+        # Case 2: Support colors on TTY except for Windows
         is_windows = platform.system() == "Windows"
         has_tty = self.is_tty
 
@@ -549,30 +539,28 @@ class LoggerManager:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
         self.queue_listener = None
-        self.mode = None
+
         self.needs_rulegraph = False
         self.logfile_handlers = {}
         self.settings: OutputSettingsLoggerInterface = None
 
     def setup(
         self,
-        mode: "ExecMode",
         handlers: List[LogHandlerBase],
         settings: OutputSettingsLoggerInterface,
     ):
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
-        self.mode = mode
         self.settings = settings
 
         stream_handlers = []
         other_handlers = []
 
-        if self.mode == ExecMode.SUBPROCESS:
+        if settings.log_errors_only:
+            # Equivalent to ExecMode.SUBPROCESS behavior
             handler = self._default_streamhandler()
             handler.setLevel(logging.ERROR)
             self.logger.addHandler(handler)
-        elif self.mode == ExecMode.REMOTE:
+        elif settings.use_default_stream and not handlers:
+            # Equivalent to ExecMode.REMOTE behavior or default when no handlers
             self.logger.addHandler(self._default_streamhandler())
         elif handlers:
             for handler in handlers:
@@ -594,7 +582,7 @@ class LoggerManager:
             # we dont have any stream_handlers from plugin(s) so give us the default one
             self.logger.addHandler(self._default_streamhandler())
 
-        if other_handlers:
+        if other_handlers and settings.enable_queue_listener:
             self._queue = Queue(-1)
             self.queue_listener = logging.handlers.QueueListener(
                 self._queue,
@@ -641,7 +629,6 @@ class LoggerManager:
         stream_handler = ColorizingTextHandler(
             nocolor=self.settings.nocolor,
             stream=sys.stdout if self.settings.stdout else sys.stderr,
-            mode=self.mode,
         )
         stream_handler.addFilter(self._default_filter())
         stream_handler.setFormatter(self._default_formatter())
@@ -652,27 +639,21 @@ class LoggerManager:
         return list(self.logfile_handlers.values())
 
     def logfile_hint(self):
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
         """Log the logfile location if applicable."""
         logfiles = self.logfile_handlers.values()
-        if self.mode == ExecMode.DEFAULT and not self.settings.dryrun and logfiles:
+        if self.settings.enable_file_logging and not self.settings.dryrun and logfiles:
             log_paths = ", ".join([os.path.abspath(p) for p in logfiles])
             self.logger.info(f"Complete log(s): {log_paths}")
         return logfiles
 
     def cleanup_logfile(self):
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
-        if self.mode == ExecMode.DEFAULT:
+        if self.settings.enable_file_logging:
             for handler in self.logfile_handlers.keys():
                 self.logger.removeHandler(handler)
                 handler.close()
 
     def setup_logfile(self, workdir: Optional[os.PathLike] = None):
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
-        if self.mode == ExecMode.DEFAULT and not self.settings.dryrun:
+        if self.settings.enable_file_logging and not self.settings.dryrun:
             if workdir:
                 logdir = os.path.join(workdir, ".snakemake", "log")
             else:

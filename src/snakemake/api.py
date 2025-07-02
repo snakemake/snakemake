@@ -256,7 +256,6 @@ class SnakemakeApi(ApiBase):
                 log_handlers.append(plugin.log_handler(self.output_settings, settings))
 
             logger_manager.setup(
-                mode=self.output_settings.mode,
                 handlers=log_handlers,
                 settings=self.output_settings,
             )
