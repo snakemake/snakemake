@@ -968,7 +968,7 @@ class CondaEnvDirSpec(CondaEnvSpec):
         return hash(self.path)
 
     def __eq__(self, other):
-        return self.path == other.file
+        return self.path == other.path
 
 
 class CondaEnvNameSpec(CondaEnvSpec):

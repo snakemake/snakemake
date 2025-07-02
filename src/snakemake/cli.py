@@ -883,27 +883,7 @@ def get_argument_parser(profiles=None):
             "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
         ),
     )
-    group_exec.add_argument(
-        "--wms-monitor",
-        action="store",
-        nargs="?",
-        help=(
-            "IP and port of workflow management system to monitor the execution of snakemake (e.g. http://127.0.0.1:5000)"
-            " Note that if your service requires an authorization token, you must export WMS_MONITOR_TOKEN in the environment."
-        ),
-    )
-    group_exec.add_argument(
-        "--wms-monitor-arg",
-        nargs="*",
-        metavar="NAME=VALUE",
-        help=(
-            "If the workflow management service accepts extra arguments, provide. "
-            "them in key value pairs with `--wms-monitor-arg`. For example, to run "
-            "an existing workflow using a wms monitor, you can provide the pair "
-            "`id=12345` and the arguments will be provided to the endpoint to "
-            "first interact with the workflow"
-        ),
-    )
+
     group_exec.add_argument(
         "--scheduler-ilp-solver",
         default=recommended_lp_solver,
@@ -1419,7 +1399,7 @@ def get_argument_parser(profiles=None):
         nargs="+",
         help="Only consider given rules. If omitted, all rules in Snakefile are "
         "used. Note that this is intended primarily for internal use and may "
-        "lead to unexpected results otherwise.",
+        "lead to unexpected results otherwise. Meant for internal use or debugging.",
     )
     group_behavior.add_argument(
         "--max-jobs-per-timespan",
@@ -2226,6 +2206,7 @@ def args_to_api(args, parser):
                                 envvars=args.envvars,
                                 immediate_submit=args.immediate_submit,
                                 job_deploy_sources=args.job_deploy_sources,
+                                precommand=args.precommand,
                             ),
                             scheduling_settings=SchedulingSettings(
                                 prioritytargets=args.prioritize,

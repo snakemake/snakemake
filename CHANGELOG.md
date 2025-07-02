@@ -1,6 +1,48 @@
 # Changelog
 
 
+## [9.6.2](https://github.com/snakemake/snakemake/compare/v9.6.1...v9.6.2) (2025-06-23)
+
+
+### Bug Fixes
+
+* if workflow contains checkpoints, only use --allowed-rules to restrict whether jobs are considered to be run, not for the plain DAG computation ([#3640](https://github.com/snakemake/snakemake/issues/3640)) ([10b4ddf](https://github.com/snakemake/snakemake/commit/10b4ddfc00c590c60ab579a59e8345061d99039d))
+
+## [9.6.1](https://github.com/snakemake/snakemake/compare/v9.6.0...v9.6.1) (2025-06-22)
+
+
+### Bug Fixes
+
+* fix bug in workflow.source_path causing non-cached source files when called from input functions ([#3638](https://github.com/snakemake/snakemake/issues/3638)) ([9980bfe](https://github.com/snakemake/snakemake/commit/9980bfe14815797a98b2c1a448e4c985e90e80d5))
+
+## [9.6.0](https://github.com/snakemake/snakemake/compare/v9.5.1...v9.6.0) (2025-06-16)
+
+
+### Features
+
+* Prefer papermill to nbconvert ([#2857](https://github.com/snakemake/snakemake/issues/2857)) ([4263b03](https://github.com/snakemake/snakemake/commit/4263b030ed01755687e0eace136eaf9f73a1adc9))
+
+
+### Bug Fixes
+
+* DeprecationWarning when using snakemake.utils.validate ([#3420](https://github.com/snakemake/snakemake/issues/3420)) ([cf72427](https://github.com/snakemake/snakemake/commit/cf724272eefcd9b30fb625d2e16380727bef9c3e))
+* display group jobs on dryrun ([#3435](https://github.com/snakemake/snakemake/issues/3435)) ([3bebef4](https://github.com/snakemake/snakemake/commit/3bebef42496c9be660c32f0a998e839f08fb59b0))
+* expandvars for special profile keys ([#3597](https://github.com/snakemake/snakemake/issues/3597)) ([4020188](https://github.com/snakemake/snakemake/commit/4020188d9250e4302da4a4e70d30c2637f54096a))
+* fix bug causing --precommand to not being executed before each remote job ([#3625](https://github.com/snakemake/snakemake/issues/3625)) ([e59d125](https://github.com/snakemake/snakemake/commit/e59d125da11080ea8ebfa638b110420fc3a0bfc1))
+* improved toggle switch behavior in reports ([#3623](https://github.com/snakemake/snakemake/issues/3623)) ([0c4bd23](https://github.com/snakemake/snakemake/commit/0c4bd239412c4440368db88db3771f61bde892c1))
+* pass envvars defined via the envvars directive to remote jobs ([#3626](https://github.com/snakemake/snakemake/issues/3626)) ([d4890b4](https://github.com/snakemake/snakemake/commit/d4890b4da691506b6a258f7534ac41fdb7ef5ab4))
+* remove wms arg, update logging cli docs ([#3622](https://github.com/snakemake/snakemake/issues/3622)) ([3a9a5ac](https://github.com/snakemake/snakemake/commit/3a9a5ac667c2778da64ca6655e0838b853f84988))
+* typo in CondaEnvDirSpec.__eq__ (issue [#3192](https://github.com/snakemake/snakemake/issues/3192)) ([#3613](https://github.com/snakemake/snakemake/issues/3613)) ([f4c107f](https://github.com/snakemake/snakemake/commit/f4c107f7edf9f5f0db8a09151932e60e01eb7d74))
+* Unclear handling of params overriding with inheritance ([#3624](https://github.com/snakemake/snakemake/issues/3624)) ([077ac4a](https://github.com/snakemake/snakemake/commit/077ac4a17ec2ca4619bdc4038efd77b2f2c94739))
+
+
+### Documentation
+
+* Added snakemake command to execute the rule plot_with_python ([#3608](https://github.com/snakemake/snakemake/issues/3608)) ([bd99c11](https://github.com/snakemake/snakemake/commit/bd99c112a9ae7fd3c1a7f2490b11b4c56b492452))
+* Updated Reporting Section of The Tutorial(Interaction, Visualization, and Reporting with Snakemake) ([#3606](https://github.com/snakemake/snakemake/issues/3606)) ([91e90ba](https://github.com/snakemake/snakemake/commit/91e90ba97f041cf6dd0c39fe612671d4fb181b2a))
+* Updated Requirement Section of The Tutorial With Warning of Not Installing The Tools Manually ([#3607](https://github.com/snakemake/snakemake/issues/3607)) ([3bd114b](https://github.com/snakemake/snakemake/commit/3bd114b9a6c2e2f2bb3b0cb09075d5e45b1ae082))
+* Updated Wrapper Version in Tutorial and Used Simple Rule For Consistency & Ease ([#3605](https://github.com/snakemake/snakemake/issues/3605)) ([b3bcc21](https://github.com/snakemake/snakemake/commit/b3bcc2113f14066a9244d0f6474ab44947a15575))
+
 ## [9.5.1](https://github.com/snakemake/snakemake/compare/v9.5.0...v9.5.1) (2025-05-23)
 
 
