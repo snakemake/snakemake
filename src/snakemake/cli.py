@@ -1359,6 +1359,14 @@ def get_argument_parser(profiles=None):
         help="Set the interval in seconds to check for new input in rules that use from_queue to obtain input files.",
     )
     group_behavior.add_argument(
+        "--omit-flags",
+        nargs="+",
+        default=frozenset(),
+        parse_func=set,
+        help="Omit the given input and output file flags (e.g. pipe). "
+        "This can be useful for debugging.",
+    )
+    group_behavior.add_argument(
         "--notemp",
         "--nt",
         action="store_true",
@@ -1992,6 +2000,7 @@ def args_to_api(args, parser):
                 shared_fs_usage=args.shared_fs_usage,
                 keep_storage_local=args.keep_storage_local_copies,
                 retrieve_storage=not args.not_retrieve_storage,
+                omit_flags=args.omit_flags,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
                 unneeded_temp_files=args.unneeded_temp_files,
