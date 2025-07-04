@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.7.1](https://github.com/snakemake/snakemake/compare/v9.7.0...v9.7.1) (2025-07-04)
+
+
+### Bug Fixes
+
+* cancel executor upon error during scheduling ([#3660](https://github.com/snakemake/snakemake/issues/3660)) ([d14a9bb](https://github.com/snakemake/snakemake/commit/d14a9bbb82a3d8914346094ceafeba29a76252e2))
+
 ## [9.7.0](https://github.com/snakemake/snakemake/compare/v9.6.3...v9.7.0) (2025-07-04)
 
 
