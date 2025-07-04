@@ -1368,6 +1368,7 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--notemp",
+        "--no-temp",
         "--nt",
         action="store_true",
         help="Ignore temp() declarations. This is useful when running only "
