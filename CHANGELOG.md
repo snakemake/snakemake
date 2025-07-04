@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [9.6.3](https://github.com/snakemake/snakemake/compare/v9.6.2...v9.6.3) (2025-07-04)
+
+
+### Bug Fixes
+
+* check protected files after DAG creation ([#3655](https://github.com/snakemake/snakemake/issues/3655)) ([882321b](https://github.com/snakemake/snakemake/commit/882321b210a4d16d9601dda2c2131c934779a07d))
+
+
+### Performance Improvements
+
+* refine default resources to provide more realistic estimates for most cases ([#3656](https://github.com/snakemake/snakemake/issues/3656)) ([5583c07](https://github.com/snakemake/snakemake/commit/5583c07684e8d7bfa720bfcb24f7bcbc68cf079e))
+
+
+### Documentation
+
+* ensure that readthedocs ads do not hide the navigation sidebar ([#3652](https://github.com/snakemake/snakemake/issues/3652)) ([0b5f1d2](https://github.com/snakemake/snakemake/commit/0b5f1d29c843fbf3f722546a6ca91ebea88f9da2))
+
 ## [9.6.2](https://github.com/snakemake/snakemake/compare/v9.6.1...v9.6.2) (2025-06-23)
 
 
