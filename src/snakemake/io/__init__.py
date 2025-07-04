@@ -39,6 +39,7 @@ from typing import (
 from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
 from snakemake_interface_common.utils import not_iterable
+from snakemake_interface_common.io import AnnotatedStringInterface
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -72,18 +73,6 @@ def lutime(file, times):
             "Unable to set mtime without following symlink because it seems "
             "unsupported by your system. Proceeding without."
         )
-
-
-class AnnotatedStringInterface(ABC):
-    @property
-    @abstractmethod
-    def flags(self) -> Dict[str, Any]: ...
-
-    @abstractmethod
-    def is_callable(self) -> bool: ...
-
-    def is_flagged(self, flag: str) -> bool:
-        return flag in self.flags and bool(self.flags[flag])
 
 
 class ExistsDict(dict):
