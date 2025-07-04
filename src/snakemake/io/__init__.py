@@ -928,7 +928,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
 class AnnotatedString(str, AnnotatedStringInterface):
     def __init__(self, value):
-        self._flags = dict()
+        self._flags = {}
         self.callable = value if is_callable(value) else None
 
     def new_from(self, new_value):
@@ -974,6 +974,15 @@ def flag(value, flag_type, flag_value=True):
 def get_flag_store_keys(flag_func: Callable) -> Set[str]:
     return set(flag_func("dummy").flags.keys())
 
+
+def remove_flag(value: MaybeAnnotated, flag: str) -> MaybeAnnotated:
+    """Remove a flag from given str or IOFile."""
+    if isinstance(value, AnnotatedStringInterface):
+        if flag in value.flags:
+            del value.flags[flag]
+        return value
+    else:
+        return value
 
 _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
