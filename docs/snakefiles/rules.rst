@@ -1011,10 +1011,13 @@ Since it could be cumbersome to define these standard resources for every rule, 
 As with ``--set-resources``, this can be done dynamically, using the variables specified for the callables in the section on :ref:`snakefiles-dynamic-resources`.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
-If ``--default-resources`` are specified without any further arguments, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
+If ``--default-resources`` are specified without any further arguments, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, ``'disk_mb=max(2*input.size_mb, 1000) if input else 50000'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`__.
+The rationale for the default value of ``disk_mb`` is the following: if there are input files, we assume the rule will use at most twice their size during execution.
+If there are no input files, we cannot know what the rule will need, hence we assume a conservative default of 50 GB.
 If ``--default-resources`` is specified with some definitions, but any of the above defaults (e.g. ``mem_mb``) is omitted, these are still used.
 In order to explicitly unset these defaults, assign them a value of ``None``, e.g. ``--default-resources mem_mb=None``.
+Of course, any rule specifying concrete resources either via the rule definition or via ``--set-resources`` will override the defaults.
 
 .. _resources-remote-execution:
 
