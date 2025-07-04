@@ -1364,7 +1364,7 @@ def get_argument_parser(profiles=None):
         default=frozenset(),
         parse_func=set,
         help="Omit the given input and output file flags (e.g. pipe). "
-        "This can be useful for debugging."
+        "This can be useful for debugging.",
     )
     group_behavior.add_argument(
         "--notemp",

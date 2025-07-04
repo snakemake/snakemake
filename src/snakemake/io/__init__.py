@@ -984,6 +984,7 @@ def remove_flag(value: MaybeAnnotated, flag: str) -> MaybeAnnotated:
     else:
         return value
 
+
 _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )

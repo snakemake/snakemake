@@ -475,8 +475,8 @@ class Rule(RuleInterface):
 
             item = default_flags.apply(item)
 
-            for flag in self.workflow.storage_settings.omit_flags:
-                item = remove_flag(item, flag)
+            for flag_name in self.workflow.storage_settings.omit_flags:
+                item = remove_flag(item, flag_name)
 
             # Check to see that all flags are valid
             # Note that "storage", and "expand" are valid for both inputs and outputs.
