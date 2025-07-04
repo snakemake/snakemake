@@ -25,7 +25,7 @@ class ParsedResource:
 class DefaultResources:
     defaults = {
         "mem_mb": "min(max(2*input.size_mb, 1000), 8000)",
-        "disk_mb": "max(2*input.size_mb, 1000)",
+        "disk_mb": "max(2*input.size_mb, 1000) if input else 50000",
         "tmpdir": "system_tmpdir",
     }
 
