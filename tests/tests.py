@@ -1640,6 +1640,7 @@ def test_modules_prefix_local():
 
 
 @connected
+@skip_on_windows # filenames too long on windows
 def test_module_with_script():
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
@@ -2327,6 +2328,10 @@ def test_nodelocal():
 
 def test_temp_and_all_input():
     run(dpath("test_temp_and_all_input"))
+
+
+def test_python_import_from_github_module():
+    run(dpath("test_python_import_from_github_module"))
 
 
 def test_keep_local():
