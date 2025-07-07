@@ -29,6 +29,7 @@ from snakemake.io import (
     contains_wildcard_constraints,
     get_flag_store_keys,
     is_multiext_items,
+    remove_flag,
     update_wildcard_constraints,
     flag,
     get_flag_value,
@@ -473,6 +474,9 @@ class Rule(RuleInterface):
             item = self.apply_path_modifier(item, path_modifier, property=property)
 
             item = default_flags.apply(item)
+
+            for flag_name in self.workflow.storage_settings.omit_flags:
+                item = remove_flag(item, flag_name)
 
             # Check to see that all flags are valid
             # Note that "storage", and "expand" are valid for both inputs and outputs.

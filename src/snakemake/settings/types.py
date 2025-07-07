@@ -233,6 +233,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     retrieve_storage: bool = True
     local_storage_prefix: Path = Path(".snakemake/storage")
     remote_job_local_storage_prefix: Optional[Path] = None
+    omit_flags: AnySet[str] = frozenset()
     notemp: bool = False
     all_temp: bool = False
     unneeded_temp_files: AnySet[str] = frozenset()

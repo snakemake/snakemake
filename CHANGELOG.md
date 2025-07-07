@@ -1,6 +1,47 @@
 # Changelog
 
 
+## [9.7.1](https://github.com/snakemake/snakemake/compare/v9.7.0...v9.7.1) (2025-07-04)
+
+
+### Bug Fixes
+
+* cancel executor upon error during scheduling ([#3660](https://github.com/snakemake/snakemake/issues/3660)) ([d14a9bb](https://github.com/snakemake/snakemake/commit/d14a9bbb82a3d8914346094ceafeba29a76252e2))
+
+## [9.7.0](https://github.com/snakemake/snakemake/compare/v9.6.3...v9.7.0) (2025-07-04)
+
+
+### Features
+
+* add --omit-flags for omitting flags in workflows; e.g. --omit-flags pipe treats output marked as pipe as normal output instead ([#3659](https://github.com/snakemake/snakemake/issues/3659)) ([b21dcf0](https://github.com/snakemake/snakemake/commit/b21dcf0ea0e401e7f058a9ffda35821371d3c3c9))
+
+
+### Bug Fixes
+
+* fix incomplete help text of --cache argument. ([#3279](https://github.com/snakemake/snakemake/issues/3279)) ([9ba6a9d](https://github.com/snakemake/snakemake/commit/9ba6a9d05bf8f5a234915698b1eaded568faab2f))
+
+
+### Documentation
+
+* fix indentation ([35c6216](https://github.com/snakemake/snakemake/commit/35c621644bdb70e76edf956e6d82e2d90c273630))
+
+## [9.6.3](https://github.com/snakemake/snakemake/compare/v9.6.2...v9.6.3) (2025-07-04)
+
+
+### Bug Fixes
+
+* check protected files after DAG creation ([#3655](https://github.com/snakemake/snakemake/issues/3655)) ([882321b](https://github.com/snakemake/snakemake/commit/882321b210a4d16d9601dda2c2131c934779a07d))
+
+
+### Performance Improvements
+
+* refine default resources to provide more realistic estimates for most cases ([#3656](https://github.com/snakemake/snakemake/issues/3656)) ([5583c07](https://github.com/snakemake/snakemake/commit/5583c07684e8d7bfa720bfcb24f7bcbc68cf079e))
+
+
+### Documentation
+
+* ensure that readthedocs ads do not hide the navigation sidebar ([#3652](https://github.com/snakemake/snakemake/issues/3652)) ([0b5f1d2](https://github.com/snakemake/snakemake/commit/0b5f1d29c843fbf3f722546a6ca91ebea88f9da2))
+
 ## [9.6.2](https://github.com/snakemake/snakemake/compare/v9.6.1...v9.6.2) (2025-06-23)
 
 

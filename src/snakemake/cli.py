@@ -464,7 +464,9 @@ def get_argument_parser(profiles=None):
         f"variable `${caching.LOCATION_ENVVAR}`. Likewise, retrieve output files of the given rules "
         "from this cache if they have been created before (by anybody writing to the same cache), "
         "instead of actually executing the rules. Output files are identified by hashing all "
-        "steps, parameters and software stack (conda envs or containers) needed to create them.",
+        "steps, parameters and software stack (conda envs or containers) needed to create them. "
+        "If no rules are given, all rules that are eligible for caching (have a cache "
+        "directive, see docs) are cached.",
     )
 
     group_exec.add_argument(
@@ -1357,7 +1359,16 @@ def get_argument_parser(profiles=None):
         help="Set the interval in seconds to check for new input in rules that use from_queue to obtain input files.",
     )
     group_behavior.add_argument(
+        "--omit-flags",
+        nargs="+",
+        default=frozenset(),
+        parse_func=set,
+        help="Omit the given input and output file flags (e.g. pipe). "
+        "This can be useful for debugging.",
+    )
+    group_behavior.add_argument(
         "--notemp",
+        "--no-temp",
         "--nt",
         action="store_true",
         help="Ignore temp() declarations. This is useful when running only "
@@ -2013,6 +2024,7 @@ def args_to_api(args, parser):
                 shared_fs_usage=args.shared_fs_usage,
                 keep_storage_local=args.keep_storage_local_copies,
                 retrieve_storage=not args.not_retrieve_storage,
+                omit_flags=args.omit_flags,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
                 unneeded_temp_files=args.unneeded_temp_files,

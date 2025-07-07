@@ -349,6 +349,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
             )
             self._executor.cancel()
             return False
+        except Exception as e:
+            # Other exceptions should cause the executor to cancel the jobs
+            # as well, so that no unmanaged jobs remain.
+            self._executor.cancel()
+            raise e
 
     def _schedule_reevalutation(self, delay: int) -> None:
         threading.Timer(
