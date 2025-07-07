@@ -364,6 +364,10 @@ def test_temp():
     run(dpath("test_temp"), targets="test.realigned.bam".split())
 
 
+def test_no_temp():
+    run(dpath("test_no_temp"), shellcmd="snakemake -c1 --no-temp")
+
+
 def test_keyword_list():
     run(dpath("test_keyword_list"))
 
