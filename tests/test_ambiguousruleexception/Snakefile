@@ -12,7 +12,7 @@ rule all:
 rule A:
     output:
         a="A/{sample}.txt",
-        c=temp("C/{sample}.txt}"),
+        c=temp("C/{sample}.txt"),
     shell:
         """
         touch {output.a}
@@ -22,7 +22,7 @@ rule A:
 rule B:
     output:
         b="B/{sample}.txt",
-        c=temp("C/{sample}.txt}"),
+        c=temp("C/{sample}.txt"),
     shell:
         """
         touch {output.b}
