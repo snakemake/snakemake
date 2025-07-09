@@ -273,8 +273,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.check_directory_outputs()
 
         # check if remaining jobs are valid
+        seen_outputs: Dict[str, Job] = {}
         for i, job in enumerate(self.jobs):
             job.is_valid()
+
+            # here we check if no two rules make the same output
+            # this can happen in edge cases where the output of jobs
+            # are not part of the targetfiles
+            for output_file in job.output:
+                if output_file in seen_outputs:
+                    other_job = seen_outputs[output_file]
+                    if not self.workflow.execution_settings.ignore_ambiguity:
+                        raise AmbiguousRuleException(output_file, other_job, job)
+                else:
+                    seen_outputs[output_file] = job
 
     def get_unneeded_temp_files(self, job: AbstractJob) -> Iterable[str]:
         if isinstance(job, GroupJob):
