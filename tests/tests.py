@@ -2447,4 +2447,4 @@ def test_ambiguousruleexception():
         run(dpath("test_ambiguousruleexception"))
     except AmbiguousRuleException:
         return
-    assert False, "This is an ambiguous case! Should have raised an error..."
+    raise AssertionError("This is an ambiguous case! Should have raised an error...")

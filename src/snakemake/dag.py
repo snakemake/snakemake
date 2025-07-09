@@ -15,7 +15,7 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Iterable, List, Optional, Set, Union
+from typing import Iterable, List, Optional, Set, Union, Dict
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
@@ -274,7 +274,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         # check if remaining jobs are valid
         seen_outputs: Dict[str, Job] = {}
-        for i, job in enumerate(self.jobs):
+        for job in self.jobs:
             job.is_valid()
 
             # here we check if no two rules make the same output
