@@ -3239,7 +3239,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
-                f = os.path.join(rule.basedir, f)
+                f = rule.basedir.join(f)
             return os.path.relpath(f)
 
         # get registered sources
