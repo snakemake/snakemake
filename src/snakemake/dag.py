@@ -158,6 +158,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._storage_input_jobs = defaultdict(list)
         self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
         self._checked_jobs = set()
+        self._seen_outputs: Dict[str, Job] = dict()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -271,22 +272,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.update_jobids()
 
         self.check_directory_outputs()
-
-        # check if remaining jobs are valid
-        seen_outputs: Dict[str, Job] = {}
-        for job in self.jobs:
-            job.is_valid()
-
-            # here we check if no two rules make the same output
-            # this can happen in edge cases where the output of jobs
-            # are not part of the targetfiles
-            for output_file in job.output:
-                if output_file in seen_outputs:
-                    other_job = seen_outputs[output_file]
-                    if not self.workflow.execution_settings.ignore_ambiguity:
-                        raise AmbiguousRuleException(output_file, other_job, job)
-                else:
-                    seen_outputs[output_file] = job
 
     def get_unneeded_temp_files(self, job: AbstractJob) -> Iterable[str]:
         if isinstance(job, GroupJob):
@@ -1920,6 +1905,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     async def check_needrun_jobs(self):
         for job in filterfalse(self._checked_jobs.__contains__, self.needrun_jobs()):
             await job.check_protected_output()
+            job.is_valid()
+
+            # here we check if no two rules make the same output
+            # this can happen in edge cases where the output of jobs
+            # are not part of the targetfiles
+            for output_file in job.output:
+                if output_file in self._seen_outputs:
+                    other_job = self._seen_outputs[output_file]
+                    if other_job == job:
+                        continue
+
+                    if not self.workflow.execution_settings.ignore_ambiguity:
+                        raise AmbiguousRuleException(output_file, other_job, job)
+                else:
+                    self._seen_outputs[output_file] = job
+
             self._checked_jobs.add(job)
 
     def handle_pipes_and_services(self):
