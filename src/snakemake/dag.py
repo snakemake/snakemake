@@ -1913,7 +1913,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for output_file in job.output:
                 if output_file in self._seen_outputs:
                     other_job = self._seen_outputs[output_file]
-                    if other_job == job:
+                    if other_job.jobid == job.jobid:
                         continue
 
                     if not self.workflow.execution_settings.ignore_ambiguity:
