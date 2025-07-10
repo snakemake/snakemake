@@ -16,7 +16,7 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 from collections.abc import AsyncGenerator
 from abc import abstractmethod
 from snakemake.settings.types import DeploymentMethod
@@ -92,7 +92,7 @@ class AbstractJob(JobExecutorInterface):
             return True
         return False
 
-    def _get_scheduler_resources(self):
+    def _get_scheduler_resources(self) -> Dict[str, Union[int, float, str]]:
         if self._scheduler_resources is None:
             if self.dag.workflow.local_exec or self.is_local:
                 res_dict = {
@@ -110,7 +110,7 @@ class AbstractJob(JobExecutorInterface):
                     if not isinstance(self.resources[k], TBDString)
                 }
             res_dict["_job_count"] = 1
-            self._scheduler_resources = Resources(fromdict=res_dict)
+            self._scheduler_resources = res_dict
         return self._scheduler_resources
 
 
@@ -496,7 +496,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         return self._resources
 
     @property
-    def scheduler_resources(self):
+    def scheduler_resources(self) -> Dict[str, Union[int, float, str]]:
         return self._get_scheduler_resources()
 
     def reset_params_and_resources(self):
@@ -1518,7 +1518,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         return Resources(fromdict=self._resources)
 
     @property
-    def scheduler_resources(self):
+    def scheduler_resources(self) -> Dict[str, Union[int, float, str]]:
         return self._get_scheduler_resources()
 
     @property
