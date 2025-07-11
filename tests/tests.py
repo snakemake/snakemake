@@ -333,14 +333,16 @@ def test_report_metadata():
         report_metadata="yte_template.yaml",
     )
 
+
 def test_report_metadata_nested():
     run(
         dpath("test_report_metadata"),
         report="report.html",
         report_metadata="yte_template_nested.yaml",
         check_md5=False,
-        shouldfail=True
+        shouldfail=True,
     )
+
 
 def test_params():
     run(dpath("test_params"))
