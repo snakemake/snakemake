@@ -193,6 +193,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         "_resources",
         "_conda_env_file",
         "_conda_env",
+        "_container_img_url",
         "_shadow_dir",
         "_inputsize",
         "temp_output",
@@ -249,6 +250,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self._benchmark = None
         self._resources = None
         self._conda_env_spec = None
+        self._container_img_url = None
         self._scheduler_resources = None
         self._conda_env = None
         self._group = None
@@ -539,7 +541,12 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
 
     @property
     def container_img_url(self):
-        return self.rule.container_img
+        if self._container_img_url is None:
+            self._container_img_url = self.rule.expand_container_img(
+                self.wildcards_dict
+            )
+
+        return self._container_img_url
 
     @property
     def is_containerized(self):
@@ -950,9 +957,10 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             ]
         )
         if to_remove:
+            formatted = ", ".join(map(fmt_iofile, to_remove))
             logger.info(
-                "Removing output files of failed job {}"
-                " since they might be corrupted:\n{}".format(self, ", ".join(to_remove))
+                f"Removing output files of failed job {self}"
+                f" since they might be corrupted:\n{formatted}"
             )
             for f in to_remove:
                 await f.remove()
@@ -1784,6 +1792,9 @@ class Reason:
     ]
 
     def __init__(self):
+        self.clear()
+
+    def clear(self) -> None:
         from snakemake.persistence import NO_PARAMS_CHANGE
 
         self.finished = False

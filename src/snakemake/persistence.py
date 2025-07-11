@@ -789,6 +789,10 @@ class ParamsChange:
     only_new: Set[Any] = field(default_factory=set)
     files: Set[str] = field(default_factory=set)
 
+    def __post_init__(self):
+        if not self:
+            self.files = set()
+
     def __bool__(self):
         return bool(self.only_old or self.only_new)
 

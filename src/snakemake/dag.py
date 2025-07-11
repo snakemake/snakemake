@@ -22,14 +22,17 @@ from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
+from snakemake.rules import Rule
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake.settings.enums import Quietness
 
 from snakemake import workflow as _workflow
 from snakemake.common import (
@@ -104,7 +107,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def __init__(
         self,
         workflow,
-        rules=None,
+        rules: Iterable[Rule],
         targetfiles: Set[str] = None,
         targetrules=None,
         forceall=False,
@@ -117,6 +120,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         omitfiles=None,
         omitrules=None,
         ignore_incomplete=False,
+        rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
         self._queue_input_jobs = None
         self._dependencies = defaultdict(partial(defaultdict, set))
@@ -130,6 +134,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._len = 0
         self.workflow: _workflow.Workflow = workflow
         self.rules = set(rules)
+        self.rules_allowed_for_needrun = rules_allowed_for_needrun
         self.targetfiles = targetfiles
         self.targetrules = targetrules
         self.target_jobs_rules = {
@@ -152,6 +157,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._jobs_with_finished_queue_input = set()
         self._storage_input_jobs = defaultdict(list)
         self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
+        self._checked_jobs = set()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -692,9 +698,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             )
 
         # handle checksum
-        async def is_not_same_checksum(f, checksum):
-            if checksum is None:
+        async def is_not_same_checksum(f, ensure):
+            if not ensure.get("checksum_algorithm"):
                 return False
+            checksum_algorithm = ensure["checksum_algorithm"]
+            checksum = ensure["checksum"]
             if is_callable(checksum):
                 try:
                     checksum = checksum(job.wildcards)
@@ -705,13 +713,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         rule=job.rule,
                     )
             return not await f.is_same_checksum(
-                checksum, self.max_checksum_file_size, force=True
+                checksum,
+                self.max_checksum_file_size,
+                force=True,
+                algorithm=checksum_algorithm,
             )
 
         checksum_failed_output = [
             f
             for f, ensure in ensured_output.items()
-            if await is_not_same_checksum(f, ensure.get("sha256"))
+            if await is_not_same_checksum(f, ensure)
         ]
         if checksum_failed_output:
             raise WorkflowError(
@@ -955,9 +966,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         for f in unneeded_files():
             if self.workflow.dryrun:
-                logger.info(f"Would remove temporary output {fmt_iofile(f)}")
+                logger.info(
+                    f"Would remove temporary output {fmt_iofile(f)}",
+                    extra={"quietness": Quietness.RULES},
+                )
             else:
-                logger.info(f"Removing temporary output {fmt_iofile(f)}.")
+                logger.info(
+                    f"Removing temporary output {fmt_iofile(f)}.",
+                    extra={"quietness": Quietness.RULES},
+                )
                 await f.remove(remove_non_empty_dir=True)
 
     async def handle_log(self, job):
@@ -1359,6 +1376,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             reason = self.reason(job)
             noinitreason = not reason
 
+            if (
+                self.rules_allowed_for_needrun
+                and job.rule.name not in self.rules_allowed_for_needrun
+            ):
+                reason.clear()
+                return reason
+
             if is_forced(job):
                 reason.forced = True
             elif job in self.targetjobs:
@@ -1648,11 +1672,60 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 # to update each job j in group.
                 groups[j] = group
 
+        # check if all groups are valid
+        for group in set(groups.values()):
+            self.validate_group(group)
+
         self._group = groups
 
         self._update_group_components()
 
         self._check_groups()
+
+    def validate_group(self, group: GroupJob) -> None:
+        for job in group.jobs:
+            external_but_returning_rules = set()
+            returned_to = set()
+
+            for dep in self._dependencies[job]:
+                # METHOD: from dependencies that are outside of the group,
+                # we try to get back into the group.
+                if dep in group.jobs:
+                    continue
+
+                dep_external_but_returning_rules = set()
+                dep_returned_to = set()
+
+                def stop_if(job, returned_to=dep_returned_to):
+                    if job in group.jobs:
+                        returned_to.add(job.rule.name)
+                        return True
+                    return False
+
+                dep_external_but_returning_rules.update(
+                    job.rule.name
+                    for job in self.bfs(self._dependencies, dep, stop=stop_if)
+                    if job not in group.jobs
+                )
+                if dep_returned_to:
+                    external_but_returning_rules.update(
+                        dep_external_but_returning_rules
+                    )
+                    returned_to.update(dep_returned_to)
+            if external_but_returning_rules and returned_to:
+                raise WorkflowError(
+                    f"Error in group {job.group}. Job of rule {job.rule.name} "
+                    f"depends on rule(s) {','.join(external_but_returning_rules)} "
+                    "from outside the group, but they in turn depend on rule(s) "
+                    f"{','.join(returned_to)} from "
+                    f"inside the group again. This is not allowed. Ensure that "
+                    "those rules are part of the group as well, either by "
+                    "using further --group statements or by adding them to the "
+                    "same group in the workflow definition. Note that for "
+                    "rules that are generic and might be used in multiple groups "
+                    "you can use rule inheritance to obtain multiple instances "
+                    "of the same rule with different group assignments."
+                )
 
     def _update_group_components(self):
         # span connected components if requested
@@ -1753,6 +1826,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if job in self._ready_jobs or job in self._running:
                 # job has been seen before or is running, no need to process again
                 continue
+            logger.debug(f"{job.output}: {self._ready(job)} {self._n_until_ready[job]}")
             if (
                 not self.finished(job)
                 and self._ready(job)
@@ -1786,7 +1860,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 yield group
 
     async def postprocess(
-        self, update_needrun=True, update_incomplete_input_expand_jobs=True
+        self,
+        update_needrun=True,
+        update_incomplete_input_expand_jobs=True,
+        check_initial=False,
     ):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
@@ -1819,6 +1896,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 return
 
         self.update_ready()
+
+        await self.check_needrun_jobs()
+
+        if check_initial:
+            assert not (not self.ready_jobs and any(self.needrun_jobs())), (
+                "bug: DAG contains jobs that have to be executed but no such job is "
+                "ready for execution."
+            )
+
+    async def check_needrun_jobs(self):
+        for job in filterfalse(self._checked_jobs.__contains__, self.needrun_jobs()):
+            await job.check_protected_output()
+            self._checked_jobs.add(job)
 
     def handle_pipes_and_services(self):
         """Use pipes and services to determine job groups. Check if every pipe has exactly
@@ -1953,6 +2043,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
         group = self._group.get(job, None)
+
         if group is None:
             return self._n_until_ready[job] == 0
         else:
@@ -2350,7 +2441,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                 ),
                                 False,
                             )
-                    except MissingRuleException as ex:
+                    except MissingRuleException:
                         # no dependency found
                         yield PotentialDependency(file, None, False)
 
@@ -3131,7 +3222,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for job in self.jobs:
                 if not job.is_group() and (include_needrun or not self.needrun(job)):
                     changed.extend(
-                        list(await job.outputs_older_than_script_or_notebook())
+                        [f async for f in job.outputs_older_than_script_or_notebook()]
                     )
         return changed
 
@@ -3146,7 +3237,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
-                f = os.path.join(rule.basedir, f)
+                f = rule.basedir.join(f)
             return os.path.relpath(f)
 
         # get registered sources

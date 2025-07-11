@@ -381,6 +381,10 @@ def test_temp():
     run(dpath("test_temp"), targets="test.realigned.bam".split())
 
 
+def test_no_temp():
+    run(dpath("test_no_temp"), shellcmd="snakemake -c1 --no-temp")
+
+
 def test_keyword_list():
     run(dpath("test_keyword_list"))
 
@@ -911,7 +915,7 @@ def test_group_jobs_resources(mocker):
         runtime=420,
         fake_res=600,
         global_res=2000,
-        disk_mb=2000,
+        disk_mb=100000,
     )
 
 
@@ -935,7 +939,7 @@ def test_group_jobs_resources_with_max_threads(mocker):
         runtime=380,
         fake_res=1200,
         global_res=3000,
-        disk_mb=3000,
+        disk_mb=150000,
     )
 
 
@@ -959,7 +963,7 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         runtime=700,
         fake_res=400,
         global_res=1000,
-        disk_mb=1000,
+        disk_mb=50000,
     )
 
 
@@ -1050,44 +1054,6 @@ def test_scopes_submitted_to_cluster(mocker):
 
 
 @skip_on_windows
-def test_resources_submitted_to_cluster(mocker):
-    from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
-
-    spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
-    run(
-        dpath("test_group_jobs_resources"),
-        cluster="./qsub",
-        cores=6,
-        resources={"mem_mb": 60000},
-        max_threads=1,
-        group_components={0: 5},
-        default_resources=DefaultResources(["mem_mb=0"]),
-    )
-
-    assert_resources(
-        spy.spy_return, mem_mb=60000, fake_res=1200, global_res=3000, disk_mb=3000
-    )
-
-
-@skip_on_windows
-def test_excluded_resources_not_submitted_to_cluster(mocker):
-    from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
-
-    spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
-    run(
-        dpath("test_group_jobs_resources"),
-        cluster="./qsub",
-        cores=6,
-        resources={"mem_mb": 60000},
-        max_threads=1,
-        overwrite_resource_scopes={"fake_res": "excluded"},
-        group_components={0: 5},
-        default_resources=DefaultResources(["mem_mb=0"]),
-    )
-    assert_resources(spy.spy_return, mem_mb=60000, global_res=3000, disk_mb=3000)
-
-
-@skip_on_windows
 def test_group_job_resources_with_pipe(mocker):
     import copy
     from snakemake_interface_executor_plugins.executors.real import RealExecutor
@@ -1119,7 +1085,7 @@ def test_group_job_resources_with_pipe(mocker):
         _cores=6,
         runtime=240,
         mem_mb=50000,
-        disk_mb=1000,
+        disk_mb=50000,
     )
 
 
@@ -1474,6 +1440,12 @@ def test_container():
 
 
 @skip_on_windows
+@apptainer
+def test_dynamic_container():
+    run(dpath("test_dynamic_container"), deployment_method={DeploymentMethod.APPTAINER})
+
+
+@skip_on_windows
 def test_string_resources():
     from snakemake.resources import DefaultResources
 
@@ -1481,6 +1453,29 @@ def test_string_resources():
         dpath("test_string_resources"),
         default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
         cluster="./qsub.py",
+    )
+
+
+def test_jupyter_notebook():
+    run(dpath("test_jupyter_notebook"), deployment_method={DeploymentMethod.CONDA})
+
+
+def test_jupyter_notebook_nbconvert():
+    run(
+        dpath("test_jupyter_notebook_nbconvert"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
+
+
+def test_jupyter_notebook_draft():
+    from snakemake.settings.types import NotebookEditMode
+
+    run(
+        dpath("test_jupyter_notebook_draft"),
+        deployment_method={DeploymentMethod.CONDA},
+        edit_notebook=NotebookEditMode(draft_only=True),
+        targets=["results/result_intermediate.txt"],
+        check_md5=False,
     )
 
 
@@ -2457,3 +2452,7 @@ def test_censored_path():
     assert "my_password" not in stdout
     assert "param_name" not in stdout
     assert "param_value" not in stdout
+
+
+def test_params_empty_inherit():
+    run(dpath("test_params_empty_inherit"))

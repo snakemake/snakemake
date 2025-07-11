@@ -116,7 +116,7 @@ suppress_warnings = ["autosectionlabel.*"]
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = "sphinx"
+# pygments_style = "sphinx"
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
@@ -185,7 +185,7 @@ html_js_files = ["gurubase-widget.js"]  # gurubase AI widget
 # html_use_smartypants = True
 
 # Custom sidebar templates, maps document names to template names.
-# html_sidebars = {}
+# html_sidebars = {"**": ["ethicalads.html"]}
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.

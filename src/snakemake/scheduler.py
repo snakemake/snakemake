@@ -21,6 +21,7 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
+from snakemake.settings.enums import Quietness
 from snakemake.logging import logger
 from snakemake.jobs import GroupJob
 
@@ -69,7 +70,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._toerror = []
         self.handle_job_success = True
         self.update_resources = True
-        self.print_progress = not self.quiet and not self.dryrun
+        self.print_progress = (
+            not self.quiet or Quietness.PROGRESS not in self.quiet
+        ) and not self.dryrun
         self.update_checkpoint_dependencies = not self.dryrun
         self.job_rate_limiter = (
             JobRateLimiter(self.workflow.scheduling_settings.max_jobs_per_timespan)
@@ -332,8 +335,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 if not self.dryrun:
 
                     if self._run_performed is None or self._run_performed:
-                        logger.info("Waiting for more resources.")
-                    self._run_performed = False
+                        if self.running:
+                            logger.debug("Waiting for running jobs to complete.")
+                        else:
+                            logger.debug("Waiting for more resources.")
                     if self.job_rate_limiter is not None:
                         # need to reevaluate because after the timespan we can
                         # schedule more jobs again
@@ -344,6 +349,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
             )
             self._executor.cancel()
             return False
+        except Exception as e:
+            # Other exceptions should cause the executor to cancel the jobs
+            # as well, so that no unmanaged jobs remain.
+            self._executor.cancel()
+            raise e
 
     def _schedule_reevalutation(self, delay: int) -> None:
         threading.Timer(

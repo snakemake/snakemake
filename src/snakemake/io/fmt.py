@@ -20,7 +20,7 @@ def fmt_iofile(f, as_input: bool = False, as_output: bool = False):
         f_str = f
         storage_phrase = ""
 
-    def annotate(f_str, label):
+    def annotate(f_str, label=""):
         sep = ", " if label and storage_phrase else ""
         ann = f" ({label}{sep}{storage_phrase})" if label or storage_phrase else ""
         return f"{f_str}{ann}"
@@ -44,4 +44,6 @@ def fmt_iofile(f, as_input: bool = False, as_output: bool = False):
             return annotate(f_str, pattern)
         elif is_flagged(f, "checkpoint_target"):
             return TBDString()
+        else:
+            return annotate(f_str)
     return f
