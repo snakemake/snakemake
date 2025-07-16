@@ -225,7 +225,12 @@ class StorageProviderProxy:
         query: str,
         retrieve: Optional[bool] = None,
         keep_local: Optional[bool] = None,
+        **kwargs,
     ):
         return self.registry._storage_object(
-            query, provider=self.name, retrieve=retrieve, keep_local=keep_local
+            query,
+            provider=self.name,
+            retrieve=retrieve,
+            keep_local=keep_local,
+            **kwargs,
         )
