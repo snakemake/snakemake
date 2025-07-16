@@ -265,7 +265,7 @@ For specific files, the access pattern can be annotated by the respective flags 
 .. code-block:: python
 
     inputflags:
-    access.sequential
+        access.sequential
 
 
     rule a:

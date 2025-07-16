@@ -39,6 +39,7 @@ from typing import (
 from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
 from snakemake_interface_common.utils import not_iterable
+from snakemake_interface_common.io import AnnotatedStringInterface
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -72,18 +73,6 @@ def lutime(file, times):
             "Unable to set mtime without following symlink because it seems "
             "unsupported by your system. Proceeding without."
         )
-
-
-class AnnotatedStringInterface(ABC):
-    @property
-    @abstractmethod
-    def flags(self) -> Dict[str, Any]: ...
-
-    @abstractmethod
-    def is_callable(self) -> bool: ...
-
-    def is_flagged(self, flag: str) -> bool:
-        return flag in self.flags and bool(self.flags[flag])
 
 
 class ExistsDict(dict):
@@ -939,7 +928,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
 class AnnotatedString(str, AnnotatedStringInterface):
     def __init__(self, value):
-        self._flags = dict()
+        self._flags = {}
         self.callable = value if is_callable(value) else None
 
     def new_from(self, new_value):
@@ -984,6 +973,16 @@ def flag(value, flag_type, flag_value=True):
 
 def get_flag_store_keys(flag_func: Callable) -> Set[str]:
     return set(flag_func("dummy").flags.keys())
+
+
+def remove_flag(value: MaybeAnnotated, flag: str) -> MaybeAnnotated:
+    """Remove a flag from given str or IOFile."""
+    if isinstance(value, AnnotatedStringInterface):
+        if flag in value.flags:
+            del value.flags[flag]
+        return value
+    else:
+        return value
 
 
 _double_slash_regex = (

@@ -364,6 +364,10 @@ def test_temp():
     run(dpath("test_temp"), targets="test.realigned.bam".split())
 
 
+def test_no_temp():
+    run(dpath("test_no_temp"), shellcmd="snakemake -c1 --no-temp")
+
+
 def test_keyword_list():
     run(dpath("test_keyword_list"))
 
@@ -906,7 +910,7 @@ def test_group_jobs_resources(mocker):
         runtime=420,
         fake_res=600,
         global_res=2000,
-        disk_mb=2000,
+        disk_mb=100000,
     )
 
 
@@ -930,7 +934,7 @@ def test_group_jobs_resources_with_max_threads(mocker):
         runtime=380,
         fake_res=1200,
         global_res=3000,
-        disk_mb=3000,
+        disk_mb=150000,
     )
 
 
@@ -954,7 +958,7 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         runtime=700,
         fake_res=400,
         global_res=1000,
-        disk_mb=1000,
+        disk_mb=50000,
     )
 
 
@@ -1076,7 +1080,7 @@ def test_group_job_resources_with_pipe(mocker):
         _cores=6,
         runtime=240,
         mem_mb=50000,
-        disk_mb=1000,
+        disk_mb=50000,
     )
 
 
