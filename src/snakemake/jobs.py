@@ -16,7 +16,7 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Union
 from collections.abc import AsyncGenerator
 from abc import abstractmethod
 from snakemake.settings.types import DeploymentMethod
@@ -27,6 +27,9 @@ from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
     GroupJobExecutorInterface,
     SingleJobExecutorInterface,
+)
+from snakemake_interface_scheduler_plugins.interfaces.jobs import (
+    JobSchedulerInterface, SingleJobSchedulerInterface, GroupJobSchedulerInterface
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_logger_plugins.common import LogEvent
@@ -77,7 +80,7 @@ def get_script_mtime(path: str) -> float:
     return os.lstat(path).st_mtime
 
 
-class AbstractJob(JobExecutorInterface):
+class AbstractJob(JobExecutorInterface, JobSchedulerInterface):
     @abstractmethod
     def reset_params_and_resources(self): ...
 
@@ -92,7 +95,7 @@ class AbstractJob(JobExecutorInterface):
             return True
         return False
 
-    def _get_scheduler_resources(self) -> Dict[str, Union[int, float, str]]:
+    def _get_scheduler_resources(self) -> Dict[str, Union[int, str]]:
         if self._scheduler_resources is None:
             if self.dag.workflow.local_exec or self.is_local:
                 res_dict = {
@@ -175,7 +178,7 @@ class JobFactory:
         return obj
 
 
-class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
+class Job(AbstractJob, SingleJobExecutorInterface, SingleJobSchedulerInterface, JobReportInterface):
     obj_cache = dict()
 
     __slots__ = [
@@ -195,7 +198,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         "_conda_env",
         "_container_img_url",
         "_shadow_dir",
-        "_inputsize",
         "temp_output",
         "protected_output",
         "touch_output",
@@ -259,7 +261,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self.pipe_group = None
 
         self.shadow_dir = None
-        self._inputsize = None
         self._is_updated = False
         self._params_and_resources_resetted = False
         self._non_derived_params = None
@@ -288,12 +289,16 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             if queue_info:
                 self._queue_input[queue_info].append(f)
 
-    def add_aux_resource(self, name, value):
+    def add_aux_resource(self, name: str, value: Union[str, int]) -> None:
         if name in self._aux_resources:
             raise ValueError(
                 f"Resource {name} already exists in aux_resources of job {self}."
             )
+        if name in self.resources.keys():
+            return  # do not add aux_resources that are already in resources
         self._aux_resources[name] = value
+        self._resources = None  # reset resources to include aux_resources
+        self._scheduler_resources = None  # reset scheduler resources to include aux_resources
 
     @property
     def is_updated(self):
@@ -496,7 +501,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         return self._resources
 
     @property
-    def scheduler_resources(self) -> Dict[str, Union[int, float, str]]:
+    def scheduler_resources(self) -> Dict[str, Union[int, str]]:
         return self._get_scheduler_resources()
 
     def reset_params_and_resources(self):
@@ -583,15 +588,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         return base64.b64encode(
             (self.rule.name + "".join(self.output)).encode("utf-8")
         ).decode("utf-8")
-
-    async def inputsize(self):
-        """
-        Return the size of the input files.
-        Input files need to be present.
-        """
-        if self._inputsize is None:
-            self._inputsize = sum([await f.size() for f in self.input])
-        return self._inputsize
 
     @property
     def message(self):
@@ -1315,7 +1311,7 @@ class GroupJobFactory:
         return obj
 
 
-class GroupJob(AbstractJob, GroupJobExecutorInterface):
+class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterface):
     obj_cache = dict()
 
     __slots__ = [
@@ -1325,7 +1321,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         "_input",
         "_output",
         "_log",
-        "_inputsize",
         "_all_products",
         "_attempt",
         "_toposorted",
@@ -1342,21 +1337,20 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         self._input = None
         self._output = None
         self._log = None
-        self._inputsize = None
         self._all_products = None
         self._attempt = self.dag.workflow.execution_settings.attempt
         self._jobid = None
 
     @property
-    def groupid(self):
+    def groupid(self) -> str:
         return self._groupid
 
     @groupid.setter
-    def groupid(self, new_groupid):
+    def groupid(self, new_groupid: str):
         self._groupid = new_groupid
 
     @property
-    def jobs(self):
+    def jobs(self) -> Iterable[Job]:
         return self._jobs
 
     @jobs.setter
@@ -1368,7 +1362,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         return any(job.is_containerized for job in self.jobs)
 
     @property
-    def toposorted(self):
+    def toposorted(self) -> Sequence[Sequence[Job]]:
+        assert self._toposorted is not None
         return self._toposorted
 
     @toposorted.setter
@@ -1518,7 +1513,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         return Resources(fromdict=self._resources)
 
     @property
-    def scheduler_resources(self) -> Dict[str, Union[int, float, str]]:
+    def scheduler_resources(self) -> Dict[str, Union[int, str]]:
         return self._get_scheduler_resources()
 
     @property
@@ -1657,15 +1652,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         if len(rules) > 5:
             rules = rules[:5] + ["..."]
         return f"{self.groupid}_{'_'.join(rules)}"
-
-    def check_protected_output(self):
-        for job in self.jobs:
-            job.check_protected_output()
-
-    async def inputsize(self):
-        if self._inputsize is None:
-            self._inputsize = sum([await f.size() for f in self.input])
-        return self._inputsize
 
     @property
     def priority(self):

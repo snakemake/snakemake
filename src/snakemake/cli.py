@@ -7,21 +7,19 @@ from collections import defaultdict
 import os
 import re
 import sys
-from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import List, Mapping, Optional, Set, Union
+from typing import List, Mapping, Optional, Set, Tuple, Union
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
-
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
+from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
 
 
 import snakemake.common.argparse
-from snakemake import logging
 from snakemake.api import (
     SnakemakeApi,
     resolve_snakefile,
@@ -351,7 +349,7 @@ def parse_jobs(jobs):
         )
 
 
-def get_profile_dir(profile: str) -> (Path, Path):
+def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
     config_pattern = re.compile(r"config(.v(?P<min_major>\d+)\+)?.yaml")
 
     def get_config_min_major(filename):
@@ -1795,6 +1793,7 @@ def get_argument_parser(profiles=None):
     StoragePluginRegistry().register_cli_args(parser)
     ReportPluginRegistry().register_cli_args(parser)
     LoggerPluginRegistry().register_cli_args(parser)
+    SchedulerPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1942,6 +1941,9 @@ def args_to_api(args, parser):
         name: LoggerPluginRegistry().get_plugin(name).get_settings(args)
         for name in args.logger
     }
+
+    scheduler_plugin = SchedulerPluginRegistry().get_plugin(args.scheduler)
+    scheduler_settings = scheduler_plugin.get_settings(args)
 
     if args.reporter:
         report_plugin = ReportPluginRegistry().get_plugin(args.reporter)
@@ -2213,6 +2215,7 @@ def args_to_api(args, parser):
                                 local_groupid=args.local_groupid,
                             ),
                             executor_settings=executor_settings,
+                            scheduler_settings=scheduler_settings,
                         )
 
                         if report_plugin is not None and args.report_after_run:
