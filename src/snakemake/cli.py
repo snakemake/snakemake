@@ -846,6 +846,7 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help=("Re-run all jobs the output of which is recognized as incomplete."),
     )
+
     group_exec.add_argument(
         "--shadow-prefix",
         metavar="DIR",
@@ -853,6 +854,19 @@ def get_argument_parser(profiles=None):
             "Specify a directory in which the `shadow` directory is created. "
             "If not supplied, the value is set to the `.snakemake` directory relative "
             "to the working directory."
+        ),
+    )
+
+    group_exec.add_argument(
+        "--assume-checkpoint-safe-temp-files",
+        action="store_true",
+        help=(
+            "Assume that temporary files are safe to be deleted also when "
+            "checkpoint rules are used. Temporary files are otherwise kept "
+            "until all checkpoints are finished and the DAG is complete. In case temporary files "
+            "might be needed by jobs that will only be scheduled after checkpoint execution, "
+            "either this flag should not be used or ALL of the temporary files that might be "
+            "needed should be explicitly declared as input files of the checkpoint rule or its dependencies."
         ),
     )
 
@@ -2092,6 +2106,7 @@ def args_to_api(args, parser):
                             allowed_rules=args.allowed_rules,
                             rerun_triggers=args.rerun_triggers,
                             max_inventory_wait_time=args.max_inventory_time,
+                            assume_checkpoint_safe_temp_files=args.assume_checkpoint_safe_temp_files,
                             trust_io_cache=args.trust_io_cache,
                             max_checksum_file_size=args.max_checksum_file_size,
                             strict_evaluation=args.strict_dag_evaluation,

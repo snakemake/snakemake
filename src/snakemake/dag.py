@@ -122,17 +122,25 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         ignore_incomplete=False,
         rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
+        self.workflow: _workflow.Workflow = workflow
+
         self._queue_input_jobs = None
+        # job -> {jobs that need to run before this job -> files needed}
         self._dependencies = defaultdict(partial(defaultdict, set))
+
+        # job -> {jobs that depend on this job -> files needed}
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
         self._checkpoint_jobs = set()
+        self.assume_checkpoint_safe_temp_files = (
+            self.workflow.dag_settings.assume_checkpoint_safe_temp_files
+        )
         self._priority = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
         self._has_unfinished_queue_input_jobs = None
         self._len = 0
-        self.workflow: _workflow.Workflow = workflow
+
         self.rules = set(rules)
         self.rules_allowed_for_needrun = rules_allowed_for_needrun
         self.targetfiles = targetfiles
@@ -199,10 +207,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     @property
     def dependencies(self):
+        """Return the dependency graph as a dictionary mapping jobs
+        to {jobs that need to run before this job -> files needed}"""
         return self._dependencies
 
     @property
     def batch(self):
+        """Returns Batch object (containing rule name, batch index, and nr of batches) in case
+        the DAG is run in batch mode, otherwise None.
+        """
         return self.workflow.dag_settings.batch
 
     async def init(self, progress=False):
@@ -1085,7 +1098,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         progress=False,
         create_inventory=False,
     ):
-        """Update the DAG by adding given jobs and their dependencies."""
+        """Given a set of candidate jobs that might produce a file,
+        select the producer, and update the DAG.
+
+        Raises AmbiguousRuleException in case multiple jobs
+        can be producers.
+        """
+
         if visited is None:
             visited = set()
         if known_producers is None:
@@ -2246,9 +2265,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        if not self.checkpoint_jobs:
+        if self.assume_checkpoint_safe_temp_files or not self.checkpoint_jobs:
             # While there are still checkpoint jobs, we cannot safely delete
-            # temp files.
+            # temp files, unless the user has explicitly requested to do so.
+
             # TODO: we maybe could be more accurate and determine whether there is a
             # checkpoint that depends on the temp file.
             for job in jobs:

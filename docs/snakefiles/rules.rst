@@ -1839,6 +1839,17 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
         shell:
             "somecommand {input} {output}"
 
+
+When using checkpoint rules, Snakemake cannot determine whether temporary files are no longer needed until 
+all checkpoint jobs have been completed. This delay in removal may result in unexpectedly high storage usage.
+This behavior can be disabled by using the option ``--assume-checkpoint-safe-temp-files``. 
+However, if any temporary files might still be needed after future checkpoints, you must ensure they are not 
+deleted prematurely. To do so, include them as input of the checkpoint job (or any jobs dependent on the 
+checkpoint job)."
+
+
+
+
 .. _snakefiles-directory_output:
 
 Auto-grouping via temp files upon remote execution
