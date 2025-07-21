@@ -26,6 +26,7 @@ from snakemake import api
 from snakemake.common import ON_WINDOWS
 from snakemake.report.html_reporter import ReportSettings
 from snakemake.resources import ResourceScopes
+from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
 
 
@@ -416,14 +417,14 @@ def run(
                             seconds_between_status_checks=0,
                             envvars=envvars,
                         ),
-                        scheduling_settings=settings.SchedulingSettings(
-                            ilp_solver=scheduler_ilp_solver,
-                        ),
                         group_settings=settings.GroupSettings(
                             group_components=group_components,
                             overwrite_groups=overwrite_groups,
                         ),
                         executor_settings=executor_settings,
+                        scheduler_settings=SchedulerSettings(
+                            solver=scheduler_ilp_solver,
+                        ),
                     )
 
                 if report_after_run and report:

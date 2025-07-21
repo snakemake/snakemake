@@ -70,6 +70,7 @@ from snakemake.settings.types import (
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
+from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings
 
 
 def parse_size_in_bytes(value):
@@ -1401,12 +1402,6 @@ def get_argument_parser(profiles=None):
         help="Maximal number of job submissions/executions per timespan. Format: <number><timespan>, e.g. 50/1m or 0.5/1s.",
     )
     group_behavior.add_argument(
-        "--max-jobs-per-second",
-        type=int,
-        help="Maximal number of job submissions/executions per second. "
-        "Deprecated in favor of `--max-jobs-per-timespan`.",
-    )
-    group_behavior.add_argument(
         "--max-status-checks-per-second",
         default=10,
         type=float,
@@ -1596,16 +1591,6 @@ def get_argument_parser(profiles=None):
         help="Provide a custom name for the jobscript that is submitted to the cluster (see `--cluster`). The wildcard `{jobid}` has to be present in the name.",
     )
 
-    group_flux = parser.add_argument_group("FLUX")
-
-    group_flux.add_argument(
-        "--flux",
-        action="store_true",
-        help="Execute your workflow on a flux cluster. "
-        "Flux can work with both a shared network filesystem (like NFS) or without. "
-        "If you don't have a shared filesystem, additionally specify `--no-shared-fs`.",
-    )
-
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
     group_deployment.add_argument(
         "--software-deployment-method",
@@ -1767,6 +1752,20 @@ def get_argument_parser(profiles=None):
         type=ExecMode.parse_choice,
         help=help_internal("Set execution mode of Snakemake."),
     )
+    group_internal.add_argument(
+        "--scheduler-solver-path",
+        help=help_internal(
+            "Set the PATH to search for scheduler solver binaries. Deprecated, use --scheduler-ilp-solver-path instead."
+        ),
+    )
+
+    group_deprecated = parser.add_argument_group("DEPRECATED")
+    group_deprecated.add_argument(
+        "--max-jobs-per-second",
+        type=int,
+        help="Maximal number of job submissions/executions per second. "
+        "Deprecated in favor of `--max-jobs-per-timespan`.",
+    )
 
     # Add namespaced arguments to parser for each plugin
     ExecutorPluginRegistry().register_cli_args(parser)
@@ -1924,6 +1923,9 @@ def args_to_api(args, parser):
 
     scheduler_plugin = SchedulerPluginRegistry().get_plugin(args.scheduler)
     scheduler_settings = scheduler_plugin.get_settings(args)
+    if args.scheduler == "ilp":
+        assert isinstance(scheduler_settings, MILPSchedulerSettings)
+        scheduler_settings.solver_path = args.scheduler_solver_path
 
     if args.reporter:
         report_plugin = ReportPluginRegistry().get_plugin(args.reporter)

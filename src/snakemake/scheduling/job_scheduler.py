@@ -29,6 +29,7 @@ from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.logging import logger
 from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
 
+from snakemake.settings.enums import Quietness
 from snakemake.settings.types import MaxJobsPerTimespan
 
 registry = ExecutorPluginRegistry()
