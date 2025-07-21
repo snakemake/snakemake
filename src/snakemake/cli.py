@@ -870,7 +870,7 @@ def get_argument_parser(profiles=None):
         choices=list(SchedulerPluginRegistry().plugins.keys()),
         help=(
             "Specifies the scheduling plugin to use. "
-            "Builtin plugins are greedy (fast) and milp, while the latter scheduler "
+            "Builtin plugins are greedy (fast) and ilp, while the latter scheduler "
             "aims to reduce runtime and hdd usage by best possible use of resources."
         ),
     )

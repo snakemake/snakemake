@@ -321,7 +321,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 with self._lock:
                     self.running.update(run)
                     # remove from ready_jobs
-                    self.workflow.dag.register_running(run)
+                    self.workflow.dag.register_running(set(run))
 
                 if run:
                     if not self.dryrun:
@@ -483,7 +483,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def _free_resources(self, job):
         for name, value in job.scheduler_resources.items():
             if name in self.resources and name != "_job_count":
-                value = self.calc_resource(name, value)
                 self.resources[name] += value
 
     def _proceed(self, job):

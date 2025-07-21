@@ -607,7 +607,7 @@ class DAGApi(ApiBase):
         if scheduling_settings.greediness is not None:
             greedy_scheduler_settings.greediness = scheduling_settings.greediness
 
-        if scheduler == "milp":
+        if scheduler == "ilp":
             import pulp
 
             if pulp.apis.LpSolverDefault is None:

@@ -2176,7 +2176,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         ):
             await self.retrieve_storage_inputs()
 
-    def register_running(self, jobs):
+    def register_running(self, jobs: AnySet[AbstractJob]):
         self._running.update(jobs)
         self._ready_jobs -= jobs
         for job in jobs:
