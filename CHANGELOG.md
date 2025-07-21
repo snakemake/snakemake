@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.8.1](https://github.com/snakemake/snakemake/compare/v9.8.0...v9.8.1) (2025-07-21)
+
+
+### Bug Fixes
+
+* pass kwargs to StorageRegistry call ([#3631](https://github.com/snakemake/snakemake/issues/3631)) ([2c35e76](https://github.com/snakemake/snakemake/commit/2c35e768047b202103e51e5970ba1bf992eb805a))
+
 ## [9.8.0](https://github.com/snakemake/snakemake/compare/v9.7.1...v9.8.0) (2025-07-10)
 
 
