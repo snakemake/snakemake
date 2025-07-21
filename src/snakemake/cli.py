@@ -863,32 +863,16 @@ def get_argument_parser(profiles=None):
         help="Strict evaluation of rules' correctness even when not required to produce the output files. ",
     )
 
-    try:
-        import pulp
-
-        lp_solvers = pulp.listSolvers(onlyAvailable=True)
-    except ImportError:
-        # Dummy list for the case that pulp is not available
-        # This only happened when building docs.
-        lp_solvers = ["COIN_CMD"]
-    recommended_lp_solver = "COIN_CMD"
-
     group_exec.add_argument(
         "--scheduler",
-        default="greedy" if recommended_lp_solver not in lp_solvers else "ilp",
+        default="ilp",
         nargs="?",
-        choices=["ilp", "greedy"],
+        choices=list(SchedulerPluginRegistry().plugins.keys()),
         help=(
-            "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
-            "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
+            "Specifies the scheduling plugin to use. "
+            "Builtin plugins are greedy (fast) and milp, while the latter scheduler "
+            "aims to reduce runtime and hdd usage by best possible use of resources."
         ),
-    )
-
-    group_exec.add_argument(
-        "--scheduler-ilp-solver",
-        default=recommended_lp_solver,
-        choices=lp_solvers,
-        help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 
     group_exec.add_argument(
@@ -1503,7 +1487,7 @@ def get_argument_parser(profiles=None):
         help="Set the greediness of scheduling. This value between 0 and 1 "
         "determines how careful jobs are selected for execution. The default "
         "value (1.0) provides the best speed and still acceptable scheduling "
-        "quality.",
+        "quality. Deprecated in favor of `--scheduler-greedy-greediness`.",
     )
     group_behavior.add_argument(
         "--scheduler-subsample",
@@ -1758,10 +1742,6 @@ def get_argument_parser(profiles=None):
         return f"Internal use only: {text}"
 
     group_internal = parser.add_argument_group("INTERNAL")
-    group_internal.add_argument(
-        "--scheduler-solver-path",
-        help=help_internal("Set the PATH to search for scheduler solver binaries."),
-    )
     group_internal.add_argument(
         "--deploy-sources",
         nargs=2,
@@ -2202,9 +2182,6 @@ def args_to_api(args, parser):
                             scheduling_settings=SchedulingSettings(
                                 prioritytargets=args.prioritize,
                                 scheduler=args.scheduler,
-                                ilp_solver=args.scheduler_ilp_solver,
-                                solver_path=args.scheduler_solver_path,
-                                greediness=args.scheduler_greediness,
                                 subsample=args.scheduler_subsample,
                                 max_jobs_per_second=args.max_jobs_per_second,
                                 max_jobs_per_timespan=args.max_jobs_per_timespan,

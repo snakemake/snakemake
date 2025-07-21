@@ -124,7 +124,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
         self._queue_input_jobs = None
-        self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(partial(defaultdict, set))
+        self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
+            partial(defaultdict, set)
+        )
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
         self._checkpoint_jobs = set()
@@ -201,7 +203,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     @property
     def dependencies(self) -> Mapping[Job, Mapping[Job, Set[str]]]:
         return self._dependencies
-    
+
     def job_dependencies(self, job: Job) -> Iterable[Job]:
         # keys() returns an iterable, but somehow the type checker does not recognize it
         return self._dependencies.get(job, {}).keys()  # type: ignore[return-value]

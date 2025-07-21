@@ -1,4 +1,4 @@
-from dataclasses import field
+from dataclasses import dataclass, field
 from itertools import filterfalse
 from typing import Dict, Iterable, Mapping, Optional, Sequence, Union
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
@@ -6,7 +6,9 @@ from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
 from snakemake_interface_common.io import AnnotatedStringInterface
 
-class Settings(SchedulerSettingsBase):
+
+@dataclass
+class SchedulerSettings(SchedulerSettingsBase):
     greediness: Optional[float] = field(
         default=1.0,
         metadata={
@@ -16,13 +18,13 @@ class Settings(SchedulerSettingsBase):
             "quality.",
         },
     )
-    prioritize_by_temp_and_input: bool = field(
+    omit_prioritize_by_temp_and_input: bool = field(
         default=False,
         metadata={
             "help": "If set, jobs with larger temporary or input files are "
-            "prioritized. The rationale is that temp files should be removed "
-            "as soon as possible, and larger input files may take longer to "
-            "process, so it is better to start them earlier.",
+            "not prioritized. The rationale of the prioritization is that temp files "
+            "should be removed as soon as possible, and larger input files may take "
+            "longer to process, so it is better to start them earlier.",
         },
     )
 
@@ -87,7 +89,10 @@ class Scheduler(SchedulerBase):
             ]
             if not any(y):
                 break
-            y = [(max(1, int(self.settings.greediness * y_j)) if y_j > 0 else 0) for y_j in y]
+            y = [
+                (max(1, int(self.settings.greediness * y_j)) if y_j > 0 else 0)
+                for y_j in y
+            ]
 
             # Step 3: compute rewards on cumulative sums
             reward = calc_reward()
@@ -113,7 +118,9 @@ class Scheduler(SchedulerBase):
         return [res.get(name, 0) for name in available_resources]
 
     def job_reward(self, job, input_sizes: Dict[AnnotatedStringInterface, int]):
-        if self.settings.prioritize_by_temp_and_input:
+        if self.settings.omit_prioritize_by_temp_and_input:
+            return job.priority
+        else:
             # Usually, this should guide the scheduler to first schedule all jobs
             # that remove the largest temp file, then the second largest and so on.
             # Since the weight is summed up, it can in theory be that it sometimes
@@ -121,6 +128,8 @@ class Scheduler(SchedulerBase):
             # A real solution to the problem is therefore to use dummy jobs that
             # ensure selection of groups of jobs that together delete the same temp
             # file.
-            return (job.priority, sum(input_sizes[f] for f in job.input if f.is_flagged("temp")), sum(input_sizes[f] for f in job.input))
-        else:
-            return job.priority
+            return (
+                job.priority,
+                sum(input_sizes[f] for f in job.input if f.is_flagged("temp")),
+                sum(input_sizes[f] for f in job.input),
+            )

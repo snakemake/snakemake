@@ -29,7 +29,9 @@ from snakemake_interface_executor_plugins.jobs import (
     SingleJobExecutorInterface,
 )
 from snakemake_interface_scheduler_plugins.interfaces.jobs import (
-    JobSchedulerInterface, SingleJobSchedulerInterface, GroupJobSchedulerInterface
+    JobSchedulerInterface,
+    SingleJobSchedulerInterface,
+    GroupJobSchedulerInterface,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_logger_plugins.common import LogEvent
@@ -178,7 +180,12 @@ class JobFactory:
         return obj
 
 
-class Job(AbstractJob, SingleJobExecutorInterface, SingleJobSchedulerInterface, JobReportInterface):
+class Job(
+    AbstractJob,
+    SingleJobExecutorInterface,
+    SingleJobSchedulerInterface,
+    JobReportInterface,
+):
     obj_cache = dict()
 
     __slots__ = [
@@ -298,7 +305,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, SingleJobSchedulerInterface, 
             return  # do not add aux_resources that are already in resources
         self._aux_resources[name] = value
         self._resources = None  # reset resources to include aux_resources
-        self._scheduler_resources = None  # reset scheduler resources to include aux_resources
+        self._scheduler_resources = (
+            None  # reset scheduler resources to include aux_resources
+        )
 
     @property
     def is_updated(self):

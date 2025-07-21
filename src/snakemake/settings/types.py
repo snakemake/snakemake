@@ -317,10 +317,12 @@ class SchedulingSettings(SettingsBase):
     """
 
     prioritytargets: AnySet[str] = frozenset()
-    scheduler: str = "ilp"
+    scheduler: str = "milp"
     ilp_solver: Optional[str] = None  # deprecated, use scheduler_settings instead
     solver_path: Optional[Path] = None  # deprecated, use scheduler_settings instead
-    greediness: Optional[float] = None  # deprecated, use greedy_scheduler_settings instead
+    greediness: Optional[float] = (
+        None  # deprecated, use greedy_scheduler_settings instead
+    )
     subsample: Optional[int] = None
     max_jobs_per_second: Optional[int] = None
     max_jobs_per_timespan: Optional[MaxJobsPerTimespan] = None
@@ -329,6 +331,9 @@ class SchedulingSettings(SettingsBase):
         self.greediness = self._get_greediness()
         if self.max_jobs_per_second is not None and self.max_jobs_per_timespan is None:
             self.max_jobs_per_timespan = MaxJobsPerTimespan(self.max_jobs_per_second)
+        if self.scheduler == "ilp":
+            # handle old name for backwards compatibility
+            self.scheduler = "milp"
 
     def _get_greediness(self):
         if self.greediness is None:

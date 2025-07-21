@@ -27,7 +27,7 @@ from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.logging import logger
-from snakemake.scheduling.greedy import Settings as GreedySchedulerSettings
+from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
 
 from snakemake.settings.types import MaxJobsPerTimespan
 
@@ -57,7 +57,13 @@ class DummyRateLimiter(ContextDecorator):
 
 
 class JobScheduler(JobSchedulerExecutorInterface):
-    def __init__(self, workflow, executor_plugin: ExecutorPlugin, scheduler: SchedulerBase, greedy_scheduler_settings: GreedySchedulerSettings):
+    def __init__(
+        self,
+        workflow,
+        executor_plugin: ExecutorPlugin,
+        scheduler: SchedulerBase,
+        greedy_scheduler_settings: GreedySchedulerSettings,
+    ):
         """Create a new instance of KnapsackJobScheduler."""
         self.workflow = workflow
 
@@ -140,21 +146,15 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 )
             )
 
-        self._greedy_scheduler = SchedulerPluginRegistry().get_plugin("greedy").scheduler(greedy_scheduler_settings)
+        self._greedy_scheduler = (
+            SchedulerPluginRegistry()
+            .get_plugin("greedy")
+            .scheduler(self.workflow.dag, greedy_scheduler_settings, logger)
+        )
 
         # Choose job selector (greedy or ILP)
-        self._job_selector = self._greedy_scheduler.select_jobs
-        if self.workflow.scheduling_settings.scheduler == "ilp" and not self.touch:
-            import pulp
-
-            if pulp.apis.LpSolverDefault is None:
-                logger.warning(
-                    "Falling back to greedy scheduler because no default "
-                    "solver is found for pulp (you have to install either "
-                    "coincbc or glpk)."
-                )
-            else:
-                self._job_selector = self.job_selector_ilp
+        self.job_selector_greedy = self._greedy_scheduler.select_jobs
+        self._job_selector = scheduler.select_jobs
 
         self._user_kill = None
         try:
@@ -195,9 +195,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
     async def update_input_sizes(self, jobs: Iterable[AbstractJob]):
         async def get_size(path):
             return path, await path.size()
+
         paths = {path for job in jobs for path in job.input}
         if paths:
-            self._input_sizes.update(await asyncio.gather(*[get_size(path) for path in paths]))
+            self._input_sizes.update(
+                await asyncio.gather(*[get_size(path) for path in paths])
+            )
 
         if len(self._input_sizes) > 10000:
             for path in list(filterfalse(paths.__contains__, self._input_sizes)):
@@ -540,8 +543,24 @@ class JobScheduler(JobSchedulerExecutorInterface):
         for job in jobs:
             self.validate_job(job)
 
-        def postprocess(selected: Sequence[AbstractJob]) -> Sequence[AbstractJob]:
-            self.update_available_resources(selected)
+        async_run(self.update_input_sizes(jobs))
+
+        def run_selector(job_selector) -> Sequence[AbstractJob]:
+            with self._lock:
+                if self.resources["_cores"] == 0:
+                    return []
+                if len(jobs) == 1:
+                    return self.job_selector_greedy(
+                        jobs, self.remaining_jobs, self.resources, self._input_sizes
+                    )
+                selected = job_selector(
+                    jobs, self.remaining_jobs, self.resources, self._input_sizes
+                )
+                if selected is None:
+                    selected = self.job_selector_greedy(
+                        jobs, self.remaining_jobs, self.resources, self._input_sizes
+                    )
+                self.update_available_resources(selected)
             return selected
 
         # get number of free jobs to submit
@@ -550,20 +569,17 @@ class JobScheduler(JobSchedulerExecutorInterface):
             assert (
                 self.resources["_job_count"] == sys.maxsize
             ), f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
-            return postprocess(self._job_selector(jobs, self.resources))
+            return run_selector(self._job_selector)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:
             logger.info("Job rate limit reached, waiting for free slots.")
             return set()
         else:
             self.resources["_job_count"] = n_free_jobs
-            selected = postprocess(self._job_selector(jobs, self.resources))
+            selected = run_selector(self._job_selector)
             # update job rate limiter
             self.job_rate_limiter.register_jobs(len(selected))
             return selected
-
-    def required_by_job(self, temp_file, job):
-        return 1 if temp_file in self.workflow.dag.temp_input(job) else 0
 
     def update_available_resources(self, selected_jobs):
         for name in self.global_resources:

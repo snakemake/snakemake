@@ -37,7 +37,7 @@ from snakemake.settings.types import (
     StorageSettings,
     SharedFSUsage,
 )
-from snakemake.scheduling.greedy import Settings as GreedySchedulerSettings
+from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
 
 from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -592,13 +592,33 @@ class DAGApi(ApiBase):
             or not executor_plugin.common_settings.local_exec
         )
 
-        scheduler_plugin = SchedulerPluginRegistry().get_plugin(scheduling_settings.scheduler)
+        scheduler = scheduling_settings.scheduler
+
         if greedy_scheduler_settings is None:
             greedy_scheduler_settings = GreedySchedulerSettings()
-        if executor == "touch" or executor == "dryrun" or remote_execution_settings.immediate_submit:
-            greedy_scheduler_settings.prioritize_by_temp_and_input = False
+
+        if (
+            executor == "touch"
+            or executor == "dryrun"
+            or remote_execution_settings.immediate_submit
+        ):
+            greedy_scheduler_settings.omit_prioritize_by_temp_and_input = True
+            scheduler = "greedy"
         if scheduling_settings.greediness is not None:
             greedy_scheduler_settings.greediness = scheduling_settings.greediness
+
+        if scheduler == "milp":
+            import pulp
+
+            if pulp.apis.LpSolverDefault is None:
+                logger.warning(
+                    "Falling back to greedy scheduler because no default "
+                    "solver is found for pulp (you have to install either "
+                    "coincbc or glpk)."
+                )
+                scheduler = "greedy"
+
+        scheduler_plugin = SchedulerPluginRegistry().get_plugin(scheduler)
 
         workflow = self.workflow_api._workflow
         workflow.execution_settings = execution_settings

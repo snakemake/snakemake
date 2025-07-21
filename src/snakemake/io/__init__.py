@@ -1897,7 +1897,7 @@ class InputFiles(Namedlist):
             return [await f.size() for f in self]
 
         return async_run(sizes())
-    
+
     @property
     def size_tempfiles(self):
         async def sizes():
@@ -1928,7 +1928,7 @@ class InputFiles(Namedlist):
     @property
     def size_mb(self):
         return sum(self.size_files_mb)
-    
+
     @property
     def temp_size_mb(self):
         return sum(self.size_tempfiles)

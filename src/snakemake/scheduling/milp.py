@@ -1,5 +1,5 @@
 from collections import defaultdict
-from dataclasses import field
+from dataclasses import dataclass, field
 import math
 import os
 from pathlib import Path
@@ -7,7 +7,7 @@ from typing import Dict, Iterable, Mapping, Optional, Sequence, Union
 from snakemake.common import async_run
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
-from snakemake_interface_scheduler_plugins.interfaces.job import JobSchedulerInterface
+from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
 from snakemake_interface_common.io import AnnotatedStringInterface
 
 
@@ -20,21 +20,19 @@ except Exception:
     lp_solvers = ["COIN_CMD"]
 
 
-class Settings(SchedulerSettingsBase):
+@dataclass
+class SchedulerSettings(SchedulerSettingsBase):
     solver: Optional[str] = field(
         default="COIN_CMD",
         metadata={
             "help": "Set MILP solver to use",
             "choices": lp_solvers,
-        }
+        },
     )
     solver_path: Optional[Path] = field(
         default=None,
-        metadata={
-            "help": "Set the PATH to search for scheduler solver binaries."
-        }
+        metadata={"help": "Set the PATH to search for scheduler solver binaries."},
     )
-
 
 
 class Scheduler(SchedulerBase):
@@ -48,120 +46,109 @@ class Scheduler(SchedulerBase):
         import pulp
         from pulp import lpSum
 
-        if len(selectable_jobs) == 1:
-            return self.job_selector_greedy(selectable_jobs)
-
-        with self._lock:
-            if not self.resources["_cores"]:
-                return []
-
-            scheduled_jobs = {
-                job: pulp.LpVariable(
-                    f"job_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
-                )
-                for idx, job in enumerate(selectable_jobs)
-            }
-
-            job_temp_files = {}
-            for job in remaining_jobs:
-                job_temp_files[job] = {
-                    infile
-                    for infile in job.input
-                    if infile.is_flagged("temp")
-                }
-
-            temp_files = {
-                f for job in selectable_jobs for f in job.input
-                if f.is_flagged("temp")
-            }
-
-            temp_sizes_gb = {f: input_sizes[f] / 1e9 for f in temp_files}
-
-            temp_job_improvement = {
-                temp_file: pulp.LpVariable(
-                    f"temp_file_{idx}", lowBound=0, upBound=1, cat="Continuous"
-                )
-                for idx, temp_file in enumerate(temp_files)
-            }
-
-            temp_file_deletable = {
-                temp_file: pulp.LpVariable(
-                    f"deletable_{idx}",
-                    lowBound=0,
-                    upBound=1,
-                    cat=pulp.LpInteger,
-                )
-                for idx, temp_file in enumerate(temp_files)
-            }
-            prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
-
-            total_temp_size = max(
-                sum([temp_sizes_gb[temp_file] for temp_file in temp_files]), 1
+        scheduled_jobs = {
+            job: pulp.LpVariable(
+                f"job_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
             )
-            total_core_requirement = sum(
-                [max(job.scheduler_resources.get("_cores", 1), 1) for job in selectable_jobs]
+            for idx, job in enumerate(selectable_jobs)
+        }
+
+        job_temp_files = {}
+        for job in remaining_jobs:
+            job_temp_files[job] = {
+                infile for infile in job.input if infile.is_flagged("temp")
+            }
+
+        temp_files = {
+            f for job in selectable_jobs for f in job.input if f.is_flagged("temp")
+        }
+
+        temp_sizes_gb = {f: input_sizes[f] / 1e9 for f in temp_files}
+
+        temp_job_improvement = {
+            temp_file: pulp.LpVariable(
+                f"temp_file_{idx}", lowBound=0, upBound=1, cat="Continuous"
             )
-            # Objective function
-            # Job priority > Core load
-            # Core load > temp file removal
-            # Instant removal > temp size
+            for idx, temp_file in enumerate(temp_files)
+        }
+
+        temp_file_deletable = {
+            temp_file: pulp.LpVariable(
+                f"deletable_{idx}",
+                lowBound=0,
+                upBound=1,
+                cat=pulp.LpInteger,
+            )
+            for idx, temp_file in enumerate(temp_files)
+        }
+        prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
+
+        total_temp_size = max(
+            sum([temp_sizes_gb[temp_file] for temp_file in temp_files]), 1
+        )
+        total_core_requirement = sum(
+            [
+                max(job.scheduler_resources.get("_cores", 1), 1)
+                for job in selectable_jobs
+            ]
+        )
+        # Objective function
+        # Job priority > Core load
+        # Core load > temp file removal
+        # Instant removal > temp size
+        prob += (
+            2
+            * total_core_requirement
+            * 2
+            * total_temp_size
+            * lpSum([job.priority * scheduled_jobs[job] for job in selectable_jobs])
+            + 2
+            * total_temp_size
+            * lpSum(
+                [
+                    max(job.scheduler_resources.get("_cores", 1), 1)
+                    * scheduled_jobs[job]
+                    for job in selectable_jobs
+                ]
+            )
+            + total_temp_size
+            * lpSum(
+                [
+                    temp_file_deletable[temp_file] * temp_sizes_gb[temp_file]
+                    for temp_file in temp_files
+                ]
+            )
+            + lpSum(
+                [
+                    temp_job_improvement[temp_file] * temp_sizes_gb[temp_file]
+                    for temp_file in temp_files
+                ]
+            )
+        )
+
+        # Constraints:
+        for name in available_resources:
             prob += (
-                2
-                * total_core_requirement
-                * 2
-                * total_temp_size
-                * lpSum([job.priority * scheduled_jobs[job] for job in selectable_jobs])
-                + 2
-                * total_temp_size
-                * lpSum(
+                lpSum(
                     [
-                        max(job.scheduler_resources.get("_cores", 1), 1)
-                        * scheduled_jobs[job]
+                        scheduled_jobs[job] * job.scheduler_resources.get(name, 0)
                         for job in selectable_jobs
                     ]
                 )
-                + total_temp_size
-                * lpSum(
-                    [
-                        temp_file_deletable[temp_file] * temp_sizes_gb[temp_file]
-                        for temp_file in temp_files
-                    ]
-                )
-                + lpSum(
-                    [
-                        temp_job_improvement[temp_file] * temp_sizes_gb[temp_file]
-                        for temp_file in temp_files
-                    ]
-                )
+                <= available_resources[name]
             )
 
-            # Constraints:
-            for name in available_resources:
-                prob += (
-                    lpSum(
-                        [
-                            scheduled_jobs[job] * job.scheduler_resources.get(name, 0)
-                            for job in selectable_jobs
-                        ]
-                    )
-                    <= available_resources[name]
-                )
+        # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
+        for temp_file in temp_files:
+            prob += temp_job_improvement[temp_file] <= lpSum(
+                [
+                    scheduled_jobs[job]
+                    for job in selectable_jobs
+                    if temp_file in job_temp_files[job]
+                ]
+            ) / lpSum([1 for job in remaining_jobs if temp_file in job_temp_files[job]])
 
-            # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
-            for temp_file in temp_files:
-                prob += temp_job_improvement[temp_file] <= lpSum(
-                    [
-                        scheduled_jobs[job]
-                        for job in selectable_jobs
-                        if temp_file in job_temp_files[job]
-                    ]
-                ) / lpSum(
-                    [1 for job in remaining_jobs if temp_file in job_temp_files[job]]
-                )
-
-                prob += (
-                    temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
-                )
+            prob += temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
 
         status = self._solve_ilp(prob, time_limit=10)
         if pulp.LpStatus[status] != "Optimal":
@@ -170,10 +157,10 @@ class Scheduler(SchedulerBase):
                     "Failed to solve scheduling problem with ILP solver in time (10s)."
                 )
             elif pulp.LpStatus[status] == "Infeasible":
-                self.logger.warning("Failed to solve scheduling problem with ILP solver.")
-
-            self.logger.warning("Falling back to greedy solver.")
-            return self.job_selector_greedy(selectable_jobs)
+                self.logger.warning(
+                    "Failed to solve scheduling problem with ILP solver."
+                )
+            return None
 
         selected_jobs = [
             job
@@ -184,7 +171,7 @@ class Scheduler(SchedulerBase):
         if not selected_jobs:
             # No selected jobs. This could be due to insufficient resources or a failure in the ILP solver
             # Hence, we silently fall back to the greedy solver to make sure that we don't miss anything.
-            return self.job_selector_greedy(selectable_jobs)
+            return None
 
         return selected_jobs
 
