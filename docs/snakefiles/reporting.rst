@@ -333,7 +333,6 @@ Custom report metadata
 ^^^^^^^^^^^^^^^^^^^^^^
 
 You can define custom metadata that is displayed on the landing page of the report.
-By default, only the used Snakemake version is displayed. 
 The metadata is provided as a `YTE <https://yte-template-engine.github.io>`_ yaml template.
 
 .. code-block:: bash
