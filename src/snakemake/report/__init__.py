@@ -746,6 +746,17 @@ async def auto_report(
         with open(global_report_settings.metadata_template, "r") as template:
             metadata = process_yaml(template)
 
+            # ensure that metadata is a key value dictionary
+            # allowed values: str, int, float, list[str|int|float]
+            if not _validate_flat_dict(metadata):
+                raise TypeError(
+                    (
+                        "Metadata must be single level "
+                        "dict[str, str | int | float | "
+                        "list[str] | list[int] | list[float]]]"
+                    )
+                )
+
     reporter = report_plugin.reporter(
         rules,
         results,
@@ -753,9 +764,29 @@ async def auto_report(
         sorted(records.values(), key=lambda rec: rec.rule),  # this contains the jobs
         report_settings,
         workflow_description,
-        metadata=metadata,
         dag=dag,
+        metadata=metadata,
     )
 
     reporter.render()
     logger.info("Report created.")
+
+
+def _is_valid_flat_value(value) -> bool:
+    if isinstance(value, (str, int, float)):
+        return True
+    elif isinstance(value, list):
+        return all(isinstance(item, (str, int, float)) for item in value)
+    else:
+        return False
+
+
+def _validate_flat_dict(metadata: dict) -> bool:
+    if not isinstance(metadata, dict):
+        return False
+    for k, v in metadata.items():
+        if not isinstance(k, str):
+            return False
+        if not _is_valid_flat_value(v):
+            return False
+    return True
