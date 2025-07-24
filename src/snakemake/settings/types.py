@@ -403,24 +403,8 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     keep_logger: bool = False
     stdout: bool = False
     benchmark_extended: bool = False
-    log_errors_only: bool = False  # True for SUBPROCESS mode
-    use_default_stream: bool = True  # False when custom handlers provided
-    enable_file_logging: bool = True  # False for SUBPROCESS/REMOTE modes
-    enable_queue_listener: bool = True  # False for SUBPROCESS/REMOTE modes
-
-    def _check(self):
-        # log_errors_only implies specific behavior that conflicts with other settings
-        if self.log_errors_only:
-            if not self.use_default_stream:
-                raise ApiError("log_errors_only=True requires use_default_stream=True")
-            if self.enable_file_logging:
-                raise ApiError(
-                    "log_errors_only=True is incompatible with enable_file_logging=True"
-                )
-            if self.enable_queue_listener:
-                raise ApiError(
-                    "log_errors_only=True is incompatible with enable_queue_listener=True"
-                )
+    log_errors_only: bool = False  # Only log errors. Sets log level to ERROR. Typically used for subprocces mode.
+    enable_file_logging: bool = True  # Create and write to logfile. Generally False for remote/subprocess executors.
 
 
 @dataclass

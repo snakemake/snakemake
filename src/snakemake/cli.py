@@ -1929,19 +1929,15 @@ def create_output_settings(args, log_handler_settings) -> OutputSettings:
     # Set logging behavior based on execution mode
     if args.mode == ExecMode.SUBPROCESS:
         settings.log_errors_only = True
-        settings.use_default_stream = True
         settings.enable_file_logging = False
-        settings.enable_queue_listener = False
+
     elif args.mode == ExecMode.REMOTE:
         settings.log_errors_only = False
-        settings.use_default_stream = True
         settings.enable_file_logging = False
-        settings.enable_queue_listener = False
+
     else:  # ExecMode.DEFAULT
         settings.log_errors_only = False
-        settings.use_default_stream = len(log_handler_settings) == 0
         settings.enable_file_logging = True
-        settings.enable_queue_listener = True
 
     return settings
 

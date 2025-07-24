@@ -549,51 +549,52 @@ class LoggerManager:
         handlers: List[LogHandlerBase],
         settings: OutputSettingsLoggerInterface,
     ):
+        # Clear any existing handlers to prevent duplicates
+        self.logger.handlers.clear()
         self.settings = settings
 
-        stream_handlers = []
-        other_handlers = []
-
         if settings.log_errors_only:
-            # Equivalent to ExecMode.SUBPROCESS behavior
+            # Errors-only mode (subprocess) - only show errors
             handler = self._default_streamhandler()
             handler.setLevel(logging.ERROR)
-            stream_handlers.append(handler)
-        elif settings.use_default_stream and not handlers:
-            # Equivalent to ExecMode.REMOTE behavior or default when no handlers
-            stream_handlers.append(self._default_streamhandler())
-        elif handlers:
-            for handler in handlers:
-                if handler.needs_rulegraph:
-                    self.needs_rulegraph = True
-                configured_handler = self._configure_plugin_handler(handler)
-                if configured_handler.writes_to_file:
-                    self.logfile_handlers[configured_handler] = (
-                        configured_handler.baseFilename
-                    )
-                elif configured_handler.writes_to_stream:
-                    stream_handlers.append(configured_handler)
-                else:
-                    other_handlers.append(configured_handler)
+            self.logger.addHandler(handler)
+            self.logger.setLevel(logging.ERROR)
+            return
 
-        if len(stream_handlers) > 1:
-            raise ValueError("More than 1 stream log handler specified!")
-        elif len(stream_handlers) == 0:
-            # we dont have any stream_handlers from plugin(s) so give us the default one
-            self.logger.addHandler(self._default_streamhandler())
+        plugin_handlers = []
+        plugin_stream_handlers = False
+        for handler in handlers:
+            if handler.needs_rulegraph:
+                self.needs_rulegraph = True
 
-        if stream_handlers:
-            self.logger.addHandler(stream_handlers[0])
+            configured_handler = self._configure_plugin_handler(handler)
 
-        if other_handlers and settings.enable_queue_listener:
+            if configured_handler.writes_to_stream:
+                if plugin_stream_handlers:
+                    raise ValueError("More than 1 stream log handler specified!")
+                plugin_stream_handlers = True
+
+            if configured_handler.writes_to_file:
+                self.logfile_handlers[configured_handler] = (
+                    configured_handler.baseFilename
+                )
+
+            plugin_handlers.append(configured_handler)
+
+        # setup queuehandler if we have plugin handlers.
+        if plugin_handlers:
             self._queue = Queue(-1)
             self.queue_listener = logging.handlers.QueueListener(
                 self._queue,
-                *other_handlers,
+                *plugin_handlers,
                 respect_handler_level=True,
             )
             self.queue_listener.start()
             self.logger.addHandler(logging.handlers.QueueHandler(self._queue))
+
+        # always fallback to default stream handler.
+        if not plugin_stream_handlers:
+            self.logger.addHandler(self._default_streamhandler())
 
         self.logger.setLevel(logging.DEBUG if settings.verbose else logging.INFO)
 
