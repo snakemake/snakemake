@@ -94,7 +94,7 @@ platforms = ["linux-64", "osx-arm64", "win-64", "osx-64", "linux-aarch64"]
 
 [tool.pixi.pypi-dependencies]
 snakemake = { path = ".", editable = true, extras = ["all"] }
-snakemake-interface-scheduler-plugins = { path = "../snakemake-interface-scheduler-plugins", editable = true }
+snakemake-interface-scheduler-plugins = { git = "https://github.com/snakemake/snakemake-interface-scheduler-plugins.git" }
 
 [tool.pixi.environments]
 dev = { features = ["test", "docs", "style"] }
