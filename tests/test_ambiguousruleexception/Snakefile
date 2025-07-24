@@ -1,0 +1,30 @@
+rule all:
+    input:
+        [
+            "A/one.txt",
+            "B/one.txt",
+            "A/two.txt",
+            "B/two.txt",
+            "A/three.txt",
+            "B/three.txt",
+        ]
+
+rule A:
+    output:
+        a="A/{sample}.txt",
+        c=temp("C/{sample}.txt"),
+    shell:
+        """
+        touch {output.a}
+        touch {output.c}
+        """
+
+rule B:
+    output:
+        b="B/{sample}.txt",
+        c=temp("C/{sample}.txt"),
+    shell:
+        """
+        touch {output.b}
+        touch {output.c}
+        """
