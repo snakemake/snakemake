@@ -40,9 +40,9 @@ Finished jobid: 0 (Rule: all)
     with open(latest_log, "r") as f:
         log_content = f.read()
 
-    assert finished_stmt.strip() in log_content.strip(), (
-        f"Expected statement not found in log file. Log content: {log_content}"
-    )
+    assert (
+        finished_stmt.strip() in log_content.strip()
+    ), f"Expected statement not found in log file. Log content: {log_content}"
 
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
@@ -90,12 +90,12 @@ def test_logger_in_workflow():
         custom_log_content = f.read()
 
     for stmt in stmts:
-        assert stmt.strip() in log_content.strip(), (
-            f"Expected statement {stmt} not found in log file. Log content: {log_content}"
-        )
-        assert stmt.strip() in custom_log_content.strip(), (
-            f"Expected statement {stmt} not found in log file. Custom Log content: {custom_log_content}"
-        )
+        assert (
+            stmt.strip() in log_content.strip()
+        ), f"Expected statement {stmt} not found in log file. Log content: {log_content}"
+        assert (
+            stmt.strip() in custom_log_content.strip()
+        ), f"Expected statement {stmt} not found in log file. Custom Log content: {custom_log_content}"
 
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
@@ -172,9 +172,9 @@ def test_log_events(caplog, capfd):
     ]
 
     for expected_msg in expected_in_stderr:
-        assert expected_msg in stderr_output, (
-            f"Expected '{expected_msg}' not found in stderr output"
-        )
+        assert (
+            expected_msg in stderr_output
+        ), f"Expected '{expected_msg}' not found in stderr output"
 
 
 def test_rule_failure(caplog, capfd):

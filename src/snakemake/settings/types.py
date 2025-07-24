@@ -403,8 +403,12 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     keep_logger: bool = False
     stdout: bool = False
     benchmark_extended: bool = False
-    log_errors_only: bool = False  # Only log errors. Sets log level to ERROR. Typically used for subprocces mode.
-    enable_file_logging: bool = True  # Create and write to logfile. Generally False for remote/subprocess executors.
+    log_errors_only: bool = (
+        False  # Only log errors. Sets log level to ERROR. Typically used for subprocces mode.
+    )
+    enable_file_logging: bool = (
+        True  # Create and write to logfile. Generally False for remote/subprocess executors.
+    )
 
 
 @dataclass
