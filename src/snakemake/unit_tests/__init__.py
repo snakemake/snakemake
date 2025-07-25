@@ -28,7 +28,7 @@ class RuleTest:
         return self.path / "expected"
 
 
-def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None):
+def generate(dag, path: Path, deploy=["conda", "singularity"], snakefile=None, configfiles=None):
     """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
@@ -105,6 +105,7 @@ def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None)
                         env.get_template("ruletest.py.jinja2").render(
                             ruletest=RuleTest(job, path),
                             deploy=deploy,
+                            snakefile=snakefile,
                             configfiles=configfiles,
                         ),
                         file=test,

@@ -891,7 +891,7 @@ class Workflow(WorkflowExecutorInterface):
         if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
             deploy.append("singularity")
         unit_tests.generate(
-            self.dag, path, deploy, configfiles=self.overwrite_configfiles
+            self.dag, path, deploy, snakefile=self.snakefile, configfiles=self.overwrite_configfiles
         )
 
     def cleanup_metadata(self, paths: List[Path]):
