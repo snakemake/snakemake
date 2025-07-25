@@ -894,7 +894,7 @@ class Workflow(WorkflowExecutorInterface):
             self.dag,
             path,
             deploy,
-            snakefile=self.snakefile,
+            snakefile=self.main_snakefile,
             configfiles=self.overwrite_configfiles,
         )
 
