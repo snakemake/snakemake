@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.8.2](https://github.com/snakemake/snakemake/compare/v9.8.1...v9.8.2) (2025-07-25)
+
+
+### Documentation
+
+* info about snakedeploy ([#3681](https://github.com/snakemake/snakemake/issues/3681)) ([6ff65ae](https://github.com/snakemake/snakemake/commit/6ff65aeb994e237460b707d91842bf026ac1943a))
+
 ## [9.8.1](https://github.com/snakemake/snakemake/compare/v9.8.0...v9.8.1) (2025-07-21)
 
 
