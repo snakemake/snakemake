@@ -1174,6 +1174,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
 
     async def postprocess(
         self,
+        handle_persistence: bool,
         store_in_storage: bool = True,
         handle_log: bool = True,
         handle_touch: bool = True,
@@ -1256,14 +1257,15 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             self.dag.workflow.persistence.cleanup(self)
             raise e
 
-        try:
-            await self.dag.workflow.persistence.finished(self)
-        except IOError as e:
-            raise WorkflowError(
-                "Error recording metadata for finished job "
-                "({}). Please ensure write permissions for the "
-                "directory {}".format(e, self.dag.workflow.persistence.path)
-            )
+        if handle_persistence:
+            try:
+                await self.dag.workflow.persistence.finished(self)
+            except IOError as e:
+                raise WorkflowError(
+                    "Error recording metadata for finished job "
+                    "({}). Please ensure write permissions for the "
+                    "directory {}".format(e, self.dag.workflow.persistence.path)
+                )
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
             await self.cleanup()
