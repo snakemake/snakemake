@@ -21,22 +21,23 @@ def test_{{ ruletest.name }}():
         # Copy data to the temporary workdir.
         shutil.copytree(data_path, workdir)
 
-        # dbg
-        print("{{ ruletest.target }}", file=sys.stderr)
-
         # Run the test job.
         sp.check_output([
             "python",
             "-m",
             "snakemake", 
             "{{ ruletest.target }}",
+            {% if snakefile %}
+            "--snakefile",
+            "{{ snakefile }}",
+            {% endif %}    
             "-f", 
             "-j1",
             "--target-files-omit-workdir-adjustment",
             {% if configfiles %}
             "--configfile",
             {% for configfile in configfiles %}
-            {{ configfile }}
+            "{{ configfile }}",
             {% endfor %}
             {% endif %}    
             {% if "conda" in deploy %}
