@@ -541,7 +541,7 @@ class Assets:
             if target_path.exists():
                 with open(target_path, "rb") as fin:
                     # file is already present, check if it is up to date
-                    if (asset.sha256 is not None) and (
+                    if (asset.sha256 is None) or (
                         asset.sha256 == hashlib.sha256(fin.read()).hexdigest()
                     ):
                         continue
