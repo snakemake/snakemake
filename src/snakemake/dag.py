@@ -1905,7 +1905,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def check_jobs(self):
         # first we check all **needrun** jobs whether its output can be made
-        for job in filterfalse(self._checked_needrun_jobs.__contains__, self.needrun_jobs()):
+        for job in filterfalse(
+            self._checked_needrun_jobs.__contains__, self.needrun_jobs()
+        ):
             await job.check_protected_output()
             self._checked_needrun_jobs.add(job)
 
@@ -1928,7 +1930,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     self._seen_outputs[output_file] = job
 
             self._checked_jobs.add(job)
-
 
     def handle_pipes_and_services(self):
         """Use pipes and services to determine job groups. Check if every pipe has exactly
