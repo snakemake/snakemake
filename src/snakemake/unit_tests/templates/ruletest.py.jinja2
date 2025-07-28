@@ -30,8 +30,8 @@ def test_{{ ruletest.name }}():
             {% if snakefile %}
             "--snakefile",
             "{{ snakefile }}",
-            {% endif %}    
-            "-f", 
+            {% endif %}
+            "-f",
             "-j1",
             "--target-files-omit-workdir-adjustment",
             {% if configfiles %}
@@ -39,7 +39,7 @@ def test_{{ ruletest.name }}():
             {% for configfile in configfiles %}
             "{{ configfile }}",
             {% endfor %}
-            {% endif %}    
+            {% endif %}
             {% if "conda" in deploy %}
             "--use-conda",
             {% endif %}
