@@ -2460,3 +2460,7 @@ def test_ambiguousruleexception():
     except AmbiguousRuleException:
         return
     raise AssertionError("This is an ambiguous case! Should have raised an error...")
+
+
+def test_github_issue3556():
+    run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
