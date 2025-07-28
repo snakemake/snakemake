@@ -158,7 +158,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._storage_input_jobs = defaultdict(list)
         self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
         self._checked_jobs = set()
-        self._seen_outputs: Dict[str, Job] = dict()
+        self._checked_needrun_jobs = set()
+        self._seen_outputs: Dict[str, Union[Job, GroupJob]] = dict()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -1894,7 +1895,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         self.update_ready()
 
-        await self.check_needrun_jobs()
+        await self.check_jobs()
 
         if check_initial:
             assert not (not self.ready_jobs and any(self.needrun_jobs())), (
@@ -1902,9 +1903,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 "ready for execution."
             )
 
-    async def check_needrun_jobs(self):
-        for job in filterfalse(self._checked_jobs.__contains__, self.needrun_jobs()):
+    async def check_jobs(self):
+        # first we check all **needrun** jobs whether its output can be made
+        for job in filterfalse(self._checked_needrun_jobs.__contains__, self.needrun_jobs()):
             await job.check_protected_output()
+            self._checked_needrun_jobs.add(job)
+
+        # now we check **all* jobs for validity
+        for job in filterfalse(self._checked_jobs.__contains__, self.jobs):
             job.is_valid()
 
             # here we check if no two rules make the same output
@@ -1922,6 +1928,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     self._seen_outputs[output_file] = job
 
             self._checked_jobs.add(job)
+
 
     def handle_pipes_and_services(self):
         """Use pipes and services to determine job groups. Check if every pipe has exactly
