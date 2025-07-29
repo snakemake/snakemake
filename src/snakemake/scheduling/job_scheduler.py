@@ -5,9 +5,9 @@ __license__ = "MIT"
 
 import asyncio
 from bisect import bisect
-from collections import defaultdict, deque
-import math
-import os, signal, sys
+from collections import deque
+import signal
+import sys
 import threading
 
 from itertools import chain, accumulate, filterfalse, repeat

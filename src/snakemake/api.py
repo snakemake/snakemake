@@ -618,10 +618,11 @@ class DAGApi(ApiBase):
             if pulp.apis.LpSolverDefault is None:
                 logger.warning(
                     "Falling back to greedy scheduler because no default "
-                    "solver is found for pulp (you have to install either "
+                    "ILP solver is found (you have to install either "
                     "coincbc or glpk)."
                 )
                 scheduler = "greedy"
+                scheduler_settings = greedy_scheduler_settings
 
         scheduler_plugin = SchedulerPluginRegistry().get_plugin(scheduler)
 

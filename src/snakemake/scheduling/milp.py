@@ -1,10 +1,8 @@
-from collections import defaultdict
 from dataclasses import dataclass, field
 import math
 import os
 from pathlib import Path
-from typing import Dict, Iterable, Mapping, Optional, Sequence, Union
-from snakemake.common import async_run
+from typing import Dict, Mapping, Optional, Sequence, Union
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
@@ -179,7 +177,7 @@ class Scheduler(SchedulerBase):
         import pulp
 
         old_path = os.environ["PATH"]
-        if self.settings.solver_path is None:
+        if self.settings.solver_path is not None:
             # Temporarily prepend the given snakemake env to the path, such that the solver can be found in any case.
             # This is needed for cluster envs, where the cluster job might have a different environment but
             # still needs access to the solver binary.
