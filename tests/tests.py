@@ -2552,7 +2552,7 @@ def test_nodelocal():
         cluster="./qsub",
         cores=1,
         resources={"mem_mb": 120},
-        default_resources=DefaultResources(["mem_mb=120"]),
+        default_resources=(["mem_mb=120"]),
     )
     assert not (work_path / "local/temp.txt").exists() or not any(
         (work_path / "scratch/").iterdir()
