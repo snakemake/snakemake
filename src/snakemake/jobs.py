@@ -1396,13 +1396,17 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
         self.jobs = self.jobs | other.jobs
 
     def finalize(self):
-        if self.toposorted is None:
-            self.toposorted = [
+        if not self.is_toposorted:
+            self._toposorted = [
                 *self.dag.toposorted(self.jobs, inherit_pipe_dependencies=True)
             ]
 
+    @property
+    def is_toposorted(self) -> bool:
+        return self._toposorted is not None
+
     def __iter__(self):
-        if self.toposorted is None:
+        if not self.is_toposorted:
             yield from self.jobs
             return
 
