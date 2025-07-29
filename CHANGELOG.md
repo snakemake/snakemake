@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [9.9.0](https://github.com/snakemake/snakemake/compare/v9.8.2...v9.9.0) (2025-07-29)
+
+
+### Features
+
+* python 3.13 support ([#3602](https://github.com/snakemake/snakemake/issues/3602)) ([429cff4](https://github.com/snakemake/snakemake/commit/429cff4e3e14d73386306602c634a49f0f05dc40))
+
+
+### Bug Fixes
+
+* dag mermaid-js edges (bug:[#3556](https://github.com/snakemake/snakemake/issues/3556)) ([#3669](https://github.com/snakemake/snakemake/issues/3669)) ([c6e2e71](https://github.com/snakemake/snakemake/commit/c6e2e7167dce49f964abb51e85bf5376ed819973))
+* if asset is present and no sha256 provided assume pass ([#3685](https://github.com/snakemake/snakemake/issues/3685)) ([7731175](https://github.com/snakemake/snakemake/commit/7731175707171fed08beaf0440443b1182dde10b))
+
 ## [9.8.2](https://github.com/snakemake/snakemake/compare/v9.8.1...v9.8.2) (2025-07-25)
 
 
