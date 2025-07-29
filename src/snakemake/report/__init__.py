@@ -749,7 +749,7 @@ async def auto_report(
             # ensure that metadata is a key value dictionary
             # allowed values: str, int, float, list[str|int|float]
             if not _validate_flat_dict(metadata):
-                raise TypeError(
+                raise WorkflowError(
                     (
                         "Metadata must be single level "
                         "dict[str, str | int | float | "
