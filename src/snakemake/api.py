@@ -38,6 +38,7 @@ from snakemake.settings.types import (
     SharedFSUsage,
 )
 from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
+from snakemake.scheduling.milp import SchedulerSettings as IlpSchedulerSettings
 
 from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -608,6 +609,8 @@ class DAGApi(ApiBase):
             greedy_scheduler_settings.greediness = scheduling_settings.greediness
 
         if scheduler == "ilp":
+            if scheduler_settings is None:
+                scheduler_settings = IlpSchedulerSettings()
             import pulp
 
             if pulp.apis.LpSolverDefault is None:
