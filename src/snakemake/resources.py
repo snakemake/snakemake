@@ -33,6 +33,7 @@ from snakemake.common import (
     mib_to_mb,
 )
 from snakemake.exceptions import (
+    NestedCoroutineError,
     ResourceConstraintError,
     ResourceDuplicationError,
     ResourceError,
@@ -748,6 +749,8 @@ class Resource:
         # Triggers for string arguments like n1-standard-4
         except (NameError, SyntaxError):
             return val
+        except NestedCoroutineError:
+            raise
         except Exception as e:
             try:
                 # check if resource is parsable as human friendly (given the correct
@@ -764,15 +767,19 @@ class Resource:
 
             raise WorkflowError(
                 "Failed to evaluate resources value "
-                f"'{val}'.\n"
-                "    String arguments may need additional "
-                "quoting. E.g.: --default-resources "
+                f"'{val}'.",
+                "When intepreted as a python expression, the following error was "
+                "given:",
+                "",
+                e,
+                "",
+                "Additional quoting may be needed to force interpetation as a "
+                "string. E.g.: --default-resources "
                 "\"tmpdir='/home/user/tmp'\" or "
                 "--set-resources \"somerule:someresource='--nice=100'\". "
                 "This also holds for setting resources inside of a profile, where "
                 "you might have to enclose them in single and double quotes, "
                 "i.e. someresource: \"'--nice=100'\".",
-                e,
             )
         return value
 
@@ -854,9 +861,9 @@ class Resources(Mapping[str, Resource]):
     @property
     def args(self):
         return [
-            f"{name}={value.value}"
+            f"{name}={value.raw}"
             for name, value in self._data.items()
-            if not value.is_evaluable() and value.value is not None
+            if value.raw is not None
         ]
 
     @classmethod

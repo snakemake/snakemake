@@ -915,7 +915,7 @@ def test_group_jobs_resources(mocker):
         global_res=2000,
         disk=100000,
         disk_mb=100000,
-        disk_mib=95367,
+        disk_mib=95368,
     )
 
 
@@ -940,9 +940,16 @@ def test_resources_can_be_provided_in_mib(mocker):
         runtime=420,
         fake_res=600,
         global_res=2000,
-        disk=2000,
-        disk_mb=2000,
-        disk_mib=1908,
+        disk=100000,
+        disk_mb=100000,
+        disk_mib=95368,
+    )
+
+@skip_on_windows
+def test_cores_limited_by_global_supply():
+    run(
+        dpath("test_group_jobs_resources"),
+        cores=1,
     )
 
 
@@ -967,9 +974,9 @@ def test_global_resources_can_be_human_readable(mocker):
         runtime=420,
         fake_res=600,
         global_res=2000,
-        disk=2000,
-        disk_mb=2000,
-        disk_mib=1908,
+        disk=100000,
+        disk_mb=100000,
+        disk_mib=95368,
     )
 
 
@@ -1048,7 +1055,7 @@ def test_group_jobs_resources_with_max_threads(mocker):
         global_res=3000,
         disk=150000,
         disk_mb=150000,
-        disk_mib=143051,
+        disk_mib=143052,
     )
 
 
@@ -1229,7 +1236,7 @@ def test_resources_submitted_to_cluster(mocker):
     )
 
     assert_resources(
-        spy.spy_return, mem=60000, fake_res=1200, global_res=3000, disk=3000
+        spy.spy_return, mem=60000, fake_res=1200, global_res=3000, disk=150000
     )
 
 
@@ -1250,7 +1257,7 @@ def test_excluded_resources_not_submitted_to_cluster(mocker):
             ["mem_mb=0"], defaults="full", allow_expressions=True
         ),
     )
-    assert_resources(spy.spy_return, mem=60000, global_res=3000, disk=3000)
+    assert_resources(spy.spy_return, mem=60000, global_res=3000, disk=150000)
 
 
 @skip_on_windows
@@ -1302,6 +1309,19 @@ def test_group_job_resources_with_pipe_with_too_much_constraint():
         cluster="./qsub",
         cores=6,
         resources={"mem_mb": 20000},
+        group_components={0: 5},
+        shouldfail=True,
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
+    )
+
+@skip_on_windows
+def test_group_job_resources_with_pipe_with_too_few_cores():
+    run(
+        dpath("test_group_with_pipe"),
+        cluster="./qsub",
+        cores=2,
         group_components={0: 5},
         shouldfail=True,
         default_resources=Resources.parse(
@@ -2553,7 +2573,7 @@ def test_nodelocal():
         cluster="./qsub",
         cores=1,
         resources={"mem_mb": 120},
-        default_resources=DefaultResources(["mem_mb=120"]),
+        default_resources=(["mem_mb=120"]),
     )
     assert not (work_path / "local/temp.txt").exists() or not any(
         (work_path / "scratch/").iterdir()

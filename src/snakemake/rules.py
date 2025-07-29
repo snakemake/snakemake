@@ -1051,8 +1051,7 @@ class Rule(RuleInterface):
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in benchmark file cannot be "
-                "determined from output files:",
+                "Wildcards in benchmark file cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -1065,7 +1064,6 @@ class Rule(RuleInterface):
     def expand_resources(
         self, wildcards, input, attempt, skip_evaluation: typing.Optional[set] = None
     ):
-
         def evaluate(resource: str, val: Resource, threads: int | None = None):
             if skip_evaluation is not None and resource in skip_evaluation:
                 return Resource(resource, TBDString())
@@ -1101,9 +1099,12 @@ class Rule(RuleInterface):
 
         resources: typing.Dict[str, int | str | TBDString] = dict()
         assert self.resources is not None
-        threads = evaluate("_cores", self.resources["_cores"]).constrain(
-            self.workflow.resource_settings.max_threads
-        ).value
+        threads = (
+            evaluate("_cores", self.resources["_cores"])
+            .constrain(self.workflow.resource_settings.max_threads)
+            .constrain(self.workflow.global_resources.get("_cores"))
+            .value
+        )
         if not isinstance(threads, int):
             raise WorkflowError("Threads must be given as an int", rule=self)
         resources["_cores"] = threads
