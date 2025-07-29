@@ -22,7 +22,7 @@ from snakemake.settings.types import (
 )
 
 if sys.version_info < MIN_PY_VERSION:
-    raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
+    raise ValueError(f"Snakemake requires at least Python {'.'.join(map(str, MIN_PY_VERSION))}.")
 
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (

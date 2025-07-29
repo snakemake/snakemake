@@ -130,6 +130,6 @@ class Scheduler(SchedulerBase):
             # file.
             return (
                 job.priority,
-                sum(input_sizes[f] for f in job.input if f.is_flagged("temp")),
-                sum(input_sizes[f] for f in job.input),
+                sum(input_sizes[f] or 0 for f in job.input if f.is_flagged("temp")),
+                sum(input_sizes[f] or 0 for f in job.input),
             )

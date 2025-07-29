@@ -20,6 +20,7 @@ from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake.io import _IOFile
 from snakemake.jobs import AbstractJob
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
@@ -194,8 +195,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         ]
 
     async def update_input_sizes(self, jobs: Iterable[AbstractJob]):
-        async def get_size(path):
-            return path, await path.size()
+        async def get_size(path: _IOFile):
+            return path, await path.size() if await path.exists() else None
 
         paths = {path for job in jobs for path in job.input}
         if paths:
