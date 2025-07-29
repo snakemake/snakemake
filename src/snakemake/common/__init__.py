@@ -12,7 +12,7 @@ import hashlib
 import inspect
 import shutil
 import sys
-from typing import Callable, List
+from typing import Callable, List, Tuple
 import uuid
 import os
 import asyncio
@@ -24,7 +24,7 @@ from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
 
 
-MIN_PY_VERSION = (3, 7)
+MIN_PY_VERSION: Tuple[int, int] = (3, 7)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
     "Nothing to be done (all requested files are present and up to date)."
