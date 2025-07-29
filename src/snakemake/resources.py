@@ -806,7 +806,7 @@ class Resources(Mapping[str, Resource]):
     DEFAULTS = {
         "full": {
             "mem": "min(max(2*input.size_mb, 1000), 8000)",
-            "disk": "max(2*input.size_mb, 1000)",
+            "disk": "max(2*input.size_mb, 1000) if input else 50000",
             "tmpdir": "system_tmpdir",
         },
         "bare": {"tmpdir": "system_tmpdir"},
