@@ -50,7 +50,7 @@ dependencies = [
   "snakemake-interface-executor-plugins>=9.3.2,<10.0",
   "snakemake-interface-common>=1.20.1,<2.0",
   "snakemake-interface-storage-plugins>=4.1.0,<5.0",
-  "snakemake-interface-report-plugins>=1.1.0,<2.0.0",
+  "snakemake-interface-report-plugins>=1.2.0,<2.0.0",
   "snakemake-interface-logger-plugins>=1.1.0,<2.0.0",
   "tabulate",
   "throttler",
