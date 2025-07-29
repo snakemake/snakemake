@@ -721,6 +721,18 @@ def test_storage(s3_storage):
     )
 
 
+@skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
+def test_storage_call(s3_storage):
+    prefix, settings = s3_storage
+
+    run(
+        dpath("test_storage_call"),
+        config={"s3_prefix": prefix},
+        storage_provider_settings=settings,
+    )
+
+
 # TODO enable once storage directive is implemented
 # def test_storage_directive(s3_storage):
 #     prefix, settings = s3_storage
@@ -2439,3 +2451,7 @@ def test_censored_path():
 
 def test_params_empty_inherit():
     run(dpath("test_params_empty_inherit"))
+
+
+def test_github_issue3556():
+    run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
