@@ -12,7 +12,7 @@ import base64
 import textwrap
 import datetime
 import io
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Type, Union
 import uuid
 import itertools
 from collections import defaultdict
@@ -756,6 +756,7 @@ async def auto_report(
                         "list[str] | list[int] | list[float]]]"
                     )
                 )
+            render_metadata(metadata)
 
     reporter = report_plugin.reporter(
         rules,
@@ -790,3 +791,19 @@ def _validate_flat_dict(metadata: dict) -> bool:
         if not _is_valid_flat_value(v):
             return False
     return True
+
+
+def render_metadata(
+    metadata: Dict[str, Union[str, int, float, List[str], List[int], List[float]]],
+) -> None:
+    """Render string values in metadata with restructured text"""
+
+    # we modify the dict while iterating over it, so we need to copy the keys
+    for key in list(metadata):
+        value = metadata[key]
+        if isinstance(value, str):
+            metadata[key] = publish_parts(value)
+        elif isinstance(value, list):
+            for i in range(len(value)):
+                if isinstance(value[i], str):
+                    value[i] = publish_parts(value[i])

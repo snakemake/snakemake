@@ -52,6 +52,7 @@ class MetaData extends React.Component {
                 {
                     key: `${key}`,
                     className: "p-1",
+                    // this is safe as the value is already rendered by docutils
                     dangerouslySetInnerHTML: { __html: value }
                 }
             )
