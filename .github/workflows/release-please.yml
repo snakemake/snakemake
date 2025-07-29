@@ -23,7 +23,7 @@ jobs:
 
       - name: Set up Pixi
         if: ${{ steps.release.outputs.release_created }}
-        uses: prefix-dev/setup-pixi@v0.8.8
+        uses: prefix-dev/setup-pixi@v0.8.14
         with:
           environments: quality
           pixi-version: v0.47.0

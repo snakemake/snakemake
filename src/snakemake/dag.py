@@ -2666,10 +2666,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             f"\tstyle id{index} fill:{rulecolor[str(node)]},stroke-width:2px,color:#333333{node2style(node)}"
             for index, node in enumerate(graph)
         ]
+        # node ids
+        ids = {node: i for i, node in enumerate(graph)}
         edges = [
-            f"\tid{index} --> id{index_dep}"
-            for index, (_, deps) in enumerate(graph.items())
-            for index_dep, _ in enumerate(deps)
+            f"\tid{ids[dep]} --> id{ids[node]}"
+            for node, deps in graph.items()
+            for dep in deps
         ]
         return (
             textwrap.dedent(
