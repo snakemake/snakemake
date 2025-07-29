@@ -854,9 +854,9 @@ class Resources(Mapping[str, Resource]):
     @property
     def args(self):
         return [
-            f"{name}={value.value}"
+            f"{name}={value.raw}"
             for name, value in self._data.items()
-            if not value.is_evaluable() and value.value is not None
+            if value.raw is not None
         ]
 
     @classmethod
