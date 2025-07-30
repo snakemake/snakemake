@@ -654,6 +654,9 @@ class DAGApi(ApiBase):
         if report_settings is not None:
             report_plugin.validate_settings(report_settings)
 
+        if global_report_settings is None:
+            global_report_settings = GlobalReportSettings()
+
         self.workflow_api._workflow.create_report(
             report_plugin=report_plugin,
             report_settings=report_settings,
