@@ -25,8 +25,10 @@ def test_{{ ruletest.name }}():
         sp.check_output([
             "python",
             "-m",
-            "snakemake", 
-            "{{ ruletest.target }}",
+            "snakemake",
+            {% for tag, target in ruletest.target.items() %}
+            "{{ target }}",
+            {% endfor %}
             {% if snakefile %}
             "--snakefile",
             "{{ snakefile }}",
@@ -40,11 +42,11 @@ def test_{{ ruletest.name }}():
             "{{ configfile }}",
             {% endfor %}
             {% endif %}
-            {% if "conda" in deploy %}
-            "--use-conda",
-            {% endif %}
-            {% if "singularity" in deploy %}
-            "--use-singularity",
+            {% if deploy %}
+            "--software-deployment-method",
+            {% for sdm in deploy %}
+            "{{ sdm }}",
+            {% endfor %}
             {% endif %}
             "--directory",
             workdir,
