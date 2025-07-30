@@ -19,7 +19,7 @@ def test_{{ ruletest.name }}():
         expected_path = PurePosixPath("{{ ruletest.expected_path.as_posix() }}")
 
         # Copy data to the temporary workdir.
-        shutil.copytree(data_path, workdir, dirs_exist_ok=True)
+        shutil.copytree(data_path, workdir)
 
         # Run the test job.
         sp.check_output([
