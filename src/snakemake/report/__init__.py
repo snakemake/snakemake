@@ -12,13 +12,14 @@ import base64
 import textwrap
 import datetime
 import io
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Type, Union
 import uuid
 import itertools
 from collections import defaultdict
 import hashlib
 from pathlib import Path
 import numbers
+from yte import process_yaml
 
 
 from docutils.parsers.rst.directives.images import Image, Figure
@@ -26,6 +27,7 @@ from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 from humanfriendly import format_size
 
+import snakemake
 from snakemake import script, wrapper, notebook
 from snakemake.io.fmt import fmt_iofile
 from snakemake.jobs import Job
@@ -50,6 +52,7 @@ from snakemake.common import (
 from snakemake import logging
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake.settings.types import GlobalReportSettings
 from snakemake_interface_report_plugins.interfaces import (
     CategoryInterface,
     RuleRecordInterface,
@@ -483,6 +486,7 @@ async def auto_report(
     dag,
     report_plugin: ReportPlugin,
     report_settings: ReportSettingsBase,
+    global_report_settings: GlobalReportSettings,
 ):
     try:
         from jinja2 import Environment, PackageLoader, UndefinedError
@@ -725,7 +729,9 @@ async def auto_report(
                         snakemake=Snakemake, categories=results, files=files
                     ),
                     writer_name="html",
-                )["body"]
+                )[
+                    "html_body"
+                ]  # html_body is required to extract also the title, if given
             except UndefinedError as e:
                 raise WorkflowError(
                     "Error rendering global report caption {}:".format(
@@ -734,15 +740,70 @@ async def auto_report(
                     e,
                 )
 
+    metadata = {}
+    if global_report_settings.metadata_template:
+        # parse metadata from yte template
+        with open(global_report_settings.metadata_template, "r") as template:
+            metadata = process_yaml(template)
+
+            # ensure that metadata is a key value dictionary
+            # allowed values: str, int, float, list[str|int|float]
+            if not _validate_flat_dict(metadata):
+                raise WorkflowError(
+                    (
+                        "Metadata must be single level "
+                        "dict[str, str | int | float | "
+                        "list[str] | list[int] | list[float]]]"
+                    )
+                )
+            render_metadata(metadata)
+
     reporter = report_plugin.reporter(
         rules,
         results,
         configfiles,
-        sorted(records.values(), key=lambda rec: rec.rule),
+        sorted(records.values(), key=lambda rec: rec.rule),  # this contains the jobs
         report_settings,
         workflow_description,
         dag=dag,
+        metadata=metadata,
     )
 
     reporter.render()
     logger.info("Report created.")
+
+
+def _is_valid_flat_value(value) -> bool:
+    if isinstance(value, (str, int, float)):
+        return True
+    elif isinstance(value, list):
+        return all(isinstance(item, (str, int, float)) for item in value)
+    else:
+        return False
+
+
+def _validate_flat_dict(metadata: dict) -> bool:
+    if not isinstance(metadata, dict):
+        return False
+    for k, v in metadata.items():
+        if not isinstance(k, str):
+            return False
+        if not _is_valid_flat_value(v):
+            return False
+    return True
+
+
+def render_metadata(
+    metadata: Dict[str, Union[str, int, float, List[str], List[int], List[float]]],
+) -> None:
+    """Render string values in metadata with restructured text"""
+
+    # we modify the dict while iterating over it, so we need to copy the keys
+    for key in list(metadata):
+        value = metadata[key]
+        if isinstance(value, str):
+            metadata[key] = publish_parts(value)
+        elif isinstance(value, list):
+            for i in range(len(value)):
+                if isinstance(value[i], str):
+                    value[i] = publish_parts(value[i])
