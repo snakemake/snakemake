@@ -884,16 +884,10 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        deploy = []
-        assert self.deployment_settings is not None
-        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
-            deploy.append("conda")
-        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
-            deploy.append("singularity")
         unit_tests.generate(
             self.dag,
             path,
-            deploy,
+            self.deployment_settings.deployment_method,
             snakefile=Path(self.main_snakefile).relative_to(Path.cwd()),
             configfiles=[
                 Path(configfile).relative_to(Path.cwd())
