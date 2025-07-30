@@ -14,12 +14,12 @@ import common
 def test_{{ ruletest.name }}():
 
     with TemporaryDirectory() as tmpdir:
-        workdir = Path().cwd()
+        workdir = Path(tmpdir) / "workdir"
         data_path = PurePosixPath("{{ ruletest.data_path.as_posix() }}")
         expected_path = PurePosixPath("{{ ruletest.expected_path.as_posix() }}")
 
         # Copy data to the temporary workdir.
-        shutil.copytree(data_path, workdir)
+        shutil.copytree(data_path, workdir, dirs_exist_ok=True)
 
         # Run the test job.
         sp.check_output([
@@ -49,8 +49,8 @@ def test_{{ ruletest.name }}():
             "{{ sdm }}",
             {% endfor %}
             {% endif %}
-            "--conda-prefix",
-            "/projects/caeg/apps/cache/conda/",
+            "--directory",
+            workdir,
         ])
 
         # Check the output byte by byte using cmp.
