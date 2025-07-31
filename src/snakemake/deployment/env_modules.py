@@ -13,7 +13,7 @@ class EnvModules:
 
     def shellcmd(self, cmd):
         """Return shell command with given modules loaded."""
-        return "(module purge && module load {to_load}) > /dev/null; {cmd}".format(
+        return "module purge && module load --silent {to_load}; {cmd}".format(
             to_load=" ".join(self.names), cmd=cmd
         )
 
