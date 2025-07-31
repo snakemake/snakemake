@@ -41,16 +41,16 @@ class OutputChecker:
         # DEBUG
         print(f"expected: {expected_files}")
 
-        unexpected_files = set()
+        missing_files = set()
         for f in expected_files:
             if f in output_files:
                 self.compare_files(self.workdir / f, self.expected_path / f)
             else:
-                unexpected_files.add(f)
-        if unexpected_files:
+                missing_files.add(f)
+        if missing_files:
             raise ValueError(
-                "Unexpected files:\n{}".format(
-                    "\n".join(sorted(map(str, unexpected_files)))
+                "Missing files:\n{}".format(
+                    "\n".join(sorted(map(str, missing_files)))
                 )
             )
 
