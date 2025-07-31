@@ -4,7 +4,7 @@ import sys
 import subprocess as sp
 from tempfile import TemporaryDirectory
 import shutil
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -15,8 +15,8 @@ def test_b():
 
     with TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir) / "workdir"
-        data_path = PurePosixPath(".tests/unit/b/data")
-        expected_path = PurePosixPath(".tests/unit/b/expected")
+        data_path = Path(".tests/unit/b/data")
+        expected_path = Path(".tests/unit/b/expected")
 
         # Copy data to the temporary workdir.
         shutil.copytree(data_path, workdir)
