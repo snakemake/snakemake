@@ -33,6 +33,8 @@ def test_b():
             "--notemp",
             "-j1",
             "--target-files-omit-workdir-adjustment",
+            "--configfile",
+            "config.json",
             "--directory",
             workdir,
         ])

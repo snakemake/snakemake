@@ -1,4 +1,7 @@
-import os
+
+
+configfile: "config.json"
+
 
 rule all:
     input:
@@ -6,7 +9,7 @@ rule all:
 
 rule a:
     input:
-        "input.csv",
+        config["in_file"],
     output:
         temp("test/{sample}.txt"),
         temp("test/{sample}.tmp"),
