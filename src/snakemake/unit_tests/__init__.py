@@ -53,6 +53,12 @@ def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
             file=common,
         )
 
+    with open(path / "conftest.py", "w") as conftest:
+        print(
+            env.get_template("conftest.py.jinja2").render(version=__version__),
+            file=conftest,
+        )
+
     for rulename, jobs in groupby(dag.jobs, key=lambda job: job.rule.name):
         jobs = list(jobs)
         if jobs[0].rule.norun:
@@ -103,6 +109,7 @@ def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
                 with open(testpath, "w") as test:
                     print(
                         env.get_template("ruletest.py.jinja2").render(
+                            version=__version__,
                             ruletest=RuleTest(job, path),
                             deploy=deploy,
                             snakefile=snakefile,

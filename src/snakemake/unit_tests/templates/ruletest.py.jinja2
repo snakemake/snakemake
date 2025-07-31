@@ -1,9 +1,13 @@
+"""
+Rule test code for unit testing of rules generated with Snakemake {{ version }}.
+"""
+
+
 import os
 import sys
-
-import subprocess as sp
-from tempfile import TemporaryDirectory
 import shutil
+import tempfile
+import subprocess as sp
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -11,9 +15,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 import common
 
 
-def test_{{ ruletest.name }}():
+def test_{{ ruletest.name }}(conda_prefix=None):
 
-    with TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir) / "workdir"
         data_path = Path("{{ ruletest.data_path.as_posix() }}")
         expected_path = Path("{{ ruletest.expected_path.as_posix() }}")
@@ -22,36 +26,39 @@ def test_{{ ruletest.name }}():
         shutil.copytree(data_path, workdir)
 
         # Run the test job.
-        sp.check_output([
-            "python",
-            "-m",
-            "snakemake",
-            {% for target in ruletest.target %}
-            "{{ target }}",
-            {% endfor %}
-            {% if snakefile %}
-            "--snakefile",
-            "{{ snakefile }}",
-            {% endif %}
-            "-f",
-            "--notemp",
-            "-j1",
-            "--target-files-omit-workdir-adjustment",
-            {% if configfiles %}
-            "--configfile",
-            {% for configfile in configfiles %}
-            "{{ configfile }}",
-            {% endfor %}
-            {% endif %}
-            {% if deploy %}
-            "--software-deployment-method",
-            {% for sdm in deploy %}
-            "{{ sdm }}",
-            {% endfor %}
-            {% endif %}
-            "--directory",
-            workdir,
-        ])
+        sp.check_output(
+	    [
+                "python",
+                "-m",
+                "snakemake",
+                {% for target in ruletest.target %}
+                "{{ target }}",
+                {% endfor %}
+                {% if snakefile %}
+                "--snakefile",
+                "{{ snakefile }}",
+                {% endif %}
+                "-f",
+                "--notemp",
+                "-j1",
+                "--target-files-omit-workdir-adjustment",
+                {% if configfiles %}
+                "--configfile",
+                {% for configfile in configfiles %}
+                "{{ configfile }}",
+                {% endfor %}
+                {% endif %}
+                {% if deploy %}
+                "--software-deployment-method",
+                {% for sdm in deploy %}
+                "{{ sdm }}",
+                {% endfor %}
+                {% endif %}
+                "--directory",
+                workdir,
+            ]
+            + conda_prefix
+	)
 
         # Check the output byte by byte using cmp.
         # To modify this behavior, you can inherit from common.OutputChecker in here
