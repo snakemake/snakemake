@@ -888,9 +888,9 @@ class Workflow(WorkflowExecutorInterface):
             self.dag,
             path,
             self.deployment_settings.deployment_method,
-            snakefile=Path(self.main_snakefile).relative_to(Path.cwd()),
+            snakefile=Path(self.main_snakefile).absolute().relative_to(Path.cwd()),
             configfiles=[
-                Path(configfile).relative_to(Path.cwd())
+                Path(configfile).absolute().relative_to(Path.cwd())
                 for configfile in self.configfiles
             ],
         )
