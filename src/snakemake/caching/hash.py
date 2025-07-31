@@ -116,19 +116,20 @@ class ProvenanceHashMap:
         # Hash used containers or conda environments.
         if cache_mode != "omit-software":
             if (
-                DeploymentMethod.CONDA in workflow.deployment_settings.deployment_method
+                DeploymentMethod.CONDA
+                in workflow.legacy_deployment_settings.deployment_method
                 and job.conda_env
             ):
                 if (
                     DeploymentMethod.APPTAINER
-                    in workflow.deployment_settings.deployment_method
+                    in workflow.legacy_deployment_settings.deployment_method
                     and job.conda_env.container_img_url
                 ):
                     h.update(job.conda_env.container_img_url.encode())
                 h.update(job.conda_env.content)
             elif (
                 DeploymentMethod.APPTAINER
-                in workflow.deployment_settings.deployment_method
+                in workflow.legacy_deployment_settings.deployment_method
                 and job.container_img_url
             ):
                 h.update(job.container_img_url.encode())
