@@ -19,24 +19,34 @@ class OutputChecker:
             for path, subdirs, files in os.walk(self.data_path)
             for f in files
         )
+        # DEBUG
+        print(f"input: {input_files}")
+        output_files = set(
+            (Path(path) / f).relative_to(self.workdir)
+            for path, subdirs, files in os.walk(self.workdir)
+            for f in files
+        )
+        output_files = set(
+            output_file
+            for output_file in output_files
+            if output_file not in input_files and not str(output_file).startswith(".")
+        )
+        # DEBUG
+        print(f"output: {output_files}")
         expected_files = set(
             (Path(path) / f).relative_to(self.expected_path)
             for path, subdirs, files in os.walk(self.expected_path)
             for f in files
         )
+        # DEBUG
+        print(f"expected: {expected_files}")
+
         unexpected_files = set()
-        for path, subdirs, files in os.walk(self.workdir):
-            for f in files:
-                f = (Path(path) / f).relative_to(self.workdir)
-                if str(f).startswith("."):
-                    continue
-                if f in expected_files:
-                    self.compare_files(self.workdir / f, self.expected_path / f)
-                elif f in input_files:
-                    # ignore input files
-                    pass
-                else:
-                    unexpected_files.add(f)
+        for f in expected_files:
+            if f in output_files:
+                self.compare_files(self.workdir / f, self.expected_path / f)
+            else:
+                unexpected_files.add(f)
         if unexpected_files:
             raise ValueError(
                 "Unexpected files:\n{}".format(
