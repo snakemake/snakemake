@@ -1499,7 +1499,6 @@ def test_github_issue640():
     )
 
 
-@skip_on_windows  # TODO check whether this might be enabled later
 def test_generate_unit_tests():
     tmpdir = run(
         dpath("test_generate_unit_tests"),
