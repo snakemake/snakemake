@@ -1501,15 +1501,13 @@ def test_github_issue640():
 
 @skip_on_windows  # TODO check whether this might be enabled later
 def test_generate_unit_tests():
-    with tempfile.NamedTemporaryFile() as tmpfile:
-        os.environ["UNIT_TEST_TMPFILE"] = tmpfile.name
-        tmpdir = run(
-            dpath("test_generate_unit_tests"),
-            generate_unit_tests=".tests/unit",
-            check_md5=False,
-            cleanup=False,
-        )
-        sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
+    tmpdir = run(
+        dpath("test_generate_unit_tests"),
+        generate_unit_tests=".tests/unit",
+        check_md5=False,
+        cleanup=False,
+    )
+    sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
 
 
 def test_paramspace():

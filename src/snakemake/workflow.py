@@ -888,8 +888,11 @@ class Workflow(WorkflowExecutorInterface):
             self.dag,
             path,
             self.deployment_settings.deployment_method,
-            snakefile=self.main_snakefile,
-            configfiles=self.configfiles,
+            snakefile=Path(self.main_snakefile).relative_to(Path.cwd()),
+            configfiles=[
+                Path(configfile).relative_to(Path.cwd())
+                for configfile in self.configfiles
+            ],
         )
 
     def cleanup_metadata(self, paths: List[Path]):

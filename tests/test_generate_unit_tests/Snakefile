@@ -6,9 +6,10 @@ rule all:
 
 rule a:
     input:
-        os.environ["UNIT_TEST_TMPFILE"]
+        "input.csv",
     output:
-        temp("test/{sample}.txt")
+        temp("test/{sample}.txt"),
+        temp("test/{sample}.tmp"),
     shell:
         "touch {output}"
 
