@@ -28,7 +28,7 @@ class RuleTest:
         return self.path / "expected"
 
 
-def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None):
+def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
     """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
@@ -51,6 +51,12 @@ def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None)
         print(
             env.get_template("common.py.jinja2").render(version=__version__),
             file=common,
+        )
+
+    with open(path / "conftest.py", "w") as conftest:
+        print(
+            env.get_template("conftest.py.jinja2").render(version=__version__),
+            file=conftest,
         )
 
     for rulename, jobs in groupby(dag.jobs, key=lambda job: job.rule.name):
@@ -92,19 +98,22 @@ def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None)
                         else:
                             os.makedirs(target, exist_ok=True)
                             shutil.copy(f, target)
+                            (target / f.name).chmod(0o444)
                     if not files:
                         os.makedirs(path / rulename / content_type, exist_ok=True)
                         # touch gitempty file if there are no input files
                         open(path / rulename / content_type / ".gitempty", "w").close()
 
-                copy_files(job.input, "data")
-                copy_files(job.output, "expected")
+                copy_files(set(job.input), "data")
+                copy_files(set(job.output), "expected")
 
                 with open(testpath, "w") as test:
                     print(
                         env.get_template("ruletest.py.jinja2").render(
+                            version=__version__,
                             ruletest=RuleTest(job, path),
                             deploy=deploy,
+                            snakefile=snakefile,
                             configfiles=configfiles,
                         ),
                         file=test,
