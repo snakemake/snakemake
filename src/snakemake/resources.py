@@ -217,7 +217,7 @@ class GroupResources:
                     int_resources, list(sorted_constraints.values()), sortby
                 )
             except ResourceError as err:
-                raise ResourceInsufficiencyError(additive_resources, err.args[0])
+                raise ResourceInsufficiencyError(additive_resources, err.args[0]) from err
 
             # Merge jobs within layers
             intralayer_merge_methods = [
@@ -476,12 +476,12 @@ class Resource:
     In addition to ``int`` and ``str``, the standard resource types, ``Resource`` can
     store ``None``, signifying an unset resource, and a callable, signifying a resource
     to be calculated in the context of a rule. Via the ``.value`` property, ``Resource``
-    ensures a resource has been computed before its value is retreived.
+    ensures a resource has been computed before its value is retrieved.
 
     The class additionally handles input validation and standardization.
     ``float``s get rounded into ``int``. If the resource name corresponds to a size
     resource ("disk" and "mem") or a timespan resource ("runtime"), strings values
-    will be intepreted as a human readable resource and converted to an integer of
+    will be interpreted as a human readable resource and converted to an integer of
     appropriate denomination (Mb for size, hr for timespan).
 
     Arguments
@@ -692,7 +692,7 @@ class Resource:
         name:
             name of the resource
         value:
-            python expression to be evaulated
+            python expression to be evaluated
         with_threads_arg: boolean
             If True, include ``threads`` as an argument in the returned function
         """
@@ -768,7 +768,7 @@ class Resource:
             raise WorkflowError(
                 "Failed to evaluate resources value "
                 f"'{val}'.",
-                "When intepreted as a python expression, the following error was "
+                "When interpreted as a python expression, the following error was "
                 "given:",
                 "",
                 e,
@@ -922,7 +922,7 @@ class Resources(Mapping[str, Resource]):
         only_positive_integers: bool = False,
         defaults: None | Literal["bare"] | Literal["full"] = None,
     ):
-        """Parse a series of CLI-style string resource assigments.
+        """Parse a series of CLI-style string resource assignments.
 
         Arguments
         =========

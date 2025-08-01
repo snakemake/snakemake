@@ -1166,7 +1166,7 @@ def test_resource_prefix_does_not_affect_scope_overwrite():
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if not l == "\n"]
+        lines = [line for line in f.readlines() if not line == "\n"]
         print(lines)
     assert len(lines) == 2
     shutil.rmtree(tmp)
