@@ -32,6 +32,7 @@ class OutputChecker:
             for output_file in output_files
             if output_file not in input_files
             and not str(output_file).startswith(".snakemake/")
+            and not str(output_file).startswith("config/")
         )
         print(f"output: {output_files}")  # DEBUG
         # Expected files
