@@ -944,6 +944,13 @@ def test_resources_can_be_provided_in_mib(mocker):
         disk_mib=95368,
     )
 
+@skip_on_windows
+def test_cores_limited_by_global_supply():
+    run(
+        dpath("test_group_jobs_resources"),
+        cores=1,
+    )
+
 
 @skip_on_windows
 def test_global_resources_can_be_human_readable(mocker):
@@ -1301,6 +1308,19 @@ def test_group_job_resources_with_pipe_with_too_much_constraint():
         cluster="./qsub",
         cores=6,
         resources={"mem_mb": 20000},
+        group_components={0: 5},
+        shouldfail=True,
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
+    )
+
+@skip_on_windows
+def test_group_job_resources_with_pipe_with_too_few_cores():
+    run(
+        dpath("test_group_with_pipe"),
+        cluster="./qsub",
+        cores=2,
         group_components={0: 5},
         shouldfail=True,
         default_resources=Resources.parse(
