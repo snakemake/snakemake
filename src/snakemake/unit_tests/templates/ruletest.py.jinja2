@@ -12,10 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-import common
 
-
-def test_{{ ruletest.name }}(conda_prefix=[]):
+def test_{{ ruletest.name }}(conda_prefix):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir) / "workdir"
@@ -24,6 +22,11 @@ def test_{{ ruletest.name }}(conda_prefix=[]):
 
         # Copy data to the temporary workdir.
         shutil.copytree(data_path, workdir)
+
+        # Copy config/ (if exists) to the temporary workdir.
+        config = Path("config")
+        if config.exists() and config.is_dir():
+            shutil.copytree("config", workdir / config, dirs_exist_ok=True)
 
         # Run the test job.
         sp.check_output(
@@ -60,8 +63,9 @@ def test_{{ ruletest.name }}(conda_prefix=[]):
             + conda_prefix
         )
 
-        # Check the output byte by byte using cmp.
+        # Check the output byte by byte using cmp/zmp/bzcmp.
         # To modify this behavior, you can inherit from common.OutputChecker in here
         # and overwrite the method `compare_files(generated_file, expected_file), 
         # also see common.py.
+        import common
         common.OutputChecker(data_path, expected_path, workdir).check()
