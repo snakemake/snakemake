@@ -939,9 +939,9 @@ def test_resources_can_be_provided_in_mib(mocker):
         runtime=420,
         fake_res=600,
         global_res=2000,
-        disk=2000,
-        disk_mb=2000,
-        disk_mib=1908,
+        disk=100000,
+        disk_mb=100000,
+        disk_mib=95368,
     )
 
 
