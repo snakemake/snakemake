@@ -1244,9 +1244,9 @@ def test_resources_submitted_to_cluster(mocker):
 
 @skip_on_windows
 def test_excluded_resources_not_submitted_to_cluster(mocker):
-    # from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
+    from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
 
-    # spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
+    spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1259,8 +1259,9 @@ def test_excluded_resources_not_submitted_to_cluster(mocker):
             ["mem_mb=0"], defaults="full", allow_expressions=True
         ),
     )
-    assert False
-    # assert_resources(spy.spy_return, mem=60000, global_res=3000, disk=150000)
+    assert spy.call_count == 1
+    # assert False
+    assert_resources(spy.spy_return, mem=60000, global_res=3000, disk=150000)
 
 
 @skip_on_windows
