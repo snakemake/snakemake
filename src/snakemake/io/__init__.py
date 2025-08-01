@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -1728,7 +1729,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
     def __init__(
         self,
         toclone=None,
-        fromdict: Optional[Dict[_TNamedKeys, _TNamedList]]=None,
+        fromdict: Optional[Dict[_TNamedKeys, _TNamedList]] = None,
         plainstr=False,
         strip_constraints=False,
         custom_map=None,

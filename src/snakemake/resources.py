@@ -217,7 +217,9 @@ class GroupResources:
                     int_resources, list(sorted_constraints.values()), sortby
                 )
             except ResourceError as err:
-                raise ResourceInsufficiencyError(additive_resources, err.args[0]) from err
+                raise ResourceInsufficiencyError(
+                    additive_resources, err.args[0]
+                ) from err
 
             # Merge jobs within layers
             intralayer_merge_methods = [
@@ -766,8 +768,7 @@ class Resource:
                 return TBDString()
 
             raise WorkflowError(
-                "Failed to evaluate resources value "
-                f"'{val}'.",
+                "Failed to evaluate resources value " f"'{val}'.",
                 "When interpreted as a python expression, the following error was "
                 "given:",
                 "",

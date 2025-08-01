@@ -108,7 +108,9 @@ def optional_str(arg):
 def parse_set_threads(args):
 
     def wrapper(orig_value):
-        return Resource.from_cli_expression("_cores", orig_value, with_threads_arg=False)
+        return Resource.from_cli_expression(
+            "_cores", orig_value, with_threads_arg=False
+        )
 
     return parse_set_ints(
         args,

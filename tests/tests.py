@@ -671,8 +671,10 @@ def test_issue2826_failed_binary_logs():
 def test_threads():
     run(dpath("test_threads"), cores=20)
 
+
 def test_threads_overwrite():
     run(dpath("test_threads"), shellcmd="snakemake -c20 --set-threads a='10*2'")
+
 
 def test_threads0():
     run(dpath("test_threads0"))
@@ -943,6 +945,7 @@ def test_resources_can_be_provided_in_mib(mocker):
         disk_mb=100000,
         disk_mib=95368,
     )
+
 
 @skip_on_windows
 def test_cores_limited_by_global_supply():
@@ -1314,6 +1317,7 @@ def test_group_job_resources_with_pipe_with_too_much_constraint():
             ["mem_mb=0"], defaults="full", allow_expressions=True
         ),
     )
+
 
 @skip_on_windows
 def test_group_job_resources_with_pipe_with_too_few_cores():
@@ -2048,7 +2052,12 @@ def test_service_jobs():
 
 
 def test_incomplete_params():
-    run(dpath("test_incomplete_params"), executor="dryrun", printshellcmds=True, cleanup=False)
+    run(
+        dpath("test_incomplete_params"),
+        executor="dryrun",
+        printshellcmds=True,
+        cleanup=False,
+    )
 
 
 @skip_on_windows
