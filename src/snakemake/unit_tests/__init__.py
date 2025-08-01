@@ -97,7 +97,8 @@ def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
                             shutil.copytree(f, target / f.name)
                         else:
                             os.makedirs(target, exist_ok=True)
-                            shutil.copy(f, target)
+                            shutil.copy2(f, target)
+                            f.chmod(0o444)
                     if not files:
                         os.makedirs(path / rulename / content_type, exist_ok=True)
                         # touch gitempty file if there are no input files
