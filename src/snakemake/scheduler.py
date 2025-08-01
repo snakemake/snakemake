@@ -87,14 +87,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
             else None
         )
 
-        nodes_unset = workflow.global_resources["_nodes"] is None
-
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
             for name, res in workflow.global_resources.unwrapped_nonstr_items()
         }
 
-        if not nodes_unset:
+        if workflow.global_resources["_nodes"].value is not None:
             # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
             self.global_resources["_cores"] = sys.maxsize
         # register job count resource (always initially unrestricted)
