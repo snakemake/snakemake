@@ -6,7 +6,7 @@ from pytest import fixture
 
 
 def pytest_addoption(parser):
-    parser.addoption("--conda-prefix", action="store")
+    parser.addoption("--conda-prefix", action="store", default=None)
 
 
 @fixture()
