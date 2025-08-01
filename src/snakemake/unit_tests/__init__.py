@@ -97,15 +97,15 @@ def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
                             shutil.copytree(f, target / f.name)
                         else:
                             os.makedirs(target, exist_ok=True)
-                            shutil.copy2(f, target)
-                            f.chmod(0o444)
+                            shutil.copy(f, target)
+                            (target / f.name).chmod(0o444)
                     if not files:
                         os.makedirs(path / rulename / content_type, exist_ok=True)
                         # touch gitempty file if there are no input files
                         open(path / rulename / content_type / ".gitempty", "w").close()
 
-                copy_files(job.input, "data")
-                copy_files(job.output, "expected")
+                copy_files(set(job.input), "data")
+                copy_files(set(job.output), "expected")
 
                 with open(testpath, "w") as test:
                     print(
