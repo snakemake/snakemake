@@ -672,8 +672,10 @@ def test_issue2826_failed_binary_logs():
 def test_threads():
     run(dpath("test_threads"), cores=20)
 
+
 def test_threads_overwrite():
     run(dpath("test_threads"), shellcmd="snakemake -c20 --set-threads a='10*2'")
+
 
 def test_threads0():
     run(dpath("test_threads0"))
@@ -945,6 +947,7 @@ def test_resources_can_be_provided_in_mib(mocker):
         disk_mib=95368,
     )
 
+
 @skip_on_windows
 def test_cores_limited_by_global_supply():
     run(
@@ -1167,7 +1170,7 @@ def test_resource_prefix_does_not_affect_scope_overwrite():
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if not l == "\n"]
+        lines = [line for line in f.readlines() if not line == "\n"]
         print(lines)
     assert len(lines) == 2
     shutil.rmtree(tmp)
@@ -1243,8 +1246,13 @@ def test_resources_submitted_to_cluster(mocker):
 @skip_on_windows
 def test_excluded_resources_not_submitted_to_cluster(mocker):
     from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
+    from snakemake_interface_executor_plugins.executors.real import RealExecutor
+    from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
 
     spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
+    spy2 = mocker.spy(AbstractExecutor, "get_resource_declarations")
+    spy3 = mocker.spy(RealExecutor, "get_job_args")
+    spy4 = mocker.spy(RemoteExecutor, "get_job_args")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1257,6 +1265,13 @@ def test_excluded_resources_not_submitted_to_cluster(mocker):
             ["mem_mb=0"], defaults="full", allow_expressions=True
         ),
     )
+    print(
+        f"spy == {spy.call_count}",
+        f"spy2 == {spy2.call_count}",
+        f"spy3 == {spy3.call_count}",
+        f"spy4 == {spy4.call_count}",
+    )
+    # assert False
     assert_resources(spy.spy_return, mem=60000, global_res=3000, disk=150000)
 
 
@@ -1315,6 +1330,7 @@ def test_group_job_resources_with_pipe_with_too_much_constraint():
             ["mem_mb=0"], defaults="full", allow_expressions=True
         ),
     )
+
 
 @skip_on_windows
 def test_group_job_resources_with_pipe_with_too_few_cores():
@@ -2049,7 +2065,12 @@ def test_service_jobs():
 
 
 def test_incomplete_params():
-    run(dpath("test_incomplete_params"), executor="dryrun", printshellcmds=True, cleanup=False)
+    run(
+        dpath("test_incomplete_params"),
+        executor="dryrun",
+        printshellcmds=True,
+        cleanup=False,
+    )
 
 
 @skip_on_windows

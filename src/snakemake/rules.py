@@ -1088,7 +1088,7 @@ class Rule(RuleInterface):
                     rule=self,
                 ) from err
             except NestedCoroutineError:
-                # Need to catch this because both input.size_mb and the inital
+                # Need to catch this because both input.size_mb and the initial
                 # dag construction routine are run as independent asynchronous loops.
                 # If input.size_mb is run in an input method, the loops will be nested
                 # and error.

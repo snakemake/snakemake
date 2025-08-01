@@ -547,6 +547,7 @@ class CheckSumMismatchException(WorkflowError):
 
     pass
 
+
 class NestedCoroutineError(WorkflowError):
     pass
 
