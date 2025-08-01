@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import common
 
 
-def test_{{ ruletest.name }}(conda_prefix=None):
+def test_{{ ruletest.name }}(conda_prefix=[]):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir) / "workdir"
@@ -27,7 +27,7 @@ def test_{{ ruletest.name }}(conda_prefix=None):
 
         # Run the test job.
         sp.check_output(
-	    [
+            [
                 "python",
                 "-m",
                 "snakemake",
@@ -58,7 +58,7 @@ def test_{{ ruletest.name }}(conda_prefix=None):
                 workdir,
             ]
             + conda_prefix
-	)
+        )
 
         # Check the output byte by byte using cmp.
         # To modify this behavior, you can inherit from common.OutputChecker in here

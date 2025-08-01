@@ -1,9 +1,13 @@
+"""
+Rule test code for unit testing of rules generated with Snakemake 9.8.2.dev2.
+"""
+
+
 import os
 import sys
-
-import subprocess as sp
-from tempfile import TemporaryDirectory
 import shutil
+import tempfile
+import subprocess as sp
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -11,9 +15,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 import common
 
 
-def test_b():
+def test_b(conda_prefix=[]):
 
-    with TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir) / "workdir"
         data_path = Path(".tests/unit/b/data")
         expected_path = Path(".tests/unit/b/expected")
@@ -22,22 +26,25 @@ def test_b():
         shutil.copytree(data_path, workdir)
 
         # Run the test job.
-        sp.check_output([
-            "python",
-            "-m",
-            "snakemake",
-            "test/0.tsv",
-            "--snakefile",
-            "Snakefile",
-            "-f",
-            "--notemp",
-            "-j1",
-            "--target-files-omit-workdir-adjustment",
-            "--configfile",
-            "config.json",
-            "--directory",
-            workdir,
-        ])
+        sp.check_output(
+            [
+                "python",
+                "-m",
+                "snakemake",
+                "test/0.tsv",
+                "--snakefile",
+                "Snakefile",
+                "-f",
+                "--notemp",
+                "-j1",
+                "--target-files-omit-workdir-adjustment",
+                "--configfile",
+                "config.json",
+                "--directory",
+                workdir,
+            ]
+            + conda_prefix
+        )
 
         # Check the output byte by byte using cmp.
         # To modify this behavior, you can inherit from common.OutputChecker in here

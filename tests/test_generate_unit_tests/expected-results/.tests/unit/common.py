@@ -2,9 +2,9 @@
 Common code for unit testing of rules generated with Snakemake 9.8.2.dev2.
 """
 
-from pathlib import Path
-import subprocess as sp
 import os
+import subprocess as sp
+from pathlib import Path
 
 
 class OutputChecker:
@@ -14,13 +14,14 @@ class OutputChecker:
         self.workdir = workdir
 
     def check(self):
+        # Input files
         input_files = set(
             (Path(path) / f).relative_to(self.data_path)
             for path, subdirs, files in os.walk(self.data_path)
             for f in files
         )
-        # DEBUG
-        print(f"input: {input_files}")
+        print(f"input: {input_files}")  # DEBUG
+        # Output files
         output_files = set(
             (Path(path) / f).relative_to(self.workdir)
             for path, subdirs, files in os.walk(self.workdir)
@@ -29,30 +30,35 @@ class OutputChecker:
         output_files = set(
             output_file
             for output_file in output_files
-            if output_file not in input_files and not str(output_file).startswith(".")
+            if output_file not in input_files
+            and not str(output_file).startswith(".snakemake/")
         )
-        # DEBUG
-        print(f"output: {output_files}")
+        print(f"output: {output_files}")  # DEBUG
+        # Expected files
         expected_files = set(
             (Path(path) / f).relative_to(self.expected_path)
             for path, subdirs, files in os.walk(self.expected_path)
             for f in files
         )
-        # DEBUG
-        print(f"expected: {expected_files}")
+        print(f"expected: {expected_files}")  # DEBUG
 
         missing_files = set()
         for f in expected_files:
             if f in output_files:
-                self.compare_files(self.workdir / f, self.expected_path / f)
+                self.compare_files(self.expected_path / f, self.workdir / f)
             else:
                 missing_files.add(f)
         if missing_files:
             raise ValueError(
-                "Missing files:\n{}".format(
-                    "\n".join(sorted(map(str, missing_files)))
-                )
+                "Missing files:\n{}".format("\n".join(sorted(map(str, missing_files))))
             )
 
-    def compare_files(self, generated_file, expected_file):
-        sp.check_output(["cmp", generated_file, expected_file])
+    def compare_files(self, expected_file, generated_file):
+        if expected_file.suffix == ".gz":
+            cmp = "zcmp"
+        elif expected_file.suffix == ".bz2":
+            cmp = "bzcmp"
+        else:
+            cmp = "cmp"
+
+        sp.check_output([cmp, expected_file, generated_file])
