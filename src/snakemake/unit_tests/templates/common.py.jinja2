@@ -40,7 +40,7 @@ class OutputChecker:
             workdir_files
         ), f"Output files missing: {expected_files - workdir_files}"
 
-        # Compare output and expectes files
+        # Compare output and expected files
         for f in expected_files:
             self.compare_files(self.expected_path / f, self.workdir / f)
 
