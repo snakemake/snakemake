@@ -1,6 +1,6 @@
 
 
-configfile: "config.json"
+configfile: "config/config.json"
 
 
 rule all:
