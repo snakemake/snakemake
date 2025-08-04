@@ -7,8 +7,8 @@ import os
 import sys
 import shutil
 import tempfile
-import subprocess as sp
 from pathlib import Path
+from subprocess import check_output
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -29,7 +29,7 @@ def test_{{ ruletest.name }}(conda_prefix):
             shutil.copytree("config", workdir / config, dirs_exist_ok=True)
 
         # Run the test job.
-        sp.check_output(
+        check_output(
             [
                 "python",
                 "-m",

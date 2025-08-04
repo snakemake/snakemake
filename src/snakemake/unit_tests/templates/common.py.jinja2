@@ -3,8 +3,8 @@ Common code for unit testing of rules generated with Snakemake {{ version }}.
 """
 
 import os
-import subprocess as sp
 from pathlib import Path
+from subprocess import check_output
 
 
 class OutputChecker:
@@ -52,4 +52,4 @@ class OutputChecker:
         else:
             cmp = "cmp"
 
-        sp.check_output([cmp, expected_file, generated_file])
+        check_output([cmp, expected_file, generated_file])
