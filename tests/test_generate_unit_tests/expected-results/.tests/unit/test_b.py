@@ -1,45 +1,57 @@
+"""
+Rule test code for unit testing of rules generated with Snakemake 9.8.2.dev35.
+"""
+
+
 import os
 import sys
-
-import subprocess as sp
-from tempfile import TemporaryDirectory
 import shutil
-from pathlib import Path, PurePosixPath
+import tempfile
+from pathlib import Path
+from subprocess import check_output
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-import common
 
+def test_b(conda_prefix):
 
-def test_b():
-
-    with TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir) / "workdir"
-        data_path = PurePosixPath(".tests/unit/b/data")
-        expected_path = PurePosixPath(".tests/unit/b/expected")
+        data_path = Path(".tests/unit/b/data")
+        expected_path = Path(".tests/unit/b/expected")
 
         # Copy data to the temporary workdir.
         shutil.copytree(data_path, workdir)
 
-        # dbg
-        print("test/0.tsv", file=sys.stderr)
+        # Copy config/ (if exists) to the temporary workdir.
+        config = Path("config")
+        if config.exists() and config.is_dir():
+            shutil.copytree("config", workdir / config, dirs_exist_ok=True)
 
         # Run the test job.
-        sp.check_output([
-            "python",
-            "-m",
-            "snakemake", 
-            "test/0.tsv",
-            "-f", 
-            "-j1",
-            "--target-files-omit-workdir-adjustment",
-    
-            "--directory",
-            workdir,
-        ])
+        check_output(
+            [
+                "python",
+                "-m",
+                "snakemake",
+                "test/0.tsv",
+                "--snakefile",
+                "Snakefile",
+                "-f",
+                "--notemp",
+                "-j1",
+                "--target-files-omit-workdir-adjustment",
+                "--configfile",
+                "config/config.json",
+                "--directory",
+                workdir,
+            ]
+            + conda_prefix
+        )
 
-        # Check the output byte by byte using cmp.
+        # Check the output byte by byte using cmp/zmp/bzcmp.
         # To modify this behavior, you can inherit from common.OutputChecker in here
         # and overwrite the method `compare_files(generated_file, expected_file), 
         # also see common.py.
+        import common
         common.OutputChecker(data_path, expected_path, workdir).check()
