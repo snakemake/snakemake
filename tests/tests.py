@@ -2476,4 +2476,38 @@ def test_github_issue2011():
     # check that output file was updated
     assert outfile_timestamp_orig != outfile_timestamp_new, "Output file was not updated despite input file timestamp change and with --rerun-triggers mtime"
 
+    os.utime(input_file) # update timestamp once more
+    # now run without any --rerun-triggers, which should include mtime by default and update output file
+    run(dpath("test_github_issue2011"), shellcmd="snakemake -c1", tmpdir=tmpdir, cleanup=False, check_results=False)
+    outfile_timestamp_new = os.path.getmtime(outfile_path)
+    # check that output file was updated
+    assert outfile_timestamp_orig != outfile_timestamp_new, "Output file was not updated despite input file timestamp change and with --rerun-triggers mtime"
+
+    shutil.rmtree(tmpdir)
+
+def test_github_issue3095():
+    tmpdir = run(dpath("test_github_issue3095"), shellcmd="snakemake -c1", cleanup=False, check_results=False)
+    outfile_path = os.path.join(tmpdir, "second.txt")
+    outfile_timestamp_orig = os.path.getmtime(outfile_path)
+
+    # force rerunning of the first rule
+    run(dpath("test_github_issue3095"), shellcmd="snakemake -c1 --force first", tmpdir=tmpdir, cleanup=False, check_results=False)
+
+    run(dpath("test_github_issue3095"), shellcmd="snakemake -c1 --rerun-triggers code input params software-env", tmpdir=tmpdir, cleanup=False, check_results=False)
+    outfile_timestamp_new = os.path.getmtime(outfile_path)
+    # check that output file was not updated
+    assert outfile_timestamp_orig == outfile_timestamp_new, "Output file was updated despite input file not having changed (checksum, without --rerun-triggers mtime)"
+
+    run(dpath("test_github_issue3095"), shellcmd="snakemake -c1 --rerun-triggers mtime", tmpdir=tmpdir, cleanup=False, check_results=False)
+    outfile_timestamp_new = os.path.getmtime(outfile_path)
+    # check that output file was updated
+    assert outfile_timestamp_orig != outfile_timestamp_new, "Output file was not updated despite input file timestamp change and with --rerun-triggers mtime"
+
+    # force rerun first rule again, to check that it works without any --rerun-triggers
+    run(dpath("test_github_issue3095"), shellcmd="snakemake -c1 --force first", tmpdir=tmpdir, cleanup=False, check_results=False)
+    run(dpath("test_github_issue3095"), shellcmd="snakemake -c1", tmpdir=tmpdir, cleanup=False, check_results=False)
+    outfile_timestamp_new = os.path.getmtime(outfile_path)
+    # check that output file was updated
+    assert outfile_timestamp_orig != outfile_timestamp_new, "Output file was not updated despite input file timestamp change and with --rerun-triggers mtime"
+
     shutil.rmtree(tmpdir)
