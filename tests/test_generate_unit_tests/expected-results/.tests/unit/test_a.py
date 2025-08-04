@@ -1,5 +1,5 @@
 """
-Rule test code for unit testing of rules generated with Snakemake 9.8.2.dev2.
+Rule test code for unit testing of rules generated with Snakemake 9.8.2.dev35.
 """
 
 
@@ -43,7 +43,7 @@ def test_a(conda_prefix):
                 "-j1",
                 "--target-files-omit-workdir-adjustment",
                 "--configfile",
-                "config.json",
+                "config/config.json",
                 "--directory",
                 workdir,
             ]
