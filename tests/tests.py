@@ -2455,3 +2455,25 @@ def test_params_empty_inherit():
 
 def test_github_issue3556():
     run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
+
+def test_github_issue2011():
+    tmpdir = run(dpath("test_github_issue2011"), shellcmd="snakemake -c1", cleanup=False, check_results=False)
+    outfile_path = os.path.join(tmpdir, "out.txt")
+    outfile_timestamp_orig = os.path.getmtime(outfile_path)
+    # update timestamp but not contents of input file
+    input_file = os.path.join(tmpdir, "in.txt")
+    os.utime(input_file) # update timestamp to current time
+
+    # run the workflow, should not update output file since input file contents did not change
+    run(dpath("test_github_issue2011"), shellcmd="snakemake -c1 --rerun-triggers code input params software-env", tmpdir=tmpdir, cleanup=False, check_results=False)
+    outfile_timestamp_new = os.path.getmtime(outfile_path)
+    # check that output file was not updated
+    assert outfile_timestamp_orig == outfile_timestamp_new, "Output file was updated despite input file not having changed (checksum, without --rerun-triggers mtime)"
+
+    # now run with --rerun-triggers mtime, which should update output file
+    run(dpath("test_github_issue2011"), shellcmd="snakemake -c1 --rerun-triggers mtime", tmpdir=tmpdir, cleanup=False, check_results=False)
+    outfile_timestamp_new = os.path.getmtime(outfile_path)
+    # check that output file was updated
+    assert outfile_timestamp_orig != outfile_timestamp_new, "Output file was not updated despite input file timestamp change and with --rerun-triggers mtime"
+
+    shutil.rmtree(tmpdir)

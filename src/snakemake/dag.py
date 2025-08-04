@@ -1428,7 +1428,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             if (
                                 await f.exists()
                                 and await f.is_newer(output_mintime_)
-                                and not await is_same_checksum(f, job)
+                                and (RerunTrigger.MTIME in self.workflow.rerun_triggers
+                                     or
+                                     not await is_same_checksum(f, job))
                             ):
                                 yield f
 
