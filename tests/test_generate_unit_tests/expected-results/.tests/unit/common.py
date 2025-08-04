@@ -21,20 +21,13 @@ class OutputChecker:
             for f in files
         )
         print(f"input: {input_files}")  # DEBUG
-        # Output files
-        output_files = set(
+        # Workdir files
+        workdir_files = set(
             (Path(path) / f).relative_to(self.workdir)
             for path, subdirs, files in os.walk(self.workdir)
             for f in files
         )
-        output_files = set(
-            output_file
-            for output_file in output_files
-            if output_file not in input_files
-            and not str(output_file).startswith(".snakemake/")
-            and not str(output_file).startswith("config/")
-        )
-        print(f"output: {output_files}")  # DEBUG
+        print(f"workdir: {workdir_files}")  # DEBUG
         # Expected files
         expected_files = set(
             (Path(path) / f).relative_to(self.expected_path)
@@ -43,16 +36,13 @@ class OutputChecker:
         )
         print(f"expected: {expected_files}")  # DEBUG
 
-        missing_files = set()
+        assert expected_files.issubset(
+            workdir_files
+        ), f"Output files missing: {expected_files - workdir_files}"
+
+        # Compare output and expectes files
         for f in expected_files:
-            if f in output_files:
-                self.compare_files(self.expected_path / f, self.workdir / f)
-            else:
-                missing_files.add(f)
-        if missing_files:
-            raise ValueError(
-                "Missing files:\n{}".format("\n".join(sorted(map(str, missing_files))))
-            )
+            self.compare_files(self.expected_path / f, self.workdir / f)
 
     def compare_files(self, expected_file, generated_file):
         if expected_file.suffix == ".gz":

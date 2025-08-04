@@ -86,7 +86,7 @@ def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
                 os.makedirs(path / rulename, exist_ok=True)
 
                 def copy_files(files, content_type):
-                    for f in files:
+                    for f in set(files):
                         f = Path(f)
                         parent = f.parent
                         if parent.is_absolute():
@@ -104,8 +104,8 @@ def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
                         # touch gitempty file if there are no input files
                         open(path / rulename / content_type / ".gitempty", "w").close()
 
-                copy_files(set(job.input), "data")
-                copy_files(set(job.output), "expected")
+                copy_files(job.input, "data")
+                copy_files(job.output, "expected")
 
                 with open(testpath, "w") as test:
                     print(
