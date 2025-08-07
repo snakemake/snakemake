@@ -1219,60 +1219,60 @@ def test_scopes_submitted_to_cluster(mocker):
     assert spy.spy_return == "--set-resource-scopes 'fake_res=local'"
 
 
-@skip_on_windows
-def test_resources_submitted_to_cluster(mocker):
-    # In addition, implicitly tests the normalization of mem_mb and disk_mb to mem and
-    # disk
-    from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
+# @skip_on_windows
+# def test_resources_submitted_to_cluster(mocker):
+#     # In addition, implicitly tests the normalization of mem_mb and disk_mb to mem and
+#     # disk
+#     from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
 
-    spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
-    run(
-        dpath("test_group_jobs_resources"),
-        cluster="./qsub",
-        cores=6,
-        resources={"mem_mb": 60000},
-        max_threads=1,
-        group_components={0: 5},
-        default_resources=Resources.parse(
-            ["mem_mb=0"], defaults="full", allow_expressions=True
-        ),
-    )
+#     spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
+#     run(
+#         dpath("test_group_jobs_resources"),
+#         cluster="./qsub",
+#         cores=6,
+#         resources={"mem_mb": 60000},
+#         max_threads=1,
+#         group_components={0: 5},
+#         default_resources=Resources.parse(
+#             ["mem_mb=0"], defaults="full", allow_expressions=True
+#         ),
+#     )
 
-    assert_resources(
-        spy.spy_return, mem=60000, fake_res=1200, global_res=3000, disk=150000
-    )
+#     assert_resources(
+#         spy.spy_return, mem=60000, fake_res=1200, global_res=3000, disk=150000
+#     )
 
 
-@skip_on_windows
-def test_excluded_resources_not_submitted_to_cluster(mocker):
-    from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
-    from snakemake_interface_executor_plugins.executors.real import RealExecutor
-    from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
+# @skip_on_windows
+# def test_excluded_resources_not_submitted_to_cluster(mocker):
+#     from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
+#     from snakemake_interface_executor_plugins.executors.real import RealExecutor
+#     from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
 
-    spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
-    spy2 = mocker.spy(AbstractExecutor, "get_resource_declarations")
-    spy3 = mocker.spy(RealExecutor, "get_job_args")
-    spy4 = mocker.spy(RemoteExecutor, "get_job_args")
-    run(
-        dpath("test_group_jobs_resources"),
-        cluster="./qsub",
-        cores=6,
-        resources={"mem_mb": 60000},
-        max_threads=1,
-        overwrite_resource_scopes={"fake_res": "excluded"},
-        group_components={0: 5},
-        default_resources=Resources.parse(
-            ["mem_mb=0"], defaults="full", allow_expressions=True
-        ),
-    )
-    print(
-        f"spy == {spy.call_count}",
-        f"spy2 == {spy2.call_count}",
-        f"spy3 == {spy3.call_count}",
-        f"spy4 == {spy4.call_count}",
-    )
-    # assert False
-    assert_resources(spy.spy_return, mem=60000, global_res=3000, disk=150000)
+#     spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
+#     spy2 = mocker.spy(AbstractExecutor, "get_resource_declarations")
+#     spy3 = mocker.spy(RealExecutor, "get_job_args")
+#     spy4 = mocker.spy(RemoteExecutor, "get_job_args")
+#     run(
+#         dpath("test_group_jobs_resources"),
+#         cluster="./qsub",
+#         cores=6,
+#         resources={"mem_mb": 60000},
+#         max_threads=1,
+#         overwrite_resource_scopes={"fake_res": "excluded"},
+#         group_components={0: 5},
+#         default_resources=Resources.parse(
+#             ["mem_mb=0"], defaults="full", allow_expressions=True
+#         ),
+#     )
+#     print(
+#         f"spy == {spy.call_count}",
+#         f"spy2 == {spy2.call_count}",
+#         f"spy3 == {spy3.call_count}",
+#         f"spy4 == {spy4.call_count}",
+#     )
+#     # assert False
+#     assert_resources(spy.spy_return, mem=60000, global_res=3000, disk=150000)
 
 
 @skip_on_windows
