@@ -149,7 +149,7 @@ extract it, and move the pixi binary to ``~/.pixi/bin``.
 If this directory does not already exist, the script will create it.
 
 The script will also update your ``~/.bashrc`` or ``~/.zshrc`` to include ``~/.pixi/bin`` in your PATH,
-allowing you to invoke the ``pixi`` command from anywhere.
+allowing you to invoke the ``pixi`` command from anywhere after opening a **new terminal** window.
 
 Please also see the official `Pixi installation`_ instructions for more information.
 
