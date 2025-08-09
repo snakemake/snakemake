@@ -7,6 +7,7 @@ from collections import defaultdict
 import os
 import re
 import sys
+import logging
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import List, Mapping, Optional, Set, Union
@@ -21,7 +22,7 @@ from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 
 
 import snakemake.common.argparse
-from snakemake import logging
+
 from snakemake.api import (
     SnakemakeApi,
     resolve_snakefile,
@@ -1928,16 +1929,16 @@ def create_output_settings(args, log_handler_settings) -> OutputSettings:
 
     # Set logging behavior based on execution mode
     if args.mode == ExecMode.SUBPROCESS:
-        settings.log_errors_only = True
+        settings.log_level_override = logging.ERROR
         settings.enable_file_logging = False
-
+        settings.skip_plugin_handlers = True
     elif args.mode == ExecMode.REMOTE:
-        settings.log_errors_only = False
+        settings.skip_plugin_handlers = True
         settings.enable_file_logging = False
 
-    else:  # ExecMode.DEFAULT
-        settings.log_errors_only = False
-        settings.enable_file_logging = True
+    elif args.mode == ExecMode.DEFAULT:
+        # Use defaults from OutputSettings
+        pass
 
     return settings
 
