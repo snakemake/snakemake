@@ -118,24 +118,54 @@ class TokenAutomaton:
         Luckily, each token records the content of the line,
         and we can just take what we want there.
         """
-        related_lines = token.start[0]
-        s = token.line
+        lines_contents = dict()
+
+        # collect all lines until the end of the f-string
+        def collect_lines(token_: tokenize.TokenInfo):
+            lines_contents[token_.start[0]] = token_.line
+            # if the token spans multiple lines, we need to collect all of them
+            if token_.end[0] != token_.start[0]:
+
+                # iterate over all lines that the token spans
+                token_string = token_.line
+                line = token_.start[0]
+                while line <= token_.end[0]:
+                    end_of_line_index = (token_string.index("\n") + 1) if "\n" in token_string \
+                        else len(token_string)
+                    lines_content = token_string[: end_of_line_index]
+
+                    # don't take the new line content if the one already stored is longer
+                    if line not in lines_contents or len(lines_contents[line]) > len(lines_content):
+                        lines_contents[line] = lines_content
+
+                    token_string = token_string[end_of_line_index:]
+                    line += 1
+
+        # Collect lines for the first and subsequent tokens that are part of the f-string
+        collect_lines(token)
         isin_fstring = 1
         for t1 in self.snakefile:
-            if related_lines < t1.start[0]:
-                # go to the next line
-                related_lines = t1.start[0]
-                s += t1.line
+            collect_lines(t1)
             if t1.type == tokenize.FSTRING_START:
                 isin_fstring += 1
             elif t1.type == tokenize.FSTRING_END:
                 isin_fstring -= 1
             if isin_fstring == 0:
                 break
-        # trim those around the f-string
-        t = s[token.start[1] : t1.end[1] - len(t1.line)]
-        if hasattr(self, "cmd") and self.cmd[-1][1] == token:
-            self.cmd[-1] = t, token
+
+        f_string_start = token.start
+        f_string_end = t1.end # t1 is the FSTRING_END token closing the outermost f-string
+
+        # remove line contents that are not part of the f-string
+        lines_contents[f_string_start[0]] = lines_contents[f_string_start[0]][f_string_start[1]:]
+        lines_contents[f_string_end[0]] = lines_contents[f_string_end[0]][:f_string_end[1]]
+
+        # join the f-string content
+        t = "".join(
+            lines_contents[line]
+            for line in range(f_string_start[0], f_string_end[0] + 1)
+        )
+
         return t
 
     def consume(self):
