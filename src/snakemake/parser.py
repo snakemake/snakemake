@@ -120,26 +120,21 @@ class TokenAutomaton:
         """
         lines_contents = dict()
 
-        # collect all lines until the end of the f-string
         def collect_lines(token_: tokenize.TokenInfo):
-            lines_contents[token_.start[0]] = token_.line
-            # if the token spans multiple lines, we need to collect all of them
-            if token_.end[0] != token_.start[0]:
+            # iterate over all lines that the token spans
+            token_string = token_.line
+            i = token_.start[0]
+            while i <= token_.end[0]:
+                end_of_line_index = (token_string.index("\n") + 1) if "\n" in token_string else len(token_string)
+                line_content = token_string[: end_of_line_index]
 
-                # iterate over all lines that the token spans
-                token_string = token_.line
-                line = token_.start[0]
-                while line <= token_.end[0]:
-                    end_of_line_index = (token_string.index("\n") + 1) if "\n" in token_string \
-                        else len(token_string)
-                    lines_content = token_string[: end_of_line_index]
+                # don't take the new line content if the one already stored is longer
+                if i not in lines_contents or len(lines_contents[i]) < len(line_content):
+                    lines_contents[i] = line_content
 
-                    # don't take the new line content if the one already stored is longer
-                    if line not in lines_contents or len(lines_contents[line]) > len(lines_content):
-                        lines_contents[line] = lines_content
-
-                    token_string = token_string[end_of_line_index:]
-                    line += 1
+                # remainder of the line after the newline character
+                token_string = token_string[end_of_line_index:]
+                i += 1
 
         # Collect lines for the first and subsequent tokens that are part of the f-string
         collect_lines(token)
@@ -153,10 +148,9 @@ class TokenAutomaton:
             if isin_fstring == 0:
                 break
 
+        # remove line contents that are not part of the f-string
         f_string_start = token.start
         f_string_end = t1.end # t1 is the FSTRING_END token closing the outermost f-string
-
-        # remove line contents that are not part of the f-string
         lines_contents[f_string_start[0]] = lines_contents[f_string_start[0]][f_string_start[1]:]
         lines_contents[f_string_end[0]] = lines_contents[f_string_end[0]][:f_string_end[1]]
 
