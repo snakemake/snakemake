@@ -7,21 +7,19 @@ from collections import defaultdict
 import os
 import re
 import sys
-from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import List, Mapping, Optional, Set, Union
+from typing import List, Mapping, Optional, Set, Tuple, Union
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
-
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
+from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
 
 
 import snakemake.common.argparse
-from snakemake import logging
 from snakemake.api import (
     SnakemakeApi,
     resolve_snakefile,
@@ -72,6 +70,7 @@ from snakemake.settings.types import (
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
+from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings
 
 
 def parse_size_in_bytes(value):
@@ -351,7 +350,7 @@ def parse_jobs(jobs):
         )
 
 
-def get_profile_dir(profile: str) -> (Path, Path):
+def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
     config_pattern = re.compile(r"config(.v(?P<min_major>\d+)\+)?.yaml")
 
     def get_config_min_major(filename):
@@ -865,32 +864,16 @@ def get_argument_parser(profiles=None):
         help="Strict evaluation of rules' correctness even when not required to produce the output files. ",
     )
 
-    try:
-        import pulp
-
-        lp_solvers = pulp.listSolvers(onlyAvailable=True)
-    except ImportError:
-        # Dummy list for the case that pulp is not available
-        # This only happened when building docs.
-        lp_solvers = ["COIN_CMD"]
-    recommended_lp_solver = "COIN_CMD"
-
     group_exec.add_argument(
         "--scheduler",
-        default="greedy" if recommended_lp_solver not in lp_solvers else "ilp",
+        default="ilp",
         nargs="?",
-        choices=["ilp", "greedy"],
+        choices=list(SchedulerPluginRegistry().plugins.keys()),
         help=(
-            "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
-            "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
+            "Specifies the scheduling plugin to use. "
+            "Builtin plugins are greedy (fast) and ilp, while the latter scheduler "
+            "aims to reduce runtime and hdd usage by best possible use of resources."
         ),
-    )
-
-    group_exec.add_argument(
-        "--scheduler-ilp-solver",
-        default=recommended_lp_solver,
-        choices=lp_solvers,
-        help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 
     group_exec.add_argument(
@@ -1419,12 +1402,6 @@ def get_argument_parser(profiles=None):
         help="Maximal number of job submissions/executions per timespan. Format: <number><timespan>, e.g. 50/1m or 0.5/1s.",
     )
     group_behavior.add_argument(
-        "--max-jobs-per-second",
-        type=int,
-        help="Maximal number of job submissions/executions per second. "
-        "Deprecated in favor of `--max-jobs-per-timespan`.",
-    )
-    group_behavior.add_argument(
         "--max-status-checks-per-second",
         default=10,
         type=float,
@@ -1505,7 +1482,7 @@ def get_argument_parser(profiles=None):
         help="Set the greediness of scheduling. This value between 0 and 1 "
         "determines how careful jobs are selected for execution. The default "
         "value (1.0) provides the best speed and still acceptable scheduling "
-        "quality.",
+        "quality. Deprecated in favor of `--scheduler-greedy-greediness`.",
     )
     group_behavior.add_argument(
         "--scheduler-subsample",
@@ -1612,16 +1589,6 @@ def get_argument_parser(profiles=None):
         default="snakejob.{name}.{jobid}.sh",
         metavar="NAME",
         help="Provide a custom name for the jobscript that is submitted to the cluster (see `--cluster`). The wildcard `{jobid}` has to be present in the name.",
-    )
-
-    group_flux = parser.add_argument_group("FLUX")
-
-    group_flux.add_argument(
-        "--flux",
-        action="store_true",
-        help="Execute your workflow on a flux cluster. "
-        "Flux can work with both a shared network filesystem (like NFS) or without. "
-        "If you don't have a shared filesystem, additionally specify `--no-shared-fs`.",
     )
 
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
@@ -1761,10 +1728,6 @@ def get_argument_parser(profiles=None):
 
     group_internal = parser.add_argument_group("INTERNAL")
     group_internal.add_argument(
-        "--scheduler-solver-path",
-        help=help_internal("Set the PATH to search for scheduler solver binaries."),
-    )
-    group_internal.add_argument(
         "--deploy-sources",
         nargs=2,
         metavar=("QUERY", "CHECKSUM"),
@@ -1789,12 +1752,27 @@ def get_argument_parser(profiles=None):
         type=ExecMode.parse_choice,
         help=help_internal("Set execution mode of Snakemake."),
     )
+    group_internal.add_argument(
+        "--scheduler-solver-path",
+        help=help_internal(
+            "Set the PATH to search for scheduler solver binaries. Deprecated, use --scheduler-ilp-solver-path instead."
+        ),
+    )
+
+    group_deprecated = parser.add_argument_group("DEPRECATED")
+    group_deprecated.add_argument(
+        "--max-jobs-per-second",
+        type=int,
+        help="Maximal number of job submissions/executions per second. "
+        "Deprecated in favor of `--max-jobs-per-timespan`.",
+    )
 
     # Add namespaced arguments to parser for each plugin
     ExecutorPluginRegistry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
     ReportPluginRegistry().register_cli_args(parser)
     LoggerPluginRegistry().register_cli_args(parser)
+    SchedulerPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1942,6 +1920,12 @@ def args_to_api(args, parser):
         name: LoggerPluginRegistry().get_plugin(name).get_settings(args)
         for name in args.logger
     }
+
+    scheduler_plugin = SchedulerPluginRegistry().get_plugin(args.scheduler)
+    scheduler_settings = scheduler_plugin.get_settings(args)
+    if args.scheduler == "ilp":
+        assert isinstance(scheduler_settings, MILPSchedulerSettings)
+        scheduler_settings.solver_path = args.scheduler_solver_path
 
     if args.reporter:
         report_plugin = ReportPluginRegistry().get_plugin(args.reporter)
@@ -2200,9 +2184,6 @@ def args_to_api(args, parser):
                             scheduling_settings=SchedulingSettings(
                                 prioritytargets=args.prioritize,
                                 scheduler=args.scheduler,
-                                ilp_solver=args.scheduler_ilp_solver,
-                                solver_path=args.scheduler_solver_path,
-                                greediness=args.scheduler_greediness,
                                 subsample=args.scheduler_subsample,
                                 max_jobs_per_second=args.max_jobs_per_second,
                                 max_jobs_per_timespan=args.max_jobs_per_timespan,
@@ -2213,6 +2194,7 @@ def args_to_api(args, parser):
                                 local_groupid=args.local_groupid,
                             ),
                             executor_settings=executor_settings,
+                            scheduler_settings=scheduler_settings,
                         )
 
                         if report_plugin is not None and args.report_after_run:

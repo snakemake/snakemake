@@ -52,7 +52,14 @@ from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_scheduler_plugins.settings import (
+    SchedulerSettingsBase,
+)
+from snakemake_interface_scheduler_plugins.registry.plugin import (
+    Plugin as SchedulerPlugin,
+)
 
+from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
 from snakemake.logging import logger, format_resources, logger_manager
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
@@ -66,7 +73,7 @@ from snakemake.exceptions import (
     update_lineno,
 )
 from snakemake.dag import DAG, ChangeType
-from snakemake.scheduler import JobScheduler
+from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
 from snakemake.io import (
@@ -1194,6 +1201,9 @@ class Workflow(WorkflowExecutorInterface):
         self,
         executor_plugin: ExecutorPlugin,
         executor_settings: ExecutorSettingsBase,
+        scheduler_plugin: SchedulerPlugin,
+        scheduler_settings: Optional[SchedulerSettingsBase],
+        greedy_scheduler_settings: GreedySchedulerSettings,
         updated_files: Optional[List[str]] = None,
     ):
         logger.info(f"host: {platform.node()}")
@@ -1307,7 +1317,12 @@ class Workflow(WorkflowExecutorInterface):
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
-            self.scheduler = JobScheduler(self, executor_plugin)
+            self.scheduler = JobScheduler(
+                self,
+                executor_plugin,
+                scheduler_plugin.scheduler(self.dag, scheduler_settings, logger),
+                greedy_scheduler_settings,
+            )
 
             if not self.dryrun:
                 if len(self.dag):

@@ -15,7 +15,7 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Iterable, List, Optional, Set, Union, Dict
+from typing import Iterable, List, Mapping, Optional, Set, Union, Dict
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
@@ -31,6 +31,7 @@ from snakemake.settings.types import DeploymentMethod
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
+from snakemake_interface_scheduler_plugins.interfaces.dag import DAGSchedulerInterface
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.settings.enums import Quietness
 
@@ -101,7 +102,7 @@ def toposort(graph):
     return sorted
 
 
-class DAG(DAGExecutorInterface, DAGReportInterface):
+class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     """Directed acyclic graph of jobs."""
 
     def __init__(
@@ -123,7 +124,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
         self._queue_input_jobs = None
-        self._dependencies = defaultdict(partial(defaultdict, set))
+        self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
+            partial(defaultdict, set)
+        )
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
         self._checkpoint_jobs = set()
@@ -200,8 +203,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.update_output_index()
 
     @property
-    def dependencies(self):
+    def dependencies(self) -> Mapping[Job, Mapping[Job, Set[str]]]:
         return self._dependencies
+
+    def job_dependencies(self, job: Job) -> Iterable[Job]:
+        # keys() returns an iterable, but somehow the type checker does not recognize it
+        return self._dependencies.get(job, {}).keys()  # type: ignore[return-value]
 
     @property
     def batch(self):
@@ -599,7 +606,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """All jobs in the DAG."""
         return self._dependencies.keys()
 
-    def needrun_jobs(self, exclude_finished=True):
+    def needrun_jobs(self, exclude_finished=True) -> Iterable[Job]:
         """Jobs that need to be executed."""
         if exclude_finished:
             return filterfalse(self.finished, self._needrun)
@@ -640,7 +647,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Return the reason of the job execution."""
         return self._reason[job]
 
-    def finished(self, job):
+    def finished(self, job) -> bool:
         """Return whether a job is finished."""
         return job in self._finished
 
@@ -915,12 +922,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 for f in files:
                     if f in job_.temp_output and f not in skip:
                         yield f
-
-    async def temp_size(self, job):
-        """Return the total size of temporary input files of the job.
-        If none, return 0.
-        """
-        return sum([await f.size() for f in self.temp_input(job)])
 
     def is_needed_tempfile(self, job, tempfile):
         return (
@@ -2196,7 +2197,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         ):
             await self.retrieve_storage_inputs()
 
-    def register_running(self, jobs):
+    def register_running(self, jobs: AnySet[AbstractJob]):
         self._running.update(jobs)
         self._ready_jobs -= jobs
         for job in jobs:
