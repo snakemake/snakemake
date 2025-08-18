@@ -596,9 +596,18 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._validated_jobs.add(job)
 
         for name, available in self.global_resources.items():
+            assert isinstance(available, int), (
+                f"Global resource {name}={available} is not an integer. "
+                "This is likely a bug in Snakemake."
+            )
             if isinstance(available, str):
                 continue
             value = job.scheduler_resources.get(name, 0)
+            if isinstance(value, str):
+                raise WorkflowError(
+                    f"Resource {name}={value} of rule {job.rule.name} is not an "
+                    "integer but global resource is defined as integer."
+                )
             if value > available:
                 if name == "_cores":
                     name = "threads"
