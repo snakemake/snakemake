@@ -89,7 +89,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.update_checkpoint_dependencies = not self.dryrun
         self.job_rate_limiter = (
             JobRateLimiter(self.workflow.scheduling_settings.max_jobs_per_timespan)
-            if not self.dryrun
+            if not (self.dryrun or self.touch)
             and self.workflow.scheduling_settings.max_jobs_per_timespan
             else None
         )
