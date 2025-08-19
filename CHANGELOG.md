@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [9.10.0](https://github.com/snakemake/snakemake/compare/v9.9.0...v9.10.0) (2025-08-19)
+
+
+### Features
+
+* migrate to scheduler plugin interface and scheduler plugins ([#3676](https://github.com/snakemake/snakemake/issues/3676)) ([26fcd38](https://github.com/snakemake/snakemake/commit/26fcd38690c2a029d646e3f43591a4dad5d62053))
+
+
+### Bug Fixes
+
+* don't rate limit jobs when touching ([#3699](https://github.com/snakemake/snakemake/issues/3699)) ([9c499e5](https://github.com/snakemake/snakemake/commit/9c499e57018ec0f54e43c99e7eebaa1bb9bf77af))
+* raise an error when different rules produce identical (temp) output  ([#3667](https://github.com/snakemake/snakemake/issues/3667)) ([f627176](https://github.com/snakemake/snakemake/commit/f6271765b5438116a428b622173603ad29577973))
+* silence messages on module load ([#3688](https://github.com/snakemake/snakemake/issues/3688)) ([b13e9c8](https://github.com/snakemake/snakemake/commit/b13e9c8a0592850bf6784c73861000c6f8f21dfa))
+
 ## [9.9.0](https://github.com/snakemake/snakemake/compare/v9.8.2...v9.9.0) (2025-07-29)
 
 
