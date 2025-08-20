@@ -19,6 +19,7 @@ from snakemake.utils import min_version  # import so we can patch out if needed
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
+from snakemake.exceptions import AmbiguousRuleException
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -2448,3 +2449,15 @@ def test_censored_path():
 
 def test_params_empty_inherit():
     run(dpath("test_params_empty_inherit"))
+
+
+def test_ambiguousruleexception():
+    try:
+        run(dpath("test_ambiguousruleexception"))
+    except AmbiguousRuleException:
+        return
+    raise AssertionError("This is an ambiguous case! Should have raised an error...")
+
+
+def test_github_issue3556():
+    run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
