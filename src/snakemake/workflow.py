@@ -900,6 +900,7 @@ class Workflow(WorkflowExecutorInterface):
                 Path(config).absolute().relative_to(self.workdir_init)
                 for config in self.configfiles
             ],
+            workdir_init=self.workdir_init,
         )
 
     def cleanup_metadata(self, paths: List[Path]):

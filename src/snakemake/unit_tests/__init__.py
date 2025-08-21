@@ -32,11 +32,13 @@ class RuleTest:
         return self.path / "expected"
 
 
-def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
+def generate(
+    dag, path: Path, deploy=None, snakefile=None, configfiles=None, workdir_init=None
+):
     """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
-    def copy_files(files, content_type):
+    def copy_files(files, path, content_type):
         for f in set(files):
             f = Path(f)
             parent = f.parent
@@ -108,15 +110,17 @@ def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
                 logger.info(f"Generating unit test for rule {rulename}: {testpath}.")
                 os.makedirs(path / rulename, exist_ok=True)
 
-                copy_files(list(Path().glob("config*")), "config")
-                copy_files(job.input, "data")
-                copy_files(job.output, "expected")
+                copy_files(list(Path().glob("config*")), path, "config")
+                copy_files(job.input, path, "data")
+                copy_files(job.output, path, "expected")
 
                 with open(testpath, "w") as test:
                     print(
                         env.get_template("ruletest.py.jinja2").render(
                             version=__version__,
-                            ruletest=RuleTest(job, path),
+                            ruletest=RuleTest(
+                                job, path.absolute().relative_to(workdir_init)
+                            ),
                             deploy=deploy,
                             snakefile=snakefile,
                             configfiles=configfiles,

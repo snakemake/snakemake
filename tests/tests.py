@@ -1501,12 +1501,15 @@ def test_github_issue640():
 
 
 def test_generate_unit_tests():
-    tmpdir = run(
+    run(
         dpath("test_generate_unit_tests"),
-        shellcmd="snakemake --generate-unit-tests .tests/unit --directory .tests/integration",
+        shellcmd="snakemake --generate-unit-tests ../../.tests/unit --directory .tests/integration",
+        no_tmpdir=True,
         cleanup=False,
     )
-    sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
+    sp.check_call(
+        ["pytest", ".tests/unit", "-vs"], cwd=dpath("test_generate_unit_tests")
+    )
 
 
 def test_paramspace():
