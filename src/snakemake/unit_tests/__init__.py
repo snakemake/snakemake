@@ -1,7 +1,6 @@
 from itertools import groupby
 from pathlib import Path
 import shutil
-import os
 from snakemake.common import async_run
 
 from snakemake.logging import logger
@@ -49,11 +48,11 @@ def generate(
             if f.is_dir():
                 shutil.copytree(f, target / f.name)
             else:
-                os.makedirs(target, exist_ok=True)
+                target.mkdir(parents=True, exist_ok=True)
                 shutil.copy(f, target)
                 (target / f.name).chmod(0o444)
         if not files:
-            os.makedirs(path, exist_ok=True)
+            path.mkdir(parents=True, exist_ok=True)
             # touch gitempty file if there are no input files
             open(path / ".gitempty", "w").close()
 
@@ -70,7 +69,7 @@ def generate(
         lstrip_blocks=True,
     )
 
-    os.makedirs(path, exist_ok=True)
+    path.mkdir(parents=True, exist_ok=True)
 
     with open(path / "common.py", "w") as common:
         print(
@@ -108,7 +107,7 @@ def generate(
         for job in jobs:
             if all(async_run(f.exists()) for f in job.input):
                 logger.info(f"Generating unit test for rule {rulename}: {testpath}.")
-                os.makedirs(path / rulename, exist_ok=True)
+                (path / rulename).mkdir(parents=True, exist_ok=True)
 
                 copy_files(list(Path().glob("config*")), path / rulename / "config")
                 copy_files(job.input, path / rulename / "data")
