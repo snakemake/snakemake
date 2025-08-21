@@ -160,8 +160,8 @@ class Workflow(WorkflowExecutorInterface):
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     check_envvars: bool = True
     cache_rules: Dict[str, str] = field(default_factory=dict)
-    _workdir_init = str(Path.cwd().absolute())
     overwrite_workdir: Optional[str | Path] = None
+    _workdir = str(Path.cwd().absolute())
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
     injected_conda_envs: List = field(default_factory=list)
 
@@ -177,6 +177,7 @@ class Workflow(WorkflowExecutorInterface):
 
         self._rules = OrderedDict()
         self.default_target = None
+        self._workdir_init = str(Path.cwd().absolute())
         self._ruleorder = Ruleorder()
         self._localrules = set()
         self._linemaps = dict()
@@ -487,6 +488,10 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def sourcecache(self):
         return self._sourcecache
+
+    @property
+    def workdir(self):
+        return self._workdir
 
     @property
     def workdir_init(self):
@@ -895,12 +900,12 @@ class Workflow(WorkflowExecutorInterface):
             self.dag,
             path,
             self.deployment_settings.deployment_method,
-            snakefile=Path(self.main_snakefile).relative_to(self.workdir_init),
+            snakefile=Path(self.main_snakefile).relative_to(self.workdir),
             configfiles=[
-                Path(config).absolute().relative_to(self.workdir_init)
+                Path(config).absolute().relative_to(self.workdir)
                 for config in self.configfiles
             ],
-            workdir_init=self.workdir_init,
+            workdir_init=self.workdir,
         )
 
     def cleanup_metadata(self, paths: List[Path]):
@@ -936,7 +941,7 @@ class Workflow(WorkflowExecutorInterface):
             logger.info("Unlocked working directory.")
         except IOError as e:
             raise WorkflowError(
-                f"Error: Unlocking the directory {os.getcwd()} failed. Maybe "
+                f"Error: Unlocking the directory {Path.cwd()} failed. Maybe "
                 "you don't have the permissions?",
                 e,
             )

@@ -33,19 +33,19 @@ class RuleTest:
 
 
 def generate(
-    dag, path: Path, deploy=None, snakefile=None, configfiles=None, workdir_init=None
+    dag, path: Path, deploy=None, snakefile=None, configfiles=None, workdir=None
 ):
     """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
-    def copy_files(files, path, content_type):
+    def copy_files(files, path):
         for f in set(files):
             f = Path(f)
             parent = f.parent
             if parent.is_absolute():
                 root = str(f.parents[len(f.parents) - 1])
                 parent = str(parent)[len(root) :]
-            target = path / rulename / content_type / parent
+            target = path / parent
             if f.is_dir():
                 shutil.copytree(f, target / f.name)
             else:
@@ -53,9 +53,9 @@ def generate(
                 shutil.copy(f, target)
                 (target / f.name).chmod(0o444)
         if not files:
-            os.makedirs(path / rulename / content_type, exist_ok=True)
+            os.makedirs(path, exist_ok=True)
             # touch gitempty file if there are no input files
-            open(path / rulename / content_type / ".gitempty", "w").close()
+            open(path / ".gitempty", "w").close()
 
     try:
         from jinja2 import Environment, PackageLoader
@@ -110,16 +110,16 @@ def generate(
                 logger.info(f"Generating unit test for rule {rulename}: {testpath}.")
                 os.makedirs(path / rulename, exist_ok=True)
 
-                copy_files(list(Path().glob("config*")), path, "config")
-                copy_files(job.input, path, "data")
-                copy_files(job.output, path, "expected")
+                copy_files(list(Path().glob("config*")), path / rulename / "config")
+                copy_files(job.input, path / rulename / "data")
+                copy_files(job.output, path / rulename / "expected")
 
                 with open(testpath, "w") as test:
                     print(
                         env.get_template("ruletest.py.jinja2").render(
                             version=__version__,
                             ruletest=RuleTest(
-                                job, path.absolute().relative_to(workdir_init)
+                                job, path.absolute().relative_to(workdir)
                             ),
                             deploy=deploy,
                             snakefile=snakefile,
