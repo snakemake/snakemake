@@ -24,7 +24,7 @@ def test_a(conda_prefix):
         # Copy config to the temporary workdir.
         shutil.copytree(config_path, workdir)
 
-	# Copy data to the temporary workdir.
+        # Copy data to the temporary workdir.
         shutil.copytree(data_path, workdir, dirs_exist_ok=True)
 
         # Run the test job.
