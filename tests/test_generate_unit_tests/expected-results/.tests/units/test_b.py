@@ -17,9 +17,9 @@ def test_b(conda_prefix):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir) / "workdir"
-        config_path = Path("/home/lnc113/appz/snakemake/tests/test_generate_unit_tests/.tests/units/b/config")
-        data_path = Path("/home/lnc113/appz/snakemake/tests/test_generate_unit_tests/.tests/units/b/data")
-        expected_path = Path("/home/lnc113/appz/snakemake/tests/test_generate_unit_tests/.tests/units/b/expected")
+        config_path = Path(".tests/units/b/config")
+        data_path = Path(".tests/units/b/data")
+        expected_path = Path(".tests/units/b/expected")
 
         # Copy config to the temporary workdir.
         shutil.copytree(config_path, workdir)

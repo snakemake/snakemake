@@ -161,7 +161,7 @@ class Workflow(WorkflowExecutorInterface):
     check_envvars: bool = True
     cache_rules: Dict[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str | Path] = None
-    _workdir = str(Path.cwd().absolute())
+    _rundir = str(Path.cwd().absolute())
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
     injected_conda_envs: List = field(default_factory=list)
 
@@ -490,8 +490,8 @@ class Workflow(WorkflowExecutorInterface):
         return self._sourcecache
 
     @property
-    def workdir(self):
-        return self._workdir
+    def rundir(self):
+        return self._rundir
 
     @property
     def workdir_init(self):
@@ -900,12 +900,9 @@ class Workflow(WorkflowExecutorInterface):
             self.dag,
             path,
             self.deployment_settings.deployment_method,
-            snakefile=Path(self.main_snakefile).relative_to(self.workdir),
-            configfiles=[
-                Path(config).absolute().relative_to(self.workdir)
-                for config in self.configfiles
-            ],
-            workdir_init=self.workdir,
+            snakefile=self.main_snakefile,
+            configfiles=self.configfiles,
+            rundir=self.rundir,
         )
 
     def cleanup_metadata(self, paths: List[Path]):

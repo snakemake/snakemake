@@ -31,9 +31,7 @@ class RuleTest:
         return self.path / "expected"
 
 
-def generate(
-    dag, path: Path, deploy=None, snakefile=None, configfiles=None, workdir=None
-):
+def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None, rundir=None):
     """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
@@ -87,9 +85,7 @@ def generate(
         jobs = list(jobs)
         if jobs[0].rule.norun:
             logger.info(
-                "Skipping rule {} because it does not execute anything.".format(
-                    rulename
-                )
+                f"Skipping rule {rulename} because it does not execute anything."
             )
             continue
 
@@ -97,9 +93,7 @@ def generate(
 
         if testpath.exists():
             logger.info(
-                "Skipping rule {} as a unit test already exists for it: {}.".format(
-                    rulename, testpath
-                )
+                f"Skipping rule {rulename} as a unit test already exists for it: {testpath}."
             )
             continue
 
@@ -117,12 +111,13 @@ def generate(
                     print(
                         env.get_template("ruletest.py.jinja2").render(
                             version=__version__,
-                            ruletest=RuleTest(
-                                job, path.absolute().relative_to(workdir)
-                            ),
+                            ruletest=RuleTest(job, path.absolute().relative_to(rundir)),
                             deploy=deploy,
-                            snakefile=snakefile,
-                            configfiles=configfiles,
+                            snakefile=Path(snakefile).absolute().relative_to(rundir),
+                            configfiles=[
+                                Path(config).absolute().relative_to(rundir)
+                                for config in configfiles
+                            ],
                         ),
                         file=test,
                     )
