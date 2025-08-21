@@ -1,5 +1,5 @@
 """
-Common code for unit testing of rules generated with Snakemake 9.8.2.dev35.
+Common code for unit testing of rules generated with Snakemake 9.8.2.dev50.
 """
 
 import os
@@ -49,6 +49,8 @@ class OutputChecker:
             cmp = "zcmp"
         elif expected_file.suffix == ".bz2":
             cmp = "bzcmp"
+        elif expected_file.suffix == ".xz":
+            cmp = "xzcmp"
         else:
             cmp = "cmp"
 

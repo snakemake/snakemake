@@ -20,6 +20,10 @@ class RuleTest:
         return self.output or self.name
 
     @property
+    def config_path(self):
+        return self.path / "config"
+
+    @property
     def data_path(self):
         return self.path / "data"
 
@@ -32,6 +36,26 @@ def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
     """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
+    def copy_files(files, content_type):
+        for f in set(files):
+            f = Path(f)
+            parent = f.parent
+            if parent.is_absolute():
+                root = str(f.parents[len(f.parents) - 1])
+                parent = str(parent)[len(root) :]
+            target = path / rulename / content_type / parent
+            if f.is_dir():
+                shutil.copytree(f, target / f.name)
+            else:
+                os.makedirs(target, exist_ok=True)
+                shutil.copy(f, target)
+                (target / f.name).chmod(0o444)
+        if not files:
+            os.makedirs(path / rulename / content_type, exist_ok=True)
+            # touch gitempty file if there are no input files
+            open(path / rulename / content_type / ".gitempty", "w").close()
+
+    
     try:
         from jinja2 import Environment, PackageLoader
     except ImportError:
@@ -85,25 +109,7 @@ def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
                 logger.info(f"Generating unit test for rule {rulename}: {testpath}.")
                 os.makedirs(path / rulename, exist_ok=True)
 
-                def copy_files(files, content_type):
-                    for f in set(files):
-                        f = Path(f)
-                        parent = f.parent
-                        if parent.is_absolute():
-                            root = str(f.parents[len(f.parents) - 1])
-                            parent = str(parent)[len(root) :]
-                        target = path / rulename / content_type / parent
-                        if f.is_dir():
-                            shutil.copytree(f, target / f.name)
-                        else:
-                            os.makedirs(target, exist_ok=True)
-                            shutil.copy(f, target)
-                            (target / f.name).chmod(0o444)
-                    if not files:
-                        os.makedirs(path / rulename / content_type, exist_ok=True)
-                        # touch gitempty file if there are no input files
-                        open(path / rulename / content_type / ".gitempty", "w").close()
-
+                copy_files(list(Path().glob("config*")), "config")
                 copy_files(job.input, "data")
                 copy_files(job.output, "expected")
 

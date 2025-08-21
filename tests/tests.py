@@ -1192,7 +1192,7 @@ def test_convert_to_cwl():
     # run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
     shell(
         "cd {workdir}; PYTHONPATH={src} python -m snakemake --export-cwl workflow.cwl",
-        src=os.getcwd(),
+        src=Path.cwd(),
     )
     shell("cd {workdir}; cwltool --singularity workflow.cwl")
     assert os.path.exists(os.path.join(workdir, "test.out"))
@@ -1503,7 +1503,7 @@ def test_github_issue640():
 def test_generate_unit_tests():
     tmpdir = run(
         dpath("test_generate_unit_tests"),
-        generate_unit_tests=".tests/unit",
+        shellcmd="snakemake --generate-unit-tests .tests/unit --directory .tests/integration",
         check_md5=False,
         cleanup=False,
     )

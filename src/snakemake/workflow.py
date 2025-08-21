@@ -160,6 +160,7 @@ class Workflow(WorkflowExecutorInterface):
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     check_envvars: bool = True
     cache_rules: Dict[str, str] = field(default_factory=dict)
+    _workdir_init = str(Path.cwd().absolute())
     overwrite_workdir: Optional[str | Path] = None
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
     injected_conda_envs: List = field(default_factory=list)
@@ -176,7 +177,6 @@ class Workflow(WorkflowExecutorInterface):
 
         self._rules = OrderedDict()
         self.default_target = None
-        self._workdir_init = os.path.abspath(os.curdir)
         self._ruleorder = Ruleorder()
         self._localrules = set()
         self._linemaps = dict()
@@ -895,10 +895,10 @@ class Workflow(WorkflowExecutorInterface):
             self.dag,
             path,
             self.deployment_settings.deployment_method,
-            snakefile=Path(os.path.relpath(self.main_snakefile, Path.cwd())),
+            snakefile=Path(self.main_snakefile).relative_to(self.workdir_init),
             configfiles=[
-                Path(os.path.relpath(configfile, Path.cwd()))
-                for configfile in self.configfiles
+                Path(config).absolute().relative_to(self.workdir_init)
+                for config in self.configfiles
             ],
         )
 

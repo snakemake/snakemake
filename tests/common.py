@@ -33,7 +33,7 @@ from snakemake.settings import types as settings
 def dpath(path):
     """get the path to a data file (relative to the directory this
     test lives in)"""
-    return os.path.realpath(join(os.path.dirname(__file__), path))
+    return (Path(__file__).parent / path).resolve()
 
 
 def md5sum(filename, ignore_newlines=False):
@@ -240,7 +240,7 @@ def run(
         del os.environ["PYTHONPATH"]
 
     results_dir = join(path, "expected-results")
-    original_snakefile = join(path, snakefile)
+    original_snakefile = path / snakefile
     original_dirname = os.path.basename(os.path.dirname(original_snakefile))
     assert os.path.exists(original_snakefile)
     if check_results:
