@@ -13,7 +13,7 @@ By running
 
 Snakemake is instructed to take one representative job for each rule and copy its input files to a hidden folder ``.tests/unit``,
 along with generating test cases for Pytest_.
-Pytest_ tests can can be run as:
+Pytest_ tests can be run as:
 
 .. code-block:: bash
 
