@@ -31,7 +31,9 @@ class RuleTest:
         return self.path / "expected"
 
 
-def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None, rundir=None):
+def generate(
+    dag, path: Path, deploy=None, snakefile=None, configfiles=None, rundir=None
+):
     """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
