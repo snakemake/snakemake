@@ -1504,7 +1504,6 @@ def test_generate_unit_tests():
     tmpdir = run(
         dpath("test_generate_unit_tests"),
         shellcmd="snakemake --generate-unit-tests .tests/unit --directory .tests/integration",
-        check_md5=False,
         cleanup=False,
     )
     sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)

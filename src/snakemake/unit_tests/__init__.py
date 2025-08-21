@@ -55,7 +55,6 @@ def generate(dag, path: Path, deploy=None, snakefile=None, configfiles=None):
             # touch gitempty file if there are no input files
             open(path / rulename / content_type / ".gitempty", "w").close()
 
-    
     try:
         from jinja2 import Environment, PackageLoader
     except ImportError:
