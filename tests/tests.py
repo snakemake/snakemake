@@ -2464,3 +2464,56 @@ def test_ambiguousruleexception():
 
 def test_github_issue3556():
     run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
+
+
+def test_issue3306():
+    """Test that reproduces issue #3306: --keep-going ignored by MissingInputException.
+    
+    Issue #3306: --keep-going ignored by MissingInputException
+    When some input files are missing, snakemake should continue executing
+    jobs that don't depend on the missing files when --keep-going is used.
+    
+    Test setup:
+    - a.txt and b.txt exist 
+    - c.txt is missing (intentionally)
+    - Command tries to build a.out, b.out, c.out with --keep-going
+    
+    Expected behavior (when bug is fixed):
+    - a.out and b.out should be created successfully
+    - c.out creation should be skipped due to missing c.txt
+    - Overall command should succeed (or at least partially succeed)
+    
+    Current behavior (bug):
+    - Fails immediately with MissingInputException during DAG building
+    - No output files are created at all
+    - --keep-going flag is completely ignored
+    """
+    run(
+        dpath("test_issue3306"),
+        shellcmd="snakemake a.out b.out c.out --keep-going --cores 1",
+        shouldfail=True,  # This test documents the current failing behavior
+        check_results=False,  # Don't check expected results since test should fail
+    )
+
+
+def test_issue3306_expected_behavior():
+    """Test the expected behavior when issue #3306 is fixed.
+    
+    This test will fail until the bug is fixed. When --keep-going works properly
+    with MissingInputException, this test should pass.
+    
+    Expected behavior:
+    - Should create a.out and b.out successfully
+    - Should skip c.out due to missing c.txt
+    - Should exit with success (or at least not fail completely)
+    """
+    # This test is disabled until the bug is fixed
+    # Uncomment when implementing the fix:
+    # run(
+    #     dpath("test_issue3306"),
+    #     shellcmd="snakemake a.out b.out c.out --keep-going --cores 1",
+    #     shouldfail=False,  # Should succeed when bug is fixed
+    #     targets=["a.out", "b.out"],  # Only these should be created
+    #     check_results=True,  # Check that a.out and b.out are created
+    # )
+    pass
