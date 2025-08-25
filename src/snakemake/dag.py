@@ -1448,7 +1448,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             # change after evaluating the input function of the job in the second pass.
 
                             if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                                # Prefer script/notebook mtime over metadata when CODE trigger is enabled.
+                                # Always check script/notebook mtime unless CODE trigger is disabled.
                                 # Short-circuit on first older output to avoid building a list.
                                 reason.code_changed = False
                                 async for (

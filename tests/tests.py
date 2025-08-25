@@ -485,9 +485,10 @@ def test_script_python():
     # update timestamp but not contents of script
     script_file = os.path.join(tmpdir, "scripts/test_explicit_import.py")
     os.utime(script_file)
-    shell(f"snakemake -s {tmpdir}/Snakefile -d {tmpdir} --rerun-triggers mtime -c 1")
+    smkfile = os.path.join(tmpdir, "Snakefile")
+    shell(f"snakemake -s {smkfile} -d {tmpdir} --rerun-triggers mtime -c 1")
     assert outfile_timestamp_orig == os.path.getmtime(outfile_path)
-    shell(f"snakemake -s {tmpdir}/Snakefile -d {tmpdir} -c 1")
+    shell(f"snakemake -s {smkfile} -d {tmpdir} -c 1")
     assert outfile_timestamp_orig != os.path.getmtime(outfile_path)
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
