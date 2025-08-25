@@ -479,7 +479,19 @@ def test_empty_include():
 
 
 def test_script_python():
-    run(dpath("test_script_py"))
+    tmpdir = run(dpath("test_script_py"), cleanup=False)
+    outfile_path = os.path.join(tmpdir, "test.out")
+    outfile_timestamp_orig = os.path.getmtime(outfile_path)
+    # update timestamp but not contents of input file
+    script_file = os.path.join(tmpdir, "scripts/test.py")
+    os.utime(script_file)
+    run(
+        dpath("test_script_py"),
+        rerun_triggers=frozenset([RerunTrigger.MTIME]),
+        cleanup=False,
+    )
+    outfile_timestamp_new = os.path.getmtime(outfile_path)
+    assert outfile_timestamp_orig == outfile_timestamp_new
 
 
 @skip_on_windows  # Test relies on perl

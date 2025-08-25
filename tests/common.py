@@ -13,7 +13,7 @@ import time
 from os.path import join
 import tempfile
 import hashlib
-import urllib
+import urllib.request
 import pytest
 import glob
 import subprocess
