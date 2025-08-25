@@ -1447,17 +1447,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
 
-                            # The list comprehension is needed below in order to
-                            # collect all the async generator items before
-                            # applying any().
-                            reason.code_changed = any(
-                                [
-                                    f
-                                    async for f in job.outputs_older_than_script_or_notebook()
-                                ]
-                            )
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
+                                # The list comprehension is needed below in order to
+                                # collect all the async generator items before
+                                # applying any().
+                                # Ensure mtime of script/notebook no longer triggers the workflow (#3014 review)
+                                reason.code_changed = any(
+                                    [
+                                        f
+                                        async for f in job.outputs_older_than_script_or_notebook()
+                                    ]
+                                )
                             elif self.workflow.persistence.has_outdated_metadata(job):
                                 reason.outdated_metadata = True
                             else:
@@ -1470,7 +1471,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                                         self.workflow.persistence.input_changed(job)
                                     )
                                 if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                                    reason.code_changed |= any(
+                                    reason.code_changed = any(
+                                        [
+                                            f
+                                            async for f in job.outputs_older_than_script_or_notebook()
+                                        ]
+                                    ) or any(
                                         self.workflow.persistence.code_changed(job)
                                     )
                                 if (
