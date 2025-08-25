@@ -1448,14 +1448,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             # change after evaluating the input function of the job in the second pass.
 
                             if RerunTrigger.CODE in self.workflow.rerun_triggers:
-                                # job metadata can be missed, but the separate scripts don't.
-                                # but it should not work if unwanted
-                                reason.code_changed = any(
-                                    [
-                                        f
-                                        async for f in job.outputs_older_than_script_or_notebook()
-                                    ]
-                                )
+                                # Prefer script/notebook mtime over metadata when CODE trigger is enabled.
+                                # Short-circuit on first older output to avoid building a list.
+                                reason.code_changed = False
+                                async for (
+                                    _
+                                ) in job.outputs_older_than_script_or_notebook():
+                                    reason.code_changed = True
+                                    break
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
                             elif self.workflow.persistence.has_outdated_metadata(job):
