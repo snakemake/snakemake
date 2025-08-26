@@ -1,7 +1,6 @@
 from __future__ import annotations
 from collections import defaultdict
 import copy
-from dataclasses import dataclass
 from humanfriendly import InvalidTimespan, InvalidSize, parse_size, parse_timespan
 import itertools as it
 import operator as op
@@ -13,6 +12,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Collection,
     Dict,
     Iterator,
     List,
@@ -530,14 +530,11 @@ class Resource:
         else:
             self._evaluator = None
 
-        if self._evaluator is None:
-            self._evaluable = False
-        else:
-            self._evaluable = True
-
     def __repr__(self):
         if self.is_evaluable():
             value = "function(...)"
+        elif isinstance(self._value, str):
+            value = f'"{self._value}"'
         else:
             value = self._value
         return f'Resource("{self.name}", {value})'
@@ -564,7 +561,7 @@ class Resource:
 
     def is_evaluable(self) -> bool:
         """Indicates if a resource has yet to be evaluated."""
-        return self._evaluable
+        return self._evaluator is not None
 
     def evaluate(self, *args: Any, **kwargs: Any):
         """Evaluate the resource with given args.
@@ -604,7 +601,12 @@ class Resource:
 
         self_val = self.value
         if not isinstance(self_val, type(other_val)):
-            raise ResourceConstraintError(self_val, other_val)
+            msg = (
+                f"{self} of type '{type(self_val).__name__}' was "
+                f"constrained by mismatched type '{type(other_val).__name__}' with "
+                f"value '{other_val}'."
+            )
+            raise ResourceConstraintError(msg)
         if isinstance(self_val, int):
             assert isinstance(other_val, int)
             return Resource(self.name, min(other_val, self_val))
@@ -759,6 +761,7 @@ class Resource:
                 # name and formatted value). If it is, we return the parsed value to
                 # save a step later.
                 if name in HumanFriendlyResources:
+                    # TODO What happens to suffixed resources?
                     return Resource._parse_human_friendly(name, val)
             except (InvalidSize, InvalidTimespan):
                 pass
@@ -768,7 +771,7 @@ class Resource:
                 return TBDString()
 
             raise WorkflowError(
-                "Failed to evaluate resources value " f"'{val}'.",
+                f"Failed to evaluate resources value '{val}'.",
                 "When interpreted as a python expression, the following error was "
                 "given:",
                 "",
@@ -830,6 +833,7 @@ class Resources(Mapping[str, Resource]):
 
     def _normalize_sizes(self, resource: str):
         found: set[str] = set()
+        # TODO store as mem_mb and disk_mb internally
         for suffix in ["", "_mb", "_mib"]:
             if resource + suffix in self._data:
                 found.add(resource + suffix)
@@ -907,6 +911,7 @@ class Resources(Mapping[str, Resource]):
 
         Intended for use with argparse.
         """
+        # TODO Correct error handling from parse
         return lambda exprs: cls.parse(
             exprs,
             allow_expressions=allow_expressions,
@@ -919,7 +924,8 @@ class Resources(Mapping[str, Resource]):
         cls,
         exprs: List[str],
         *,
-        allow_expressions: bool = False,
+        allow_expressions: bool,
+        # TODO  do we need this flag?
         only_positive_integers: bool = False,
         defaults: None | Literal["bare"] | Literal["full"] = None,
     ):
@@ -1027,6 +1033,58 @@ class Resources(Mapping[str, Resource]):
         if result is None:
             return Resource("", None)
         return result
+
+
+    def expand(
+        self,
+        *,
+        constraints: Mapping[str, Resource | int | None],
+        evaluate: Callable[[Resource], Resource],
+        skip: Optional[Collection[str]] = None,
+    ) -> Dict[str, str | int | TBDString]:
+        """Evaluate and constrain resources then convert into a simple resource mapping.
+
+        SizedResources, including mem and disk, are expanded into their suffixed
+        versions, e.g. ``size_mb`` and ``size_mib`` for direct consumption in
+        executors.
+
+        Arguments
+        =========
+        constraints
+            Mapping of resources to use as constraints.
+        evaluate
+            Callable that takes a single resource as argument. It should call that
+            resource's ``evaluate()`` method with appropriate kwargs.
+        skip
+            Optional set of resource names that should not be expanded.
+        """
+        resources: Dict[str, int | str | TBDString] = dict()
+
+        skip = set() if skip is None else skip
+        for resource in self.values():
+            if resource.name in skip:
+                continue
+
+            if resource.is_evaluable():
+                resource = evaluate(resource)
+
+            if resource.value is None:
+                continue
+
+            resource = resource.constrain(constraints.get(resource.name))
+
+            resources[resource.name] = resource.value  # type: ignore
+
+            # Do the mem_mb/disk_mb assignments here because they should not be set
+            # before mem and disk are (potentially) evaluated
+            if resource.name in SizedResources:
+                # TODO avoid hardcoding mb/mib here
+                # TODO can we move this into Resources?
+                # TODO resources[resource] = val.back_to_string()
+                resources[f"{resource}_mb"] = resource.value  # type: ignore
+                resources[f"{resource}_mib"] = resource.to_mib().value  # type: ignore
+
+        return resources
 
 
 ValidScope: TypeAlias = Literal["local"] | Literal["global"] | Literal["excluded"]

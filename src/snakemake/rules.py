@@ -1062,11 +1062,17 @@ class Rule(RuleInterface):
         return benchmark
 
     def expand_resources(
-        self, wildcards, input, attempt, skip_evaluation: typing.Optional[set] = None
+        self,
+        wildcards,
+        input,
+        attempt,
+        skip_evaluation: typing.Optional[typing.Collection[str]] = None,
     ):
-        def evaluate(resource: str, val: Resource, threads: int | None = None):
-            if skip_evaluation is not None and resource in skip_evaluation:
-                return Resource(resource, TBDString())
+        skip_evaluation = set() if skip_evaluation is None else skip_evaluation
+
+        def evaluate(val: Resource, threads: int | None = None):
+            if val.name in skip_evaluation:
+                return Resource(val.name, TBDString())
 
             aux = dict(rulename=self.name)
             if threads is not None:
@@ -1083,7 +1089,7 @@ class Rule(RuleInterface):
                 )
             except ResourceValidationError as err:
                 raise WorkflowError(
-                    f"Resource {resource} is neither int, float (would be rounded to "
+                    f"Resource {val.name} is neither int, float (would be rounded to "
                     "nearest int), str, or None.",
                     rule=self,
                 ) from err
@@ -1092,56 +1098,38 @@ class Rule(RuleInterface):
                 # dag construction routine are run as independent asynchronous loops.
                 # If input.size_mb is run in an input method, the loops will be nested
                 # and error.
-                return Resource(resource, TBDString())
+                return Resource(val.name, TBDString())
             except BaseException as e:
                 raise InputFunctionException(e, rule=self, wildcards=wildcards) from e
             return val
 
-        resources: typing.Dict[str, int | str | TBDString] = dict()
         assert self.resources is not None
         threads = (
-            evaluate("_cores", self.resources["_cores"])
+            evaluate(self.resources["_cores"])
             .constrain(self.workflow.resource_settings.max_threads)
+            # Note, this is correct even for remote jobs, as --cores in this case
+            # still defines a constraint for threads that will apply on the local
+            # executor
             .constrain(self.workflow.global_resources.get("_cores"))
             .value
         )
         if not isinstance(threads, int):
             raise WorkflowError("Threads must be given as an int", rule=self)
-        resources["_cores"] = threads
 
-        for resource, val in self.resources.items():
-            if resource == "_cores":
-                continue
+        try:
+            resources = self.resources.expand(
+                constraints=self.workflow.global_resources,
+                evaluate=partial(evaluate, threads=threads),
+                skip={"_cores"},
+            )
+        except ResourceConstraintError as err:
+            raise WorkflowError(
+                f"Specified resource is of different type than global constraint "
+                f"provided by --resources:\n    {err}\n",
+                rule=self,
+            )
 
-            if val.is_evaluable():
-                val = evaluate(resource, val, threads=threads)
-
-            if val.value is None:
-                continue
-
-            global_res = self.workflow.global_resources.get(resource)
-            try:
-                val = val.constrain(global_res)
-            except ResourceConstraintError:
-                global_val = global_res.value
-                global_type = (
-                    "an int" if isinstance(global_val, int) else type(global_val)
-                )
-                raise WorkflowError(
-                    f"Resource {resource} is of type {type(val.value).__name__} but "
-                    f"global resource constraint defines {global_type} with value "
-                    f"{global_val}. Resources with the same name need to have the same "
-                    "types (int, float, or str are allowed).",
-                    rule=self,
-                )
-
-            resources[resource] = val.value  # type: ignore
-
-            # Do the mem_mb/disk_mb assignments here because they should not be set
-            # before mem and disk are (potentially) evaluated
-            if resource in {"mem", "disk"}:
-                resources[f"{resource}_mb"] = val.value  # type: ignore
-                resources[f"{resource}_mib"] = val.to_mib().value  # type: ignore
+        resources["_cores"] = "threads"
 
         return ResourceList(fromdict=resources)
 

@@ -523,7 +523,7 @@ def get_argument_parser(profiles=None):
         nargs="+",
         metavar="NAME=INT",
         default=Resources(),
-        parse_func=Resources.parser_factory(),
+        parse_func=Resources.parser_factory(allow_expressions=False),
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to `--cores` (see above). A resource is defined as "
