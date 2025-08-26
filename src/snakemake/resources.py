@@ -625,19 +625,9 @@ class Resource:
         Errors if conversion is attempted on a str resource (or a callable that returns
         a str/None).
         """
-        if isinstance(self._value, TBDString):
-            value = self._value
-        elif self.is_evaluable():
-            value = evaluable_from_mb_to_mib(self.name, self._evaluator)
-        elif not isinstance(self._value, int):
-            errmsg = (
-                f"Resource must be of type 'int' to convert to mib. {self.name} == "
-                f"{self._value} (type {type(self._value)})"
-            )
-            raise TypeError(errmsg)
-        else:
-            value = mb_to_mib(self._value)
-        return Resource(f"{self.name.removesuffix('_mb')}_mib", value)
+        return self._convert_units(
+            wrapper=evaluable_from_mb_to_mib, converter=mb_to_mib
+        ).with_name(f"{self.name.removesuffix('_mb')}_mib")
 
     def to_mb(self):
         """Convert the resource to megabytes.
@@ -652,19 +642,28 @@ class Resource:
         Errors if conversion is attempted on a str resource (or a callable that returns
         a str/None).
         """
+        return self._convert_units(
+            wrapper=evaluable_from_mib_to_mb, converter=mib_to_mb
+        ).with_name(f"{self.name.removesuffix('_mib')}_mb")
+
+    def _convert_units(
+        self,
+        wrapper: Callable[[str, Callable[..., Any]], Callable[..., Any]],
+        converter: Callable[[int], int],
+    ):
         if isinstance(self._value, TBDString):
             value = self._value
         elif self.is_evaluable():
-            value = evaluable_from_mib_to_mb(self.name, self._evaluator)
+            value = wrapper(self.name, self._evaluator)
         elif not isinstance(self._value, int):
             errmsg = (
-                f"Resource must be of type 'int' to convert to mb. {self.name} == "
+                f"Resource must be of type 'int'. {self.name} == "
                 f"{self._value} (type {type(self._value)})"
             )
             raise TypeError(errmsg)
         else:
-            value = mib_to_mb(self._value)
-        return Resource(f"{self.name.removesuffix('_mib')}_mb", value)
+            value = converter(self._value)
+        return Resource(self.name, value)
 
     def without_suffix(self):
         """Converts a suffixed resource (e.g. mem_mb) into its unsuffixed version (mb).
@@ -1033,7 +1032,6 @@ class Resources(Mapping[str, Resource]):
         if result is None:
             return Resource("", None)
         return result
-
 
     def expand(
         self,
