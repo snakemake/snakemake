@@ -740,19 +740,19 @@ rule_property_subautomata = dict(
 rule_property_deprecated = dict(
     version="Use conda or container directive instead (see docs)."
 )
+rule_run_subautomata = dict(
+    run=Run,
+    shell=Shell,
+    script=Script,
+    notebook=Notebook,
+    wrapper=Wrapper,
+    template_engine=TemplateEngine,
+    cwl=CWL,
+)
 
 
 class Rule(GlobalKeywordState):
-    subautomata = dict(
-        run=Run,
-        shell=Shell,
-        script=Script,
-        notebook=Notebook,
-        wrapper=Wrapper,
-        template_engine=TemplateEngine,
-        cwl=CWL,
-        **rule_property_subautomata,
-    )
+    subautomata = dict(**rule_run_subautomata, **rule_property_subautomata)
     deprecated = rule_property_deprecated
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -800,27 +800,20 @@ class Rule(GlobalKeywordState):
     def block_content(self, token):
         if is_name(token):
             try:
-                if (
-                    token.string == "run"
-                    or token.string == "shell"
-                    or token.string == "script"
-                    or token.string == "wrapper"
-                    or token.string == "notebook"
-                    or token.string == "template_engine"
-                    or token.string == "cwl"
-                ):
+                if token.string in rule_run_subautomata:
                     if self.run:
                         raise self.error(
-                            "Multiple run/shell/script/notebook/wrapper/template_engine/cwl "
-                            "keywords in rule {}.".format(self.rulename),
+                            "Multiple {} keywords in rule {}.".format(
+                                "/".join(rule_run_subautomata), self.rulename
+                            ),
                             token,
                         )
                     self.run = True
                 elif self.run:
                     raise self.error(
-                        "No rule keywords allowed after "
-                        "run/shell/script/notebook/wrapper/template_engine/cwl in "
-                        "rule {}.".format(self.rulename),
+                        "No rule keywords allowed after {} in rule {}.".format(
+                            "/".join(rule_run_subautomata), self.rulename
+                        ),
                         token,
                     )
                 for t in self.subautomaton(
@@ -834,8 +827,7 @@ class Rule(GlobalKeywordState):
                 )
             except StopAutomaton as e:
                 self.indentation(e.token)
-                for t in self.block(e.token):
-                    yield t
+                yield from self.block(e.token)
         elif is_comment(token):
             yield "\n", token
             yield token.string, token
@@ -1227,10 +1219,7 @@ class UseRule(GlobalKeywordState):
             yield from ()
 
     def block_content(self, token):
-        if is_comment(token):
-            yield "\n", token
-            yield token.string, token
-        elif is_name(token):
+        if is_name(token):
             try:
                 self._with_block.extend(
                     self.subautomaton(token.string, token=token).consume()
@@ -1244,9 +1233,19 @@ class UseRule(GlobalKeywordState):
             except StopAutomaton as e:
                 self.indentation(e.token)
                 yield from self.block(e.token)
+        elif is_comment(token):
+            yield "\n", token
+            yield token.string, token
+        elif is_string(token):
+            self._with_block.extend(
+                [
+                    f"@workflow.docstring({token.string})",
+                    "\n",
+                ]
+            )
         else:
             self.error(
-                "Expecting a keyword or comment "
+                "Expecting rule keyword, comment or docstrings "
                 "inside a 'use rule ... with:' statement.",
                 token,
             )
