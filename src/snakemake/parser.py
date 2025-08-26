@@ -133,38 +133,11 @@ class TokenAutomaton:
         Luckily, each token records the content of the line,
         and we can just take what we want there.
         """
-        lines_contents = dict()
-
-        def collect_lines(token_: tokenize.TokenInfo):
-            # iterate over all lines that the token spans
-            token_string = token_.line
-            i = token_.start[0]
-            while i <= token_.end[0]:
-                end_of_line_index = (
-                    (token_string.index("\n") + 1)
-                    if "\n" in token_string
-                    else len(token_string)
-                )
-                line_content = token_string[:end_of_line_index]
-
-                # don't take the new line content if the one already stored is longer
-                if i not in lines_contents or len(lines_contents[i]) < len(
-                    line_content
-                ):
-                    lines_contents[i] = line_content
-
-                # remainder of the line after the newline character
-                token_string = token_string[end_of_line_index:]
-                i += 1
-
-        # Collect lines for the first and subsequent tokens that are part of the f-string
-        collect_lines(token)
-        related_lines = token.start[0]
         lines = dict(split_token_lines(token))
         isin_fstring = 1
         for t1 in self.snakefile:
-            if t1.end[0] not in lines:
-                lines.update(split_token_lines(t1))
+            # if t1.end[0] not in lines:  for safety, check all tokens
+            lines.update(split_token_lines(t1))
             if t1.type == tokenize.FSTRING_START:
                 isin_fstring += 1
             elif t1.type == tokenize.FSTRING_END:

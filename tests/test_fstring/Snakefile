@@ -59,3 +59,13 @@ part_one = "foo"
 an_fstring = f'{part_one}/{"bar" if True else "baz"}'
 another_fstring = f"{part_one.replace('foo', 'bar')}/{{escaped}}"
 multiple_parts_fstring = f"no_replacement_" "regular_string_" f"{'bar' if True else 'baz'}"
+
+# Regression for issue #3700: preserve pure-literal middle line in multi-line f-strings
+assert (
+    f"""abc
+def
+{1+1}"""
+    == """abc
+def
+2"""
+)
