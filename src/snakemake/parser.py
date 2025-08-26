@@ -75,6 +75,21 @@ def lineno(token: tokenize.TokenInfo):
     return token.start[0]
 
 
+def split_token_lines(token: tokenize.TokenInfo):
+    """Token can be multiline.
+    e.g., `f'''\\nplaintext\\n'''` has these tokens:
+
+        TokenInfo(type=61 (FSTRING_START), string="f'''", start=(21, 0), end=(21, 4), line="f'''\\n")
+        TokenInfo(type=62 (FSTRING_MIDDLE), string='\\ncccccccc\\n', start=(21, 4), end=(23, 0), line="f'''\\ncccccccc\\n'''\\n")
+        TokenInfo(type=63 (FSTRING_END), string="'''", start=(23, 0), end=(23, 3), line="'''\\n")
+
+    lines should be split to drop overlapping lines and keep unique ones.
+    """
+    return zip(
+        range(token.start[0], token.end[0] + 1), token.line.splitlines(keepends=True)
+    )
+
+
 class StopAutomaton(Exception):
     def __init__(self, token):
         self.token = token
@@ -125,11 +140,17 @@ class TokenAutomaton:
             token_string = token_.line
             i = token_.start[0]
             while i <= token_.end[0]:
-                end_of_line_index = (token_string.index("\n") + 1) if "\n" in token_string else len(token_string)
-                line_content = token_string[: end_of_line_index]
+                end_of_line_index = (
+                    (token_string.index("\n") + 1)
+                    if "\n" in token_string
+                    else len(token_string)
+                )
+                line_content = token_string[:end_of_line_index]
 
                 # don't take the new line content if the one already stored is longer
-                if i not in lines_contents or len(lines_contents[i]) < len(line_content):
+                if i not in lines_contents or len(lines_contents[i]) < len(
+                    line_content
+                ):
                     lines_contents[i] = line_content
 
                 # remainder of the line after the newline character
@@ -138,28 +159,23 @@ class TokenAutomaton:
 
         # Collect lines for the first and subsequent tokens that are part of the f-string
         collect_lines(token)
+        related_lines = token.start[0]
+        lines = dict(split_token_lines(token))
         isin_fstring = 1
         for t1 in self.snakefile:
-            collect_lines(t1)
+            if t1.end[0] not in lines:
+                lines.update(split_token_lines(t1))
             if t1.type == tokenize.FSTRING_START:
                 isin_fstring += 1
             elif t1.type == tokenize.FSTRING_END:
                 isin_fstring -= 1
             if isin_fstring == 0:
                 break
-
-        # remove line contents that are not part of the f-string
-        f_string_start = token.start
-        f_string_end = t1.end # t1 is the FSTRING_END token closing the outermost f-string
-        lines_contents[f_string_start[0]] = lines_contents[f_string_start[0]][f_string_start[1]:]
-        lines_contents[f_string_end[0]] = lines_contents[f_string_end[0]][:f_string_end[1]]
-
-        # join the f-string content
-        t = "".join(
-            lines_contents[line]
-            for line in range(f_string_start[0], f_string_end[0] + 1)
-        )
-
+        # trim those around the f-string
+        s = "".join(lines[i] for i in sorted(lines))
+        t = s[token.start[1] : t1.end[1] - len(t1.line)]
+        if hasattr(self, "cmd") and self.cmd[-1][1] == token:
+            self.cmd[-1] = t, token
         return t
 
     def consume(self):

@@ -1899,6 +1899,13 @@ class InputFiles(Namedlist):
         return async_run(sizes())
 
     @property
+    def size_tempfiles(self):
+        async def sizes():
+            return [await f.size() for f in self if is_flagged(f, "temp")]
+
+        return async_run(sizes())
+
+    @property
     def size_files_kb(self):
         return [f / 1024 for f in self.size_files]
 
@@ -1921,6 +1928,10 @@ class InputFiles(Namedlist):
     @property
     def size_mb(self):
         return sum(self.size_files_mb)
+
+    @property
+    def temp_size_mb(self):
+        return sum(self.size_tempfiles)
 
     @property
     def size_gb(self):

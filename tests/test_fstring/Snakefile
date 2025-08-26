@@ -27,11 +27,13 @@ hello, snakemake
 assert (
     f"""
     {
-  "hello, snakemake"
+  "hello,"
 }
+ snakemake
 """
     == """
-    hello, snakemake
+    hello,
+ snakemake
 """
 )
 
