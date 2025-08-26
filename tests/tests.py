@@ -480,17 +480,26 @@ def test_empty_include():
 
 def test_script_python():
     tmpdir = run(dpath("test_script_py"), cleanup=False)
+    # update timestamp of script
+    os.utime(os.path.join(tmpdir, "scripts/test_explicit_import.py"))
     outfile_path = os.path.join(tmpdir, "explicit_import.py.out")
     outfile_timestamp_orig = os.path.getmtime(outfile_path)
-    # update timestamp but not contents of script
-    script_file = os.path.join(tmpdir, "scripts/test_explicit_import.py")
-    os.utime(script_file)
-    smkfile = os.path.join(tmpdir, "Snakefile")
-    shell(f"snakemake -s {smkfile} -d {tmpdir} --rerun-triggers mtime -c 1")
+    # won't update output without trigger CODE
+    run(
+        dpath("test_script_py"),
+        cleanup=False,
+        tmpdir=tmpdir,
+        shellcmd="snakemake -c1 --rerun-triggers mtime",
+    )
     assert outfile_timestamp_orig == os.path.getmtime(outfile_path)
-    shell(f"snakemake -s {smkfile} -d {tmpdir} -c 1")
+    run(
+        dpath("test_script_py"),
+        cleanup=False,
+        tmpdir=tmpdir,
+        shellcmd="snakemake -c1",
+    )
     assert outfile_timestamp_orig != os.path.getmtime(outfile_path)
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    # shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows  # Test relies on perl
