@@ -75,6 +75,21 @@ def lineno(token: tokenize.TokenInfo):
     return token.start[0]
 
 
+def split_token_lines(token: tokenize.TokenInfo):
+    """Token can be multiline.
+    e.g., `f'''\\nplaintext\\n'''` has these tokens:
+
+        TokenInfo(type=61 (FSTRING_START), string="f'''", start=(21, 0), end=(21, 4), line="f'''\\n")
+        TokenInfo(type=62 (FSTRING_MIDDLE), string='\\ncccccccc\\n', start=(21, 4), end=(23, 0), line="f'''\\ncccccccc\\n'''\\n")
+        TokenInfo(type=63 (FSTRING_END), string="'''", start=(23, 0), end=(23, 3), line="'''\\n")
+
+    lines should be split to drop overlapping lines and keep unique ones.
+    """
+    return zip(
+        range(token.start[0], token.end[0] + 1), token.line.splitlines(keepends=True)
+    )
+
+
 class StopAutomaton(Exception):
     def __init__(self, token):
         self.token = token
@@ -119,13 +134,11 @@ class TokenAutomaton:
         and we can just take what we want there.
         """
         related_lines = token.start[0]
-        s = token.line
+        lines = dict(split_token_lines(token))
         isin_fstring = 1
         for t1 in self.snakefile:
-            if related_lines < t1.start[0]:
-                # go to the next line
-                related_lines = t1.start[0]
-                s += t1.line
+            if t1.end[0] not in lines:
+                lines.update(split_token_lines(t1))
             if t1.type == tokenize.FSTRING_START:
                 isin_fstring += 1
             elif t1.type == tokenize.FSTRING_END:
@@ -133,6 +146,7 @@ class TokenAutomaton:
             if isin_fstring == 0:
                 break
         # trim those around the f-string
+        s = "".join(lines[i] for i in sorted(lines))
         t = s[token.start[1] : t1.end[1] - len(t1.line)]
         if hasattr(self, "cmd") and self.cmd[-1][1] == token:
             self.cmd[-1] = t, token
