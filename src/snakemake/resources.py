@@ -165,7 +165,7 @@ class GroupResources:
                     res = {
                         k: res
                         for k, res in job.resources.items()
-                        if not isinstance(res, TBDString)
+                        if not isinstance(res, TBDString) and k not in SizedResources
                     }
                     if job.pipe_group:
                         pipe_resources[job.pipe_group].append(res)
@@ -249,16 +249,23 @@ class GroupResources:
             blocks.append(block_resources)
 
         if run_local:
-            return {**cls._merge_resource_dict(blocks, default_method=sum), "_nodes": 1}
-
-        return {
-            **cls._merge_resource_dict(
+            final = cls._merge_resource_dict(blocks, default_method=sum)
+        else:
+            final = cls._merge_resource_dict(
                 blocks,
                 default_method=max,
                 methods={res: sum for res in additive_resources},
-            ),
-            "_nodes": 1,
-        }
+            )
+
+        final["_nodes"] = 1
+
+        for resource in SizedResources:
+            if f"{resource}_mb" in final:
+                final[resource] = Resource(
+                    resource, final[f"{resource}_mb"]
+                ).format_human_friendly()
+
+        return final
 
     @classmethod
     def _is_string_resource(cls, name: str, values: List[str | int]):
@@ -271,7 +278,7 @@ class GroupResources:
             unique = set(values)
             if len(unique) > 1:
                 raise WorkflowError(
-                    "Resource {name} is a string but not all group jobs require the "
+                    "Resource {name} is a string but not all jobs in group require the "
                     "same value. Observed values: {values}.".format(
                         name=name, values=unique
                     )
@@ -684,13 +691,9 @@ class Resource:
         if self.name.endswith("_mb"):
             # using _convert_units with the identity lets us validate that the resource
             # was set with an int or float correctly
-            return self.__class__(
-                self.name[:-3], self._convert_units(lambda x: x)
-            )
+            return self.__class__(self.name[:-3], self._convert_units(lambda x: x))
         if self.name.endswith("_mib"):
-            return self.__class__(
-                self.name[:-4], self._convert_units(mib_to_mb)
-            )
+            return self.__class__(self.name[:-4], self._convert_units(mib_to_mb))
         return self
 
     def with_name(self, name: str):
@@ -1128,8 +1131,6 @@ class Resources(Mapping[str, Resource]):
 
             resource = resource.constrain(constraints.get(resource.name))
 
-            resources[resource.name] = resource.value  # type: ignore
-
             # Do the mem_mb/disk_mb assignments here because they should not be set
             # before mem and disk are (potentially) evaluated
             if resource.name in SizedResources:
@@ -1139,6 +1140,8 @@ class Resources(Mapping[str, Resource]):
                     resource.from_mb_to_mib(),
                 ]:
                     resources[res.name] = res.value  # type: ignore
+            else:
+                resources[resource.name] = resource.value  # type: ignore
 
         return resources
 

@@ -1080,7 +1080,7 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         dict(spy.spy_return),
         _nodes=1,
         _cores=1,
-        mem=10000,
+        mem="10 GB",
         mem_mb=10000,
         mem_mib=9537,
         runtime=700,
