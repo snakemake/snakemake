@@ -66,7 +66,7 @@ from snakemake.exceptions import (
     CreateCondaEnvironmentException,
     MissingOutputFileCachePathException,
     ResourceDuplicationError,
-    ResourceTypeError,
+    ResourceConversionError,
     ResourceValidationError,
     RuleException,
     CreateRuleException,
@@ -1835,7 +1835,7 @@ class Workflow(WorkflowExecutorInterface):
                     resources = Resources.from_mapping(resources)
                 except ResourceDuplicationError as err:
                     raise RuleException(err, rule=rule)
-                except ResourceTypeError as err:
+                except ResourceConversionError as err:
                     msg = "Standard resource specified with invalid type, got error:\n"
                     raise RuleException(msg + str(err), rule=rule)
                 except ResourceValidationError as err:

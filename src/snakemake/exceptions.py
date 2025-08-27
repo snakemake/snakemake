@@ -6,7 +6,7 @@ __license__ = "MIT"
 import os
 import traceback
 from tokenize import TokenError
-from typing import Sequence
+from typing import Any, Sequence
 from snakemake_interface_common.exceptions import WorkflowError, ApiError
 from snakemake_interface_logger_plugins.common import LogEvent
 
@@ -637,8 +637,22 @@ class ResourceValidationError(TypeError):
 class ResourceConstraintError(TypeError):
     pass
 
-class ResourceTypeError(TypeError):
-    pass
+
+class ResourceConversionError(TypeError):
+    @classmethod
+    def format_evaluated(cls, name: str, value: Any):
+        return cls(
+            f"Resource '{name}' assigned callable that returned "
+            f"{value!r} (type {type(value)}). "
+            f"Must return an int or float for unit conversion. "
+        )
+
+    @classmethod
+    def format(cls, name: str, value: Any):
+        return cls(
+            f"Resource '{name}' must be assigned an int. Got {value!r} "
+            f"(type {type(value)})"
+        )
 
 
 class ResourceDuplicationError(ValueError):

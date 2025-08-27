@@ -57,7 +57,7 @@ from snakemake.resources import (
 from snakemake.exceptions import (
     InputOpenException,
     NestedCoroutineError,
-    ResourceTypeError,
+    ResourceConversionError,
     RuleException,
     IOFileException,
     WildcardError,
@@ -1130,7 +1130,7 @@ class Rule(RuleInterface):
                 f"provided by --resources:\n    {err}\n",
                 rule=self,
             )
-        except ResourceTypeError as err:
+        except ResourceConversionError as err:
             sized_resources = ", ".join(
                 f"{res}_mb, {res}_mib" for res in SizedResources
             )

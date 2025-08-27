@@ -16,6 +16,7 @@ from typing import (
     Callable,
     Collection,
     Dict,
+    Final,
     Iterator,
     List,
     Literal,
@@ -43,7 +44,7 @@ from snakemake.exceptions import (
     ResourceError,
     ResourceInsufficiencyError,
     ResourceScopesException,
-    ResourceTypeError,
+    ResourceConversionError,
     ResourceValidationError,
     WorkflowError,
     is_file_not_found_error,
@@ -434,54 +435,6 @@ class GroupResources:
         return rows
 
 
-def _make_inner_converter(
-    *,
-    name: str,
-    func: Callable[..., Any],
-    converter: Callable[[int], int | str],
-    unit: str,
-):
-    @ft.wraps(func)
-    def inner(*args: Any, **kwargs: Any):
-        result = func(*args, **kwargs)
-        if not isinstance(result, (int, float)):
-            errmsg = (
-                f"Resource '{name}' assigned callable that returned {result!r} "
-                f"(type {type(result)}). "
-                f"Must return an int or float to convert to {unit}. "
-            )
-            raise ResourceTypeError(errmsg)
-
-        return mb_to_mib(round(result))
-
-    return inner
-
-
-def evaluable_from_mb_to_mib(name: str, func: Callable[..., Any]):
-    return _make_inner_converter(
-        name=name,
-        func=func,
-        converter=mb_to_mib,
-        unit="mib",
-    )
-
-
-def evaluable_from_mib_to_mb(name: str, func: Callable[..., Any]):
-    return _make_inner_converter(
-        name=name,
-        func=func,
-        converter=mib_to_mb,
-        unit="mb",
-    )
-
-
-def evaluable_from_mb_to_str(name: str, func: Callable[..., Any]):
-    return _make_inner_converter(
-        name=name,
-        func=func,
-        converter=mb_to_str,
-        unit="human-friendly str",
-    )
 
 
 def mb_to_str(size: int) -> str:
@@ -525,7 +478,7 @@ class Resource:
         if the resource is of the human-readable group but cannot be parsed
     """
 
-    _evaluator: Callable[..., ValidResource] | None
+    _evaluator: Final[Callable[..., ValidResource] | None]
 
     def __init__(self, name: str, value: ValidResource, raw: int | str | None = None):
         if not (
@@ -657,7 +610,7 @@ class Resource:
             str/None).
         """
         return self._convert_units(
-            wrapper=evaluable_from_mb_to_mib, converter=mb_to_mib
+            wrapper_factory=self._evaluable_from_mb_to_mib, converter=mb_to_mib
         ).with_name(f"{self.name.removesuffix('_mb')}_mib")
 
     def to_mb(self):
@@ -679,7 +632,7 @@ class Resource:
             str/None).
         """
         return self._convert_units(
-            wrapper=evaluable_from_mib_to_mb, converter=mib_to_mb
+            wrapper_factory=self._evaluable_from_mib_to_mb, converter=mib_to_mb
         ).with_name(f"{self.name.removesuffix('_mib')}_mb")
 
     def format_human_friendly(self):
@@ -702,27 +655,61 @@ class Resource:
             str/None).
         """
         return self._convert_units(
-            wrapper=evaluable_from_mb_to_str, converter=mb_to_str
+            wrapper_factory=self._evaluable_from_mb_to_str, converter=mb_to_str
         ).with_name(self.name.removesuffix("_mb"))
 
     def _convert_units(
         self,
-        wrapper: Callable[[str, Callable[..., ValidResource]], Callable[..., Any]],
+        wrapper_factory: Callable[[], Callable[..., Any]],
         converter: Callable[[int], int | str],
     ):
         if isinstance(self._value, TBDString):
             value = self._value
         elif self.is_evaluable():
-            value = wrapper(self.name, self._evaluator)
+            value = wrapper_factory()
         elif not isinstance(self._value, int):
-            errmsg = (
-                f"Resource '{self.name}' must be assigned an int. Got {self._value!r} "
-                f"(type {type(self._value)})"
-            )
-            raise ResourceTypeError(errmsg)
+            raise ResourceConversionError.format(self.name, self._value)
         else:
             value = converter(self._value)
         return Resource(self.name, value)
+
+    def _make_inner_converter(
+        self,
+        *,
+        converter: Callable[[int], int | str],
+        unit: str,
+    ):
+        assert self._evaluator is not None
+        @ft.wraps(self._evaluator)
+        def inner(*args: Any, **kwargs: Any):
+            result = self._evaluator(*args, **kwargs)  # type: ignore (self._evaluator should never change)
+            if not isinstance(result, (int, float)):
+                raise ResourceConversionError.format_evaluated(self.name, result)
+
+            return converter(round(result))
+
+        return inner
+
+
+    def _evaluable_from_mb_to_mib(self):
+        return self._make_inner_converter(
+            converter=mb_to_mib,
+            unit="mib",
+        )
+
+
+    def _evaluable_from_mib_to_mb(self):
+        return self._make_inner_converter(
+            converter=mib_to_mb,
+            unit="mb",
+        )
+
+
+    def _evaluable_from_mb_to_str(self):
+        return self._make_inner_converter(
+            converter=mb_to_str,
+            unit="human-friendly str",
+        )
 
     def standardize_size(self):
         """Standardize the representation of sized resources using a _mb suffix.
@@ -922,11 +909,14 @@ class Resources(Mapping[str, Resource]):
         for suffix in {"", "_mb", "_mib"}:
             if resource + suffix in self._data:
                 found.add(resource + suffix)
-        if not found or {resource} == found:
+        if not found:
             return
         if len(found) > 1:
             raise ResourceDuplicationError(list(found))
-        standardized = self._data.pop(found.pop()).standardize_size()
+        name = found.pop()
+        standardized = self._data.pop(name).standardize_size()
+        if not standardized.is_evaluable() and not isinstance(standardized.value, int):
+            raise ResourceConversionError.format(name, standardized.value)
         self._data[standardized.name] = standardized
 
     def __repr__(self):
