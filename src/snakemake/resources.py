@@ -516,6 +516,13 @@ class Resource:
         behaviour, as described above).
     value: int, str, Callable, None
         The concrete or unevaluated value
+
+    Raises
+    ======
+    ResourceValidationError:
+        if the resource is not a ``str``, ``int``, ``float``, ``None``, or a callable.
+    WorkflowError
+        if the resource is of the human-readable group but cannot be parsed
     """
 
     _evaluator: Callable[..., ValidResource] | None
@@ -524,7 +531,11 @@ class Resource:
         if not (
             isinstance(value, (str, int, float)) or callable(value) or value is None
         ):
-            raise ResourceValidationError(value)
+            msg = (
+                f"Resource '{name}' assigned invalid value {value!r}. Must be str, "
+                "int, float, or callable (function)."
+            )
+            raise ResourceValidationError(msg)
         if isinstance(value, float):
             value = round(value)
         self.name = name
@@ -641,7 +652,7 @@ class Resource:
 
         Raises
         ======
-        TypeError:
+        ResourceTypeError:
             if conversion is attempted on a str resource (or a callable that returns a
             str/None).
         """
@@ -663,7 +674,7 @@ class Resource:
 
         Raises
         ======
-        TypeError:
+        ResourceTypeError:
             if conversion is attempted on a str resource (or a callable that returns a
             str/None).
         """
@@ -705,8 +716,8 @@ class Resource:
             value = wrapper(self.name, self._evaluator)
         elif not isinstance(self._value, int):
             errmsg = (
-                f"Resource must be of type 'int'. Got {self.name} == "
-                f'{self._value!r} (type {type(self._value)})'
+                f"Resource '{self.name}' must be assigned an int. Got {self._value!r} "
+                f"(type {type(self._value)})"
             )
             raise ResourceTypeError(errmsg)
         else:
@@ -721,7 +732,7 @@ class Resource:
 
         Raises
         ======
-        TypeError:
+        ResourceTypeError:
             if conversion is attempted on a str resource (or a callable that returns a
             str/None).
         """
@@ -879,6 +890,14 @@ class Resources(Mapping[str, Resource]):
 
     Initialization should be performed either with ``parse`` for CLI-style string
     assignments, or ``from_mapping``.
+
+    Raises
+    ======
+    ResourceDuplicationError
+        if multiple variants of the same sized resource are provided (e.g. mem, mem_mb)
+    ResourceTypeError:
+        if a human readable resource with an incorrect type is given (e.g. a string to a
+        suffixed resource)
     """
 
     DEFAULTS = {
@@ -1072,6 +1091,20 @@ class Resources(Mapping[str, Resource]):
 
         No validation is done on the keys. Values are converted into ``Resource``s and
         will be validated by that class.
+
+        Raises
+        ======
+        ResourceDuplicationError
+            if multiple variants of the same sized resource are provided (e.g. mem,
+            mem_mb)
+        ResourceTypeError:
+            if a human readable resource with an incorrect type is given (e.g. a string
+            to a suffixed resource)
+        ResourceValidationError:
+            if a given resource is not a ``str``, ``int``, ``float``, ``None``, or a
+            callable.
+        WorkflowError
+            if a given resource is of the human-readable group but cannot be parsed
         """
         return cls({key: Resource(key, val) for key, val in mapping.items()})
 

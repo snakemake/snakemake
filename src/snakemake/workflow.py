@@ -65,6 +65,8 @@ from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
     MissingOutputFileCachePathException,
+    ResourceDuplicationError,
+    ResourceTypeError,
     ResourceValidationError,
     RuleException,
     CreateRuleException,
@@ -1831,13 +1833,14 @@ class Workflow(WorkflowExecutorInterface):
                     raise RuleException("Resources have to be named.")
                 try:
                     resources = Resources.from_mapping(resources)
-                except KeyError as err:
-                    raise RuleException(
-                        "Resources values have to be integers, strings, or callables "
-                        f"(functions): type({err.args[0]} : {err.args[1]}) == "
-                        f"{type(err.args[1])}",
-                        rule=rule,
-                    )
+                except ResourceDuplicationError as err:
+                    raise RuleException(err, rule=rule)
+                except ResourceTypeError as err:
+                    msg = "Standard resource specified with invalid type, got error:\n"
+                    raise RuleException(msg + str(err), rule=rule)
+                except ResourceValidationError as err:
+                    raise RuleException(err, rule=rule)
+
                 rule.resources.update(resources)
 
             if name in self.resource_settings.overwrite_resources:
@@ -2283,7 +2286,6 @@ class Workflow(WorkflowExecutorInterface):
         replace_prefix=None,
         prefix=None,
     ):
-
         self.modules[name] = ModuleInfo(
             self,
             name,
