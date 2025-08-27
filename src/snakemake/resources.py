@@ -27,6 +27,8 @@ from typing import (
     cast,
 )
 
+import humanfriendly
+
 
 from snakemake.common import (
     get_input_function_aux_params,
@@ -459,6 +461,23 @@ def evaluable_from_mib_to_mb(name: str, func: Callable[..., Any]):
     return inner
 
 
+def evaluable_from_mb_to_str(name: str, func: Callable[..., Any]):
+    def inner(*args: Any, **kwargs: Any):
+        result = func(*args, **kwargs)
+        if not isinstance(result, (int, float)):
+            errmsg = (
+                f"Evaluable resource must return a 'int' or 'float' to convert to "
+                f"human-friendly. {name} == {result} (type {type(result)})"
+            )
+            raise TypeError(errmsg)
+        return mb_to_str(round(result))
+
+    return inner
+
+def mb_to_str(size: int) -> str:
+    return humanfriendly.format_size(size * (10**6))
+
+
 ValidResource: TypeAlias = int | str | float | None | Callable[..., "ValidResource"]
 
 SizedResources = {"mem", "disk"}
@@ -645,10 +664,31 @@ class Resource:
             wrapper=evaluable_from_mib_to_mb, converter=mib_to_mb
         ).with_name(f"{self.name.removesuffix('_mib')}_mb")
 
+    def format_human_friendly(self):
+        """Convert the resource into a human friendly string.
+
+        The units are ASSUMED to be in MB. Resource does not internally track units, and
+        this method will work (incorrectly) if called an a unit suffixed with _mib.
+
+        An _mb suffix will be stripped, if found (_mib suffixes are left untouched to
+        avoid hiding the effects of an uninintended conversion.)
+
+        Un-evaluated resources can be converted.
+
+        Raises
+        ======
+        TypeError:
+            if conversion is attempted on a str resource (or a callable that returns a
+            str/None).
+        """
+        return self._convert_units(
+            wrapper=evaluable_from_mb_to_str, converter=mb_to_str
+        ).with_name(self.name.removesuffix("_mb"))
+
     def _convert_units(
         self,
         wrapper: Callable[[str, Callable[..., Any]], Callable[..., Any]],
-        converter: Callable[[int], int],
+        converter: Callable[[int], int | str],
     ):
         if isinstance(self._value, TBDString):
             value = self._value
@@ -664,10 +704,11 @@ class Resource:
             value = converter(self._value)
         return Resource(self.name, value)
 
-    def without_suffix(self):
-        """Converts a suffixed resource (e.g. mem_mb) into its unsuffixed version (mb).
+    def standardize_size(self):
+        """Standardize the representation of sized resources using a _mb suffix.
 
-        If the resource has the _mib suffix, the value is converted into megabytes.
+        If the resource has no suffix, _mb is added. If it has _mib as a suffix, its
+        units and suffix are converted accordingly.
 
         Raises
         ======
@@ -676,10 +717,10 @@ class Resource:
             str/None).
         """
         if self.name.endswith("_mb"):
-            return self.with_name(self.name.removesuffix("_mb"))
+            return self
         if self.name.endswith("_mib"):
             return self.to_mb().with_name(self.name.removesuffix("_mb"))
-        return self
+        return self.with_name(self.name + "_mb")
 
     def with_name(self, name: str):
         """Update the name of the resource without changing the value."""
@@ -861,7 +902,8 @@ class Resources(Mapping[str, Resource]):
             return
         if len(found) > 1:
             raise ResourceDuplicationError(list(found))
-        self._data[resource] = self._data.pop(found.pop()).without_suffix()
+        standardized = self._data.pop(found.pop()).standardize_size()
+        self._data[standardized.name] = standardized
 
     def __repr__(self):
         return str(self._data)
@@ -1106,12 +1148,9 @@ class Resources(Mapping[str, Resource]):
 
             # Do the mem_mb/disk_mb assignments here because they should not be set
             # before mem and disk are (potentially) evaluated
-            if resource.name in SizedResources:
-                # TODO avoid hardcoding mb/mib here
-                # TODO can we move this into Resources?
-                # TODO resources[resource] = val.back_to_string()
-                resources[f"{resource}_mb"] = resource.value  # type: ignore
-                resources[f"{resource}_mib"] = resource.to_mib().value  # type: ignore
+            if resource.name.removesuffix("_mb") in SizedResources:
+                for res in [resource.format_human_friendly(), resource.to_mib()]:
+                    resources[res.name] = res.value # type: ignore
 
         return resources
 
