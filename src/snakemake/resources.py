@@ -643,6 +643,7 @@ class Resource:
         return self._convert_units(mb_to_str)  # type: ignore (already checked not evaluable)
 
     def _convert_units(self, converter: Callable[[int], _T]):
+        """Perform a unit conversion on an integer or callable."""
         if isinstance(self._value, TBDString):
             return self._value
         elif self.is_evaluable():
@@ -943,7 +944,6 @@ class Resources(Mapping[str, Resource]):
         cls,
         *,
         allow_expressions: bool = False,
-        only_positive_integers: bool = False,
         defaults: None | Literal["bare"] | Literal["full"] = None,
     ) -> Callable[[List[str]], Self]:
         """Return a parsing function with preset keyword arguments.
@@ -953,7 +953,6 @@ class Resources(Mapping[str, Resource]):
         return lambda exprs: cls.parse(
             exprs,
             allow_expressions=allow_expressions,
-            only_positive_integers=only_positive_integers,
             defaults=defaults,
         )
 
@@ -963,8 +962,6 @@ class Resources(Mapping[str, Resource]):
         exprs: List[str],
         *,
         allow_expressions: bool,
-        # TODO  do we need this flag?
-        only_positive_integers: bool = False,
         defaults: None | Literal["bare"] | Literal["full"] = None,
     ):
         """Parse a series of CLI-style string resource assignments.
@@ -978,8 +975,6 @@ class Resources(Mapping[str, Resource]):
         allow_expressions:
             Allows use of quoted strings and python expressions in the list of exprs.
             Otherwise, an error is raised if these are found.
-        only_positive_integers:
-            Requires integers in the list of exprs to be positive.
         defaults: "bare" or "full"
             Initializes the returned resource object with the given default set, if
             provided. Provided exprs will override default resources.
