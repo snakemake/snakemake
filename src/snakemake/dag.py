@@ -15,7 +15,7 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Dict, Iterable, List, Mapping, Optional, Set, Union, Dict
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union, Dict
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
