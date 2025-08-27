@@ -1,4 +1,5 @@
 from __future__ import annotations
+from argparse import ArgumentError
 from collections import defaultdict
 import copy
 from humanfriendly import InvalidTimespan, InvalidSize, parse_size, parse_timespan
@@ -755,15 +756,6 @@ class Resource:
         except NestedCoroutineError:
             raise
         except Exception as e:
-            try:
-                # check if resource is parsable as human friendly (given the correct
-                # name and formatted value). If it is, we return the parsed value to
-                # save a step later.
-                if name in HumanFriendlyResources:
-                    # TODO What happens to suffixed resources?
-                    return Resource._parse_human_friendly(name, val)
-            except (InvalidSize, InvalidTimespan):
-                pass
             # We need to repeat this logic from self.evaluate in order to support the
             # custom error message below.
             if is_file_not_found_error(e, input):
@@ -951,23 +943,40 @@ class Resources(Mapping[str, Resource]):
         result: Dict[str, Resource] = {}
         for res, val in unparsed.items():
             if res == "_cores":
-                raise ValueError(
+                raise WorkflowError(
                     "Resource _cores is already defined internally. Use a different "
                     "name."
                 )
             if not valid.match(res):
-                raise ValueError(
+                raise WorkflowError(
                     "Resource definition must start with a valid identifier, but found "
                     "{}.".format(res)
                 )
+
+            try:
+                # check if resource is parsable as human friendly (given the correct
+                # name and formatted value). If it is, we return the parsed value to
+                # save a step later.
+                # TODO What happens to suffixed resources?
+                val = Resource._parse_human_friendly(res, val)
+            except (InvalidSize, InvalidTimespan) as err:
+                if not allow_expressions:
+                    msg = (
+                        f"Resource '{res}' given invalid data size or timespan '{val}':"
+                    )
+                    raise WorkflowError(msg, err)
 
             try:
                 val = int(val)
             except ValueError:
                 pass
             else:
-                if only_positive_integers and val < 0:
-                    raise ValueError("integer resource must be positive")
+                if val < 0:
+                    msg = (
+                        f"Resource '{res}' was given value '{val}', which is not a "
+                        f"positive integer"
+                    )
+                    raise WorkflowError(msg)
                 result[res] = Resource(res, val)
                 continue
 
@@ -977,8 +986,8 @@ class Resources(Mapping[str, Resource]):
                 )
                 continue
 
-            raise ValueError(
-                "Resource definition must contain an integer after the identifier"
+            raise WorkflowError(
+                f"Resource '{res}' was given value '{val}', which is not an integer"
             )
 
         if defaults is not None:
