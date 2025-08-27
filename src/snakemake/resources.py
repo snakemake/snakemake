@@ -506,18 +506,7 @@ class Resource:
         if isinstance(value, float):
             value = round(value)
         self.name = name
-        try:
-            self._value = self._parse_human_friendly(name, value)
-        except InvalidSize as err:
-            raise WorkflowError(
-                f"Cannot parse '{name}' value into size in MB for setting "
-                f"'{name}_mb' resource: {value}"
-            ) from err
-        except InvalidTimespan as err:
-            raise WorkflowError(
-                "Cannot parse 'runtime' value into minutes for setting 'runtime' "
-                f"resource: {value}"
-            ) from err
+        self._value = self.parse_human_friendly(name, value)
 
         if raw is None and isinstance(self._value, (int, str)):
             self.raw = self._value
@@ -589,8 +578,11 @@ class Resource:
         Returns self unaltered if either resource is ``None`` or if both are the same
         non-integer type.
 
-        Errors if ``other`` has a different type from ``Self``, or if either are
-        evaluable resources.
+        Raises
+        ======
+        ResourceConstraintError:
+            if ``other`` has a different type from ``Self``, or if either are evaluable
+            resources.
         """
         if isinstance(self._value, TBDString):
             return self
@@ -623,8 +615,11 @@ class Resource:
 
         Un-evaluated resources can be converted.
 
-        Errors if conversion is attempted on a str resource (or a callable that returns
-        a str/None).
+        Raises
+        ======
+        TypeError:
+            if conversion is attempted on a str resource (or a callable that returns a
+            str/None).
         """
         return self._convert_units(
             wrapper=evaluable_from_mb_to_mib, converter=mb_to_mib
@@ -640,8 +635,11 @@ class Resource:
 
         Un-evaluated resources can be converted.
 
-        Errors if conversion is attempted on a str resource (or a callable that returns
-        a str/None).
+        Raises
+        ======
+        TypeError:
+            if conversion is attempted on a str resource (or a callable that returns a
+            str/None).
         """
         return self._convert_units(
             wrapper=evaluable_from_mib_to_mb, converter=mib_to_mb
@@ -659,7 +657,7 @@ class Resource:
         elif not isinstance(self._value, int):
             errmsg = (
                 f"Resource must be of type 'int'. {self.name} == "
-                f"{self._value} (type {type(self._value)})"
+                f'"{self._value}" (type {type(self._value)})'
             )
             raise TypeError(errmsg)
         else:
@@ -670,6 +668,12 @@ class Resource:
         """Converts a suffixed resource (e.g. mem_mb) into its unsuffixed version (mb).
 
         If the resource has the _mib suffix, the value is converted into megabytes.
+
+        Raises
+        ======
+        TypeError:
+            if conversion is attempted on a str resource (or a callable that returns a
+            str/None).
         """
         if self.name.endswith("_mb"):
             return self.with_name(self.name.removesuffix("_mb"))
@@ -779,13 +783,38 @@ class Resource:
         return value
 
     @staticmethod
-    def _parse_human_friendly(name: str, value: ValidResource):
+    def parse_human_friendly(name: str, value: ValidResource) -> ValidResource:
+        """Parse a resource as human friendly if allowable for the resource name.
+
+        If a non-string value is given, it is returned without modification.
+
+        Only human-friendly resources (e.g. "mem", "disk", "runtime") are parsed, others
+        are returned without modification.
+
+        Raises
+        ======
+        WorkflowError:
+            if a valid human-friendly resource is given but it cannot be parsed.
+        """
         if isinstance(value, str) and not isinstance(value, TBDString):
             value = value.strip("'\"")
+            err_msg = (
+                "Resource '{name}' with value '{value}' could not be parsed as {unit}"
+            )
             if name in SizedResources:
-                return max(int(math.ceil(parse_size(value) / 1e6)), 1)
+                try:
+                    return max(int(math.ceil(parse_size(value) / 1e6)), 1)
+                except InvalidSize as err:
+                    raise WorkflowError(
+                        err_msg.format(name=name, value=value, unit="size in MB")
+                    ) from err
             elif name in TimeResources:
-                return max(int(round(parse_timespan(value) / 60)), 1)
+                try:
+                    return max(int(round(parse_timespan(value) / 60)), 1)
+                except InvalidTimespan as err:
+                    raise WorkflowError(
+                        err_msg.format(name=name, value=value, unit="minutes")
+                    ) from err
         return value
 
 
@@ -825,7 +854,7 @@ class Resources(Mapping[str, Resource]):
     def _normalize_sizes(self, resource: str):
         found: set[str] = set()
         # TODO store as mem_mb and disk_mb internally
-        for suffix in ["", "_mb", "_mib"]:
+        for suffix in {"", "_mb", "_mib"}:
             if resource + suffix in self._data:
                 found.add(resource + suffix)
         if not found or {resource} == found:
@@ -953,18 +982,11 @@ class Resources(Mapping[str, Resource]):
                     "{}.".format(res)
                 )
 
-            try:
-                # check if resource is parsable as human friendly (given the correct
-                # name and formatted value). If it is, we return the parsed value to
-                # save a step later.
-                # TODO What happens to suffixed resources?
-                val = Resource._parse_human_friendly(res, val)
-            except (InvalidSize, InvalidTimespan) as err:
-                if not allow_expressions:
-                    msg = (
-                        f"Resource '{res}' given invalid data size or timespan '{val}':"
-                    )
-                    raise WorkflowError(msg, err)
+            # check if resource is parsable as human friendly (given the correct
+            # name and formatted value). If it is, we return the parsed value to
+            # save a step later.
+            # TODO What happens to suffixed resources?
+            val = Resource.parse_human_friendly(res, val)
 
             try:
                 val = int(val)
