@@ -593,7 +593,7 @@ class Resource:
             return Resource(self.name, min(other_val, self_val))
         return self
 
-    def to_mib(self):
+    def from_mb_to_mib(self):
         """Convert the resource to mebibytes.
 
         The name of the resource is updated to have a _mib suffix.
@@ -614,29 +614,6 @@ class Resource:
         return self.__class__(
             f"{self.name.removesuffix('_mb')}_mib",
             self._convert_units(mb_to_mib),
-        )
-
-    def to_mb(self):
-        """Convert the resource to megabytes.
-
-        The name of the resource is updated to have a _mb suffix.
-
-        The method does not track the current units of the resource, so will not prevent
-        mebibytes from being "converted" into megabytes multiple times.
-
-        Un-evaluated resources can be converted. This is to support resource
-        normalization within ``Resources`` class: units can be converted before
-        the resource is evaluated in the context of a rule.
-
-        Raises
-        ======
-        ResourceTypeError:
-            if conversion is attempted on a str resource (or a callable that returns a
-            str/None).
-        """
-        return self.__class__(
-            f"{self.name.removesuffix('_mib')}_mb",
-            self._convert_units(mib_to_mb),
         )
 
     def format_human_friendly(self) -> str | TBDString:
@@ -678,7 +655,7 @@ class Resource:
         self,
         converter: Callable[[int], _T],
     ):
-        assert self._evaluator is not None
+        assert self._evaluator is not None, "self._evaluator is None"
 
         @ft.wraps(self._evaluator)
         def inner(*args: Any, **kwargs: Any):
@@ -704,13 +681,15 @@ class Resource:
             str/None).
         """
         if self.name.endswith("_mb"):
-            # wrapping the evaluator with the identity function lets us use the
-            # validation logic in _wrap_evaluator
+            # using _convert_units with the identity lets us validate that the resource
+            # was set with an int or float correctly
             return self.__class__(
-                self.name.removesuffix("_mb"), self._wrap_evaluator(lambda x: x)
+                self.name[:-3], self._convert_units(lambda x: x)
             )
         if self.name.endswith("_mib"):
-            return self.to_mb().with_name(self.name.removesuffix("_mib"))
+            return self.__class__(
+                self.name[:-4], self._convert_units(mib_to_mb)
+            )
         return self
 
     def with_name(self, name: str):
@@ -1160,7 +1139,10 @@ class Resources(Mapping[str, Resource]):
             # before mem and disk are (potentially) evaluated
             if resource.name in SizedResources:
                 resources[resource.name] = resource.format_human_friendly()
-                for res in [resource.to_mb(), resource.to_mib()]:
+                for res in [
+                    resource.with_name(resource.name + "_mb"),
+                    resource.from_mb_to_mib(),
+                ]:
                     resources[res.name] = res.value  # type: ignore
 
         return resources
