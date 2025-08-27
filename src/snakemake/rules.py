@@ -1140,7 +1140,7 @@ class Rule(RuleInterface):
             )
             raise WorkflowError(msg, err, rule=self)
 
-        resources["_cores"] = "threads"
+        resources["_cores"] = threads
 
         return ResourceList(fromdict=resources)
 

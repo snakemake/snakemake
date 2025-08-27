@@ -26,6 +26,7 @@ from typing import (
     Sequence,
     Tuple,
     TypeAlias,
+    TypeVar,
     cast,
 )
 
@@ -435,8 +436,6 @@ class GroupResources:
         return rows
 
 
-
-
 def mb_to_str(size: int) -> str:
     return humanfriendly.format_size(size * (10**6))
 
@@ -446,6 +445,9 @@ ValidResource: TypeAlias = int | str | float | None | Callable[..., "ValidResour
 SizedResources = {"mem", "disk"}
 TimeResources = {"runtime"}
 HumanFriendlyResources = TimeResources | SizedResources
+
+
+_T = TypeVar("_T")
 
 
 class Resource:
@@ -609,9 +611,10 @@ class Resource:
             if conversion is attempted on a str resource (or a callable that returns a
             str/None).
         """
-        return self._convert_units(
-            wrapper_factory=self._evaluable_from_mb_to_mib, converter=mb_to_mib
-        ).with_name(f"{self.name.removesuffix('_mb')}_mib")
+        return self.__class__(
+            f"{self.name.removesuffix('_mb')}_mib",
+            self._convert_units(mb_to_mib),
+        )
 
     def to_mb(self):
         """Convert the resource to megabytes.
@@ -631,11 +634,12 @@ class Resource:
             if conversion is attempted on a str resource (or a callable that returns a
             str/None).
         """
-        return self._convert_units(
-            wrapper_factory=self._evaluable_from_mib_to_mb, converter=mib_to_mb
-        ).with_name(f"{self.name.removesuffix('_mib')}_mb")
+        return self.__class__(
+            f"{self.name.removesuffix('_mib')}_mb",
+            self._convert_units(mib_to_mb),
+        )
 
-    def format_human_friendly(self):
+    def format_human_friendly(self) -> str | TBDString:
         """Convert the resource into a human friendly string.
 
         The units are ASSUMED to be in MB. Resource does not internally track units, and
@@ -654,32 +658,28 @@ class Resource:
             if conversion is attempted on a str resource (or a callable that returns a
             str/None).
         """
-        return self._convert_units(
-            wrapper_factory=self._evaluable_from_mb_to_str, converter=mb_to_str
-        ).with_name(self.name.removesuffix("_mb"))
+        if self.is_evaluable():
+            # Use builtin error type as this should not happen
+            raise TypeError(
+                f"{self.name} formatted as human-friendly before evaluation"
+            )
+        return self._convert_units(mb_to_str)  # type: ignore (already checked not evaluable)
 
-    def _convert_units(
-        self,
-        wrapper_factory: Callable[[], Callable[..., Any]],
-        converter: Callable[[int], int | str],
-    ):
+    def _convert_units(self, converter: Callable[[int], _T]):
         if isinstance(self._value, TBDString):
-            value = self._value
+            return self._value
         elif self.is_evaluable():
-            value = wrapper_factory()
+            return self._wrap_evaluator(converter)
         elif not isinstance(self._value, int):
             raise ResourceConversionError.format(self.name, self._value)
-        else:
-            value = converter(self._value)
-        return Resource(self.name, value)
+        return converter(self._value)
 
-    def _make_inner_converter(
+    def _wrap_evaluator(
         self,
-        *,
-        converter: Callable[[int], int | str],
-        unit: str,
+        converter: Callable[[int], _T],
     ):
         assert self._evaluator is not None
+
         @ft.wraps(self._evaluator)
         def inner(*args: Any, **kwargs: Any):
             result = self._evaluator(*args, **kwargs)  # type: ignore (self._evaluator should never change)
@@ -690,32 +690,12 @@ class Resource:
 
         return inner
 
-
-    def _evaluable_from_mb_to_mib(self):
-        return self._make_inner_converter(
-            converter=mb_to_mib,
-            unit="mib",
-        )
-
-
-    def _evaluable_from_mib_to_mb(self):
-        return self._make_inner_converter(
-            converter=mib_to_mb,
-            unit="mb",
-        )
-
-
-    def _evaluable_from_mb_to_str(self):
-        return self._make_inner_converter(
-            converter=mb_to_str,
-            unit="human-friendly str",
-        )
-
     def standardize_size(self):
-        """Standardize the representation of sized resources using a _mb suffix.
+        """Standardize the representation of sized resources.
 
-        If the resource has no suffix, _mb is added. If it has _mib as a suffix, its
-        units and suffix are converted accordingly.
+        If the resource is evaluable and ends in _mib or _mb, the evaluable will be
+        wrapped to ensure it returns an int or float, and mib will be converted to mb as
+        appropriate. The suffixes are stripped.
 
         Raises
         ======
@@ -724,10 +704,14 @@ class Resource:
             str/None).
         """
         if self.name.endswith("_mb"):
-            return self
+            # wrapping the evaluator with the identity function lets us use the
+            # validation logic in _wrap_evaluator
+            return self.__class__(
+                self.name.removesuffix("_mb"), self._wrap_evaluator(lambda x: x)
+            )
         if self.name.endswith("_mib"):
-            return self.to_mb().with_name(self.name.removesuffix("_mb"))
-        return self.with_name(self.name + "_mb")
+            return self.to_mb().with_name(self.name.removesuffix("_mib"))
+        return self
 
     def with_name(self, name: str):
         """Update the name of the resource without changing the value."""
@@ -987,7 +971,6 @@ class Resources(Mapping[str, Resource]):
 
         Intended for use with argparse.
         """
-        # TODO Correct error handling from parse
         return lambda exprs: cls.parse(
             exprs,
             allow_expressions=allow_expressions,
@@ -1041,7 +1024,6 @@ class Resources(Mapping[str, Resource]):
             # check if resource is parsable as human friendly (given the correct
             # name and formatted value). If it is, we return the parsed value to
             # save a step later.
-            # TODO What happens to suffixed resources?
             val = Resource.parse_human_friendly(res, val)
 
             try:
@@ -1176,8 +1158,9 @@ class Resources(Mapping[str, Resource]):
 
             # Do the mem_mb/disk_mb assignments here because they should not be set
             # before mem and disk are (potentially) evaluated
-            if resource.name.removesuffix("_mb") in SizedResources:
-                for res in [resource.format_human_friendly(), resource.to_mib()]:
+            if resource.name in SizedResources:
+                resources[resource.name] = resource.format_human_friendly()
+                for res in [resource.to_mb(), resource.to_mib()]:
                     resources[res.name] = res.value  # type: ignore
 
         return resources
