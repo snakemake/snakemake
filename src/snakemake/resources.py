@@ -2,6 +2,7 @@ from __future__ import annotations
 from argparse import ArgumentError
 from collections import defaultdict
 import copy
+import functools as ft
 from humanfriendly import InvalidTimespan, InvalidSize, parse_size, parse_timespan
 import itertools as it
 import operator as op
@@ -42,6 +43,7 @@ from snakemake.exceptions import (
     ResourceError,
     ResourceInsufficiencyError,
     ResourceScopesException,
+    ResourceTypeError,
     ResourceValidationError,
     WorkflowError,
     is_file_not_found_error,
@@ -432,47 +434,55 @@ class GroupResources:
         return rows
 
 
-def evaluable_from_mb_to_mib(name: str, func: Callable[..., Any]):
+def _make_inner_converter(
+    *,
+    name: str,
+    func: Callable[..., Any],
+    converter: Callable[[int], int | str],
+    unit: str,
+):
+    @ft.wraps(func)
     def inner(*args: Any, **kwargs: Any):
         result = func(*args, **kwargs)
         if not isinstance(result, (int, float)):
             errmsg = (
-                f"Evaluable resource must return a 'int' or 'float' to convert to mib. "
-                f"{name} == {result} (type {type(result)})"
+                f"Resource '{name}' assigned callable that returned {result!r} "
+                f"(type {type(result)}). "
+                f"Must return an int or float to convert to {unit}. "
             )
-            raise TypeError(errmsg)
+            raise ResourceTypeError(errmsg)
 
         return mb_to_mib(round(result))
 
     return inner
 
 
-def evaluable_from_mib_to_mb(name: str, func: Callable[..., Any]):
-    def inner(*args: Any, **kwargs: Any):
-        result = func(*args, **kwargs)
-        if not isinstance(result, (int, float)):
-            errmsg = (
-                f"Evaluable resource must return a 'int' or 'float' to convert to mb. "
-                f"{name} == {result} (type {type(result)})"
-            )
-            raise TypeError(errmsg)
-        return mib_to_mb(round(result))
+def evaluable_from_mb_to_mib(name: str, func: Callable[..., Any]):
+    return _make_inner_converter(
+        name=name,
+        func=func,
+        converter=mb_to_mib,
+        unit="mib",
+    )
 
-    return inner
+
+def evaluable_from_mib_to_mb(name: str, func: Callable[..., Any]):
+    return _make_inner_converter(
+        name=name,
+        func=func,
+        converter=mib_to_mb,
+        unit="mb",
+    )
 
 
 def evaluable_from_mb_to_str(name: str, func: Callable[..., Any]):
-    def inner(*args: Any, **kwargs: Any):
-        result = func(*args, **kwargs)
-        if not isinstance(result, (int, float)):
-            errmsg = (
-                f"Evaluable resource must return a 'int' or 'float' to convert to "
-                f"human-friendly. {name} == {result} (type {type(result)})"
-            )
-            raise TypeError(errmsg)
-        return mb_to_str(round(result))
+    return _make_inner_converter(
+        name=name,
+        func=func,
+        converter=mb_to_str,
+        unit="human-friendly str",
+    )
 
-    return inner
 
 def mb_to_str(size: int) -> str:
     return humanfriendly.format_size(size * (10**6))
@@ -483,13 +493,6 @@ ValidResource: TypeAlias = int | str | float | None | Callable[..., "ValidResour
 SizedResources = {"mem", "disk"}
 TimeResources = {"runtime"}
 HumanFriendlyResources = TimeResources | SizedResources
-
-
-class _NotComputedClass:
-    pass
-
-
-_NotComputed = _NotComputedClass()
 
 
 class Resource:
@@ -632,7 +635,9 @@ class Resource:
         The method does not track the current units of the resource, so will not prevent
         mebibytes from being "converted" into mebibytes multiple times.
 
-        Un-evaluated resources can be converted.
+        Un-evaluated resources can be converted. This is to support resource
+        normalization within ``Resources`` class: units can be converted before
+        the resource is evaluated in the context of a rule.
 
         Raises
         ======
@@ -652,7 +657,9 @@ class Resource:
         The method does not track the current units of the resource, so will not prevent
         mebibytes from being "converted" into megabytes multiple times.
 
-        Un-evaluated resources can be converted.
+        Un-evaluated resources can be converted. This is to support resource
+        normalization within ``Resources`` class: units can be converted before
+        the resource is evaluated in the context of a rule.
 
         Raises
         ======
@@ -673,11 +680,13 @@ class Resource:
         An _mb suffix will be stripped, if found (_mib suffixes are left untouched to
         avoid hiding the effects of an uninintended conversion.)
 
-        Un-evaluated resources can be converted.
+        Un-evaluated resources can be converted. This is to support resource
+        normalization within ``Resources`` class: units can be converted before
+        the resource is evaluated in the context of a rule.
 
         Raises
         ======
-        TypeError:
+        ResourceTypeError:
             if conversion is attempted on a str resource (or a callable that returns a
             str/None).
         """
@@ -687,7 +696,7 @@ class Resource:
 
     def _convert_units(
         self,
-        wrapper: Callable[[str, Callable[..., Any]], Callable[..., Any]],
+        wrapper: Callable[[str, Callable[..., ValidResource]], Callable[..., Any]],
         converter: Callable[[int], int | str],
     ):
         if isinstance(self._value, TBDString):
@@ -696,10 +705,10 @@ class Resource:
             value = wrapper(self.name, self._evaluator)
         elif not isinstance(self._value, int):
             errmsg = (
-                f"Resource must be of type 'int'. {self.name} == "
-                f'"{self._value}" (type {type(self._value)})'
+                f"Resource must be of type 'int'. Got {self.name} == "
+                f'{self._value!r} (type {type(self._value)})'
             )
-            raise TypeError(errmsg)
+            raise ResourceTypeError(errmsg)
         else:
             value = converter(self._value)
         return Resource(self.name, value)
@@ -838,24 +847,21 @@ class Resource:
             if a valid human-friendly resource is given but it cannot be parsed.
         """
         if isinstance(value, str) and not isinstance(value, TBDString):
-            value = value.strip("'\"")
+            stripped = value.strip("'\"")
             err_msg = (
-                "Resource '{name}' with value '{value}' could not be parsed as {unit}"
+                f"Resource '{name}' with value '{value}' could not be parsed as "
+                "{unit}"
             )
             if name in SizedResources:
                 try:
-                    return max(int(math.ceil(parse_size(value) / 1e6)), 1)
+                    return max(int(math.ceil(parse_size(stripped) / 1e6)), 1)
                 except InvalidSize as err:
-                    raise WorkflowError(
-                        err_msg.format(name=name, value=value, unit="size in MB")
-                    ) from err
+                    raise WorkflowError(err_msg.format(unit="size in MB")) from err
             elif name in TimeResources:
                 try:
-                    return max(int(round(parse_timespan(value) / 60)), 1)
+                    return max(int(round(parse_timespan(stripped) / 60)), 1)
                 except InvalidTimespan as err:
-                    raise WorkflowError(
-                        err_msg.format(name=name, value=value, unit="minutes")
-                    ) from err
+                    raise WorkflowError(err_msg.format(unit="minutes")) from err
         return value
 
 
@@ -894,7 +900,6 @@ class Resources(Mapping[str, Resource]):
 
     def _normalize_sizes(self, resource: str):
         found: set[str] = set()
-        # TODO store as mem_mb and disk_mb internally
         for suffix in {"", "_mb", "_mib"}:
             if resource + suffix in self._data:
                 found.add(resource + suffix)
@@ -1150,7 +1155,7 @@ class Resources(Mapping[str, Resource]):
             # before mem and disk are (potentially) evaluated
             if resource.name.removesuffix("_mb") in SizedResources:
                 for res in [resource.format_human_friendly(), resource.to_mib()]:
-                    resources[res.name] = res.value # type: ignore
+                    resources[res.name] = res.value  # type: ignore
 
         return resources
 

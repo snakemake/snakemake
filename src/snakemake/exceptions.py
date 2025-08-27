@@ -637,6 +637,9 @@ class ResourceValidationError(TypeError):
 class ResourceConstraintError(TypeError):
     pass
 
+class ResourceTypeError(TypeError):
+    pass
+
 
 class ResourceDuplicationError(ValueError):
     def __init__(self, duplicate_resources: Sequence[str]):

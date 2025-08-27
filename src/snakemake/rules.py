@@ -52,10 +52,12 @@ from snakemake.resources import (
     ResourceConstraintError,
     ResourceValidationError,
     Resources,
+    SizedResources,
 )
 from snakemake.exceptions import (
     InputOpenException,
     NestedCoroutineError,
+    ResourceTypeError,
     RuleException,
     IOFileException,
     WildcardError,
@@ -1128,6 +1130,15 @@ class Rule(RuleInterface):
                 f"provided by --resources:\n    {err}\n",
                 rule=self,
             )
+        except ResourceTypeError as err:
+            sized_resources = ", ".join(
+                f"{res}_mb, {res}_mib" for res in SizedResources
+            )
+            msg = (
+                f"Unable to perform unit conversion. Note that {sized_resources} must "
+                f"be specified as int or float. Got the following error:"
+            )
+            raise WorkflowError(msg, err, rule=self)
 
         resources["_cores"] = "threads"
 
