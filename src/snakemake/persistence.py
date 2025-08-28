@@ -706,7 +706,7 @@ class Persistence(PersistenceExecutorInterface):
                 # and then moving) we ignore corrupted or incompletely written records
                 # here.
                 # They can only occur if a snakemake process is running and one does a
-                # dry-run (or intentially disables locking) at the same time.
+                # dry-run (or intentionally disables locking) at the same time.
                 logger.warning(
                     f"Ignore corrupted or currently written metadata record {path}."
                 )
