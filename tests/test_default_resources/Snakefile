@@ -8,7 +8,7 @@ rule a:
     shell:
         """
             [[ '{resources.mem_mb}' == '1000' ]] && \\
-            [[ '{resources.mem}' == '1000' ]] && \\
+            [[ '{resources.mem}' == '1 GB' ]] && \\
             [[ '{resources.mem_mib}' == '954' ]] && \\
             touch {output}
         """
@@ -20,7 +20,7 @@ rule b:
     shell:
         """
             [[ '{resources.disk_mb}' == '1000' ]] && \\
-            [[ '{resources.disk}' == '1000' ]] && \\
+            [[ '{resources.disk}' == '1 GB' ]] && \\
             [[ '{resources.disk_mib}' == '954' ]] && \\
             touch {output}
         """

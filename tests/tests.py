@@ -12,7 +12,7 @@ import tempfile
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from snakemake.exceptions import WorkflowError
+from snakemake.exceptions import ResourceConversionError, WorkflowError
 from snakemake.exceptions import ResourceDuplicationError
 from snakemake.persistence import Persistence
 from snakemake.resources import GroupResources, Resources
@@ -60,9 +60,9 @@ Finished jobid: 0 (Rule: all)
     with open(latest_log, "r") as f:
         log_content = f.read()
 
-    assert (
-        finished_stmt.strip() in log_content.strip()
-    ), f"Expected statement not found in log file. Log content: {log_content}"
+    assert finished_stmt.strip() in log_content.strip(), (
+        f"Expected statement not found in log file. Log content: {log_content}"
+    )
 
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
@@ -1006,30 +1006,11 @@ def test_resources_cannot_provide_prefixed_and_unprefixed_together(res1, res2):
 
 
 @skip_on_windows
-def test_suffixed_resource_constraints_cannot_be_human_readable():
-    run(
-        dpath("test_group_jobs_resources"),
-        cluster="./qsub",
-        cores=6,
-        resources={"typo": 23, "mem_mb": "60 GB"},
-        group_components={0: 5},
-        default_resources=(["mem_mb=0"]),
-        shouldfail=WorkflowError,
-    )
-
-
-@skip_on_windows
-def test_suffixed_resource_declarations_cannot_be_human_readable():
-    run(
-        dpath("test_group_jobs_resources"),
-        cluster="./qsub",
-        cores=6,
-        overwrite_resources={"a_1": Resources.from_mapping({"mem_mb": "40 Gb"})},
-        resources={"typo": 23, "mem_mb": 60_000},
-        group_components={0: 5},
-        default_resources=(["mem_mb=0"]),
-        shouldfail=WorkflowError,
-    )
+def test_suffixed_resources_cannot_be_human_readable():
+    with pytest.raises(
+        ResourceConversionError, match="Resource 'mem_mb' must be assigned an int"
+    ):
+        Resources.from_mapping({"mem_mb": "40 Gb"})
 
 
 @skip_on_windows
@@ -1507,7 +1488,6 @@ def test_expand_flag():
 
 @skip_on_windows
 def test_default_resources():
-
     run(
         dpath("test_default_resources"),
         # use fractional defaults here to test whether they are correctly rounded
@@ -1519,11 +1499,20 @@ def test_default_resources():
 
 @skip_on_windows
 def test_default_resources_humanreadable():
-
     run(
         dpath("test_default_resources"),
         # use fractional defaults here to test whether they are correctly rounded
-        default_resources=(["mem_mb='1 Gb'", "disk_mb='0.001 TB'"]),
+        default_resources=(["mem='1 Gb'", "disk='0.001 TB'"]),
+    )
+
+
+@skip_on_windows
+def test_default_resources_humanreadable_disallowed_for_suffixed():
+    run(
+        dpath("test_default_resources"),
+        # use fractional defaults here to test whether they are correctly rounded
+        default_resources=(["mem_mb='1 Gb'", "disk_mib='0.001 TB'"]),
+        shouldfail=True,
     )
 
 
