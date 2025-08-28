@@ -200,7 +200,6 @@ class Workflow(WorkflowExecutorInterface):
         self._scatter = dict(self.resource_settings.overwrite_scatter)
         self._resource_scopes = ResourceScopes.defaults()
         self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
-        self.modules = dict()
         self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
 
         self._sourcecache = SourceCache(self.source_cache_path)
@@ -542,6 +541,10 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def modifier(self):
         return self.modifier_stack[-1]
+
+    @property
+    def modules(self):
+        return self.modifier.modules
 
     @property
     def wildcard_constraints(self):

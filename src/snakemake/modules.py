@@ -6,7 +6,6 @@ __license__ = "MIT"
 from pathlib import Path
 import types
 import re
-from typing import Callable, List
 from snakemake.common import Rules
 
 from snakemake.exceptions import WorkflowError
@@ -53,7 +52,7 @@ class ModuleInfo:
         self.meta_wrapper = meta_wrapper
         self.config = config
         self.skip_validation = skip_validation
-        self.parent_modifier = self.workflow.modifier
+        self.parent_modifier: WorkflowModifier = self.workflow.modifier
         self.rule_proxies = Rules()
 
         if prefix is not None:
@@ -85,7 +84,6 @@ class ModuleInfo:
             self.workflow,
             config=self.config,
             base_snakefile=snakefile,
-            skip_configfile=self.config is not None,
             skip_validation=self.skip_validation,
             skip_global_report_caption=skip_global_report_caption,
             rule_exclude_list=exclude_rules,
@@ -143,11 +141,10 @@ class WorkflowModifier:
     def __init__(
         self,
         workflow,
-        parent_modifier=None,
+        parent_modifier: "WorkflowModifier | None" = None,
         globals=None,
         config=None,
         base_snakefile=None,
-        skip_configfile=False,
         skip_validation=False,
         skip_global_report_caption=False,
         resolved_rulename_modifier=None,
@@ -162,37 +159,27 @@ class WorkflowModifier:
         namespace=None,
         rule_proxies=None,
     ):
-        if parent_modifier is not None:
-            # init with values from parent modifier
-            self.base_snakefile = parent_modifier.base_snakefile
-            self.globals = parent_modifier.globals
-            self.skip_configfile = parent_modifier.skip_configfile
-            self.resolved_rulename_modifier = parent_modifier.resolved_rulename_modifier
-            self.local_rulename_modifier = parent_modifier.local_rulename_modifier
-            self.skip_validation = parent_modifier.skip_validation
-            self.skip_global_report_caption = parent_modifier.skip_global_report_caption
-            self.rule_whitelist = parent_modifier.rule_whitelist
-            self.rule_exclude_list = parent_modifier.rule_exclude_list
-            self.ruleinfo_overwrite = parent_modifier.ruleinfo_overwrite
-            self.allow_rule_overwrite = parent_modifier.allow_rule_overwrite
-            self.path_modifier = parent_modifier.path_modifier
-            self.replace_wrapper_tag = parent_modifier.replace_wrapper_tag
-            self.wildcard_constraints = parent_modifier.wildcard_constraints
-            self.rules = parent_modifier.rules
-            self.rule_proxies = parent_modifier.rule_proxies
-        else:
+        if parent_modifier is None:
             # default settings for globals if not inheriting from parent
             self.globals = (
                 globals if globals is not None else dict(workflow.vanilla_globals)
             )
-            self.wildcard_constraints = dict()
-            self.rules = set()
+            self.wildcard_constraints: dict = dict()
+            self.rules: set = set()
             self.rule_proxies = rule_proxies or Rules()
             self.globals["rules"] = self.rule_proxies
             self.globals["checkpoints"] = self.globals[
                 "checkpoints"
             ].spawn_new_namespace()
             self.globals["__name__"] = namespace
+            self.modules: dict = dict()
+        else:
+            # init with values from parent modifier
+            self.globals = parent_modifier.globals
+            self.wildcard_constraints = parent_modifier.wildcard_constraints
+            self.rules = parent_modifier.rules
+            self.rule_proxies = parent_modifier.rule_proxies
+            self.modules = parent_modifier.modules
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile
@@ -200,7 +187,7 @@ class WorkflowModifier:
         if config is not None:
             self.globals["config"] = config
 
-        self.skip_configfile = skip_configfile
+        self.skip_configfile = config is not None
         self.resolved_rulename_modifier = resolved_rulename_modifier
         self.local_rulename_modifier = local_rulename_modifier
         self.skip_validation = skip_validation
@@ -209,7 +196,7 @@ class WorkflowModifier:
         self.rule_exclude_list = rule_exclude_list
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
-        self.path_modifier = PathModifier(replace_prefix, prefix, workflow)
+        self.path_modifier = PathModifier(replace_prefix, prefix, workflow)  # type: ignore[reportArgumentType]
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
         self.default_input_flags: DefaultFlags = DefaultFlags()

@@ -12,7 +12,6 @@ import collections
 from pathlib import Path
 from itertools import chain
 from functools import partial
-from typing import Union
 
 try:
     import re._constants as sre_constants
