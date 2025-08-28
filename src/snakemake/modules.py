@@ -177,7 +177,6 @@ class WorkflowModifier:
             self.allow_rule_overwrite = parent_modifier.allow_rule_overwrite
             self.path_modifier = parent_modifier.path_modifier
             self.replace_wrapper_tag = parent_modifier.replace_wrapper_tag
-            self.namespace = parent_modifier.namespace
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.rules = parent_modifier.rules
             self.rule_proxies = parent_modifier.rule_proxies
@@ -193,6 +192,7 @@ class WorkflowModifier:
             self.globals["checkpoints"] = self.globals[
                 "checkpoints"
             ].spawn_new_namespace()
+            self.globals["__name__"] = namespace
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile

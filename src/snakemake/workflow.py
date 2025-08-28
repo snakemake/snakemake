@@ -174,7 +174,7 @@ class Workflow(WorkflowExecutorInterface):
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
 
-        self._rules = OrderedDict()
+        self._rules: OrderedDict[str, Rule] = OrderedDict()
         self.default_target = None
         self._workdir_init = os.path.abspath(os.curdir)
         self._ruleorder = Ruleorder()
@@ -634,24 +634,34 @@ class Workflow(WorkflowExecutorInterface):
         checkpoint=False,
         allow_overwrite=False,
     ):
+        """Add a rule.
+        Check if the rule can be overwritten.
+
+        > Specific rules may even be modified before using them,
+        >  via a final with: followed by a block that lists items to overwrite.
+        >  This modification can be performed after a general import,
+        >  and will overwrite any unmodified import of the same rule.
         """
-        Add a rule.
-        """
-        is_overwrite = self.is_rule(name)
-        if not allow_overwrite and is_overwrite:
-            raise CreateRuleException(
-                f"The name {name} is already used by another rule",
-                lineno=lineno,
-                snakefile=snakefile,
+        if self.is_rule(name):
+            is_overwrite = allow_overwrite and (
+                self.get_rule(name).module_globals["__name__"]
+                == self.modifier.namespace
             )
+            if not is_overwrite:
+                raise CreateRuleException(
+                    f"The name {name} is already used by another rule",
+                    lineno=lineno,
+                    snakefile=snakefile,
+                )
+        else:
+            is_overwrite = False
+            self.rule_count += 1
+            if not self.default_target:
+                self.default_target = name
         rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
         self._rules[rule.name] = rule
         self.modifier.rules.add(rule)
-        if not is_overwrite:
-            self.rule_count += 1
-        if not self.default_target:
-            self.default_target = rule.name
-        return name
+        return is_overwrite
 
     def is_rule(self, name):
         """
@@ -1766,7 +1776,7 @@ class Workflow(WorkflowExecutorInterface):
         orig_name = name
         name = self.modifier.modify_rulename(name)
 
-        name = self.add_rule(
+        is_overwrite = self.add_rule(
             name,
             lineno,
             snakefile,
@@ -1776,6 +1786,8 @@ class Workflow(WorkflowExecutorInterface):
         rule = self.get_rule(name)
         rule.is_checkpoint = checkpoint
         rule.module_globals = self.modifier.globals
+        if is_overwrite:
+            rule.module_globals["__name__"] = None
 
         def decorate(ruleinfo):  # type: ignore[no-redef]
             nonlocal name
@@ -1789,10 +1801,9 @@ class Workflow(WorkflowExecutorInterface):
                     **ruleinfo.wildcard_constraints[1],
                 )
             if ruleinfo.name:
-                rule.name = ruleinfo.name
                 del self._rules[name]
-                self._rules[ruleinfo.name] = rule
-                name = rule.name
+                name = rule.name = ruleinfo.name
+                self._rules[name] = rule
             if ruleinfo.input:
                 rule.input_modifier = ruleinfo.input.modifier
                 rule.set_input(*ruleinfo.input.paths, **ruleinfo.input.kwpaths)
