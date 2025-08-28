@@ -1834,12 +1834,12 @@ class Workflow(WorkflowExecutorInterface):
                 try:
                     resources = Resources.from_mapping(resources)
                 except ResourceDuplicationError as err:
-                    raise RuleException(err, rule=rule)
+                    raise RuleException(err, rule=rule) from err
                 except ResourceConversionError as err:
                     msg = "Standard resource specified with invalid type, got error:\n"
-                    raise RuleException(msg + str(err), rule=rule)
+                    raise RuleException(msg + str(err), rule=rule) from err
                 except ResourceValidationError as err:
-                    raise RuleException(err, rule=rule)
+                    raise RuleException(err, rule=rule) from err
 
                 rule.resources.update(resources)
 

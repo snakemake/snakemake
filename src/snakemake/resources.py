@@ -17,6 +17,7 @@ from typing import (
     Collection,
     Dict,
     Final,
+    Iterable,
     Iterator,
     List,
     Literal,
@@ -563,7 +564,7 @@ class Resource:
                 self.name, self._evaluator(*args, **kept_args), raw=self.raw
             )
         except Exception as err:
-            if is_file_not_found_error(err, kwargs["input"]):
+            if is_file_not_found_error(err, kwargs.get("input", tuple())):
                 return self.__class__(self.name, TBDString(), raw=self.raw)
             raise err
 
@@ -691,10 +692,24 @@ class Resource:
         if self.name.endswith("_mb"):
             # using _convert_units with the identity lets us validate that the resource
             # was set with an int or float correctly
-            return self.__class__(self.name[:-3], self._convert_units(lambda x: x))
+            return self.__class__(
+                self.name, self._convert_units(lambda x: x), raw=self.raw
+            )
         if self.name.endswith("_mib"):
-            return self.__class__(self.name[:-4], self._convert_units(mib_to_mb))
-        return self
+            return self.__class__(
+                self.name[:-4] + "_mb", self._convert_units(mib_to_mb), raw=self.raw
+            )
+        if self._evaluator is not None:
+
+            @ft.wraps(self._evaluator)
+            def wrapper(*args: Any, **kwargs: Any):
+                return self.evaluate(*args, **kwargs).value
+
+            value = wrapper
+        else:
+            value = self._value
+
+        return self.__class__(self.name + "_mb", value)
 
     def with_name(self, name: str):
         """Update the name of the resource without changing the value."""
@@ -814,7 +829,7 @@ class Resource:
         if isinstance(value, str) and not isinstance(value, TBDString):
             stripped = value.strip("'\"")
             err_msg = (
-                f"Resource '{name}' with value '{value}' could not be parsed as "
+                f"Resource '{name}' with value {value!r} could not be parsed as "
                 "{unit}"
             )
             if name in SizedResources:
@@ -882,8 +897,6 @@ class Resources(Mapping[str, Resource]):
             raise ResourceDuplicationError(list(found))
         name = found.pop()
         standardized = self._data.pop(name).standardize_size()
-        if not standardized.is_evaluable() and not isinstance(standardized.value, int):
-            raise ResourceConversionError.format(name, standardized.value)
         self._data[standardized.name] = standardized
 
     def __repr__(self):
@@ -1001,7 +1014,10 @@ class Resources(Mapping[str, Resource]):
             # check if resource is parsable as human friendly (given the correct
             # name and formatted value). If it is, we return the parsed value to
             # save a step later.
-            val = Resource.parse_human_friendly(res, val)
+            try:
+                val = Resource.parse_human_friendly(res, val)
+            except WorkflowError:
+                pass
 
             try:
                 val = int(val)
@@ -1076,13 +1092,6 @@ class Resources(Mapping[str, Resource]):
         for key, val in self._data.items():
             yield key, val.value
 
-    def unwrapped_nonstr_items(self) -> Iterator[Tuple[str, int | None]]:
-        for key, val in self._data.items():
-            val = val.value
-            if isinstance(val, str):
-                continue
-            yield key, val
-
     def copy(self):
         """Return deepcopy of the resource object."""
         return copy.deepcopy(self)
@@ -1093,13 +1102,14 @@ class Resources(Mapping[str, Resource]):
             return Resource("", None)
         return result
 
-    def expand(
+    def expand_items(
         self,
         *,
         constraints: Mapping[str, Resource | int | None],
-        evaluate: Callable[[Resource], Resource],
+        evaluate: Callable[[Resource], Resource] | None,
         skip: Optional[Collection[str]] = None,
-    ) -> Dict[str, str | int | TBDString]:
+        expand_sized: bool = True,
+    ) -> Iterable[Tuple[str, str | int | TBDString | None]]:
         """Evaluate and constrain resources then convert into a simple resource mapping.
 
         SizedResources, including mem and disk, are expanded into their suffixed
@@ -1115,35 +1125,32 @@ class Resources(Mapping[str, Resource]):
             resource's ``evaluate()`` method with appropriate kwargs.
         skip
             Optional set of resource names that should not be expanded.
+        expand_sized
+            Enable/disable the expansion of sized resources (e.g. ``mem_mb``) into their
+            unsuffixed (``mem``) and mebibyte (``mem_mib``) versions. Defaults to
+            ``True``.
         """
-        resources: Dict[str, int | str | TBDString] = dict()
-
         skip = set() if skip is None else skip
         for resource in self.values():
             if resource.name in skip:
                 continue
 
-            if resource.is_evaluable():
+            if evaluate is not None and resource.is_evaluable():
                 resource = evaluate(resource)
-
-            if resource.value is None:
-                continue
 
             resource = resource.constrain(constraints.get(resource.name))
 
-            # Do the mem_mb/disk_mb assignments here because they should not be set
-            # before mem and disk are (potentially) evaluated
-            if resource.name in SizedResources:
-                resources[resource.name] = resource.format_human_friendly()
-                for res in [
-                    resource.with_name(resource.name + "_mb"),
-                    resource.from_mb_to_mib(),
-                ]:
-                    resources[res.name] = res.value  # type: ignore
-            else:
-                resources[resource.name] = resource.value  # type: ignore
+            yield resource.name, resource.value
 
-        return resources
+            if (
+                expand_sized
+                and resource.name.endswith("_mb")
+                and resource.name[:-3] in SizedResources
+                and resource.value is not None
+            ):
+                yield resource.name[:-3], resource.format_human_friendly()
+                mib = resource.from_mb_to_mib()
+                yield mib.name, mib.value
 
 
 ValidScope: TypeAlias = Literal["local"] | Literal["global"] | Literal["excluded"]

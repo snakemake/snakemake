@@ -1090,11 +1090,7 @@ class Rule(RuleInterface):
                     **aux,
                 )
             except ResourceValidationError as err:
-                raise WorkflowError(
-                    f"Resource {val.name} is neither int, float (would be rounded to "
-                    "nearest int), str, or None.",
-                    rule=self,
-                ) from err
+                raise WorkflowError(err, rule=self) from err
             except NestedCoroutineError:
                 # Need to catch this because both input.size_mb and the initial
                 # dag construction routine are run as independent asynchronous loops.
@@ -1119,11 +1115,15 @@ class Rule(RuleInterface):
             raise WorkflowError("Threads must be given as an int", rule=self)
 
         try:
-            resources = self.resources.expand(
-                constraints=self.workflow.global_resources,
-                evaluate=partial(evaluate, threads=threads),
-                skip={"_cores"},
-            )
+            resources = {
+                key: value
+                for key, value in self.resources.expand_items(
+                    constraints=self.workflow.global_resources,
+                    evaluate=partial(evaluate, threads=threads),
+                    skip={"_cores"},
+                )
+                if value is not None
+            }
         except ResourceConstraintError as err:
             raise WorkflowError(
                 f"Specified resource is of different type than global constraint "

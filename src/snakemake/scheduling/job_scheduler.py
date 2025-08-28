@@ -102,7 +102,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
-            for name, res in workflow.global_resources.unwrapped_nonstr_items()
+            for name, res in workflow.global_resources.expand_items(
+                constraints={}, evaluate=None, expand_sized=False,
+            )
+            if not isinstance(res, str)
         }
 
         if workflow.global_resources["_nodes"].value is not None:
@@ -361,7 +364,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if runjobs:
                         self.run(runjobs)
                 if not self.dryrun:
-
                     if self._run_performed is None or self._run_performed:
                         if self.running:
                             logger.debug("Waiting for running jobs to complete.")
@@ -571,9 +573,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # get number of free jobs to submit
         if self.job_rate_limiter is None:
             # ensure that the job count is not restricted
-            assert (
-                self.resources["_job_count"] == sys.maxsize
-            ), f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
+            assert self.resources["_job_count"] == sys.maxsize, (
+                f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
+            )
             return run_selector(self._job_selector)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:
