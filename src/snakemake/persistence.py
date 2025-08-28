@@ -312,7 +312,10 @@ class Persistence(PersistenceExecutorInterface):
             # do not store metadata if not requested
             return
 
-        if self.dag.workflow.exec_mode == ExecMode.DEFAULT:
+        if (
+            self.dag.workflow.exec_mode == ExecMode.DEFAULT
+            or self.dag.workflow.remote_execution_settings.immediate_submit
+        ):
             code = self._code(job.rule)
             input = self._input(job)
             log = self._log(job)
