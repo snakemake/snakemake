@@ -60,9 +60,9 @@ Finished jobid: 0 (Rule: all)
     with open(latest_log, "r") as f:
         log_content = f.read()
 
-    assert finished_stmt.strip() in log_content.strip(), (
-        f"Expected statement not found in log file. Log content: {log_content}"
-    )
+    assert (
+        finished_stmt.strip() in log_content.strip()
+    ), f"Expected statement not found in log file. Log content: {log_content}"
 
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
