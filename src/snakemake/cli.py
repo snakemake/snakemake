@@ -225,15 +225,18 @@ def parse_set_ints(arg, errmsg, wrapper=None):
             except ValueError:
                 if wrapper is None:
                     raise ValueError(errmsg)
-            if isinstance(value, int) and value < 0:
-                raise ValueError(errmsg)
-            if wrapper is not None:
-                try:
-                    assignments[key] = wrapper(value)
-                except Exception as e:
-                    raise ValueError(f"{errmsg} Cause: {e}")
             else:
+                if value < 0:
+                    raise ValueError(errmsg)
+
+            if wrapper is None:
                 assignments[key] = value
+                continue
+
+            try:
+                assignments[key] = wrapper(value)
+            except Exception as e:
+                raise ValueError(f"{errmsg} Cause: {e}") from e
     return assignments
 
 
