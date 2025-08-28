@@ -665,8 +665,13 @@ class Persistence(PersistenceExecutorInterface):
             json.dump(json_value, recfile)
 
         # ensure read and write permissions for user and group if they don't include the required mode
-        if recpath_stat is None or (recpath_stat.st_mode & mode) != mode:
+        if recpath_stat is None:
             os.chmod(recpath, mode)
+        else:
+            existing = stat.S_IMODE(recpath_stat.st_mode)
+            new_mode = existing | mode
+            if existing != new_mode:
+                os.chmod(recpath, new_mode)
 
     def _delete_record(self, subject, id):
         try:
@@ -691,15 +696,21 @@ class Persistence(PersistenceExecutorInterface):
     def _read_record_uncached(self, subject, id):
         if not self._exists_record(subject, id):
             return dict()
-        with open(self._record_path(subject, id), "r") as f:
+        path = self._record_path(subject, id)
+        with open(path, "r") as f:
             try:
                 return json.load(f)
-            except json.JSONDecodeError as e:
-                pass
-        # case: file is corrupted, delete it
-        logger.warning("Deleting corrupted metadata record.")
-        self._delete_record(subject, id)
-        return dict()
+            except json.JSONDecodeError:
+                # Since record writing cannot be reliably made atomic (some network
+                # filesystems, e.g. gluster have issues with writing to a temp file
+                # and then moving) we ignore corrupted or incompletely written records
+                # here.
+                # They can only occur if a snakemake process is running and one does a
+                # dry-run (or intentially disables locking) at the same time.
+                logger.warning(
+                    f"Ignore corrupted or currently written metadata record {path}."
+                )
+                return dict()
 
     def _exists_record(self, subject, id):
         return os.path.exists(self._record_path(subject, id))
