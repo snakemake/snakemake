@@ -385,6 +385,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 handle_touch=True,
                             )
                         else:
+                            # remote job execution
                             await job.postprocess(
                                 # storage upload will be done after all jobs of
                                 # this remote job (e.g. in case of group) are finished
@@ -493,6 +494,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """
         # must be called from within lock
         if postprocess_job and not self.workflow.dryrun:
+
             async_run(
                 job.postprocess(
                     error=True,
