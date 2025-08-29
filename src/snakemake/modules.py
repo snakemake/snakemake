@@ -132,7 +132,7 @@ class ModuleInfo:
             return None
         return set(rules)
 
-    def check_overwrite(self, rule_whitelist, rulename_modifier):
+    def check_overwrite(self, rule_whitelist: Set[str] | None, rulename_modifier):
         """Check if the rule from module can be overwritten.
 
         > Specific rules may even be modified before using them,
@@ -143,10 +143,12 @@ class ModuleInfo:
         if not rule_whitelist:  # all will be used, exclude rules do not matter
             self.wildcards_modifier_overwrited[rulename_modifier] = set()
             return False
+        matched = set()
         for rule in rule_whitelist:
             modified_this = rulename_modifier(rule) if rulename_modifier else rule
             for modified in self.wildcards_modifier_overwrited:
                 if (modified(rule) if modified else rule) == modified_this:
+                    matched.add(rule)
                     if rule in self.wildcards_modifier_overwrited[modified]:
                         raise CreateRuleException(
                             f"The rule {rule} is imported with same name modifier and modified more than once",
@@ -156,7 +158,7 @@ class ModuleInfo:
         # Now, there is already a rule with the same name defined before.
         # We confirm that it is created by `use rule * ...`
         # So we can safely overwrite it.
-        return True
+        return matched == set(rule_whitelist)
 
 
 class WorkflowModifier:
@@ -184,6 +186,7 @@ class WorkflowModifier:
             if globals is None:  # use rule from module with maybe_ruleinfo
                 globals = dict(workflow.vanilla_globals)
                 self.parent_modifier = workflow.modifier
+                allow_rule_overwrite |= self.parent_modifier.allow_rule_overwrite
             else:
                 # the first module modifier of workflow
                 self.parent_modifier = None
@@ -202,13 +205,14 @@ class WorkflowModifier:
         else:
             # use rule (from same include) as ... with: init with values from parent modifier
             parent_modifier = workflow.modifier
-            self.parent_modifier = parent_modifier.parent_modifier
+            self.parent_modifier = parent_modifier
             self.globals = parent_modifier.globals
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.rules = parent_modifier.rules
             self.rule_proxies = parent_modifier.rule_proxies
             self.modules = parent_modifier.modules
             self.path_modifier = parent_modifier.path_modifier
+            allow_rule_overwrite |= self.parent_modifier.allow_rule_overwrite
 
         self.is_module = is_module
         self.workflow = workflow
