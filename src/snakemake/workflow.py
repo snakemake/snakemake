@@ -1597,7 +1597,7 @@ class Workflow(WorkflowExecutorInterface):
         basedir = self.current_basedir if self.included_stack else None
         snakefile = infer_source_file(snakefile, basedir)
 
-        if not self.modifier.allow_rule_overwrite and snakefile in self.included:
+        if not self.modifier.is_module and snakefile in self.included:
             logger.info(f"Multiple includes of {snakefile} ignored")
             return
         self._included[snakefile.get_path_or_uri()] = snakefile
@@ -2398,7 +2398,7 @@ class Workflow(WorkflowExecutorInterface):
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 with WorkflowModifier(
                     self,
-                    parent_modifier=self.modifier,
+                    is_module=False,
                     resolved_rulename_modifier=get_name_modifier_func(
                         rules, name_modifier
                     ),

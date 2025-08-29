@@ -163,7 +163,7 @@ class WorkflowModifier:
     def __init__(
         self,
         workflow,
-        parent_modifier: "WorkflowModifier | None" = None,
+        is_module=True,
         globals=None,
         config=None,
         base_snakefile=None,
@@ -180,18 +180,16 @@ class WorkflowModifier:
         namespace=None,
         rule_proxies: Rules | None = None,
     ):
-        if parent_modifier is None:
+        if is_module:
             if globals is None:  # use rule from module with maybe_ruleinfo
                 globals = dict(workflow.vanilla_globals)
                 self.parent_modifier = workflow.modifier
             else:
                 # the first module modifier of workflow
-                rule_proxies = Rules()
-                path_modifier = PathModifier(None, None, workflow, None)
                 self.parent_modifier = None
             self.globals = globals
             self.globals["__name__"] = namespace
-            self.globals["rules"] = self.rule_proxies = rule_proxies
+            self.globals["rules"] = self.rule_proxies = rule_proxies or Rules()
             self.globals["checkpoints"] = self.globals[
                 "checkpoints"
             ].spawn_new_namespace()
@@ -200,19 +198,19 @@ class WorkflowModifier:
             self.wildcard_constraints: dict = dict()
             self.rules: set = set()
             self.modules: dict = dict()
-            self.path_modifier = path_modifier
-        elif parent_modifier is not None:
+            self.path_modifier = path_modifier or PathModifier(None, None, workflow)
+        else:
             # use rule (from same include) as ... with: init with values from parent modifier
+            parent_modifier = workflow.modifier
+            self.parent_modifier = parent_modifier.parent_modifier
             self.globals = parent_modifier.globals
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.rules = parent_modifier.rules
             self.rule_proxies = parent_modifier.rule_proxies
             self.modules = parent_modifier.modules
-            self.parent_modifier = parent_modifier.parent_modifier
             self.path_modifier = parent_modifier.path_modifier
-        else:
-            raise WorkflowError("Invalid workflow modifier configuration.")
 
+        self.is_module = is_module
         self.workflow = workflow
         self.base_snakefile = base_snakefile
 
