@@ -1,3 +1,6 @@
+shell.executable("bash")
+
+
 module A:
     snakefile:
         "module_deep.smk"

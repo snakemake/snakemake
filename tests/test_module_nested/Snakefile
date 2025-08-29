@@ -1,3 +1,6 @@
+shell.executable("bash")
+
+
 module B:
     snakefile:
         "module_shallow.smk"
