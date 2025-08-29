@@ -67,9 +67,9 @@ class ModuleInfo:
                     "Module definition contains both prefix and replace_prefix. "
                     "Only one at a time is allowed."
                 )
-
-        self.replace_prefix = replace_prefix
-        self.prefix = prefix
+        self.path_modifier = PathModifier(
+            replace_prefix, prefix, workflow, self.parent_modifier.path_modifier
+        )
 
     def use_rules(
         self,
@@ -95,8 +95,7 @@ class ModuleInfo:
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=True,
             namespace=self.name,
-            replace_prefix=self.replace_prefix,
-            prefix=self.prefix,
+            path_modifier=self.path_modifier,
             replace_wrapper_tag=self.get_wrapper_tag(),
             rule_proxies=self.rule_proxies,
         )
@@ -153,39 +152,46 @@ class WorkflowModifier:
         rule_exclude_list=None,
         ruleinfo_overwrite=None,
         allow_rule_overwrite=False,
-        replace_prefix=None,
-        prefix=None,
+        path_modifier: PathModifier | None = None,
         replace_wrapper_tag=None,
         namespace=None,
-        rule_proxies=None,
+        rule_proxies: Rules | None = None,
     ):
         if parent_modifier is None:
-            # default settings for globals if not inheriting from parent
-            self.globals = (
-                globals if globals is not None else dict(workflow.vanilla_globals)
-            )
+            if globals is None:  # use rule from module with maybe_ruleinfo
+                globals = dict(workflow.vanilla_globals)
+                parent_modifier = workflow.modifier
+            else:
+                # the first module modifier of workflow
+                rule_proxies = Rules()
+                path_modifier = PathModifier(None, None, workflow, None)
             self.wildcard_constraints: dict = dict()
             self.rules: set = set()
-            self.rule_proxies = rule_proxies or Rules()
-            self.globals["rules"] = self.rule_proxies
+            self.globals = globals
+            self.globals["rules"] = self.rule_proxies = rule_proxies
             self.globals["checkpoints"] = self.globals[
                 "checkpoints"
             ].spawn_new_namespace()
+            if config is not None:
+                self.globals["config"] = config
             self.globals["__name__"] = namespace
             self.modules: dict = dict()
-        else:
-            # init with values from parent modifier
+            self.parent_modifier = parent_modifier
+            self.path_modifier = path_modifier
+        elif parent_modifier is not None:
+            # use rule (from same include) as ... with: init with values from parent modifier
             self.globals = parent_modifier.globals
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.rules = parent_modifier.rules
             self.rule_proxies = parent_modifier.rule_proxies
             self.modules = parent_modifier.modules
+            self.parent_modifier = parent_modifier.parent_modifier
+            self.path_modifier = parent_modifier.path_modifier
+        else:
+            raise WorkflowError("Invalid workflow modifier configuration.")
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile
-
-        if config is not None:
-            self.globals["config"] = config
 
         self.skip_configfile = config is not None
         self.resolved_rulename_modifier = resolved_rulename_modifier
@@ -196,13 +202,12 @@ class WorkflowModifier:
         self.rule_exclude_list = rule_exclude_list
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
-        self.path_modifier = PathModifier(replace_prefix, prefix, workflow)  # type: ignore[reportArgumentType]
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
         self.default_input_flags: DefaultFlags = DefaultFlags()
         self.default_output_flags: DefaultFlags = DefaultFlags()
 
-    def inherit_rule_proxies(self, child_modifier):
+    def inherit_rule_proxies(self, child_modifier: "WorkflowModifier"):
         for name, rule in child_modifier.rule_proxies._rules.items():
             if child_modifier.local_rulename_modifier is not None:
                 name = child_modifier.local_rulename_modifier(name)
