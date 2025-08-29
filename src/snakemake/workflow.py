@@ -631,31 +631,21 @@ class Workflow(WorkflowExecutorInterface):
 
     def add_rule(
         self,
-        name=None,
+        name: str,
         lineno=None,
         snakefile=None,
         checkpoint=False,
         allow_overwrite=False,
     ):
-        """Add a rule.
-        Check if the rule can be overwritten.
-
-        > Specific rules may even be modified before using them,
-        >  via a final with: followed by a block that lists items to overwrite.
-        >  This modification can be performed after a general import,
-        >  and will overwrite any unmodified import of the same rule.
         """
-        if self.is_rule(name):
-            is_overwrite = allow_overwrite and (
-                self.get_rule(name).module_globals["__name__"]
-                == self.modifier.namespace
+        Add a rule.
+        """
+        if self.is_rule(name) and not allow_overwrite:
+            raise CreateRuleException(
+                f"The name {name} is already used by another rule",
+                lineno=lineno,
+                snakefile=snakefile,
             )
-            if not is_overwrite:
-                raise CreateRuleException(
-                    f"The name {name} is already used by another rule",
-                    lineno=lineno,
-                    snakefile=snakefile,
-                )
         else:
             is_overwrite = False
             self.rule_count += 1
@@ -1764,20 +1754,15 @@ class Workflow(WorkflowExecutorInterface):
 
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
         # choose a name for an unnamed rule
-        if name is None:
-            name = str(len(self._rules) + 1)
-
-        if self.modifier.skip_rule(name):
-
-            def decorate(ruleinfo):
-                # do nothing, ignore rule
-                return ruleinfo.func
-
-            return decorate
+        orig_name = name or str(len(self._rules) + 1)
+        # FIXME: there are cases when someone use rule:\n\tname: "sth" to define the rulename,
+        # this will go through the modifier.avail_rulename check.
+        # Won't fix in this PR.
 
         # Optionally let the modifier change the rulename.
-        orig_name = name
-        name = self.modifier.modify_rulename(name)
+        name = self.modifier.avail_rulename(orig_name)
+        if not name:
+            return lambda ruleinfo: ruleinfo.func  # ignore the rule
 
         is_overwrite = self.add_rule(
             name,
@@ -1792,7 +1777,7 @@ class Workflow(WorkflowExecutorInterface):
         if is_overwrite:
             rule.module_globals["__name__"] = None
 
-        def decorate(ruleinfo):  # type: ignore[no-redef]
+        def decorate(ruleinfo: RuleInfo):  # type: ignore[no-redef]
             nonlocal name
 
             # If requested, modify ruleinfo via the modifier.
@@ -2339,10 +2324,10 @@ class Workflow(WorkflowExecutorInterface):
 
     def userule(
         self,
-        rules=None,
-        from_module=None,
-        exclude_rules=None,
-        name_modifier=None,
+        rules: List[str],
+        from_module: str | None = None,
+        exclude_rules: List[str] | None = None,
+        name_modifier: str | None = None,
         lineno=None,
     ):
         def decorate(maybe_ruleinfo):
@@ -2400,7 +2385,7 @@ class Workflow(WorkflowExecutorInterface):
                 )
             else:
                 # local inheritance
-                if self.modifier.skip_rule(name_modifier):
+                if not self.modifier.avail_rulename(name_modifier):
                     # The parent use rule statement is specific for a different particular rule
                     # hence this local use rule statement can be skipped.
                     return
@@ -2415,7 +2400,7 @@ class Workflow(WorkflowExecutorInterface):
                     self,
                     parent_modifier=self.modifier,
                     resolved_rulename_modifier=get_name_modifier_func(
-                        rules, name_modifier, parent_modifier=self.modifier
+                        rules, name_modifier
                     ),
                     ruleinfo_overwrite=ruleinfo,
                 ):

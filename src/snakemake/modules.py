@@ -6,32 +6,27 @@ __license__ = "MIT"
 from pathlib import Path
 import types
 import re
+from typing import List, Set
 from snakemake.common import Rules
 
-from snakemake.exceptions import WorkflowError
+from snakemake.exceptions import CreateRuleException, WorkflowError
 from snakemake.io.flags import DefaultFlags
 from snakemake.path_modifier import PathModifier
 from snakemake import wrapper
 
 
-def get_name_modifier_func(rules=None, name_modifier=None, parent_modifier=None):
+def get_name_modifier_func(rules=None, name_modifier=None):
     if name_modifier is None:
         return None
     else:
-        if parent_modifier is None:
-            parent_modifier_func = lambda rulename: rulename
-        else:
-            parent_modifier_func = parent_modifier.modify_rulename
         if "*" in name_modifier:
-            return lambda rulename: parent_modifier_func(
-                name_modifier.replace("*", rulename)
-            )
+            return lambda rulename: name_modifier.replace("*", rulename)
         elif name_modifier is not None:
             if len(rules) > 1:
                 raise SyntaxError(
                     "Multiple rules in 'use rule' statement but name modification ('as' statement) does not contain a wildcard '*'."
                 )
-            return lambda rulename: parent_modifier_func(name_modifier)
+            return lambda rulename: name_modifier
 
 
 class ModuleInfo:
@@ -54,6 +49,7 @@ class ModuleInfo:
         self.skip_validation = skip_validation
         self.parent_modifier: WorkflowModifier = self.workflow.modifier
         self.rule_proxies = Rules()
+        self.wildcards_modifier_overwrited = {}
 
         if prefix is not None:
             if isinstance(prefix, Path):
@@ -73,13 +69,15 @@ class ModuleInfo:
 
     def use_rules(
         self,
-        rules=None,
-        name_modifier=None,
-        exclude_rules=None,
+        rules: List[str],
+        name_modifier: str | None = None,
+        exclude_rules: List[str] | None = None,
         ruleinfo=None,
         skip_global_report_caption=False,
     ):
         snakefile = self.get_snakefile()
+        rule_whitelist = self.get_rule_whitelist(rules)
+        rulename_modifier = get_name_modifier_func(rules, name_modifier)
         modifier = WorkflowModifier(
             self.workflow,
             config=self.config,
@@ -87,13 +85,13 @@ class ModuleInfo:
             skip_validation=self.skip_validation,
             skip_global_report_caption=skip_global_report_caption,
             rule_exclude_list=exclude_rules,
-            rule_whitelist=self.get_rule_whitelist(rules),
-            resolved_rulename_modifier=get_name_modifier_func(
-                rules, name_modifier, parent_modifier=self.parent_modifier
-            ),
-            local_rulename_modifier=get_name_modifier_func(rules, name_modifier),
+            rule_whitelist=rule_whitelist,
+            resolved_rulename_modifier=rulename_modifier,
+            local_rulename_modifier=rulename_modifier,
             ruleinfo_overwrite=ruleinfo,
-            allow_rule_overwrite=True,
+            allow_rule_overwrite=self.check_overwrite(
+                rule_whitelist, rulename_modifier
+            ),
             namespace=self.name,
             path_modifier=self.path_modifier,
             replace_wrapper_tag=self.get_wrapper_tag(),
@@ -131,9 +129,34 @@ class ModuleInfo:
                 raise SyntaxError(
                     "The 'use rule' statement uses a wildcard '*' but lists multiple additional rules."
                 )
-            else:
-                return None
+            return None
         return set(rules)
+
+    def check_overwrite(self, rule_whitelist, rulename_modifier):
+        """Check if the rule from module can be overwritten.
+
+        > Specific rules may even be modified before using them,
+        >  via a final with: followed by a block that lists items to overwrite.
+        >  This modification can be performed after a general import,
+        >  and will overwrite any unmodified import of the same rule.
+        """
+        if not rule_whitelist:  # all will be used, exclude rules do not matter
+            self.wildcards_modifier_overwrited[rulename_modifier] = set()
+            return False
+        for rule in rule_whitelist:
+            modified_this = rulename_modifier(rule) if rulename_modifier else rule
+            for modified in self.wildcards_modifier_overwrited:
+                if (modified(rule) if modified else rule) == modified_this:
+                    if rule in self.wildcards_modifier_overwrited[modified]:
+                        raise CreateRuleException(
+                            f"The rule {rule} is imported with same name modifier and modified more than once",
+                            snakefile=self.snakefile,
+                        )
+                    self.wildcards_modifier_overwrited[modified].add(rule)
+        # Now, there is already a rule with the same name defined before.
+        # We confirm that it is created by `use rule * ...`
+        # So we can safely overwrite it.
+        return True
 
 
 class WorkflowModifier:
@@ -148,7 +171,7 @@ class WorkflowModifier:
         skip_global_report_caption=False,
         resolved_rulename_modifier=None,
         local_rulename_modifier=None,
-        rule_whitelist=None,
+        rule_whitelist: Set[str] | None = None,
         rule_exclude_list=None,
         ruleinfo_overwrite=None,
         allow_rule_overwrite=False,
@@ -160,23 +183,23 @@ class WorkflowModifier:
         if parent_modifier is None:
             if globals is None:  # use rule from module with maybe_ruleinfo
                 globals = dict(workflow.vanilla_globals)
-                parent_modifier = workflow.modifier
+                self.parent_modifier = workflow.modifier
             else:
                 # the first module modifier of workflow
                 rule_proxies = Rules()
                 path_modifier = PathModifier(None, None, workflow, None)
-            self.wildcard_constraints: dict = dict()
-            self.rules: set = set()
+                self.parent_modifier = None
             self.globals = globals
+            self.globals["__name__"] = namespace
             self.globals["rules"] = self.rule_proxies = rule_proxies
             self.globals["checkpoints"] = self.globals[
                 "checkpoints"
             ].spawn_new_namespace()
             if config is not None:
                 self.globals["config"] = config
-            self.globals["__name__"] = namespace
+            self.wildcard_constraints: dict = dict()
+            self.rules: set = set()
             self.modules: dict = dict()
-            self.parent_modifier = parent_modifier
             self.path_modifier = path_modifier
         elif parent_modifier is not None:
             # use rule (from same include) as ... with: init with values from parent modifier
@@ -213,12 +236,25 @@ class WorkflowModifier:
                 name = child_modifier.local_rulename_modifier(name)
             self.rule_proxies._register_rule(name, rule)
 
-    def skip_rule(self, rulename):
-        return (
+    def avail_rulename(self, rulename):
+        if (
             self.rule_whitelist is not None and rulename not in self.rule_whitelist
-        ) or (self.rule_exclude_list is not None and rulename in self.rule_exclude_list)
+        ) or (
+            self.rule_exclude_list is not None and rulename in self.rule_exclude_list
+        ):
+            return None
+        if self.parent_modifier is not None:
+            name_modifier = self._modify_rulename(rulename)
+            return self.parent_modifier.avail_rulename(name_modifier)
+        return rulename
 
     def modify_rulename(self, rulename):
+        rulename = self._modify_rulename(rulename)
+        if self.parent_modifier is not None:
+            rulename = self.parent_modifier.modify_rulename(rulename)
+        return rulename
+
+    def _modify_rulename(self, rulename):
         if self.resolved_rulename_modifier is not None:
             return self.resolved_rulename_modifier(rulename)
         return rulename
