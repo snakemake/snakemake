@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.10.1](https://github.com/snakemake/snakemake/compare/v9.10.0...v9.10.1) (2025-09-01)
+
+
+### Performance Improvements
+
+* optimize persistence implementation (only write metadata once, reduce file operations for improving glusterfs performance) ([#3679](https://github.com/snakemake/snakemake/issues/3679)) ([122c713](https://github.com/snakemake/snakemake/commit/122c71379eeef6799a4448428594ec4f9b5b43ec))
+
 ## [9.10.0](https://github.com/snakemake/snakemake/compare/v9.9.0...v9.10.0) (2025-08-19)
 
 
