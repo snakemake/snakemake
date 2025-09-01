@@ -22,6 +22,7 @@ from typing import Any, Optional, Set
 from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
 )
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 from snakemake.common.tbdstring import TBDString
 import snakemake.exceptions
@@ -311,58 +312,64 @@ class Persistence(PersistenceExecutorInterface):
             # do not store metadata if not requested
             return
 
-        code = self._code(job.rule)
-        input = self._input(job)
-        log = self._log(job)
-        params = self._params(job)
-        shellcmd = job.shellcmd
-        conda_env = self._conda_env(job)
-        software_stack_hash = self._software_stack_hash(job)
-        fallback_time = time.time()
-        for f in job.output:
-            rec_path = self._record_path(self._incomplete_path, f)
-            starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
-            # Sometimes finished is called twice, if so, lookup the previous starttime
-            if not os.path.exists(rec_path):
-                starttime = self._read_record(self._metadata_path, f).get(
-                    "starttime", None
+        if (
+            self.dag.workflow.exec_mode == ExecMode.DEFAULT
+            or self.dag.workflow.remote_execution_settings.immediate_submit
+        ):
+            code = self._code(job.rule)
+            input = self._input(job)
+            log = self._log(job)
+            params = self._params(job)
+            shellcmd = job.shellcmd
+            conda_env = self._conda_env(job)
+            software_stack_hash = self._software_stack_hash(job)
+            fallback_time = time.time()
+            for f in job.output:
+                rec_path = self._record_path(self._incomplete_path, f)
+                starttime = (
+                    os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
+                )
+                # Sometimes finished is called twice, if so, lookup the previous starttime
+                if not os.path.exists(rec_path):
+                    starttime = self._read_record(self._metadata_path, f).get(
+                        "starttime", None
+                    )
+
+                endtime = (
+                    (await f.mtime()).local_or_storage()
+                    if await f.exists()
+                    else fallback_time
                 )
 
-            endtime = (
-                (await f.mtime()).local_or_storage()
-                if await f.exists()
-                else fallback_time
-            )
-
-            checksums = (
-                (infile, await infile.checksum(self.max_checksum_file_size))
-                for infile in job.input
-            )
-            self._record(
-                self._metadata_path,
-                {
-                    "record_format_version": RECORD_FORMAT_VERSION,
-                    "code": code,
-                    "rule": job.rule.name,
-                    "input": input,
-                    "log": log,
-                    "params": params,
-                    "shellcmd": shellcmd,
-                    "incomplete": False,
-                    "starttime": starttime,
-                    "endtime": endtime,
-                    "job_hash": hash(job),
-                    "conda_env": conda_env,
-                    "software_stack_hash": software_stack_hash,
-                    "container_img_url": job.container_img_url,
-                    "input_checksums": {
-                        infile: checksum
-                        async for infile, checksum in checksums
-                        if checksum is not None
+                checksums = (
+                    (infile, await infile.checksum(self.max_checksum_file_size))
+                    for infile in job.input
+                )
+                self._record(
+                    self._metadata_path,
+                    {
+                        "record_format_version": RECORD_FORMAT_VERSION,
+                        "code": code,
+                        "rule": job.rule.name,
+                        "input": input,
+                        "log": log,
+                        "params": params,
+                        "shellcmd": shellcmd,
+                        "incomplete": False,
+                        "starttime": starttime,
+                        "endtime": endtime,
+                        "job_hash": hash(job),
+                        "conda_env": conda_env,
+                        "software_stack_hash": software_stack_hash,
+                        "container_img_url": job.container_img_url,
+                        "input_checksums": {
+                            infile: checksum
+                            async for infile, checksum in checksums
+                            if checksum is not None
+                        },
                     },
-                },
-                f,
-            )
+                    f,
+                )
         # remove incomplete marker only after creation of metadata record.
         # otherwise the job starttime will be missing.
         self._remove_incomplete_marker(job)
@@ -639,30 +646,32 @@ class Persistence(PersistenceExecutorInterface):
     def _output(self, job):
         return sorted(job.output)
 
-    def _record(self, subject, json_value, id):
+    def _record(
+        self,
+        subject,
+        json_value,
+        id,
+        mode=stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP,
+    ):
         recpath = self._record_path(subject, id)
-        recdir = os.path.dirname(recpath)
-        os.makedirs(recdir, exist_ok=True)
-        # Write content to temporary file and rename it to the final file.
-        # This avoids race-conditions while writing (e.g. on NFS when the main job
-        # and the cluster node job propagate their content and the system has some
-        # latency including non-atomic propagation processes).
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            dir=recdir,
-            delete=False,
-            # Add short prefix to final filename for better debugging.
-            # This may not be the full one, because that may be too long
-            # for the filesystem in combination with the prefix from the temp
-            # file.
-            suffix=f".{os.path.basename(recpath)[:8]}",
-        ) as tmpfile:
-            json.dump(json_value, tmpfile)
-        # ensure read and write permissions for user and group
-        os.chmod(
-            tmpfile.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
-        )
-        os.replace(tmpfile.name, recpath)
+        try:
+            recpath_stat = os.stat(recpath)
+        except FileNotFoundError:
+            recpath_stat = None
+            recdir = os.path.dirname(recpath)
+            os.makedirs(recdir, exist_ok=True)
+
+        with open(recpath, "w") as recfile:
+            json.dump(json_value, recfile)
+
+        # ensure read and write permissions for user and group if they don't include the required mode
+        if recpath_stat is None:
+            os.chmod(recpath, mode)
+        else:
+            existing = stat.S_IMODE(recpath_stat.st_mode)
+            new_mode = existing | mode
+            if existing != new_mode:
+                os.chmod(recpath, new_mode)
 
     def _delete_record(self, subject, id):
         try:
@@ -687,15 +696,21 @@ class Persistence(PersistenceExecutorInterface):
     def _read_record_uncached(self, subject, id):
         if not self._exists_record(subject, id):
             return dict()
-        with open(self._record_path(subject, id), "r") as f:
+        path = self._record_path(subject, id)
+        with open(path, "r") as f:
             try:
                 return json.load(f)
-            except json.JSONDecodeError as e:
-                pass
-        # case: file is corrupted, delete it
-        logger.warning("Deleting corrupted metadata record.")
-        self._delete_record(subject, id)
-        return dict()
+            except json.JSONDecodeError:
+                # Since record writing cannot be reliably made atomic (some network
+                # filesystems, e.g. gluster have issues with writing to a temp file
+                # and then moving) we ignore corrupted or incompletely written records
+                # here.
+                # They can only occur if a snakemake process is running and one does a
+                # dry-run (or intentionally disables locking) at the same time.
+                logger.warning(
+                    f"Ignore corrupted or currently written metadata record {path}."
+                )
+                return dict()
 
     def _exists_record(self, subject, id):
         return os.path.exists(self._record_path(subject, id))
