@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -5,15 +7,16 @@ __license__ = "MIT"
 
 import asyncio
 from bisect import bisect
-from collections import deque
-import signal
-import sys
+from collections import defaultdict, deque
+import copy
+import math
+import os, signal, sys
 import threading
 
 from itertools import chain, accumulate, filterfalse, repeat
 from contextlib import ContextDecorator
 import time
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, TYPE_CHECKING
 
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -32,6 +35,9 @@ from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSett
 
 from snakemake.settings.enums import Quietness
 from snakemake.settings.types import MaxJobsPerTimespan
+
+if TYPE_CHECKING:
+    from snakemake.workflow import Workflow
 
 registry = ExecutorPluginRegistry()
 
@@ -61,7 +67,7 @@ class DummyRateLimiter(ContextDecorator):
 class JobScheduler(JobSchedulerExecutorInterface):
     def __init__(
         self,
-        workflow,
+        workflow: Workflow,
         executor_plugin: ExecutorPlugin,
         scheduler: SchedulerBase,
         greedy_scheduler_settings: GreedySchedulerSettings,
@@ -94,20 +100,23 @@ class JobScheduler(JobSchedulerExecutorInterface):
             else None
         )
 
-        nodes_unset = workflow.global_resources["_nodes"] is None
-
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
-            for name, res in workflow.global_resources.items()
+            for name, res in workflow.global_resources.expand_items(
+                constraints={},
+                evaluate=None,
+                expand_sized=False,
+            )
+            if not isinstance(res, str)
         }
 
-        if not nodes_unset:
+        if workflow.global_resources["_nodes"].value is not None:
             # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
             self.global_resources["_cores"] = sys.maxsize
         # register job count resource (always initially unrestricted)
         self.global_resources["_job_count"] = sys.maxsize
 
-        self.resources = dict(self.global_resources)
+        self.resources = copy.copy(self.global_resources)
 
         self._open_jobs = threading.Semaphore(0)
         self._lock = threading.Lock()
@@ -357,7 +366,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if runjobs:
                         self.run(runjobs)
                 if not self.dryrun:
-
                     if self._run_performed is None or self._run_performed:
                         if self.running:
                             logger.debug("Waiting for running jobs to complete.")
