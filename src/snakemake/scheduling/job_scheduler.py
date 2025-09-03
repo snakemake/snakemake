@@ -19,6 +19,7 @@ from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorI
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.io import _IOFile
 from snakemake.jobs import AbstractJob
@@ -127,6 +128,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self.submit_callback = self._proceed
             self.finish_callback = self._noop
 
+        self._executors = dict()
+        self._executor_plugin_registry = ExecutorPluginRegistry()
+
         self._local_executor = None
 
         if self.workflow.local_exec:
@@ -166,6 +170,20 @@ class JobScheduler(JobSchedulerExecutorInterface):
             # This can only happen with --gui, in which case it is fine for now.
             pass
         self._open_jobs.release()
+
+    def get_executor(self, job: AbstractJob) -> AbstractExecutor:
+        executor_name = job.resources["executor"]
+        assert isinstance(executor_name, str)
+        if executor_name not in self._executors:
+            plugin = self._executor_plugin_registry.get_plugin(executor_name)
+            settings = self.workflow.executor_plugin_settings.get(executor_name)
+            plugin.validate_settings(settings)
+            self._executors[executor_name] = plugin.executor(
+                self.workflow,
+                logger,
+                settings,
+            )
+        return self._executors[executor_name]
 
     def executor_error_callback(self, exception):
         with self._lock:
@@ -474,11 +492,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
         if executor is None:
             executor = self._executor
         executor.run_jobs(jobs)
-
-    def get_executor(self, job):
-        if job.is_local and self._local_executor is not None:
-            return self._local_executor
-        return self._executor
 
     def _noop(self, job):
         pass

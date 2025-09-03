@@ -458,7 +458,7 @@ class DAGApi(ApiBase):
         remote_execution_settings: Optional[RemoteExecutionSettings] = None,
         scheduling_settings: Optional[SchedulingSettings] = None,
         group_settings: Optional[GroupSettings] = None,
-        executor_settings: Optional[ExecutorSettingsBase] = None,
+        executor_settings: Optional[Mapping[str, ExecutorSettingsBase]] = None,
         updated_files: Optional[List[str]] = None,
         scheduler_settings: Optional[SchedulerSettingsBase] = None,
         greedy_scheduler_settings: Optional[GreedySchedulerSettings] = None,
@@ -471,7 +471,7 @@ class DAGApi(ApiBase):
         execution_settings: ExecutionSettings -- The execution settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
         remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
-        executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
+        executor_settings: Optional[Mapping[str, ExecutorSettingsBase]] -- The executor settings for the workflow, with executor names as keys.
         updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
         """
 
@@ -483,6 +483,8 @@ class DAGApi(ApiBase):
             scheduling_settings = SchedulingSettings()
         if group_settings is None:
             group_settings = GroupSettings()
+        if executor_settings is None:
+            executor_settings = dict()
 
         if (
             remote_execution_settings.immediate_submit
@@ -494,9 +496,6 @@ class DAGApi(ApiBase):
 
         executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.get_plugin(executor)
-
-        if executor_settings is not None:
-            executor_plugin.validate_settings(executor_settings)
 
         if executor_plugin.common_settings.implies_no_shared_fs:
             # no shared FS at all
@@ -589,6 +588,9 @@ class DAGApi(ApiBase):
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
 
+        assert self.workflow_api.resource_settings.default_resources is not None
+        self.workflow_api.resource_settings.default_resources.set_resource("executor", executor)
+
         execution_settings.use_threads = (
             execution_settings.use_threads
             or (os.name not in ["posix"])
@@ -640,7 +642,6 @@ class DAGApi(ApiBase):
             ),
         )
         workflow.execute(
-            executor_plugin=executor_plugin,
             executor_settings=executor_settings,
             scheduler_plugin=scheduler_plugin,
             scheduler_settings=scheduler_settings,
