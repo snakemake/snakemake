@@ -589,7 +589,8 @@ class DAGApi(ApiBase):
                 raise ApiError("debug mode cannot be used with non-local execution")
 
         assert self.workflow_api.resource_settings.default_resources is not None
-        self.workflow_api.resource_settings.default_resources.set_resource("executor", executor)
+        if "executor" not in self.workflow_api.resource_settings.default_resources.parsed:
+            self.workflow_api.resource_settings.default_resources.set_resource("executor", executor)
 
         execution_settings.use_threads = (
             execution_settings.use_threads
