@@ -719,7 +719,9 @@ def get_argument_parser(profiles=None):
         "--keep-going",
         "-k",
         action="store_true",
-        help="Go on with independent jobs if a job fails.",
+        help="Go on with independent jobs if a job fails during execution. "
+        "This only applies to runtime failures in job execution, "
+        "not to errors during workflow parsing or DAG construction.",
     )
     group_exec.add_argument(
         "--rerun-triggers",
