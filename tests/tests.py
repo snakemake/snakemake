@@ -2549,7 +2549,7 @@ def test_immediate_submit_without_shared_fs():
         --immediate-submit \
         --notemp \
         --jobs 10 \
-        ; ./clustersubmit --execute """,
+        && ./clustersubmit --execute """,
     )
 
 
