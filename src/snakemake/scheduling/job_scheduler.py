@@ -338,26 +338,34 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     local_runjobs = [job for job in run if job.is_local]
                     runjobs = [job for job in run if not job.is_local]
                     if local_runjobs:
-                        if (
-                            not self.workflow.remote_exec
-                            and not self.workflow.local_exec
-                        ):
-                            # Workflow uses a remote plugin and this scheduling run
-                            # is on the main process. Hence, we have to download
-                            # non-shared remote files for the local jobs.
-                            async_run(
-                                self.workflow.dag.retrieve_storage_inputs(
-                                    jobs=local_runjobs, also_missing_internal=True
-                                )
+                        if self.workflow.remote_execution_settings.immediate_submit:
+                            logger.warning(
+                                "The following local rules cannot run when the "
+                                "--immediate-submit flag is specified. Skipping: "
+                                f"{', '.join(j.name for j in local_runjobs)}."
                             )
-                        self.run(
-                            local_runjobs,
-                            executor=self._local_executor or self._executor,
-                        )
+                        else:
+                            if (
+                                not self.workflow.remote_exec
+                                and not self.workflow.local_exec
+                            ):
+                                # Workflow uses a remote plugin and this scheduling run
+                                # is on the main process. Hence, we have to download
+                                # non-shared remote files for the local jobs.
+                                async_run(
+                                    self.workflow.dag.retrieve_storage_inputs(
+                                        jobs=local_runjobs, also_missing_internal=True
+                                    )
+                                )
+
+                            self.run(
+                                local_runjobs,
+                                executor=self._local_executor or self._executor,
+                            )
                     if runjobs:
                         self.run(runjobs)
-                if not self.dryrun:
 
+                if not self.dryrun:
                     if self._run_performed is None or self._run_performed:
                         if self.running:
                             logger.debug("Waiting for running jobs to complete.")
@@ -388,6 +396,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def _finish_jobs(self):
         # must be called from within lock
         # clear the global tofinish such that parallel calls do not interfere
+
+        # shortcut to "--immediate-submit" flag
+        immediate_submit = self.workflow.remote_execution_settings.immediate_submit
+
         async def postprocess():
             for job in self._tofinish:
                 # IMPORTANT: inside of this loop, there may be no calls that have
@@ -400,13 +412,14 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 store_in_storage=not self.touch,
                                 handle_log=True,
                                 handle_touch=not self.touch,
-                                ignore_missing_output=self.touch,
+                                ignore_missing_output=self.touch or immediate_submit,
                             )
                         elif self.workflow.exec_mode == ExecMode.SUBPROCESS:
                             await job.postprocess(
                                 store_in_storage=False,
                                 handle_log=True,
                                 handle_touch=True,
+                                ignore_missing_output=immediate_submit,
                             )
                         else:
                             # remote job execution
@@ -417,12 +430,15 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 store_in_storage=False,
                                 handle_log=True,
                                 handle_touch=True,
+                                ignore_missing_output=immediate_submit,
                             )
                     except (RuleException, WorkflowError) as e:
                         # if an error occurs while processing job output,
                         # we do the same as in case of errors during execution
                         print_exception(e, self.workflow.linemaps)
-                        await job.postprocess(error=True)
+                        await job.postprocess(
+                            error=True, ignore_missing_output=immediate_submit
+                        )
                         self._handle_error(job, postprocess_job=False)
                         continue
 
