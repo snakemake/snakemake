@@ -2313,58 +2313,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         for f in job.products():
             self.job_cache[(job.rule, f)] = job
 
-<<<<<<< HEAD:snakemake/dag.py
-    def update_dynamic(self, job):
-        """Update the DAG by evaluating the output of the given job that
-        contains dynamic output files."""
-        dynamic_wildcards = job.dynamic_wildcards
-        if not dynamic_wildcards:
-            # this happens e.g. in dryrun if output is not yet present
-            return
-
-        depending = list(
-            filter(lambda job_: not self.finished(job_), self.bfs(self.depending, job))
-        )
-        newrule, non_dynamic_wildcards = job.rule.dynamic_branch(
-            dynamic_wildcards, input=False
-        )
-        self.specialize_rule(job.rule, newrule)
-
-        # no targetfile needed for job
-        newjob = self.new_job(newrule, format_wildcards=non_dynamic_wildcards)
-        self.replace_job(job, newjob)
-        for job_ in depending:
-            needs_update = any(
-                f.get_wildcard_names()[0] & dynamic_wildcards.keys()
-                for f in job_.rule.dynamic_input
-            )
-
-            if needs_update:
-                newrule_ = job_.rule.dynamic_branch(dynamic_wildcards)
-                if newrule_ is not None:
-                    self.specialize_rule(job_.rule, newrule_)
-                    if not self.dynamic(job_):
-                        logger.debug("Updating job {}.".format(job_))
-                        newjob_ = self.new_job(
-                            newrule_, targetfile=job_.output[0] if job_.output else None
-                        )
-
-                        unexpected_output = self.reason(
-                            job_
-                        ).missing_output.intersection(newjob.existing_output)
-                        if unexpected_output:
-                            logger.warning(
-                                "Warning: the following output files of rule {} were not "
-                                "present when the DAG was created:\n{}".format(
-                                    newjob_.rule, unexpected_output
-                                )
-                            )
-
-                        self.replace_job(job_, newjob_)
-        return newjob
-
-=======
->>>>>>> main:src/snakemake/dag.py
     def delete_job(self, job, recursive=True, add_dependencies=False):
         """Delete given job from DAG."""
         if job in self.targetjobs:
