@@ -1,5 +1,5 @@
 """
-Rule test code for unit testing of rules generated with Snakemake {{ version }}.
+Rule test code for unit testing of rules generated with Snakemake 9.8.2.dev50.
 """
 
 
@@ -13,13 +13,13 @@ from subprocess import check_output
 sys.path.insert(0, os.path.dirname(__file__))
 
 
-def test_{{ ruletest.name }}(conda_prefix):
+def test_b(conda_prefix):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir) / "workdir"
-        config_path = Path("{{ ruletest.config_path.as_posix() }}")
-        data_path = Path("{{ ruletest.data_path.as_posix() }}")
-        expected_path = Path("{{ ruletest.expected_path.as_posix() }}")
+        config_path = Path(".tests/units/b/config")
+        data_path = Path(".tests/units/b/data")
+        expected_path = Path(".tests/units/b/expected")
 
         # Copy config to the temporary workdir.
         shutil.copytree(config_path, workdir)
@@ -33,29 +33,15 @@ def test_{{ ruletest.name }}(conda_prefix):
                 "python",
                 "-m",
                 "snakemake",
-                {% for target in ruletest.target %}
-                "{{ target }}",
-                {% endfor %}
-                {% if snakefile %}
+                "test/0.tsv",
                 "--snakefile",
-                "{{ snakefile }}",
-                {% endif %}
+                "Snakefile",
                 "-f",
                 "--notemp",
                 "-j1",
                 "--target-files-omit-workdir-adjustment",
-                {% if configfiles %}
                 "--configfile",
-                {% for configfile in configfiles %}
-                "{{ configfile }}",
-                {% endfor %}
-                {% endif %}
-                {% if deploy %}
-                "--software-deployment-method",
-                {% for sdm in deploy %}
-                "{{ sdm }}",
-                {% endfor %}
-                {% endif %}
+                ".tests/integration/config/config.json",
                 "--directory",
                 workdir,
             ]
