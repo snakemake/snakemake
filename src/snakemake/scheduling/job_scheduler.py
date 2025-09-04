@@ -459,7 +459,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
     def update_queue_input_jobs(self):
         currtime = time.time()
-        if currtime - self._last_update_queue_input_jobs >= 10:
+        if (
+            currtime - self._last_update_queue_input_jobs
+            >= self.workflow.execution_settings.queue_input_wait_time
+        ):
             self._last_update_queue_input_jobs = currtime
             async_run(self.workflow.dag.update_queue_input_jobs())
 
