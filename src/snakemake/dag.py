@@ -123,7 +123,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         ignore_incomplete=False,
         rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
-        self._handle_temp_jobs = []
+        self._deferred_temp_jobs = []
         self._queue_input_jobs = None
         self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
             partial(defaultdict, set)
@@ -2274,13 +2274,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             # temp files.
             # TODO: we maybe could be more accurate and determine whether there is a
             # checkpoint that depends on the temp file.
-            for job in jobs:
+            for job in chain(jobs, self._deferred_temp_jobs):
                 await self.handle_temp(job)
-            while self._handle_temp_jobs:
-                job = self._handle_temp_jobs.pop()
-                await self.handle_temp(job)
+            self._deferred_temp_jobs.clear()
         else:
-            self._handle_temp_jobs.extend(jobs)
+            self._deferred_temp_jobs.extend(jobs)
 
         return potential_new_ready_jobs
 
