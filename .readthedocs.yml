@@ -1,6 +1,16 @@
 version: 2
 
-python:
-  version: 3.7
-  install:
-    - requirements: docs/requirements.txt
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+    # this ensures a viable `mamba` is on `$PATH``
+    python: mambaforge-latest
+  commands:
+    - mamba install -c conda-forge -c nodefaults pixi
+    - pixi install --environment docs
+    - pixi run --environment docs build-docs
+    - mkdir -p $READTHEDOCS_OUTPUT/html
+    - rm -rf $READTHEDOCS_OUTPUT/html && mv docs/_build/html $READTHEDOCS_OUTPUT/html
+sphinx:
+  configuration: docs/conf.py

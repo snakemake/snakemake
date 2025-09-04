@@ -12,8 +12,8 @@ function! GetSnakemakeFold(lnum)
     " blank lines end folds
     if thisline =~? '\v^\s*$'
         return '-1'
-    " start fold on top level rules or python objects
-    elseif thisline =~? '\v^(rule|def|checkpoint|class)'
+    " start fold on top level rules, checkpoints, use statements, or python objects
+    elseif thisline =~? '\v^(rule|def|checkpoint|class|use|onstart|onsuccess|onerror)'
         return ">1"
     elseif thisline =~? '\v^\S'
         if PreviousLineIndented(a:lnum) && NextRuleIndented(a:lnum)
@@ -31,9 +31,9 @@ function! NextRuleIndented(lnum)
 
     while current <= numlines
         let thisline = getline(current)
-        if thisline =~? '\v^(rule|def|checkpoint|class)'
+        if thisline =~? '\v^(rule|def|checkpoint|class|use)'
             return 0
-        elseif thisline =~? '\v^\s+(rule|checkpoint)'
+        elseif thisline =~? '\v^\s+(rule|checkpoint|use)'
             return 1
         endif
 

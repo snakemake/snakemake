@@ -1,0 +1,39 @@
+.image-reference img {
+    display: inline;
+    background: none !important;
+}
+
+.image-reference {
+    border-bottom: none !important;
+}
+
+:root {
+    --color-links: #047857;
+    --color-brand: #047857;
+}
+
+#content {
+    overflow-x: auto;
+}
+
+code {
+    font-family: monospace !important;
+}
+
+/* Dark mode styles for Sphinx tabs */
+html.dark .sphinx-tabs .sphinx-tabs-tab {
+    background-color: #333 !important; 
+    color: #fff !important;
+    border-color: #555 !important;
+}
+
+html.dark .sphinx-tabs .sphinx-tabs-tab[aria-selected="true"] {
+    background-color: #444 !important;
+    border-bottom-color: #444 !important;
+}
+
+html.dark .sphinx-tabs-panel {
+    background-color: #333 !important;
+    color: #fff !important;
+    border-color: #555 !important;
+}

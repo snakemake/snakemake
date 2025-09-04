@@ -1,14 +1,13 @@
 channels:
   - conda-forge
 dependencies:
-  - python >=3.7
-  - datrie
+  - python >=3.11
   - wrapt
   - pyyaml
   - requests
   - appdirs
   - docutils
-  - ratelimiter
+  - throttler
   - configargparse
   - jsonschema
   - gitpython
@@ -16,8 +15,13 @@ dependencies:
   - pip
   - pip:
     - sphinxcontrib-napoleon
+    - snakemake-interface-common >=1.17.0
+    - snakemake-interface-executor-plugins >=9.1.0
+    - snakemake-interface-storage-plugins >=3.2.3
   - sphinx-argparse
+  - sphinx-tabs
   - sphinx_rtd_theme
+  - sphinxawesome-theme
   - docutils
   - recommonmark
   - commonmark

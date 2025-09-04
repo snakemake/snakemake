@@ -5,294 +5,147 @@ on:
     branches:
       - main
   pull_request:
-    branches_ignore: []
+
+concurrency:
+  # Cancel concurrent flows on PRs
+  group: ci-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
-  cancel-previous:
-    runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/main'
-    steps:
-      - uses: khan/pull-request-workflow-cancel@1.0.1
-        with:
-          workflows: main.yml
-        env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
   formatting:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     permissions:
       contents: read # for actions/checkout to fetch code
       pull-requests: write # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup black environment
-        run: |
-          conda create -c conda-forge -y -q --name black black
-      - name: Check formatting
-        run: >
-          export PATH="/usr/share/miniconda/bin:$PATH"
+      - uses: actions/checkout@v4
 
-          source activate black
+      - name: Install Pixi
+        uses: prefix-dev/setup-pixi@v0.8.14
+        with:
+          environments: "quality"
+          pixi-version: v0.42.1
+          cache: false # no pixi.lock
+          locked: false
 
-          black --check --diff snakemake tests/tests.py tests/test_tes.py
-          tests/test_io.py tests/common.py tests/test_google_lifesciences.py
+      - name: Run black
+        run: pixi run -e quality format --check --diff .
+
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v2.5.0
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
           message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  testing:
-    runs-on: ubuntu-latest
-    needs: formatting
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-        ports:
-          - "8888:3306"
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+  ################################################################################################
+  # Testing: Run tests using Pixi
+  ################################################################################################
+  tests:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # see pyprojec.toml: [tool.pixi.feature.test] for available test types
+        os: [ubuntu-latest, windows-latest, macos-latest] #  , macos-13 not supported yet
+        env: ["py311", "py312", "py313"]
+        exclude:
+          - os: windows-latest
+            env: "py311"
+          - os: macos-latest
+            env: "py311"
+
+    runs-on: ${{ matrix.os }}
+
     env:
       AWS_AVAILABLE: "${{ secrets.AWS_ACCESS_KEY_ID }}"
       GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
+      ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
+      CI: true
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      ###### slurm setup #####
-      # prior to slurm-setup we need the podmand-correct command
-      # see https://github.com/containers/podman/issues/13338
-      - name: Download slurm ansible roles
-        run: |
-          ansible-galaxy install galaxyproject.slurm
-      - name: Define slurm playbook
-        uses: 1arp/create-a-file-action@0.2
+      - name: Install Pixi
+        uses: prefix-dev/setup-pixi@v0.8.14
         with:
-          file: slurm-playbook.yml
-          content: |
-            - name: Slurm all in One
-              hosts: localhost
-              roles:
-                - role: galaxyproject.slurm
-                  become: true
-              vars:
-                  slurm_roles: ['controller', 'exec', 'dbd']
-                  slurm_config_dir: /etc/slurm
-                  #slurm_cgroup_config:
-                  #    CgroupMountpoint: "/sys/fs/cgroup"
-                  #    CgroupAutomount: yes
-                  #    ConstrainCores: yes
-                  #    TaskAffinity: no
-                  #    ConstrainRAMSpace: yes
-                  #    ConstrainSwapSpace: no
-                  #    ConstrainDevices: no
-                  #    AllowedRamSpace: 100
-                  #    AllowedSwapSpace: 0
-                  #    MaxRAMPercent: 100
-                  #    MaxSwapPercent: 100
-                  #    MinRAMSpace: 30
-                  slurm_config:
-                      ClusterName: cluster
-                      #ProctrackType: proctrack/pgid
-                      #SlurmctldHost: localhost # TODO try if we need this
-                      SlurmctldLogFile: /var/log/slurm/slurmctld.log
-                      SlurmctldPidFile: /run/slurmctld.pid
-                      SlurmdLogFile: /var/log/slurm/slurmd.log
-                      SlurmdPidFile: /run/slurmd.pid
-                      SlurmdSpoolDir: /tmp/slurmd # the default /var/lib/slurm/slurmd does not work because of noexec mounting in github actions
-                      StateSaveLocation: /var/lib/slurm/slurmctld
-                      #TaskPlugin: "task/affinity,task/cgroup"
-                      AccountingStorageType: accounting_storage/slurmdbd
-                  slurmdbd_config:
-                      StorageType: accounting_storage/mysql
-                      PidFile: /run/slurmdbd.pid
-                      LogFile: /var/log/slurm/slurmdbd.log
-                      StoragePass: root
-                      StorageUser: root
-                      StorageHost: 127.0.0.1 # see https://stackoverflow.com/questions/58222386/github-actions-using-mysql-service-throws-access-denied-for-user-rootlocalh
-                      StoragePort: 8888
-                      DbdHost: localhost
-                  slurm_create_user: yes
-                  #slurm_munge_key: "../../../munge.key"
-                  slurm_nodes:
-                      - name: localhost
-                        State: UNKNOWN
-                        Sockets: 1
-                        CoresPerSocket: 2
-                  slurm_user:
-                      comment: "Slurm Workload Manager"
-                      gid: 1002
-                      group: slurm
-                      home: "/var/lib/slurm"
-                      name: slurm
-                      shell: "/bin/bash"
-                      uid: 1002
-      - name: Set XDG_RUNTIME_DIR
+          environments: ${{ matrix.env }}
+          pixi-version: v0.42.1
+          cache: false # no pixi.lock
+          locked: false
+
+      # See https://github.com/apptainer/apptainer/pull/2262
+      - name: Disable apparmor namespace restrictions for apptainer (os='Linux')
+        if: runner.os == 'Linux'
         run: |
-          mkdir -p /tmp/1002-runtime # work around podman issue (https://github.com/containers/podman/issues/13338)
-          echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
-      - name: Setup slurm
-        run: |
-          ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-      - name: Add Slurm Account
-        run: |
-          echo "Waiting 5 seconds for slurm cluster to be fully initialized."
-          sleep 5
-          sudo sacctmgr -i create account "Name=runner"
-          sudo sacctmgr -i create user "Name=runner" "Account=runner"
-      - name: Configure proxy for sacct
-        run: |
-          # By using this script instead of the real sacct, we avoid the need to install
-          # a full slurmdbd in the CI.
-          echo 'alias sacct=.github/workflows/scripts/sacct-proxy.py' >> ~/.bashrc
-      - name: Test slurm submission
-        run: |
-          srun -vvvv echo "hello world"
-          sudo cat /var/log/slurm/slurmd.log
-      - name: Indicate supported MPI types
-        run: |
-          srun --mpi=list
-      - name: Setup mamba
-        uses: conda-incubator/setup-miniconda@v2
+          sudo sh -c 'echo kernel.apparmor_restrict_unprivileged_userns=0 \
+              >/etc/sysctl.d/90-disable-userns-restrictions.conf'
+          sudo sysctl -p /etc/sysctl.d/90-disable-userns-restrictions.conf
+
+      - name: Setup MinIO for AWS S3 testing (os='Linux', for AWS S3 testing)
+        if: runner.os == 'Linux'
+        uses: comfuture/minio-action@v1
         with:
-          activate-environment: snakemake
-          channels: "conda-forge, bioconda"
-          miniforge-variant: Mambaforge
-          miniforge-version: latest
-      - name: Setup Snakemake environment
-        shell: bash -el {0}
-        run: |
-          conda config --set channel_priority strict
-          mamba env update -q -n snakemake --file test-environment.yml
+          access_key: minio
+          secret_key: minio123
+          port: 9000
 
-          # additionally add singularity
+      - name: Test MinIO (os='Linux')
+        if: runner.os == 'Linux'
+        run: |
+          export AWS_ACCESS_KEY_ID=minio
+          export AWS_SECRET_ACCESS_KEY=minio123
+          export AWS_EC2_METADATA_DISABLED=true
+          aws --endpoint-url http://127.0.0.1:9000/ s3 mb s3://test
 
-          # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
-          # bin/unsquashfs: error while loading shared libraries: libz.so.1:
-          # cannot open shared object file: No such file or directory
-          mamba install -n snakemake "singularity<=3.8.6"
-      - name: Setup apt dependencies
+      - name: Run Tests for Linux (os= 'Linux')
+        if: runner.os == 'Linux'
         run: |
-          sudo gem install apt-spy2
-          sudo apt-spy2 fix --commit --launchpad --country=US
-          sudo apt-get update
-          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
-      - name: Setup iRODS
-        run: |
-          docker build -t irods-server tests/test_remote_irods
-          docker run -d -p 1247:1247 --name provider irods-server -i run_irods
-          sleep 10
-          docker exec -u irods provider iput /incoming/infile
-          cp -r tests/test_remote_irods/setup-data ~/.irods
-      #- name: Setup Gcloud
-      #  uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
-      #  if: env.GCP_AVAILABLE
-      #  with:
-      #    project_id: "${{ secrets.GCP_PROJECT_ID }}"
-      #    service_account_email: "${{ secrets.GCP_SA_EMAIL }}"
-      #    service_account_key: "${{ secrets.GCP_SA_KEY }}"
-      #    export_default_credentials: true
-      #- name: Setup AWS
-      #  uses: aws-actions/configure-aws-credentials@v1
-      #  if: env.AWS_AVAILABLE
-      #  with:
-      #    aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
-      #    aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-      #    aws-region: us-east-1
+          pixi run --environment ${{matrix.env}} test-all \
+            --splits 10 \
+            --group ${{ matrix.test_group }} \
+            --splitting-algorithm=least_duration \
+            --showlocals \
+            --show-capture=all
 
-      - name: Test Slurm
-        env:
-          CI: true
-        shell: bash -el {0}
-        run: |
-          pytest --show-capture=stderr -v tests/test_slurm.py
+          cd tests/test_report
+          pixi run -e ${{ matrix.env }} snakemake \
+            --use-conda \
+            --cores 1 \
+            --report report.zip
 
-      - name: Test local
-        env:
-          CI: true
-          ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
-        shell: bash -el {0}
+      - name: Run Tests for MacOS (os='macOS')
+        if: runner.os == 'macOS'
         run: |
-          pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/tests.py
-      - name: Build and publish docker image
-        if: >-
-          contains(github.event.pull_request.labels.*.name,
-          'update-container-image')
-        uses: elgohr/Publish-Docker-Github-Action@v5
-        with:
-          name: snakemake/snakemake
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-          tags: ${{ env.GITHUB_SHA }}
+          pixi run --environment ${{matrix.env}} test-simple \
+          --splits 10 \
+          --group ${{ matrix.test_group }} \
+          --splitting-algorithm=least_duration \
+          --showlocals \
+          --show-capture=all
 
-      - name: Set container image
-        if: >-
-          contains(github.event.pull_request.labels.*.name,
-          'update-container-image')
+      - name: Run Tests for Windows (os='Windows')
+        if: runner.os == 'Windows'
         run: |
-          echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
-      #- name: Test Google Life Sciences Executor
-      #  if: env.GCP_AVAILABLE
-      #  shell: bash -el {0}
-      #  run: |
-      #    pytest -s -v -x tests/test_google_lifesciences.py
-      #- name: Test Kubernetes execution
-      #  if: env.GCP_AVAILABLE
-      #  env:
-      #    CI: true
-      #  shell: bash -el {0}
-      #  run: |
-      #    pytest -s -v -x tests/test_kubernetes.py
-      - name: Test GA4GH TES executor
-        shell: bash -el {0}
-        run: |
-          pytest --show-capture=stderr -s -v -x tests/test_tes.py
+          pixi run --environment ${{matrix.env}} test-simple --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration --showlocals --show-capture=all
 
-      - name: Delete container image
-        if: >-
-          contains(github.event.pull_request.labels.*.name,
-          'update-container-image') && always()
-        run: |
-          docker run --rm lumir/remove-dockerhub-tag \
-          --user ${{ secrets.DOCKER_USERNAME }} \
-          --password ${{ secrets.DOCKER_TOKEN }} \
-          snakemake/snakemake:${{ env.GITHUB_SHA }}
+  build-container-image:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Build container image
-        if: >-
-          !contains(github.event.pull_request.labels.*.name,
-          'update-container-image')
         run: docker build .
 
-  testing-windows:
-    runs-on: windows-latest
-    needs: formatting
+  testing-done:
+    if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
+    needs:
+      - tests
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Remove unix-only dependencies
-        shell: python
-        run: |
-          import fileinput
-          excluded_on_win = ["environment-modules", "cwltool", "cwl-utils"]
-          for line in fileinput.input("test-environment.yml", inplace=True):
-              if all(pkg not in line for pkg in excluded_on_win):
-                  print(line)
-      - name: Setup miniconda
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          activate-environment: snakemake
-          channels: "conda-forge, bioconda"
-          miniforge-variant: Mambaforge
-          miniforge-version: latest
-      - name: Setup Snakemake environment
-        run: |
-          conda config --set channel_priority strict
-          mamba env update -q --file test-environment.yml
-      - name: Run tests
-        env:
-          CI: true
-          ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
-        run: |
-          python -m pytest --show-capture=stderr -v -x tests/tests.py
+      - run: echo "All tests passed."

@@ -1,0 +1,59 @@
+shell.executable("bash")
+
+PREFIX = "SID23454678"
+mid = ".t"
+
+rule unit1:
+    output:
+        f"{PREFIX}{mid}xt",
+    shell:
+        "echo '>'{output}'<'; touch {output}; sleep 1"
+
+
+rule unit2:
+    shell:
+        f"ls"
+
+assert (
+    f"""
+{
+  "hello, snakemake"
+}
+"""
+    == """
+hello, snakemake
+"""
+)
+assert (
+    f"""
+    {
+  "hello, snakemake"
+}
+"""
+    == """
+    hello, snakemake
+"""
+)
+
+if 1:
+    assert (
+        f"""
+{
+  "hello, snakemake"
+}
+"""
+        == """
+hello, snakemake
+"""
+    )
+
+assert f"FORMAT['{PREFIX}']['{{}}']" == "FORMAT['SID23454678']['{}']"
+assert f"FORMAT['{PREFIX}'][}}'{{'{{]" == "FORMAT['SID23454678'][}'{'{]"
+
+assert f"works in new version: {[(x, y) for x in [1,2,3] for y in [3,1,4]]}" == "works in new version: [(1, 3), (1, 1), (1, 4), (2, 3), (2, 1), (2, 4), (3, 3), (3, 1), (3, 4)]"
+
+
+part_one = "foo"
+an_fstring = f'{part_one}/{"bar" if True else "baz"}'
+another_fstring = f"{part_one.replace('foo', 'bar')}/{{escaped}}"
+multiple_parts_fstring = f"no_replacement_" "regular_string_" f"{'bar' if True else 'baz'}"

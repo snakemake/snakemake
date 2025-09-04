@@ -1,0 +1,17 @@
+# Snakemake version > 7.19.0
+
+rule all:
+	input: 
+		"test.out"
+
+rule test:
+	input:
+		testIN="test.in",
+	resources:
+		runtime="00:30:00",
+	output: 
+		testOUT="test.out",
+	shell:
+		"""
+		cp {input.testIN} {output.testOUT}
+		"""

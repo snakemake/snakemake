@@ -1,0 +1,7 @@
+rule random_python_conda_script:
+	output:
+		"version.txt"
+	conda:
+		"test_python_env.yaml"
+	script:
+		"test_script_python_3_7.py"

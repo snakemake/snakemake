@@ -1,0 +1,102 @@
+import pandas as pd
+
+samples = pd.read_csv("samples.tsv", sep="\t")
+
+
+configfile: "config.yaml"
+
+
+assert lookup(dpath="does/not/exist", within=config, default=None) is None
+assert lookup(dpath="does/not/exist", within=config, default=5) == 5
+assert (
+    extract_checksum("samples.md5", file="1.tsv") == "9695eb6f38992d796551f4cb20d7d138"
+)
+assert flatten([1, "a", [2, "b"], ["c", "d", ["e", 3]]]) == [
+    "1",
+    "a",
+    "2",
+    "b",
+    "c",
+    "d",
+    "e",
+    "3",
+]
+
+
+rule all:
+    input:
+        "results/switch~someswitch.column~sample.txt",
+
+
+rule a:
+    input:
+        "dummy1.tsv",
+        checksum="samples.md5",
+    output:
+        "a/{sample}.txt",
+    params:
+        checksum1=parse_input(
+            input[1], parser=extract_checksum, file="1.tsv"
+        ),
+        checksum2=parse_input(
+            input.checksum, parser=extract_checksum, file="1.tsv"
+        ),
+        checksum3=lambda w, input: parse_input(
+            input.checksum, parser=extract_checksum, file=f"{w.sample}.tsv"
+        ),
+    shell:
+        "echo -e '{params.checksum1}\n{params.checksum2}\n{params.checksum3}' | sort -u > {output}"
+
+
+rule b:
+    input:
+        branch(evaluate("{sample} == '100'"), then="a/{sample}.txt"),
+    output:
+        "b/{sample}.txt",
+    shell:
+        "echo b > {output}"
+
+
+rule c:
+    input:
+        branch(
+            evaluate("{sample} == '1'"),
+            then="a/{sample}.txt",
+            otherwise="b/{sample}.txt",
+        ),
+    output:
+        "c/{sample}.txt",
+    shell:
+        "cat {input} > {output}"
+
+
+rule item_access:
+    input:
+        txt="in.txt",
+    output:
+        txt="test.txt",
+    params:
+        output_item=output.txt,
+        output_item2=output[0],
+        input_item=input.txt,
+        mem=resources.mem,
+    resources:
+        mem="1GB",
+    run:
+        assert params.output_item == "test.txt"
+        assert params.output_item2 == "test.txt"
+        assert params.input_item == "in.txt"
+        assert resources.mem == "1GB"
+
+        with open(output[0], "w") as outfile:
+            print("d", file=outfile)
+
+
+rule e:
+    input:
+        collect("c/{item.sample}.txt", item=lookup(query="{col} <= 2", within=samples)),
+        branch(lookup(dpath="switches/{switch}", within=config), then="test.txt"),
+    output:
+        "results/switch~{switch}.column~{col}.txt",
+    shell:
+        "cat {input} > {output}"
