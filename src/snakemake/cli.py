@@ -67,6 +67,7 @@ from snakemake.settings.types import (
     WorkflowSettings,
     StrictDagEvaluation,
     PrintDag,
+    GlobalReportSettings,
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
@@ -719,7 +720,9 @@ def get_argument_parser(profiles=None):
         "--keep-going",
         "-k",
         action="store_true",
-        help="Go on with independent jobs if a job fails.",
+        help="Go on with independent jobs if a job fails during execution. "
+        "This only applies to runtime failures in job execution, "
+        "not to errors during workflow parsing or DAG construction.",
     )
     group_exec.add_argument(
         "--rerun-triggers",
@@ -944,6 +947,13 @@ def get_argument_parser(profiles=None):
         type=Path,
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
+    )
+    group_report.add_argument(
+        "--report-metadata",
+        metavar="FILE",
+        type=Path,
+        help="Custom metadata to use for the landing page of the report. In particular, "
+        "this can be used to provide metadata in the report e.g. the work directory, see docs.",
     )
     group_report.add_argument(
         "--reporter",
@@ -2102,6 +2112,9 @@ def args_to_api(args, parser):
                         dag_api.create_report(
                             reporter=args.reporter,
                             report_settings=report_settings,
+                            global_report_settings=GlobalReportSettings(
+                                metadata_template=args.report_metadata
+                            ),
                         )
                     elif args.generate_unit_tests:
                         dag_api.generate_unit_tests(args.generate_unit_tests)
