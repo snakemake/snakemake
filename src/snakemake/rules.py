@@ -246,7 +246,8 @@ class Rule(RuleInterface):
             benchmark = self._update_item_wildcard_constraints(benchmark)
 
         self._benchmark = IOFile(benchmark, rule=self)
-        self.register_wildcards(self._benchmark.get_wildcard_names())
+        self._benchmark.check()
+        self.register_wildcards(self._benchmark)
 
     @property
     def conda_env(self):
@@ -318,7 +319,8 @@ class Rule(RuleInterface):
     def has_products(self):
         return self.get_some_product() is not None
 
-    def register_wildcards(self, wildcard_names):
+    def register_wildcards(self, item):
+        wildcard_names = item.get_wildcard_names()
         if self._wildcard_names is None:
             self._wildcard_names = wildcard_names
         else:
@@ -363,7 +365,7 @@ class Rule(RuleInterface):
             self._set_inoutput_item(item, output=True, name=name)
 
         for item in self.output:
-            self.register_wildcards(item.get_wildcard_names())
+            self.register_wildcards(item)
         # Check output file name list for duplicates
         self.check_output_duplicates()
         self.check_caching()
@@ -531,6 +533,7 @@ class Rule(RuleInterface):
 
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
+            _item.check()
 
             if is_flagged(item, "temp"):
                 if output:
@@ -614,7 +617,7 @@ class Rule(RuleInterface):
             self._set_log_item(item, name=name)
 
         for item in self.log:
-            self.register_wildcards(item.get_wildcard_names())
+            self.register_wildcards(item)
 
     def _set_log_item(self, item, name=None):
         # Pathlib compatibility
@@ -625,7 +628,11 @@ class Rule(RuleInterface):
                 item = self.apply_path_modifier(item, self.log_modifier, property="log")
                 item = self._update_item_wildcard_constraints(item)
 
-            self.log.append(IOFile(item, rule=self) if isinstance(item, str) else item)
+            if isinstance(item, str):
+                item = IOFile(item, rule=self)
+                item.check()
+
+            self.log.append(item)
             if name:
                 self.log._add_name(name)
         else:
