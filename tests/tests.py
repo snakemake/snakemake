@@ -19,6 +19,7 @@ from snakemake.utils import min_version  # import so we can patch out if needed
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
+from snakemake.exceptions import AmbiguousRuleException
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -325,6 +326,25 @@ def test_report_after_run():
     )
 
 
+def test_report_metadata():
+    run(
+        dpath("test_report_metadata"),
+        report="report.html",
+        check_md5=False,
+        report_metadata="yte_template.yaml",
+    )
+
+
+def test_report_metadata_nested():
+    run(
+        dpath("test_report_metadata"),
+        report="report.html",
+        report_metadata="yte_template_nested.yaml",
+        check_md5=False,
+        shouldfail=True,
+    )
+
+
 def test_params():
     run(dpath("test_params"))
 
@@ -362,6 +382,10 @@ def test_shell():
 @skip_on_windows
 def test_temp():
     run(dpath("test_temp"), targets="test.realigned.bam".split())
+
+
+def test_no_temp():
+    run(dpath("test_no_temp"), shellcmd="snakemake -c1 --no-temp")
 
 
 def test_keyword_list():
@@ -474,7 +498,27 @@ def test_empty_include():
 
 
 def test_script_python():
-    run(dpath("test_script_py"))
+    tmpdir = run(dpath("test_script_py"), cleanup=False)
+    # update timestamp of script
+    os.utime(os.path.join(tmpdir, "scripts/test_explicit_import.py"))
+    outfile_path = os.path.join(tmpdir, "explicit_import.py.out")
+    outfile_timestamp_orig = os.path.getmtime(outfile_path)
+    # won't update output without trigger CODE
+    run(
+        dpath("test_script_py"),
+        cleanup=False,
+        tmpdir=tmpdir,
+        shellcmd="snakemake -c1 --rerun-triggers mtime",
+    )
+    assert outfile_timestamp_orig == os.path.getmtime(outfile_path)
+    run(
+        dpath("test_script_py"),
+        cleanup=False,
+        tmpdir=tmpdir,
+        shellcmd="snakemake -c1",
+    )
+    assert outfile_timestamp_orig != os.path.getmtime(outfile_path)
+    # shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows  # Test relies on perl
@@ -712,6 +756,18 @@ def test_storage(s3_storage):
 
     run(
         dpath("test_storage"),
+        config={"s3_prefix": prefix},
+        storage_provider_settings=settings,
+    )
+
+
+@skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
+def test_storage_call(s3_storage):
+    prefix, settings = s3_storage
+
+    run(
+        dpath("test_storage_call"),
         config={"s3_prefix": prefix},
         storage_provider_settings=settings,
     )
@@ -1175,7 +1231,7 @@ def test_convert_to_cwl():
     # run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
     shell(
         "cd {workdir}; PYTHONPATH={src} python -m snakemake --export-cwl workflow.cwl",
-        src=os.getcwd(),
+        src=Path.cwd(),
     )
     shell("cd {workdir}; cwltool --singularity workflow.cwl")
     assert os.path.exists(os.path.join(workdir, "test.out"))
@@ -1483,17 +1539,16 @@ def test_github_issue640():
     )
 
 
-@skip_on_windows  # TODO check whether this might be enabled later
 def test_generate_unit_tests():
-    with tempfile.NamedTemporaryFile() as tmpfile:
-        os.environ["UNIT_TEST_TMPFILE"] = tmpfile.name
-        tmpdir = run(
-            dpath("test_generate_unit_tests"),
-            generate_unit_tests=".tests/unit",
-            check_md5=False,
-            cleanup=False,
-        )
-        sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
+    run(
+        dpath("test_generate_unit_tests"),
+        shellcmd="snakemake --generate-unit-tests ../../.tests/unit --directory .tests/integration",
+        no_tmpdir=True,
+        cleanup=False,
+    )
+    sp.check_call(
+        ["pytest", ".tests/unit", "-vs"], cwd=dpath("test_generate_unit_tests")
+    )
 
 
 def test_paramspace():
@@ -2436,10 +2491,11 @@ def test_censored_path():
 def test_params_empty_inherit():
     run(dpath("test_params_empty_inherit"))
 
+
 @skip_on_windows
 def test_immediate_submit_without_shared_fs():
     run(
-        dpath("test_immediate_submit_without_shared_fs"), 
+        dpath("test_immediate_submit_without_shared_fs"),
         shellcmd="""snakemake \
         --executor cluster-generic \
         --cluster-generic-submit-cmd "./clustersubmit --dependencies \\\"{dependencies}\\\"" \
@@ -2447,7 +2503,31 @@ def test_immediate_submit_without_shared_fs():
         --immediate-submit \
         --notemp \
         --jobs 10 \
-        ; ./clustersubmit --execute """
+        ; ./clustersubmit --execute """,
     )
 
 
+def test_ambiguousruleexception():
+    try:
+        run(dpath("test_ambiguousruleexception"))
+    except AmbiguousRuleException:
+        return
+    raise AssertionError("This is an ambiguous case! Should have raised an error...")
+
+
+def test_github_issue3556():
+    run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
+
+
+@skip_on_windows
+def test_temp_checkpoint():
+    tmpdir = run(dpath("test_temp_checkpoint"), cleanup=False)
+    tmpdir = Path(tmpdir)
+    expected = {
+        tmpdir / "results/aggregated/a.txt",
+        tmpdir / "results/aggregated/b.txt",
+        tmpdir / "results/aggregated/c.txt",
+    }
+    real = set(tmpdir.glob("results/*/*"))
+    assert expected == real, "temp files not removed"
+    shutil.rmtree(tmpdir)

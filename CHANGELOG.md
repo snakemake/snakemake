@@ -1,6 +1,71 @@
 # Changelog
 
 
+## [9.10.1](https://github.com/snakemake/snakemake/compare/v9.10.0...v9.10.1) (2025-09-01)
+
+
+### Performance Improvements
+
+* optimize persistence implementation (only write metadata once, reduce file operations for improving glusterfs performance) ([#3679](https://github.com/snakemake/snakemake/issues/3679)) ([122c713](https://github.com/snakemake/snakemake/commit/122c71379eeef6799a4448428594ec4f9b5b43ec))
+
+## [9.10.0](https://github.com/snakemake/snakemake/compare/v9.9.0...v9.10.0) (2025-08-19)
+
+
+### Features
+
+* migrate to scheduler plugin interface and scheduler plugins ([#3676](https://github.com/snakemake/snakemake/issues/3676)) ([26fcd38](https://github.com/snakemake/snakemake/commit/26fcd38690c2a029d646e3f43591a4dad5d62053))
+
+
+### Bug Fixes
+
+* don't rate limit jobs when touching ([#3699](https://github.com/snakemake/snakemake/issues/3699)) ([9c499e5](https://github.com/snakemake/snakemake/commit/9c499e57018ec0f54e43c99e7eebaa1bb9bf77af))
+* raise an error when different rules produce identical (temp) output  ([#3667](https://github.com/snakemake/snakemake/issues/3667)) ([f627176](https://github.com/snakemake/snakemake/commit/f6271765b5438116a428b622173603ad29577973))
+* silence messages on module load ([#3688](https://github.com/snakemake/snakemake/issues/3688)) ([b13e9c8](https://github.com/snakemake/snakemake/commit/b13e9c8a0592850bf6784c73861000c6f8f21dfa))
+
+## [9.9.0](https://github.com/snakemake/snakemake/compare/v9.8.2...v9.9.0) (2025-07-29)
+
+
+### Features
+
+* python 3.13 support ([#3602](https://github.com/snakemake/snakemake/issues/3602)) ([429cff4](https://github.com/snakemake/snakemake/commit/429cff4e3e14d73386306602c634a49f0f05dc40))
+
+
+### Bug Fixes
+
+* dag mermaid-js edges (bug:[#3556](https://github.com/snakemake/snakemake/issues/3556)) ([#3669](https://github.com/snakemake/snakemake/issues/3669)) ([c6e2e71](https://github.com/snakemake/snakemake/commit/c6e2e7167dce49f964abb51e85bf5376ed819973))
+* if asset is present and no sha256 provided assume pass ([#3685](https://github.com/snakemake/snakemake/issues/3685)) ([7731175](https://github.com/snakemake/snakemake/commit/7731175707171fed08beaf0440443b1182dde10b))
+
+## [9.8.2](https://github.com/snakemake/snakemake/compare/v9.8.1...v9.8.2) (2025-07-25)
+
+
+### Documentation
+
+* info about snakedeploy ([#3681](https://github.com/snakemake/snakemake/issues/3681)) ([6ff65ae](https://github.com/snakemake/snakemake/commit/6ff65aeb994e237460b707d91842bf026ac1943a))
+
+## [9.8.1](https://github.com/snakemake/snakemake/compare/v9.8.0...v9.8.1) (2025-07-21)
+
+
+### Bug Fixes
+
+* pass kwargs to StorageRegistry call ([#3631](https://github.com/snakemake/snakemake/issues/3631)) ([2c35e76](https://github.com/snakemake/snakemake/commit/2c35e768047b202103e51e5970ba1bf992eb805a))
+
+## [9.8.0](https://github.com/snakemake/snakemake/compare/v9.7.1...v9.8.0) (2025-07-10)
+
+
+### Features
+
+* add `--no-temp` flag synonymous to `--notemp` ([#3632](https://github.com/snakemake/snakemake/issues/3632)) ([c775634](https://github.com/snakemake/snakemake/commit/c775634586a58434fc23d56d25a6a9d18db70010))
+
+
+### Bug Fixes
+
+* fix exception when joining rule basedir to script or conda env path ([#3668](https://github.com/snakemake/snakemake/issues/3668)) ([347420c](https://github.com/snakemake/snakemake/commit/347420c8b82816c2e5bf1002a2de0ad3c404d498))
+
+
+### Documentation
+
+* Update pixi setup section of tutorial ([#3664](https://github.com/snakemake/snakemake/issues/3664)) ([104203b](https://github.com/snakemake/snakemake/commit/104203b3f6c7a15e39c18f2af84bd9426ca22d42))
+
 ## [9.7.1](https://github.com/snakemake/snakemake/compare/v9.7.0...v9.7.1) (2025-07-04)
 
 
