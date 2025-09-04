@@ -361,7 +361,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             self.run(
                                 local_runjobs,
                                 executor=self._local_executor or self._executor,
-
                             )
                     if runjobs:
                         self.run(runjobs)
@@ -399,7 +398,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # clear the global tofinish such that parallel calls do not interfere
 
         # shortcut to "--immediate-submit" flag
-        immediate_submit = self.workflow.remote_execution_settings.immediate_submit 
+        immediate_submit = self.workflow.remote_execution_settings.immediate_submit
+
         async def postprocess():
             for job in self._tofinish:
                 # IMPORTANT: inside of this loop, there may be no calls that have
@@ -436,7 +436,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         # if an error occurs while processing job output,
                         # we do the same as in case of errors during execution
                         print_exception(e, self.workflow.linemaps)
-                        await job.postprocess(error=True, ignore_missing_output=immediate_submit)
+                        await job.postprocess(
+                            error=True, ignore_missing_output=immediate_submit
+                        )
                         self._handle_error(job, postprocess_job=False)
                         continue
 
