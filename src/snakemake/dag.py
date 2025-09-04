@@ -1452,15 +1452,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
 
-                            # The list comprehension is needed below in order to
-                            # collect all the async generator items before
-                            # applying any().
-                            reason.code_changed = any(
-                                [
-                                    f
-                                    async for f in job.outputs_older_than_script_or_notebook()
-                                ]
-                            )
+                            if RerunTrigger.CODE in self.workflow.rerun_triggers:
+                                # Always check script/notebook mtime unless CODE trigger is disabled.
+                                # Short-circuit on first older output to avoid building a list.
+                                reason.code_changed = False
+                                async for (
+                                    _
+                                ) in job.outputs_older_than_script_or_notebook():
+                                    reason.code_changed = True
+                                    break
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
                             elif self.workflow.persistence.has_outdated_metadata(job):
