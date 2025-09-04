@@ -2482,3 +2482,17 @@ def test_ambiguousruleexception():
 
 def test_github_issue3556():
     run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
+
+
+@skip_on_windows
+def test_temp_checkpoint():
+    tmpdir = run(dpath("test_temp_checkpoint"), cleanup=False)
+    tmpdir = Path(tmpdir)
+    expected = {
+        tmpdir / "results/aggregated/a.txt",
+        tmpdir / "results/aggregated/b.txt",
+        tmpdir / "results/aggregated/c.txt",
+    }
+    real = set(tmpdir.glob("results/*/*"))
+    assert expected == real, "temp files not removed"
+    shutil.rmtree(tmpdir)
