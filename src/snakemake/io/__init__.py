@@ -487,6 +487,11 @@ class _IOFile(str, AnnotatedStringInterface):
                 f"File path {self._file} contains double '{os.path.sep}'. "
                 f"This is likely unintended. {hint}"
             )
+        if _illegal_wildcard_name_regex.search(self._file) is not None:
+            logger.warning(
+                f"File path '{self._file}' contains illegal characters in a wildcard "
+                f"name (only alphanumerics and underscores are allowed)."
+            )
 
     async def exists(self):
         if self.is_storage:
@@ -1000,7 +1005,6 @@ _illegal_wildcard_name_regex = re.compile(
         ),?[^,\{\}]*? # Do we see any non-word character before comma?
     \}
     """,
-    re.VERBOSE,
 )
 
 
@@ -1071,16 +1075,7 @@ async def wait_for_files(
 
 
 def get_wildcard_names(pattern):
-    match = set(match.group("name") for match in WILDCARD_REGEX.finditer(pattern))
-    illegal_name = False
-    if not match:
-        match = set(
-            match.group("name")
-            for match in _illegal_wildcard_name_regex.finditer(pattern)
-        )
-        if match:
-            illegal_name = True
-    return (match, illegal_name)
+    return set(match.group("name") for match in WILDCARD_REGEX.finditer(pattern))
 
 
 def contains_wildcard(path):

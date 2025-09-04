@@ -246,6 +246,7 @@ class Rule(RuleInterface):
             benchmark = self._update_item_wildcard_constraints(benchmark)
 
         self._benchmark = IOFile(benchmark, rule=self)
+        self._benchmark.check()
         self.register_wildcards(self._benchmark)
 
     @property
@@ -319,17 +320,7 @@ class Rule(RuleInterface):
         return self.get_some_product() is not None
 
     def register_wildcards(self, item):
-        wildcard_names, illegal_name = item.get_wildcard_names()
-        if illegal_name:
-            logger.warning(
-                "Warning:\nIt looks like you may have used a wildcard name that contains unsupported character.\n"
-                + "Wildcard names can only contain alphanumeric characters and underscores.\n"
-                + "Rule name: {rulename};\tWildcard name: {wildcardname}\n".format(
-                    rulename=self.name,
-                    wildcardname=",".join([name for name in wildcard_names]),
-                )
-                + "If that is the case, you will see a MissingInputException below.\n"
-            )
+        wildcard_names = item.get_wildcard_names()
         if self._wildcard_names is None:
             self._wildcard_names = wildcard_names
         else:
@@ -542,6 +533,7 @@ class Rule(RuleInterface):
 
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
+            _item.check()
 
             if is_flagged(item, "temp"):
                 if output:
@@ -636,7 +628,11 @@ class Rule(RuleInterface):
                 item = self.apply_path_modifier(item, self.log_modifier, property="log")
                 item = self._update_item_wildcard_constraints(item)
 
-            self.log.append(IOFile(item, rule=self) if isinstance(item, str) else item)
+            if isinstance(item, str):
+                item = IOFile(item, rule=self)
+                item.check()
+
+            self.log.append(item)
             if name:
                 self.log._add_name(name)
         else:
