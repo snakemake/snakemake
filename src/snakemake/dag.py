@@ -146,7 +146,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
-        self.derived_targetfiles = None
+        self._derived_targetfiles = None
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
         self._jobid = dict()
@@ -203,6 +203,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self.update_output_index()
 
     @property
+    def derived_targetfiles(self):
+        if self._derived_targetfiles is None:
+            self._derived_targetfiles = {
+                f for job in self.targetjobs if not job.output for f in job.input
+            } | self.targetfiles
+        return self._derived_targetfiles
+
+    @property
     def dependencies(self) -> Mapping[Job, Mapping[Job, Set[str]]]:
         return self._dependencies
 
@@ -253,10 +261,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             )
             self.targetjobs.add(job)
             self.forcefiles.update(job.output)
-
-        self.derived_targetfiles = {
-            f for job in self.targetjobs if not job.output for f in job.input
-        } | self.targetfiles
 
         self.cleanup()
 
@@ -2196,6 +2200,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             or self.workflow.remote_exec
         ):
             await self.retrieve_storage_inputs()
+        self._derived_targetfiles = None
 
     def register_running(self, jobs: AnySet[AbstractJob]):
         self._running.update(jobs)
