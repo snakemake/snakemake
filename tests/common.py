@@ -13,7 +13,7 @@ import time
 from os.path import join
 import tempfile
 import hashlib
-import urllib
+import urllib.request
 import pytest
 import glob
 import subprocess
@@ -50,7 +50,7 @@ def is_connected():
     try:
         urllib.request.urlopen("http://www.google.com", timeout=1)
         return True
-    except urllib.request.URLError:
+    except (urllib.request.URLError, TimeoutError):
         return False
 
 
