@@ -1977,6 +1977,52 @@ def test_github_issue1882():
         shutil.rmtree(tmpdir)
 
 
+def test_github_issue3213():
+    try:
+        import linecache
+
+        output_files = ["file_a.txt", "file_b.txt"]
+
+        tmpdir = run(dpath("test_github_issue3213"), cleanup=False, check_results=False)
+        ts_a1, ts_b1 = [open(os.path.join(tmpdir, f)).read() for f in output_files]
+
+        # Need to clear the cache so that we notice the Snakefile file has changed.
+        # In practice it's not a problem.
+        linecache.clearcache()
+
+        shutil.copy(
+            os.path.join(dpath("test_github_issue3213"), "Snakefile.newver"),
+            os.path.join(tmpdir, "Snakefile"),
+        )
+        run(
+            dpath("test_github_issue3213"),
+            tmpdir=tmpdir,
+            cleanup=False,
+            check_results=False,
+        )
+        ts_a2, ts_b2 = [open(os.path.join(tmpdir, f)).read() for f in output_files]
+
+        run(
+            dpath("test_github_issue3213"),
+            tmpdir=tmpdir,
+            cleanup=False,
+            check_results=False,
+            forceall=True,
+        )
+        ts_a3, ts_b3 = [open(os.path.join(tmpdir, f)).read() for f in output_files]
+
+        assert ts_a1[0] == ts_a2[0] == ts_a3[0] == "A"
+        assert ts_b1[0] == "B"
+        assert ts_b2[0] == ts_b3[0] == "D"
+
+        assert ts_a1 == ts_a2
+        assert ts_b1 != ts_b2
+        assert ts_a2 != ts_a3
+        assert ts_b2 != ts_b3
+    finally:
+        shutil.rmtree(tmpdir)
+
+
 @skip_on_windows  # not platform dependent
 def test_inferred_resources():
     run(dpath("test_inferred_resources"))
