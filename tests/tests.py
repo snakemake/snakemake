@@ -2538,6 +2538,21 @@ def test_params_empty_inherit():
     run(dpath("test_params_empty_inherit"))
 
 
+@skip_on_windows
+def test_immediate_submit_without_shared_fs():
+    run(
+        dpath("test_immediate_submit_without_shared_fs"),
+        shellcmd="""snakemake \
+        --executor cluster-generic \
+        --cluster-generic-submit-cmd "./clustersubmit --dependencies \\\"{dependencies}\\\"" \
+        --forceall \
+        --immediate-submit \
+        --notemp \
+        --jobs 10 \
+        && ./clustersubmit --execute """,
+    )
+
+
 def test_ambiguousruleexception():
     try:
         run(dpath("test_ambiguousruleexception"))
