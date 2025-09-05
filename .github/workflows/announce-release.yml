@@ -8,8 +8,8 @@ on:
       - 'CHANGELOG.md'
 
 permissions:
+  contents: read
   pull-requests: read
-
 jobs:
   post_to_mastodon:
     if: "${{ contains(github.event.head_commit.message, 'chore(main): release') }}"
@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Post to Mastodon
-        uses: snakemake/mastodon-release-post-action@main # == latest
+        uses: snakemake/mastodon-release-post-action@v1
         with:
           access-token: ${{ secrets.MASTODONBOT }}
           pr-title: ${{ github.event.head_commit.message }}
