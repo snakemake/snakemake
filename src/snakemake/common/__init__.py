@@ -10,11 +10,10 @@ import operator
 import platform
 import hashlib
 import inspect
-import random
 import shutil
 import sys
 from tempfile import NamedTemporaryFile
-from typing import Callable, List, Optional, Self, Tuple
+from typing import Callable, List, Optional, Tuple
 import uuid
 import os
 import asyncio
@@ -400,7 +399,7 @@ class LockFreeWritableFile:
             prefix=f".{orig_path.name}.",
         )
 
-    def __enter__(self) -> Self:
+    def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
