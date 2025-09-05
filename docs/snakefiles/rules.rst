@@ -1890,7 +1890,8 @@ Always consider if you can't formulate your workflow using normal files before r
 
 .. sidebar:: Caution on Directory Outputs
 
-    Note that because a directory marked as the output of a job will be deleted before that job executes, other jobs should not create output files within that directory, as these may be inadvertently deleted.
+    Note that because a directory marked as the output of a job will be deleted before that job executes (in order to start with a clean state), other jobs should not create output files within that directory, as these may be inadvertently deleted as well.
+
 Ignoring timestamps
 -------------------
 
