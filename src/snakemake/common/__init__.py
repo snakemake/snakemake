@@ -10,9 +10,11 @@ import operator
 import platform
 import hashlib
 import inspect
+import random
 import shutil
 import sys
-from typing import Callable, List, Tuple
+from tempfile import NamedTemporaryFile
+from typing import Callable, List, Optional, Self, Tuple
 import uuid
 import os
 import asyncio
@@ -379,3 +381,46 @@ def copy_permission_safe(src: str, dst: str):
     if os.path.exists(dst):
         os.unlink(dst)
     shutil.copy(src, dst)
+
+
+class LockFreeWritableFile:
+    def __init__(self, orig_path: Path, binary: bool = False):
+        self.orig_path = orig_path
+        self._permissions: Optional[int] = None
+        self._times: Optional[Tuple[float, float]] = None
+        # We aim to name the file like an rsync temp file.
+        # This way, we get maximum compatibility and performance with systems like
+        # glusterfs which apply specific optimizations for the write-then-move
+        # operations of rsync.
+        # rsync uses a suffix
+        self.temp_file = NamedTemporaryFile(
+            mode="wb" if binary else "w",
+            delete=False,
+            dir=orig_path.parent,
+            prefix=f".{orig_path.name}.",
+        )
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.temp_file.close()
+        if not exc_type:
+            if self._permissions is not None:
+                os.chmod(self.temp_file.name, self._permissions)
+                os.utime(self.temp_file.name, self._times)
+            # atomic move
+            os.replace(self.temp_file.name, self.orig_path)
+        Path(self.temp_file.name).unlink(missing_ok=True)
+
+    def chmod(self, mode: int) -> None:
+        self._permissions = mode
+
+    def write(self, data):
+        self.temp_file.write(data)
+
+    def write_from_fileobj(self, fp):
+        shutil.copyfileobj(fp, self.temp_file)
+
+    def utime(self, times: Tuple[float, float]) -> None:
+        self._times = times
