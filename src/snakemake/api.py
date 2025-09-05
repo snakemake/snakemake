@@ -608,6 +608,7 @@ class DAGApi(ApiBase):
         ):
             greedy_scheduler_settings.omit_prioritize_by_temp_and_input = True
             scheduler = "greedy"
+            scheduler_settings = greedy_scheduler_settings
         if scheduling_settings.greediness is not None:
             greedy_scheduler_settings.greediness = scheduling_settings.greediness
 

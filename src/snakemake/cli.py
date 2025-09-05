@@ -1584,7 +1584,11 @@ def get_argument_parser(profiles=None):
         "Assuming that your submit script (here sbatch) outputs the "
         "generated job id to the first stdout line, {dependencies} will "
         "be filled with space separated job ids this job depends on. "
-        "Does not work for workflows that contain checkpoint rules.",
+        "Does not work for workflows that contain checkpoint rules, "
+        "and localrules will be skipped. The additional argument `--notemp` "
+        "should be specified. Most often, `--not-retrieve-storage` is "
+        "also recommended to avoid Snakemake trying to download output files "
+        "before the jobs producing them are executed. ",
     )
     group_cluster.add_argument(
         "--jobscript",

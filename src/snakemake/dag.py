@@ -123,6 +123,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         ignore_incomplete=False,
         rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
+        self._deferred_temp_jobs = []
         self._queue_input_jobs = None
         self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
             partial(defaultdict, set)
@@ -146,7 +147,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
-        self.derived_targetfiles = None
+        self._derived_targetfiles = None
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
         self._jobid = dict()
@@ -203,6 +204,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self.update_output_index()
 
     @property
+    def derived_targetfiles(self):
+        if self._derived_targetfiles is None:
+            self._derived_targetfiles = {
+                f for job in self.targetjobs if not job.output for f in job.input
+            } | self.targetfiles
+        return self._derived_targetfiles
+
+    @property
     def dependencies(self) -> Mapping[Job, Mapping[Job, Set[str]]]:
         return self._dependencies
 
@@ -253,10 +262,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             )
             self.targetjobs.add(job)
             self.forcefiles.update(job.output)
-
-        self.derived_targetfiles = {
-            f for job in self.targetjobs if not job.output for f in job.input
-        } | self.targetfiles
 
         self.cleanup()
 
@@ -1447,15 +1452,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
 
-                            # The list comprehension is needed below in order to
-                            # collect all the async generator items before
-                            # applying any().
-                            reason.code_changed = any(
-                                [
-                                    f
-                                    async for f in job.outputs_older_than_script_or_notebook()
-                                ]
-                            )
+                            if RerunTrigger.CODE in self.workflow.rerun_triggers:
+                                # Always check script/notebook mtime unless CODE trigger is disabled.
+                                # Short-circuit on first older output to avoid building a list.
+                                reason.code_changed = False
+                                async for (
+                                    _
+                                ) in job.outputs_older_than_script_or_notebook():
+                                    reason.code_changed = True
+                                    break
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
                             elif self.workflow.persistence.has_outdated_metadata(job):
@@ -2196,6 +2201,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             or self.workflow.remote_exec
         ):
             await self.retrieve_storage_inputs()
+        self._derived_targetfiles = None
 
     def register_running(self, jobs: AnySet[AbstractJob]):
         self._running.update(jobs)
@@ -2268,13 +2274,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        if not self.checkpoint_jobs:
+        if self.checkpoint_jobs:
             # While there are still checkpoint jobs, we cannot safely delete
             # temp files.
             # TODO: we maybe could be more accurate and determine whether there is a
             # checkpoint that depends on the temp file.
-            for job in jobs:
+            self._deferred_temp_jobs.extend(jobs)
+        else:
+            for job in chain(jobs, self._deferred_temp_jobs):
                 await self.handle_temp(job)
+            self._deferred_temp_jobs.clear()
 
         return potential_new_ready_jobs
 

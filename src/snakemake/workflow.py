@@ -10,6 +10,8 @@ import os
 import subprocess
 import sys
 import platform
+import dis
+import linecache
 from collections import OrderedDict, namedtuple
 from collections.abc import Iterator, Mapping
 from itertools import filterfalse, chain
@@ -1765,6 +1767,26 @@ class Workflow(WorkflowExecutorInterface):
     def localrules(self, *rulenames):
         self._localrules.update(rulenames)
 
+    def get_rule_source(self, func):
+        # This can't use `inspect` because the functions are compiled into intermediate python code
+        # in parser.py and that intermediate source is not available anymore (or desirable).
+        # Instead, we're using dis to retrieve the line numbers of the function in the intermediate
+        # code and then map it to the original file using `self.linemaps`.
+        sourcefile = func.__code__.co_filename
+        line_numbers = []
+        linemap = self.linemaps[sourcefile]
+        for func_offset, line in dis.findlinestarts(func.__code__):
+            # The first instruction in the compiled function is RESUME, which
+            # with snakemake is mapped to the 'rule: ' line and is not considered
+            # part of the rule source.
+            if func_offset == 0:
+                continue
+            if line in linemap:
+                line_numbers.append(linemap[line])
+        return "".join(
+            [linecache.getline(sourcefile, lineno) for lineno in sorted(line_numbers)]
+        )
+
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
         # choose a name for an unnamed rule
         orig_name = name or str(len(self._rules) + 1)
@@ -1979,6 +2001,8 @@ class Workflow(WorkflowExecutorInterface):
                 rule.name = ruleinfo.name
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
+            if rule.run_func is not None and not rule.norun:
+                rule.run_func_src = self.get_rule_source(rule.run_func)
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
             rule.notebook = ruleinfo.notebook

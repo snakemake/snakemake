@@ -498,7 +498,27 @@ def test_empty_include():
 
 
 def test_script_python():
-    run(dpath("test_script_py"))
+    tmpdir = run(dpath("test_script_py"), cleanup=False)
+    # update timestamp of script
+    os.utime(os.path.join(tmpdir, "scripts/test_explicit_import.py"))
+    outfile_path = os.path.join(tmpdir, "explicit_import.py.out")
+    outfile_timestamp_orig = os.path.getmtime(outfile_path)
+    # won't update output without trigger CODE
+    run(
+        dpath("test_script_py"),
+        cleanup=False,
+        tmpdir=tmpdir,
+        shellcmd="snakemake -c1 --rerun-triggers mtime",
+    )
+    assert outfile_timestamp_orig == os.path.getmtime(outfile_path)
+    run(
+        dpath("test_script_py"),
+        cleanup=False,
+        tmpdir=tmpdir,
+        shellcmd="snakemake -c1",
+    )
+    assert outfile_timestamp_orig != os.path.getmtime(outfile_path)
+    # shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows  # Test relies on perl
@@ -1973,6 +1993,52 @@ def test_github_issue1882():
         shutil.rmtree(tmpdir)
 
 
+def test_github_issue3213():
+    try:
+        import linecache
+
+        output_files = ["file_a.txt", "file_b.txt"]
+
+        tmpdir = run(dpath("test_github_issue3213"), cleanup=False, check_results=False)
+        ts_a1, ts_b1 = [open(os.path.join(tmpdir, f)).read() for f in output_files]
+
+        # Need to clear the cache so that we notice the Snakefile file has changed.
+        # In practice it's not a problem.
+        linecache.clearcache()
+
+        shutil.copy(
+            os.path.join(dpath("test_github_issue3213"), "Snakefile.newver"),
+            os.path.join(tmpdir, "Snakefile"),
+        )
+        run(
+            dpath("test_github_issue3213"),
+            tmpdir=tmpdir,
+            cleanup=False,
+            check_results=False,
+        )
+        ts_a2, ts_b2 = [open(os.path.join(tmpdir, f)).read() for f in output_files]
+
+        run(
+            dpath("test_github_issue3213"),
+            tmpdir=tmpdir,
+            cleanup=False,
+            check_results=False,
+            forceall=True,
+        )
+        ts_a3, ts_b3 = [open(os.path.join(tmpdir, f)).read() for f in output_files]
+
+        assert ts_a1[0] == ts_a2[0] == ts_a3[0] == "A"
+        assert ts_b1[0] == "B"
+        assert ts_b2[0] == ts_b3[0] == "D"
+
+        assert ts_a1 == ts_a2
+        assert ts_b1 != ts_b2
+        assert ts_a2 != ts_a3
+        assert ts_b2 != ts_b3
+    finally:
+        shutil.rmtree(tmpdir)
+
+
 @skip_on_windows  # not platform dependent
 def test_inferred_resources():
     run(dpath("test_inferred_resources"))
@@ -2488,6 +2554,21 @@ def test_params_empty_inherit():
     run(dpath("test_params_empty_inherit"))
 
 
+@skip_on_windows
+def test_immediate_submit_without_shared_fs():
+    run(
+        dpath("test_immediate_submit_without_shared_fs"),
+        shellcmd="""snakemake \
+        --executor cluster-generic \
+        --cluster-generic-submit-cmd "./clustersubmit --dependencies \\\"{dependencies}\\\"" \
+        --forceall \
+        --immediate-submit \
+        --notemp \
+        --jobs 10 \
+        && ./clustersubmit --execute """,
+    )
+
+
 def test_ambiguousruleexception():
     try:
         run(dpath("test_ambiguousruleexception"))
@@ -2498,3 +2579,17 @@ def test_ambiguousruleexception():
 
 def test_github_issue3556():
     run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
+
+
+@skip_on_windows
+def test_temp_checkpoint():
+    tmpdir = run(dpath("test_temp_checkpoint"), cleanup=False)
+    tmpdir = Path(tmpdir)
+    expected = {
+        tmpdir / "results/aggregated/a.txt",
+        tmpdir / "results/aggregated/b.txt",
+        tmpdir / "results/aggregated/c.txt",
+    }
+    real = set(tmpdir.glob("results/*/*"))
+    assert expected == real, "temp files not removed"
+    shutil.rmtree(tmpdir)
