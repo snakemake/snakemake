@@ -1,0 +1,17 @@
+shell.executable("bash")
+conda_env = Path("test-env.yaml")
+
+rule all:
+    input: 
+        "output.txt"
+
+# Test that rule can be run idenpently in conda and apptainer
+rule run_in_container_and_conda:
+    output: 
+        "output.txt"
+    container: 
+        "docker://bash"
+    conda:
+        "test-env.yaml"
+    shell:
+        "echo foo > {output}"

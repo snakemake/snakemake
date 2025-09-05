@@ -1,0 +1,65 @@
+# a target rule to define the desired final output
+rule all:
+    input:
+        "results/aggregated/a.txt",
+        "results/aggregated/b.txt",
+        "results/aggregated/c.txt",
+
+rule temp:
+    output:
+        temp("results/temp/{sample}.txt")
+    shell:
+        # simulate some output value
+        "echo {wildcards.sample} > {output:q}"
+
+# the checkpoint that shall trigger re-evaluation of the DAG
+checkpoint somestep:
+    input:
+        "results/temp/{sample}.txt"
+    output:
+        temp("results/somestep/{sample}.txt")
+    shell:
+        # simulate some output value
+        "cat {input:q} > {output:q}"
+
+
+# intermediate rule
+rule intermediate:
+    input:
+        "results/somestep/{sample}.txt"
+    output:
+        temp("results/post/{sample}.txt")
+    shell:
+        "cat {input:q} > {output:q}"
+
+
+# alternative intermediate rule
+rule alt_intermediate:
+    input:
+        "results/somestep/{sample}.txt"
+    output:
+        temp("results/alt/{sample}.txt")
+    shell:
+        "cat {input:q} > {output:q}"
+
+
+# input function for the rule aggregate
+def aggregate_input(wildcards):
+    # decision based on content of output file
+    # Important: use the method open() of the returned file!
+    # This way, Snakemake is able to automatically download the file if it is generated in
+    # a cloud environment without a shared filesystem.
+    with checkpoints.somestep.get(sample=wildcards.sample).output[0].open() as f:
+        if f.read().strip() == "a":
+            return "results/post/{sample}.txt"
+        else:
+            return "results/alt/{sample}.txt"
+
+
+rule aggregate:
+    input:
+        aggregate_input
+    output:
+        "results/aggregated/{sample}.txt"
+    shell:
+        "cat {input:q} > {output:q}"

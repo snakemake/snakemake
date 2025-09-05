@@ -1,0 +1,23 @@
+rule all:
+    input:
+        "file_b.txt"
+
+rule file_a:
+    output:
+        "file_a.txt"
+    run:
+        import time
+
+        with open(output[0], "w") as f:
+            f.write("A" + str(time.time_ns()))
+
+rule file_b:
+    input:
+        "file_a.txt"
+    output:
+        "file_b.txt"
+    run:
+        import time
+
+        with open(output[0], "w") as f:
+            f.write("B" + str(time.time_ns()))
