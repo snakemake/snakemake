@@ -656,14 +656,13 @@ class Workflow(WorkflowExecutorInterface):
                 snakefile=snakefile,
             )
         else:
-            is_overwrite = False
             self.rule_count += 1
             if not self.default_target:
                 self.default_target = name
         rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
         self._rules[rule.name] = rule
         self.modifier.rules.add(rule)
-        return is_overwrite
+        return rule
 
     def is_rule(self, name):
         """
@@ -1799,18 +1798,15 @@ class Workflow(WorkflowExecutorInterface):
         if not name:
             return lambda ruleinfo: ruleinfo.func  # ignore the rule
 
-        is_overwrite = self.add_rule(
+        rule = self.add_rule(
             name,
             lineno,
             snakefile,
             checkpoint,
             allow_overwrite=self.modifier.allow_rule_overwrite,
         )
-        rule = self.get_rule(name)
         rule.is_checkpoint = checkpoint
         rule.module_globals = self.modifier.globals
-        if is_overwrite:
-            rule.module_globals["__name__"] = None
 
         def decorate(ruleinfo: RuleInfo):  # type: ignore[no-redef]
             nonlocal name
