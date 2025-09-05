@@ -29,6 +29,7 @@ from snakemake.io import (
     contains_wildcard_constraints,
     get_flag_store_keys,
     is_multiext_items,
+    remove_flag,
     update_wildcard_constraints,
     flag,
     get_flag_value,
@@ -107,6 +108,7 @@ class Rule(RuleInterface):
         self._lineno = lineno
         self._snakefile = snakefile
         self.run_func = None
+        self.run_func_src = None
         self.shellcmd = None
         self.script = None
         self.notebook = None
@@ -157,7 +159,7 @@ class Rule(RuleInterface):
 
     @property
     def group(self):
-        if self.workflow.local_exec:
+        if not self.workflow.non_local_exec_or_dryrun:
             return None
         else:
             overwrite_group = self.workflow.group_settings.overwrite_groups.get(
@@ -245,7 +247,8 @@ class Rule(RuleInterface):
             benchmark = self._update_item_wildcard_constraints(benchmark)
 
         self._benchmark = IOFile(benchmark, rule=self)
-        self.register_wildcards(self._benchmark.get_wildcard_names())
+        self._benchmark.check()
+        self.register_wildcards(self._benchmark)
 
     @property
     def conda_env(self):
@@ -317,7 +320,8 @@ class Rule(RuleInterface):
     def has_products(self):
         return self.get_some_product() is not None
 
-    def register_wildcards(self, wildcard_names):
+    def register_wildcards(self, item):
+        wildcard_names = item.get_wildcard_names()
         if self._wildcard_names is None:
             self._wildcard_names = wildcard_names
         else:
@@ -362,7 +366,7 @@ class Rule(RuleInterface):
             self._set_inoutput_item(item, output=True, name=name)
 
         for item in self.output:
-            self.register_wildcards(item.get_wildcard_names())
+            self.register_wildcards(item)
         # Check output file name list for duplicates
         self.check_output_duplicates()
         self.check_caching()
@@ -474,6 +478,9 @@ class Rule(RuleInterface):
 
             item = default_flags.apply(item)
 
+            for flag_name in self.workflow.storage_settings.omit_flags:
+                item = remove_flag(item, flag_name)
+
             # Check to see that all flags are valid
             # Note that "storage", and "expand" are valid for both inputs and outputs.
             if isinstance(item, AnnotatedString):
@@ -527,6 +534,7 @@ class Rule(RuleInterface):
 
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
+            _item.check()
 
             if is_flagged(item, "temp"):
                 if output:
@@ -610,7 +618,7 @@ class Rule(RuleInterface):
             self._set_log_item(item, name=name)
 
         for item in self.log:
-            self.register_wildcards(item.get_wildcard_names())
+            self.register_wildcards(item)
 
     def _set_log_item(self, item, name=None):
         # Pathlib compatibility
@@ -621,7 +629,11 @@ class Rule(RuleInterface):
                 item = self.apply_path_modifier(item, self.log_modifier, property="log")
                 item = self._update_item_wildcard_constraints(item)
 
-            self.log.append(IOFile(item, rule=self) if isinstance(item, str) else item)
+            if isinstance(item, str):
+                item = IOFile(item, rule=self)
+                item.check()
+
+            self.log.append(item)
             if name:
                 self.log._add_name(name)
         else:
@@ -1212,6 +1224,22 @@ class Rule(RuleInterface):
             self._expanded_conda_env = conda_env
 
         return conda_env
+
+    def expand_container_img(self, wildcards):
+        """
+        Expand the given container wildcards
+        """
+        if callable(self.container_img):
+            container_url, _ = self.apply_input_function(
+                self.container_img, wildcards=wildcards
+            )
+            return container_url
+
+        elif isinstance(self.container_img, str):
+            resolved_url = apply_wildcards(self.container_img, wildcards)
+            return resolved_url
+
+        return self.container_img
 
     def is_producer(self, requested_output):
         """

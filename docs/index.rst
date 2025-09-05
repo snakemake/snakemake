@@ -47,9 +47,12 @@ Snakemake
 The Snakemake workflow management system is a tool to create **reproducible and scalable** data analyses.
 Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
-Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
+Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
+Finally, workflow runs can be automatically turned into interactive portable browser based reports, which can be shared with collaborators via email or the cloud and combine results with all used parameters, code, and software.
 
-Snakemake is **highly popular**, with `>10 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
+
+Snakemake is **highly popular**, with >11 new citations per week (`old <https://badge.dimensions.ai/details/id/pub.1018944052>`__ and `new <https://badge.dimensions.ai/details/id/pub.1137313608>`__ paper).
+It has been mentioned in two Nature technology features (`here <https://www.nature.com/articles/d41586-019-02619-z>`__ and `here <https://www.nature.com/articles/d41586-025-01241-6>`__) and has more than `1 million downloads on anaconda.org <https://anaconda.org/bioconda/snakemake>`__.
 For an introduction, please visit https://snakemake.github.io.
 
 
@@ -112,28 +115,31 @@ The Snakemake maintainers are:
 Resources
 ---------
 
-`Snakemake Wrappers Repository <https://snakemake-wrappers.readthedocs.org>`_
+`Snakedeploy <https://snakedeploy.readthedocs.io>`__
+    Snakedeploy is a toolbox for maintenance and deployment/setup tasks around Snakemake and Snakemake workflows.
+
+`Snakemake Wrappers Repository <https://snakemake-wrappers.readthedocs.org>`__
     The Snakemake Wrapper Repository is a collection of reusable wrappers that allow to quickly use popular tools from Snakemake rules and workflows.
 
-`Snakemake Workflow Catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_
+`Snakemake Workflow Catalog <https://snakemake.github.io/snakemake-workflow-catalog>`__
     An automatically scraped catalog of publicly available Snakemake workflows for any kind of data analysis.
 
-`Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_
+`Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`__
     This project provides a collection of high quality modularized and reusable workflows.
     The provided code should also serve as a best-practices of how to build production ready workflows with Snakemake.
     Everybody is invited to contribute.
 
-`Snakemake Profiles Project <https://github.com/snakemake-profiles/doc>`_
+`Snakemake Profiles Project <https://github.com/snakemake-profiles/doc>`__
     This project provides Snakemake configuration profiles for various execution environments.
     Please consider contributing your own if it is still missing.
 
-`Snakemake API documentation <https://snakemake-api.readthedocs.io>`_
+`Snakemake API documentation <https://snakemake-api.readthedocs.io>`__
     The documentation of the Snakemake API for programmatic access and development on Snakemake.
 
-`Conda-Forge <https://conda-forge.org>`_
+`Conda-Forge <https://conda-forge.org>`__
     Conda-Forge is a community driven distribution of Conda packages that can be used from Snakemake for creating completely reproducible workflows by defining the used software versions and providing binaries.
 
-`Bioconda <https://bioconda.github.io/>`_
+`Bioconda <https://bioconda.github.io/>`__
     Bioconda, a partner project of conda-forge, is a community driven distribution of bioinformatics-related Conda packages that can be used from Snakemake for creating completely reproducible workflows by defining the used software versions and providing binaries.
 
 

@@ -233,6 +233,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     retrieve_storage: bool = True
     local_storage_prefix: Path = Path(".snakemake/storage")
     remote_job_local_storage_prefix: Optional[Path] = None
+    omit_flags: AnySet[str] = frozenset()
     notemp: bool = False
     all_temp: bool = False
     unneeded_temp_files: AnySet[str] = frozenset()
@@ -303,20 +304,25 @@ class SchedulingSettings(SettingsBase):
     prioritytargets:
         list of targets that shall be run with maximum priority (default [])
     scheduler:
-        Select scheduling algorithm (default ilp, allowed: ilp, greedy)
+        Select scheduling algorithm (default ilp, allowed: ilp, greedy or any scheduler plugin name).
     ilp_solver:
-        Set solver for ilp scheduler.
+        Set solver for ilp scheduler. deprecated, use scheduler_settings instead
+    solver_path:
+        Set the PATH to search for scheduler solver binaries. deprecated, use scheduler_settings instead
     greediness:
         Set the greediness of scheduling. This value, between 0 and 1, determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
+        Deprecated, use snakemake.scheduling.greedy.Settings instead and pass it as greedy_scheduler_settings to DAGApi.execute_workflow().
     subsample:
         Set the number of jobs to be considered for scheduling. If number of ready jobs is greater than this value, this number of jobs is randomly chosen for scheduling; if number of ready jobs is lower, this option has no effect. This can be useful on very large DAGs, where the scheduler can take some time selecting which jobs to run."
     """
 
     prioritytargets: AnySet[str] = frozenset()
     scheduler: str = "ilp"
-    ilp_solver: Optional[str] = None
-    solver_path: Optional[Path] = None
-    greediness: Optional[float] = None
+    ilp_solver: Optional[str] = None  # deprecated, use scheduler_settings instead
+    solver_path: Optional[Path] = None  # deprecated, use scheduler_settings instead
+    greediness: Optional[float] = (
+        None  # deprecated, use greedy_scheduler_settings instead
+    )
     subsample: Optional[int] = None
     max_jobs_per_second: Optional[int] = None
     max_jobs_per_timespan: Optional[MaxJobsPerTimespan] = None
@@ -333,8 +339,6 @@ class SchedulingSettings(SettingsBase):
             return self.greediness
 
     def _check(self):
-        if not (0 <= self.greediness <= 1.0):
-            raise ApiError("greediness must be >=0 and <=1")
         if self.subsample:
             if not isinstance(self.subsample, int) or self.subsample < 1:
                 raise ApiError("subsample must be a positive integer")
@@ -433,3 +437,10 @@ class GroupSettings(SettingsBase):
     overwrite_groups: Mapping[str, str] = immutables.Map()
     group_components: Mapping[str, int] = immutables.Map()
     local_groupid: str = "local"
+
+
+@dataclass
+class GlobalReportSettings(SettingsBase):
+    """Global settings that apply to all report plugins."""
+
+    metadata_template: Optional[Path] = None

@@ -70,10 +70,15 @@
     var packages = {{packages.get_json()}};
     </script>
 
+    <script id="metadata">
+    var metadata = {{metadata}};
+    </script>
+
     <script id="logo">
     var logo_uri = "{{logo}}";
     </script>
 
+    <script>{{"components/metadata.js"|get_resource_as_string}}</script>
     <script>{{"components/common.js"|get_resource_as_string}}</script>
     <script>{{"components/list_item.js"|get_resource_as_string}}</script>
     <script>{{"components/list_heading.js"|get_resource_as_string}}</script>

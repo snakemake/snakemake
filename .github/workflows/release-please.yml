@@ -16,24 +16,24 @@ jobs:
           release-type: python
           token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: ${{ steps.release.outputs.release_created }}
         with:
           fetch-depth: 0
 
-      - name: Set up Python
+      - name: Set up Pixi
         if: ${{ steps.release.outputs.release_created }}
-        uses: actions/setup-python@v5
+        uses: prefix-dev/setup-pixi@v0.9.0
         with:
-          python-version: '3.x'
+          environments: quality
+          pixi-version: v0.47.0
+          cache: false
+          locked: false
 
       - name: Build and check package
         if: ${{ steps.release.outputs.release_created }}
         run: |
-          python -m pip install --upgrade pip
-          pip install build twine
-          python -m build
-          twine check --strict dist/*
+          pixi run --environment publish build-check
 
       - name: Publish to PyPI
         if: ${{ steps.release.outputs.release_created }}

@@ -19,10 +19,13 @@ from snakemake.settings.types import (
     GroupSettings,
     SchedulingSettings,
     WorkflowSettings,
+    GlobalReportSettings,
 )
 
 if sys.version_info < MIN_PY_VERSION:
-    raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
+    raise ValueError(
+        f"Snakemake requires at least Python {'.'.join(map(str, MIN_PY_VERSION))}."
+    )
 
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
@@ -37,6 +40,8 @@ from snakemake.settings.types import (
     StorageSettings,
     SharedFSUsage,
 )
+from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
+from snakemake.scheduling.milp import SchedulerSettings as IlpSchedulerSettings
 
 from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -47,6 +52,8 @@ from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
+from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -197,7 +204,8 @@ class SnakemakeApi(ApiBase):
             storage_settings.default_storage_provider
         ).get_settings(None)
 
-        plugin.validate_settings(plugin_settings)
+        if plugin_settings is not None:
+            plugin.validate_settings(plugin_settings)
 
         provider_instance = plugin.storage_provider(
             logger=logger,
@@ -453,6 +461,8 @@ class DAGApi(ApiBase):
         group_settings: Optional[GroupSettings] = None,
         executor_settings: Optional[ExecutorSettingsBase] = None,
         updated_files: Optional[List[str]] = None,
+        scheduler_settings: Optional[SchedulerSettingsBase] = None,
+        greedy_scheduler_settings: Optional[GreedySchedulerSettings] = None,
     ):
         """Execute the workflow.
 
@@ -586,6 +596,38 @@ class DAGApi(ApiBase):
             or not executor_plugin.common_settings.local_exec
         )
 
+        scheduler = scheduling_settings.scheduler
+
+        if greedy_scheduler_settings is None:
+            greedy_scheduler_settings = GreedySchedulerSettings()
+
+        if (
+            executor == "touch"
+            or executor == "dryrun"
+            or remote_execution_settings.immediate_submit
+        ):
+            greedy_scheduler_settings.omit_prioritize_by_temp_and_input = True
+            scheduler = "greedy"
+            scheduler_settings = greedy_scheduler_settings
+        if scheduling_settings.greediness is not None:
+            greedy_scheduler_settings.greediness = scheduling_settings.greediness
+
+        if scheduler == "ilp":
+            if scheduler_settings is None:
+                scheduler_settings = IlpSchedulerSettings()
+            import pulp
+
+            if pulp.apis.LpSolverDefault is None:
+                logger.warning(
+                    "Falling back to greedy scheduler because no default "
+                    "ILP solver is found (you have to install either "
+                    "coincbc or glpk)."
+                )
+                scheduler = "greedy"
+                scheduler_settings = greedy_scheduler_settings
+
+        scheduler_plugin = SchedulerPluginRegistry().get_plugin(scheduler)
+
         workflow = self.workflow_api._workflow
         workflow.execution_settings = execution_settings
         workflow.remote_execution_settings = remote_execution_settings
@@ -602,6 +644,9 @@ class DAGApi(ApiBase):
         workflow.execute(
             executor_plugin=executor_plugin,
             executor_settings=executor_settings,
+            scheduler_plugin=scheduler_plugin,
+            scheduler_settings=scheduler_settings,
+            greedy_scheduler_settings=greedy_scheduler_settings,
             updated_files=updated_files,
         )
 
@@ -634,13 +679,15 @@ class DAGApi(ApiBase):
         self,
         reporter: str = "html",
         report_settings: Optional[ReportSettingsBase] = None,
+        global_report_settings: Optional[GlobalReportSettings] = None,
     ):
         """Create a report for the workflow.
 
         Arguments
         ---------
         report: Path -- The path to the report.
-        report_stylesheet: Optional[Path] -- The path to the report stylesheet.
+        report_settings: Optional[ReportSettingsBase] -- Report settings for the html report.
+        global_report_settings: Optional[GlobalReportSettings] -- Report settings that apply to all report plugins.
         reporter: str -- report plugin to use (default: html)
         """
 
@@ -650,9 +697,13 @@ class DAGApi(ApiBase):
         if report_settings is not None:
             report_plugin.validate_settings(report_settings)
 
+        if global_report_settings is None:
+            global_report_settings = GlobalReportSettings()
+
         self.workflow_api._workflow.create_report(
             report_plugin=report_plugin,
             report_settings=report_settings,
+            global_report_settings=global_report_settings,
         )
 
     @_no_exec

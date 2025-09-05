@@ -6,7 +6,8 @@ module shallow_module:
         "module_shallow.smk"
 
 
-use rule deep_work from shallow_module as shallow_work
+use rule deep_work from shallow_module as shallow_work with:
+    """a rule from deep module"""
 
 
 rule all:
