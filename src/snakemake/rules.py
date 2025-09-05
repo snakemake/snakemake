@@ -74,7 +74,7 @@ _NOT_CACHED = object()
 
 
 class Rule(RuleInterface):
-    def __init__(self, name, workflow, lineno=None, snakefile=None):
+    def __init__(self, name: str, workflow, lineno=None, snakefile=None):
         """
         Create a rule
 
@@ -125,7 +125,7 @@ class Rule(RuleInterface):
         self.log_modifier = None
         self.benchmark_modifier = None
         self.ruleinfo = None
-        self.module_globals = None
+        self.module_globals: dict
 
     @property
     def name(self):
@@ -465,7 +465,7 @@ class Rule(RuleInterface):
 
             rule_dependency = None
             if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
-                rule_dependency = item.rule
+                rule_dependency = item.rule.name
 
             if output:
                 path_modifier = self.output_modifier
@@ -903,20 +903,23 @@ class Rule(RuleInterface):
             )
 
         if self.dependencies:
-            dependencies = {
+            rule_depends = {
                 f: self.dependencies[f_]
                 for f, f_ in mapping.items()
                 if f_ in self.dependencies
             }
             if None in self.dependencies:
-                dependencies[None] = self.dependencies[None]
+                rule_depends[None] = self.dependencies[None]
+            job_depends = {
+                f: self.workflow.get_rule(d) for f, d in rule_depends.items()
+            }
         else:
-            dependencies = self.dependencies
+            job_depends = {}
 
         for f in input:
             f.check()
 
-        return input, mapping, dependencies, incomplete
+        return input, mapping, job_depends, incomplete
 
     @classmethod
     def _is_deriving_function(cls, func):
