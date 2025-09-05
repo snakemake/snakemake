@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from snakemake.persistence import Persistence
-from snakemake.resources import DefaultResources, GroupResources
+from snakemake.resources import DefaultResources, GroupResources, is_ordinary_string
 from snakemake.settings.enums import RerunTrigger
 from snakemake.utils import min_version  # import so we can patch out if needed
 
@@ -929,6 +929,24 @@ def test_groups_out_of_jobs():
         cluster="./qsub",
         shouldfail=True,
     )
+
+
+def test_resource_is_ordinary_string():
+    # Ordinary strings
+    assert is_ordinary_string("hello") is True
+    assert is_ordinary_string("123") is True
+    assert is_ordinary_string("simple_string") is True
+
+    # Strings that are not ordinary
+    assert is_ordinary_string("func_name(arg1, arg2)") is False  # Function call
+    assert is_ordinary_string("{'key': 'value'}") is False  # Dictionary literal
+    assert is_ordinary_string("lambda x: x + 1") is False  # Lambda expression
+    assert is_ordinary_string("2 * input.size") is False  # calculation
+
+    # Non-string inputs
+    assert is_ordinary_string(123) is False  # Integer
+    assert is_ordinary_string(["list", "of", "strings"]) is False  # List
+    assert is_ordinary_string(None) is False  # NoneType
 
 
 @skip_on_windows
