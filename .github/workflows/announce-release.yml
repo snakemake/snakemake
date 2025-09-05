@@ -23,17 +23,17 @@ jobs:
         with:
           access-token: ${{ secrets.MASTODONBOT }}
           pr-title: ${{ github.event.head_commit.message }}
-          image: "${{ github.workspace }}/pr_logo/long_logo_hpc.png"
+          image: "${{ github.workspace }}/images/logo_dark.png"
           image-description: "Snakemake HPC logo for Mastodon"
           message: |
-            Beep, Beep - I am your friendly #Snakemake release announcement bot.
+            BEEP, BEEP - I am your friendly #Snakemake release announcement bot.
             
-            There is a new release of the Snakemake executor for #SLURM on #HPC systems. Its version now is {{ version }}!
+            There is a new release of Snakemake. Its version now is {{ version }}!
             
-            Give us some time, and you will automatically find the plugin on #Bioconda and #Pypi.
+            Give us some time, and you will automatically find it on #Bioconda and #Pypi.
             
-            If you want to discuss the release, you will find the maintainers here on Mastodon!
-            @rupdecat and @johanneskoester@fosstodon.org
+            If you want to discuss the release, you will find the maintainer here on Mastodon!
+            @johanneskoester@fosstodon.org
             
             If you discover any issues, please report them on {{ issue_url }}.
 
