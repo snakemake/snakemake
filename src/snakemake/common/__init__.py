@@ -407,6 +407,7 @@ class LockFreeWritableFile:
         if not exc_type:
             if self._permissions is not None:
                 os.chmod(self.temp_file.name, self._permissions)
+            if self._times is not None:
                 os.utime(self.temp_file.name, self._times)
             # atomic move
             os.replace(self.temp_file.name, self.orig_path)
