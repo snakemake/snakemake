@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [9.11.1](https://github.com/snakemake/snakemake/compare/v9.11.0...v9.11.1) (2025-09-08)
+
+
+### Bug Fixes
+
+* invalid escape sequences in a doc string ([#3728](https://github.com/snakemake/snakemake/issues/3728)) ([73bfa23](https://github.com/snakemake/snakemake/commit/73bfa23fb2ad3d0a7ba043d3e9554a48d92a7ca2))
+
+
+### Performance Improvements
+
+* for caching source files under potential race conditions, use rsync like file writing in order to improve performance on distributed filesystems like glusterfs ([#3726](https://github.com/snakemake/snakemake/issues/3726)) ([3614917](https://github.com/snakemake/snakemake/commit/361491771718c203d3fe8b90a87158e435ac278f))
+
 ## [9.11.0](https://github.com/snakemake/snakemake/compare/v9.10.1...v9.11.0) (2025-09-05)
 
 
