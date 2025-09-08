@@ -289,7 +289,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     def get_unneeded_temp_files(self, job: AbstractJob) -> Iterable[str]:
         def get_files(job, group_job=None):
             for f in job.output:
-                if is_flagged(f, "temp") and not self.is_needed_tempfile(job, f, outside_of_group_job=group_job):
+                if is_flagged(f, "temp") and not self.is_needed_tempfile(
+                    job, f, outside_of_group_job=group_job
+                ):
                     yield f
 
         if isinstance(job, GroupJob):
@@ -932,23 +934,26 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                         yield f
 
     def is_needed_tempfile(self, job, tempfile, outside_of_group_job=None):
-        """Return whether a temp file is still needed by jobs other than the 
+        """Return whether a temp file is still needed by jobs other than the
         given and not part of the eventually given group.
 
         """
+
         def is_other_group_or_no_group(j):
-            return outside_of_group_job is not None and j not in outside_of_group_job.jobs
+            return (
+                outside_of_group_job is not None and j not in outside_of_group_job.jobs
+            )
 
         assert self.workflow.storage_settings is not None
-        return (
-            tempfile not in self.workflow.storage_settings.unneeded_temp_files
-            and (
-                tempfile in self.derived_targetfiles
-                or any(
-                    tempfile in files
-                    for j, files in self.depending[job].items()
-                    if not self.finished(j) and self.needrun(j) and j != job and is_other_group_or_no_group(j)
-                )
+        return tempfile not in self.workflow.storage_settings.unneeded_temp_files and (
+            tempfile in self.derived_targetfiles
+            or any(
+                tempfile in files
+                for j, files in self.depending[job].items()
+                if not self.finished(j)
+                and self.needrun(j)
+                and j != job
+                and is_other_group_or_no_group(j)
             )
         )
 
