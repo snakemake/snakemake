@@ -128,7 +128,7 @@ With Snakemake 6.0 and later, it is possible to define external workflows as mod
         snakefile:
             # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
             "other_workflow/Snakefile"
-    
+
     use rule * from other_workflow exclude ruleC as other_*
 
 The ``module other_workflow:`` statement registers the external workflow as a module, by defining the path to the main snakefile of ``other_workflow``.
@@ -160,18 +160,18 @@ It is possible to overwrite the global config dictionary for the module, which i
         # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
         snakefile: "other_workflow/Snakefile"
         config: config["other-workflow"]
-    
+
     use rule * from other_workflow as other_*
 
 In this case, any ``configfile`` statements inside the module are ignored.
 In addition, it is possible to skip any :ref:`validation <snakefiles_config_validation>` statements in the module, by specifying ``skip_validation: True`` in the module statement.
 Moreover, one can automatically move all relative input and output files of a module into a dedicated folder by specifying ``prefix: "foo"`` in the module definition, e.g. any output file ``path/to/output.txt`` in the module would be stored under ``foo/path/to/output.txt`` instead.
 This becomes particularly useful when combining multiple modules, see :ref:`use_with_modules`.
-However, if you have some input files that come from outside the workflow, you can use the ``local`` flag so that their path is not modified (see :ref:`snakefiles-storage-local-files`)..
+However, if you have some input files that come from outside the workflow, you can use the ``local`` flag so that their path is not modified (see :ref:`snakefiles-storage-local-files`).
 
-Instead of using all rules, it is possible to import specific rules.
-Specific rules may even be modified before using them, via a final ``with:`` followed by a block that lists items to overwrite.
-This modification can be performed after a general import, and will overwrite any unmodified import of the same rule.
+Instead of importing all rules, you can selectively import specific rules from a module.
+When importing a specific rule, you may also directly modify its properties using a ``with:`` block.
+This behaves similarly to inheriting an existing rule within the current workflow, but with a from statement to declare the original module (see :ref:`snakefiles-rule-inheritance`).
 
 .. code-block:: python
 
@@ -189,15 +189,54 @@ This modification can be performed after a general import, and will overwrite an
         output:
             "results/some-result.txt"
 
-By such a modifying use statement, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be overwritten, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
-
-.. note::
-    Modification of `params` allows the replacement of single keyword arguments. Keyword `params` arguments of the original rule that are not defined after `with` are inherited. Positional `params` arguments of the original rule are overwritten, if positional `params` arguments are given after `with`.
-    All other properties are overwritten with the values specified after `with`.
+When using the ``with:`` block, keyword arguments in ``params`` will be selectively replaced, while positional arguments are overwritten if provided.
+All other properties specified in the ``with:`` block will override those from the original rule, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
 
 Note that the second use statement has to use the original rule name, not the one that has been prefixed with ``other_`` via the first use statement (there is no rule ``other_some_task`` in the module ``other_workflow``).
-In order to overwrite the rule ``some_task`` that has been imported with the first ``use rule`` statement, it is crucial to ensure that the rule is used with the same name in the second statement, by adding an equivalent ``as`` clause (here ``other_some_task``).
-Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
+
+.. note::
+
+    In order to overwrite the rule ``some_task`` that has been imported with the first ``use rule`` statement, it is crucial to ensure that the rule is used with the same name in the second statement, by adding an equivalent ``as`` clause (here ``other_some_task``).
+    Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
+
+    You can import and customize the same rule multiple times under different names:
+
+   .. code-block:: python
+
+       use rule * from other_workflow as other_*
+
+       use rule some_task from other_workflow as other_some_task with:
+           output:
+               "results/some-result.txt"
+
+       use rule some_task from other_workflow as else_some_task with:
+           output:
+               "custom_output.txt"
+
+   This is useful when you need different variations of the same rule in the same workflow.
+
+   However, importing the same rule multiple times under the same name is **not allowed**, even if the modifications differ. This prevents silent overwrites and ensures predictable rule definitions:
+
+   .. code-block:: python
+
+       use rule some_task from other_workflow as other_some_task with:
+           output:
+               "results/some-result.txt"
+
+       use rule some_task from other_workflow as other_some_task with:
+           threads: 1
+       # Not allowed: "other_some_task" was already defined above.
+
+   Similarly, if a wildcard import (``use rule *``) would result in a rule name that conflicts with an existing rule, Snakemake will raise an error unless you resolve the conflict by changing the name or import order:
+
+   .. code-block:: python
+
+       use rule some_task from other_workflow as else_some_task with:
+           output:
+               "custom_output.txt"
+
+       use rule * from other_workflow as else_*
+       # Will fail: "else_some_task" is already defined.
 
 Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
 
@@ -209,7 +248,7 @@ Dynamic Modules
 
 With Snakemake 9.0 and later, it is possible to load modules dynamically by providing the ``name`` keyword inside the module definition.
 For example, by reading the module name from a config file or by iterating over several modules in a loop.
-For this, the module name is not specified directly after the ``module`` keyword, but by specifying the ``name`` parameter. 
+For this, the module name is not specified directly after the ``module`` keyword, but by specifying the ``name`` parameter.
 
 
 .. code-block:: python
@@ -289,7 +328,7 @@ Code hosting providers
 ----------------------
 
 To obtain the correct URL to an external source code resource (e.g. a snakefile, see :ref:`snakefiles-modules`), Snakemake provides markers for code hosting providers.
-Currently, Github 
+Currently, Github
 
 .. code-block:: python
 

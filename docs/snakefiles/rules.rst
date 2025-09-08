@@ -2950,6 +2950,9 @@ All unmodified properties are inherited from the parent rule.
     Positional `params` arguments of the original rule are overwritten, if positional `params` arguments are given after `with`.
     All other properties (``input``, ``output``, ...) are entirely overwritten with the values specified after `with`.
 
+.. important::
+    The same rule can be modified **multiple times**, as long as each instance has a unique name (via the `as` clause).
+
 .. _snakefiles-aux_source_files:
 
 Accessing auxiliary source files
