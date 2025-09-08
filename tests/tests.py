@@ -1637,15 +1637,13 @@ def test_module_nested():
     run(
         dpath("test_module_nested"),
         snakefile="module_shallow.smk",
-        targets={"aaalog"},
         executor="dryrun",
-        check_results=False,
         shouldfail=True,
     )
     run(
         dpath("test_module_nested"),
         snakefile="module_shallow.smk",
-        targets={"aaalog"},
+        targets=["aaalog"],
         config={"bb": "Snakefile"},
         executor="dryrun",
         check_results=False,
