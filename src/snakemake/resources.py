@@ -662,7 +662,7 @@ def infer_resources(name, value, resources: dict):
 
 
 def is_ordinary_string(val):
-    """
+    r"""
     Check if a string is an ordinary string.
     Ordinary strings are not evaluated and are not
     expected to be python expressions and be returned as is.
