@@ -287,13 +287,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self.check_directory_outputs()
 
     def get_unneeded_temp_files(self, job: AbstractJob) -> Iterable[str]:
+        def get_files(job, group_job=None):
+            for f in job.output:
+                if is_flagged(f, "temp") and not self.is_needed_tempfile(job, f, outside_of_group_job=group_job):
+                    yield f
+
         if isinstance(job, GroupJob):
             for j in job:
-                yield from self.get_unneeded_temp_files(j)
+                yield from get_files(j, group_job=job)
         else:
-            for f in job.output:
-                if is_flagged(f, "temp") and not self.is_needed_tempfile(job, f):
-                    yield f
+            yield from get_files(job)
 
     def check_directory_outputs(self):
         """Check that no output file is contained in a directory output of the same or another rule."""
@@ -928,14 +931,25 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     if f in job_.temp_output and f not in skip:
                         yield f
 
-    def is_needed_tempfile(self, job, tempfile):
+    def is_needed_tempfile(self, job, tempfile, outside_of_group_job=None):
+        """Return whether a temp file is still needed by jobs other than the 
+        given and not part of the eventually given group.
+
+        """
+        def is_other_group_or_no_group(j):
+            return outside_of_group_job is not None and j not in outside_of_group_job.jobs
+
+        assert self.workflow.storage_settings is not None
         return (
-            any(
-                tempfile in files
-                for j, files in self.depending[job].items()
-                if not self.finished(j) and self.needrun(j) and j != job
+            tempfile not in self.workflow.storage_settings.unneeded_temp_files
+            and (
+                tempfile in self.derived_targetfiles
+                or any(
+                    tempfile in files
+                    for j, files in self.depending[job].items()
+                    if not self.finished(j) and self.needrun(j) and j != job and is_other_group_or_no_group(j)
+                )
             )
-            or tempfile in self.derived_targetfiles
         )
 
     async def handle_temp(self, job):
