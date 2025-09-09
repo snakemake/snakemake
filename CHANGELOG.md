@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.11.2](https://github.com/snakemake/snakemake/compare/v9.11.1...v9.11.2) (2025-09-09)
+
+
+### Bug Fixes
+
+* properly fall back to greedy scheduler in case of pulp/cbc errors ([#3733](https://github.com/snakemake/snakemake/issues/3733)) ([62f13b8](https://github.com/snakemake/snakemake/commit/62f13b802ee1745cc2eee5190f15712a828cf047))
+
 ## [9.11.1](https://github.com/snakemake/snakemake/compare/v9.11.0...v9.11.1) (2025-09-08)
 
 
