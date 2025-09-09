@@ -157,6 +157,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # Choose job selector (greedy or ILP)
         self.job_selector_greedy = self._greedy_scheduler.select_jobs
         self._job_selector = scheduler.select_jobs
+        self._scheduler = scheduler
 
         self._user_kill = None
         try:
