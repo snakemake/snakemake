@@ -865,7 +865,7 @@ def test_singularity_source_cache():
     run(
         dpath("test_singularity_source_cache"),
         deployment_method={DeploymentMethod.APPTAINER},
-        apptainer_args="--bind /tmp:/tmp"
+        apptainer_args="--bind /tmp:/tmp",
     )
 
 
