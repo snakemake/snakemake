@@ -138,7 +138,6 @@ def shellcmd(
         logger.debug(
             f"Source cache directory {source_cache_path} does not exist, skipping bind mount"
         )
-        )
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
