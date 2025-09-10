@@ -9,15 +9,21 @@ from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerIn
 from snakemake_interface_common.io import AnnotatedStringInterface
 
 
-# define fallback solver name
-lp_solvers = ["PULP_CBC_CMD"]
-try:
-    import pulp
+def get_lp_solvers():
+    default = ["PULP_CBC_CMD"]
+    try:
+        import pulp
 
-    lp_solvers = pulp.listSolvers(onlyAvailable=True) or lp_solvers
-except Exception:
-    # use default if pulp is not available
-    pass
+        return [default] + sorted(
+            solver
+            for solver in pulp.listSolvers(onlyAvailable=True)
+            if solver != default
+        )
+    except Exception:
+        return default
+
+
+lp_solvers = get_lp_solvers()
 
 
 @dataclass
