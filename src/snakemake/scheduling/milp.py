@@ -9,19 +9,21 @@ from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerIn
 from snakemake_interface_common.io import AnnotatedStringInterface
 
 
+# define fallback solver name
+lp_solvers = ["PULP_CBC_CMD"]
 try:
     import pulp
 
-    lp_solvers = pulp.listSolvers(onlyAvailable=True)
+    lp_solvers = pulp.listSolvers(onlyAvailable=True) or lp_solvers
 except Exception:
-    # Default list for the case that pulp is not available
-    lp_solvers = ["COIN_CMD"]
+    # use default if pulp is not available
+    pass
 
 
 @dataclass
 class SchedulerSettings(SchedulerSettingsBase):
     solver: Optional[str] = field(
-        default="COIN_CMD",
+        default=lp_solvers[0],
         metadata={
             "help": "Set MILP solver to use",
             "choices": lp_solvers,
