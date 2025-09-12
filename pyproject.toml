@@ -26,6 +26,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
 ]
 
@@ -103,6 +104,7 @@ dev = { features = ["test", "docs", "style"] }
 py311 = { features = ["py311", "test"] }
 py312 = { features = ["py312", "test"] }
 py313 = { features = ["py313", "test"] }
+py314 = { features = ["py314", "test"] }
 
 
 docs = { features = ["docs"] }
@@ -119,6 +121,10 @@ python = ">=3.12.0,<3.13"
 
 [tool.pixi.feature.py313.dependencies]
 python = ">=3.13.0,<3.14"
+
+[tool.pixi.feature.py313.dependencies]
+python = ">=3.14.0,<3.15"
+
 
 # Test
 [tool.pytest.ini_options]
