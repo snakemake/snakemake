@@ -6,6 +6,7 @@ def some_func():
 
 
 rule a:
+    input: "not exist"
     output:
         temp("results/a/{name}.out"),
     shell:
