@@ -50,7 +50,7 @@ jobs:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         # see pyprojec.toml: [tool.pixi.feature.test] for available test types
         os: [ubuntu-latest, windows-2022, macos-latest] #  , macos-13 not supported yet
-        env: ["py311", "py312", "py313"]
+        env: ["py311", "py312", "py313", "py314"]
         exclude:
           - os: windows-2022
             env: "py311"
