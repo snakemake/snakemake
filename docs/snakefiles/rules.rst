@@ -2944,14 +2944,17 @@ In reality, one will often change more.
 Analogously to the ``use rule`` from external modules, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be modified, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
 All unmodified properties are inherited from the parent rule.
 
+.. important::
+    A rule cannot be redefined without renaming it using the ``as`` clause.
+    Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
+    However, it is allowed to create **multiple modified versions** of the same rule, as long as each has a **unique name**.
+    The only exception is when a rule was previously imported via a general ``use rule * from`` statement, such rules may be **further modified once** under the same final name for convenience (see :ref:`snakefiles-modules`).
+
 .. note::
     Modification of `params` allows the replacement of single keyword arguments.
     Keyword `params` arguments of the original rule that are not defined after `with` are inherited.
     Positional `params` arguments of the original rule are overwritten, if positional `params` arguments are given after `with`.
     All other properties (``input``, ``output``, ...) are entirely overwritten with the values specified after `with`.
-
-.. important::
-    The same rule can be modified **multiple times**, as long as each instance has a unique name (via the `as` clause).
 
 .. _snakefiles-aux_source_files:
 
