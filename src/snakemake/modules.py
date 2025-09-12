@@ -6,7 +6,7 @@ __license__ = "MIT"
 from pathlib import Path
 import types
 import re
-from typing import List, Set
+from typing import List, Set, Dict, Callable
 from snakemake.common import Rules
 
 from snakemake.exceptions import CreateRuleException, WorkflowError
@@ -50,7 +50,7 @@ class ModuleInfo:
         self.skip_validation = skip_validation
         self.parent_modifier: WorkflowModifier = self.workflow.modifier
         self.rule_proxies = Rules()
-        self.wildcards_modifier_overwrited = {}
+        self.wildcards_modifier_overwrited: Dict[Callable | None, Set[str]] = {}
 
         if prefix is not None:
             if isinstance(prefix, Path):
@@ -149,12 +149,12 @@ class ModuleInfo:
             modified_this = rulename_modifier(rule) if rulename_modifier else rule
             for modified in self.wildcards_modifier_overwrited:
                 if (modified(rule) if modified else rule) == modified_this:
-                    matched.add(rule)
                     if rule in self.wildcards_modifier_overwrited[modified]:
                         raise CreateRuleException(
                             f"The rule {rule} is imported with same name modifier and modified more than once",
                             snakefile=self.snakefile,
                         )
+                    matched.add(rule)
                     self.wildcards_modifier_overwrited[modified].add(rule)
         # Now, there is already a rule with the same name defined before.
         # We confirm that it is created by `use rule * ...`
