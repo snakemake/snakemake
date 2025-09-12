@@ -34,15 +34,22 @@ class SchedulerSettings(SchedulerSettingsBase):
 
 
 class Scheduler(SchedulerBase):
+    def __post_init__(self) -> None:
+        self._technical_failure = False
+
     def select_jobs(
         self,
         selectable_jobs: Sequence[JobSchedulerInterface],
         remaining_jobs: Sequence[JobSchedulerInterface],
         available_resources: Mapping[str, Union[int, str]],
         input_sizes: Dict[AnnotatedStringInterface, int],
-    ) -> Sequence[JobSchedulerInterface]:
+    ) -> Optional[Sequence[JobSchedulerInterface]]:
+        if self._technical_failure:
+            # fallback early since we failed before already
+            return None
         import pulp
         from pulp import lpSum
+        from pulp import PulpSolverError
 
         scheduled_jobs = {
             job: pulp.LpVariable(
@@ -148,15 +155,26 @@ class Scheduler(SchedulerBase):
 
             prob += temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
 
-        status = self._solve_ilp(prob, time_limit=10)
+        try:
+            status = self._solve_ilp(prob, time_limit=10)
+        except PulpSolverError as e:
+            self._technical_failure = True
+            self.logger.warning(
+                "Failed to solve scheduling problem with ILP solver, falling back to "
+                "greedy scheduler. You likely have to fix your ILP solver "
+                f"installation. Error message: {e}"
+            )
+            return None
         if pulp.LpStatus[status] != "Optimal":
             if pulp.LpStatus[status] == "Not Solved":
                 self.logger.warning(
-                    "Failed to solve scheduling problem with ILP solver in time (10s)."
+                    "Failed to solve scheduling problem with ILP solver in time (10s), "
+                    "falling back to greedy scheduler."
                 )
             elif pulp.LpStatus[status] == "Infeasible":
                 self.logger.warning(
-                    "Failed to solve scheduling problem with ILP solver."
+                    "Failed to solve scheduling problem with ILP solver, falling back "
+                    "to greedy scheduler."
                 )
             return None
 
