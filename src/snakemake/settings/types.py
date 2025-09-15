@@ -406,6 +406,11 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     keep_logger: bool = False
     stdout: bool = False
     benchmark_extended: bool = False
+    log_level_override: Optional[int] = (
+        None  # Override log level (e.g., ERROR for subprocess)
+    )
+    skip_plugin_handlers: bool = False  # Skip plugins/queue (remote mode)
+    enable_file_logging: bool = True
 
 
 @dataclass

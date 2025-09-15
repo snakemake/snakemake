@@ -101,6 +101,10 @@ The `Sourcecache` class (`snakemake/sourcecache.py <https://github.com/snakemake
 
 Besides these central classes, the following modules add additional functionality:
 
+logging
+"""""""
+The ``logging`` module (`snakemake/logging <https://github.com/snakemake/snakemake/blob/main/src/snakemake/logging.py>`__) manages Snakemake's logging infrastructure and adapts output based on execution context. The central ``LoggerManager`` class orchestrates logging behavior, ensuring appropriate output whether Snakemake runs in the main process, subprocesses, or remote execution environments. In the main process, it provides detailed progress information and colored console output. In subprocess mode (when ``log_errors_only`` is set), it minimizes output to only errors to prevent cluttering during parallel job execution. The module supports plugin-based handlers for custom logging backends and creates timestamped log files in ``.snakemake/log/`` when file logging is enabled.
+
 ioutils
 """""""
 The ``ioutils`` module (`snakemake/ioutils <https://github.com/snakemake/snakemake/blob/main/src/snakemake/ioutils>`__) implements semantic helper functions for handling input and output files as well as non-file parameters in the workflow.
