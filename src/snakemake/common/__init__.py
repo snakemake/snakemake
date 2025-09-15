@@ -12,7 +12,8 @@ import hashlib
 import inspect
 import shutil
 import sys
-from typing import Callable, List
+from tempfile import NamedTemporaryFile
+from typing import Callable, List, Optional, Tuple
 import uuid
 import os
 import asyncio
@@ -24,7 +25,7 @@ from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
 
 
-MIN_PY_VERSION = (3, 7)
+MIN_PY_VERSION: Tuple[int, int] = (3, 7)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
     "Nothing to be done (all requested files are present and up to date)."
@@ -379,3 +380,47 @@ def copy_permission_safe(src: str, dst: str):
     if os.path.exists(dst):
         os.unlink(dst)
     shutil.copy(src, dst)
+
+
+class LockFreeWritableFile:
+    def __init__(self, orig_path: Path, binary: bool = False):
+        self.orig_path = orig_path
+        self._permissions: Optional[int] = None
+        self._times: Optional[Tuple[float, float]] = None
+        # We aim to name the file like an rsync temp file.
+        # This way, we get maximum compatibility and performance with systems like
+        # glusterfs which apply specific optimizations for the write-then-move
+        # operations of rsync.
+        # rsync uses a suffix
+        self.temp_file = NamedTemporaryFile(
+            mode="wb" if binary else "w",
+            delete=False,
+            dir=orig_path.parent,
+            prefix=f".{orig_path.name}.",
+        )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.temp_file.close()
+        if not exc_type:
+            if self._permissions is not None:
+                os.chmod(self.temp_file.name, self._permissions)
+            if self._times is not None:
+                os.utime(self.temp_file.name, self._times)
+            # atomic move
+            os.replace(self.temp_file.name, self.orig_path)
+        Path(self.temp_file.name).unlink(missing_ok=True)
+
+    def chmod(self, mode: int) -> None:
+        self._permissions = mode
+
+    def write(self, data):
+        self.temp_file.write(data)
+
+    def write_from_fileobj(self, fp):
+        shutil.copyfileobj(fp, self.temp_file)
+
+    def utime(self, times: Tuple[float, float]) -> None:
+        self._times = times

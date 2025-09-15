@@ -487,6 +487,11 @@ class _IOFile(str, AnnotatedStringInterface):
                 f"File path {self._file} contains double '{os.path.sep}'. "
                 f"This is likely unintended. {hint}"
             )
+        if _illegal_wildcard_name_regex.search(self._file) is not None:
+            logger.warning(
+                f"File path '{self._file}' contains illegal characters in a wildcard "
+                f"name (only alphanumerics and underscores are allowed)."
+            )
 
     async def exists(self):
         if self.is_storage:
@@ -990,6 +995,17 @@ _double_slash_regex = (
 )
 
 _CONSIDER_LOCAL_DEFAULT = frozenset()
+
+_illegal_wildcard_name_regex = re.compile(
+    r"""
+    \{(?!\{) # Start matching from the second {, otherwise \W will match the second {
+        \s*
+        (?P<name>
+            .*?\W[^,\{\}]*
+        ),?[^,\{\}]*? # Do we see any non-word character before comma?
+    \}
+    """,
+)
 
 
 async def wait_for_files(
@@ -1899,6 +1915,13 @@ class InputFiles(Namedlist):
         return async_run(sizes())
 
     @property
+    def size_tempfiles(self):
+        async def sizes():
+            return [await f.size() for f in self if is_flagged(f, "temp")]
+
+        return async_run(sizes())
+
+    @property
     def size_files_kb(self):
         return [f / 1024 for f in self.size_files]
 
@@ -1921,6 +1944,10 @@ class InputFiles(Namedlist):
     @property
     def size_mb(self):
         return sum(self.size_files_mb)
+
+    @property
+    def temp_size_mb(self):
+        return sum(self.size_tempfiles)
 
     @property
     def size_gb(self):

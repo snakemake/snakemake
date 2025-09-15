@@ -1,6 +1,74 @@
 # Changelog
 
 
+## [9.11.2](https://github.com/snakemake/snakemake/compare/v9.11.1...v9.11.2) (2025-09-09)
+
+
+### Bug Fixes
+
+* properly fall back to greedy scheduler in case of pulp/cbc errors ([#3733](https://github.com/snakemake/snakemake/issues/3733)) ([62f13b8](https://github.com/snakemake/snakemake/commit/62f13b802ee1745cc2eee5190f15712a828cf047))
+
+## [9.11.1](https://github.com/snakemake/snakemake/compare/v9.11.0...v9.11.1) (2025-09-08)
+
+
+### Bug Fixes
+
+* invalid escape sequences in a doc string ([#3728](https://github.com/snakemake/snakemake/issues/3728)) ([73bfa23](https://github.com/snakemake/snakemake/commit/73bfa23fb2ad3d0a7ba043d3e9554a48d92a7ca2))
+
+
+### Performance Improvements
+
+* for caching source files under potential race conditions, use rsync like file writing in order to improve performance on distributed filesystems like glusterfs ([#3726](https://github.com/snakemake/snakemake/issues/3726)) ([3614917](https://github.com/snakemake/snakemake/commit/361491771718c203d3fe8b90a87158e435ac278f))
+
+## [9.11.0](https://github.com/snakemake/snakemake/compare/v9.10.1...v9.11.0) (2025-09-05)
+
+
+### Features
+
+* add landing page to the report containing custom metadata defined with a YTE yaml template ([#3452](https://github.com/snakemake/snakemake/issues/3452)) ([c754d80](https://github.com/snakemake/snakemake/commit/c754d80ee13ab81b1a350e161d35ce3c0aaf0d77))
+* Issue a warning when unsupported characters are used in wildcard names ([#1587](https://github.com/snakemake/snakemake/issues/1587)) ([fa57355](https://github.com/snakemake/snakemake/commit/fa5735555dab481fd65e50fd03e09798be2d5bbe))
+
+
+### Bug Fixes
+
+* avoid checking output files in immediate-submit mode ([#3569](https://github.com/snakemake/snakemake/issues/3569)) ([58c42cf](https://github.com/snakemake/snakemake/commit/58c42cf42b16f8545fa63443fb3deeafbeac0917))
+* clarify --keep-going flag help text to distinguish runtime vs DAG construction errors ([#3705](https://github.com/snakemake/snakemake/issues/3705)) ([a3a8ef4](https://github.com/snakemake/snakemake/commit/a3a8ef4058c538338558c319ec0c064b4cf89b81))
+* enable docstring assignment in `use rule ... with:` block ([#3710](https://github.com/snakemake/snakemake/issues/3710)) ([2191962](https://github.com/snakemake/snakemake/commit/2191962fd50f985233a1eef948207ade54c72cd3))
+* fix missing attribute error in greedy scheduler settings when using touch, dryrun or immediate submit. ([6471004](https://github.com/snakemake/snakemake/commit/647100442b76d306243306c4f2bb3bab086f7087))
+* only trigger script with CODE label ([#3707](https://github.com/snakemake/snakemake/issues/3707)) ([2d01f8c](https://github.com/snakemake/snakemake/commit/2d01f8c281ca041a5877afbb5f727fb9a1b2557f))
+* parser.py incorrectly parsing multiline f-strings ([#3701](https://github.com/snakemake/snakemake/issues/3701)) ([06ece76](https://github.com/snakemake/snakemake/commit/06ece760f05a195e0487ebdced41064940b32963))
+* parsing ordinary yaml strings ([#3506](https://github.com/snakemake/snakemake/issues/3506)) ([ddf334e](https://github.com/snakemake/snakemake/commit/ddf334e8a1b04525eda975833dcae26416ab4f31))
+* remove temp files when using checkpoints ([#3716](https://github.com/snakemake/snakemake/issues/3716)) ([5ff3e20](https://github.com/snakemake/snakemake/commit/5ff3e20230e88b7607319ab0216a25fe17121de2))
+* Restore python rules changes triggering reruns. (GH: [#3213](https://github.com/snakemake/snakemake/issues/3213)) ([#3485](https://github.com/snakemake/snakemake/issues/3485)) ([2f663be](https://github.com/snakemake/snakemake/commit/2f663be3f272c729a0edde32918d0dbd9d7a3088))
+* unit testing ([#3680](https://github.com/snakemake/snakemake/issues/3680)) ([06ba7e6](https://github.com/snakemake/snakemake/commit/06ba7e6eba0e53a23905855f6a3a58f9adb7ab5b))
+* use queue_input_wait_time when updating queue input jobs ([#3712](https://github.com/snakemake/snakemake/issues/3712)) ([a945a19](https://github.com/snakemake/snakemake/commit/a945a194fc916b12cccb8d26af2a1b3fe9670cb8))
+
+
+### Documentation
+
+* output files within output directories is an error ([#2848](https://github.com/snakemake/snakemake/issues/2848)) ([#2913](https://github.com/snakemake/snakemake/issues/2913)) ([37272e5](https://github.com/snakemake/snakemake/commit/37272e5a58dd08f9a9daaaeb1d1abf0e30e79715))
+
+## [9.10.1](https://github.com/snakemake/snakemake/compare/v9.10.0...v9.10.1) (2025-09-01)
+
+
+### Performance Improvements
+
+* optimize persistence implementation (only write metadata once, reduce file operations for improving glusterfs performance) ([#3679](https://github.com/snakemake/snakemake/issues/3679)) ([122c713](https://github.com/snakemake/snakemake/commit/122c71379eeef6799a4448428594ec4f9b5b43ec))
+
+## [9.10.0](https://github.com/snakemake/snakemake/compare/v9.9.0...v9.10.0) (2025-08-19)
+
+
+### Features
+
+* migrate to scheduler plugin interface and scheduler plugins ([#3676](https://github.com/snakemake/snakemake/issues/3676)) ([26fcd38](https://github.com/snakemake/snakemake/commit/26fcd38690c2a029d646e3f43591a4dad5d62053))
+
+
+### Bug Fixes
+
+* don't rate limit jobs when touching ([#3699](https://github.com/snakemake/snakemake/issues/3699)) ([9c499e5](https://github.com/snakemake/snakemake/commit/9c499e57018ec0f54e43c99e7eebaa1bb9bf77af))
+* raise an error when different rules produce identical (temp) output  ([#3667](https://github.com/snakemake/snakemake/issues/3667)) ([f627176](https://github.com/snakemake/snakemake/commit/f6271765b5438116a428b622173603ad29577973))
+* silence messages on module load ([#3688](https://github.com/snakemake/snakemake/issues/3688)) ([b13e9c8](https://github.com/snakemake/snakemake/commit/b13e9c8a0592850bf6784c73861000c6f8f21dfa))
+
 ## [9.9.0](https://github.com/snakemake/snakemake/compare/v9.8.2...v9.9.0) (2025-07-29)
 
 

@@ -19,6 +19,7 @@ from urllib.parse import unquote
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake.common import (
     ON_WINDOWS,
+    LockFreeWritableFile,
     is_local_file,
     get_appdirs,
     parse_uri,
@@ -404,31 +405,21 @@ class SourceCache:
         return cache_entry
 
     def _do_cache(self, source_file, cache_entry: Path, retries: int = 3):
+        mtime = source_file.mtime()
         # open from origin
         with self._open_local_or_remote(source_file, "rb", retries=retries) as source:
             cache_entry.parent.mkdir(parents=True, exist_ok=True)
-            tmp_source = tempfile.NamedTemporaryFile(
-                prefix=str(cache_entry),
-                delete=False,  # no need to delete since we move it below
-            )
-            tmp_source.write(source.read())
-            tmp_source.close()
-            # ensure read and write permissions for owner and group
-            os.chmod(
-                tmp_source.name,
-                stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP,
-            )
-            # Atomic move to right name.
-            # This way we avoid the need to lock.
-            shutil.move(tmp_source.name, cache_entry)
-
-        mtime = source_file.mtime()
-        if mtime is not None:
-            # Set to mtime of original file
-            # In case we don't have that mtime, it is fine
-            # to just keep the time at the time of caching
-            # as mtime.
-            os.utime(cache_entry, times=(mtime, mtime))
+            with LockFreeWritableFile(cache_entry, binary=True) as entryfile:
+                entryfile.chmod(
+                    stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
+                )
+                if mtime is not None:
+                    # Set to mtime of original file
+                    # In case we don't have that mtime, it is fine
+                    # to just keep the time at the time of caching
+                    # as mtime.
+                    entryfile.utime((mtime, mtime))
+                entryfile.write_from_fileobj(source)
 
     def _open_local_or_remote(
         self, source_file: SourceFile, mode, encoding=None, retries: int = 3

@@ -13,12 +13,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from snakemake.persistence import Persistence
-from snakemake.resources import DefaultResources, GroupResources
+from snakemake.resources import DefaultResources, GroupResources, is_ordinary_string
 from snakemake.settings.enums import RerunTrigger
 from snakemake.utils import min_version  # import so we can patch out if needed
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
+from snakemake.exceptions import AmbiguousRuleException
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -298,6 +299,25 @@ def test_report_after_run():
     )
 
 
+def test_report_metadata():
+    run(
+        dpath("test_report_metadata"),
+        report="report.html",
+        check_md5=False,
+        report_metadata="yte_template.yaml",
+    )
+
+
+def test_report_metadata_nested():
+    run(
+        dpath("test_report_metadata"),
+        report="report.html",
+        report_metadata="yte_template_nested.yaml",
+        check_md5=False,
+        shouldfail=True,
+    )
+
+
 def test_params():
     run(dpath("test_params"))
 
@@ -451,7 +471,27 @@ def test_empty_include():
 
 
 def test_script_python():
-    run(dpath("test_script_py"))
+    tmpdir = run(dpath("test_script_py"), cleanup=False)
+    # update timestamp of script
+    os.utime(os.path.join(tmpdir, "scripts/test_explicit_import.py"))
+    outfile_path = os.path.join(tmpdir, "explicit_import.py.out")
+    outfile_timestamp_orig = os.path.getmtime(outfile_path)
+    # won't update output without trigger CODE
+    run(
+        dpath("test_script_py"),
+        cleanup=False,
+        tmpdir=tmpdir,
+        shellcmd="snakemake -c1 --rerun-triggers mtime",
+    )
+    assert outfile_timestamp_orig == os.path.getmtime(outfile_path)
+    run(
+        dpath("test_script_py"),
+        cleanup=False,
+        tmpdir=tmpdir,
+        shellcmd="snakemake -c1",
+    )
+    assert outfile_timestamp_orig != os.path.getmtime(outfile_path)
+    # shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows  # Test relies on perl
@@ -864,6 +904,24 @@ def test_groups_out_of_jobs():
     )
 
 
+def test_resource_is_ordinary_string():
+    # Ordinary strings
+    assert is_ordinary_string("hello") is True
+    assert is_ordinary_string("123") is True
+    assert is_ordinary_string("simple_string") is True
+
+    # Strings that are not ordinary
+    assert is_ordinary_string("func_name(arg1, arg2)") is False  # Function call
+    assert is_ordinary_string("{'key': 'value'}") is False  # Dictionary literal
+    assert is_ordinary_string("lambda x: x + 1") is False  # Lambda expression
+    assert is_ordinary_string("2 * input.size") is False  # calculation
+
+    # Non-string inputs
+    assert is_ordinary_string(123) is False  # Integer
+    assert is_ordinary_string(["list", "of", "strings"]) is False  # List
+    assert is_ordinary_string(None) is False  # NoneType
+
+
 @skip_on_windows
 def test_group_jobs_resources(mocker):
     spy = mocker.spy(GroupResources, "basic_layered")
@@ -1164,7 +1222,7 @@ def test_convert_to_cwl():
     # run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
     shell(
         "cd {workdir}; PYTHONPATH={src} python -m snakemake --export-cwl workflow.cwl",
-        src=os.getcwd(),
+        src=Path.cwd(),
     )
     shell("cd {workdir}; cwltool --singularity workflow.cwl")
     assert os.path.exists(os.path.join(workdir, "test.out"))
@@ -1472,17 +1530,16 @@ def test_github_issue640():
     )
 
 
-@skip_on_windows  # TODO check whether this might be enabled later
 def test_generate_unit_tests():
-    with tempfile.NamedTemporaryFile() as tmpfile:
-        os.environ["UNIT_TEST_TMPFILE"] = tmpfile.name
-        tmpdir = run(
-            dpath("test_generate_unit_tests"),
-            generate_unit_tests=".tests/unit",
-            check_md5=False,
-            cleanup=False,
-        )
-        sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
+    run(
+        dpath("test_generate_unit_tests"),
+        shellcmd="snakemake --generate-unit-tests ../../.tests/unit --directory .tests/integration",
+        no_tmpdir=True,
+        cleanup=False,
+    )
+    sp.check_call(
+        ["pytest", ".tests/unit", "-vs"], cwd=dpath("test_generate_unit_tests")
+    )
 
 
 def test_paramspace():
@@ -1911,6 +1968,52 @@ def test_github_issue1882():
         shutil.rmtree(tmpdir)
 
 
+def test_github_issue3213():
+    try:
+        import linecache
+
+        output_files = ["file_a.txt", "file_b.txt"]
+
+        tmpdir = run(dpath("test_github_issue3213"), cleanup=False, check_results=False)
+        ts_a1, ts_b1 = [open(os.path.join(tmpdir, f)).read() for f in output_files]
+
+        # Need to clear the cache so that we notice the Snakefile file has changed.
+        # In practice it's not a problem.
+        linecache.clearcache()
+
+        shutil.copy(
+            os.path.join(dpath("test_github_issue3213"), "Snakefile.newver"),
+            os.path.join(tmpdir, "Snakefile"),
+        )
+        run(
+            dpath("test_github_issue3213"),
+            tmpdir=tmpdir,
+            cleanup=False,
+            check_results=False,
+        )
+        ts_a2, ts_b2 = [open(os.path.join(tmpdir, f)).read() for f in output_files]
+
+        run(
+            dpath("test_github_issue3213"),
+            tmpdir=tmpdir,
+            cleanup=False,
+            check_results=False,
+            forceall=True,
+        )
+        ts_a3, ts_b3 = [open(os.path.join(tmpdir, f)).read() for f in output_files]
+
+        assert ts_a1[0] == ts_a2[0] == ts_a3[0] == "A"
+        assert ts_b1[0] == "B"
+        assert ts_b2[0] == ts_b3[0] == "D"
+
+        assert ts_a1 == ts_a2
+        assert ts_b1 != ts_b2
+        assert ts_a2 != ts_a3
+        assert ts_b2 != ts_b3
+    finally:
+        shutil.rmtree(tmpdir)
+
+
 @skip_on_windows  # not platform dependent
 def test_inferred_resources():
     run(dpath("test_inferred_resources"))
@@ -2182,6 +2285,15 @@ def test_failed_intermediate():
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
 
 
+def test_github_issue2848():
+    # Should fail on parsing with ChildIOException, on Windows previously failed during execution
+    run(
+        dpath("test_github_issue2848"),
+        targets=["output/c.txt", "output/dir2/d.txt"],
+        shouldfail=True,
+    )
+
+
 @pytest.mark.parametrize(
     "testdir,kwargs",
     [
@@ -2426,5 +2538,42 @@ def test_params_empty_inherit():
     run(dpath("test_params_empty_inherit"))
 
 
+@skip_on_windows
+def test_immediate_submit_without_shared_fs():
+    run(
+        dpath("test_immediate_submit_without_shared_fs"),
+        shellcmd="""snakemake \
+        --executor cluster-generic \
+        --cluster-generic-submit-cmd "./clustersubmit --dependencies \\\"{dependencies}\\\"" \
+        --forceall \
+        --immediate-submit \
+        --notemp \
+        --jobs 10 \
+        && ./clustersubmit --execute """,
+    )
+
+
+def test_ambiguousruleexception():
+    try:
+        run(dpath("test_ambiguousruleexception"))
+    except AmbiguousRuleException:
+        return
+    raise AssertionError("This is an ambiguous case! Should have raised an error...")
+
+
 def test_github_issue3556():
     run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
+
+
+@skip_on_windows
+def test_temp_checkpoint():
+    tmpdir = run(dpath("test_temp_checkpoint"), cleanup=False)
+    tmpdir = Path(tmpdir)
+    expected = {
+        tmpdir / "results/aggregated/a.txt",
+        tmpdir / "results/aggregated/b.txt",
+        tmpdir / "results/aggregated/c.txt",
+    }
+    real = set(tmpdir.glob("results/*/*"))
+    assert expected == real, "temp files not removed"
+    shutil.rmtree(tmpdir)
