@@ -942,16 +942,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             return outside_of_group_job is None or j not in outside_of_group_job.jobs
 
         assert self.workflow.storage_settings is not None
-        return tempfile not in self.workflow.storage_settings.unneeded_temp_files and (
-            tempfile in self.derived_targetfiles
-            or any(
-                tempfile in files
-                for j, files in self.depending[job].items()
-                if not self.finished(j)
-                and self.needrun(j)
-                and j != job
-                and is_other_group_or_no_group(j)
-            )
+        is_unneeded_outside = (
+            tempfile in self.workflow.storage_settings.unneeded_temp_files
+        )
+        is_derived_target = tempfile in self.derived_targetfiles
+        is_needed_by_subsequent_job = any(
+            tempfile in files
+            for j, files in self.depending[job].items()
+            if not self.finished(j)
+            and self.needrun(j)
+            and j != job
+            and is_other_group_or_no_group(j)
+        )
+        logger.debug(
+            f"Temp file {tempfile}: {is_unneeded_outside=}, {is_derived_target=}, "
+            f"{is_needed_by_subsequent_job=}"
+        )
+        return (
+            not is_unneeded_outside or is_derived_target or is_needed_by_subsequent_job
         )
 
     async def handle_temp(self, job):
