@@ -14,7 +14,7 @@ def get_lp_solvers():
     try:
         import pulp
 
-        return [default] + sorted(
+        return default + sorted(
             solver
             for solver in pulp.listSolvers(onlyAvailable=True)
             if solver != default
