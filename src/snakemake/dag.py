@@ -939,9 +939,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         """
 
         def is_other_group_or_no_group(j):
-            return (
-                outside_of_group_job is None or j not in outside_of_group_job.jobs
-            )
+            return outside_of_group_job is None or j not in outside_of_group_job.jobs
 
         assert self.workflow.storage_settings is not None
         return tempfile not in self.workflow.storage_settings.unneeded_temp_files and (
