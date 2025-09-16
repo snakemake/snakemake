@@ -10,17 +10,17 @@ from snakemake_interface_common.io import AnnotatedStringInterface
 
 
 def get_lp_solvers():
-    default = ["PULP_CBC_CMD"]
+    default = "PULP_CBC_CMD"
     try:
         import pulp
 
-        return default + sorted(
+        return [default] + sorted(
             solver
             for solver in pulp.listSolvers(onlyAvailable=True)
             if solver != default
         )
     except Exception:
-        return default
+        return [default]
 
 
 lp_solvers = get_lp_solvers()
