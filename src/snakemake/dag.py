@@ -286,7 +286,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         self.check_directory_outputs()
 
-    def get_unneeded_temp_files(self, job: AbstractJob) -> Iterable[str]:
+    def get_unneeded_temp_files(self, job: Union[Job, GroupJob]) -> Iterable[str]:
         def get_files(job, group_job=None):
             for f in job.output:
                 if is_flagged(f, "temp") and not self.is_needed_tempfile(
@@ -936,12 +936,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     def is_needed_tempfile(self, job, tempfile, outside_of_group_job=None):
         """Return whether a temp file is still needed by jobs other than the
         given and not part of the eventually given group.
-
         """
 
         def is_other_group_or_no_group(j):
             return (
-                outside_of_group_job is not None and j not in outside_of_group_job.jobs
+                outside_of_group_job is None or j not in outside_of_group_job.jobs
             )
 
         assert self.workflow.storage_settings is not None
