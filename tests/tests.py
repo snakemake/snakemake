@@ -831,6 +831,17 @@ def test_singularity_global():
     )
 
 
+@skip_on_windows
+@apptainer
+@connected
+def test_singularity_source_cache():
+    run(
+        dpath("test_singularity_source_cache"),
+        deployment_method={DeploymentMethod.APPTAINER},
+        apptainer_args="--bind /tmp:/tmp",
+    )
+
+
 def test_issue612():
     run(dpath("test_issue612"), executor="dryrun")
 
