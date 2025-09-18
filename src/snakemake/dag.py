@@ -937,14 +937,21 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         """Return whether a temp file is still needed by jobs other than the
         given and not part of the eventually given group.
         """
+        if self.workflow.subprocess_exec:
+            return True
 
         def is_other_group_or_no_group(j):
             return outside_of_group_job is None or j not in outside_of_group_job.jobs
 
         assert self.workflow.storage_settings is not None
-        is_unneeded_outside = (
-            tempfile in self.workflow.storage_settings.unneeded_temp_files
-        )
+
+        if self.workflow.remote_exec:
+            is_unneeded_outside = (
+                tempfile in self.workflow.storage_settings.unneeded_temp_files
+            )
+        else:
+            is_unneeded_outside = True
+
         is_derived_target = tempfile in self.derived_targetfiles
         is_needed_by_subsequent_job = any(
             tempfile in files
@@ -959,13 +966,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             f"{is_needed_by_subsequent_job=}"
         )
         return (
-            not is_unneeded_outside or is_derived_target or is_needed_by_subsequent_job
-        )
+            is_derived_target or is_needed_by_subsequent_job
+        ) and is_unneeded_outside
 
     async def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
         if self.workflow.storage_settings.notemp:
+            logger.debug("Not handling temp files since --notemp is set.")
             return
+        logger.debug(f"Handle temp files for job {job}")
 
         if job.is_group():
             for j in job:
