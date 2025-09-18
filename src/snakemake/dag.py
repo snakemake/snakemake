@@ -965,9 +965,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             f"Temp file {tempfile}: {is_unneeded_outside=}, {is_derived_target=}, "
             f"{is_needed_by_subsequent_job=}"
         )
-        return (
-            is_derived_target or is_needed_by_subsequent_job
-        ) and is_unneeded_outside
+        if is_unneeded_outside:
+            return is_derived_target or is_needed_by_subsequent_job
+        else:
+            return True
 
     async def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
