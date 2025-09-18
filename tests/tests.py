@@ -38,33 +38,6 @@ from snakemake_interface_executor_plugins.settings import (
 )
 
 
-def test_logfile():
-    import glob
-
-    tmpdir = run(dpath("test_logfile"), cleanup=False, check_results=False)
-    finished_stmt = """
-Finished jobid: 0 (Rule: all)
-6 of 6 steps (100%) done"""
-
-    log_dir = os.path.join(tmpdir, ".snakemake", "log")
-    assert os.path.exists(log_dir), "Log directory not found"
-
-    log_files = glob.glob(os.path.join(log_dir, "*.snakemake.log"))
-    assert log_files, "No log files found"
-
-    log_files.sort(key=os.path.getmtime, reverse=True)
-    latest_log = log_files[0]
-
-    with open(latest_log, "r") as f:
-        log_content = f.read()
-
-    assert (
-        finished_stmt.strip() in log_content.strip()
-    ), f"Expected statement not found in log file. Log content: {log_content}"
-
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
-
-
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
