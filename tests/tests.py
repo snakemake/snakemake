@@ -2218,6 +2218,11 @@ def test_storage_cleanup_local():
         assert not tmpdir_path.exists() or not any(tmpdir_path.iterdir())
 
 
+@skip_on_windows
+def test_group_temp():
+    run(dpath("test_group_temp"), cluster="./qsub")
+
+
 @skip_on_windows  # OS agnostic
 def test_summary():
     run(dpath("test01"), shellcmd="snakemake --summary", check_results=False)
