@@ -53,9 +53,13 @@ jobs:
         env: ["py311", "py312", "py313"]
         exclude:
           - os: windows-2022
+            env: "py312"
+          - os: windows-2022
             env: "py311"
           - os: macos-latest
             env: "py311"
+          - os: macos-latest
+            env: "py312"
 
     runs-on: ${{ matrix.os }}
 
