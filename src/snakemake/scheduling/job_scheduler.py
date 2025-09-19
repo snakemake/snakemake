@@ -519,9 +519,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     # This saves a lot of time, as self.open_jobs has to be
                     # evaluated less frequently.
                     self._open_jobs.release()
-            else:
-                # go on scheduling if there is any free core
-                self._open_jobs.release()
 
     def error_callback(self, job):
         with self._lock:
