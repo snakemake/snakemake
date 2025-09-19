@@ -167,7 +167,7 @@ In this case, any ``configfile`` statements inside the module are ignored.
 In addition, it is possible to skip any :ref:`validation <snakefiles_config_validation>` statements in the module, by specifying ``skip_validation: True`` in the module statement.
 Moreover, one can automatically move all relative input and output files of a module into a dedicated folder by specifying ``prefix: "foo"`` in the module definition, e.g. any output file ``path/to/output.txt`` in the module would be stored under ``foo/path/to/output.txt`` instead.
 This becomes particularly useful when combining multiple modules, see :ref:`use_with_modules`.
-However, if you have some input files that come from outside the workflow, you can use the ``local`` flag so that their path is not modified (see :ref:`snakefiles-storage-local-files`)..
+However, if you have some input files that come from outside the workflow, you can use the ``local`` flag so that their path is not modified (see :ref:`snakefiles-storage-local-files`).
 
 Instead of using all rules, you can selectively import specific rules from modules.
 These rules can also be modified during import via a final ``with:`` followed by a block that lists items to overwrite.
