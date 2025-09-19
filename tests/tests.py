@@ -1607,6 +1607,20 @@ def test_modules_dynamic_no_as():
 
 def test_module_nested():
     run(dpath("test_module_nested"))
+    run(
+        dpath("test_module_nested"),
+        snakefile="module_shallow.smk",
+        executor="dryrun",
+        shouldfail=True,
+    )
+    run(
+        dpath("test_module_nested"),
+        snakefile="module_shallow.smk",
+        targets=["aaalog"],
+        config={"bb": "Snakefile"},
+        executor="dryrun",
+        check_results=False,
+    )
 
 
 def test_modules_all_exclude_1():
