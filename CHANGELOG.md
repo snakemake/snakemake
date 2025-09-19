@@ -1,6 +1,27 @@
 # Changelog
 
 
+## [9.11.4](https://github.com/snakemake/snakemake/compare/v9.11.3...v9.11.4) (2025-09-19)
+
+
+### Bug Fixes
+
+* Confusion with Overriding input After Snakemake Modularization ([#3714](https://github.com/snakemake/snakemake/issues/3714)) ([bd94dc1](https://github.com/snakemake/snakemake/commit/bd94dc195e01c782419dc894f84d6b55a3c82ee4))
+* properly handle temp files in group jobs that are not needed outside of the group (do not upload them to storage and delete them early) ([#3730](https://github.com/snakemake/snakemake/issues/3730)) ([3ffd8e1](https://github.com/snakemake/snakemake/commit/3ffd8e12d4a9809e2f2ab891341376d34a90dcb6))
+
+## [9.11.3](https://github.com/snakemake/snakemake/compare/v9.11.2...v9.11.3) (2025-09-16)
+
+
+### Bug Fixes
+
+* logging refinements ([#3571](https://github.com/snakemake/snakemake/issues/3571)) ([47ae16e](https://github.com/snakemake/snakemake/commit/47ae16efa1f70891623df896a8e69ad305f08837))
+* use proper default and fallback LP solver in scheduler settings (thanks [@raffienficiaud](https://github.com/raffienficiaud)) ([#3736](https://github.com/snakemake/snakemake/issues/3736)) ([e00e5aa](https://github.com/snakemake/snakemake/commit/e00e5aa9e687aa178fac8603f0e2c5dff71c76bb))
+
+
+### Documentation
+
+* mention nodefaults for installation ([a6db049](https://github.com/snakemake/snakemake/commit/a6db049debcdce5bd667ee770e2aebcdc2e7fcb2))
+
 ## [9.11.2](https://github.com/snakemake/snakemake/compare/v9.11.1...v9.11.2) (2025-09-09)
 
 

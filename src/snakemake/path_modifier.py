@@ -7,22 +7,24 @@ import os
 
 from snakemake.common.prefix_lookup import PrefixLookup
 from snakemake.exceptions import WorkflowError
-from snakemake.io import (
-    is_callable,
-    is_flagged,
-    AnnotatedString,
-    flag,
-    get_flag_value,
-)
+from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
 from snakemake.logging import logger
 
 PATH_MODIFIER_FLAG = "path_modified"
 
 
 class PathModifier:
-    def __init__(self, replace_prefix: dict, prefix: str, workflow):
-        self.skip_properties = set()
+
+    def __init__(
+        self,
+        replace_prefix: dict | None,
+        prefix: str | None,
+        workflow,
+        inner_modifier: "PathModifier | None" = None,
+    ):
+        self.skip_properties: set = set()
         self.workflow = workflow
+        self.inner_modifier = inner_modifier
 
         self.prefix = None
         assert not (prefix and replace_prefix)
@@ -67,6 +69,12 @@ class PathModifier:
         return modified_path
 
     def replace_prefix(self, path, property=None):
+        path = self._replace_prefix(path, property)
+        if self.inner_modifier is not None:
+            return self.inner_modifier.replace_prefix(path, property)
+        return path
+
+    def _replace_prefix(self, path, property):
         if (self._prefix_replacements is None and self.prefix is None) or (
             property in self.skip_properties
             or os.path.isabs(path)

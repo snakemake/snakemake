@@ -1607,6 +1607,20 @@ def test_modules_dynamic_no_as():
 
 def test_module_nested():
     run(dpath("test_module_nested"))
+    run(
+        dpath("test_module_nested"),
+        snakefile="module_shallow.smk",
+        executor="dryrun",
+        shouldfail=True,
+    )
+    run(
+        dpath("test_module_nested"),
+        snakefile="module_shallow.smk",
+        targets=["aaalog"],
+        config={"bb": "Snakefile"},
+        executor="dryrun",
+        check_results=False,
+    )
 
 
 def test_modules_all_exclude_1():
@@ -2216,6 +2230,11 @@ def test_storage_cleanup_local():
             local_storage_prefix=tmpdir_path,
         )
         assert not tmpdir_path.exists() or not any(tmpdir_path.iterdir())
+
+
+@skip_on_windows
+def test_group_temp():
+    run(dpath("test_group_temp"), cluster="./qsub")
 
 
 @skip_on_windows  # OS agnostic
