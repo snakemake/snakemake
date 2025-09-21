@@ -10,8 +10,10 @@ import os
 import subprocess
 import sys
 import platform
+import dis
+import linecache
 from collections import OrderedDict, namedtuple
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from itertools import filterfalse, chain
 from functools import partial
 import copy
@@ -36,6 +38,7 @@ from snakemake.settings.types import (
     SchedulingSettings,
     StorageSettings,
     WorkflowSettings,
+    GlobalReportSettings,
     SharedFSUsage,
 )
 from snakemake.settings.enums import Quietness
@@ -56,7 +59,14 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_software_deployment_plugins.settings import (
     SoftwareDeploymentSettings,
 )
+from snakemake_interface_scheduler_plugins.settings import (
+    SchedulerSettingsBase,
+)
+from snakemake_interface_scheduler_plugins.registry.plugin import (
+    Plugin as SchedulerPlugin,
+)
 
+from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
 from snakemake.logging import logger, format_resources, logger_manager
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
@@ -70,7 +80,7 @@ from snakemake.exceptions import (
     update_lineno,
 )
 from snakemake.dag import DAG, ChangeType
-from snakemake.scheduler import JobScheduler
+from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
 from snakemake.io import (
@@ -156,9 +166,11 @@ class Workflow(WorkflowExecutorInterface):
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     software_deployment_settings: Optional[Mapping[str, SoftwareDeploymentSettings]]
+    global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
     cache_rules: Dict[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str | Path] = None
+    _rundir = str(Path.cwd().absolute())
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
     injected_conda_envs: List = field(default_factory=list)
 
@@ -172,14 +184,14 @@ class Workflow(WorkflowExecutorInterface):
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
 
-        self._rules = OrderedDict()
+        self._rules: OrderedDict[str, Rule] = OrderedDict()
         self.default_target = None
-        self._workdir_init = os.path.abspath(os.curdir)
+        self._workdir_init = str(Path.cwd().absolute())
         self._ruleorder = Ruleorder()
         self._localrules = set()
         self._linemaps = dict()
         self.rule_count = 0
-        self.included = []
+        self._included = OrderedDict()
         self.included_stack: list[SourceFile] = []
         self._persistence: Optional[Persistence] = None
         self._dag: Optional[DAG] = None
@@ -198,7 +210,6 @@ class Workflow(WorkflowExecutorInterface):
         self._scatter = dict(self.resource_settings.overwrite_scatter)
         self._resource_scopes = ResourceScopes.defaults()
         self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
-        self.modules = dict()
         self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
 
         self._sourcecache = SourceCache(self.source_cache_path)
@@ -236,6 +247,13 @@ class Workflow(WorkflowExecutorInterface):
         self.cache_rules = dict()
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
+
+    @property
+    def included(self) -> Iterator[SourceFile]:
+        """
+        Return the included Snakefiles.
+        """
+        yield from self._included.values()
 
     @property
     def checkpoints(self):
@@ -484,6 +502,10 @@ class Workflow(WorkflowExecutorInterface):
         return self._sourcecache
 
     @property
+    def rundir(self):
+        return self._rundir
+
+    @property
     def workdir_init(self):
         return self._workdir_init
 
@@ -501,7 +523,7 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def main_snakefile(self) -> str:
-        return self.included[0].get_path_or_uri()
+        return next(self.included).get_path_or_uri()
 
     @property
     def output_file_cache(self):
@@ -537,6 +559,10 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def modifier(self):
         return self.modifier_stack[-1]
+
+    @property
+    def modules(self):
+        return self.modifier.modules
 
     @property
     def wildcard_constraints(self):
@@ -578,7 +604,7 @@ class Workflow(WorkflowExecutorInterface):
             return self.cache_rules.get(rule.name)
 
     @property
-    def rules(self):
+    def rules(self) -> Iterable[Rule]:
         return self._rules.values()
 
     @property
@@ -623,7 +649,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def add_rule(
         self,
-        name=None,
+        name: str,
         lineno=None,
         snakefile=None,
         checkpoint=False,
@@ -632,21 +658,20 @@ class Workflow(WorkflowExecutorInterface):
         """
         Add a rule.
         """
-        is_overwrite = self.is_rule(name)
-        if not allow_overwrite and is_overwrite:
+        if self.is_rule(name) and not allow_overwrite:
             raise CreateRuleException(
                 f"The name {name} is already used by another rule",
                 lineno=lineno,
                 snakefile=snakefile,
             )
+        else:
+            self.rule_count += 1
+            if not self.default_target:
+                self.default_target = name
         rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
         self._rules[rule.name] = rule
         self.modifier.rules.add(rule)
-        if not is_overwrite:
-            self.rule_count += 1
-        if not self.default_target:
-            self.default_target = rule.name
-        return name
+        return rule
 
     def is_rule(self, name):
         """
@@ -813,19 +838,24 @@ class Workflow(WorkflowExecutorInterface):
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
 
-        rules = (
-            [
+        if self.dag_settings.allowed_rules and not any(
+            rule.is_checkpoint for rule in self.rules
+        ):
+            dag_rules = [
                 rule
                 for rule in self.rules
                 if rule.name in self.dag_settings.allowed_rules
             ]
-            if self.dag_settings.allowed_rules
-            else self.rules
-        )
+            allowed_needrun = None
+        else:
+            dag_rules = self.rules
+            # If the if-case is skipped because of checkpoints, we still want
+            # allowed_rules to restrict the rules that are allowed to be run.
+            allowed_needrun = self.dag_settings.allowed_rules
 
         self._dag = DAG(
             self,
-            rules,
+            dag_rules,
             targetfiles=targetfiles,
             targetrules=targetrules,
             # when cleaning up conda or containers, we should enforce all possible jobs
@@ -840,6 +870,7 @@ class Workflow(WorkflowExecutorInterface):
             omitfiles=omitfiles,
             omitrules=omitrules,
             ignore_incomplete=ignore_incomplete,
+            rules_allowed_for_needrun=allowed_needrun,
         )
 
         persistence_path = (
@@ -889,8 +920,15 @@ class Workflow(WorkflowExecutorInterface):
             in self.legacy_deployment_settings.deployment_method
         ):
             deploy.append("singularity")
+
+        # TODO use or fix the deploy code above
         unit_tests.generate(
-            self.dag, path, deploy, configfiles=self.overwrite_configfiles
+            self.dag,
+            path,
+            self.deployment_settings.deployment_method,
+            snakefile=self.main_snakefile,
+            configfiles=self.configfiles,
+            rundir=self.rundir,
         )
 
     def cleanup_metadata(self, paths: List[Path]):
@@ -926,7 +964,7 @@ class Workflow(WorkflowExecutorInterface):
             logger.info("Unlocked working directory.")
         except IOError as e:
             raise WorkflowError(
-                f"Error: Unlocking the directory {os.getcwd()} failed. Maybe "
+                f"Error: Unlocking the directory {Path.cwd()} failed. Maybe "
                 "you don't have the permissions?",
                 e,
             )
@@ -1059,7 +1097,10 @@ class Workflow(WorkflowExecutorInterface):
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
 
     def create_report(
-        self, report_plugin: ReportPlugin, report_settings: ReportSettingsBase
+        self,
+        report_plugin: ReportPlugin,
+        report_settings: ReportSettingsBase,
+        global_report_settings: GlobalReportSettings,
     ):
         from snakemake.report import auto_report
 
@@ -1071,7 +1112,11 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        async_run(auto_report(self.dag, report_plugin, report_settings))
+        async_run(
+            auto_report(
+                self.dag, report_plugin, report_settings, global_report_settings
+            )
+        )
 
     def conda_list_envs(self):
         assert self.dag_settings is not None
@@ -1181,7 +1226,7 @@ class Workflow(WorkflowExecutorInterface):
 
             return {"nodes": nodes, "links": edges}
 
-        if logger_manager.initialized and logger_manager.needs_rulegraph:
+        if logger_manager.needs_rulegraph:
             rulegraph = simple_rulegraph()
             logger.info(None, extra=dict(event=LogEvent.RULEGRAPH, rulegraph=rulegraph))
 
@@ -1196,6 +1241,9 @@ class Workflow(WorkflowExecutorInterface):
         self,
         executor_plugin: ExecutorPlugin,
         executor_settings: ExecutorSettingsBase,
+        scheduler_plugin: SchedulerPlugin,
+        scheduler_settings: Optional[SchedulerSettingsBase],
+        greedy_scheduler_settings: GreedySchedulerSettings,
         updated_files: Optional[List[str]] = None,
     ):
         logger.info(f"host: {platform.node()}")
@@ -1312,7 +1360,12 @@ class Workflow(WorkflowExecutorInterface):
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
-            self.scheduler = JobScheduler(self, executor_plugin)
+            self.scheduler = JobScheduler(
+                self,
+                executor_plugin,
+                scheduler_plugin.scheduler(self.dag, scheduler_settings, logger),
+                greedy_scheduler_settings,
+            )
 
             if not self.dryrun:
                 if len(self.dag):
@@ -1507,6 +1560,9 @@ class Workflow(WorkflowExecutorInterface):
         """Basedir of currently parsed Snakefile."""
         assert self.included_stack
         snakefile = self.included_stack[-1]
+        return self._get_basedir(snakefile)
+
+    def _get_basedir(self, snakefile: SourceFile) -> SourceFile:
         basedir = snakefile.get_basedir()
         if isinstance(basedir, LocalSourceFile):
             return basedir.abspath()
@@ -1522,24 +1578,20 @@ class Workflow(WorkflowExecutorInterface):
         assert frame is not None and frame.f_back is not None
         calling_file = frame.f_back.f_code.co_filename
 
-        if self.included_stack and (
-            (calling_file == self.included_stack[-1].get_path_or_uri())
-            or calling_file.startswith(self.current_basedir.get_path_or_uri())
-        ):
-            # called from current snakefile, we can try to keep the original source
-            # file annotation
-            # This will only work if the method is evaluated during parsing mode.
-            # Otherwise, the stack can be empty already.
-            path = self.current_basedir.join(rel_path)
+        if calling_file in self._included:
+            # calling file known as SourceFile
+            calling_file = self._included[calling_file]
+            path = self._get_basedir(calling_file).join(rel_path)
             orig_path = path.get_path_or_uri()
+            return sourcecache_entry(self.sourcecache.get_path(path), orig_path)
         else:
             # heuristically determine path
             calling_dir = os.path.dirname(calling_file)
             path = smart_join(calling_dir, rel_path)
             orig_path = path
-        return sourcecache_entry(
-            self.sourcecache.get_path(infer_source_file(path)), orig_path
-        )
+            return sourcecache_entry(
+                self.sourcecache.get_path(infer_source_file(path)), orig_path
+            )
 
     @property
     def snakefile(self):
@@ -1585,10 +1637,10 @@ class Workflow(WorkflowExecutorInterface):
         basedir = self.current_basedir if self.included_stack else None
         snakefile = infer_source_file(snakefile, basedir)
 
-        if not self.modifier.allow_rule_overwrite and snakefile in self.included:
+        if not self.modifier.is_module and snakefile in self.included:
             logger.info(f"Multiple includes of {snakefile} ignored")
             return
-        self.included.append(snakefile)
+        self._included[snakefile.get_path_or_uri()] = snakefile
         self.included_stack.append(snakefile)
 
         default_target = self.default_target
@@ -1740,35 +1792,49 @@ class Workflow(WorkflowExecutorInterface):
     def localrules(self, *rulenames):
         self._localrules.update(rulenames)
 
+    def get_rule_source(self, func):
+        # This can't use `inspect` because the functions are compiled into intermediate python code
+        # in parser.py and that intermediate source is not available anymore (or desirable).
+        # Instead, we're using dis to retrieve the line numbers of the function in the intermediate
+        # code and then map it to the original file using `self.linemaps`.
+        sourcefile = func.__code__.co_filename
+        line_numbers = []
+        linemap = self.linemaps[sourcefile]
+        for func_offset, line in dis.findlinestarts(func.__code__):
+            # The first instruction in the compiled function is RESUME, which
+            # with snakemake is mapped to the 'rule: ' line and is not considered
+            # part of the rule source.
+            if func_offset == 0:
+                continue
+            if line in linemap:
+                line_numbers.append(linemap[line])
+        return "".join(
+            [linecache.getline(sourcefile, lineno) for lineno in sorted(line_numbers)]
+        )
+
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
         # choose a name for an unnamed rule
-        if name is None:
-            name = str(len(self._rules) + 1)
-
-        if self.modifier.skip_rule(name):
-
-            def decorate(ruleinfo):
-                # do nothing, ignore rule
-                return ruleinfo.func
-
-            return decorate
+        orig_name = name or str(len(self._rules) + 1)
+        # FIXME: there are cases when someone use rule:\n\tname: "sth" to define the rulename,
+        # this will go through the modifier.avail_rulename check.
+        # Won't fix in this PR.
 
         # Optionally let the modifier change the rulename.
-        orig_name = name
-        name = self.modifier.modify_rulename(name)
+        name = self.modifier.avail_rulename(orig_name)
+        if not name:
+            return lambda ruleinfo: ruleinfo.func  # ignore the rule
 
-        name = self.add_rule(
+        rule = self.add_rule(
             name,
             lineno,
             snakefile,
             checkpoint,
             allow_overwrite=self.modifier.allow_rule_overwrite,
         )
-        rule = self.get_rule(name)
         rule.is_checkpoint = checkpoint
         rule.module_globals = self.modifier.globals
 
-        def decorate(ruleinfo):  # type: ignore[no-redef]
+        def decorate(ruleinfo: RuleInfo):  # type: ignore[no-redef]
             nonlocal name
 
             # If requested, modify ruleinfo via the modifier.
@@ -1780,10 +1846,9 @@ class Workflow(WorkflowExecutorInterface):
                     **ruleinfo.wildcard_constraints[1],
                 )
             if ruleinfo.name:
-                rule.name = ruleinfo.name
                 del self._rules[name]
-                self._rules[ruleinfo.name] = rule
-                name = rule.name
+                name = rule.name = ruleinfo.name
+                self._rules[name] = rule
             if ruleinfo.input:
                 rule.input_modifier = ruleinfo.input.modifier
                 rule.set_input(*ruleinfo.input.paths, **ruleinfo.input.kwpaths)
@@ -1994,6 +2059,8 @@ class Workflow(WorkflowExecutorInterface):
                 rule.name = ruleinfo.name
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
+            if rule.run_func is not None and not rule.norun:
+                rule.run_func_src = self.get_rule_source(rule.run_func)
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
             rule.notebook = ruleinfo.notebook
@@ -2359,10 +2426,10 @@ class Workflow(WorkflowExecutorInterface):
 
     def userule(
         self,
-        rules=None,
-        from_module=None,
-        exclude_rules=None,
-        name_modifier=None,
+        rules: List[str],
+        from_module: str | None = None,
+        exclude_rules: List[str] | None = None,
+        name_modifier: str | None = None,
         lineno=None,
     ):
         def decorate(maybe_ruleinfo):
@@ -2420,7 +2487,7 @@ class Workflow(WorkflowExecutorInterface):
                 )
             else:
                 # local inheritance
-                if self.modifier.skip_rule(name_modifier):
+                if not self.modifier.avail_rulename(name_modifier):
                     # The parent use rule statement is specific for a different particular rule
                     # hence this local use rule statement can be skipped.
                     return
@@ -2433,9 +2500,9 @@ class Workflow(WorkflowExecutorInterface):
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 with WorkflowModifier(
                     self,
-                    parent_modifier=self.modifier,
+                    is_module=False,
                     resolved_rulename_modifier=get_name_modifier_func(
-                        rules, name_modifier, parent_modifier=self.modifier
+                        rules, name_modifier
                     ),
                     ruleinfo_overwrite=ruleinfo,
                 ):

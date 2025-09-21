@@ -1,5 +1,6 @@
 from dataclasses import dataclass, fields
 import hashlib
+from itertools import chain
 import os
 import sys
 from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any
@@ -197,9 +198,12 @@ class SpawnedJobArgsFactory:
         return format_cli_arg(flag, value, base64_encode=base64_encode)
 
     def envvars(self) -> Mapping[str, str]:
+        assert self.workflow.remote_execution_settings is not None
         envvars = {
             var: os.environ[var]
-            for var in self.workflow.remote_execution_settings.envvars
+            for var in chain(
+                self.workflow.remote_execution_settings.envvars, self.workflow.envvars
+            )
         }
         envvars.update(self.get_storage_provider_envvars())
         return envvars
@@ -296,7 +300,6 @@ class SpawnedJobArgsFactory:
             ),
             "--max-inventory-time 0",
             "--nocolor",
-            "--notemp",
             "--no-hooks",
             "--nolock",
             "--ignore-incomplete",

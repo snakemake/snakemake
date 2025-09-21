@@ -29,6 +29,7 @@ from snakemake.io import (
     contains_wildcard_constraints,
     get_flag_store_keys,
     is_multiext_items,
+    remove_flag,
     update_wildcard_constraints,
     flag,
     get_flag_value,
@@ -73,7 +74,7 @@ _NOT_CACHED = object()
 
 
 class Rule(RuleInterface):
-    def __init__(self, name, workflow, lineno=None, snakefile=None):
+    def __init__(self, name: str, workflow, lineno=None, snakefile=None):
         """
         Create a rule
 
@@ -109,6 +110,7 @@ class Rule(RuleInterface):
         self._lineno = lineno
         self._snakefile = snakefile
         self.run_func = None
+        self.run_func_src = None
         self.shellcmd = None
         self.script = None
         self.notebook = None
@@ -125,7 +127,7 @@ class Rule(RuleInterface):
         self.log_modifier = None
         self.benchmark_modifier = None
         self.ruleinfo = None
-        self.module_globals = None
+        self.module_globals: dict
 
     @property
     def name(self):
@@ -247,7 +249,8 @@ class Rule(RuleInterface):
             benchmark = self._update_item_wildcard_constraints(benchmark)
 
         self._benchmark = IOFile(benchmark, rule=self)
-        self.register_wildcards(self._benchmark.get_wildcard_names())
+        self._benchmark.check()
+        self.register_wildcards(self._benchmark)
 
     @property
     def conda_env(self):
@@ -326,7 +329,8 @@ class Rule(RuleInterface):
     def has_products(self):
         return self.get_some_product() is not None
 
-    def register_wildcards(self, wildcard_names):
+    def register_wildcards(self, item):
+        wildcard_names = item.get_wildcard_names()
         if self._wildcard_names is None:
             self._wildcard_names = wildcard_names
         else:
@@ -371,7 +375,7 @@ class Rule(RuleInterface):
             self._set_inoutput_item(item, output=True, name=name)
 
         for item in self.output:
-            self.register_wildcards(item.get_wildcard_names())
+            self.register_wildcards(item)
         # Check output file name list for duplicates
         self.check_output_duplicates()
         self.check_caching()
@@ -470,7 +474,7 @@ class Rule(RuleInterface):
 
             rule_dependency = None
             if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
-                rule_dependency = item.rule
+                rule_dependency = item.rule.name
 
             if output:
                 path_modifier = self.output_modifier
@@ -482,6 +486,9 @@ class Rule(RuleInterface):
             item = self.apply_path_modifier(item, path_modifier, property=property)
 
             item = default_flags.apply(item)
+
+            for flag_name in self.workflow.storage_settings.omit_flags:
+                item = remove_flag(item, flag_name)
 
             # Check to see that all flags are valid
             # Note that "storage", and "expand" are valid for both inputs and outputs.
@@ -536,6 +543,7 @@ class Rule(RuleInterface):
 
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
+            _item.check()
 
             if is_flagged(item, "temp"):
                 if output:
@@ -619,7 +627,7 @@ class Rule(RuleInterface):
             self._set_log_item(item, name=name)
 
         for item in self.log:
-            self.register_wildcards(item.get_wildcard_names())
+            self.register_wildcards(item)
 
     def _set_log_item(self, item, name=None):
         # Pathlib compatibility
@@ -630,7 +638,11 @@ class Rule(RuleInterface):
                 item = self.apply_path_modifier(item, self.log_modifier, property="log")
                 item = self._update_item_wildcard_constraints(item)
 
-            self.log.append(IOFile(item, rule=self) if isinstance(item, str) else item)
+            if isinstance(item, str):
+                item = IOFile(item, rule=self)
+                item.check()
+
+            self.log.append(item)
             if name:
                 self.log._add_name(name)
         else:
@@ -900,20 +912,23 @@ class Rule(RuleInterface):
             )
 
         if self.dependencies:
-            dependencies = {
+            rule_depends = {
                 f: self.dependencies[f_]
                 for f, f_ in mapping.items()
                 if f_ in self.dependencies
             }
             if None in self.dependencies:
-                dependencies[None] = self.dependencies[None]
+                rule_depends[None] = self.dependencies[None]
+            job_depends = {
+                f: self.workflow.get_rule(d) for f, d in rule_depends.items()
+            }
         else:
-            dependencies = self.dependencies
+            job_depends = {}
 
         for f in input:
             f.check()
 
-        return input, mapping, dependencies, incomplete
+        return input, mapping, job_depends, incomplete
 
     @classmethod
     def _is_deriving_function(cls, func):

@@ -1,0 +1,19 @@
+rule all:
+    input:
+        "a",
+
+
+rule create_b:
+    output:
+        temp("b"),
+    shell:
+        "touch {output}"
+
+
+rule create_a:
+    input:
+        rules.create_b.output,
+    output:
+        "a",
+    shell:
+        "touch {output}"

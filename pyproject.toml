@@ -25,6 +25,7 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering",
 ]
 
@@ -39,7 +40,7 @@ dependencies = [
   "jinja2>=3.0,<4.0",
   "jsonschema",
   "nbformat",
-  "packaging",
+  "packaging >=24.0",
   "psutil",
   "pulp>=2.3.1,<3.3",
   "pyyaml",
@@ -48,11 +49,15 @@ dependencies = [
   "reretry",
   "smart-open>=4.0,<8.0",
   "snakemake-interface-executor-plugins>=9.3.2,<10.0",
-  "snakemake-interface-common>=1.17.0,<2.0",
+  "snakemake-interface-common>=1.20.1,<2.0",
   "snakemake-interface-storage-plugins>=4.1.0,<5.0",
-  "snakemake-interface-report-plugins>=1.1.0,<2.0.0",
+  "snakemake-interface-report-plugins>=1.2.0,<2.0.0",
   "snakemake-interface-logger-plugins>=1.1.0,<2.0.0",
+<<<<<<< HEAD
   "snakemake-interface-software-deployment-plugins >=0.3.0,<1.0",
+=======
+  "snakemake-interface-scheduler-plugins>=2.0.0,<3.0.0",
+>>>>>>> main
   "tabulate",
   "throttler",
   "wrapt",
@@ -67,10 +72,9 @@ Documentation = "https://snakemake.readthedocs.io"
 Source = "https://github.com/snakemake/snakemake"
 
 [project.optional-dependencies]
-messaging = ["slack_sdk"]
 pep = ["eido", "peppy"]
 reports = ["pygments"]
-all = ["slack_sdk", "eido", "peppy", "pygments"]
+all = ["eido", "peppy", "pygments"]
 
 [project.scripts]
 snakemake = "snakemake.cli:main"
@@ -102,6 +106,8 @@ dev = { features = ["test", "docs", "style"] }
 
 py311 = { features = ["py311", "test"] }
 py312 = { features = ["py312", "test"] }
+py313 = { features = ["py313", "test"] }
+
 
 docs = { features = ["docs"] }
 quality = { features = ["style"] }
@@ -113,6 +119,10 @@ python = ">=3.11.0,<3.12"
 
 [tool.pixi.feature.py312.dependencies]
 python = ">=3.12.0,<3.13"
+
+
+[tool.pixi.feature.py313.dependencies]
+python = ">=3.13.0,<3.14"
 
 # Test
 [tool.pytest.ini_options]

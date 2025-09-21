@@ -155,7 +155,18 @@ class Navbar extends React.Component {
 
     getMenuBreadcrumb() {
         let setView = this.props.app.setView;
-        return { name: "menu", icon: "home", func: function () { setView({ navbarMode: "menu", category: undefined, subcategory: undefined }) } };
+        return {
+            name: "menu",
+            icon: "home",
+            func: function () {
+                setView({
+                    navbarMode: "menu",
+                    category: undefined,
+                    subcategory: undefined,
+                    content: "metadata",
+                })
+            }
+        };
     }
 
     getReportInfoBreadcrumb() {

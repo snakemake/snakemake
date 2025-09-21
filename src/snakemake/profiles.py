@@ -56,7 +56,6 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                         "set-resource-scopes",
                         "default-resources",
                         "config",
-                        "wms-monitor-arg",
                         "groups",
                         "group-components",
                         "consider-ancient",
