@@ -34,6 +34,7 @@ from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
+    ExperimentalFeatures,
     RerunTrigger,
     ChangeType,
     CondaCleanupPkgs,
@@ -85,6 +86,10 @@ class MaxJobsPerTimespan:
         max_jobs, timespan = m.group("count"), m.group("timespan")
         max_jobs = int(max_jobs)
         return cls(max_jobs, timespan=timespan)
+
+
+class GlobalSettings(SettingsBase):
+    experimental_features: AnySet[ExperimentalFeatures]
 
 
 @dataclass

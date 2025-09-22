@@ -14,8 +14,10 @@ import os
 import tarfile
 import uuid
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
+from snakemake.settings.enums import ExperimentalFeatures
 from snakemake.settings.types import (
     ChangeType,
+    GlobalSettings,
     GroupSettings,
     SchedulingSettings,
     WorkflowSettings,
@@ -105,6 +107,7 @@ class SnakemakeApi(ApiBase):
     """
 
     output_settings: OutputSettings = field(default_factory=OutputSettings)
+    global_settings: GlobalSettings = field(default_factory=GlobalSettings)
     _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
     _is_in_context: bool = field(init=False, default=False)
 
@@ -118,6 +121,7 @@ class SnakemakeApi(ApiBase):
         storage_settings: Optional[StorageSettings] = None,
         workflow_settings: Optional[WorkflowSettings] = None,
         deployment_settings: Optional[LegacyDeploymentSettings] = None,
+
         storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,

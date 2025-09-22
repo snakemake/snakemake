@@ -19,6 +19,8 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from snakemake.settings.enums import ExperimentalFeatures
+from snakemake_interface_software_deployment_plugins.registry import SoftwareDeploymentPluginRegistry
 
 
 import snakemake.common.argparse
@@ -1253,6 +1255,13 @@ def get_argument_parser(profiles=None):
 
     group_behavior = parser.add_argument_group("BEHAVIOR")
     group_behavior.add_argument(
+        "--experimental-features",
+        nargs="+",
+        choices=ExperimentalFeatures.choices(),
+        default=set(),
+        help="Activate experimental features."
+    )
+    group_behavior.add_argument(
         "--force-use-threads",
         dest="force_use_threads",
         action="store_true",
@@ -1614,10 +1623,11 @@ def get_argument_parser(profiles=None):
         "--deployment",
         "--sdm",
         nargs="+",
-        choices=DeploymentMethod.choices(),
-        parse_func=DeploymentMethod.parse_choices_set,
+        # manually add legacy options and map to plugin names in API
+        choices=set(SoftwareDeploymentPluginRegistry().plugins.keys()) | {"conda", "apptainer", "env-modules"},
         default=set(),
-        help="Specify software environment deployment method.",
+        help="Specify software environment deployment method. "
+        "Refer to Snakemake plugin catalog for choices.",
     )
     group_deployment.add_argument(
         "--container-cleanup-images",
@@ -1789,6 +1799,7 @@ def get_argument_parser(profiles=None):
     ReportPluginRegistry().register_cli_args(parser)
     LoggerPluginRegistry().register_cli_args(parser)
     SchedulerPluginRegistry().register_cli_args(parser)
+    SoftwareDeploymentPluginRegistry().register_cli_args(parser)
     return parser
 
 
