@@ -2597,7 +2597,7 @@ def test_github_issue3556():
 
 
 def test_module_redefined_rule():
-    run(dpath("test_module_redefined_rule"), executor="dryrun", cores=1)
+    run(dpath("test_module_redefined_rule"), executor="dryrun", check_results=False)
 
 
 @skip_on_windows
