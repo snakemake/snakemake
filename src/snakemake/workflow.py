@@ -1785,7 +1785,6 @@ class Workflow(WorkflowExecutorInterface):
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
         # choose a name for an unnamed rule
         orig_name = name or str(len(self._rules) + 1)
-        module_globals = self.modifier.globals
 
         # Optionally let the modifier change the rulename.
         def decorate(ruleinfo: RuleInfo):  # type: ignore[no-redef]
@@ -1800,7 +1799,7 @@ class Workflow(WorkflowExecutorInterface):
             # requested name.
             self.modifier.rule_proxies._register_rule(orig_name, RuleProxy(rule))
 
-            ruleinfo.apply_modifier(self.modifier, rulename=rule.name)
+            ruleinfo.apply_modifier(self.modifier, rulename=name)
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
@@ -1815,10 +1814,22 @@ class Workflow(WorkflowExecutorInterface):
                 rule.set_output(*ruleinfo.output.paths, **ruleinfo.output.kwpaths)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
+            if ruleinfo.log:
+                rule.log_modifier = ruleinfo.log.modifier
+                rule.set_log(*ruleinfo.log.paths, **ruleinfo.log.kwpaths)
+            if ruleinfo.message:
+                rule.message = ruleinfo.message
+            if ruleinfo.benchmark:
+                rule.benchmark_modifier = ruleinfo.benchmark.modifier
+                rule.benchmark = ruleinfo.benchmark.paths
+
+            group = ruleinfo.group
+            if group is not None:
+                rule.group = group
 
             if not name:
-                # leave quickly, as not in the workflow
-                return lambda ruleinfo: ruleinfo.func  # ignore the rule
+                # keep necessary info and leave quickly, as not in the workflow
+                return ruleinfo.func
 
             self.add_rule(rule, allow_overwrite=self.modifier.allow_rule_overwrite)
             rule.is_checkpoint = checkpoint
@@ -1826,7 +1837,7 @@ class Workflow(WorkflowExecutorInterface):
                 self.globals["checkpoints"].register(rule, fallback_name=orig_name)
 
             # If requested, modify ruleinfo via the modifier.
-            rule.module_globals = module_globals
+            rule.module_globals = self.modifier.globals
 
             def get_resource_value(value):
                 if isinstance(value, ParsedResource):
@@ -1931,19 +1942,6 @@ class Workflow(WorkflowExecutorInterface):
 
             rule.restart_times = ruleinfo.retries
 
-            if ruleinfo.log:
-                rule.log_modifier = ruleinfo.log.modifier
-                rule.set_log(*ruleinfo.log.paths, **ruleinfo.log.kwpaths)
-            if ruleinfo.message:
-                rule.message = ruleinfo.message
-            if ruleinfo.benchmark:
-                rule.benchmark_modifier = ruleinfo.benchmark.modifier
-                rule.benchmark = ruleinfo.benchmark.paths
-
-            group = ruleinfo.group
-            if group is not None:
-                rule.group = group
-
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper, prefix=self.workflow_settings.wrapper_prefix
@@ -2013,7 +2011,7 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 # This becomes a local rule, which might spawn jobs to a cluster,
                 # depending on its configuration (e.g. nextflow config).
-                self._localrules.add(rule.name)
+                self._localrules.add(name)
                 rule.is_handover = True
 
             if ruleinfo.cache and not (
@@ -2026,12 +2024,10 @@ class Workflow(WorkflowExecutorInterface):
                     rule=rule,
                 )
 
-            self.cache_rules[rule.name] = (
-                "all" if ruleinfo.cache is True else ruleinfo.cache
-            )
+            self.cache_rules[name] = "all" if ruleinfo.cache is True else ruleinfo.cache
 
             if ruleinfo.default_target is True:
-                self.default_target = rule.name
+                self.default_target = name
             elif ruleinfo.default_target is not False:
                 raise WorkflowError(
                     "Invalid argument for 'default_target:' directive. Only True allowed. "
@@ -2040,9 +2036,9 @@ class Workflow(WorkflowExecutorInterface):
                 )
 
             if ruleinfo.localrule is True:
-                self._localrules.add(rule.name)
+                self._localrules.add(name)
 
-            ruleinfo.func.__name__ = f"__{rule.name}"
+            ruleinfo.func.__name__ = f"__{name}"
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
             rule.ruleinfo = ruleinfo

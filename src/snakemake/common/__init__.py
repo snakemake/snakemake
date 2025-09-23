@@ -263,15 +263,14 @@ class Rules:
     def __getattr__(self, name):
         from snakemake.exceptions import WorkflowError
 
-        try:
+        if name in self._rules:
             return self._rules[name]
-        except KeyError:
-            raise WorkflowError(
-                f"Rule {name} is not defined in this workflow. "
-                f"Available rules: {', '.join(self._rules)}"
-            )
+        raise WorkflowError(
+            f"Rule {name} is not defined in this workflow. "
+            f"Available rules: {', '.join(self._rules)}"
+        )
 
-    def __hasattr__(self, name):
+    def has(self, name):
         return name in self._rules
 
 
