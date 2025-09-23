@@ -1799,7 +1799,9 @@ class Workflow(WorkflowExecutorInterface):
             # requested name.
             self.modifier.rule_proxies._register_rule(orig_name, RuleProxy(rule))
 
-            ruleinfo.apply_modifier(self.modifier, rulename=name)
+            if name:
+                # not apply modifier if rule is not registered
+                ruleinfo.apply_modifier(self.modifier, rulename=name)
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
