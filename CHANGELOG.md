@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.11.5](https://github.com/snakemake/snakemake/compare/v9.11.4...v9.11.5) (2025-09-23)
+
+
+### Bug Fixes
+
+* fail if single-file report is generated with output directories marked for inclusion ([#3748](https://github.com/snakemake/snakemake/issues/3748)) ([e2ca738](https://github.com/snakemake/snakemake/commit/e2ca7384ecfbcfc0f76c31f78af6b0b566513321))
+
 ## [9.11.4](https://github.com/snakemake/snakemake/compare/v9.11.3...v9.11.4) (2025-09-19)
 
 
