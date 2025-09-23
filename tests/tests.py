@@ -2167,6 +2167,7 @@ def test_set_resources_human_readable():
     )
 
 
+@skip_on_windows  # OS agnostic
 def test_report_dir_but_file():
     tmpdir = run(dpath("test_report_dir_but_file"), cleanup=False)
     run(
