@@ -1255,13 +1255,6 @@ def get_argument_parser(profiles=None):
 
     group_behavior = parser.add_argument_group("BEHAVIOR")
     group_behavior.add_argument(
-        "--experimental-features",
-        nargs="+",
-        choices=ExperimentalFeatures.choices(),
-        default=set(),
-        help="Activate experimental features."
-    )
-    group_behavior.add_argument(
         "--force-use-threads",
         dest="force_use_threads",
         action="store_true",
@@ -1624,7 +1617,7 @@ def get_argument_parser(profiles=None):
         "--sdm",
         nargs="+",
         # manually add legacy options and map to plugin names in API
-        choices=set(SoftwareDeploymentPluginRegistry().plugins.keys()) | {"conda", "apptainer", "env-modules"},
+        choices=SoftwareDeploymentPluginRegistry().plugins.keys(),
         default=set(),
         help="Specify software environment deployment method. "
         "Refer to Snakemake plugin catalog for choices.",

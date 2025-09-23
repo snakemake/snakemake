@@ -88,10 +88,6 @@ class MaxJobsPerTimespan:
         return cls(max_jobs, timespan=timespan)
 
 
-class GlobalSettings(SettingsBase):
-    experimental_features: AnySet[ExperimentalFeatures]
-
-
 @dataclass
 class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     """
