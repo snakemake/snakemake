@@ -640,26 +640,22 @@ class Workflow(WorkflowExecutorInterface):
 
     def add_rule(
         self,
-        name: str,
-        lineno=None,
-        snakefile=None,
-        checkpoint=False,
+        rule: Rule,
         allow_overwrite=False,
     ):
         """
         Add a rule.
         """
-        if self.is_rule(name) and not allow_overwrite:
+        if self.is_rule(rule.name) and not allow_overwrite:
             raise CreateRuleException(
-                f"The name {name} is already used by another rule",
-                lineno=lineno,
-                snakefile=snakefile,
+                f"The name {rule.name} is already used by another rule",
+                lineno=rule.lineno,
+                snakefile=rule.snakefile,
             )
         else:
             self.rule_count += 1
             if not self.default_target:
-                self.default_target = name
-        rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
+                self.default_target = rule.name
         self._rules[rule.name] = rule
         self.modifier.rules.add(rule)
         return rule
@@ -1789,40 +1785,28 @@ class Workflow(WorkflowExecutorInterface):
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
         # choose a name for an unnamed rule
         orig_name = name or str(len(self._rules) + 1)
-        # FIXME: there are cases when someone use rule:\n\tname: "sth" to define the rulename,
-        # this will go through the modifier.avail_rulename check.
-        # Won't fix in this PR.
+        module_globals = self.modifier.globals
 
         # Optionally let the modifier change the rulename.
-        name = self.modifier.avail_rulename(orig_name)
-        if not name:
-            return lambda ruleinfo: ruleinfo.func  # ignore the rule
-
-        rule = self.add_rule(
-            name,
-            lineno,
-            snakefile,
-            checkpoint,
-            allow_overwrite=self.modifier.allow_rule_overwrite,
-        )
-        rule.is_checkpoint = checkpoint
-        rule.module_globals = self.modifier.globals
-
         def decorate(ruleinfo: RuleInfo):  # type: ignore[no-redef]
-            nonlocal name
+            nonlocal orig_name
+            if ruleinfo.name:
+                orig_name = ruleinfo.name
 
-            # If requested, modify ruleinfo via the modifier.
-            ruleinfo.apply_modifier(self.modifier, rulename=ruleinfo.name or name)
+            name = self.modifier.avail_rulename(orig_name)
+            rule = Rule(name or orig_name, self, lineno=lineno, snakefile=snakefile)
+            # Register rule under its original name.
+            # Modules using this snakefile as a module, will register it additionally under their
+            # requested name.
+            self.modifier.rule_proxies._register_rule(orig_name, RuleProxy(rule))
+
+            ruleinfo.apply_modifier(self.modifier, rulename=rule.name)
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
                     *ruleinfo.wildcard_constraints[0],
                     **ruleinfo.wildcard_constraints[1],
                 )
-            if ruleinfo.name:
-                del self._rules[name]
-                name = rule.name = ruleinfo.name
-                self._rules[name] = rule
             if ruleinfo.input:
                 rule.input_modifier = ruleinfo.input.modifier
                 rule.set_input(*ruleinfo.input.paths, **ruleinfo.input.kwpaths)
@@ -1831,6 +1815,18 @@ class Workflow(WorkflowExecutorInterface):
                 rule.set_output(*ruleinfo.output.paths, **ruleinfo.output.kwpaths)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
+
+            if not name:
+                # leave quickly, as not in the workflow
+                return lambda ruleinfo: ruleinfo.func  # ignore the rule
+
+            self.add_rule(rule, allow_overwrite=self.modifier.allow_rule_overwrite)
+            rule.is_checkpoint = checkpoint
+            if checkpoint:
+                self.globals["checkpoints"].register(rule, fallback_name=orig_name)
+
+            # If requested, modify ruleinfo via the modifier.
+            rule.module_globals = module_globals
 
             def get_resource_value(value):
                 if isinstance(value, ParsedResource):
@@ -1993,8 +1989,6 @@ class Workflow(WorkflowExecutorInterface):
                     rule.is_containerized = self.global_is_containerized
 
             rule.norun = ruleinfo.norun
-            if ruleinfo.name is not None:
-                rule.name = ruleinfo.name
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             if rule.run_func is not None and not rule.norun:
@@ -2051,14 +2045,6 @@ class Workflow(WorkflowExecutorInterface):
             ruleinfo.func.__name__ = f"__{rule.name}"
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
-            rule_proxy = RuleProxy(rule)
-            # Register rule under its original name.
-            # Modules using this snakefile as a module, will register it additionally under their
-            # requested name.
-            self.modifier.rule_proxies._register_rule(orig_name, rule_proxy)
-
-            if checkpoint:
-                self.globals["checkpoints"].register(rule, fallback_name=orig_name)
             rule.ruleinfo = ruleinfo
             return ruleinfo.func
 
