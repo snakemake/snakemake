@@ -23,11 +23,12 @@ import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
+from snakemake.deployment import SoftwareDeploymentManager
 from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
-    DeploymentSettings,
+    LegacyDeploymentSettings,
     ExecutionSettings,
     GroupSettings,
     OutputSettings,
@@ -55,6 +56,9 @@ from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_software_deployment_plugins.settings import (
+    SoftwareDeploymentSettings,
+)
 from snakemake_interface_scheduler_plugins.settings import (
     SchedulerSettingsBase,
 )
@@ -154,13 +158,14 @@ class Workflow(WorkflowExecutorInterface):
     storage_settings: Optional[StorageSettings] = None
     dag_settings: Optional[DAGSettings] = None
     execution_settings: Optional[ExecutionSettings] = None
-    deployment_settings: Optional[DeploymentSettings] = None
+    legacy_deployment_settings: Optional[LegacyDeploymentSettings] = None
     scheduling_settings: Optional[SchedulingSettings] = None
     output_settings: Optional[OutputSettings] = None
     remote_execution_settings: Optional[RemoteExecutionSettings] = None
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
+    software_deployment_settings: Optional[Mapping[str, SoftwareDeploymentSettings]]
     global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
     cache_rules: Dict[str, str] = field(default_factory=dict)
@@ -214,6 +219,7 @@ class Workflow(WorkflowExecutorInterface):
         self._storage_registry = StorageRegistry(self)
         self._source_archive = None
         self._checkpoints = Checkpoints()
+        self.software_deployment_manager = SoftwareDeploymentManager(self)
 
         _globals = globals()
         from snakemake.shell import shell
@@ -231,6 +237,9 @@ class Workflow(WorkflowExecutorInterface):
         snakemake.ioflags.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
         _globals["access"] = AccessPatternFactory
+        # The following has to happen last, after all globals are set
+        # such that the deployment manager can detect name conflicts.
+        self.software_deployment_manager.register_in_global_variables(_globals)
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -535,10 +544,10 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def conda_base_path(self):
-        assert self.deployment_settings is not None
-        if self.deployment_settings.conda_base_path:
-            return self.deployment_settings.conda_base_path
-        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+        assert self.legacy_deployment_settings is not None
+        if self.legacy_deployment_settings.conda_base_path:
+            return self.legacy_deployment_settings.conda_base_path
+        if DeploymentMethod.CONDA in self.legacy_deployment_settings.deployment_method:
             try:
                 return Conda().prefix_path
             except CreateCondaEnvironmentException:
@@ -875,12 +884,12 @@ class Workflow(WorkflowExecutorInterface):
             else None
         )
 
-        assert self.deployment_settings is not None
+        assert self.legacy_deployment_settings is not None
         self._persistence = Persistence(
             nolock=nolock,
             dag=self._dag,
-            conda_prefix=self.deployment_settings.conda_prefix,
-            singularity_prefix=self.deployment_settings.apptainer_prefix,
+            conda_prefix=self.legacy_deployment_settings.conda_prefix,
+            singularity_prefix=self.legacy_deployment_settings.apptainer_prefix,
             shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
             path=persistence_path,
@@ -902,6 +911,17 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
+        deploy = []
+        assert self.legacy_deployment_settings is not None
+        if DeploymentMethod.CONDA in self.legacy_deployment_settings.deployment_method:
+            deploy.append("conda")
+        if (
+            DeploymentMethod.APPTAINER
+            in self.legacy_deployment_settings.deployment_method
+        ):
+            deploy.append("singularity")
+
+        # TODO use or fix the deploy code above
         unit_tests.generate(
             self.dag,
             path,
@@ -1130,8 +1150,11 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        assert self.deployment_settings is not None
-        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
+        assert self.legacy_deployment_settings is not None
+        if (
+            DeploymentMethod.APPTAINER
+            in self.legacy_deployment_settings.deployment_method
+        ):
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs()
 
@@ -1227,14 +1250,14 @@ class Workflow(WorkflowExecutorInterface):
 
         from snakemake.shell import shell
 
-        assert self.deployment_settings is not None
+        assert self.legacy_deployment_settings is not None
         assert self.execution_settings is not None
         assert self.storage_settings is not None
         assert self.dag_settings is not None
         assert self.remote_execution_settings is not None
         assert self.output_settings is not None
         shell.conda_block_conflicting_envvars = (
-            not self.deployment_settings.conda_not_block_search_path_envvars
+            not self.legacy_deployment_settings.conda_not_block_search_path_envvars
         )
 
         if self.remote_execution_settings.envvars:
@@ -1303,10 +1326,13 @@ class Workflow(WorkflowExecutorInterface):
             if shared_deployment or (self.remote_exec and not shared_deployment):
                 if (
                     DeploymentMethod.APPTAINER
-                    in self.deployment_settings.deployment_method
+                    in self.legacy_deployment_settings.deployment_method
                 ):
                     self.dag.pull_container_imgs()
-                if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+                if (
+                    DeploymentMethod.CONDA
+                    in self.legacy_deployment_settings.deployment_method
+                ):
                     self.dag.create_conda_envs()
 
             shared_storage_local_copies = (
@@ -1386,14 +1412,14 @@ class Workflow(WorkflowExecutorInterface):
 
                     if (
                         DeploymentMethod.CONDA
-                        not in self.deployment_settings.deployment_method
+                        not in self.legacy_deployment_settings.deployment_method
                         and any(rule.conda_env for rule in self.rules)
                     ):
                         logger.info("Conda environments: ignored")
 
                     if (
                         DeploymentMethod.APPTAINER
-                        not in self.deployment_settings.deployment_method
+                        not in self.legacy_deployment_settings.deployment_method
                         and any(rule.container_img for rule in self.rules)
                     ):
                         logger.info("Singularity containers: ignored")
@@ -1982,6 +2008,42 @@ class Workflow(WorkflowExecutorInterface):
 
                 rule.conda_env = ruleinfo.conda_env
 
+            if ruleinfo.software_env_spec:
+                if not (
+                    ruleinfo.script
+                    or ruleinfo.wrapper
+                    or ruleinfo.shellcmd
+                    or ruleinfo.notebook
+                ):
+                    raise RuleException(
+                        "Software directive is only allowed "
+                        "with shell, script, notebook or wrapper directives "
+                        "(not with run or template_engine).",
+                        rule=rule,
+                    )
+                rule.software_env_spec = ruleinfo.software_env_spec
+
+            if ruleinfo.software_env_spec:
+                if not (
+                    ruleinfo.script
+                    or ruleinfo.wrapper
+                    or ruleinfo.shellcmd
+                    or ruleinfo.notebook
+                ):
+                    raise RuleException(
+                        "Software directive is only allowed "
+                        "with shell, script, notebook or wrapper directives "
+                        "(not with run or template_engine).",
+                        rule=rule,
+                    )
+                rule.software_env_spec = ruleinfo.software_env_spec
+
+            invalid_rule = not (
+                ruleinfo.script
+                or ruleinfo.wrapper
+                or ruleinfo.shellcmd
+                or ruleinfo.notebook
+            )
             if ruleinfo.container_img:
                 check_may_use_software_deployment("container/singularity")
                 rule.container_img = ruleinfo.container_img
@@ -2146,18 +2208,25 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
+    def software(self, env_spec):
+        def decorate(ruleinfo):
+            ruleinfo.software_env_spec = env_spec
+            return ruleinfo
+
+        return decorate
+
     def global_conda(self, conda_env):
-        assert self.deployment_settings is not None
-        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+        assert self.legacy_deployment_settings is not None
+        if DeploymentMethod.CONDA in self.legacy_deployment_settings.deployment_method:
             from conda_inject import inject_env_file, PackageManager
 
             try:
                 package_manager = PackageManager[
-                    self.deployment_settings.conda_frontend.upper()
+                    self.legacy_deployment_settings.conda_frontend.upper()
                 ]
             except KeyError:
                 raise WorkflowError(
-                    f"Chosen conda frontend {self.deployment_settings.conda_frontend} is not supported by conda-inject."
+                    f"Chosen conda frontend {self.legacy_deployment_settings.conda_frontend} is not supported by conda-inject."
                 )
 
             # Handle relative path

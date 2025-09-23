@@ -14,8 +14,10 @@ import os
 import tarfile
 import uuid
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
+from snakemake.settings.enums import ExperimentalFeatures
 from snakemake.settings.types import (
     ChangeType,
+    GlobalSettings,
     GroupSettings,
     SchedulingSettings,
     WorkflowSettings,
@@ -31,7 +33,7 @@ from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     DAGSettings,
     DeploymentMethod,
-    DeploymentSettings,
+    LegacyDeploymentSettings,
     ExecutionSettings,
     OutputSettings,
     ConfigSettings,
@@ -117,7 +119,8 @@ class SnakemakeApi(ApiBase):
         config_settings: Optional[ConfigSettings] = None,
         storage_settings: Optional[StorageSettings] = None,
         workflow_settings: Optional[WorkflowSettings] = None,
-        deployment_settings: Optional[DeploymentSettings] = None,
+        deployment_settings: Optional[LegacyDeploymentSettings] = None,
+
         storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
@@ -143,7 +146,7 @@ class SnakemakeApi(ApiBase):
         if workflow_settings is None:
             workflow_settings = WorkflowSettings()
         if deployment_settings is None:
-            deployment_settings = DeploymentSettings()
+            deployment_settings = LegacyDeploymentSettings()
         if storage_provider_settings is None:
             storage_provider_settings = dict()
 
@@ -322,7 +325,7 @@ class WorkflowApi(ApiBase):
     resource_settings: ResourceSettings
     storage_settings: StorageSettings
     workflow_settings: WorkflowSettings
-    deployment_settings: DeploymentSettings
+    deployment_settings: LegacyDeploymentSettings
     storage_provider_settings: Mapping[str, TaggedSettings]
 
     _workflow_store: Optional[Workflow] = field(init=False, default=None)
@@ -410,7 +413,7 @@ class WorkflowApi(ApiBase):
             config_settings=self.config_settings,
             resource_settings=self.resource_settings,
             workflow_settings=self.workflow_settings,
-            deployment_settings=self.deployment_settings,
+            legacy_deployment_settings=self.deployment_settings,
             storage_settings=self.storage_settings,
             output_settings=self.snakemake_api.output_settings,
             overwrite_workdir=self.workdir,

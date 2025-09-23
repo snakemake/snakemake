@@ -19,6 +19,8 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from snakemake.settings.enums import ExperimentalFeatures
+from snakemake_interface_software_deployment_plugins.registry import SoftwareDeploymentPluginRegistry
 
 
 import snakemake.common.argparse
@@ -52,7 +54,7 @@ from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
-    DeploymentSettings,
+    LegacyDeploymentSettings,
     ExecutionSettings,
     GroupSettings,
     MaxJobsPerTimespan,
@@ -1614,10 +1616,11 @@ def get_argument_parser(profiles=None):
         "--deployment",
         "--sdm",
         nargs="+",
-        choices=DeploymentMethod.choices(),
-        parse_func=DeploymentMethod.parse_choices_set,
+        # manually add legacy options and map to plugin names in API
+        choices=SoftwareDeploymentPluginRegistry().plugins.keys(),
         default=set(),
-        help="Specify software environment deployment method.",
+        help="Specify software environment deployment method. "
+        "Refer to Snakemake plugin catalog for choices.",
     )
     group_deployment.add_argument(
         "--container-cleanup-images",
@@ -1789,6 +1792,7 @@ def get_argument_parser(profiles=None):
     ReportPluginRegistry().register_cli_args(parser)
     LoggerPluginRegistry().register_cli_args(parser)
     SchedulerPluginRegistry().register_cli_args(parser)
+    SoftwareDeploymentPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -2063,7 +2067,7 @@ def args_to_api(args, parser):
                         cache=args.cache,
                         consider_ancient=args.consider_ancient,
                     ),
-                    deployment_settings=DeploymentSettings(
+                    deployment_settings=LegacyDeploymentSettings(
                         deployment_method=deployment_method,
                         conda_prefix=args.conda_prefix,
                         conda_cleanup_pkgs=args.conda_cleanup_pkgs,
