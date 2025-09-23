@@ -12,9 +12,9 @@ module dna_seq_varlociraptor:
         config
 
 
-# use all rules from https://github.com/snakemake-workflows/dna-seq-varlociraptor
+# import all rules
 use rule * from dna_seq_varlociraptor as calling_*
 
-# work around issue in dna_seq_varlociraptor where delly is overconstrained on the target regions of the WES
+# make trivial change to one of the rules
 use rule delly from dna_seq_varlociraptor as calling_delly with:
     threads: 1
