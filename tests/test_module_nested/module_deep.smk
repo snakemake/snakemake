@@ -8,9 +8,15 @@ rule run:
         f"echo 'I was here' > {output.txt}"
 
 
-rule run2:
+rule ignored:
     input:
         rds=rules.run.output.txt,
+
+
+
+rule run2:
+    input:
+        rds=rules.ignored.input.rds,
     output:
         txt="output/run2.txt",
     shell:
