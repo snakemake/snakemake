@@ -1,0 +1,20 @@
+configfile: "config/config.yaml"
+
+# declare https://github.com/snakemake-workflows/dna-seq-varlociraptor as a module
+module dna_seq_varlociraptor:
+    snakefile: 
+        github(
+            "snakemake-workflows/dna-seq-varlociraptor",
+            path="workflow/Snakefile",
+            tag="v5.16.0",
+        )
+    config:
+        config
+
+
+# use all rules from https://github.com/snakemake-workflows/dna-seq-varlociraptor
+use rule * from dna_seq_varlociraptor as calling_*
+
+# work around issue in dna_seq_varlociraptor where delly is overconstrained on the target regions of the WES
+use rule delly from dna_seq_varlociraptor as calling_delly with:
+    threads: 1
