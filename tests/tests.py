@@ -2168,6 +2168,18 @@ def test_set_resources_human_readable():
 
 
 @skip_on_windows  # OS agnostic
+def test_report_dir_but_file():
+    tmpdir = run(dpath("test_report_dir_but_file"), cleanup=False)
+    run(
+        dpath("test_report_dir_but_file"),
+        report="report.html",
+        check_md5=False,
+        shouldfail=True,
+        tmpdir=tmpdir,
+    )
+
+
+@skip_on_windows  # OS agnostic
 def test_call_inner():
     run(dpath("test_inner_call"))
 
