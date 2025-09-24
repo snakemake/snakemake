@@ -105,7 +105,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
             self.global_resources["_cores"] = sys.maxsize
         # register job count resource (always initially unrestricted)
-        self.global_resources["_job_count"] = sys.maxsize
+        self.global_resources["_job_slot"] = sys.maxsize
 
         self.resources = dict(self.global_resources)
 
@@ -505,7 +505,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
     def _free_resources(self, job):
         for name, value in job.scheduler_resources.items():
-            if name in self.resources and name != "_job_count":
+            if name in self.resources and name != "_job_slot":
                 self.resources[name] += value
 
     def _proceed(self, job):
@@ -585,26 +585,26 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
         # get number of free jobs to submit
         if self.job_rate_limiter is None:
-            # ensure that the job count is not restricted
+            # ensure that the job slots are unrestricted when not rate limited
             assert (
-                self.resources["_job_count"] == sys.maxsize
-            ), f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
+                self.resources["_job_slot"] == sys.maxsize
+            ), f"Job count is {self.resources['_job_slot']}, but should be {sys.maxsize}"
             return run_selector(self._job_selector)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:
             logger.info("Job rate limit reached, waiting for free slots.")
             return set()
         else:
-            self.resources["_job_count"] = n_free_jobs
+            self.resources["_job_slot"] = n_free_jobs
             selected = run_selector(self._job_selector)
-            # update job rate limiter
-            self.job_rate_limiter.register_jobs(len(selected))
+            # update job rate limiter with remtoe jobs only
+            self.job_rate_limiter.register_jobs(len([job for job in selected if not job.is_local]))
             return selected
 
     def update_available_resources(self, selected_jobs):
         for name in self.global_resources:
-            # _job_count is updated per JobRateLimiter before scheduling
-            if name != "_job_count":
+            # _job_slot is updated per JobRateLimiter before scheduling
+            if name != "_job_slot":
                 self.resources[name] -= sum(
                     [job.scheduler_resources.get(name, 0) for job in selected_jobs]
                 )
