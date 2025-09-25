@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.11.6](https://github.com/snakemake/snakemake/compare/v9.11.5...v9.11.6) (2025-09-25)
+
+
+### Bug Fixes
+
+* select specific rule from module will raise "rule not defined" that cause [#3751](https://github.com/snakemake/snakemake/issues/3751) failed ([#3753](https://github.com/snakemake/snakemake/issues/3753)) ([d6fa3ca](https://github.com/snakemake/snakemake/commit/d6fa3ca8053ce91f94f7d30a1a3224d7ecee66d7))
+
 ## [9.11.5](https://github.com/snakemake/snakemake/compare/v9.11.4...v9.11.5) (2025-09-23)
 
 
