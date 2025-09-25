@@ -47,6 +47,7 @@ class RuleInfo:
         self.handover = False
         self.default_target = False
         self.localrule = False
+        self.pathvars = None
 
     def __copy__(self):
         """Return a copy of this ruleinfo."""

@@ -31,16 +31,10 @@ class Pathvars:
             self.items.update(config_pathvars)
 
     def get(self, name: str) -> str:
-        try:
-            return self.items[name]
-        except KeyError:
-            raise WorkflowError(f"Undefined pathvar {name}.")
+        return self.items[name]
 
     def register(self, **items: str) -> None:
         self.items.update(items)
-
-    def spawn_new_namespace(self) -> "Pathvars":
-        return Pathvars(parent=self)
 
     def apply(self, path: str) -> str:
         while PATHVAR_REGEX.search(path):

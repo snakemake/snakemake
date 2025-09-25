@@ -131,8 +131,12 @@ class Rule(RuleInterface):
         self._pathvars: typing.Optional[Pathvars] = None
 
     @property
-    def pathvars(self):
+    def pathvars(self) -> Pathvars:
         return self._pathvars or self.workflow.pathvars
+    
+    @pathvars.setter
+    def pathvars(self, pathvars: Pathvars) -> None:
+        self._pathvars = pathvars
 
     @property
     def name(self):

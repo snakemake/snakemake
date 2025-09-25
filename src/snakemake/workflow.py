@@ -232,19 +232,16 @@ class Workflow(WorkflowExecutorInterface):
         snakemake.ioflags.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
         _globals["access"] = AccessPatternFactory
-        
-        config = copy.deepcopy(self.config_settings.overwrite_config)
-
-        pathvars = Pathvars()
-        pathvars.register_config(config)
-        _globals["pathvars"] = pathvars
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
         self._output_file_cache = None
         self.cache_rules = dict()
 
+        config = copy.deepcopy(self.config_settings.overwrite_config)
         self.globals["config"] = config
+        self.pathvars.register_config(config)
+
 
     @property
     def included(self) -> Iterator[SourceFile]:
@@ -571,8 +568,8 @@ class Workflow(WorkflowExecutorInterface):
         return self.modifier.globals
     
     @property
-    def pathvars(self):
-        return self.globals["pathvars"]
+    def pathvars(self) -> Pathvars:
+        return self.modifier.pathvars
 
     def lint(self, json=False):
         from snakemake.linting.rules import RuleLinter
@@ -1831,6 +1828,10 @@ class Workflow(WorkflowExecutorInterface):
             # If requested, modify ruleinfo via the modifier.
             ruleinfo.apply_modifier(self.modifier, rulename=ruleinfo.name or name)
 
+            if ruleinfo.pathvars:
+                rule.pathvars = Pathvars(self.pathvars)
+                rule.pathvars.register(**ruleinfo.pathvars)
+
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
                     *ruleinfo.wildcard_constraints[0],
@@ -2252,6 +2253,13 @@ class Workflow(WorkflowExecutorInterface):
     def shadow(self, shadow_depth):
         def decorate(ruleinfo):
             ruleinfo.shadow_depth = shadow_depth
+            return ruleinfo
+
+        return decorate
+    
+    def rule_pathvars(self, **items):
+        def decorate(ruleinfo):
+            ruleinfo.pathvars = items
             return ruleinfo
 
         return decorate

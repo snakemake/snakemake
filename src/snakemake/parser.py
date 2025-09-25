@@ -315,11 +315,16 @@ class Configfile(GlobalKeywordState):
     pass
 
 
-class Pathvars(GlobalKeywordState):
+class GlobalPathvars(GlobalKeywordState):
     @property
     def keyword(self):
         return "register_pathvars"
 
+
+class RulePathvars(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "rule_pathvars"
 
 # PEPs
 
@@ -755,6 +760,7 @@ rule_property_subautomata = dict(
     handover=Handover,
     default_target=DefaultTarget,
     localrule=LocalRule,
+    pathvars=RulePathvars,
 )
 rule_property_deprecated = dict(
     version="Use conda or container directive instead (see docs)."
@@ -1280,7 +1286,7 @@ class Python(TokenAutomaton):
         include=Include,
         workdir=Workdir,
         configfile=Configfile,
-        pathvars=Pathvars,
+        pathvars=GlobalPathvars,
         pepfile=Pepfile,
         pepschema=Pepschema,
         report=Report,

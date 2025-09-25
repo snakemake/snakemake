@@ -13,6 +13,7 @@ from snakemake.exceptions import CreateRuleException, WorkflowError
 from snakemake.io.flags import DefaultFlags
 from snakemake.path_modifier import PathModifier
 from snakemake import wrapper
+from snakemake.pathvars import Pathvars
 
 
 def get_name_modifier_func(rules: List[str], name_modifier=None):
@@ -197,11 +198,12 @@ class WorkflowModifier:
             self.globals["checkpoints"] = self.globals[
                 "checkpoints"
             ].spawn_new_namespace()
-            self.globals["pathvars"] = self.globals["pathvars"].spawn_new_namespace()
 
             if config is not None:
                 self.globals["config"] = config
             self.wildcard_constraints: dict = dict()
+
+            self.pathvars = Pathvars(parent=self.parent_modifier.pathvars if self.parent_modifier is not None else None)
             self.rules: set = set()
             self.modules: dict = dict()
             self.path_modifier = path_modifier or PathModifier(None, None, workflow)
@@ -211,6 +213,7 @@ class WorkflowModifier:
             self.parent_modifier = parent_modifier
             self.globals = parent_modifier.globals
             self.wildcard_constraints = parent_modifier.wildcard_constraints
+            self.pathvars = parent_modifier.pathvars
             self.rules = parent_modifier.rules
             self.rule_proxies = parent_modifier.rule_proxies
             self.modules = parent_modifier.modules
