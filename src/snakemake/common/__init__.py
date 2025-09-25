@@ -140,8 +140,8 @@ def parse_uri(path_or_uri):
         # Fall back to a simple split if we encounter something which isn't supported.
         scheme, _, uri_path = path_or_uri.partition("://")
         if scheme and uri_path:
-            uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
-            return uri(scheme, uri_path)
+            Uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
+            return Uri(scheme, uri_path)
         else:
             raise e
 
@@ -263,13 +263,15 @@ class Rules:
     def __getattr__(self, name):
         from snakemake.exceptions import WorkflowError
 
-        try:
+        if name in self._rules:
             return self._rules[name]
-        except KeyError:
-            raise WorkflowError(
-                f"Rule {name} is not defined in this workflow. "
-                f"Available rules: {', '.join(self._rules)}"
-            )
+        raise WorkflowError(
+            f"Rule {name} is not defined in this workflow. "
+            f"Available rules: {', '.join(self._rules)}"
+        )
+
+    def has(self, name):
+        return name in self._rules
 
 
 class Scatter:
