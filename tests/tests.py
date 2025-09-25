@@ -2259,6 +2259,10 @@ def test_exists():
     run(dpath("test_exists"), check_results=False, executor="dryrun")
 
 
+def test_pathvars():
+    run(dpath("test_pathvars"))
+
+
 @skip_on_windows  # OS agnostic
 def test_handle_storage_multi_consumers():
     run(

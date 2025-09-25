@@ -234,8 +234,7 @@ class IOCache(IOCacheStorageInterface):
 
 
 def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
-    f = _IOFile(file)
-    f.rule = rule
+    f = _IOFile(file, rule=rule)
     return f
 
 
@@ -265,31 +264,35 @@ class _IOFile(str, AnnotatedStringInterface):
 
     if TYPE_CHECKING:
 
-        def __init__(self, file):
+        def __init__(self, file, rule: Optional["snakemake.rules.Rule"]):
             self._is_callable: bool
             self._file: str | AnnotatedString | Callable[[Namedlist], str]
             self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
             self._wildcard_constraints: Dict[str, re.Pattern] | None
 
-    def __new__(cls, file):
+    def __new__(cls, file: Union[str, Path, "AnnotatedString", Callable], rule: Optional["snakemake.rules.Rule"]):
         is_annotated = isinstance(file, AnnotatedString)
         is_callable = (
             isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
         )
         if isinstance(file, Path):
             file = str(file.as_posix())
-        if not is_callable and file.endswith("/"):
-            # remove trailing slashes
-            stripped = file.rstrip("/")
+        if not is_callable and isinstance(file, str):
+            modified = file
+            if file.endswith("/"):
+                # remove trailing slashes
+                modified = file.rstrip("/")
+            if rule is not None:
+                modified = rule.pathvars.apply(modified)
             if is_annotated:
-                stripped = AnnotatedString(stripped)
-                stripped.flags = file.flags
-            file = stripped
+                modified = AnnotatedString(modified)
+                modified.flags = file.flags
+            file = modified
         obj = str.__new__(cls, file)
         obj._is_callable = is_callable
         obj._file = file
-        obj.rule = None
+        obj.rule = rule
         obj._regex = None
         obj._wildcard_constraints = None
 

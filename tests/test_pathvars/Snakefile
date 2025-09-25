@@ -1,0 +1,29 @@
+shell.executable("bash")
+
+
+pathvars:
+    results="results/custom",
+    per="{sample}",
+    nested="<per>",
+
+
+rule all:
+    input:
+        collect("<results>/b/{sample}.txt", sample=["s1", "s2"])
+
+
+rule a:
+    output:
+        "<results>/a/<per>.txt"
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        "<results>/a/<per>.txt",
+        "<resources>/test.txt",
+    output:
+        "<results>/b/<nested>.txt"
+    shell:
+        "touch {output}"

@@ -23,6 +23,7 @@ import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
+from snakemake.pathvars import Pathvars
 from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
@@ -231,13 +232,19 @@ class Workflow(WorkflowExecutorInterface):
         snakemake.ioflags.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
         _globals["access"] = AccessPatternFactory
+        
+        config = copy.deepcopy(self.config_settings.overwrite_config)
+
+        pathvars = Pathvars()
+        pathvars.register_config(config)
+        _globals["pathvars"] = pathvars
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
         self._output_file_cache = None
         self.cache_rules = dict()
 
-        self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
+        self.globals["config"] = config
 
     @property
     def included(self) -> Iterator[SourceFile]:
@@ -562,6 +569,10 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def globals(self):
         return self.modifier.globals
+    
+    @property
+    def pathvars(self):
+        return self.globals["pathvars"]
 
     def lint(self, json=False):
         from snakemake.linting.rules import RuleLinter
@@ -1697,6 +1708,9 @@ class Workflow(WorkflowExecutorInterface):
             self._workdir_handler = WorkdirHandler(Path(workdir))
             self._workdir_handler.change_to()
 
+    def register_pathvars(self, **items):
+        self.pathvars.register(**items)
+
     def configfile(self, fp):
         """Update the global config with data from the given file."""
         from snakemake.common.configfile import load_configfile
@@ -1726,6 +1740,9 @@ class Workflow(WorkflowExecutorInterface):
             else:
                 # CLI configfiles have been specified, do not throw an error but update with their values
                 update_config(self.config, self.config_settings.overwrite_config)
+
+            # eventually update pathvars
+            self.pathvars.register_config(self.config)
 
     def set_pepfile(self, path):
         try:

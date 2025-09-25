@@ -197,6 +197,8 @@ class WorkflowModifier:
             self.globals["checkpoints"] = self.globals[
                 "checkpoints"
             ].spawn_new_namespace()
+            self.globals["pathvars"] = self.globals["pathvars"].spawn_new_namespace()
+
             if config is not None:
                 self.globals["config"] = config
             self.wildcard_constraints: dict = dict()

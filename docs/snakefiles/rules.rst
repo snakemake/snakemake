@@ -330,6 +330,14 @@ It's also possible to get named input/output files in the following way:
 Do note that all the multiext extensions should be named, or all of them should be unnamed (not both).
 Additionally, if additional input/output statements are given, multiext should be treated as positional arguments (before other named input/output files).
 
+.. _snakefiles-pathvars:
+
+Path variables
+~~~~~~~~~~~~~~
+
+
+
+
 .. _snakefiles-semantic-helpers:
 
 Semantic helpers

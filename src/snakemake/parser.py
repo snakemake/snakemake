@@ -315,6 +315,12 @@ class Configfile(GlobalKeywordState):
     pass
 
 
+class Pathvars(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "register_pathvars"
+
+
 # PEPs
 
 
@@ -1274,6 +1280,7 @@ class Python(TokenAutomaton):
         include=Include,
         workdir=Workdir,
         configfile=Configfile,
+        pathvars=Pathvars,
         pepfile=Pepfile,
         pepschema=Pepschema,
         report=Report,
