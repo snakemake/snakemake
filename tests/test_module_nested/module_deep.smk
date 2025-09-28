@@ -8,9 +8,16 @@ rule run:
         f"echo 'I was here' > {output.txt}"
 
 
-rule run2:
+# Reproduces #3751 (unwanted-rule filtering should not remove transitively referenced rules).
+rule ignored:
     input:
         rds=rules.run.output.txt,
+
+
+
+rule run2:
+    input:
+        rds=rules.ignored.input.rds,
     output:
         txt="output/run2.txt",
     shell:
