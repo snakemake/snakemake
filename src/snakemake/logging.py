@@ -106,17 +106,8 @@ def format_percentage(done: int, total: int) -> str:
 
 
 def get_event_level(record: logging.LogRecord) -> tuple[Optional[LogEvent], str]:
-    """
-    Gets snakemake log level and standard level name from a log record.
-
-    Args:
-        record (logging.LogRecord)
-    Returns:
-        tuple[LogEvent, str]
-
-    """
+    """Get snakemake log level and standard level name from a log record."""
     event = record.__dict__.get("event", None)
-
     return (event, record.levelname)
 
 
@@ -457,8 +448,6 @@ class ColorizingTextHandler(logging.StreamHandler):
     nocolor: bool
     stream: TextIO
     mode: Optional["ExecMode"]
-    formatter: Optional[logging.Formatter]
-    filter: Optional[logging.Filter]
 
     def __init__(
         self,
@@ -568,7 +557,7 @@ class LoggerManager:
     queue_listener: Optional[logging.handlers.QueueListener]
     mode: Optional[ExecMode]
     needs_rulegraph: bool
-    logfile_handlers: dict[LogHandlerBase, str]
+    logfile_handlers: dict[logging.Handler, str]
     settings: Optional[OutputSettingsLoggerInterface]
 
     def __init__(self, logger: logging.Logger):
