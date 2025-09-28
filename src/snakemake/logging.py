@@ -19,7 +19,7 @@ from queue import Queue
 from functools import partial
 from typing import TYPE_CHECKING
 import textwrap
-from typing import List, Optional
+from typing import List, Optional, Collection, TextIO
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_logger_plugins.settings import OutputSettingsLoggerInterface
 from snakemake_interface_logger_plugins.common import LogEvent
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from snakemake.settings.enums import Quietness
 
 
-def timestamp():
+def timestamp() -> str:
     """Helper method to format the timestamp."""
     return f"[{time.asctime()}]"
 
@@ -87,7 +87,7 @@ def format_resource_names(resources, omit_resources="_cores _nodes".split()):
     return ", ".join(name for name in resources if name not in omit_resources)
 
 
-def format_percentage(done, total):
+def format_percentage(done: int, total: int) -> str:
     """Format percentage from given fraction while avoiding superfluous precision."""
     if done == total:
         return "100%"
@@ -105,10 +105,9 @@ def format_percentage(done, total):
     return fmt(fraction)
 
 
-def get_event_level(record: logging.LogRecord) -> tuple[LogEvent, str]:
+def get_event_level(record: logging.LogRecord) -> tuple[Optional[LogEvent], str]:
     """
-    Gets snakemake log level from a log record. If there is no snakemake log level,
-    returns the log record's level name.
+    Gets snakemake log level and standard level name from a log record.
 
     Args:
         record (logging.LogRecord)
@@ -121,7 +120,7 @@ def get_event_level(record: logging.LogRecord) -> tuple[LogEvent, str]:
     return (event, record.levelname)
 
 
-def is_quiet_about(quiet: "Quietness", msg_type: str):
+def is_quiet_about(quiet: Collection["Quietness"], msg_type: str) -> bool:
     from snakemake.settings.enums import Quietness
 
     parsed = Quietness.parse_choice(msg_type)
@@ -130,16 +129,19 @@ def is_quiet_about(quiet: "Quietness", msg_type: str):
 
 
 class DefaultFormatter(logging.Formatter):
+    quiet: Collection["Quietness"]
+    show_failed_logs: bool
+
     def __init__(
         self,
-        quiet: "Quietness",
+        quiet: Optional[Collection["Quietness"]],
         show_failed_logs: bool = False,
     ):
         self.quiet = set() if quiet is None else quiet
         self.show_failed_logs = show_failed_logs
         self.last_msg_was_job_info = False
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord):
         """
         Override format method to format Snakemake-specific log messages.
         """
@@ -366,7 +368,18 @@ class DefaultFormatter(logging.Formatter):
 
 
 class DefaultFilter:
-    def __init__(self, quiet, debug_dag, dryrun, printshellcmds) -> None:
+    quiet: Collection["Quietness"]
+    debug_dag: bool
+    dryrun: bool
+    printshellcmds: bool
+
+    def __init__(
+            self,
+            quiet: Optional[Collection["Quietness"]],
+            debug_dag: bool,
+            dryrun: bool,
+            printshellcmds: bool,
+    ) -> None:
         if quiet is None:
             quiet = set()
         self.quiet = quiet
@@ -374,7 +387,7 @@ class DefaultFilter:
         self.dryrun = dryrun
         self.printshellcmds = printshellcmds
 
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord):
         from snakemake.settings.enums import Quietness
 
         event, level = get_event_level(record)
@@ -441,11 +454,17 @@ class ColorizingTextHandler(logging.StreamHandler):
         None,  # To mimic old coloring where log.info was mapped to log.warn
     ]
 
+    nocolor: bool
+    stream: TextIO
+    mode: Optional["ExecMode"]
+    formatter: Optional[logging.Formatter]
+    filter: Optional[logging.Filter]
+
     def __init__(
         self,
-        nocolor=False,
-        stream=sys.stderr,
-        mode=None,
+        nocolor: bool = False,
+        stream: TextIO = sys.stderr,
+        mode: Optional["ExecMode"] = None,
         formatter: Optional[logging.Formatter] = None,
         filter: Optional[logging.Filter] = None,
     ):
@@ -460,7 +479,7 @@ class ColorizingTextHandler(logging.StreamHandler):
         if filter:
             self.addFilter(filter)
 
-    def can_color_tty(self, mode):
+    def can_color_tty(self, mode: Optional["ExecMode"]):
         """
         Colors are supported when:
         1. Terminal is not "dumb"
@@ -487,11 +506,11 @@ class ColorizingTextHandler(logging.StreamHandler):
         return False
 
     @property
-    def is_tty(self):
+    def is_tty(self) -> bool:
         isatty = getattr(self.stream, "isatty", None)
         return isatty and isatty()
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord):
         """
         Emit a log message with custom formatting and color.
         """
@@ -523,7 +542,7 @@ class ColorizingTextHandler(logging.StreamHandler):
             except Exception:
                 self.handleError(record)
 
-    def decorate(self, record, message):
+    def decorate(self, record: logging.LogRecord, message: str):
         """
         Add color to the log message based on its level.
         """
@@ -544,6 +563,14 @@ class ColorizingTextHandler(logging.StreamHandler):
 
 
 class LoggerManager:
+    logger: logging.Logger
+    initialized: bool
+    queue_listener: Optional[logging.handlers.QueueListener]
+    mode: Optional[ExecMode]
+    needs_rulegraph: bool
+    logfile_handlers: dict[LogHandlerBase, str]
+    settings: Optional[OutputSettingsLoggerInterface]
+
     def __init__(self, logger: logging.Logger):
         self.logger = logger
         self.initialized = False
@@ -551,7 +578,7 @@ class LoggerManager:
         self.mode = None
         self.needs_rulegraph = False
         self.logfile_handlers = {}
-        self.settings: OutputSettingsLoggerInterface = None
+        self.settings = None
 
     def setup(
         self,
@@ -610,14 +637,14 @@ class LoggerManager:
         self.logger.setLevel(logging.DEBUG if settings.verbose else logging.INFO)
         self.logger.addHandler(logging.handlers.QueueHandler(q))
 
-    def _configure_plugin_handler(self, plugin):
+    def _configure_plugin_handler(self, plugin: LogHandlerBase) -> LogHandlerBase:
         if not plugin.has_filter:
             plugin.addFilter(self._default_filter())
         if not plugin.has_formatter:
             plugin.setFormatter(self._default_formatter())
         return plugin
 
-    def _default_filter(self):
+    def _default_filter(self) -> DefaultFilter:
         return DefaultFilter(
             self.settings.quiet,
             self.settings.debug_dag,
@@ -625,13 +652,13 @@ class LoggerManager:
             self.settings.printshellcmds,
         )
 
-    def _default_formatter(self):
+    def _default_formatter(self) -> DefaultFormatter:
         return DefaultFormatter(
             self.settings.quiet,
             self.settings.show_failed_logs,
         )
 
-    def _default_filehandler(self, logfile):
+    def _default_filehandler(self, logfile) -> logging.Handler:
         logfile_handler = logging.FileHandler(logfile)
         logfile_handler.setFormatter(self._default_formatter())
         logfile_handler.addFilter(self._default_filter())
@@ -641,7 +668,7 @@ class LoggerManager:
         logfile_handler.name = "DefaultLogFileHandler"
         return logfile_handler
 
-    def _default_streamhandler(self):
+    def _default_streamhandler(self) -> logging.Handler:
         stream_handler = ColorizingTextHandler(
             nocolor=self.settings.nocolor,
             stream=sys.stdout if self.settings.stdout else sys.stderr,
@@ -665,7 +692,7 @@ class LoggerManager:
             self.logger.info(f"Complete log(s): {log_paths}")
         return logfiles
 
-    def cleanup_logfile(self):
+    def cleanup_logfile(self) -> None:
         from snakemake_interface_executor_plugins.settings import ExecMode
 
         if self.mode == ExecMode.DEFAULT:
@@ -673,7 +700,7 @@ class LoggerManager:
                 self.logger.removeHandler(handler)
                 handler.close()
 
-    def setup_logfile(self):
+    def setup_logfile(self) -> None:
         from snakemake_interface_executor_plugins.settings import ExecMode
 
         if self.mode == ExecMode.DEFAULT and not self.settings.dryrun:
@@ -693,7 +720,7 @@ class LoggerManager:
             except OSError as e:
                 self.logger.error(f"Failed to setup log file: {e}")
 
-    def stop(self):
+    def stop(self) -> None:
         if self.queue_listener is not None and self.queue_listener._thread is not None:
             self.queue_listener.stop()
 
