@@ -489,7 +489,7 @@ class ColorizingTextHandler(logging.StreamHandler):
     @property
     def is_tty(self) -> bool:
         isatty = getattr(self.stream, "isatty", None)
-        return isatty and isatty()
+        return bool(isatty and isatty())
 
     def emit(self, record: logging.LogRecord):
         """
