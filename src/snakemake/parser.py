@@ -326,6 +326,7 @@ class RulePathvars(RuleKeywordState):
     def keyword(self):
         return "rule_pathvars"
 
+
 # PEPs
 
 
@@ -938,6 +939,19 @@ class ModuleReplacePrefix(ModuleKeywordState):
         return "replace_prefix"
 
 
+class ModulePathvars(ModuleKeywordState):
+    def start(self):
+        yield f"{self.keyword}=dict("
+
+    def end(self):
+        yield ")"
+        yield ","
+
+    @property
+    def keyword(self):
+        return "pathvars"
+
+
 class Module(GlobalKeywordState):
     subautomata = dict(
         name=ModuleName,
@@ -947,6 +961,7 @@ class Module(GlobalKeywordState):
         skip_validation=ModuleSkipValidation,
         replace_prefix=ModuleReplacePrefix,
         prefix=ModulePrefix,
+        pathvars=ModulePathvars,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):

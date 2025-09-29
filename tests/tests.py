@@ -2263,6 +2263,10 @@ def test_pathvars():
     run(dpath("test_pathvars"))
 
 
+def test_pathvars_modules():
+    run(dpath("test_pathvars_modules"))
+
+
 @skip_on_windows  # OS agnostic
 def test_handle_storage_multi_consumers():
     run(

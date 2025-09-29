@@ -6,7 +6,7 @@ __license__ = "MIT"
 from pathlib import Path
 import types
 import re
-from typing import List, Set, Dict, Callable
+from typing import List, Optional, Set, Dict, Callable
 from snakemake.common import Rules
 
 from snakemake.exceptions import CreateRuleException, WorkflowError
@@ -36,6 +36,7 @@ class ModuleInfo:
         self,
         workflow,
         name,
+        pathvars: Pathvars,
         snakefile=None,
         meta_wrapper=None,
         config=None,
@@ -52,6 +53,7 @@ class ModuleInfo:
         self.parent_modifier: WorkflowModifier = self.workflow.modifier
         self.rule_proxies = Rules()
         self.wildcards_modifier_overwrited: Dict[Callable | None, Set[str]] = {}
+        self.pathvars = pathvars
 
         if prefix is not None:
             if isinstance(prefix, Path):
@@ -98,6 +100,7 @@ class ModuleInfo:
             path_modifier=self.path_modifier,
             replace_wrapper_tag=self.get_wrapper_tag(),
             rule_proxies=self.rule_proxies,
+            pathvars=self.pathvars,
         )
         with modifier:
             self.workflow.include(snakefile, overwrite_default_target=True)
@@ -183,6 +186,7 @@ class WorkflowModifier:
         replace_wrapper_tag=None,
         namespace=None,
         rule_proxies: Rules | None = None,
+        pathvars: Optional[Pathvars] = None,
     ):
         if is_module:
             if globals is None:  # use rule from module with maybe_ruleinfo
@@ -203,7 +207,10 @@ class WorkflowModifier:
                 self.globals["config"] = config
             self.wildcard_constraints: dict = dict()
 
-            self.pathvars = Pathvars(parent=self.parent_modifier.pathvars if self.parent_modifier is not None else None)
+            assert (
+                pathvars is not None
+            )  # pathvars is only None in case of is_module=False
+            self.pathvars = pathvars
             self.rules: set = set()
             self.modules: dict = dict()
             self.path_modifier = path_modifier or PathModifier(None, None, workflow)

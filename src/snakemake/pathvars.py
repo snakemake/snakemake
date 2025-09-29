@@ -12,31 +12,89 @@ PATHVAR_REGEX = re.compile(r"<(?P<name>[a-z][a-z0-9_]+)>")
 
 class Pathvars:
 
-    def __init__(self, parent: Optional["Pathvars"] = None) -> None:
-        self.items: Dict[str, str] = {}
-        if not parent:
-            # set defaults if nothing inherited
-            self.items["results"] = "results"
-            self.items["resources"] = "resources"
-            self.items["logs"] = "logs"
-            self.items["benchmarks"] = "benchmarks"
-        else:
-            self.items.update(parent.items)
+    def __init__(self) -> None:
+        self.items: Dict[str, str]
+        self.level: Dict[str, int]
 
-    def register_config(self, config: Dict[Any, Any]) -> None:
+    @classmethod
+    def from_other(cls, other: "Pathvars") -> "Pathvars":
+        instance = cls()
+        instance.items = dict(other.items)
+        instance.level = dict(other.level)
+        return instance
+
+    @classmethod
+    def from_raw(cls, items: Dict[str, str], level: Optional[int] = None) -> "Pathvars":
+        cls.check_dict(items)
+        instance = cls()
+        instance.items = items
+        if level is None:
+            assert not items
+            instance.level = {}
+        else:
+            instance.level = {key: level for key in items}
+        return instance
+
+    @classmethod
+    def with_defaults(cls) -> "Pathvars":
+        items = {
+            "results": "results",
+            "resources": "resources",
+            "logs": "logs",
+            "benchmarks": "benchmarks",
+        }
+        return cls.from_raw(
+            items=items,
+            level=4,
+        )
+
+    @classmethod
+    def from_config(cls, config: Dict[Any, Any]) -> "Pathvars":
         config_pathvars = config.get("pathvars")
         if config_pathvars:
-            if not isinstance(config_pathvars, dict) or not all(isinstance(key, str) and PATHVAR_NAME_REGEX.match(key) and isinstance(value, str) for key, value in config_pathvars.items()):
-                raise WorkflowError("The pathvars key in config files has to contain a mapping of str to str, with keys being valid pathvar names (i.e. alphanumeric + _, lower-case, no leading number)")
-            self.items.update(config_pathvars)
+            # ignore type here as checked above
+            return cls.from_raw(items=config_pathvars, level=1)  # type: ignore[arg-type]
+        else:
+            return cls.from_raw(items={})
+
+    @classmethod
+    def from_module(cls, module_pathvars: Dict[str, str]) -> "Pathvars":
+        return cls.from_raw(items=module_pathvars, level=2)
+
+    @classmethod
+    def from_rule(cls, rule_pathvars: Dict[str, str]) -> "Pathvars":
+        return cls.from_raw(items=rule_pathvars, level=0)
+
+    @classmethod
+    def from_workflow(cls, workflow_pathvars: Dict[str, str]) -> "Pathvars":
+        return cls.from_raw(items=workflow_pathvars, level=3)
+
+    def update(self, other: "Pathvars") -> None:
+        for key, value in other.items.items():
+            if key not in self.items or other.level[key] <= self.level[key]:
+                self.items[key] = value
+                self.level[key] = other.level[key]
 
     def get(self, name: str) -> str:
         return self.items[name]
-
-    def register(self, **items: str) -> None:
-        self.items.update(items)
 
     def apply(self, path: str) -> str:
         while PATHVAR_REGEX.search(path):
             path = PATHVAR_REGEX.sub(lambda item: self.get(item.group("name")), path)
         return path
+
+    @classmethod
+    def check_dict(cls, items: Dict[Any, Any]) -> None:
+        errors = {}
+        for key, value in items.items():
+            if (
+                not isinstance(key, str)
+                or not PATHVAR_NAME_REGEX.match(key)
+                or not isinstance(value, str)
+            ):
+                errors[key] = value
+        if errors:
+            errors = ",".join(f"{key}:{value}" for key, value in errors.items())
+            raise WorkflowError(
+                f"Pathvars have to be a mapping of str to str, with keys being valid pathvar names (i.e. alphanumeric + _, lower-case, no leading number). The following entries are invalid: {errors}"
+            )

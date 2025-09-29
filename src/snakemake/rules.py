@@ -133,7 +133,7 @@ class Rule(RuleInterface):
     @property
     def pathvars(self) -> Pathvars:
         return self._pathvars or self.workflow.pathvars
-    
+
     @pathvars.setter
     def pathvars(self, pathvars: Pathvars) -> None:
         self._pathvars = pathvars

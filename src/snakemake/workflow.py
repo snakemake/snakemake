@@ -234,14 +234,15 @@ class Workflow(WorkflowExecutorInterface):
         _globals["access"] = AccessPatternFactory
 
         self.vanilla_globals = dict(_globals)
-        self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
+        self.modifier_stack = [
+            WorkflowModifier(self, pathvars=Pathvars.with_defaults(), globals=_globals)
+        ]
         self._output_file_cache = None
         self.cache_rules = dict()
 
         config = copy.deepcopy(self.config_settings.overwrite_config)
         self.globals["config"] = config
-        self.pathvars.register_config(config)
-
+        self.pathvars.update(Pathvars.from_config(config))
 
     @property
     def included(self) -> Iterator[SourceFile]:
@@ -566,7 +567,7 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def globals(self):
         return self.modifier.globals
-    
+
     @property
     def pathvars(self) -> Pathvars:
         return self.modifier.pathvars
@@ -1706,7 +1707,7 @@ class Workflow(WorkflowExecutorInterface):
             self._workdir_handler.change_to()
 
     def register_pathvars(self, **items):
-        self.pathvars.register(**items)
+        self.pathvars.update(Pathvars.from_workflow(items))
 
     def configfile(self, fp):
         """Update the global config with data from the given file."""
@@ -1739,7 +1740,7 @@ class Workflow(WorkflowExecutorInterface):
                 update_config(self.config, self.config_settings.overwrite_config)
 
             # eventually update pathvars
-            self.pathvars.register_config(self.config)
+            self.pathvars.update(Pathvars.from_config(self.config))
 
     def set_pepfile(self, path):
         try:
@@ -1829,8 +1830,8 @@ class Workflow(WorkflowExecutorInterface):
             ruleinfo.apply_modifier(self.modifier, rulename=ruleinfo.name or name)
 
             if ruleinfo.pathvars:
-                rule.pathvars = Pathvars(self.pathvars)
-                rule.pathvars.register(**ruleinfo.pathvars)
+                rule.pathvars = Pathvars.from_rule(ruleinfo.pathvars)
+                rule.pathvars.update(self.pathvars)
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
@@ -2256,7 +2257,7 @@ class Workflow(WorkflowExecutorInterface):
             return ruleinfo
 
         return decorate
-    
+
     def rule_pathvars(self, **items):
         def decorate(ruleinfo):
             ruleinfo.pathvars = items
@@ -2367,11 +2368,18 @@ class Workflow(WorkflowExecutorInterface):
         skip_validation=False,
         replace_prefix=None,
         prefix=None,
+        pathvars=None,
     ):
+        module_pathvars = Pathvars.from_other(self.pathvars)
+        if pathvars is not None:
+            module_pathvars.update(Pathvars.from_module(pathvars))
+        if config is not None:
+            module_pathvars.update(Pathvars.from_config(config))
 
         self.modules[name] = ModuleInfo(
             self,
             name,
+            pathvars=module_pathvars,
             snakefile=snakefile,
             meta_wrapper=meta_wrapper,
             config=config,

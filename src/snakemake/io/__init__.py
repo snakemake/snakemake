@@ -271,7 +271,11 @@ class _IOFile(str, AnnotatedStringInterface):
             self._regex: re.Pattern | None
             self._wildcard_constraints: Dict[str, re.Pattern] | None
 
-    def __new__(cls, file: Union[str, Path, "AnnotatedString", Callable], rule: Optional["snakemake.rules.Rule"]):
+    def __new__(
+        cls,
+        file: Union[str, Path, "AnnotatedString", Callable],
+        rule: Optional["snakemake.rules.Rule"],
+    ):
         is_annotated = isinstance(file, AnnotatedString)
         is_callable = (
             isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
