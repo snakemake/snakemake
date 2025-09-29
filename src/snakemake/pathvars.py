@@ -45,7 +45,8 @@ class Pathvars:
             if key in seen:
                 cycle = ", ".join(seen | {key})
                 raise WorkflowError(
-                    f"Cyclic pathvar reference detected between: {cycle}"
+                    "Cyclic pathvar reference detected between: "
+                    f"{cycle} (pathvars: {fmt_pathvars(self.items)})"
                 )
             seen.add(key)
             value = self.items[key]
@@ -131,7 +132,13 @@ class Pathvars:
             ):
                 errors[key] = value
         if errors:
-            errors = ",".join(f"{key}:{value}" for key, value in errors.items())
             raise WorkflowError(
-                f"Pathvars have to be a mapping of str to str, with keys being valid pathvar names (i.e. alphanumeric + _, lower-case, no leading number). The following entries are invalid: {errors}"
+                "Pathvars have to be a mapping of str to str, with keys being "
+                "valid pathvar names (i.e. alphanumeric + _, lower-case, no "
+                "leading number). The following entries are "
+                f"invalid: {fmt_pathvars(errors)}"
             )
+
+
+def fmt_pathvars(items: Dict[str, str]) -> str:
+    return ",".join(f"{key}='{value}'" for key, value in items.items())
