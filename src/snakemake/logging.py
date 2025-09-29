@@ -58,7 +58,7 @@ def show_logs(logs):
         yield "=" * max_len
 
 
-def format_dict(dict_like, omit_keys=None, omit_values=None):
+def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
     from snakemake.io import Namedlist
 
     omit_keys = omit_keys or []
@@ -131,7 +131,7 @@ class DefaultFormatter(logging.Formatter):
         self.show_failed_logs = show_failed_logs
         self.last_msg_was_job_info = False
 
-    def format(self, record: logging.LogRecord):
+    def format(self, record: logging.LogRecord) -> str:
         """
         Override format method to format Snakemake-specific log messages.
         """
@@ -377,7 +377,7 @@ class DefaultFilter:
         self.dryrun = dryrun
         self.printshellcmds = printshellcmds
 
-    def filter(self, record: logging.LogRecord):
+    def filter(self, record: logging.LogRecord) -> bool:
         from snakemake.settings.enums import Quietness
 
         event, level = get_event_level(record)
@@ -448,7 +448,6 @@ class ColorizingTextHandler(logging.StreamHandler):
 
     nocolor: bool
     stream: TextIO
-    mode: Optional["ExecMode"]
 
     def __init__(
         self,
@@ -467,7 +466,7 @@ class ColorizingTextHandler(logging.StreamHandler):
         if filter:
             self.addFilter(filter)
 
-    def can_color_tty(self):
+    def can_color_tty(self) -> bool:
         """
         Colors are supported when:
         1. Terminal is not "dumb"
@@ -491,7 +490,7 @@ class ColorizingTextHandler(logging.StreamHandler):
         isatty = getattr(self.stream, "isatty", None)
         return bool(isatty and isatty())
 
-    def emit(self, record: logging.LogRecord):
+    def emit(self, record: logging.LogRecord) -> None:
         """
         Emit a log message with custom formatting and color.
         """
@@ -523,7 +522,7 @@ class ColorizingTextHandler(logging.StreamHandler):
             except Exception:
                 self.handleError(record)
 
-    def decorate(self, record: logging.LogRecord, message: str):
+    def decorate(self, record: logging.LogRecord, message: str) -> str:
         """
         Add color to the log message based on its level.
         """
@@ -547,7 +546,6 @@ class LoggerManager:
     logger: logging.Logger
     initialized: bool
     queue_listener: Optional[logging.handlers.QueueListener]
-    mode: Optional[ExecMode]
     needs_rulegraph: bool
     logfile_handlers: dict[logging.Handler, str]
     settings: Optional[OutputSettingsLoggerInterface]
@@ -564,7 +562,7 @@ class LoggerManager:
         self,
         handlers: List[LogHandlerBase],
         settings: OutputSettingsLoggerInterface,
-    ):
+    ) -> None:
         """Set up the logging system based on settings and handlers."""
         # Clear any existing handlers to prevent duplicates
         self.logger.handlers.clear()
