@@ -339,7 +339,7 @@ Certain components in input and output file paths tend to reoccur across many ru
 Via so-called **pathvars**, Snakemake allows to define such components globally, make them configurable via the config file, and change them per module or even per rule.
 Apart from saving boilerplate code, pathvars can be used to make modules intended for reuse in multiple contexts more flexible.
 Pathvars can be used as generic placeholders for their actual values inside of input, output, log, and benchmark paths, using angle brackets, e.g. ``<results>``.
-They are basically equivalent to using Python `f-strings <https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals>`__, just limited to well defined items and with some prioritization and configuration logic in the back, as you will see below.
+They behave similarly to `Python string interpolation <https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals>`__ but only allow predefined placeholders, with precedence and configuration handled by Snakemake.
 
 Pathvar usage
 """""""""""""
@@ -356,7 +356,7 @@ An example rule using pathvars is the following:
         shell:
             "somecommand {input} {output}"
 
-The pathvars will be expanded to whatever value is defined for them upon definition of the rule (before any wildcards will be determined and before the DAG of jobs is built).
+Pathvars are resolved when the rule is parsed (before wildcard resolution and DAG construction).
 The values of pathvars can thereby even contain wildcards themselves.
 
 Pathvar defaults
@@ -412,7 +412,7 @@ For this purpose, it is possible to define a key ``pathvars`` in the config, wit
     pathvars:
         results: example-folder
 
-Note that defining pathvars in the config should be considered a rare, discouraged and advanced use case, since the users has to know about the internal pathvar expectations of the module.
+Note that defining pathvars in the config should be considered a rare, discouraged, and advanced use case, since the user must know the workflow's internal pathvar expectations.
 Workflow authors can explicitly forbid the modification of particular pathvars via :ref:`config file schemas and validation <snakefiles_config_validation>`.
 
 
