@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from asyncio import TaskGroup
 from dataclasses import InitVar, dataclass, field
 import os
 import sys
@@ -11,16 +12,14 @@ import base64
 import textwrap
 import datetime
 import io
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Type, Union
 import uuid
-import json
-import time
 import itertools
 from collections import defaultdict
 import hashlib
-from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 import numbers
+from yte import process_yaml
 
 
 from docutils.parsers.rst.directives.images import Image, Figure
@@ -28,7 +27,9 @@ from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 from humanfriendly import format_size
 
+import snakemake
 from snakemake import script, wrapper, notebook
+from snakemake.io.fmt import fmt_iofile
 from snakemake.jobs import Job
 from snakemake.report.common import data_uri_from_file, mime_from_file
 from snakemake.rules import Rule
@@ -51,6 +52,7 @@ from snakemake.common import (
 from snakemake import logging
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake.settings.types import GlobalReportSettings
 from snakemake_interface_report_plugins.interfaces import (
     CategoryInterface,
     RuleRecordInterface,
@@ -113,7 +115,7 @@ def report(
     if outmime != "text/html":
         raise ValueError("Path to report output has to be an HTML file.")
     definitions = textwrap.dedent(
-        """
+        """[]
     .. role:: raw-html(raw)
        :format: html
 
@@ -187,11 +189,21 @@ def report(
     )
 
 
-def expand_report_argument(item, wildcards, job):
+async def expand_report_argument(item, wildcards, job):
     if is_callable(item):
         aux_params = get_input_function_aux_params(
             item, {"params": job.params, "input": job.input, "output": job.output}
         )
+        io_items = ["input", "output"]
+        if any(io_item in aux_params for io_item in io_items):
+            # retrieve all input or output files from storage before evaluating function
+            async with TaskGroup() as tg:
+                for io_item in io_items:
+                    if io_item in aux_params:
+                        for f in aux_params[io_item]:
+                            if f.is_storage:
+                                tg.create_task(f.retrieve_from_storage())
+
         try:
             item = item(wildcards, **aux_params)
         except Exception as e:
@@ -209,15 +221,11 @@ def expand_report_argument(item, wildcards, job):
 
 @dataclass(slots=True)
 class Category(CategoryInterface):
-    wildcards: InitVar
-    job: InitVar
     name: Optional[str]
     is_other: bool = field(init=False)
     id: str = field(init=False)
 
-    def __post_init__(self, wildcards, job):
-        if self.name is not None:
-            self.name = expand_report_argument(self.name, wildcards, job)
+    def __post_init__(self):
         if self.name is None:
             self.name = "Other"
 
@@ -447,10 +455,10 @@ class FileRecord(FileRecordInterface):
         return self.job.rule.workflow
 
 
-def expand_labels(labels, wildcards, job):
+async def expand_labels(labels, wildcards, job):
     if labels is None:
         return None
-    labels = expand_report_argument(labels, wildcards, job)
+    labels = await expand_report_argument(labels, wildcards, job)
 
     if labels is None:
         return None
@@ -469,7 +477,7 @@ def expand_labels(labels, wildcards, job):
             rule=job.rule,
         )
     return {
-        name: expand_report_argument(col, wildcards, job)
+        name: await expand_report_argument(col, wildcards, job)
         for name, col in labels.items()
     }
 
@@ -478,6 +486,7 @@ async def auto_report(
     dag,
     report_plugin: ReportPlugin,
     report_settings: ReportSettingsBase,
+    global_report_settings: GlobalReportSettings,
 ):
     try:
         from jinja2 import Environment, PackageLoader, UndefinedError
@@ -541,7 +550,7 @@ async def auto_report(
                     )
                 report_obj = get_flag_value(f, "report")
 
-                def register_file(
+                async def register_file(
                     f,
                     parent_path=None,
                     wildcards_overwrite=None,
@@ -549,13 +558,24 @@ async def auto_report(
                     name_overwrite=None,
                 ):
                     wildcards = wildcards_overwrite or job.wildcards
+
+                    async def expand_cat_name(cat_name, wildcards, job):
+                        if cat_name is not None:
+                            return await expand_report_argument(
+                                cat_name, wildcards, job
+                            )
+                        else:
+                            return cat_name
+
                     category = Category(
-                        name=report_obj.category, wildcards=wildcards, job=job
+                        name=await expand_cat_name(report_obj.category, wildcards, job),
                     )
                     subcategory = Category(
-                        name=report_obj.subcategory, wildcards=wildcards, job=job
+                        name=await expand_cat_name(
+                            report_obj.subcategory, wildcards, job
+                        ),
                     )
-                    labels = expand_labels(report_obj.labels, wildcards, job)
+                    labels = await expand_labels(report_obj.labels, wildcards, job)
 
                     results[category][subcategory].append(
                         FileRecord(
@@ -577,7 +597,7 @@ async def auto_report(
                 if f.is_storage:
                     await f.retrieve_from_storage()
                 if os.path.isfile(f):
-                    register_file(f)
+                    await register_file(f)
                 elif os.path.isdir(f):
                     if report_obj.htmlindex:
                         aux_files = []
@@ -598,7 +618,7 @@ async def auto_report(
                                 "Given htmlindex {} not found in directory "
                                 "marked for report".format(report_obj.htmlindex)
                             )
-                        register_file(
+                        await register_file(
                             os.path.join(f, report_obj.htmlindex),
                             aux_files=aux_files,
                             name_overwrite=f"{os.path.basename(f)}.html",
@@ -621,13 +641,13 @@ async def auto_report(
                                 w.update(job.wildcards_dict)
                                 w = Wildcards(fromdict=w)
                                 subfile = apply_wildcards(pattern, w)
-                                register_file(
+                                await register_file(
                                     subfile, parent_path=f, wildcards_overwrite=w
                                 )
                         if not found_something:
                             logger.warning(
                                 "No files found for patterns given to report marker "
-                                "in rule {job.rule.name} for output {f}. Make sure "
+                                f"in rule {job.rule.name} for output {fmt_iofile(f)}. Make sure "
                                 "that the patterns are correctly specified."
                             )
                     else:
@@ -709,7 +729,9 @@ async def auto_report(
                         snakemake=Snakemake, categories=results, files=files
                     ),
                     writer_name="html",
-                )["body"]
+                )[
+                    "html_body"
+                ]  # html_body is required to extract also the title, if given
             except UndefinedError as e:
                 raise WorkflowError(
                     "Error rendering global report caption {}:".format(
@@ -718,15 +740,70 @@ async def auto_report(
                     e,
                 )
 
+    metadata = {}
+    if global_report_settings.metadata_template:
+        # parse metadata from yte template
+        with open(global_report_settings.metadata_template, "r") as template:
+            metadata = process_yaml(template)
+
+            # ensure that metadata is a key value dictionary
+            # allowed values: str, int, float, list[str|int|float]
+            if not _validate_flat_dict(metadata):
+                raise WorkflowError(
+                    (
+                        "Metadata must be single level "
+                        "dict[str, str | int | float | "
+                        "list[str] | list[int] | list[float]]]"
+                    )
+                )
+            render_metadata(metadata)
+
     reporter = report_plugin.reporter(
         rules,
         results,
         configfiles,
-        sorted(records.values(), key=lambda rec: rec.rule),
+        sorted(records.values(), key=lambda rec: rec.rule),  # this contains the jobs
         report_settings,
         workflow_description,
         dag=dag,
+        metadata=metadata,
     )
 
     reporter.render()
     logger.info("Report created.")
+
+
+def _is_valid_flat_value(value) -> bool:
+    if isinstance(value, (str, int, float)):
+        return True
+    elif isinstance(value, list):
+        return all(isinstance(item, (str, int, float)) for item in value)
+    else:
+        return False
+
+
+def _validate_flat_dict(metadata: dict) -> bool:
+    if not isinstance(metadata, dict):
+        return False
+    for k, v in metadata.items():
+        if not isinstance(k, str):
+            return False
+        if not _is_valid_flat_value(v):
+            return False
+    return True
+
+
+def render_metadata(
+    metadata: Dict[str, Union[str, int, float, List[str], List[int], List[float]]],
+) -> None:
+    """Render string values in metadata with restructured text"""
+
+    # we modify the dict while iterating over it, so we need to copy the keys
+    for key in list(metadata):
+        value = metadata[key]
+        if isinstance(value, str):
+            metadata[key] = publish_parts(value)
+        elif isinstance(value, list):
+            for i in range(len(value)):
+                if isinstance(value[i], str):
+                    value[i] = publish_parts(value[i])

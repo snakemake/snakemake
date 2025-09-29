@@ -15,22 +15,26 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Iterable, List, Optional, Set, Union
+from typing import Iterable, List, Mapping, Optional, Set, Union, Dict
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
+from snakemake.io.fmt import fmt_iofile
+from snakemake.rules import Rule
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
+from snakemake_interface_scheduler_plugins.interfaces.dag import DAGSchedulerInterface
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake.settings.enums import Quietness
 
-from snakemake import workflow
 from snakemake import workflow as _workflow
 from snakemake.common import (
     ON_WINDOWS,
@@ -98,13 +102,13 @@ def toposort(graph):
     return sorted
 
 
-class DAG(DAGExecutorInterface, DAGReportInterface):
+class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     """Directed acyclic graph of jobs."""
 
     def __init__(
         self,
         workflow,
-        rules=None,
+        rules: Iterable[Rule],
         targetfiles: Set[str] = None,
         targetrules=None,
         forceall=False,
@@ -117,9 +121,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         omitfiles=None,
         omitrules=None,
         ignore_incomplete=False,
+        rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
+        self._deferred_temp_jobs = []
         self._queue_input_jobs = None
-        self._dependencies = defaultdict(partial(defaultdict, set))
+        self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
+            partial(defaultdict, set)
+        )
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
         self._checkpoint_jobs = set()
@@ -130,6 +138,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._len = 0
         self.workflow: _workflow.Workflow = workflow
         self.rules = set(rules)
+        self.rules_allowed_for_needrun = rules_allowed_for_needrun
         self.targetfiles = targetfiles
         self.targetrules = targetrules
         self.target_jobs_rules = {
@@ -138,6 +147,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
+        self._derived_targetfiles = None
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
         self._jobid = dict()
@@ -151,6 +161,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._jobs_with_finished_queue_input = set()
         self._storage_input_jobs = defaultdict(list)
         self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
+        self._checked_jobs = set()
+        self._checked_needrun_jobs = set()
+        self._seen_outputs: Dict[str, Union[Job, GroupJob]] = dict()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -191,8 +204,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.update_output_index()
 
     @property
-    def dependencies(self):
+    def derived_targetfiles(self):
+        if self._derived_targetfiles is None:
+            self._derived_targetfiles = {
+                f for job in self.targetjobs if not job.output for f in job.input
+            } | self.targetfiles
+        return self._derived_targetfiles
+
+    @property
+    def dependencies(self) -> Mapping[Job, Mapping[Job, Set[str]]]:
         return self._dependencies
+
+    def job_dependencies(self, job: Job) -> Iterable[Job]:
+        # keys() returns an iterable, but somehow the type checker does not recognize it
+        return self._dependencies.get(job, {}).keys()  # type: ignore[return-value]
 
     @property
     def batch(self):
@@ -261,23 +286,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         self.check_directory_outputs()
 
-        # check if remaining jobs are valid
-        for i, job in enumerate(self.jobs):
-            job.is_valid()
+    def get_unneeded_temp_files(self, job: Union[Job, GroupJob]) -> Iterable[str]:
+        def get_files(job, group_job=None):
+            for f in job.output:
+                if is_flagged(f, "temp") and not self.is_needed_tempfile(
+                    job, f, outside_of_group_job=group_job
+                ):
+                    yield f
 
-    def get_unneeded_temp_files(self, job: AbstractJob) -> Iterable[str]:
         if isinstance(job, GroupJob):
             for j in job:
-                yield from self.get_unneeded_temp_files(j)
+                yield from get_files(j, group_job=job)
         else:
-            for f in job.output:
-                if is_flagged(f, "temp") and not self.is_needed_tempfile(job, f):
-                    yield f
+            yield from get_files(job)
 
     def check_directory_outputs(self):
         """Check that no output file is contained in a directory output of the same or another rule."""
         outputs = sorted(
-            {(os.path.abspath(f), job) for job in self.jobs for f in job.output}
+            {(Path(f).absolute(), job) for job in self.jobs for f in job.output}
         )
         for i in range(len(outputs) - 1):
             (a, job_a), (b, job_b) = outputs[i : i + 2]
@@ -292,25 +318,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     @property
     def checkpoint_jobs(self):
         return self._checkpoint_jobs
-
-    async def update_checkpoint_outputs(self):
-        done_output = set()
-        noneedrun_files = []
-
-        for job in self.jobs:
-            if job.is_checkpoint:
-                if self.finished(job):
-                    done_output.update(job.output)
-                elif not self.needrun(job):
-                    noneedrun_files.extend(job.output)
-
-        may_exists = await asyncio.gather(*(f.exists() for f in noneedrun_files))
-
-        workflow.checkpoints.created_output.clear()
-        workflow.checkpoints.created_output.update(done_output)
-        workflow.checkpoints.created_output.update(
-            j for j, e in zip(noneedrun_files, may_exists) if e
-        )
 
     def update_jobids(self):
         for job in self.jobs:
@@ -429,8 +436,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             try:
                 async with asyncio.TaskGroup() as tg:
                     for f, file_access_patterns in to_retrieve.items():
-                        logger.info(f"Retrieving {f} from storage.")
-
                         # METHOD: If the file is at least by one job accessed randomly
                         # (i.e. non sequential), or multiple times, or if multiple
                         # jobs access the same file, we should download it.
@@ -506,7 +511,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             and f not in cleaned
                             and not f.should_keep_local
                         ):
-                            logger.info(
+                            logger.debug(
                                 "Cleaning up local remainders of "
                                 f"{f.storage_object.print_query}"
                             )
@@ -529,8 +534,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
+        touch = self.workflow.touch
         for env in self.conda_envs.values():
-            if (not dryrun or not quiet) and not env.is_externally_managed:
+            if (
+                not touch
+                and (not dryrun or not quiet)
+                and not env.is_externally_managed
+            ):
                 env.create(self.workflow.dryrun)
 
     def update_container_imgs(self):
@@ -548,7 +558,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     def pull_container_imgs(self, quiet=False):
         for img in self.container_imgs.values():
-            if not self.workflow.dryrun or not quiet:
+            if not self.workflow.touch and (not self.workflow.dryrun or not quiet):
                 img.pull(self.workflow.dryrun)
 
     def update_output_index(self):
@@ -606,7 +616,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """All jobs in the DAG."""
         return self._dependencies.keys()
 
-    def needrun_jobs(self, exclude_finished=True):
+    def needrun_jobs(self, exclude_finished=True) -> Iterable[Job]:
         """Jobs that need to be executed."""
         if exclude_finished:
             return filterfalse(self.finished, self._needrun)
@@ -647,7 +657,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Return the reason of the job execution."""
         return self._reason[job]
 
-    def finished(self, job):
+    def finished(self, job) -> bool:
         """Return whether a job is finished."""
         return job in self._finished
 
@@ -703,9 +713,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             )
 
         # handle checksum
-        async def is_not_same_checksum(f, checksum):
-            if checksum is None:
+        async def is_not_same_checksum(f, ensure):
+            if not ensure.get("checksum_algorithm"):
                 return False
+            checksum_algorithm = ensure["checksum_algorithm"]
+            checksum = ensure["checksum"]
             if is_callable(checksum):
                 try:
                     checksum = checksum(job.wildcards)
@@ -716,13 +728,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         rule=job.rule,
                     )
             return not await f.is_same_checksum(
-                checksum, self.max_checksum_file_size, force=True
+                checksum,
+                self.max_checksum_file_size,
+                force=True,
+                algorithm=checksum_algorithm,
             )
 
         checksum_failed_output = [
             f
             for f, ensure in ensured_output.items()
-            if await is_not_same_checksum(f, ensure.get("sha256"))
+            if await is_not_same_checksum(f, ensure)
         ]
         if checksum_failed_output:
             raise WorkflowError(
@@ -893,7 +908,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Write-protect output files that are marked with protected()."""
         for f in job.output:
             if f in job.protected_output:
-                logger.info(f"Write-protecting output file {f}.")
+                logger.info(f"Write-protecting output file {fmt_iofile(f)}.")
                 f.protect()
 
     def handle_touch(self, job):
@@ -901,7 +916,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         for f in job.output:
             if f in job.touch_output:
                 f = job.shadowed_path(f)
-                logger.info(f"Touching output file {f}.")
+                logger.info(f"Touching output file {fmt_iofile(f)}.")
                 f.touch_or_create()
                 assert os.path.exists(f)
 
@@ -918,23 +933,49 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     if f in job_.temp_output and f not in skip:
                         yield f
 
-    async def temp_size(self, job):
-        """Return the total size of temporary input files of the job.
-        If none, return 0.
+    def is_needed_tempfile(self, job, tempfile, outside_of_group_job=None):
+        """Return whether a temp file is still needed by jobs other than the
+        given and not part of the eventually given group.
         """
-        return sum([await f.size() for f in self.temp_input(job)])
+        if self.workflow.subprocess_exec:
+            return True
 
-    def is_needed_tempfile(self, job, tempfile):
-        return any(
+        def is_other_group_or_no_group(j):
+            return outside_of_group_job is None or j not in outside_of_group_job.jobs
+
+        assert self.workflow.storage_settings is not None
+
+        if self.workflow.remote_exec:
+            is_unneeded_outside = (
+                tempfile in self.workflow.storage_settings.unneeded_temp_files
+            )
+        else:
+            is_unneeded_outside = True
+
+        is_derived_target = tempfile in self.derived_targetfiles
+        is_needed_by_subsequent_job = any(
             tempfile in files
             for j, files in self.depending[job].items()
-            if not self.finished(j) and self.needrun(j) and j != job
+            if not self.finished(j)
+            and self.needrun(j)
+            and j != job
+            and is_other_group_or_no_group(j)
         )
+        logger.debug(
+            f"Temp file {tempfile}: {is_unneeded_outside=}, {is_derived_target=}, "
+            f"{is_needed_by_subsequent_job=}"
+        )
+        if is_unneeded_outside:
+            return is_derived_target or is_needed_by_subsequent_job
+        else:
+            return True
 
     async def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
         if self.workflow.storage_settings.notemp:
+            logger.debug("Not handling temp files since --notemp is set.")
             return
+        logger.debug(f"Handle temp files for job {job}")
 
         if job.is_group():
             for j in job:
@@ -963,9 +1004,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         for f in unneeded_files():
             if self.workflow.dryrun:
-                logger.info(f"Would remove temporary output {f}")
+                logger.info(
+                    f"Would remove temporary output {fmt_iofile(f)}",
+                    extra={"quietness": Quietness.RULES},
+                )
             else:
-                logger.info(f"Removing temporary output {f}.")
+                logger.info(
+                    f"Removing temporary output {fmt_iofile(f)}.",
+                    extra={"quietness": Quietness.RULES},
+                )
                 await f.remove(remove_non_empty_dir=True)
 
     async def handle_log(self, job):
@@ -1057,7 +1104,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
             async for f in unneeded_files():
                 if await f.exists_local():
-                    logger.info(f"Removing local copy of storage file: {f}")
+                    logger.info(f"Removing local copy of storage file: {fmt_iofile(f)}")
                     await f.remove()
 
     def jobid(self, job):
@@ -1367,6 +1414,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             reason = self.reason(job)
             noinitreason = not reason
 
+            if (
+                self.rules_allowed_for_needrun
+                and job.rule.name not in self.rules_allowed_for_needrun
+            ):
+                reason.clear()
+                return reason
+
             if is_forced(job):
                 reason.forced = True
             elif job in self.targetjobs:
@@ -1432,15 +1486,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
 
-                            # The list comprehension is needed below in order to
-                            # collect all the async generator items before
-                            # applying any().
-                            reason.code_changed = any(
-                                [
-                                    f
-                                    async for f in job.outputs_older_than_script_or_notebook()
-                                ]
-                            )
+                            if RerunTrigger.CODE in self.workflow.rerun_triggers:
+                                # Always check script/notebook mtime unless CODE trigger is disabled.
+                                # Short-circuit on first older output to avoid building a list.
+                                reason.code_changed = False
+                                async for (
+                                    _
+                                ) in job.outputs_older_than_script_or_notebook():
+                                    reason.code_changed = True
+                                    break
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
                             elif self.workflow.persistence.has_outdated_metadata(job):
@@ -1541,6 +1595,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         missing_output = [f async for f in job_.missing_output(files)]
                         reason(job_).missing_output.update(missing_output)
                         if missing_output and job_ not in visited:
+                            logger.debug(
+                                f"Need to rerun job {job_} because of missing output required by {job}."
+                            )
                             visited.add(job_)
                             queue.append(job_)
 
@@ -1553,6 +1610,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                 continue
                             visited.add(job_)
                             queue.append(job_)
+                        logger.debug(
+                            f"Need to rerun job {job_} because job {job} has to be rerun."
+                        )
                         reason(job_).updated_input_run.update(files)
 
         # update _n_until_ready
@@ -1650,11 +1710,60 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 # to update each job j in group.
                 groups[j] = group
 
+        # check if all groups are valid
+        for group in set(groups.values()):
+            self.validate_group(group)
+
         self._group = groups
 
         self._update_group_components()
 
         self._check_groups()
+
+    def validate_group(self, group: GroupJob) -> None:
+        for job in group.jobs:
+            external_but_returning_rules = set()
+            returned_to = set()
+
+            for dep in self._dependencies[job]:
+                # METHOD: from dependencies that are outside of the group,
+                # we try to get back into the group.
+                if dep in group.jobs:
+                    continue
+
+                dep_external_but_returning_rules = set()
+                dep_returned_to = set()
+
+                def stop_if(job, returned_to=dep_returned_to):
+                    if job in group.jobs:
+                        returned_to.add(job.rule.name)
+                        return True
+                    return False
+
+                dep_external_but_returning_rules.update(
+                    job.rule.name
+                    for job in self.bfs(self._dependencies, dep, stop=stop_if)
+                    if job not in group.jobs
+                )
+                if dep_returned_to:
+                    external_but_returning_rules.update(
+                        dep_external_but_returning_rules
+                    )
+                    returned_to.update(dep_returned_to)
+            if external_but_returning_rules and returned_to:
+                raise WorkflowError(
+                    f"Error in group {job.group}. Job of rule {job.rule.name} "
+                    f"depends on rule(s) {','.join(external_but_returning_rules)} "
+                    "from outside the group, but they in turn depend on rule(s) "
+                    f"{','.join(returned_to)} from "
+                    f"inside the group again. This is not allowed. Ensure that "
+                    "those rules are part of the group as well, either by "
+                    "using further --group statements or by adding them to the "
+                    "same group in the workflow definition. Note that for "
+                    "rules that are generic and might be used in multiple groups "
+                    "you can use rule inheritance to obtain multiple instances "
+                    "of the same rule with different group assignments."
+                )
 
     def _update_group_components(self):
         # span connected components if requested
@@ -1755,6 +1864,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if job in self._ready_jobs or job in self._running:
                 # job has been seen before or is running, no need to process again
                 continue
+            logger.debug(f"{job.output}: {self._ready(job)} {self._n_until_ready[job]}")
             if (
                 not self.finished(job)
                 and self._ready(job)
@@ -1788,7 +1898,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 yield group
 
     async def postprocess(
-        self, update_needrun=True, update_incomplete_input_expand_jobs=True
+        self,
+        update_needrun=True,
+        update_incomplete_input_expand_jobs=True,
+        check_initial=False,
     ):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
@@ -1821,7 +1934,42 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 return
 
         self.update_ready()
-        await self.update_checkpoint_outputs()
+
+        await self.check_jobs()
+
+        if check_initial:
+            assert not (not self.ready_jobs and any(self.needrun_jobs())), (
+                "bug: DAG contains jobs that have to be executed but no such job is "
+                "ready for execution."
+            )
+
+    async def check_jobs(self):
+        # first we check all **needrun** jobs whether its output can be made
+        for job in filterfalse(
+            self._checked_needrun_jobs.__contains__, self.needrun_jobs()
+        ):
+            await job.check_protected_output()
+            self._checked_needrun_jobs.add(job)
+
+        # now we check **all* jobs for validity
+        for job in filterfalse(self._checked_jobs.__contains__, self.jobs):
+            job.is_valid()
+
+            # here we check if no two rules make the same output
+            # this can happen in edge cases where the output of jobs
+            # are not part of the targetfiles
+            for output_file in job.output:
+                if output_file in self._seen_outputs:
+                    other_job = self._seen_outputs[output_file]
+                    if other_job.jobid == job.jobid:
+                        continue
+
+                    if not self.workflow.execution_settings.ignore_ambiguity:
+                        raise AmbiguousRuleException(output_file, other_job, job)
+                else:
+                    self._seen_outputs[output_file] = job
+
+            self._checked_jobs.add(job)
 
     def handle_pipes_and_services(self):
         """Use pipes and services to determine job groups. Check if every pipe has exactly
@@ -1880,7 +2028,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                         )
                     elif is_pipe and depending[0].is_norun:
                         raise WorkflowError(
-                            f"Output file {f} is marked as pipe but is requested by a rule that "
+                            f"Output file {fmt_iofile(f)} is marked as pipe but is requested by a rule that "
                             "does not execute anything. This is not allowed because it would lead "
                             "to a dead lock."
                         )
@@ -1956,6 +2104,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
         group = self._group.get(job, None)
+
         if group is None:
             return self._n_until_ready[job] == 0
         else:
@@ -2002,21 +2151,78 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
-        updated = False
-        await self.update_checkpoint_outputs()
+
+        async def is_output_present(job):
+            return (self.finished(job) or not self.needrun(job)) and all(
+                await asyncio.gather(*(out.exists() for out in job.output))
+            )
+
+        job_queue = defaultdict(set)
         if jobs is None:
-            jobs = [job for job in self.jobs if not self.needrun(job)]
-        all_depending = []
+            jobs = [
+                job
+                for job in self.jobs
+                if job.is_checkpoint and await is_output_present(job)
+            ]
+        else:
+            # called with finished jobs, no need to check if output is present
+            jobs = [job for job in jobs if job.is_checkpoint]
         for job in jobs:
-            if job.is_checkpoint:
-                depending = list(self.depending[job])
-                all_depending.extend(depending)
-        for j in all_depending:
-            newjob = await j.updated()
-            await self.replace_job(j, newjob, recursive=False)
-            updated = True
+            for depending in self.depending[job]:
+                job_queue[depending].add(job)
+            self.workflow.checkpoints.created_output.update(job.output)
+
+        updated = len(job_queue) > 0
+        if updated:
+            logger.info("Updating checkpoint dependencies.")
+
+        i = 1
+        while job_queue:
+            logger.debug(f"Checkpoint dependency update round {i}")
+            for noneedrun_checkpoint_deps in job_queue.values():
+                for checkpoint in noneedrun_checkpoint_deps:
+                    self.workflow.checkpoints.created_output.update(checkpoint.output)
+
+            candidate_job_queue = defaultdict(set)
+            for job in job_queue.keys():
+                prior_checkpoint_targets = {
+                    infile
+                    for infile in job.input
+                    if is_flagged(infile, "checkpoint_target")
+                }
+                updated_job = await job.updated()
+
+                await self.replace_job(job, updated_job, recursive=False)
+
+                posterior_checkpoint_targets = {
+                    infile
+                    for infile in updated_job.input
+                    if is_flagged(infile, "checkpoint_target")
+                    and infile not in prior_checkpoint_targets
+                }
+                posterior_checkpoint_deps = {
+                    dep
+                    for dep, files in self.dependencies[updated_job].items()
+                    if dep.is_checkpoint
+                    and not files.isdisjoint(posterior_checkpoint_targets)
+                }
+                if posterior_checkpoint_deps:
+                    # there is at least one dep that is a new potentially
+                    # unfinished checkpoint target
+                    candidate_job_queue[updated_job].update(posterior_checkpoint_deps)
+
+            job_queue = defaultdict(set)
+            if candidate_job_queue:
+                await self.update_needrun()
+                for job, posterior_checkpoint_deps in candidate_job_queue.items():
+                    for checkpoint in posterior_checkpoint_deps:
+                        if not self.needrun(checkpoint):
+                            job_queue[job].add(checkpoint)
+            i += 1
+
         if updated:
             await self.postprocess_after_update()
+
         return updated
 
     async def postprocess_after_update(self):
@@ -2029,8 +2235,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             or self.workflow.remote_exec
         ):
             await self.retrieve_storage_inputs()
+        self._derived_targetfiles = None
 
-    def register_running(self, jobs):
+    def register_running(self, jobs: AnySet[AbstractJob]):
         self._running.update(jobs)
         self._ready_jobs -= jobs
         for job in jobs:
@@ -2101,13 +2308,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        if not self.checkpoint_jobs:
+        if self.checkpoint_jobs:
             # While there are still checkpoint jobs, we cannot safely delete
             # temp files.
             # TODO: we maybe could be more accurate and determine whether there is a
             # checkpoint that depends on the temp file.
-            for job in jobs:
+            self._deferred_temp_jobs.extend(jobs)
+        else:
+            for job in chain(jobs, self._deferred_temp_jobs):
                 await self.handle_temp(job)
+            self._deferred_temp_jobs.clear()
 
         return potential_new_ready_jobs
 
@@ -2235,7 +2445,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if update_job is not None and job.priority <= update_job.priority:
                 logger.info(
                     f"Raising priority of job {job} such that it runs before "
-                    f"job {update_job} because of flag 'before_update' on {f}"
+                    f"job {update_job} because of flag 'before_update' on {fmt_iofile(f)}"
                 )
                 self._priority[job] = update_job.priority + 1
                 f_hash = hashlib.sha256()
@@ -2296,7 +2506,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                                 ),
                                 False,
                             )
-                    except MissingRuleException as ex:
+                    except MissingRuleException:
                         # no dependency found
                         yield PotentialDependency(file, None, False)
 
@@ -2520,10 +2730,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             f"\tstyle id{index} fill:{rulecolor[str(node)]},stroke-width:2px,color:#333333{node2style(node)}"
             for index, node in enumerate(graph)
         ]
+        # node ids
+        ids = {node: i for i, node in enumerate(graph)}
         edges = [
-            f"\tid{index} --> id{index_dep}"
-            for index, (_, deps) in enumerate(graph.items())
-            for index_dep, _ in enumerate(deps)
+            f"\tid{ids[dep]} --> id{ids[node]}"
+            for node, deps in graph.items()
+            for dep in deps
         ]
         return (
             textwrap.dedent(
@@ -2890,7 +3102,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     # symlinks fail f.exists.
                     if await f.exists() or os.path.islink(f):
                         if await f.protected():
-                            logger.error(f"Skipping write-protected file {f}.")
+                            logger.error(
+                                f"Skipping write-protected file {fmt_iofile(f)}."
+                            )
                         else:
                             msg = "Deleting {}" if not dryrun else "Would delete {}"
                             logger.info(msg.format(f))
@@ -3075,7 +3289,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for job in self.jobs:
                 if not job.is_group() and (include_needrun or not self.needrun(job)):
                     changed.extend(
-                        list(await job.outputs_older_than_script_or_notebook())
+                        [f async for f in job.outputs_older_than_script_or_notebook()]
                     )
         return changed
 
@@ -3090,7 +3304,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
-                f = os.path.join(rule.basedir, f)
+                f = rule.basedir.join(f)
             return os.path.relpath(f)
 
         # get registered sources

@@ -321,6 +321,15 @@ def test_conda_run():
     run(dpath("test_conda_run"), deployment_method={DeploymentMethod.CONDA})
 
 
+@conda
+def test_issue_3192():
+    sp.run(
+        "conda create -n test_issue3192 python",
+        shell=True,
+    )
+    run(dpath("test_issue3192"), deployment_method={DeploymentMethod.CONDA})
+
+
 # Test that container and conda can be run independently using sdm
 @skip_on_windows
 @apptainer

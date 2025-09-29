@@ -67,13 +67,16 @@ class AbstractResults extends React.Component {
     getInitToggleState(toggleLabels) {
         let toggles = new Map();
         toggleLabels.forEach(function (value, key) {
-            toggles.set(key, value[0]);
+            // Prefer "yes" as initial value if present, otherwise use the first value.
+            let initialValue = value[1] === "yes" ? value[1] : value[0];
+            toggles.set(key, initialValue);
         })
         return toggles;
     }
 
     getToggleControls(toggleLabels) {
         let toggleCallback = this.toggleCallback;
+        let toggleState = this.state.toggles;
         return toggleLabels.entries().map(function (entry) {
             let [name, values] = entry;
             return e(
@@ -81,6 +84,7 @@ class AbstractResults extends React.Component {
                 {
                     label: name,
                     values: values,
+                    defaultValue: toggleState.get(name),
                     callback: function (selected) {
                         toggleCallback(name, selected);
                     }
@@ -98,7 +102,7 @@ class AbstractResults extends React.Component {
             return { data: data, toggles };
         }, function () {
             if (_this.state.data.resultPathsToEntryLabels.has(_this.props.app.state.resultPath)) {
-                let toggleLabels = Array.from(data.toggleLabels.keys().map((label) => _this.state.toggles.get(label)));
+                let toggleLabels = Array.from(data.toggleLabels.keys()).map((label) => _this.state.toggles.get(label));
                 let entryLabels = _this.state.data.resultPathsToEntryLabels.get(_this.props.app.state.resultPath);
                 let targetPath = _this.state.data.entries.get(arrayKey(entryLabels)).get(arrayKey(toggleLabels));
                 _this.toggleViewManager.handleSelectedResult(targetPath);
@@ -190,6 +194,10 @@ class AbstractResults extends React.Component {
                 }
             });
         }
+        // Only allow one toggle label for now, in order to avoid confusion in the UI
+        if (toggleLabels.size > 1) {
+            toggleLabels = new Map();
+        }
 
         let entries = new Map();
         let entryLabelValues = [];
@@ -278,7 +286,7 @@ class AbstractResults extends React.Component {
         let state = this.state;
 
         return data.entryLabelValues.map(function (entryLabels) {
-            let toggleLabels = Array.from(data.toggleLabels.keys().map((label) => state.toggles.get(label)));
+            let toggleLabels = Array.from(data.toggleLabels.keys()).map((label) => state.toggles.get(label));
             let entryPath = data.entries.get(arrayKey(entryLabels)).get(arrayKey(toggleLabels));
 
             let actions = e(

@@ -235,7 +235,7 @@ class Env:
         return self._content_hash
 
     def _get_hash(self, include_location: bool, include_container_img: bool) -> str:
-        md5hash = hashlib.md5()
+        md5hash = hashlib.md5(usedforsecurity=False)
         if self.name:
             md5hash.update(self.name.encode())
         elif self.dir:
@@ -622,7 +622,8 @@ class Env:
                                 )
                             logger.warning(
                                 f"Failed to install conda environment from pin file ({self.pin_file.get_path_or_uri()}). "
-                                f"Trying regular environment definition file.{advice}"
+                                f"Trying regular environment definition file.{advice}\n"
+                                f"Error message:\n{e.output}"
                             )
                             out = create_env(env_file, filetype="yaml")
                     else:
@@ -967,7 +968,7 @@ class CondaEnvDirSpec(CondaEnvSpec):
         return hash(self.path)
 
     def __eq__(self, other):
-        return self.path == other.file
+        return self.path == other.path
 
 
 class CondaEnvNameSpec(CondaEnvSpec):

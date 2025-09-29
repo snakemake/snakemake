@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 from configargparse import YAMLConfigFileParser, ConfigFileParserException
 
+from snakemake_interface_common.exceptions import WorkflowError
+
 
 class ProfileConfigFileParser(YAMLConfigFileParser):
     def parse(self, stream):
@@ -24,11 +26,15 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
             )
 
         def format_one_level_dict(d):
-            return [f"{key}={val}" for key, val in d.items()]
+            return [f"{key}={os.path.expandvars(str(val))}" for key, val in d.items()]
 
-        def format_two_level_dict(d):
+        def format_two_level_dict(d, item: str):
+            if not all(isinstance(val, dict) for val in d.values()):
+                raise WorkflowError(
+                    f"Invalid {item} format in profile. Expected two-level mapping, got {d}"
+                )
             return [
-                f"{key}:{key2}={val2}"
+                f"{key}:{key2}={os.path.expandvars(str(val2))}"
                 for key, val in d.items()
                 for key2, val2 in val.items()
             ]
@@ -50,14 +56,13 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                         "set-resource-scopes",
                         "default-resources",
                         "config",
-                        "wms-monitor-arg",
                         "groups",
                         "group-components",
                         "consider-ancient",
                     ):
                         result[key] = format_one_level_dict(value)
                     elif key == "set-resources":
-                        result[key] = format_two_level_dict(value)
+                        result[key] = format_two_level_dict(value, "set-resources")
                 else:
                     value = os.path.expandvars(str(value))
 

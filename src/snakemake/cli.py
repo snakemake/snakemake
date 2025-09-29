@@ -7,21 +7,21 @@ from collections import defaultdict
 import os
 import re
 import sys
+import logging
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import List, Mapping, Optional, Set, Union
+from typing import List, Mapping, Optional, Set, Tuple, Union
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
-
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
+from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
 
 
 import snakemake.common.argparse
-from snakemake import logging
 from snakemake.api import (
     SnakemakeApi,
     resolve_snakefile,
@@ -69,9 +69,11 @@ from snakemake.settings.types import (
     WorkflowSettings,
     StrictDagEvaluation,
     PrintDag,
+    GlobalReportSettings,
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
+from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings
 
 
 def parse_size_in_bytes(value):
@@ -181,8 +183,8 @@ def parse_set_resources(args):
                 raise ValueError(errmsg)
             rule, resource = key
             if is_quoted(orig_value):
-                # value is a string, just keep it
-                value = orig_value
+                # value is a string, just keep it but remove surrounding quotes
+                value = orig_value[1:-1]
             else:
                 try:
                     value = int(orig_value)
@@ -351,7 +353,7 @@ def parse_jobs(jobs):
         )
 
 
-def get_profile_dir(profile: str) -> (Path, Path):
+def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
     config_pattern = re.compile(r"config(.v(?P<min_major>\d+)\+)?.yaml")
 
     def get_config_min_major(filename):
@@ -464,7 +466,9 @@ def get_argument_parser(profiles=None):
         f"variable `${caching.LOCATION_ENVVAR}`. Likewise, retrieve output files of the given rules "
         "from this cache if they have been created before (by anybody writing to the same cache), "
         "instead of actually executing the rules. Output files are identified by hashing all "
-        "steps, parameters and software stack (conda envs or containers) needed to create them.",
+        "steps, parameters and software stack (conda envs or containers) needed to create them. "
+        "If no rules are given, all rules that are eligible for caching (have a cache "
+        "directive, see docs) are cached.",
     )
 
     group_exec.add_argument(
@@ -618,7 +622,10 @@ def get_argument_parser(profiles=None):
             "the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
             "The tmpdir resource is automatically used by shell commands, scripts and wrappers to store temporary data (as it is "
             "mirrored into $TMPDIR, $TEMP, and $TMP for the executed subprocesses). "
-            "If this argument is not specified at all, Snakemake just uses the tmpdir resource as outlined above."
+            "If this argument is not specified at all, Snakemake just uses the tmpdir resource as outlined above. "
+            "The tmpdir resource can also be overwritten in the same way as e.g. mem_mb above. "
+            "Thereby, it is even possible to use shutil.disk_usage(system_tmpdir).free and comparing this to input.size in order to "
+            "determine if one can expect the system_tmpdir to be big enough and switch to another tmpdir in case it is not. "
         ),
     )
 
@@ -715,13 +722,15 @@ def get_argument_parser(profiles=None):
         "--keep-going",
         "-k",
         action="store_true",
-        help="Go on with independent jobs if a job fails.",
+        help="Go on with independent jobs if a job fails during execution. "
+        "This only applies to runtime failures in job execution, "
+        "not to errors during workflow parsing or DAG construction.",
     )
     group_exec.add_argument(
         "--rerun-triggers",
         nargs="+",
         choices=RerunTrigger.choices(),
-        default=RerunTrigger.choices(),
+        default=RerunTrigger.all(),
         parse_func=RerunTrigger.parse_choices_set,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
@@ -860,52 +869,16 @@ def get_argument_parser(profiles=None):
         help="Strict evaluation of rules' correctness even when not required to produce the output files. ",
     )
 
-    try:
-        import pulp
-
-        lp_solvers = pulp.listSolvers(onlyAvailable=True)
-    except ImportError:
-        # Dummy list for the case that pulp is not available
-        # This only happened when building docs.
-        lp_solvers = ["COIN_CMD"]
-    recommended_lp_solver = "COIN_CMD"
-
     group_exec.add_argument(
         "--scheduler",
-        default="greedy" if recommended_lp_solver not in lp_solvers else "ilp",
+        default="ilp",
         nargs="?",
-        choices=["ilp", "greedy"],
+        choices=list(SchedulerPluginRegistry().plugins.keys()),
         help=(
-            "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
-            "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
+            "Specifies the scheduling plugin to use. "
+            "Builtin plugins are greedy (fast) and ilp, while the latter scheduler "
+            "aims to reduce runtime and hdd usage by best possible use of resources."
         ),
-    )
-    group_exec.add_argument(
-        "--wms-monitor",
-        action="store",
-        nargs="?",
-        help=(
-            "IP and port of workflow management system to monitor the execution of snakemake (e.g. http://127.0.0.1:5000)"
-            " Note that if your service requires an authorization token, you must export WMS_MONITOR_TOKEN in the environment."
-        ),
-    )
-    group_exec.add_argument(
-        "--wms-monitor-arg",
-        nargs="*",
-        metavar="NAME=VALUE",
-        help=(
-            "If the workflow management service accepts extra arguments, provide. "
-            "them in key value pairs with `--wms-monitor-arg`. For example, to run "
-            "an existing workflow using a wms monitor, you can provide the pair "
-            "`id=12345` and the arguments will be provided to the endpoint to "
-            "first interact with the workflow"
-        ),
-    )
-    group_exec.add_argument(
-        "--scheduler-ilp-solver",
-        default=recommended_lp_solver,
-        choices=lp_solvers,
-        help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 
     group_exec.add_argument(
@@ -976,6 +949,13 @@ def get_argument_parser(profiles=None):
         type=Path,
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
+    )
+    group_report.add_argument(
+        "--report-metadata",
+        metavar="FILE",
+        type=Path,
+        help="Custom metadata to use for the landing page of the report. In particular, "
+        "this can be used to provide metadata in the report e.g. the work directory, see docs.",
     )
     group_report.add_argument(
         "--reporter",
@@ -1066,7 +1046,7 @@ def get_argument_parser(profiles=None):
         default=None,
         help="Do not execute anything and print the directed "
         "acyclic graph of jobs in the dot language or in mermaid-js. Recommended "
-        "use on Unix systems: snakemake `--dag | dot | display`. "
+        "use on Unix systems: `snakemake --dag | dot | display`. "
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
@@ -1374,7 +1354,16 @@ def get_argument_parser(profiles=None):
         help="Set the interval in seconds to check for new input in rules that use from_queue to obtain input files.",
     )
     group_behavior.add_argument(
+        "--omit-flags",
+        nargs="+",
+        default=frozenset(),
+        parse_func=set,
+        help="Omit the given input and output file flags (e.g. pipe). "
+        "This can be useful for debugging.",
+    )
+    group_behavior.add_argument(
         "--notemp",
+        "--no-temp",
         "--nt",
         action="store_true",
         help="Ignore temp() declarations. This is useful when running only "
@@ -1416,19 +1405,13 @@ def get_argument_parser(profiles=None):
         nargs="+",
         help="Only consider given rules. If omitted, all rules in Snakefile are "
         "used. Note that this is intended primarily for internal use and may "
-        "lead to unexpected results otherwise.",
+        "lead to unexpected results otherwise. Meant for internal use or debugging.",
     )
     group_behavior.add_argument(
         "--max-jobs-per-timespan",
         default="100/1s",
         type=MaxJobsPerTimespan.parse_choice,
         help="Maximal number of job submissions/executions per timespan. Format: <number><timespan>, e.g. 50/1m or 0.5/1s.",
-    )
-    group_behavior.add_argument(
-        "--max-jobs-per-second",
-        type=int,
-        help="Maximal number of job submissions/executions per second. "
-        "Deprecated in favor of `--max-jobs-per-timespan`.",
     )
     group_behavior.add_argument(
         "--max-status-checks-per-second",
@@ -1474,7 +1457,8 @@ def get_argument_parser(profiles=None):
         "--local-storage-prefix",
         default=".snakemake/storage",
         type=maybe_base64(expandvars(Path)),
-        help="Specify prefix for storing local copies of storage files and folders (e.g. local scratch disk). Environment variables will be expanded.",
+        help="Specify prefix for storing local copies of storage files and folders "
+        "(e.g. local scratch disk). Environment variables will be expanded.",
     )
     group_behavior.add_argument(
         "--remote-job-local-storage-prefix",
@@ -1510,7 +1494,7 @@ def get_argument_parser(profiles=None):
         help="Set the greediness of scheduling. This value between 0 and 1 "
         "determines how careful jobs are selected for execution. The default "
         "value (1.0) provides the best speed and still acceptable scheduling "
-        "quality.",
+        "quality. Deprecated in favor of `--scheduler-greedy-greediness`.",
     )
     group_behavior.add_argument(
         "--scheduler-subsample",
@@ -1602,7 +1586,11 @@ def get_argument_parser(profiles=None):
         "Assuming that your submit script (here sbatch) outputs the "
         "generated job id to the first stdout line, {dependencies} will "
         "be filled with space separated job ids this job depends on. "
-        "Does not work for workflows that contain checkpoint rules.",
+        "Does not work for workflows that contain checkpoint rules, "
+        "and localrules will be skipped. The additional argument `--notemp` "
+        "should be specified. Most often, `--not-retrieve-storage` is "
+        "also recommended to avoid Snakemake trying to download output files "
+        "before the jobs producing them are executed. ",
     )
     group_cluster.add_argument(
         "--jobscript",
@@ -1617,16 +1605,6 @@ def get_argument_parser(profiles=None):
         default="snakejob.{name}.{jobid}.sh",
         metavar="NAME",
         help="Provide a custom name for the jobscript that is submitted to the cluster (see `--cluster`). The wildcard `{jobid}` has to be present in the name.",
-    )
-
-    group_flux = parser.add_argument_group("FLUX")
-
-    group_flux.add_argument(
-        "--flux",
-        action="store_true",
-        help="Execute your workflow on a flux cluster. "
-        "Flux can work with both a shared network filesystem (like NFS) or without. "
-        "If you don't have a shared filesystem, additionally specify `--no-shared-fs`.",
     )
 
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
@@ -1766,10 +1744,6 @@ def get_argument_parser(profiles=None):
 
     group_internal = parser.add_argument_group("INTERNAL")
     group_internal.add_argument(
-        "--scheduler-solver-path",
-        help=help_internal("Set the PATH to search for scheduler solver binaries."),
-    )
-    group_internal.add_argument(
         "--deploy-sources",
         nargs=2,
         metavar=("QUERY", "CHECKSUM"),
@@ -1794,12 +1768,27 @@ def get_argument_parser(profiles=None):
         type=ExecMode.parse_choice,
         help=help_internal("Set execution mode of Snakemake."),
     )
+    group_internal.add_argument(
+        "--scheduler-solver-path",
+        help=help_internal(
+            "Set the PATH to search for scheduler solver binaries. Deprecated, use --scheduler-ilp-solver-path instead."
+        ),
+    )
+
+    group_deprecated = parser.add_argument_group("DEPRECATED")
+    group_deprecated.add_argument(
+        "--max-jobs-per-second",
+        type=int,
+        help="Maximal number of job submissions/executions per second. "
+        "Deprecated in favor of `--max-jobs-per-timespan`.",
+    )
 
     # Add namespaced arguments to parser for each plugin
     ExecutorPluginRegistry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
     ReportPluginRegistry().register_cli_args(parser)
     LoggerPluginRegistry().register_cli_args(parser)
+    SchedulerPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1914,6 +1903,39 @@ def parse_rerun_triggers(values):
     return {RerunTrigger[x] for x in values}
 
 
+def create_output_settings(args, log_handler_settings) -> OutputSettings:
+    """Create OutputSettings with appropriate logger behavior based on exec mode."""
+
+    settings = OutputSettings(
+        dryrun=args.dryrun,
+        printshellcmds=args.printshellcmds,
+        nocolor=args.nocolor,
+        quiet=args.quiet,
+        debug_dag=args.debug_dag,
+        verbose=args.verbose,
+        show_failed_logs=args.show_failed_logs,
+        log_handler_settings=log_handler_settings,
+        keep_logger=False,
+        stdout=args.dryrun,
+        benchmark_extended=args.benchmark_extended,
+    )
+
+    # Set logging behavior based on execution mode
+    if args.mode == ExecMode.SUBPROCESS:
+        settings.log_level_override = logging.ERROR
+        settings.enable_file_logging = False
+        settings.skip_plugin_handlers = True
+    elif args.mode == ExecMode.REMOTE:
+        settings.skip_plugin_handlers = True
+        settings.enable_file_logging = False
+
+    elif args.mode == ExecMode.DEFAULT:
+        # Use defaults from OutputSettings
+        pass
+
+    return settings
+
+
 def args_to_api(args, parser):
     """Convert argparse args to API calls."""
 
@@ -1948,6 +1970,12 @@ def args_to_api(args, parser):
         for name in args.logger
     }
 
+    scheduler_plugin = SchedulerPluginRegistry().get_plugin(args.scheduler)
+    scheduler_settings = scheduler_plugin.get_settings(args)
+    if args.scheduler == "ilp":
+        assert isinstance(scheduler_settings, MILPSchedulerSettings)
+        scheduler_settings.solver_path = args.scheduler_solver_path
+
     if args.reporter:
         report_plugin = ReportPluginRegistry().get_plugin(args.reporter)
         report_settings = report_plugin.get_settings(args)
@@ -1964,9 +1992,6 @@ def args_to_api(args, parser):
             args.cores = 1
             args.jobs = None
 
-    if args.cores is None:
-        args.cores = available_cpu_count()
-
     # start profiler if requested
     if args.runtime_profile:
         import yappi
@@ -1976,22 +2001,8 @@ def args_to_api(args, parser):
     edit_notebook = parse_edit_notebook(args)
 
     wait_for_files = parse_wait_for_files(args)
-
-    with SnakemakeApi(
-        OutputSettings(
-            dryrun=args.dryrun,
-            printshellcmds=args.printshellcmds,
-            nocolor=args.nocolor,
-            quiet=args.quiet,
-            debug_dag=args.debug_dag,
-            verbose=args.verbose,
-            show_failed_logs=args.show_failed_logs,
-            log_handler_settings=log_handler_settings,
-            keep_logger=False,
-            stdout=args.dryrun,
-            benchmark_extended=args.benchmark_extended,
-        )
-    ) as snakemake_api:
+    output_settings = create_output_settings(args, log_handler_settings)
+    with SnakemakeApi(output_settings) as snakemake_api:
         deployment_method = args.software_deployment_method
         if args.use_conda:
             deployment_method.add(DeploymentMethod.CONDA)
@@ -2009,6 +2020,7 @@ def args_to_api(args, parser):
                 shared_fs_usage=args.shared_fs_usage,
                 keep_storage_local=args.keep_storage_local_copies,
                 retrieve_storage=not args.not_retrieve_storage,
+                omit_flags=args.omit_flags,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
                 unneeded_temp_files=args.unneeded_temp_files,
@@ -2125,6 +2137,9 @@ def args_to_api(args, parser):
                         dag_api.create_report(
                             reporter=args.reporter,
                             report_settings=report_settings,
+                            global_report_settings=GlobalReportSettings(
+                                metadata_template=args.report_metadata
+                            ),
                         )
                     elif args.generate_unit_tests:
                         dag_api.generate_unit_tests(args.generate_unit_tests)
@@ -2202,13 +2217,11 @@ def args_to_api(args, parser):
                                 envvars=args.envvars,
                                 immediate_submit=args.immediate_submit,
                                 job_deploy_sources=args.job_deploy_sources,
+                                precommand=args.precommand,
                             ),
                             scheduling_settings=SchedulingSettings(
                                 prioritytargets=args.prioritize,
                                 scheduler=args.scheduler,
-                                ilp_solver=args.scheduler_ilp_solver,
-                                solver_path=args.scheduler_solver_path,
-                                greediness=args.scheduler_greediness,
                                 subsample=args.scheduler_subsample,
                                 max_jobs_per_second=args.max_jobs_per_second,
                                 max_jobs_per_timespan=args.max_jobs_per_timespan,
@@ -2219,6 +2232,7 @@ def args_to_api(args, parser):
                                 local_groupid=args.local_groupid,
                             ),
                             executor_settings=executor_settings,
+                            scheduler_settings=scheduler_settings,
                         )
 
                         if report_plugin is not None and args.report_after_run:

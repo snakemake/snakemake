@@ -66,13 +66,12 @@ class RuleInfo:
         prefix_replacables={"input", "output", "log", "benchmark"},
     ):
         """Update this ruleinfo with the given one (used for 'use rule' overrides)."""
-        path_modifier = modifier.path_modifier
         skips = set()
 
         if modifier.ruleinfo_overwrite:
             for key, value in modifier.ruleinfo_overwrite.__dict__.items():
                 if key != "func" and value is not None:
-                    if key == "params":
+                    if key == "params" and self.params is not None:
                         # if positional arguments are used after the 'with' statement
                         # overwrite all positional arguments of the original rule
                         # for keyword arguments replace only the ones defined after 'with'
@@ -97,6 +96,7 @@ class RuleInfo:
                     if key in prefix_replacables:
                         skips.add(key)
 
+        path_modifier = modifier.path_modifier
         if path_modifier.modifies_prefixes and skips:
             # use a specialized copy of the path modifier
             path_modifier = copy(path_modifier)
@@ -106,3 +106,6 @@ class RuleInfo:
 
         # modify wrapper if requested
         self.wrapper = modifier.modify_wrapper_uri(self.wrapper)
+
+        if modifier.parent_modifier is not None:
+            self.apply_modifier(modifier.parent_modifier, rulename=rulename)

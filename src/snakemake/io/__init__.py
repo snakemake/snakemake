@@ -8,6 +8,7 @@ import collections
 import collections.abc
 import copy
 import functools
+import hashlib
 import os
 import queue
 import re
@@ -18,7 +19,6 @@ import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
@@ -39,6 +39,7 @@ from typing import (
 from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
 from snakemake_interface_common.utils import not_iterable
+from snakemake_interface_common.io import AnnotatedStringInterface
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -72,18 +73,6 @@ def lutime(file, times):
             "Unable to set mtime without following symlink because it seems "
             "unsupported by your system. Proceeding without."
         )
-
-
-class AnnotatedStringInterface(ABC):
-    @property
-    @abstractmethod
-    def flags(self) -> Dict[str, Any]: ...
-
-    @abstractmethod
-    def is_callable(self) -> bool: ...
-
-    def is_flagged(self, flag: str) -> bool:
-        return flag in self.flags and bool(self.flags[flag])
 
 
 class ExistsDict(dict):
@@ -498,6 +487,11 @@ class _IOFile(str, AnnotatedStringInterface):
                 f"File path {self._file} contains double '{os.path.sep}'. "
                 f"This is likely unintended. {hint}"
             )
+        if _illegal_wildcard_name_regex.search(self._file) is not None:
+            logger.warning(
+                f"File path '{self._file}' contains illegal characters in a wildcard "
+                f"name (only alphanumerics and underscores are allowed)."
+            )
 
     async def exists(self):
         if self.is_storage:
@@ -656,12 +650,12 @@ class _IOFile(str, AnnotatedStringInterface):
             and not self.is_fifo()
         )
 
-    async def checksum(self, threshold, force=False):
+    async def checksum(self, threshold, force=False, algorithm=hashlib.sha256):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist. If force is True,
         omit eligibility check."""
         if force or await self.is_checksum_eligible(threshold):
-            checksum = sha256()
+            checksum = algorithm()
             if await self.size() > 0:
                 # only read if file is bigger than zero
                 # otherwise the checksum is the same as taking hexdigest
@@ -675,8 +669,10 @@ class _IOFile(str, AnnotatedStringInterface):
         else:
             return None
 
-    async def is_same_checksum(self, other_checksum, threshold, force=False):
-        checksum = await self.checksum(threshold, force=force)
+    async def is_same_checksum(
+        self, other_checksum, threshold, force=False, algorithm=hashlib.sha256
+    ):
+        checksum = await self.checksum(threshold, force=force, algorithm=algorithm)
         if checksum is None or other_checksum is None:
             # if no checksum available or files too large, not the same
             return False
@@ -935,16 +931,9 @@ class _IOFile(str, AnnotatedStringInterface):
         return self._file.__hash__()
 
 
-def pretty_print_iofile(iofile: Union[_IOFile, str]) -> str:
-    if isinstance(iofile, _IOFile) and iofile.is_storage:
-        return f"{iofile.storage_object.print_query} (storage)"
-    else:
-        return iofile
-
-
 class AnnotatedString(str, AnnotatedStringInterface):
     def __init__(self, value):
-        self._flags = dict()
+        self._flags = {}
         self.callable = value if is_callable(value) else None
 
     def new_from(self, new_value):
@@ -991,11 +980,32 @@ def get_flag_store_keys(flag_func: Callable) -> Set[str]:
     return set(flag_func("dummy").flags.keys())
 
 
+def remove_flag(value: MaybeAnnotated, flag: str) -> MaybeAnnotated:
+    """Remove a flag from given str or IOFile."""
+    if isinstance(value, AnnotatedStringInterface):
+        if flag in value.flags:
+            del value.flags[flag]
+        return value
+    else:
+        return value
+
+
 _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
 
 _CONSIDER_LOCAL_DEFAULT = frozenset()
+
+_illegal_wildcard_name_regex = re.compile(
+    r"""
+    \{(?!\{) # Start matching from the second {, otherwise \W will match the second {
+        \s*
+        (?P<name>
+            .*?\W[^,\{\}]*
+        ),?[^,\{\}]*? # Do we see any non-word character before comma?
+    \}
+    """,
+)
 
 
 async def wait_for_files(
@@ -1006,6 +1016,9 @@ async def wait_for_files(
     consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
 ):
     """Wait for given files to be present in the filesystem."""
+
+    from snakemake.io.fmt import fmt_iofile
+
     files = list(files)
 
     async def get_missing(list_parent=False):
@@ -1030,9 +1043,9 @@ async def wait_for_files(
                         if os.path.exists(parent_dir)
                         else " not present"
                     )
-                    return f"{f} (missing locally, parent dir{parent_msg})"
+                    return f"{fmt_iofile(f)} (missing locally, parent dir{parent_msg})"
                 else:
-                    return f"{f} (missing locally)"
+                    return f"{fmt_iofile(f)} (missing locally)"
             return None
 
         return list(filter(None, [await eval_file(f) for f in files]))
@@ -1285,8 +1298,28 @@ def touch(value):
     return flag(value, "touch")
 
 
-def ensure(value, non_empty=False, sha256=None):
-    return flag(value, "ensure", {"non_empty": non_empty, "sha256": sha256})
+def ensure(value, non_empty=False, sha256=None, md5=None, sha1=None):
+    if sum(1 for x in (sha256, md5, sha1) if x is not None) > 1:
+        raise SyntaxError(
+            "Only one checksum type (sha256, md5, or sha1) can be specified."
+        )
+    checksum = sha256 or md5 or sha1
+    checksum_algorithm = None
+    if sha256 is not None:
+        checksum_algorithm = hashlib.sha256
+    elif md5 is not None:
+        checksum_algorithm = hashlib.md5
+    elif sha1 is not None:
+        checksum_algorithm = hashlib.sha1
+    return flag(
+        value,
+        "ensure",
+        {
+            "non_empty": non_empty,
+            "checksum": checksum,
+            "checksum_algorithm": checksum_algorithm,
+        },
+    )
 
 
 def unpack(value):
@@ -1882,6 +1915,13 @@ class InputFiles(Namedlist):
         return async_run(sizes())
 
     @property
+    def size_tempfiles(self):
+        async def sizes():
+            return [await f.size() for f in self if is_flagged(f, "temp")]
+
+        return async_run(sizes())
+
+    @property
     def size_files_kb(self):
         return [f / 1024 for f in self.size_files]
 
@@ -1904,6 +1944,10 @@ class InputFiles(Namedlist):
     @property
     def size_mb(self):
         return sum(self.size_files_mb)
+
+    @property
+    def temp_size_mb(self):
+        return sum(self.size_tempfiles)
 
     @property
     def size_gb(self):
