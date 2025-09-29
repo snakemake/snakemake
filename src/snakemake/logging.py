@@ -364,11 +364,11 @@ class DefaultFilter:
     printshellcmds: bool
 
     def __init__(
-            self,
-            quiet: Optional[Collection["Quietness"]],
-            debug_dag: bool,
-            dryrun: bool,
-            printshellcmds: bool,
+        self,
+        quiet: Optional[Collection["Quietness"]],
+        debug_dag: bool,
+        dryrun: bool,
+        printshellcmds: bool,
     ) -> None:
         if quiet is None:
             quiet = set()
