@@ -339,6 +339,7 @@ Certain components in input and output file paths tend to reoccur across many ru
 Via so-called **pathvars**, Snakemake allows to define such components globally, make them configurable via the config file, and change them per module or even per rule.
 Apart from saving boilerplate code, pathvars can be used to make modules intended for reuse in multiple contexts more flexible.
 Pathvars can be used as generic placeholders for their actual values inside of input, output, log, and benchmark paths, using angle brackets, e.g. ``<results>``.
+They are basically equivalent to using Python `f-strings <https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals>`__, just limited to well defined items and with some prioritization and configuration logic in the back, as you will see below.
 
 Pathvar usage
 """""""""""""
