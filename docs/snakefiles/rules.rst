@@ -355,7 +355,7 @@ An example rule using pathvars is the following:
         shell:
             "somecommand {input} {output}"
 
-The pathvars will be expanded to whatever value is defined for them upon definition of the rule (before any wildcards will be determined).
+The pathvars will be expanded to whatever value is defined for them upon definition of the rule (before any wildcards will be determined and before the DAG of jobs is built).
 The values of pathvars can thereby even contain wildcards themselves.
 
 Pathvar defaults
