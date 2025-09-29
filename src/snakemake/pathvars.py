@@ -6,8 +6,8 @@ import re
 from snakemake_interface_common.exceptions import WorkflowError
 
 
-PATHVAR_NAME_REGEX = re.compile(r"^[a-z][a-z0-9_]+$")
-PATHVAR_REGEX = re.compile(r"<(?P<name>[a-z][a-z0-9_]+)>")
+PATHVAR_NAME_REGEX = re.compile(r"^[a-z][a-z0-9_]*$")
+PATHVAR_REGEX = re.compile(r"<(?P<name>[a-z][a-z0-9_]*)>")
 
 
 class Pathvars:
@@ -24,7 +24,7 @@ class Pathvars:
         return instance
 
     @classmethod
-    def from_raw(cls, items: Dict[str, str], level: Optional[int] = None) -> "Pathvars":
+    def _from_raw(cls, items: Dict[Any, Any], level: Optional[int] = None) -> "Pathvars":
         cls.check_dict(items)
         instance = cls()
         instance.items = items
@@ -43,7 +43,7 @@ class Pathvars:
             "logs": "logs",
             "benchmarks": "benchmarks",
         }
-        return cls.from_raw(
+        return cls._from_raw(
             items=items,
             level=4,
         )
@@ -54,20 +54,20 @@ class Pathvars:
             config_pathvars = config.get("pathvars")
             if config_pathvars:
                 # ignore type here as checked above
-                return cls.from_raw(items=config_pathvars, level=1)  # type: ignore[arg-type]
-        return cls.from_raw(items={})
+                return cls._from_raw(items=config_pathvars, level=1)  # type: ignore[arg-type]
+        return cls._from_raw(items={})
 
     @classmethod
     def from_module(cls, module_pathvars: Dict[str, str]) -> "Pathvars":
-        return cls.from_raw(items=module_pathvars, level=2)
+        return cls._from_raw(items=module_pathvars, level=2)
 
     @classmethod
     def from_rule(cls, rule_pathvars: Dict[str, str]) -> "Pathvars":
-        return cls.from_raw(items=rule_pathvars, level=0)
+        return cls._from_raw(items=rule_pathvars, level=0)
 
     @classmethod
     def from_workflow(cls, workflow_pathvars: Dict[str, str]) -> "Pathvars":
-        return cls.from_raw(items=workflow_pathvars, level=3)
+        return cls._from_raw(items=workflow_pathvars, level=3)
 
     def update(self, other: "Pathvars") -> None:
         for key, value in other.items.items():
@@ -79,9 +79,19 @@ class Pathvars:
         return self.items[name]
 
     def apply(self, path: str) -> str:
-        while PATHVAR_REGEX.search(path):
-            path = PATHVAR_REGEX.sub(lambda item: self.get(item.group("name")), path)
-        return path
+        seen = set()
+        applied_path = path
+        while PATHVAR_REGEX.search(applied_path):
+            if applied_path in seen:
+                raise WorkflowError(
+                    f"Cyclic pathvar reference detected when expanding pathvars in {path}. Last expansion: {applied_path}."
+                )
+            seen.add(applied_path)
+            try:
+                applied_path = PATHVAR_REGEX.sub(lambda item: self.get(item.group("name")), applied_path)
+            except KeyError as e:
+                raise WorkflowError(f"Undefined pathvar '{e.args[0]}' when expanding pathvars in {path}.") from e
+        return applied_path
 
     @classmethod
     def check_dict(cls, items: Dict[Any, Any]) -> None:

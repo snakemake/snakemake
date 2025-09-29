@@ -3034,7 +3034,7 @@ All unmodified properties are inherited from the parent rule.
 
 .. code-block:: python
 
-    rule some_transformation:
+    rule transform_something:
         input:
             "<results>/<instep>/<per>.txt"
         output:
