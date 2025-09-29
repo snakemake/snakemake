@@ -739,17 +739,4 @@ class LoggerManager:
 
 # Global logger instance
 logger = logging.getLogger(__name__)
-
-# Set logger with reasonable defaults for cases when logger_manager.setup() is not called; i.e in script
-stream_handler = ColorizingTextHandler(nocolor=False, stream=sys.stderr, mode=None)
-default_filter = DefaultFilter(quiet={}, debug_dag=False, dryrun=False)
-stream_handler.addFilter(default_filter)
-default_formatter = DefaultFormatter(
-    quiet=False, show_failed_logs=False, printshellcmds=True
-)
-stream_handler.setFormatter(default_formatter)
-stream_handler.setLevel(logging.INFO)
-logger.addHandler(stream_handler)
-logger.setLevel(logging.INFO)
-
 logger_manager = LoggerManager(logger)
