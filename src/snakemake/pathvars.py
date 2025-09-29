@@ -24,7 +24,9 @@ class Pathvars:
         return instance
 
     @classmethod
-    def _from_raw(cls, items: Dict[Any, Any], level: Optional[int] = None) -> "Pathvars":
+    def _from_raw(
+        cls, items: Dict[Any, Any], level: Optional[int] = None
+    ) -> "Pathvars":
         cls.check_dict(items)
         instance = cls()
         instance.items = items
@@ -88,9 +90,13 @@ class Pathvars:
                 )
             seen.add(applied_path)
             try:
-                applied_path = PATHVAR_REGEX.sub(lambda item: self.get(item.group("name")), applied_path)
+                applied_path = PATHVAR_REGEX.sub(
+                    lambda item: self.get(item.group("name")), applied_path
+                )
             except KeyError as e:
-                raise WorkflowError(f"Undefined pathvar '{e.args[0]}' when expanding pathvars in {path}.") from e
+                raise WorkflowError(
+                    f"Undefined pathvar '{e.args[0]}' when expanding pathvars in {path}."
+                ) from e
         return applied_path
 
     @classmethod
