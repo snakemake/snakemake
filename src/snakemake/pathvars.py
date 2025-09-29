@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 import re
 
 
@@ -49,13 +49,13 @@ class Pathvars:
         )
 
     @classmethod
-    def from_config(cls, config: Dict[Any, Any]) -> "Pathvars":
-        config_pathvars = config.get("pathvars")
-        if config_pathvars:
-            # ignore type here as checked above
-            return cls.from_raw(items=config_pathvars, level=1)  # type: ignore[arg-type]
-        else:
-            return cls.from_raw(items={})
+    def from_config(cls, config: Union[Mapping[Any, Any], Sequence[Any]]) -> "Pathvars":
+        if isinstance(config, dict):
+            config_pathvars = config.get("pathvars")
+            if config_pathvars:
+                # ignore type here as checked above
+                return cls.from_raw(items=config_pathvars, level=1)  # type: ignore[arg-type]
+        return cls.from_raw(items={})
 
     @classmethod
     def from_module(cls, module_pathvars: Dict[str, str]) -> "Pathvars":
