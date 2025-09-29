@@ -94,16 +94,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
             else None
         )
 
-        nodes_unset = workflow.global_resources["_nodes"] is None
-
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
             for name, res in workflow.global_resources.items()
         }
 
-        if not nodes_unset:
-            # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
-            self.global_resources["_cores"] = sys.maxsize
         # register job count resource (always initially unrestricted)
         self.global_resources["_job_slot"] = sys.maxsize
 
@@ -519,6 +514,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     # This saves a lot of time, as self.open_jobs has to be
                     # evaluated less frequently.
                     self._open_jobs.release()
+                else:
+                    # Finished local job could mean free execution slot
+                    if job.is_local:
+                        self._open_jobs.release()
 
     def error_callback(self, job):
         with self._lock:
