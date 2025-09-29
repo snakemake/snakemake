@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Union
 import re
 
 
@@ -35,7 +35,28 @@ class Pathvars:
             instance.level = {}
         else:
             instance.level = {key: level for key in items}
+        instance.check()
         return instance
+
+    def check(self) -> None:
+        # Ensure that there are no cyclic references as they would lead to infinite loops
+        # during pathvar expansion.
+        def dfs(key: str, seen: Set[str]) -> None:
+            if key in seen:
+                cycle = ", ".join(seen | {key})
+                raise WorkflowError(
+                    f"Cyclic pathvar reference detected between: {cycle}"
+                )
+            seen.add(key)
+            value = self.items[key]
+            for match in PATHVAR_REGEX.finditer(value):
+                ref_key = match.group("name")
+                if ref_key in self.items:
+                    dfs(ref_key, seen)
+            seen.pop()
+
+        for key in self.items:
+            dfs(key, set())
 
     @classmethod
     def with_defaults(cls) -> "Pathvars":
@@ -81,21 +102,21 @@ class Pathvars:
         return self.items[name]
 
     def apply(self, path: str) -> str:
-        seen = set()
         applied_path = path
         while PATHVAR_REGEX.search(applied_path):
-            if applied_path in seen:
-                raise WorkflowError(
-                    f"Cyclic pathvar reference detected when expanding pathvars in {path}. Last expansion: {applied_path}."
-                )
-            seen.add(applied_path)
             try:
                 applied_path = PATHVAR_REGEX.sub(
                     lambda item: self.get(item.group("name")), applied_path
                 )
             except KeyError as e:
+                intermediate_msg = (
+                    f" (intermediate path: {applied_path})."
+                    if applied_path != path
+                    else "."
+                )
                 raise WorkflowError(
-                    f"Undefined pathvar '{e.args[0]}' when expanding pathvars in {path}."
+                    f"Undefined pathvar '{e.args[0]}' when expanding "
+                    f"pathvars in {path}{intermediate_msg}"
                 ) from e
         return applied_path
 
