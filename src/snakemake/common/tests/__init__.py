@@ -68,8 +68,8 @@ class TestWorkflowsBase(ABC):
 
     def get_deployment_settings(
         self, deployment_method=frozenset()
-    ) -> settings.LegacyDeploymentSettings:
-        return settings.LegacyDeploymentSettings(
+    ) -> settings.DeploymentSettings:
+        return settings.DeploymentSettings(
             deployment_method=deployment_method,
         )
 

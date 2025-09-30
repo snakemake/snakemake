@@ -33,7 +33,7 @@ from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     DAGSettings,
     DeploymentMethod,
-    LegacyDeploymentSettings,
+    DeploymentSettings,
     ExecutionSettings,
     OutputSettings,
     ConfigSettings,
@@ -119,7 +119,7 @@ class SnakemakeApi(ApiBase):
         config_settings: Optional[ConfigSettings] = None,
         storage_settings: Optional[StorageSettings] = None,
         workflow_settings: Optional[WorkflowSettings] = None,
-        deployment_settings: Optional[LegacyDeploymentSettings] = None,
+        deployment_settings: Optional[DeploymentSettings] = None,
 
         storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
         snakefile: Optional[Path] = None,
@@ -146,7 +146,7 @@ class SnakemakeApi(ApiBase):
         if workflow_settings is None:
             workflow_settings = WorkflowSettings()
         if deployment_settings is None:
-            deployment_settings = LegacyDeploymentSettings()
+            deployment_settings = DeploymentSettings()
         if storage_provider_settings is None:
             storage_provider_settings = dict()
 
@@ -325,7 +325,7 @@ class WorkflowApi(ApiBase):
     resource_settings: ResourceSettings
     storage_settings: StorageSettings
     workflow_settings: WorkflowSettings
-    deployment_settings: LegacyDeploymentSettings
+    deployment_settings: DeploymentSettings
     storage_provider_settings: Mapping[str, TaggedSettings]
 
     _workflow_store: Optional[Workflow] = field(init=False, default=None)

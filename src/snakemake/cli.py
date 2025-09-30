@@ -54,7 +54,7 @@ from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
-    LegacyDeploymentSettings,
+    DeploymentSettings,
     ExecutionSettings,
     GroupSettings,
     MaxJobsPerTimespan,
@@ -1631,12 +1631,6 @@ def get_argument_parser(profiles=None):
     group_conda = parser.add_argument_group("CONDA")
 
     group_conda.add_argument(
-        "--use-conda",
-        action="store_true",
-        help="If defined in the rule, run job in a conda environment. "
-        "If this flag is not set, the conda directive is ignored.",
-    )
-    group_conda.add_argument(
         "--conda-not-block-search-path-envvars",
         action="store_true",
         help="Do not block environment variables that modify the search path "
@@ -2008,12 +2002,6 @@ def args_to_api(args, parser):
     output_settings = create_output_settings(args, log_handler_settings)
     with SnakemakeApi(output_settings) as snakemake_api:
         deployment_method = args.software_deployment_method
-        if args.use_conda:
-            deployment_method.add(DeploymentMethod.CONDA)
-        if args.use_apptainer:
-            deployment_method.add(DeploymentMethod.APPTAINER)
-        if args.use_envmodules:
-            deployment_method.add(DeploymentMethod.ENV_MODULES)
 
         try:
             storage_settings = StorageSettings(
@@ -2067,7 +2055,7 @@ def args_to_api(args, parser):
                         cache=args.cache,
                         consider_ancient=args.consider_ancient,
                     ),
-                    deployment_settings=LegacyDeploymentSettings(
+                    deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
                         conda_prefix=args.conda_prefix,
                         conda_cleanup_pkgs=args.conda_cleanup_pkgs,

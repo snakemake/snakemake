@@ -358,7 +358,7 @@ def run(
                         wrapper_prefix=wrapper_prefix,
                         cache=cache,
                     ),
-                    deployment_settings=settings.LegacyDeploymentSettings(
+                    deployment_settings=settings.DeploymentSettings(
                         conda_frontend=conda_frontend,
                         conda_prefix=conda_prefix,
                         deployment_method=deployment_method,

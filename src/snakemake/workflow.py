@@ -28,7 +28,7 @@ from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
-    LegacyDeploymentSettings,
+    DeploymentSettings,
     ExecutionSettings,
     GroupSettings,
     OutputSettings,
@@ -158,7 +158,7 @@ class Workflow(WorkflowExecutorInterface):
     storage_settings: Optional[StorageSettings] = None
     dag_settings: Optional[DAGSettings] = None
     execution_settings: Optional[ExecutionSettings] = None
-    legacy_deployment_settings: Optional[LegacyDeploymentSettings] = None
+    legacy_deployment_settings: Optional[DeploymentSettings] = None
     scheduling_settings: Optional[SchedulingSettings] = None
     output_settings: Optional[OutputSettings] = None
     remote_execution_settings: Optional[RemoteExecutionSettings] = None

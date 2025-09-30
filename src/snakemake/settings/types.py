@@ -134,7 +134,6 @@ class WorkflowSettings(SettingsBase):
     consider_ancient: Mapping[str, AnySet[Union[str, int]]] = field(
         default_factory=dict
     )
-    experimental_software_deployment_methods: AnySet[str] = frozenset()
 
 
 class Batch:
@@ -247,7 +246,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
 
 
 @dataclass
-class LegacyDeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
+class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     """
     Parameters
     ----------
@@ -269,9 +268,7 @@ class LegacyDeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface
     deployment_method: AnySet[DeploymentMethod] = frozenset()
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
-    conda_base_path: Optional[Path] = None
-    conda_frontend: str = "conda"
-    conda_not_block_search_path_envvars: bool = False
+    not_block_search_path_envvars: bool = False
     apptainer_args: str = ""
     apptainer_prefix: Optional[Path] = None
 
