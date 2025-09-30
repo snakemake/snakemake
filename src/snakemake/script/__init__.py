@@ -751,6 +751,25 @@ class PythonScript(ScriptBase):
             else f"from snakemake.shell import shell; shell.executable({shell_exec});"
         )
 
+        # Get the logger manager settings to pass to the script
+        # This will NOT pass logger plugins (is probably OK)
+        # This will pass whatever outputsettings the user decided at the CLI
+        # It is not entirely clear if Python scripts are ever executed in subprocess mode (seems no),
+        # However, if they are then logs below logging.ERROR will be suppressed.
+        # in execmode.remote, script logs will only be visible in the remote snakemake processes' logs
+        from snakemake.logging import logger_manager
+
+        logger_settings = (
+            logger_manager.settings
+            if hasattr(logger_manager, "settings") and logger_manager.settings
+            else None
+        )
+        logger_manager_stmt = (
+            "from snakemake.settings.types import OutputSettings;logger_manager.setup(settings=OutputSettings(), handlers=[]);"
+            if logger_settings is None
+            else f"import pickle;logger_manager.setup(settings=pickle.loads({pickle.dumps(logger_settings)!r}), handlers=[]);"
+        )
+
         preamble = f"""
             import sys;
             sys.path.extend({repr(searchpaths)});
@@ -758,6 +777,8 @@ class PythonScript(ScriptBase):
             from snakemake import script;
             script.snakemake = pickle.loads({snakemake});
             del script;
+            from snakemake.logging import logger_manager;
+            {logger_manager_stmt}
             from snakemake.logging import logger;
             from snakemake.script import snakemake;
             {shell_exec_stmt}
