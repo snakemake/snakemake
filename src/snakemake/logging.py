@@ -569,34 +569,17 @@ class LoggerManager:
         handlers: List[LogHandlerBase],
         settings: OutputSettingsLoggerInterface,
     ):
-        from snakemake_interface_executor_plugins.settings import ExecMode
-
-        # clear any existing handlers
-        for handler in self.logger.handlers[:]:
-            self.logger.removeHandler(handler)
-        self.mode = mode
+        """Set up the logging system based on settings and handlers."""
+        # Clear any existing handlers to prevent duplicates
+        self.logger.handlers.clear()
         self.settings = settings
 
         # Skip plugin handlers if requested and return early
         if settings.skip_plugin_handlers or not handlers:
             handler = self._default_streamhandler()
-            handler.setLevel(logging.INFO)
-            stream_handlers.append(handler)
-        elif self.mode == ExecMode.REMOTE:
-            stream_handlers.append(self._default_streamhandler())
-        elif handlers:
-            for handler in handlers:
-                if handler.needs_rulegraph:
-                    self.needs_rulegraph = True
-                configured_handler = self._configure_plugin_handler(handler)
-                if configured_handler.writes_to_file:
-                    self.logfile_handlers[configured_handler] = (
-                        configured_handler.baseFilename
-                    )
-                elif configured_handler.writes_to_stream:
-                    stream_handlers.append(configured_handler)
-                else:
-                    other_handlers.append(configured_handler)
+            if settings.log_level_override is not None:
+                handler.setLevel(settings.log_level_override)
+            self.logger.addHandler(handler)
 
             # Set logger level
             if settings.log_level_override is not None:
