@@ -371,12 +371,12 @@ Pathvar definition
 Beyond the defaults, it is possible to define additional pathvars or customize the default definitions.
 This can happen in multiple ways, with the following precedence (from highest to lowest):
 
-1. Per rule, via the ``pathvars`` keyword.
-2. Per :ref:`module <snakefiles-modules>`, via the ``pathvars`` argument to the ``module`` directive or via the ``pathvars`` key in a config dict explicitly passed to the module.
+1. For individual rules, via the ``pathvars`` keyword.
+2. For :ref:`modules <snakefiles-modules>`, via the ``pathvars`` argument to the ``module`` directive or via the ``pathvars`` key in a config dict explicitly passed to the module.
 3. Globally, via the ``pathvars`` key in the config file or passed to the ``--config`` command line arguments.
 4. Globally, via the ``pathvars`` keyword at the top level of the Snakefile.
 
-Apart from :ref:`per-module pathvars <snakefiles-modules-pathvars>`, the most common way is to define them globally via the ``pathvars`` keyword:
+Apart from :ref:`module pathvars <snakefiles-modules-pathvars>`, the most common way is to define them globally via the ``pathvars`` keyword:
 
 .. code-block:: python
 
@@ -386,15 +386,15 @@ Apart from :ref:`per-module pathvars <snakefiles-modules-pathvars>`, the most co
 Above, we define a pathvar ``per`` and set it to the value ``{sample}``, thus defining a wildcard.
 Such a pattern can be helpful if you write a workflow that shall be reused as a module in various different ways within other workflows (e.g. thereby processing different items, samples, or something else).
 
-In order to overwrite pathvars per rule, they can be specified via the ``pathvars`` keyword inside a rule:
+In order to overwrite pathvars for individual rules, they can be specified via the ``pathvars`` keyword inside a rule:
 
 .. code-block:: python
 
     rule somerule:
         input:
-            "<results>/something/{sample}.txt"
+            "<results>/something/<per>.txt"
         output:
-            "<results>/processed/{sample}.txt"
+            "<results>/processed/<per>.txt"
         pathvars:
             results="custom-folder"
         shell:

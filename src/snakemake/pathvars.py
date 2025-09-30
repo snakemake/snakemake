@@ -54,7 +54,7 @@ class Pathvars:
                 ref_key = match.group("name")
                 if ref_key in self.items:
                     dfs(ref_key, seen)
-            seen.pop()
+            seen.remove(key)
 
         for key in self.items:
             dfs(key, set())
@@ -98,6 +98,9 @@ class Pathvars:
             if key not in self.items or other.level[key] <= self.level[key]:
                 self.items[key] = value
                 self.level[key] = other.level[key]
+
+        # ensure that the resulting pathvars are still valid after updating
+        self.check()
 
     def get(self, name: str) -> str:
         return self.items[name]
