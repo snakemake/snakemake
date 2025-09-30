@@ -1092,10 +1092,13 @@ class Job(
                 shellcmd=self.shellcmd,
             ),
         )
-        logger.info(
-            f"Shell command: {self.shellcmd}",
-            extra=dict(event=LogEvent.SHELLCMD, shellcmd=self.shellcmd, indent=indent),
-        )
+        if self.shellcmd is not None:
+            logger.info(
+                f"Shell command: {self.shellcmd}",
+                extra=dict(
+                    event=LogEvent.SHELLCMD, shellcmd=self.shellcmd, indent=indent
+                ),
+            )
         if self.rule.is_checkpoint:
             logger.info("DAG of jobs will be updated after completion.")
         if self.rule.is_handover:
