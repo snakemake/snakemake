@@ -7,6 +7,8 @@ from collections import defaultdict
 import os
 import re
 import sys
+import logging
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import List, Mapping, Optional, Set, Tuple, Union
 from snakemake import caching
@@ -1901,6 +1903,39 @@ def parse_rerun_triggers(values):
     return {RerunTrigger[x] for x in values}
 
 
+def create_output_settings(args, log_handler_settings) -> OutputSettings:
+    """Create OutputSettings with appropriate logger behavior based on exec mode."""
+
+    settings = OutputSettings(
+        dryrun=args.dryrun,
+        printshellcmds=args.printshellcmds,
+        nocolor=args.nocolor,
+        quiet=args.quiet,
+        debug_dag=args.debug_dag,
+        verbose=args.verbose,
+        show_failed_logs=args.show_failed_logs,
+        log_handler_settings=log_handler_settings,
+        keep_logger=False,
+        stdout=args.dryrun,
+        benchmark_extended=args.benchmark_extended,
+    )
+
+    # Set logging behavior based on execution mode
+    if args.mode == ExecMode.SUBPROCESS:
+        settings.log_level_override = logging.ERROR
+        settings.enable_file_logging = False
+        settings.skip_plugin_handlers = True
+    elif args.mode == ExecMode.REMOTE:
+        settings.skip_plugin_handlers = True
+        settings.enable_file_logging = False
+
+    elif args.mode == ExecMode.DEFAULT:
+        # Use defaults from OutputSettings
+        pass
+
+    return settings
+
+
 def args_to_api(args, parser):
     """Convert argparse args to API calls."""
 
@@ -1966,22 +2001,8 @@ def args_to_api(args, parser):
     edit_notebook = parse_edit_notebook(args)
 
     wait_for_files = parse_wait_for_files(args)
-
-    with SnakemakeApi(
-        OutputSettings(
-            dryrun=args.dryrun,
-            printshellcmds=args.printshellcmds,
-            nocolor=args.nocolor,
-            quiet=args.quiet,
-            debug_dag=args.debug_dag,
-            verbose=args.verbose,
-            show_failed_logs=args.show_failed_logs,
-            log_handler_settings=log_handler_settings,
-            keep_logger=False,
-            stdout=args.dryrun,
-            benchmark_extended=args.benchmark_extended,
-        )
-    ) as snakemake_api:
+    output_settings = create_output_settings(args, log_handler_settings)
+    with SnakemakeApi(output_settings) as snakemake_api:
         deployment_method = args.software_deployment_method
         if args.use_conda:
             deployment_method.add(DeploymentMethod.CONDA)
