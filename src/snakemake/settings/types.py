@@ -34,6 +34,7 @@ from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
+    ExperimentalFeatures,
     RerunTrigger,
     ChangeType,
     CondaCleanupPkgs,
@@ -267,9 +268,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     deployment_method: AnySet[DeploymentMethod] = frozenset()
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
-    conda_base_path: Optional[Path] = None
-    conda_frontend: str = "conda"
-    conda_not_block_search_path_envvars: bool = False
+    not_block_search_path_envvars: bool = False
     apptainer_args: str = ""
     apptainer_prefix: Optional[Path] = None
 

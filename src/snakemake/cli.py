@@ -19,6 +19,8 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from snakemake.settings.enums import ExperimentalFeatures
+from snakemake_interface_software_deployment_plugins.registry import SoftwareDeploymentPluginRegistry
 
 
 import snakemake.common.argparse
@@ -1614,10 +1616,11 @@ def get_argument_parser(profiles=None):
         "--deployment",
         "--sdm",
         nargs="+",
-        choices=DeploymentMethod.choices(),
-        parse_func=DeploymentMethod.parse_choices_set,
+        # manually add legacy options and map to plugin names in API
+        choices=SoftwareDeploymentPluginRegistry().plugins.keys(),
         default=set(),
-        help="Specify software environment deployment method.",
+        help="Specify software environment deployment method. "
+        "Refer to Snakemake plugin catalog for choices.",
     )
     group_deployment.add_argument(
         "--container-cleanup-images",
@@ -1627,12 +1630,6 @@ def get_argument_parser(profiles=None):
 
     group_conda = parser.add_argument_group("CONDA")
 
-    group_conda.add_argument(
-        "--use-conda",
-        action="store_true",
-        help="If defined in the rule, run job in a conda environment. "
-        "If this flag is not set, the conda directive is ignored.",
-    )
     group_conda.add_argument(
         "--conda-not-block-search-path-envvars",
         action="store_true",
@@ -1789,6 +1786,7 @@ def get_argument_parser(profiles=None):
     ReportPluginRegistry().register_cli_args(parser)
     LoggerPluginRegistry().register_cli_args(parser)
     SchedulerPluginRegistry().register_cli_args(parser)
+    SoftwareDeploymentPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -2004,12 +2002,6 @@ def args_to_api(args, parser):
     output_settings = create_output_settings(args, log_handler_settings)
     with SnakemakeApi(output_settings) as snakemake_api:
         deployment_method = args.software_deployment_method
-        if args.use_conda:
-            deployment_method.add(DeploymentMethod.CONDA)
-        if args.use_apptainer:
-            deployment_method.add(DeploymentMethod.APPTAINER)
-        if args.use_envmodules:
-            deployment_method.add(DeploymentMethod.ENV_MODULES)
 
         try:
             storage_settings = StorageSettings(
