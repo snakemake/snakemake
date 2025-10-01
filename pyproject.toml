@@ -59,7 +59,7 @@ dependencies = [
   "wrapt",
   "yte>=1.5.5,<2.0",
   "dpath>=2.1.6,<3.0.0",
-  "conda-inject>=1.3.1,<2.0",
+  "conda-inject>=1.3.1,<2.0", "lmdb",
 ]
 
 [project.urls]
@@ -285,3 +285,6 @@ build = { cmd = "python -m build", description = "Build the package into the dis
 build-check = { cmd = "python -m twine check --strict dist/*", depends-on = [
   "build",
 ], description = "Check that the package can be uploaded" }
+
+[tool.pixi.dependencies]
+python-lmdb = ">=1.7.3,<2"

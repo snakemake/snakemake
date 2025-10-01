@@ -17,7 +17,7 @@ from functools import lru_cache
 from itertools import count
 from pathlib import Path
 from contextlib import contextmanager
-from typing import Any, Optional, Set
+from typing import Any, Optional, Set, TYPE_CHECKING
 
 from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
@@ -32,6 +32,11 @@ from snakemake.utils import listfiles
 from snakemake.io import _IOFile, is_flagged, get_flag_value, IOCache
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake.settings.types import DeploymentMethod
+
+if TYPE_CHECKING:
+    from snakemake.dag import DAG
+
+import lmdb
 
 UNREPRESENTABLE = object()
 RECORD_FORMAT_VERSION = 6
@@ -846,3 +851,355 @@ class ParamsChange:
 
 
 NO_PARAMS_CHANGE = ParamsChange()
+
+
+class LmdbPersistence(Persistence):
+    """
+    LMDB-based persistence implementation for Snakemake metadata.
+
+    Uses Lightning Memory-Mapped Database (LMDB) for efficient storage and retrieval
+    of job metadata, incomplete markers, and other persistence data.
+    """
+
+    def __init__(
+        self,
+        dag: "DAG",
+        nolock=False,
+        conda_prefix=None,
+        singularity_prefix=None,
+        shadow_prefix=None,
+        warn_only=False,
+        path: Path | None = None,
+    ):
+        import importlib.util
+
+        self._serialize_param = (
+            self._serialize_param_pandas
+            if importlib.util.find_spec("pandas") is not None
+            else self._serialize_param_builtin
+        )
+
+        self.dag = dag
+
+        if path is None:
+            self._path = Path(os.path.abspath(".snakemake"))
+        else:
+            self._path = path
+        os.makedirs(self.path, exist_ok=True)
+
+        self._lmdb_path = os.path.join(self.path, "lmdb")
+
+        self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
+        self.benchmark_path = os.path.join(self.path, "benchmarks")
+        self.source_cache = os.path.join(self.path, "source_cache")
+        self.iocache_path = os.path.join(self.path, "iocache")
+
+        if conda_prefix is None:
+            self.conda_env_path = os.path.join(self.path, "conda")
+        else:
+            self.conda_env_path = os.path.abspath(conda_prefix)
+        if singularity_prefix is None:
+            self.container_img_path = os.path.join(self.path, "singularity")
+        else:
+            self.container_img_path = os.path.abspath(singularity_prefix)
+        if shadow_prefix is None:
+            self.shadow_path = os.path.join(self.path, "shadow")
+        else:
+            self.shadow_path = os.path.join(shadow_prefix, "shadow")
+
+        self._aux_path = os.path.join(self.path, "auxiliary")
+
+        for d in (
+            self.shadow_path,
+            self.conda_env_archive_path,
+            self.conda_env_path,
+            self.container_img_path,
+            self.aux_path,
+            self.iocache_path,
+            self._lmdb_path,
+        ):
+            os.makedirs(d, exist_ok=True)
+
+        self._env = self._init_lmdb()
+
+        # Lock handling
+        self._locked = False
+        if nolock:
+            self.lock = self.noop
+            self.unlock = self.noop_unlock
+        if warn_only:
+            self.lock = self.lock_warn_only
+            self.unlock = self.noop_unlock
+
+        self._incomplete_cache = None
+        self.max_checksum_file_size = (
+            self.dag.workflow.dag_settings.max_checksum_file_size
+        )
+
+    @property
+    def path(self) -> Path:
+        return Path(self._path)
+
+    @property
+    def aux_path(self) -> Path:
+        return Path(self._aux_path)
+
+    @contextmanager
+    def noop(self, *args):
+        """No-op context manager for disabled locking."""
+        yield
+
+    def noop_unlock(self) -> None:
+        """No-op unlock for disabled locking."""
+        pass
+
+    @contextmanager
+    def lock_warn_only(self):
+        """Warning-only lock context manager."""
+        if self.locked:
+            logger.info(
+                "Error: Directory cannot be locked. This usually "
+                "means that another Snakemake instance is running on this directory. "
+                "Another possibility is that a previous run exited unexpectedly."
+            )
+        yield
+
+    def _init_lmdb(self) -> lmdb.Environment:
+        """Initialize LMDB environment and databases."""
+        _env: lmdb.Environment = lmdb.open(
+            self._lmdb_path,
+            max_dbs=4,
+            map_size=1024**3,
+        )
+
+        with _env.begin(write=True) as txn:
+            self._metadata_db = _env.open_db(b"metadata", txn=txn)
+            self._incomplete_db = _env.open_db(b"incomplete", txn=txn)
+            self._locks_db = _env.open_db(b"locks", txn=txn)
+            self._cache_db = _env.open_db(b"cache", txn=txn)
+        return _env
+
+    @property
+    def locked(self) -> bool:
+        if self._locked:
+            return True
+
+        inputfiles = set(str(f) for f in self.all_inputfiles())
+        outputfiles = set(str(f) for f in self.all_outputfiles())
+
+        try:
+            with self._env.begin(db=self._locks_db) as txn:
+                cursor = txn.cursor()
+                for key, value in cursor:
+                    if key in [b"input_lock", b"output_lock"]:
+                        locked_files = set(json.loads(value.decode("utf-8")))
+                        if key == b"output_lock":
+                            if locked_files & (outputfiles | inputfiles):
+                                return True
+                        elif key == b"input_lock":
+                            if locked_files & outputfiles:
+                                return True
+        except Exception:
+            # If LMDB access fails, fall back to parent implementation
+            return super().locked
+        return False
+
+    @contextmanager
+    def lock(self):
+        """Context manager for locking."""
+        if self.locked:
+            raise snakemake.exceptions.LockException()
+        try:
+            self._lock_files(self.all_inputfiles(), "input")
+            self._lock_files(self.all_outputfiles(), "output")
+            yield
+        finally:
+            self.unlock()
+
+    def _lock_files(self, files, lock_type: str):
+        """Store lock information in LMDB."""
+        with self._env.begin(write=True) as txn:
+            lock_key = f"{lock_type}_lock".encode("utf-8")
+            files_list = list(str(f) for f in files)
+            lock_data = json.dumps(files_list).encode("utf-8")
+            txn.put(lock_key, lock_data, db=self._locks_db)
+        self._locked = True
+
+    def unlock(self) -> None:
+        """Release locks."""
+        self._locked = False
+        with self._env.begin(write=True) as txn:
+            txn.drop(db=self._locks_db, delete=False)
+
+    def _file_key(self, file: _IOFile) -> bytes:
+        """Generate LMDB key for a file."""
+        file_str = file.storage_object.query if file.is_storage else str(file)
+        return self._b64id(file_str).encode("utf-8")
+
+    def _store_record(self, db, record_data: dict[str, Any], file: _IOFile) -> None:
+        """Store a record in the specified LMDB database."""
+        key = self._file_key(file)
+        value = json.dumps(record_data).encode("utf-8")
+        with self._env.begin(write=True) as txn:
+            txn.put(key, value, db=db)
+
+    def _get_record(self, db, file: _IOFile) -> dict[str, Any]:
+        """Get a record from the specified LMDB database."""
+        key = self._file_key(file)
+        with self._env.begin(db=db) as txn:
+            value = txn.get(key)
+            if value is None:
+                return {}
+            try:
+                return json.loads(value.decode("utf-8"))
+            except (json.JSONDecodeError, AttributeError):
+                logger.warning(f"Corrupted metadata record for {file}")
+                return {}
+
+    def cleanup_locks(self) -> None:
+        """Clean up all locks."""
+        with self._env.begin(write=True) as txn:
+            txn.drop(db=self._locks_db, delete=False)
+
+    def cleanup_metadata(self, path: _IOFile) -> bool:
+        """Remove metadata for a file."""
+        key = self._file_key(path)
+        with self._env.begin(write=True) as txn:
+            deleted_metadata = txn.delete(key, db=self._metadata_db)
+            deleted_incomplete = txn.delete(key, db=self._incomplete_db)
+            return deleted_metadata or deleted_incomplete
+
+    def started(self, job: Job, external_jobid: str | None = None) -> None:
+        """Mark job as started by storing incomplete markers."""
+        for f in job.output:
+            self._store_record(
+                self._incomplete_db, {"external_jobid": external_jobid}, f
+            )
+
+    async def finished(self, job: Job) -> None:
+        """Mark job as finished and store metadata."""
+        if not self.dag.workflow.execution_settings.keep_metadata:
+            self._remove_incomplete_marker(job)
+            return
+
+        if (
+            self.dag.workflow.exec_mode == ExecMode.DEFAULT
+            or self.dag.workflow.remote_execution_settings.immediate_submit
+        ):
+            code = self._code(job.rule)
+            input = self._input(job)
+            log = self._log(job)
+            params = self._params(job)
+            shellcmd = job.shellcmd
+            conda_env = self._conda_env(job)
+            software_stack_hash = self._software_stack_hash(job)
+            fallback_time = time.time()
+
+            for f in job.output:
+                # Get start time from incomplete marker
+                starttime = self._get_starttime(f, fallback_time)
+
+                endtime = (
+                    (await f.mtime()).local_or_storage()
+                    if await f.exists()
+                    else fallback_time
+                )
+
+                checksums = (
+                    (infile, await infile.checksum(self.max_checksum_file_size))
+                    for infile in job.input
+                )
+
+                record_data = {
+                    "record_format_version": RECORD_FORMAT_VERSION,
+                    "code": code,
+                    "rule": job.rule.name,
+                    "input": input,
+                    "log": log,
+                    "params": params,
+                    "shellcmd": shellcmd,
+                    "incomplete": False,
+                    "starttime": starttime,
+                    "endtime": endtime,
+                    "job_hash": hash(job),
+                    "conda_env": conda_env,
+                    "software_stack_hash": software_stack_hash,
+                    "container_img_url": job.container_img_url,
+                    "input_checksums": {
+                        str(infile): checksum
+                        async for infile, checksum in checksums
+                        if checksum is not None
+                    },
+                }
+
+                self._store_record(self._metadata_db, record_data, f)
+
+        # Remove incomplete marker after metadata creation
+        self._remove_incomplete_marker(job)
+
+    def _get_starttime(self, file: _IOFile, fallback_time: float) -> float | None:
+        """Get start time from incomplete marker or existing metadata."""
+        # First try to get from incomplete marker
+        incomplete_record = self._get_record(self._incomplete_db, file)
+        if incomplete_record and "starttime" in incomplete_record:
+            return incomplete_record["starttime"]
+
+        # If not found, try existing metadata
+        metadata_record = self._get_record(self._metadata_db, file)
+        if metadata_record and "starttime" in metadata_record:
+            return metadata_record["starttime"]
+
+        return fallback_time
+
+    def _remove_incomplete_marker(self, job: Job) -> None:
+        """Remove incomplete markers for job outputs."""
+        for f in job.output:
+            key = self._file_key(f)
+            with self._env.begin(write=True) as txn:
+                txn.delete(key, db=self._incomplete_db)
+
+    async def incomplete(self, job: Job) -> list[_IOFile | None]:
+        """Return list of incomplete output files for the job."""
+        if self._incomplete_cache is None:
+            self._cache_incomplete_files()
+
+        async def is_incomplete(f):
+            exists = await f.exists()
+            marked = self._is_marked_incomplete(f)
+            return f if exists and marked else None
+
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(is_incomplete(f)) for f in job.output]
+
+        return [task.result() for task in tasks]
+
+    def _is_marked_incomplete(self, file: _IOFile) -> bool:
+        """Check if file is marked as incomplete."""
+        if self._incomplete_cache is False:  # cache deactivated
+            key = self._file_key(file)
+            with self._env.begin(db=self._incomplete_db) as txn:
+                return txn.get(key) is not None
+        else:
+            key = self._file_key(file)
+            return key in self._incomplete_cache
+
+    def _cache_incomplete_files(self) -> None:
+        """Cache all incomplete file keys for performance."""
+        self._incomplete_cache = set()
+        with self._env.begin(db=self._incomplete_db) as txn:
+            cursor = txn.cursor()
+            for key, _ in cursor:
+                self._incomplete_cache.add(key)
+
+    # Note: external_jobids is inherited from parent class - it can use our overridden metadata() method
+
+    def metadata(self, path: _IOFile) -> dict[str, Any]:
+        return self._get_record(self._metadata_db, path)
+
+    # Note: input_checksums, _code_changed, _input_changed, _software_stack_changed,
+    # and deactivate_cache are inherited from parent class since they use the same logic
+
+    def __del__(self):
+        """Clean up LMDB environment on deletion."""
+        if hasattr(self, "_env") and self._env:
+            self._env.close()

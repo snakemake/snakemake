@@ -102,7 +102,7 @@ from snakemake.io import (
     sourcecache_entry,
 )
 
-from snakemake.persistence import Persistence
+from snakemake.persistence import Persistence, LmdbPersistence
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.notebook import notebook
@@ -872,15 +872,32 @@ class Workflow(WorkflowExecutorInterface):
         )
 
         assert self.deployment_settings is not None
-        self._persistence = Persistence(
-            nolock=nolock,
-            dag=self._dag,
-            conda_prefix=self.deployment_settings.conda_prefix,
-            singularity_prefix=self.deployment_settings.apptainer_prefix,
-            shadow_prefix=shadow_prefix,
-            warn_only=lock_warn_only,
-            path=persistence_path,
-        )
+
+        use_lmdb = os.environ.get(
+            "SNAKEMAKE_USE_LMDB_PERSISTENCE", "false"
+        ).lower() in ("true", "1", "yes")
+
+        if use_lmdb:
+            logger.info("using lmdb persistence")
+            self._persistence = LmdbPersistence(
+                nolock=nolock,
+                dag=self._dag,
+                conda_prefix=self.deployment_settings.conda_prefix,
+                singularity_prefix=self.deployment_settings.apptainer_prefix,
+                shadow_prefix=shadow_prefix,
+                warn_only=lock_warn_only,
+                path=persistence_path,
+            )
+        else:
+            logger.info("using json persistence")
+            self._persistence = Persistence(
+                nolock=nolock,
+                dag=self._dag,
+                conda_prefix=self.deployment_settings.conda_prefix,
+                singularity_prefix=self.deployment_settings.apptainer_prefix,
+                shadow_prefix=shadow_prefix,
+                warn_only=lock_warn_only,
+            )
 
     def generate_unit_tests(self, path: Path):
         """Generate unit tests for the workflow.
