@@ -1400,9 +1400,13 @@ class RuleProxy:
     @lazy_property
     def input(self):
         def modify_callable(item):
-            assert isinstance(item, _IOFile)
-            if item.is_callable():
-                func = item._file.callable
+            if is_callable(item):
+                if isinstance(item, _IOFile):
+                    func = item._file.callable
+                elif isinstance(item, AnnotatedString):
+                    func = item.callable
+                else:
+                    func = item
 
                 def inner(wildcards):
                     return self.rule.apply_path_modifier(
