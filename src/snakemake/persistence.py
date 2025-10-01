@@ -12,6 +12,7 @@ import json
 import stat
 import tempfile
 import time
+import pickle
 from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache
 from itertools import count
@@ -1031,6 +1032,7 @@ class LmdbPersistence(Persistence):
         with self._env.begin(write=True) as txn:
             txn.drop(db=self._locks_db, delete=False)
 
+    @lru_cache()
     def _file_key(self, file: _IOFile) -> bytes:
         """Generate LMDB key for a file."""
         file_str = file.storage_object.query if file.is_storage else str(file)
@@ -1039,7 +1041,7 @@ class LmdbPersistence(Persistence):
     def _store_record(self, db, record_data: dict[str, Any], file: _IOFile) -> None:
         """Store a record in the specified LMDB database."""
         key = self._file_key(file)
-        value = json.dumps(record_data).encode("utf-8")
+        value = pickle.dumps(record_data)
         with self._env.begin(write=True) as txn:
             txn.put(key, value, db=db)
 
@@ -1051,8 +1053,8 @@ class LmdbPersistence(Persistence):
             if value is None:
                 return {}
             try:
-                return json.loads(value.decode("utf-8"))
-            except (json.JSONDecodeError, AttributeError):
+                return pickle.loads(value)
+            except (pickle.UnpicklingError, AttributeError):
                 logger.warning(f"Corrupted metadata record for {file}")
                 return {}
 
@@ -1095,46 +1097,49 @@ class LmdbPersistence(Persistence):
             software_stack_hash = self._software_stack_hash(job)
             fallback_time = time.time()
 
-            for f in job.output:
-                # Get start time from incomplete marker
-                starttime = self._get_starttime(f, fallback_time)
+            # here we just make a new transcation so that all records are in 1 txn for this job
+            # rather than using _store_recordm
 
-                endtime = (
-                    (await f.mtime()).local_or_storage()
-                    if await f.exists()
-                    else fallback_time
-                )
+            with self._env.begin(write=True) as txn:
+                for f in job.output:
+                    starttime = self._get_starttime(f, fallback_time)
+                    endtime = (
+                        (await f.mtime()).local_or_storage()
+                        if await f.exists()
+                        else fallback_time
+                    )
 
-                checksums = (
-                    (infile, await infile.checksum(self.max_checksum_file_size))
-                    for infile in job.input
-                )
+                    checksums = (
+                        (infile, await infile.checksum(self.max_checksum_file_size))
+                        for infile in job.input
+                    )
 
-                record_data = {
-                    "record_format_version": RECORD_FORMAT_VERSION,
-                    "code": code,
-                    "rule": job.rule.name,
-                    "input": input,
-                    "log": log,
-                    "params": params,
-                    "shellcmd": shellcmd,
-                    "incomplete": False,
-                    "starttime": starttime,
-                    "endtime": endtime,
-                    "job_hash": hash(job),
-                    "conda_env": conda_env,
-                    "software_stack_hash": software_stack_hash,
-                    "container_img_url": job.container_img_url,
-                    "input_checksums": {
-                        str(infile): checksum
-                        async for infile, checksum in checksums
-                        if checksum is not None
-                    },
-                }
+                    record_data = {
+                        "record_format_version": RECORD_FORMAT_VERSION,
+                        "code": code,
+                        "rule": job.rule.name,
+                        "input": input,
+                        "log": log,
+                        "params": params,
+                        "shellcmd": shellcmd,
+                        "incomplete": False,
+                        "starttime": starttime,
+                        "endtime": endtime,
+                        "job_hash": hash(job),
+                        "conda_env": conda_env,
+                        "software_stack_hash": software_stack_hash,
+                        "container_img_url": job.container_img_url,
+                        "input_checksums": {
+                            str(infile): checksum
+                            async for infile, checksum in checksums
+                            if checksum is not None
+                        },
+                    }
 
-                self._store_record(self._metadata_db, record_data, f)
+                    key = self._file_key(f)
+                    value = pickle.dumps(record_data)
+                    txn.put(key, value, db=self._metadata_db)
 
-        # Remove incomplete marker after metadata creation
         self._remove_incomplete_marker(job)
 
     def _get_starttime(self, file: _IOFile, fallback_time: float) -> float | None:
