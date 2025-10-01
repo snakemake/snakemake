@@ -253,45 +253,13 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
 
     deployment_method
         deployment method to use (CONDA, APPTAINER, ENV_MODULES)
-    conda_prefix:
-        the directory in which conda environments will be created (default None)
-    conda_cleanup_pkgs:
-        whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
-    conda_create_envs_only:
-        if specified, only builds the conda environments specified for each job, then exits.
-    list_conda_envs:
-        list conda environments and their location on disk.
-    conda_base_path:
-        Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
     """
 
-    deployment_method: AnySet[DeploymentMethod] = frozenset()
-    conda_prefix: Optional[Path] = None
-    conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
+    deployment_method: AnySet[str] = frozenset() # type: ignore (the interface expects a frozen set, but for initialization we can also take a mutable set)
+    cache_prefix: Optional[Path] = None
+    deployment_prefix: Optional[Path] = None
+    cleanup_cache: bool = False
     not_block_search_path_envvars: bool = False
-    apptainer_args: str = ""
-    apptainer_prefix: Optional[Path] = None
-
-    def imply_deployment_method(self, method: DeploymentMethod):
-        self.deployment_method = set(self.deployment_method)
-        self.deployment_method.add(method)
-
-    def __post_init__(self):
-        from snakemake.logging import logger
-
-        if self.apptainer_prefix is None:
-            self.apptainer_prefix = os.environ.get("APPTAINER_CACHEDIR", None)
-        self.apptainer_prefix = expand_vars_and_user(self.apptainer_prefix)
-        self.conda_prefix = expand_vars_and_user(self.conda_prefix)
-        if self.conda_frontend != "conda":
-            logger.warning(
-                "Support for alternative conda frontends has been deprecated in "
-                "favor of simpler support and code base. "
-                "This should not cause issues since current conda releases rely on "
-                "fast solving via libmamba. "
-                f"Ignoring the alternative conda frontend setting ({self.conda_frontend})."
-            )
-            self.conda_frontend = "conda"
 
 
 @dataclass
