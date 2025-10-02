@@ -877,7 +877,7 @@ class Workflow(WorkflowExecutorInterface):
             "SNAKEMAKE_USE_LMDB_PERSISTENCE", "false"
         ).lower() in ("true", "1", "yes")
 
-        if use_lmdb:
+        if use_lmdb and self.exec_mode == ExecMode.DEFAULT:
             logger.info("using lmdb persistence")
             self._persistence = LmdbPersistence(
                 nolock=nolock,
