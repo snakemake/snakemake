@@ -1196,6 +1196,34 @@ class LmdbPersistence(Persistence):
             for key, _ in cursor:
                 self._incomplete_cache.add(key)
 
+    @lru_cache()
+    def _input(self, job):
+        """Override to ensure all inputs are converted to strings for pickling."""
+
+        def get_paths():
+            for f in job.input:
+                if f.is_storage:
+                    yield f.storage_object.query
+                elif is_flagged(f, "pipe"):
+                    yield "<pipe>"
+                elif is_flagged(f, "service"):
+                    yield "<service>"
+                else:
+                    # Convert to string to avoid pickling _IOFile objects with callable attributes
+                    path = (
+                        get_flag_value(f, "sourcecache_entry")
+                        if is_flagged(f, "sourcecache_entry")
+                        else f
+                    )
+                    yield str(path)
+
+        return sorted(get_paths())
+
+    @lru_cache()
+    def _log(self, job):
+        """Override to ensure all log files are converted to strings for pickling."""
+        return sorted(str(f) for f in job.log)
+
     # Note: external_jobids is inherited from parent class - it can use our overridden metadata() method
 
     def metadata(self, path: _IOFile) -> dict[str, Any]:
