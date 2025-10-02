@@ -925,14 +925,19 @@ class LmdbPersistence(Persistence):
         readonly = self.dag.workflow.exec_mode != ExecMode.DEFAULT
         self._env = self._init_lmdb(readonly=readonly)
 
+        # Initialize file-based locking (inherited from parent Persistence class)
+        # We use file-based locks instead of LMDB-based locks because they work reliably on NFS
+        self._lockdir = os.path.join(self.path, "locks")
+        os.makedirs(self._lockdir, exist_ok=True)
+        self._lockfile = dict()
+
         # Lock handling
-        self._locked = False
         if nolock:
             self.lock = self.noop
-            self.unlock = self.noop_unlock
+            self.unlock = self.noop
         if warn_only:
             self.lock = self.lock_warn_only
-            self.unlock = self.noop_unlock
+            self.unlock = self.noop
 
         self._incomplete_cache = None
         self.max_checksum_file_size = (
@@ -975,70 +980,23 @@ class LmdbPersistence(Persistence):
         """
         _env: lmdb.Environment = lmdb.open(
             self._lmdb_path,
-            max_dbs=4,
+            max_dbs=3,  # metadata, incomplete, cache (locks use filesystem)
             map_size=1024**3,
             readonly=readonly,
-            lock=not readonly,
+            lock=False,  # Required for NFS - we use file-based locking instead
         )
 
         with _env.begin(write=not readonly) as txn:
-            self._metadata_db = _env.open_db(b"metadata", txn=txn)
-            self._incomplete_db = _env.open_db(b"incomplete", txn=txn)
-            self._locks_db = _env.open_db(b"locks", txn=txn)
-            self._cache_db = _env.open_db(b"cache", txn=txn)
+            # In readonly mode, databases must already exist (create=False)
+            self._metadata_db = _env.open_db(b"metadata", txn=txn, create=not readonly)
+            self._incomplete_db = _env.open_db(
+                b"incomplete", txn=txn, create=not readonly
+            )
+            self._cache_db = _env.open_db(b"cache", txn=txn, create=not readonly)
         return _env
 
-    @property
-    def locked(self) -> bool:
-        if self._locked:
-            return True
-
-        inputfiles = set(str(f) for f in self.all_inputfiles())
-        outputfiles = set(str(f) for f in self.all_outputfiles())
-
-        try:
-            with self._env.begin(db=self._locks_db) as txn:
-                cursor = txn.cursor()
-                for key, value in cursor:
-                    if key in [b"input_lock", b"output_lock"]:
-                        locked_files = set(json.loads(value.decode("utf-8")))
-                        if key == b"output_lock":
-                            if locked_files & (outputfiles | inputfiles):
-                                return True
-                        elif key == b"input_lock":
-                            if locked_files & outputfiles:
-                                return True
-        except Exception:
-            # If LMDB access fails, fall back to parent implementation
-            return super().locked
-        return False
-
-    @contextmanager
-    def lock(self):
-        """Context manager for locking."""
-        if self.locked:
-            raise snakemake.exceptions.LockException()
-        try:
-            self._lock_files(self.all_inputfiles(), "input")
-            self._lock_files(self.all_outputfiles(), "output")
-            yield
-        finally:
-            self.unlock()
-
-    def _lock_files(self, files, lock_type: str):
-        """Store lock information in LMDB."""
-        with self._env.begin(write=True) as txn:
-            lock_key = f"{lock_type}_lock".encode("utf-8")
-            files_list = list(str(f) for f in files)
-            lock_data = json.dumps(files_list).encode("utf-8")
-            txn.put(lock_key, lock_data, db=self._locks_db)
-        self._locked = True
-
-    def unlock(self) -> None:
-        """Release locks."""
-        self._locked = False
-        with self._env.begin(write=True) as txn:
-            txn.drop(db=self._locks_db, delete=False)
+    # Lock methods inherited from parent Persistence class (file-based locking)
+    # We don't override locked, lock(), unlock() - use parent's implementation
 
     @lru_cache()
     def _file_key(self, file: _IOFile) -> bytes:
@@ -1090,10 +1048,7 @@ class LmdbPersistence(Persistence):
                     logger.warning(f"Corrupted metadata record for {file}")
                     return {}
 
-    def cleanup_locks(self) -> None:
-        """Clean up all locks."""
-        with self._env.begin(write=True) as txn:
-            txn.drop(db=self._locks_db, delete=False)
+    # cleanup_locks() inherited from parent - uses file-based lock cleanup
 
     def cleanup_metadata(self, path: _IOFile) -> bool:
         """Remove metadata for a file."""
