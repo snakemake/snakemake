@@ -1401,11 +1401,16 @@ class RuleProxy:
     def input(self):
         def modify_callable(item):
             if is_callable(item):
-                # For callables ensure that the rule's original path modifier is applied as well.
+                if isinstance(item, _IOFile):
+                    func = item._file.callable
+                elif isinstance(item, AnnotatedString):
+                    func = item.callable
+                else:
+                    func = item
 
                 def inner(wildcards):
                     return self.rule.apply_path_modifier(
-                        item(wildcards), self.rule.input_modifier, property="input"
+                        func(wildcards), self.rule.input_modifier, property="input"
                     )
 
                 return inner
