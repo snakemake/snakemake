@@ -921,7 +921,9 @@ class LmdbPersistence(Persistence):
         ):
             os.makedirs(d, exist_ok=True)
 
-        self._env = self._init_lmdb()
+        # Determine if this is a remote/subprocess process that should be read-only
+        readonly = self.dag.workflow.exec_mode != ExecMode.DEFAULT
+        self._env = self._init_lmdb(readonly=readonly)
 
         # Lock handling
         self._locked = False
@@ -965,15 +967,21 @@ class LmdbPersistence(Persistence):
             )
         yield
 
-    def _init_lmdb(self) -> lmdb.Environment:
-        """Initialize LMDB environment and databases."""
+    def _init_lmdb(self, readonly: bool = False) -> lmdb.Environment:
+        """Initialize LMDB environment and databases.
+
+        Args:
+            readonly: If True, open database in read-only mode (for remote processes)
+        """
         _env: lmdb.Environment = lmdb.open(
             self._lmdb_path,
             max_dbs=4,
             map_size=1024**3,
+            readonly=readonly,
+            lock=not readonly,
         )
 
-        with _env.begin(write=True) as txn:
+        with _env.begin(write=not readonly) as txn:
             self._metadata_db = _env.open_db(b"metadata", txn=txn)
             self._incomplete_db = _env.open_db(b"incomplete", txn=txn)
             self._locks_db = _env.open_db(b"locks", txn=txn)
@@ -1050,10 +1058,18 @@ class LmdbPersistence(Persistence):
         with self._env.begin(write=True) as txn:
             txn.put(key, value, db=db)
 
-    def _get_record(self, db, file: _IOFile) -> dict[str, Any]:
-        """Get a record from the specified LMDB database."""
+    def _get_record(self, db, file: _IOFile, txn=None) -> dict[str, Any]:
+        """Get a record from the specified LMDB database.
+
+        Args:
+            db: The LMDB database to query
+            file: The file to get the record for
+            txn: Optional existing transaction to use (avoids nesting)
+        """
         key = self._file_key(file)
-        with self._env.begin(db=db) as txn:
+
+        if txn is not None:
+            # Use existing transaction (avoids nested transaction error)
             value = txn.get(key)
             if value is None:
                 return {}
@@ -1062,6 +1078,17 @@ class LmdbPersistence(Persistence):
             except (pickle.UnpicklingError, AttributeError):
                 logger.warning(f"Corrupted metadata record for {file}")
                 return {}
+        else:
+            # Create new read transaction
+            with self._env.begin(db=db) as txn:
+                value = txn.get(key)
+                if value is None:
+                    return {}
+                try:
+                    return pickle.loads(value)
+                except (pickle.UnpicklingError, AttributeError):
+                    logger.warning(f"Corrupted metadata record for {file}")
+                    return {}
 
     def cleanup_locks(self) -> None:
         """Clean up all locks."""
@@ -1108,7 +1135,7 @@ class LmdbPersistence(Persistence):
 
             with self._env.begin(write=True) as txn:
                 for f in job.output:
-                    starttime = self._get_starttime(f, fallback_time)
+                    starttime = self._get_starttime(f, fallback_time, txn=txn)
                     endtime = (
                         (await f.mtime()).local_or_storage()
                         if await f.exists()
@@ -1148,15 +1175,23 @@ class LmdbPersistence(Persistence):
 
         self._remove_incomplete_marker(job)
 
-    def _get_starttime(self, file: _IOFile, fallback_time: float) -> float | None:
-        """Get start time from incomplete marker or existing metadata."""
+    def _get_starttime(
+        self, file: _IOFile, fallback_time: float, txn=None
+    ) -> float | None:
+        """Get start time from incomplete marker or existing metadata.
+
+        Args:
+            file: The file to get starttime for
+            fallback_time: Time to return if no starttime found
+            txn: Optional existing transaction to use (avoids nesting)
+        """
         # First try to get from incomplete marker
-        incomplete_record = self._get_record(self._incomplete_db, file)
+        incomplete_record = self._get_record(self._incomplete_db, file, txn=txn)
         if incomplete_record and "starttime" in incomplete_record:
             return incomplete_record["starttime"]
 
         # If not found, try existing metadata
-        metadata_record = self._get_record(self._metadata_db, file)
+        metadata_record = self._get_record(self._metadata_db, file, txn=txn)
         if metadata_record and "starttime" in metadata_record:
             return metadata_record["starttime"]
 
