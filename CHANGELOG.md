@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [9.11.8](https://github.com/snakemake/snakemake/compare/v9.11.7...v9.11.8) (2025-10-02)
+
+
+### Bug Fixes
+
+* use proper callable when accessing rule proxy with associated path modifier ([#3763](https://github.com/snakemake/snakemake/issues/3763)) ([b5d12c8](https://github.com/snakemake/snakemake/commit/b5d12c819858e0e6c6d8349a0b0c7679b48f509e))
+
+
+### Documentation
+
+* add snakemake logo to automatic mastodon release posts ([#3764](https://github.com/snakemake/snakemake/issues/3764)) ([7b66250](https://github.com/snakemake/snakemake/commit/7b66250b333ee083ac9e24f397718c25042459cb))
+
 ## [9.11.7](https://github.com/snakemake/snakemake/compare/v9.11.6...v9.11.7) (2025-10-01)
 
 
