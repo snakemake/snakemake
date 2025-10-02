@@ -17,7 +17,7 @@ from snakemake.utils import format
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
 
-NBFORMAT_VERSION = 5
+NBFORMAT_VERSION = 4
 
 
 def get_cell_sources(source):
