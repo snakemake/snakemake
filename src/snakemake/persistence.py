@@ -1040,6 +1040,11 @@ class LmdbPersistence(Persistence):
 
     def _store_record(self, db, record_data: dict[str, Any], file: _IOFile) -> None:
         """Store a record in the specified LMDB database."""
+        if not (
+            self.dag.workflow.exec_mode == ExecMode.DEFAULT
+            or self.dag.workflow.remote_execution_settings.immediate_submit
+        ):
+            return
         key = self._file_key(file)
         value = pickle.dumps(record_data)
         with self._env.begin(write=True) as txn:
@@ -1073,6 +1078,7 @@ class LmdbPersistence(Persistence):
 
     def started(self, job: Job, external_jobid: str | None = None) -> None:
         """Mark job as started by storing incomplete markers."""
+
         for f in job.output:
             self._store_record(
                 self._incomplete_db, {"external_jobid": external_jobid}, f
