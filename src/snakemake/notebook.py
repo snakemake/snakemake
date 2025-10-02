@@ -139,6 +139,7 @@ class JupyterNotebook(ScriptBase):
 
         preamble_cell = nbformat.v4.new_code_cell(preamble)
         preamble_cell["metadata"]["tags"] = ["snakemake-job-properties"]
+        preamble_cell.pop("id", None)  # remove id if present, it causes issues in some jupyter versions
         notebook["cells"].insert(0, preamble_cell)
 
     def remove_preamble_cell(self, notebook):
