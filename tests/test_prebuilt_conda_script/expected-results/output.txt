@@ -1,1 +1,17 @@
-something
+usage: Tm [-h] [--uncorrected] [-d DNA] [--na NA] [--mg MG] [--dntp DNTP]
+          [--version]
+          seq
+
+Calculate nucleotide melting temps
+
+positional arguments:
+  seq                nucleotide sequence
+
+optional arguments:
+  -h, --help         show this help message and exit
+  --uncorrected      Do not use monovalent/divalent cation corrections
+  -d DNA, --dna DNA  DNA concentration (nM)
+  --na NA            Na+ concentration (mM)
+  --mg MG            Mg++ concentration (mM)
+  --dntp DNTP        Nucleotide triphosphate concentration (mM)
+  --version          show program's version number and exit
