@@ -323,14 +323,20 @@ def test_conda_run():
 
 @conda
 def test_issue_3192():
-    sp.run(
-        "conda create -n test_issue3192 python -y",
-        shell=True,
+    assert (
+        sp.run(
+            "conda create -n test_issue3192 python -y",
+            shell=True,
+        ).returncode
+        == 0
     )
-    assert sp.run(
-        "ls $CONDA_PREFIX/envs/test_issue3192",
-        shell=True,
-    ).returncode
+    assert (
+        sp.run(
+            "ls $CONDA_PREFIX/envs/test_issue3192",
+            shell=True,
+        ).returncode
+        == 0
+    )
     run(dpath("test_issue3192"), deployment_method={DeploymentMethod.CONDA})
 
 
