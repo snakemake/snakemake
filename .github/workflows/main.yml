@@ -47,10 +47,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test_group: [1]
+        test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         # see pyprojec.toml: [tool.pixi.feature.test] for available test types
-        os: [ubuntu-latest] #  , macos-13 not supported yet
-        env: ["py313"]
+        os: [ubuntu-latest, windows-2022, macos-latest] #  , macos-13 not supported yet
+        env: ["py311", "py312", "py313"]
         exclude:
           - os: windows-2022
             env: "py312"
@@ -108,8 +108,10 @@ jobs:
       - name: Run Tests for Linux (os= 'Linux')
         if: runner.os == 'Linux'
         run: |
-          pixi run --environment ${{matrix.env}} \
-            pytest tests/tests_using_conda.py -k test_issue_3192 -vv \
+          pixi run --environment ${{matrix.env}} test-all \
+            --splits 10 \
+            --group ${{ matrix.test_group }} \
+            --splitting-algorithm=least_duration \
             --showlocals \
             --show-capture=all
 

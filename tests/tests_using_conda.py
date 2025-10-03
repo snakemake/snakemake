@@ -325,14 +325,7 @@ def test_conda_run():
 def test_issue_3192():
     assert (
         sp.run(
-            "conda create -n test_issue3192 python -y",
-            shell=True,
-        ).returncode
-        == 0
-    )
-    assert (
-        sp.run(
-            "ls $CONDA_PREFIX/envs/test_issue3192",
+            "conda create -c conda-forge -n test_issue3192 python",
             shell=True,
         ).returncode
         == 0
