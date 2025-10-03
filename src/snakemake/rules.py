@@ -1202,7 +1202,7 @@ class Rule(RuleInterface):
             return None
 
         spec_type = CondaEnvSpecType.from_spec(conda_env)
-        assert spec_type.name == "DIR"
+        assert spec_type is CondaEnvSpecType.DIR
 
         if spec_type is CondaEnvSpecType.FILE:
             if not isinstance(conda_env, SourceFile):

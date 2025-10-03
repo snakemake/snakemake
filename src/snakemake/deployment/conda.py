@@ -61,9 +61,6 @@ class CondaCleanupMode(Enum):
         return self.value
 
 
-import sys
-
-
 class Env:
     """Conda environment from a given specification file."""
 
