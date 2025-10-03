@@ -61,6 +61,9 @@ class CondaCleanupMode(Enum):
         return self.value
 
 
+import sys
+
+
 class Env:
     """Conda environment from a given specification file."""
 
@@ -78,7 +81,10 @@ class Env:
             "deployment.conda.Env.__init__:\n",
             f"    {env_file=}, {env_name=}, {env_dir=}",
             flush=True,
+            file=sys.stderr,
         )
+        assert env_name is not None
+        assert "/" not in env_name
         self.file = env_file
         if env_file is not None:
             self.file = infer_source_file(env_file)
@@ -957,6 +963,7 @@ class CondaEnvDirSpec(CondaEnvSpec):
             "deployment.conda.CondaEnvDirSpec.get_conda_env:\n",
             f"    {self.path=}, {envs_dir=}, {container_img=}, {cleanup=}",
             flush=True,
+            file=sys.stderr,
         )
         return Env(
             workflow,

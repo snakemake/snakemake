@@ -395,7 +395,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 ), "bug: must first pull singularity images"
                 simg = self.container_imgs[simg_url]
             key = (env_spec, simg_url)
-            print("dag.DAG.update_conda_envs:", key, flush=True)
+            import sys
+
+            print("dag.DAG.update_conda_envs:", key, flush=True, file=sys.stderr)
             if key not in self.conda_envs:
                 env = env_spec.get_conda_env(
                     self.workflow,
