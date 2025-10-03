@@ -1019,7 +1019,11 @@ class CondaEnvSpecType(Enum):
 
         if not is_local_file(spec):
             assert False, f"{is_local_file(spec)=}, {os.path.isdir(spec)=}"
-        assert os.path.isdir(spec)
+        st = os.stat(spec)
+        import stat
+
+        assert Path(spec).is_dir()
+        assert stat.S_ISDIR(st.st_mode), st
         if spec.endswith(".yaml") or spec.endswith(".yml"):
             return cls.FILE
         elif is_local_file(spec) and os.path.isdir(spec):
