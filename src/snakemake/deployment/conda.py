@@ -77,14 +77,6 @@ class Env:
         container_img=None,
         cleanup=None,
     ):
-        print(
-            "deployment.conda.Env.__init__:\n",
-            f"    {env_file=}, {env_name=}, {env_dir=}",
-            flush=True,
-            file=sys.stderr,
-        )
-        assert env_name is not None
-        assert "/" not in env_name
         self.file = env_file
         if env_file is not None:
             self.file = infer_source_file(env_file)
@@ -959,12 +951,6 @@ class CondaEnvDirSpec(CondaEnvSpec):
         pass
 
     def get_conda_env(self, workflow, envs_dir=None, container_img=None, cleanup=None):
-        print(
-            "deployment.conda.CondaEnvDirSpec.get_conda_env:\n",
-            f"    {self.path=}, {envs_dir=}, {container_img=}, {cleanup=}",
-            flush=True,
-            file=sys.stderr,
-        )
         return Env(
             workflow,
             env_dir=self.path,
