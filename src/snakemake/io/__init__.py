@@ -16,7 +16,6 @@ import shutil
 import stat
 import string
 import time
-from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from inspect import isfunction, ismethod
@@ -457,6 +456,11 @@ class _IOFile(str, AnnotatedStringInterface):
     def check(self):
         if callable(self._file):
             return
+        if self._file == "":
+            raise WorkflowError(
+                "Empty file path encountered. This is likely unintended.",
+                rule=self.rule,
+            )
         hint = (
             "It can also lead to inconsistent results of the file-matching "
             "approach used by Snakemake."
