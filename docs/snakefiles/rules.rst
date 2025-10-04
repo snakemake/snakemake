@@ -372,9 +372,10 @@ Beyond the defaults, it is possible to define additional pathvars or customize t
 This can happen in multiple ways, with the following precedence (from highest to lowest):
 
 1. For individual rules, via the ``pathvars`` keyword.
-2. For :ref:`modules <snakefiles-modules>`, via the ``pathvars`` argument to the ``module`` directive or via the ``pathvars`` key in a config dict explicitly passed to the module.
-3. Globally, via the ``pathvars`` key in the config file or passed to the ``--config`` command line arguments.
-4. Globally, via the ``pathvars`` keyword at the top level of the Snakefile.
+2. For :ref:`module <snakefiles-modules>` config via the ``pathvars`` key in a config dict explicitly passed to the module (this applies recursively to nested modules).
+3. For :ref:`modules <snakefiles-modules>`, via the ``pathvars`` keyword to the ``module`` directive (this applies recursively to nested modules).
+4. Globally, via the ``pathvars`` key in the config file or passed to the ``--config`` command line arguments.
+5. Globally, via the ``pathvars`` keyword at the top level of the Snakefile.
 
 Apart from :ref:`module pathvars <snakefiles-modules-pathvars>`, the most common way is to define them globally via the ``pathvars`` keyword:
 
