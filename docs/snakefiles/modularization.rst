@@ -238,11 +238,63 @@ Note that the second use statement has to use the original rule name, not the on
 
 Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
 
+.. _snakefiles-modules-pathvars:
+
+Pathvars
+~~~~~~~~
+
+It is possible to define :ref:`pathvars <snakefiles-pathvars>` on a per-module base as follows:
+
+.. code-block:: python
+
+    module other_workflow:
+        snakefile:
+            # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
+            "other_workflow/Snakefile"
+        pathvars:
+            results="results/other_workflow"
+
+All rules in the module that make use of the defined pathvars will use whatever new values are defined there.
+The given values will override eventual pathvar definitions inside of the module. 
+
+If further a config is passed to the module, any pathvar definitions in the config take precedence over pathvar definitions in the module definition, e.g.:
+
+.. code-block:: python
+
+    module other_workflow:
+        snakefile:
+            # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
+            "other_workflow/Snakefile"
+        pathvars:
+            results="results/other_workflow"
+        config: config["other-workflow"]
+
+Here, if ``config["other-workflow"]`` contains a ``pathvars`` section, those definitions will extend (and overwrite if also containing ``"results"``) the ``results`` pathvar defined in the module statement.
+Concretely, consider the following two cases.
+First, if the config contains the following:
+
+.. code-block:: yaml
+
+    pathvars:
+        resources: "custom/path/to/resources"
+
+Then inside of the module the two considered pathvars will be ``results="results/other_workflow"`` and ``resources="custom/path/to/resources"``.
+If instead the config contains:
+.. code-block:: yaml
+
+    pathvars:
+        results: "custom/results"
+        resources: "custom/path/to/resources"
+        
+Then inside of the module the two considered pathvars will be ``results="custom/results"`` and ``resources="custom/path/to/resources"``.
+
+Note that defining pathvars in the config should be considered a rare, discouraged and advanced use case, since the users has to know about the internal pathvar expectations of the module.
+Workflow authors can explicitly forbid the modification of particular pathvars via :ref:`config file schemas and validation <snakefiles_config_validation>`.
+
 .. _snakefiles-dynamic-modules:
 
----------------
 Dynamic Modules
----------------
+~~~~~~~~~~~~~~~
 
 With Snakemake 9.0 and later, it is possible to load modules dynamically by providing the ``name`` keyword inside the module definition.
 For example, by reading the module name from a config file or by iterating over several modules in a loop.
@@ -281,7 +333,6 @@ In particular, it is not possible to modify the alias name in the ``use rule`` s
 
 ..  _snakefiles-meta-wrappers:
 
-~~~~~~~~~~~~~
 Meta-Wrappers
 ~~~~~~~~~~~~~
 
@@ -321,9 +372,8 @@ And finally, we overwrite the input directive of the rule ``bwa_mem`` such that 
 
 .. _snakefile-code-hosting-providers:
 
-----------------------
 Code hosting providers
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 To obtain the correct URL to an external source code resource (e.g. a snakefile, see :ref:`snakefiles-modules`), Snakemake provides markers for code hosting providers.
 Currently, Github
@@ -349,7 +399,7 @@ For the latter, it is also possible to specify an alternative host, e.g.
 While specifying a tag is highly encouraged, it is alternatively possible to specify a `commit` or a `branch` via respective keyword arguments.
 Note that only when specifying a tag or a commit, Snakemake is able to persistently cache the source, thereby avoiding to repeatedly query it in case of multiple executions.
 
-~~~~~~~~~~~~~~~~~~~~
+
 Private repositories
 ~~~~~~~~~~~~~~~~~~~~
 

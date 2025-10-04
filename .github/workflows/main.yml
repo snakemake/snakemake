@@ -36,7 +36,7 @@ jobs:
         if: github.event_name == 'pull_request' && failure()
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
+          message: "Please format your code with `pixi run format`"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   ################################################################################################

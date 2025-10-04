@@ -23,6 +23,7 @@ import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
+from snakemake.pathvars import Pathvars
 from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
@@ -233,11 +234,15 @@ class Workflow(WorkflowExecutorInterface):
         _globals["access"] = AccessPatternFactory
 
         self.vanilla_globals = dict(_globals)
-        self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
+        self.modifier_stack = [
+            WorkflowModifier(self, pathvars=Pathvars.with_defaults(), globals=_globals)
+        ]
         self._output_file_cache = None
         self.cache_rules = dict()
 
-        self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
+        config = copy.deepcopy(self.config_settings.overwrite_config)
+        self.globals["config"] = config
+        self.pathvars.update(Pathvars.from_config(config))
 
     @property
     def included(self) -> Iterator[SourceFile]:
@@ -562,6 +567,10 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def globals(self):
         return self.modifier.globals
+
+    @property
+    def pathvars(self) -> Pathvars:
+        return self.modifier.pathvars
 
     def lint(self, json=False):
         from snakemake.linting.rules import RuleLinter
@@ -1693,6 +1702,9 @@ class Workflow(WorkflowExecutorInterface):
             self._workdir_handler = WorkdirHandler(Path(workdir))
             self._workdir_handler.change_to()
 
+    def register_pathvars(self, **items):
+        self.pathvars.update(Pathvars.from_workflow(items))
+
     def configfile(self, fp):
         """Update the global config with data from the given file."""
         from snakemake.common.configfile import load_configfile
@@ -1722,6 +1734,9 @@ class Workflow(WorkflowExecutorInterface):
             else:
                 # CLI configfiles have been specified, do not throw an error but update with their values
                 update_config(self.config, self.config_settings.overwrite_config)
+
+            # eventually update pathvars
+            self.pathvars.update(Pathvars.from_config(self.config))
 
     def set_pepfile(self, path):
         try:
@@ -1802,6 +1817,10 @@ class Workflow(WorkflowExecutorInterface):
             if name:
                 # not apply modifier if rule is not registered
                 ruleinfo.apply_modifier(self.modifier, rulename=name)
+
+            if ruleinfo.pathvars:
+                rule.pathvars = Pathvars.from_rule(ruleinfo.pathvars)
+                rule.pathvars.update(self.pathvars)
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
@@ -2223,6 +2242,13 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
+    def rule_pathvars(self, **items):
+        def decorate(ruleinfo):
+            ruleinfo.pathvars = items
+            return ruleinfo
+
+        return decorate
+
     def resources(self, *args, **resources):
         def decorate(ruleinfo):
             ruleinfo.resources = (args, resources)
@@ -2326,11 +2352,18 @@ class Workflow(WorkflowExecutorInterface):
         skip_validation=False,
         replace_prefix=None,
         prefix=None,
+        pathvars=None,
     ):
+        module_pathvars = Pathvars.from_other(self.pathvars)
+        if pathvars is not None:
+            module_pathvars.update(Pathvars.from_module(pathvars))
+        if config is not None:
+            module_pathvars.update(Pathvars.from_config(config, module_level=True))
 
         self.modules[name] = ModuleInfo(
             self,
             name,
+            pathvars=module_pathvars,
             snakefile=snakefile,
             meta_wrapper=meta_wrapper,
             config=config,
