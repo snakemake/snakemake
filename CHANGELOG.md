@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.12.0](https://github.com/snakemake/snakemake/compare/v9.11.9...v9.12.0) (2025-10-04)
+
+
+### Features
+
+* introduce pathvars, allowing to configure parts of input/output/log/benchmark paths for the entire workflow, per module, or per rule ([#3760](https://github.com/snakemake/snakemake/issues/3760)) ([e376a25](https://github.com/snakemake/snakemake/commit/e376a258da104873f62b7c35df423a692ab03098))
+
 ## [9.11.9](https://github.com/snakemake/snakemake/compare/v9.11.8...v9.11.9) (2025-10-03)
 
 
