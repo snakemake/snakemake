@@ -73,17 +73,19 @@ class Pathvars:
         )
 
     @classmethod
-    def from_config(cls, config: Union[Mapping[Any, Any], Sequence[Any]]) -> "Pathvars":
+    def from_config(
+        cls, config: Union[Mapping[Any, Any], Sequence[Any]], module_level: bool = False
+    ) -> "Pathvars":
         if isinstance(config, dict):
             config_pathvars = config.get("pathvars")
             if config_pathvars:
                 # ignore type here as checked above
-                return cls._from_raw(items=config_pathvars, level=1)  # type: ignore[arg-type]
+                return cls._from_raw(items=config_pathvars, level=1 if module_level else 2)  # type: ignore[arg-type]
         return cls._from_raw(items={})
 
     @classmethod
     def from_module(cls, module_pathvars: Dict[str, str]) -> "Pathvars":
-        return cls._from_raw(items=module_pathvars, level=2)
+        return cls._from_raw(items=module_pathvars, level=1)
 
     @classmethod
     def from_rule(cls, rule_pathvars: Dict[str, str]) -> "Pathvars":

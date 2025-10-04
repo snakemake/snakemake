@@ -2374,7 +2374,7 @@ class Workflow(WorkflowExecutorInterface):
         if pathvars is not None:
             module_pathvars.update(Pathvars.from_module(pathvars))
         if config is not None:
-            module_pathvars.update(Pathvars.from_config(config))
+            module_pathvars.update(Pathvars.from_config(config, module_level=True))
 
         self.modules[name] = ModuleInfo(
             self,
