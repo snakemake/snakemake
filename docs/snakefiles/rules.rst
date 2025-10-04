@@ -377,6 +377,8 @@ This can happen in multiple ways, with the following precedence (from highest to
 4. Globally, via the ``pathvars`` key in the config file or passed to the ``--config`` command line arguments.
 5. Globally, via the ``pathvars`` keyword at the top level of the Snakefile.
 
+Thereby, if two definitions share the same precedence, the last one wins.
+
 Apart from :ref:`module pathvars <snakefiles-modules-pathvars>`, the most common way is to define them globally via the ``pathvars`` keyword:
 
 .. code-block:: python
