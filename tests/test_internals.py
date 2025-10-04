@@ -74,7 +74,9 @@ def test_pathvars_level():
     assert pv.get("benchmarks") == "modcfg_benchmarks"
 
     # rule
-    pv.update(Pathvars.from_rule({"logs": "rule_logs", "benchmarks": "rule_benchmarks"}))
+    pv.update(
+        Pathvars.from_rule({"logs": "rule_logs", "benchmarks": "rule_benchmarks"})
+    )
     assert pv.get("results") == "mod_results"
     assert pv.get("logs") == "rule_logs"
     assert pv.get("benchmarks") == "rule_benchmarks"
