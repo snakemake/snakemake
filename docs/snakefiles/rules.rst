@@ -330,6 +330,95 @@ It's also possible to get named input/output files in the following way:
 Do note that all the multiext extensions should be named, or all of them should be unnamed (not both).
 Additionally, if additional input/output statements are given, multiext should be treated as positional arguments (before other named input/output files).
 
+.. _snakefiles-pathvars:
+
+Path variables
+~~~~~~~~~~~~~~
+
+Certain components in input and output file paths tend to reoccur across many rules.
+Via so-called **pathvars**, Snakemake allows to define such components globally, make them configurable via the config file, and change them per module or even per rule.
+Apart from saving boilerplate code, pathvars can be used to make modules intended for reuse in multiple contexts more flexible.
+Pathvars can be used as generic placeholders for their actual values inside of input, output, log, and benchmark paths, using angle brackets, e.g. ``<results>``.
+They behave similarly to `Python string interpolation <https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals>`__ but only allow predefined placeholders, with precedence and configuration handled by Snakemake.
+
+Pathvar usage
+"""""""""""""
+
+An example rule using pathvars is the following:
+
+.. code-block:: python
+
+    rule somerule:
+        input:
+            "<results>/something/{sample}.txt"
+        output:
+            "<results>/processed/{sample}.txt"
+        shell:
+            "somecommand {input} {output}"
+
+Pathvars are resolved when the rule is parsed (before wildcard resolution and DAG construction).
+The values of pathvars can thereby even contain wildcards themselves.
+
+Pathvar defaults
+""""""""""""""""
+
+By default, Snakemake offers the pathvars ``results``, ``resources``, ``logs``, ``benchmarks``.
+Each of them is set to its respective name (i.e. the output file ``"<results>/processed/{sample}.txt"`` will be interpreted as ``"results/processed/{sample}.txt"``).
+
+Pathvar definition
+""""""""""""""""""
+
+Beyond the defaults, it is possible to define additional pathvars or customize the default definitions.
+This can happen in multiple ways, with the following precedence (from highest to lowest):
+
+1. For individual rules, via the ``pathvars`` keyword.
+2. For :ref:`module <snakefiles-modules>` config via the ``pathvars`` key in a config dict explicitly passed to the module (this applies recursively to nested modules).
+3. For :ref:`modules <snakefiles-modules>`, via the ``pathvars`` keyword to the ``module`` directive (this applies recursively to nested modules).
+4. Globally, via the ``pathvars`` key in the config file or passed to the ``--config`` command line arguments.
+5. Globally, via the ``pathvars`` keyword at the top level of the Snakefile.
+
+Thereby, if two definitions share the same precedence, the last one wins.
+
+Apart from :ref:`module pathvars <snakefiles-modules-pathvars>`, the most common way is to define them globally via the ``pathvars`` keyword:
+
+.. code-block:: python
+
+    pathvars:
+        per="{sample}"
+
+Above, we define a pathvar ``per`` and set it to the value ``{sample}``, thus defining a wildcard.
+Such a pattern can be helpful if you write a workflow that shall be reused as a module in various different ways within other workflows (e.g. thereby processing different items, samples, or something else).
+
+In order to overwrite pathvars for individual rules, they can be specified via the ``pathvars`` keyword inside a rule:
+
+.. code-block:: python
+
+    rule somerule:
+        input:
+            "<results>/something/<per>.txt"
+        output:
+            "<results>/processed/<per>.txt"
+        pathvars:
+            results="custom-folder"
+        shell:
+            "somecommand {input} {output}"
+
+This way, the pathvar ``<results>`` in the input and output path would be replaced with ``custom-folder`` just for this rule.
+Per rule pathvar definition can also happen in combination with :ref:`rule inheritance <snakefiles-rule-inheritance>`.
+This allows to quickly write and reuse rules with generic input or output files.
+
+Finally, it is possible overwrite pathvars via the workflow configuration (configfile or ``--config``).
+For this purpose, it is possible to define a key ``pathvars`` in the config, with a mapping between pathvars and their values below, e.g.
+
+.. code-block:: yaml
+
+    pathvars:
+        results: example-folder
+
+Note that defining pathvars in the config should be considered a rare, discouraged, and advanced use case, since the user must know the workflow's internal pathvar expectations.
+Workflow authors can explicitly forbid the modification of particular pathvars via :ref:`config file schemas and validation <snakefiles_config_validation>`.
+
+
 .. _snakefiles-semantic-helpers:
 
 Semantic helpers
@@ -2941,8 +3030,35 @@ Consider the following example:
 
 As can be seen, we first declare a rule a, and then we reuse the rule a as rule b, while changing only the output file and keeping everything else the same.
 In reality, one will often change more.
-Analogously to the ``use rule`` from external modules, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be modified, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
+Analogously to the ``use rule`` from external modules, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, ``pathvars``, etc.) can be modified, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
 All unmodified properties are inherited from the parent rule.
+
+:ref:`Pathvars <snakefiles-pathvars>` become particularly powerful in combination with such rule inheritance, as they allow to introduce generic items in the parent rule that can be specified out in the child rule:
+
+.. code-block:: python
+
+    rule transform_something:
+        input:
+            "<results>/<instep>/<per>.txt"
+        output:
+            "<results>/<outstep>/<per>.txt"
+        shell:
+            "somecommand {input} > {output}"
+
+    use rule transform_something as something1_to_something2 with:
+        pathvars:
+            instep="something1",
+            outstep="something2",
+            per="{sample}"
+
+    use rule transform_something_else as something5_to_something6 with:
+        pathvars:
+            instep="something5",
+            outstep="something6",
+            per="{sample}.{replicate}"
+
+In other words, here we define a potentially complex rule only once, and explicitly use it in two different parts of the workflow, even with different kinds of wildcards, all by just configuring the pathvars.
+
 
 .. important::
     A rule cannot be redefined without renaming it using the ``as`` clause.

@@ -315,6 +315,18 @@ class Configfile(GlobalKeywordState):
     pass
 
 
+class GlobalPathvars(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "register_pathvars"
+
+
+class RulePathvars(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "rule_pathvars"
+
+
 # PEPs
 
 
@@ -749,6 +761,7 @@ rule_property_subautomata = dict(
     handover=Handover,
     default_target=DefaultTarget,
     localrule=LocalRule,
+    pathvars=RulePathvars,
 )
 rule_property_deprecated = dict(
     version="Use conda or container directive instead (see docs)."
@@ -926,6 +939,19 @@ class ModuleReplacePrefix(ModuleKeywordState):
         return "replace_prefix"
 
 
+class ModulePathvars(ModuleKeywordState):
+    def start(self):
+        yield f"{self.keyword}=dict("
+
+    def end(self):
+        yield ")"
+        yield ","
+
+    @property
+    def keyword(self):
+        return "pathvars"
+
+
 class Module(GlobalKeywordState):
     subautomata = dict(
         name=ModuleName,
@@ -935,6 +961,7 @@ class Module(GlobalKeywordState):
         skip_validation=ModuleSkipValidation,
         replace_prefix=ModuleReplacePrefix,
         prefix=ModulePrefix,
+        pathvars=ModulePathvars,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -1274,6 +1301,7 @@ class Python(TokenAutomaton):
         include=Include,
         workdir=Workdir,
         configfile=Configfile,
+        pathvars=GlobalPathvars,
         pepfile=Pepfile,
         pepschema=Pepschema,
         report=Report,

@@ -13,6 +13,8 @@ from pathlib import Path
 from itertools import chain
 from functools import partial
 
+from snakemake.pathvars import Pathvars
+
 try:
     import re._constants as sre_constants
 except ImportError:  # python < 3.11
@@ -74,7 +76,7 @@ _NOT_CACHED = object()
 
 
 class Rule(RuleInterface):
-    def __init__(self, name: str, workflow, lineno=None, snakefile=None):
+    def __init__(self, name: str, workflow, lineno: int, snakefile: str):
         """
         Create a rule
 
@@ -105,8 +107,8 @@ class Rule(RuleInterface):
         self.env_modules = None
         self._group = None
         self._wildcard_names = None
-        self._lineno = lineno
-        self._snakefile = snakefile
+        self._lineno: int = lineno
+        self._snakefile: str = snakefile
         self.run_func = None
         self.run_func_src = None
         self.shellcmd = None
@@ -125,7 +127,16 @@ class Rule(RuleInterface):
         self.log_modifier = None
         self.benchmark_modifier = None
         self.ruleinfo = None
-        self.module_globals: dict
+        self.module_globals: typing.Dict
+        self._pathvars: typing.Optional[Pathvars] = None
+
+    @property
+    def pathvars(self) -> Pathvars:
+        return self._pathvars or self.workflow.pathvars
+
+    @pathvars.setter
+    def pathvars(self, pathvars: Pathvars) -> None:
+        self._pathvars = pathvars
 
     @property
     def name(self):
@@ -136,11 +147,11 @@ class Rule(RuleInterface):
         self._name = name
 
     @property
-    def lineno(self):
+    def lineno(self) -> int:
         return self._lineno
 
     @property
-    def snakefile(self):
+    def snakefile(self) -> str:
         return self._snakefile
 
     @property
@@ -532,7 +543,6 @@ class Rule(RuleInterface):
                 if mark_ancient:
                     item = flag(item, "ancient")
 
-            # record rule if this is an output file output
             _item = IOFile(item, rule=self)
             _item.check()
 
