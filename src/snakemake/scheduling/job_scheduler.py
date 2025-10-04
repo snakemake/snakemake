@@ -514,10 +514,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     # This saves a lot of time, as self.open_jobs has to be
                     # evaluated less frequently.
                     self._open_jobs.release()
-                else:
-                    # Finished local job could mean free execution slot
-                    if job.is_local:
-                        self._open_jobs.release()
+            else:
+                self._open_jobs.release()
 
     def error_callback(self, job):
         with self._lock:
