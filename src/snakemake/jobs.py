@@ -117,7 +117,7 @@ class AbstractJob(JobExecutorInterface, JobSchedulerInterface):
                     if not isinstance(self.resources[k], TBDString)
                 }
                 res_dict["_job_slot"] = 1
-            res_dict["_job_count"] = 1
+                res_dict["_cores"] = 0
             self._scheduler_resources = res_dict
         return self._scheduler_resources
 
