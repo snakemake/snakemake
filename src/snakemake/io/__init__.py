@@ -543,6 +543,20 @@ class _IOFile(str, AnnotatedStringInterface):
         else:
             return await self.mtime_uncached()
 
+    async def mtime_from_persistence(self):
+        """Try to get mtime from persistence layer (LMDB) before filesystem.
+
+        Returns Mtime object if found in persistence, None otherwise.
+        """
+        from snakemake.persistence import LmdbPersistence
+
+        persistence = self.rule.workflow.persistence
+        if isinstance(persistence, LmdbPersistence):
+            stored_mtime = persistence.get_file_mtime(self)
+            if stored_mtime is not None:
+                return Mtime(local=stored_mtime)
+        return None
+
     async def mtime_uncached(self, skip_storage: bool = False):
         """Obtain mtime.
 

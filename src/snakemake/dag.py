@@ -1461,8 +1461,27 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 if output_mintime_:
                     # Input is updated if it is newer than the oldest output file
                     # and does not have the same checksum as the one previously recorded.
+                    use_lmdb_mtime = (
+                        os.environ.get("SNAKEMAKE_USE_LMDB_PERSISTENCE_MTIME") == "1"
+                    )
+
                     async def updated_input():
                         for f in job.input:
+                            # Try LMDB first if enabled
+                            if use_lmdb_mtime:
+                                mtime_from_db = await f.mtime_from_persistence()
+                                if mtime_from_db is not None:
+                                    if (
+                                        mtime_from_db.local_or_storage()
+                                        > output_mintime_
+                                        and not await is_same_checksum(f, job)
+                                    ):
+                                        yield f
+                                    continue
+                                else:
+                                    # could not find mtime in db, fallback to filesystem
+                                    pass
+
                             if (
                                 await f.exists()
                                 and await f.is_newer(output_mintime_)

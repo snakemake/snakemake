@@ -1225,6 +1225,14 @@ class LmdbPersistence(Persistence):
     def metadata(self, path: _IOFile) -> dict[str, Any]:
         return self._get_record(self._metadata_db, path)
 
+    def get_file_mtime(self, path: _IOFile) -> float | None:
+        """Get stored mtime (endtime) for a file from metadata.
+
+        Returns None if no metadata exists.
+        """
+        metadata = self._get_record(self._metadata_db, path)
+        return metadata.get("endtime")
+
     # Note: input_checksums, _code_changed, _input_changed, _software_stack_changed,
     # and deactivate_cache are inherited from parent class since they use the same logic
 
