@@ -1233,6 +1233,32 @@ class LmdbPersistence(Persistence):
         metadata = self._get_record(self._metadata_db, path)
         return metadata.get("endtime")
 
+    def get_batch_file_mtimes(self, paths: list[_IOFile]) -> dict[_IOFile, float]:
+        """Get stored mtimes for multiple files in a single transaction.
+
+        Returns dict mapping files to their mtimes. Only includes files
+        that have metadata with valid endtime.
+        """
+        result = {}
+        if not paths:
+            return result
+
+        with self._get_env() as env:
+            with env.begin(db=self._metadata_db) as txn:
+                for path in paths:
+                    key = str(path).encode()
+                    value = txn.get(key)
+                    if value is not None:
+                        try:
+                            metadata = self._deserialize(value)
+                            endtime = metadata.get("endtime")
+                            if endtime is not None:
+                                result[path] = endtime
+                        except Exception:
+                            # Skip files with corrupted metadata
+                            continue
+        return result
+
     # Note: input_checksums, _code_changed, _input_changed, _software_stack_changed,
     # and deactivate_cache are inherited from parent class since they use the same logic
 

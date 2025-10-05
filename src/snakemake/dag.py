@@ -1356,8 +1356,27 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     async def update_needrun(self, create_inventory=False):
         """Update the information whether a job needs to be executed."""
 
-        if create_inventory and self.workflow.is_main_process:
-            # Concurrently collect mtimes of all existing files.
+        # Batch-load mtimes from LMDB if enabled
+        use_lmdb_mtime = os.environ.get("SNAKEMAKE_USE_LMDB_PERSISTENCE_MTIME") == "1"
+        lmdb_mtime_cache = {}
+        if use_lmdb_mtime:
+            from snakemake.persistence import LmdbPersistence
+
+            persistence = self.workflow.persistence
+            if isinstance(persistence, LmdbPersistence):
+                # Collect all input files from all jobs
+                all_input_files = []
+                for job in self.jobs:
+                    all_input_files.extend(job.input)
+
+                # Batch load all mtimes in a single transaction
+                if all_input_files:
+                    lmdb_mtime_cache = persistence.get_batch_file_mtimes(
+                        all_input_files
+                    )
+
+        elif create_inventory and self.workflow.is_main_process:
+            # Concurrently collect mtimes of all existing files (skip if using LMDB)
             await self.workflow.iocache.mtime_inventory(self.jobs)
 
         output_mintime = dict()
@@ -1461,27 +1480,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 if output_mintime_:
                     # Input is updated if it is newer than the oldest output file
                     # and does not have the same checksum as the one previously recorded.
-                    use_lmdb_mtime = (
-                        os.environ.get("SNAKEMAKE_USE_LMDB_PERSISTENCE_MTIME") == "1"
-                    )
 
                     async def updated_input():
                         for f in job.input:
-                            # Try LMDB first if enabled
-                            if use_lmdb_mtime:
-                                mtime_from_db = await f.mtime_from_persistence()
-                                if mtime_from_db is not None:
+                            # Try LMDB cache first if enabled (batch-loaded above)
+                            if use_lmdb_mtime and f in lmdb_mtime_cache:
+                                cached_mtime = lmdb_mtime_cache[f]
+                                # Check if file still exists before trusting cache
+                                if await f.exists():
                                     if (
-                                        mtime_from_db.local_or_storage()
-                                        > output_mintime_
+                                        cached_mtime > output_mintime_
                                         and not await is_same_checksum(f, job)
                                     ):
                                         yield f
                                     continue
-                                else:
-                                    # could not find mtime in db, fallback to filesystem
-                                    pass
 
+                            # Original logic - fallback to filesystem
                             if (
                                 await f.exists()
                                 and await f.is_newer(output_mintime_)
