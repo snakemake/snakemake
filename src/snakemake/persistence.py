@@ -1243,20 +1243,19 @@ class LmdbPersistence(Persistence):
         if not paths:
             return result
 
-        with self._get_env() as env:
-            with env.begin(db=self._metadata_db) as txn:
-                for path in paths:
-                    key = str(path).encode()
-                    value = txn.get(key)
-                    if value is not None:
-                        try:
-                            metadata = self._deserialize(value)
-                            endtime = metadata.get("endtime")
-                            if endtime is not None:
-                                result[path] = endtime
-                        except Exception:
-                            # Skip files with corrupted metadata
-                            continue
+        with self._env.begin(write=False) as txn:
+            for path in paths:
+                key = str(path).encode()
+                value = txn.get(key)
+                if value is not None:
+                    try:
+                        metadata = self._deserialize(value)
+                        endtime = metadata.get("endtime")
+                        if endtime is not None:
+                            result[path] = endtime
+                    except Exception:
+                        # Skip files with corrupted metadata
+                        continue
         return result
 
     # Note: input_checksums, _code_changed, _input_changed, _software_stack_changed,
