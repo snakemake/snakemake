@@ -2221,6 +2221,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             i += 1
 
         if updated:
+            self.set_until_jobs()
+            self.delete_omitfrom_jobs()
             await self.postprocess_after_update()
 
         return updated
