@@ -2632,8 +2632,10 @@ def test_temp_checkpoint():
     assert expected == real, "temp files not removed"
     shutil.rmtree(tmpdir)
 
+
 def test_checkpoint_until():
     run(dpath("test_checkpoint_until"), shellcmd="snakemake --until B1")
+
 
 def test_checkpoint_omit_from():
     run(dpath("test_checkpoint_omit_from"), shellcmd="snakemake --omit-from B1")
