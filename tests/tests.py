@@ -2638,4 +2638,7 @@ def test_checkpoint_until():
 
 
 def test_checkpoint_omit_from():
-    run(dpath("test_checkpoint_omit_from"), shellcmd="snakemake --omit-from B1 --cores 1")
+    run(
+        dpath("test_checkpoint_omit_from"),
+        shellcmd="snakemake --omit-from B1 --cores 1",
+    )
