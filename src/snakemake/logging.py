@@ -361,6 +361,8 @@ class DefaultFilter:
         Quietness values to filter out.
     debug_dag
         Whether to allow DEBUG_DAG events.
+    verbose
+        Whether full verbose (DEBUG) output is requested.
     dryrun
     printshellcmds
         Whether to allow SHELLCMD events.
@@ -368,6 +370,7 @@ class DefaultFilter:
 
     quiet: Collection["Quietness"]
     debug_dag: bool
+    verbose: bool
     dryrun: bool
     printshellcmds: bool
 
@@ -375,6 +378,7 @@ class DefaultFilter:
         self,
         quiet: Optional[Collection["Quietness"]],
         debug_dag: bool,
+        verbose: bool,
         dryrun: bool,
         printshellcmds: bool,
     ) -> None:
@@ -382,6 +386,7 @@ class DefaultFilter:
             quiet = set()
         self.quiet = quiet
         self.debug_dag = debug_dag
+        self.verbose = verbose
         self.dryrun = dryrun
         self.printshellcmds = printshellcmds
 
@@ -420,6 +425,17 @@ class DefaultFilter:
 
         # Handle dag_debug specifically
         if event == LogEvent.DEBUG_DAG and not self.debug_dag:
+            return False
+
+        # When debug_dag is enabled without full verbose, the logger level is
+        # raised to DEBUG only so that DEBUG_DAG events get through. Suppress all
+        # other DEBUG-level output so --debug-dag shows just the dag messages.
+        if (
+            self.debug_dag
+            and not self.verbose
+            and record.levelno == logging.DEBUG
+            and event != LogEvent.DEBUG_DAG
+        ):
             return False
 
         return True
@@ -605,7 +621,11 @@ class LoggerManager:
         if settings.log_level_override is not None:
             self.logger.setLevel(settings.log_level_override)
         else:
-            self.logger.setLevel(logging.DEBUG if settings.verbose else logging.INFO)
+            self.logger.setLevel(
+                logging.DEBUG
+                if (settings.verbose or settings.debug_dag)
+                else logging.INFO
+            )
 
         self.initialized = True
 
@@ -679,6 +699,7 @@ class LoggerManager:
         return DefaultFilter(
             self.settings.quiet,
             self.settings.debug_dag,
+            self.settings.verbose,
             self.settings.dryrun,
             self.settings.printshellcmds,
         )
@@ -694,7 +715,9 @@ class LoggerManager:
         logfile_handler.setFormatter(self._default_formatter())
         logfile_handler.addFilter(self._default_filter())
         logfile_handler.setLevel(
-            logging.DEBUG if self.settings.verbose else logging.INFO
+            logging.DEBUG
+            if (self.settings.verbose or self.settings.debug_dag)
+            else logging.INFO
         )
         logfile_handler.name = "DefaultLogFileHandler"
         return logfile_handler
