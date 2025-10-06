@@ -2634,7 +2634,7 @@ def test_temp_checkpoint():
 
 
 def test_checkpoint_until():
-    run(dpath("test_checkpoint_until"), shellcmd="snakemake --until B1")
+    run(dpath("test_checkpoint_until"), shellcmd="snakemake --until B1 --cores 1")
 
 
 def test_checkpoint_omit_from():
