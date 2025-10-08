@@ -1,0 +1,31 @@
+rule all:
+    default_target: True
+    input: "C1.txt", "C2.txt"
+
+checkpoint A1:
+    output: touch("A1.txt")
+
+def b1_input(wildcards):
+    return checkpoints.A1.get().output
+
+rule B1:
+    input: b1_input
+    output: touch("B1.txt")
+
+rule C1:
+    input: "B1.txt"
+    output: touch("C1.txt")
+
+checkpoint A2:
+    output: touch("A2.txt")
+
+def b2_input(wildcards):
+    return checkpoints.A2.get().output
+
+rule B2:
+    input: b2_input
+    output: touch("B2.txt")
+
+rule C2:
+    input: "B2.txt"
+    output: touch("C2.txt")
