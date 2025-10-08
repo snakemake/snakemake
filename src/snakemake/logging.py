@@ -602,6 +602,8 @@ class LoggerManager:
         else:
             self.logger.setLevel(logging.DEBUG if settings.verbose else logging.INFO)
 
+        self.initialized = True
+
     def _configure_plugin_handler(self, plugin: LogHandlerBase) -> LogHandlerBase:
         if not plugin.has_filter:
             plugin.addFilter(self._default_filter())
