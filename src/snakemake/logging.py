@@ -138,7 +138,7 @@ class DefaultFormatter(logging.Formatter):
         record_dict = record.__dict__.copy()
 
         def default_formatter(rd):
-            return rd["msg"]
+            return rd["msg"] or ""  # handle None
 
         formatters = {
             None: default_formatter,
