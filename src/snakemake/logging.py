@@ -16,15 +16,15 @@ import os
 import threading
 from queue import Queue
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 import textwrap
 from typing import List, Optional, Collection, TextIO
 from snakemake_interface_logger_plugins.base import LogHandlerBase
-from snakemake_interface_logger_plugins.settings import OutputSettingsLoggerInterface
 from snakemake_interface_logger_plugins.common import LogEvent
 
 if TYPE_CHECKING:
     from snakemake.settings.enums import Quietness
+    from snakemake.settings.types import OutputSettings
 
 
 def timestamp() -> str:
@@ -521,7 +521,7 @@ class LoggerManager:
     queue_listener: Optional[logging.handlers.QueueListener]
     needs_rulegraph: bool
     logfile_handlers: dict[logging.Handler, str]
-    settings: Optional[OutputSettingsLoggerInterface]
+    settings: Optional["OutputSettings"]
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
@@ -534,7 +534,7 @@ class LoggerManager:
     def setup(
         self,
         handlers: List[LogHandlerBase],
-        settings: OutputSettingsLoggerInterface,
+        settings: "OutputSettings",
     ) -> None:
         """Set up the logging system based on settings and handlers."""
         # Clear any existing handlers to prevent duplicates
