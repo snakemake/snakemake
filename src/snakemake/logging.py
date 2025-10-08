@@ -13,7 +13,6 @@ import time
 import datetime
 import sys
 import os
-import json
 import threading
 from queue import Queue
 from functools import partial
@@ -157,25 +156,6 @@ class DefaultFormatter(logging.Formatter):
         formatter = formatters.get(event, default_formatter)
         return formatter(record_dict)
 
-    def format_info(self, msg):
-        """
-        Format 'info' level messages.
-        """
-        output = []
-
-        # Check if 'indent' is specified
-        indent = "    " if msg.get("indent", False) else ""
-
-        # Split the message by lines in case it's multiline
-        lines = msg["msg"].split("\n")
-
-        # Apply indentation to each line
-        for line in lines:
-            output.append(f"{indent}{line}")
-
-        # Return the formatted message as a single string with newlines
-        return "\n".join(output)
-
     def format_run_info(self, msg):
         """Format the run_info log messages."""
         return msg["msg"]  # Log the message directly
@@ -236,11 +216,6 @@ class DefaultFormatter(logging.Formatter):
     def format_shellcmd(self, msg):
         """Format for shellcmd log."""
         return msg["msg"]
-
-    def format_d3dag(self, msg):
-        """Format for d3dag log."""
-
-        return json.dumps({"nodes": msg["nodes"], "links": msg["edges"]})
 
     def format_dag_debug(self, msg):
         """Format for dag_debug log."""
