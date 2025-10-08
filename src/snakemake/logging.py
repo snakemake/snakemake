@@ -381,8 +381,6 @@ class DefaultFilter:
         from snakemake.settings.enums import Quietness
 
         event, level = get_event_level(record)
-        if self.dryrun and level == "run_info":
-            return True
 
         if Quietness.ALL in self.quiet and not self.dryrun:
             return False
