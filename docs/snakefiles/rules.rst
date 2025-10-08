@@ -2304,6 +2304,8 @@ Alternatively, you can also use the rule directive `localrule`:
     rule bar:
         ...
 
+.. _snakefiles-benchmark-rules:
+
 Benchmark Rules
 ---------------
 
@@ -2333,8 +2335,8 @@ benchmarks the
 * `max_pss`: Max `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_ memory usage (in megabytes),
 * `io_in`: I/O read (in bytes),
 * `io_out`: I/O written (in bytes),
-* `mean_load`: CPU load = CPU time (`cpu_usage`) divided by wall clock time (`s`),
 * `cpu_time`: CPU time user+system (seconds),
+* `mean_load`: CPU load = CPU usage (`cpu_usage`) divided by wall clock time (`s`),
 
 Since version 8.11.0, it is possible to have extra benchmark metrics with the command ``--benchmark-extended``:
 
@@ -2343,7 +2345,7 @@ Since version 8.11.0, it is possible to have extra benchmark metrics with the co
 * `wildcards`: Job wildcards,
 * `params`: Job parameters,
 * `threads`: Number of threads requested for this job,
-* `cpu_usage`: Total CPU load,
+* `cpu_usage`: Cumulative CPU utilization,
 * `resources`: Resources requested for this job,
 * `input_size_mb`: Size of input files (MiB),
 

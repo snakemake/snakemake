@@ -335,7 +335,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                 proc = self.procs.setdefault(proc.pid, proc)
                 with proc.oneshot():
                     if self.bench_record.prev_time:
-                        cpu_usage += proc.cpu_percent() * (
+                        cpu_usage += proc.cpu_percent() / 100 * (
                             this_time - self.bench_record.prev_time
                         )
                     # Makes it possible to summarize information about the process even
