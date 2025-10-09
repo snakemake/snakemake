@@ -1,0 +1,10 @@
+from module_scripts.input_functions import input_function_module
+
+rule create_input:
+    output: 'results/input.txt'
+    shell: "touch {output}"
+
+rule create_intermediate:
+    output: 'results/intermediate.txt'
+    input: input_function_module
+    shell: "touch {output}"
