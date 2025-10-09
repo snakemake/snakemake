@@ -1,6 +1,82 @@
 # Changelog
 
 
+## [9.12.0](https://github.com/snakemake/snakemake/compare/v9.11.9...v9.12.0) (2025-10-04)
+
+
+### Features
+
+* introduce pathvars, allowing to configure parts of input/output/log/benchmark paths for the entire workflow, per module, or per rule ([#3760](https://github.com/snakemake/snakemake/issues/3760)) ([e376a25](https://github.com/snakemake/snakemake/commit/e376a258da104873f62b7c35df423a692ab03098))
+
+## [9.11.9](https://github.com/snakemake/snakemake/compare/v9.11.8...v9.11.9) (2025-10-03)
+
+
+### Bug Fixes
+
+* Raise WorkflowError on empty file path in _IOFile.check ([#3769](https://github.com/snakemake/snakemake/issues/3769)) ([4249ff7](https://github.com/snakemake/snakemake/commit/4249ff7116b14d575508ad2b2c23177ee257146e))
+* remove id field in notebook cells created by nbformat, thereby increasing compatibility with different jupyter versions ([#3767](https://github.com/snakemake/snakemake/issues/3767)) ([46cf3ed](https://github.com/snakemake/snakemake/commit/46cf3edb668ee76ec59813b91776818b3743e2e0))
+* show failed logs in generated unit tests ([#3771](https://github.com/snakemake/snakemake/issues/3771)) ([61f4e9b](https://github.com/snakemake/snakemake/commit/61f4e9bbe9be84d99f559c30fe64da30421aa14a))
+
+## [9.11.8](https://github.com/snakemake/snakemake/compare/v9.11.7...v9.11.8) (2025-10-02)
+
+
+### Bug Fixes
+
+* use proper callable when accessing rule proxy with associated path modifier ([#3763](https://github.com/snakemake/snakemake/issues/3763)) ([b5d12c8](https://github.com/snakemake/snakemake/commit/b5d12c819858e0e6c6d8349a0b0c7679b48f509e))
+
+
+### Documentation
+
+* add snakemake logo to automatic mastodon release posts ([#3764](https://github.com/snakemake/snakemake/issues/3764)) ([7b66250](https://github.com/snakemake/snakemake/commit/7b66250b333ee083ac9e24f397718c25042459cb))
+
+## [9.11.7](https://github.com/snakemake/snakemake/compare/v9.11.6...v9.11.7) (2025-10-01)
+
+
+### Bug Fixes
+
+* Add type annotations in logging module ([#3757](https://github.com/snakemake/snakemake/issues/3757)) ([63404b2](https://github.com/snakemake/snakemake/commit/63404b2d47f0ca53c70a18c947e174a045900f55))
+* source_path not mounted ([#3738](https://github.com/snakemake/snakemake/issues/3738)) ([86e30b3](https://github.com/snakemake/snakemake/commit/86e30b30f0c14754316814376977b7412d5b75fa))
+
+
+### Documentation
+
+* mastodon announcements ([#3723](https://github.com/snakemake/snakemake/issues/3723)) ([7da1b18](https://github.com/snakemake/snakemake/commit/7da1b1842f657e78da8b0ead3ac7b3cd4d5b25da))
+
+## [9.11.6](https://github.com/snakemake/snakemake/compare/v9.11.5...v9.11.6) (2025-09-25)
+
+
+### Bug Fixes
+
+* select specific rule from module will raise "rule not defined" that cause [#3751](https://github.com/snakemake/snakemake/issues/3751) failed ([#3753](https://github.com/snakemake/snakemake/issues/3753)) ([d6fa3ca](https://github.com/snakemake/snakemake/commit/d6fa3ca8053ce91f94f7d30a1a3224d7ecee66d7))
+
+## [9.11.5](https://github.com/snakemake/snakemake/compare/v9.11.4...v9.11.5) (2025-09-23)
+
+
+### Bug Fixes
+
+* fail if single-file report is generated with output directories marked for inclusion ([#3748](https://github.com/snakemake/snakemake/issues/3748)) ([e2ca738](https://github.com/snakemake/snakemake/commit/e2ca7384ecfbcfc0f76c31f78af6b0b566513321))
+
+## [9.11.4](https://github.com/snakemake/snakemake/compare/v9.11.3...v9.11.4) (2025-09-19)
+
+
+### Bug Fixes
+
+* Confusion with Overriding input After Snakemake Modularization ([#3714](https://github.com/snakemake/snakemake/issues/3714)) ([bd94dc1](https://github.com/snakemake/snakemake/commit/bd94dc195e01c782419dc894f84d6b55a3c82ee4))
+* properly handle temp files in group jobs that are not needed outside of the group (do not upload them to storage and delete them early) ([#3730](https://github.com/snakemake/snakemake/issues/3730)) ([3ffd8e1](https://github.com/snakemake/snakemake/commit/3ffd8e12d4a9809e2f2ab891341376d34a90dcb6))
+
+## [9.11.3](https://github.com/snakemake/snakemake/compare/v9.11.2...v9.11.3) (2025-09-16)
+
+
+### Bug Fixes
+
+* logging refinements ([#3571](https://github.com/snakemake/snakemake/issues/3571)) ([47ae16e](https://github.com/snakemake/snakemake/commit/47ae16efa1f70891623df896a8e69ad305f08837))
+* use proper default and fallback LP solver in scheduler settings (thanks [@raffienficiaud](https://github.com/raffienficiaud)) ([#3736](https://github.com/snakemake/snakemake/issues/3736)) ([e00e5aa](https://github.com/snakemake/snakemake/commit/e00e5aa9e687aa178fac8603f0e2c5dff71c76bb))
+
+
+### Documentation
+
+* mention nodefaults for installation ([a6db049](https://github.com/snakemake/snakemake/commit/a6db049debcdce5bd667ee770e2aebcdc2e7fcb2))
+
 ## [9.11.2](https://github.com/snakemake/snakemake/compare/v9.11.1...v9.11.2) (2025-09-09)
 
 

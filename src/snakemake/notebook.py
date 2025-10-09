@@ -17,6 +17,8 @@ from snakemake.utils import format
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
 
+NBFORMAT_VERSION = 4
+
 
 def get_cell_sources(source):
     import nbformat
@@ -42,7 +44,7 @@ class JupyterNotebook(ScriptBase):
         os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
 
         with open(self.local_path, "wb") as out:
-            out.write(nbformat.writes(nb).encode())
+            out.write(nbformat.writes(nb, version=NBFORMAT_VERSION).encode())
 
     def draft_and_edit(self, listen):
         self.draft()
@@ -54,12 +56,12 @@ class JupyterNotebook(ScriptBase):
     def write_script(self, preamble, fd):
         import nbformat
 
-        nb = nbformat.reads(self.source, as_version=nbformat.NO_CONVERT)
+        nb = nbformat.reads(self.source, as_version=NBFORMAT_VERSION)
 
         self.remove_preamble_cell(nb)
         self.insert_preamble_cell(preamble, nb)
 
-        fd.write(nbformat.writes(nb).encode())
+        fd.write(nbformat.writes(nb, version=NBFORMAT_VERSION).encode())
 
     def execute_script(self, fname, edit=None):
         import nbformat
@@ -121,7 +123,7 @@ class JupyterNotebook(ScriptBase):
                     shutil.copyfile(fname, fname_out)
 
                 logger.info("Saving modified notebook.")
-                nb = nbformat.read(fname, as_version=4)
+                nb = nbformat.read(fname, as_version=NBFORMAT_VERSION)
 
                 self.remove_preamble_cell(nb)
 
@@ -132,7 +134,7 @@ class JupyterNotebook(ScriptBase):
                     if "execution_count" in cell:
                         cell["execution_count"] = None
 
-                nbformat.write(nb, self.local_path)
+                nbformat.write(nb, self.local_path, version=NBFORMAT_VERSION)
 
     def insert_preamble_cell(self, preamble, notebook):
         import nbformat

@@ -1,21 +1,27 @@
 shell.executable("bash")
 
 
-module shallow_module:
+module B:
     snakefile:
         "module_shallow.smk"
+    config:
+        {"bb": "invalid-file"}
+    replace_prefix:
+        {"b-/A/": ""}
 
 
-use rule deep_work from shallow_module as shallow_work with:
-    """a rule from deep module"""
+use rule * from B as B_*
 
 
-rule all:
+use rule A_run from B as B_A_run with:
     input:
-        "foo.txt",
-    default_target: True
+        rds="Snakefile",
 
+        
+use rule A_run from B as documented_run with:
+    """a rule from deep module"""
+        
 
 assert hasattr(
-    rules, "shallow_work"
-), f"bug: rule cannot be accessed as shallow_work: {dir(rules)}"
+    rules, "B_A_run"
+), f"bug: rule cannot be accessed as B_A_run: {dir(rules)}"

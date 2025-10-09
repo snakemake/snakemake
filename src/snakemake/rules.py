@@ -13,6 +13,8 @@ from pathlib import Path
 from itertools import chain
 from functools import partial
 
+from snakemake.pathvars import Pathvars
+
 try:
     import re._constants as sre_constants
 except ImportError:  # python < 3.11
@@ -74,7 +76,7 @@ _NOT_CACHED = object()
 
 
 class Rule(RuleInterface):
-    def __init__(self, name, workflow, lineno=None, snakefile=None):
+    def __init__(self, name: str, workflow, lineno: int, snakefile: str):
         """
         Create a rule
 
@@ -105,8 +107,8 @@ class Rule(RuleInterface):
         self.env_modules = None
         self._group = None
         self._wildcard_names = None
-        self._lineno = lineno
-        self._snakefile = snakefile
+        self._lineno: int = lineno
+        self._snakefile: str = snakefile
         self.run_func = None
         self.run_func_src = None
         self.shellcmd = None
@@ -125,7 +127,16 @@ class Rule(RuleInterface):
         self.log_modifier = None
         self.benchmark_modifier = None
         self.ruleinfo = None
-        self.module_globals = None
+        self.module_globals: typing.Dict
+        self._pathvars: typing.Optional[Pathvars] = None
+
+    @property
+    def pathvars(self) -> Pathvars:
+        return self._pathvars or self.workflow.pathvars
+
+    @pathvars.setter
+    def pathvars(self, pathvars: Pathvars) -> None:
+        self._pathvars = pathvars
 
     @property
     def name(self):
@@ -136,11 +147,11 @@ class Rule(RuleInterface):
         self._name = name
 
     @property
-    def lineno(self):
+    def lineno(self) -> int:
         return self._lineno
 
     @property
-    def snakefile(self):
+    def snakefile(self) -> str:
         return self._snakefile
 
     @property
@@ -465,7 +476,7 @@ class Rule(RuleInterface):
 
             rule_dependency = None
             if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
-                rule_dependency = item.rule
+                rule_dependency = item.rule.name
 
             if output:
                 path_modifier = self.output_modifier
@@ -532,7 +543,6 @@ class Rule(RuleInterface):
                 if mark_ancient:
                     item = flag(item, "ancient")
 
-            # record rule if this is an output file output
             _item = IOFile(item, rule=self)
             _item.check()
 
@@ -903,20 +913,23 @@ class Rule(RuleInterface):
             )
 
         if self.dependencies:
-            dependencies = {
+            rule_depends = {
                 f: self.dependencies[f_]
                 for f, f_ in mapping.items()
                 if f_ in self.dependencies
             }
             if None in self.dependencies:
-                dependencies[None] = self.dependencies[None]
+                rule_depends[None] = self.dependencies[None]
+            job_depends = {
+                f: self.workflow.get_rule(d) for f, d in rule_depends.items()
+            }
         else:
-            dependencies = self.dependencies
+            job_depends = {}
 
         for f in input:
             f.check()
 
-        return input, mapping, dependencies, incomplete
+        return input, mapping, job_depends, incomplete
 
     @classmethod
     def _is_deriving_function(cls, func):
@@ -1398,11 +1411,16 @@ class RuleProxy:
     def input(self):
         def modify_callable(item):
             if is_callable(item):
-                # For callables ensure that the rule's original path modifier is applied as well.
+                if isinstance(item, _IOFile):
+                    func = item._file.callable
+                elif isinstance(item, AnnotatedString):
+                    func = item.callable
+                else:
+                    func = item
 
                 def inner(wildcards):
                     return self.rule.apply_path_modifier(
-                        item(wildcards), self.rule.input_modifier, property="input"
+                        func(wildcards), self.rule.input_modifier, property="input"
                     )
 
                 return inner

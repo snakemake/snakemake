@@ -323,9 +323,12 @@ def test_conda_run():
 
 @conda
 def test_issue_3192():
-    sp.run(
-        "conda create -n test_issue3192 python",
-        shell=True,
+    assert (
+        sp.run(
+            "conda create -c conda-forge -n test_issue3192 python",
+            shell=True,
+        ).returncode
+        == 0
     )
     run(dpath("test_issue3192"), deployment_method={DeploymentMethod.CONDA})
 

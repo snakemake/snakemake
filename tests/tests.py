@@ -38,33 +38,6 @@ from snakemake_interface_executor_plugins.settings import (
 )
 
 
-def test_logfile():
-    import glob
-
-    tmpdir = run(dpath("test_logfile"), cleanup=False, check_results=False)
-    finished_stmt = """
-Finished jobid: 0 (Rule: all)
-6 of 6 steps (100%) done"""
-
-    log_dir = os.path.join(tmpdir, ".snakemake", "log")
-    assert os.path.exists(log_dir), "Log directory not found"
-
-    log_files = glob.glob(os.path.join(log_dir, "*.snakemake.log"))
-    assert log_files, "No log files found"
-
-    log_files.sort(key=os.path.getmtime, reverse=True)
-    latest_log = log_files[0]
-
-    with open(latest_log, "r") as f:
-        log_content = f.read()
-
-    assert (
-        finished_stmt.strip() in log_content.strip()
-    ), f"Expected statement not found in log file. Log content: {log_content}"
-
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
-
-
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
@@ -858,6 +831,17 @@ def test_singularity_global():
     )
 
 
+@skip_on_windows
+@apptainer
+@connected
+def test_singularity_source_cache():
+    run(
+        dpath("test_singularity_source_cache"),
+        deployment_method={DeploymentMethod.APPTAINER},
+        apptainer_args="--bind /tmp:/tmp",
+    )
+
+
 def test_issue612():
     run(dpath("test_issue612"), executor="dryrun")
 
@@ -1634,6 +1618,20 @@ def test_modules_dynamic_no_as():
 
 def test_module_nested():
     run(dpath("test_module_nested"))
+    run(
+        dpath("test_module_nested"),
+        snakefile="module_shallow.smk",
+        executor="dryrun",
+        shouldfail=True,
+    )
+    run(
+        dpath("test_module_nested"),
+        snakefile="module_shallow.smk",
+        targets=["aaalog"],
+        config={"bb": "Snakefile"},
+        executor="dryrun",
+        check_results=False,
+    )
 
 
 def test_modules_all_exclude_1():
@@ -2181,6 +2179,18 @@ def test_set_resources_human_readable():
 
 
 @skip_on_windows  # OS agnostic
+def test_report_dir_but_file():
+    tmpdir = run(dpath("test_report_dir_but_file"), cleanup=False)
+    run(
+        dpath("test_report_dir_but_file"),
+        report="report.html",
+        check_md5=False,
+        shouldfail=True,
+        tmpdir=tmpdir,
+    )
+
+
+@skip_on_windows  # OS agnostic
 def test_call_inner():
     run(dpath("test_inner_call"))
 
@@ -2245,6 +2255,11 @@ def test_storage_cleanup_local():
         assert not tmpdir_path.exists() or not any(tmpdir_path.iterdir())
 
 
+@skip_on_windows
+def test_group_temp():
+    run(dpath("test_group_temp"), cluster="./qsub")
+
+
 @skip_on_windows  # OS agnostic
 def test_summary():
     run(dpath("test01"), shellcmd="snakemake --summary", check_results=False)
@@ -2253,6 +2268,18 @@ def test_summary():
 @skip_on_windows  # OS agnostic
 def test_exists():
     run(dpath("test_exists"), check_results=False, executor="dryrun")
+
+
+def test_pathvars():
+    run(dpath("test_pathvars"))
+
+
+def test_pathvars_modules():
+    run(dpath("test_pathvars_modules"))
+
+
+def test_pathvars_cycle():
+    run(dpath("test_pathvars_cycle"), shouldfail=True)
 
 
 @skip_on_windows  # OS agnostic
@@ -2604,3 +2631,14 @@ def test_temp_checkpoint():
     real = set(tmpdir.glob("results/*/*"))
     assert expected == real, "temp files not removed"
     shutil.rmtree(tmpdir)
+
+
+def test_checkpoint_until():
+    run(dpath("test_checkpoint_until"), shellcmd="snakemake --until B1 --cores 1")
+
+
+def test_checkpoint_omit_from():
+    run(
+        dpath("test_checkpoint_omit_from"),
+        shellcmd="snakemake --omit-from B1 --cores 1",
+    )

@@ -47,6 +47,7 @@ class RuleInfo:
         self.handover = False
         self.default_target = False
         self.localrule = False
+        self.pathvars = None
 
     def __copy__(self):
         """Return a copy of this ruleinfo."""
@@ -66,7 +67,6 @@ class RuleInfo:
         prefix_replacables={"input", "output", "log", "benchmark"},
     ):
         """Update this ruleinfo with the given one (used for 'use rule' overrides)."""
-        path_modifier = modifier.path_modifier
         skips = set()
 
         if modifier.ruleinfo_overwrite:
@@ -97,6 +97,7 @@ class RuleInfo:
                     if key in prefix_replacables:
                         skips.add(key)
 
+        path_modifier = modifier.path_modifier
         if path_modifier.modifies_prefixes and skips:
             # use a specialized copy of the path modifier
             path_modifier = copy(path_modifier)
@@ -106,3 +107,6 @@ class RuleInfo:
 
         # modify wrapper if requested
         self.wrapper = modifier.modify_wrapper_uri(self.wrapper)
+
+        if modifier.parent_modifier is not None:
+            self.apply_modifier(modifier.parent_modifier, rulename=rulename)
