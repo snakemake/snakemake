@@ -21,6 +21,8 @@ from pathlib import Path
 import tarfile
 import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union
+
+import immutables
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.pathvars import Pathvars
@@ -160,7 +162,7 @@ class Workflow(WorkflowExecutorInterface):
     output_settings: Optional[OutputSettings] = None
     remote_execution_settings: Optional[RemoteExecutionSettings] = None
     group_settings: Optional[GroupSettings] = None
-    executor_settings: ExecutorSettingsBase = None
+    executor_settings: Mapping[str, ExecutorSettingsBase] = immutables.Map()
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
@@ -1221,8 +1223,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def execute(
         self,
-        executor_plugin: ExecutorPlugin,
-        executor_settings: ExecutorSettingsBase,
+        executor_settings: Mapping[str, ExecutorSettingsBase],
         scheduler_plugin: SchedulerPlugin,
         scheduler_settings: Optional[SchedulerSettingsBase],
         greedy_scheduler_settings: GreedySchedulerSettings,
