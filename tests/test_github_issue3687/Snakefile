@@ -1,0 +1,28 @@
+import shutil
+from pathlib import Path                                                        
+                                                                                
+rule all:
+  input:                                    
+    'dir2/D'                                   
+                                                          
+                              
+rule make_file:              
+  """ Touch a file. """  
+  output:                         
+    directory('dir1/D'),                              
+    file='dir1/D/file.txt',                                       
+        
+  run:                        
+    Path(output.file).touch()   
+                                           
+               
+rule link_to_D:                                        
+  """ Create a symlink to dir1/D in dir2. """                            
+  input:              
+    'dir1/D'                                                                    
+                                                                                
+  output:                                                                       
+    directory('dir2/D')                                                         
+                                                                                
+  run:                                                                          
+    Path(str(output)).symlink_to(f'../{input}')                      
