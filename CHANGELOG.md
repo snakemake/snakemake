@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [9.13.0](https://github.com/snakemake/snakemake/compare/v9.12.0...v9.13.0) (2025-10-10)
+
+
+### Features
+
+* expect meta-wrapper snakefile in meta_wrapper.smk ([#3785](https://github.com/snakemake/snakemake/issues/3785)) ([843948d](https://github.com/snakemake/snakemake/commit/843948df16a559704646109def957d1c14c2b3a7))
+
+
+### Bug Fixes
+
+* re-evaluate until and omit-from after checkpoint updates ([#3773](https://github.com/snakemake/snakemake/issues/3773)) ([2eb9079](https://github.com/snakemake/snakemake/commit/2eb9079dae29f271aeacff75e59f6c2f6a0d352d))
+
 ## [9.12.0](https://github.com/snakemake/snakemake/compare/v9.11.9...v9.12.0) (2025-10-04)
 
 
