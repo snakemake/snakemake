@@ -108,9 +108,16 @@ class ModuleInfo:
 
     def get_snakefile(self):
         if self.meta_wrapper:
-            return wrapper.get_path(
-                self.meta_wrapper + "/test/Snakefile",
-                self.workflow.workflow_settings.wrapper_prefix,
+            for snakefile in ("/meta_wrapper.smk", "/test/Snakefile"):
+                path = wrapper.get_path(
+                    self.meta_wrapper + snakefile,
+                    self.workflow.workflow_settings.wrapper_prefix,
+                )
+                if self.workflow.sourcecache.exists(path):
+                    return path
+            raise WorkflowError(
+                f"Invalid meta wrapper {self.meta_wrapper}: Could not find "
+                "meta_wrapper.smk or test/Snakefile (old style)."
             )
         elif self.snakefile:
             return self.snakefile
