@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.13.2](https://github.com/snakemake/snakemake/compare/v9.13.1...v9.13.2) (2025-10-11)
+
+
+### Bug Fixes
+
+* fix --consider-ancient for input functions (was not applied in those cases) ([#3788](https://github.com/snakemake/snakemake/issues/3788)) ([c28da7c](https://github.com/snakemake/snakemake/commit/c28da7cda5fd0c117b9135e4b4fe49505da4082b))
+
 ## [9.13.1](https://github.com/snakemake/snakemake/compare/v9.13.0...v9.13.1) (2025-10-11)
 
 
