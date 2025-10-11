@@ -50,6 +50,9 @@ def validate(data, schema, set_default=True):
     import jsonschema
     from jsonschema import Draft202012Validator, validators
     from referencing import Registry, Resource
+    from pathlib import Path
+    from urllib.parse import urlparse
+    from urllib.request import url2pathname
 
     schemafile = infer_source_file(schema)
 
@@ -65,8 +68,44 @@ def validate(data, schema, set_default=True):
 
     schema = _load_configfile(source, filetype="Schema")
 
+    # Inject $id to enforce local reference resolution.
+    # Ensures all relative $ref's are resolved relative to this local file,
+    # even if it defines an explicit $id pointing to a remote location.
+    # This is required because the retrieve_uri function (see below) does not
+    # handle remote files.
+    # This allows to mostly restores pre-9.6.0 behavior fixing the regression
+    # caused by https://github.com/snakemake/snakemake/pull/3420 and reported
+    # in https://github.com/snakemake/snakemake/issues/3648.
+    # Note that the old (RefResolver based) implementation did handle remote
+    # URI fetching and could therefore respect remote URIs defined as ID
+    # within the config file schema.
+    # To fully restore that behaviour, retrieve_uri would have to be expanded
+    # to fetch remote resources and this injection would have to be condition
+    # on the schema not defining an ID.
+    # However, in the context of config file validation, resolving a reference
+    # defined in a local schema file through a remote request seems to solve no
+    # purpose: Either the schemas are identical, in which relying on the local,
+    # known-to-exist version is more efficient, or they differ for some reason
+    # in which case not using the ref text from the local schema file might
+    # cause very surprising and hard to track down behaviour.
+    # Therefore, the new (resolving based) implementation purposefully breaks
+    # backwards-compatibility with the former (RefResolver based) one.
+    # This is also made explicit through the
+    # test_config_ref_relative_with_remote_id test added to test_schema.py.
+    schema["$id"] = Path(schemafile.get_path_or_uri()).resolve().as_uri()
+
     def retrieve_uri(uri):
-        return Resource.from_contents(contents=_load_configfile(uri, filetype="Schema"))
+        # Note:
+        # Relative $ref's are resolved against the (referencing) schema's $id
+        # by the referencing library before calling retrieve.
+        # Above, this was set to the local file's (absolute) file:// URI.
+        # Since _load_configfile expects a file handle/path, and not a URI,
+        # it must be parsed to strip off the (URI) schema.
+        return Resource.from_contents(
+            contents=_load_configfile(
+                url2pathname(urlparse(uri).path), filetype="Schema"
+            )
+        )
 
     resource = Resource.from_contents(contents=schema)
     registry = Registry(retrieve=retrieve_uri).with_resource(
