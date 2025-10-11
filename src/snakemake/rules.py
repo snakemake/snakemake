@@ -578,6 +578,9 @@ class Rule(RuleInterface):
 
             item = default_flags.apply(item)
 
+            if mark_ancient:
+                item = flag(item, "ancient")
+
             inoutput.append(item)
             if name:
                 inoutput._add_name(name)
