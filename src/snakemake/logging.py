@@ -580,7 +580,9 @@ class LoggerManager:
                 self.logger.setLevel(settings.log_level_override)
             else:
                 self.logger.setLevel(
-                    logging.DEBUG if settings.verbose else logging.INFO
+                    logging.DEBUG
+                    if (settings.verbose or settings.debug_dag)
+                    else logging.INFO
                 )
             return
 
@@ -627,7 +629,11 @@ class LoggerManager:
         if settings.log_level_override is not None:
             self.logger.setLevel(settings.log_level_override)
         else:
-            self.logger.setLevel(logging.DEBUG if settings.verbose else logging.INFO)
+            self.logger.setLevel(
+                logging.DEBUG
+                if (settings.verbose or settings.debug_dag)
+                else logging.INFO
+            )
 
     def _configure_plugin_handler(self, plugin: LogHandlerBase) -> LogHandlerBase:
         if not plugin.has_filter:
@@ -655,7 +661,9 @@ class LoggerManager:
         logfile_handler.setFormatter(self._default_formatter())
         logfile_handler.addFilter(self._default_filter())
         logfile_handler.setLevel(
-            logging.DEBUG if self.settings.verbose else logging.INFO
+            logging.DEBUG
+            if (self.settings.verbose or self.settings.debug_dag)
+            else logging.INFO
         )
         logfile_handler.name = "DefaultLogFileHandler"
         return logfile_handler
