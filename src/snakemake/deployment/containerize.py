@@ -4,21 +4,57 @@ import os
 
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
-from snakemake.sourcecache import LocalSourceFile
+from snakemake.sourcecache import LocalSourceFile, infer_source_file
+from snakemake.io import is_callable, contains_wildcard
 
 
 CONDA_ENV_PATH = "/conda-envs"
 
 
 def containerize(workflow, dag):
-    if any(
-        job.conda_env_spec.contains_wildcard
-        for job in dag.jobs
-        if job.conda_env_spec is not None
-    ):
-        raise WorkflowError(
-            "Containerization of conda based workflows is not allowed if any conda env definition contains a wildcard."
-        )
+    """
+    Creates a Dockerfile for containerizing the workflow.
+
+    This function iterates through both the jobs in the initial DAG and all rules
+    in the workflow to collect their Conda environment specifications.
+    """
+    from .conda import CondaEnvFileSpec, CondaEnvSpecType
+
+    # collect envs from jobs from the initial DAG.
+    conda_envs = {job.conda_env for job in dag.jobs if job.conda_env is not None}
+
+    # collect envs from rules not in the initial DAG (e.g., for rules past checkpoints)
+    for rule in workflow.rules:
+        if not rule.conda_env:
+            continue
+
+        env_def = rule.conda_env
+
+        if is_callable(env_def) or contains_wildcard(str(env_def)):
+            raise WorkflowError(
+                "Containerization of conda based workflows is not allowed if any conda env definition is dynamic "
+                "(e.g. contains a wildcard or is a function) and the corresponding rule is not part of the initial DAG. "
+                f"Found in rule {rule.name}."
+            )
+
+        env_def = infer_source_file(rule.conda_env, rule.basedir)
+        spec_type = CondaEnvSpecType.from_spec(env_def)
+        if spec_type is not CondaEnvSpecType.FILE:
+            raise WorkflowError(
+                "Only file-based conda environments are supported for containerization for rules that are not part "
+                "of the initial DAG (e.g. because they are downstream of a checkpoint). "
+                f"Rule {rule.name} uses a conda environment by name or directory."
+            )
+
+        spec = CondaEnvFileSpec(env_def, rule=rule)
+        conda_env = spec.get_conda_env(workflow, envs_dir=CONDA_ENV_PATH)
+        if conda_env.is_externally_managed:
+            logger.warning(
+                "Skipping containerization of externally managed conda environment in rule %s.",
+                rule.name,
+            )
+            continue
+        conda_envs.add(conda_env)
 
     def relfile(env):
         if isinstance(env.file, LocalSourceFile):
@@ -26,14 +62,7 @@ def containerize(workflow, dag):
         else:
             return env.file.get_path_or_uri()
 
-    envs = sorted(
-        set(
-            job.conda_env_spec.get_conda_env(workflow, envs_dir=CONDA_ENV_PATH)
-            for job in dag.jobs
-            if job.conda_env_spec is not None
-        ),
-        key=relfile,
-    )
+    envs = sorted(conda_envs, key=relfile)
     envhash = hashlib.sha256()
     for env in envs:
         logger.info(f"Hashing conda environment {relfile(env)}.")

@@ -366,3 +366,44 @@ def test_get_log_stdout():
 
 def test_get_log_complex():
     run(dpath("test_get_log_complex"))
+
+
+@skip_on_windows
+@conda
+def test_containerize_checkpoint():
+    """Test that containerize considers rules not in the initial DAG (e.g. after checkpoints)."""
+    tmpdir = None
+    try:
+        tmpdir = run(
+            dpath("test_containerize_checkpoint"),
+            shellcmd="snakemake --containerize > Dockerfile",
+            check_results=False,
+            cleanup=False,
+            deployment_method={DeploymentMethod.CONDA},
+        )
+        tmpdir = Path(tmpdir)
+
+        dockerfile_path = tmpdir / "Dockerfile"
+        assert dockerfile_path.exists(), "Dockerfile was not generated."
+
+        with open(dockerfile_path) as f:
+            dockerfile_content = f.read()
+
+        assert "#   source: envs/a.yaml" in dockerfile_content
+        assert "#   source: envs/b.yaml" in dockerfile_content
+        module_env_path = os.path.join("workflow", "envs", "c.yaml")
+        assert f"#   source: {module_env_path}" in dockerfile_content
+
+        # check that COPY/ADD instructions use correct relative paths
+        assert "COPY envs/a.yaml" in dockerfile_content
+        assert "COPY envs/b.yaml" in dockerfile_content
+        assert f"COPY {module_env_path}" in dockerfile_content
+
+        # check three unique environments are being created
+        assert (
+            dockerfile_content.count("conda env create") == 3
+        ), "Expected 3 conda environments to be created."
+
+    finally:
+        if tmpdir and os.path.exists(tmpdir):
+            shutil.rmtree(tmpdir)
