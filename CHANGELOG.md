@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [9.13.1](https://github.com/snakemake/snakemake/compare/v9.13.0...v9.13.1) (2025-10-11)
+
+
+### Bug Fixes
+
+* **config:** restore $ref resolution for schemas ([#3777](https://github.com/snakemake/snakemake/issues/3777)) ([a3e0939](https://github.com/snakemake/snakemake/commit/a3e0939522c472a05b85bf4099c579e8fe052b87))
+* fix iofile formatting to always display the storage query if it is set, also in case of missing input exceptions ([#3786](https://github.com/snakemake/snakemake/issues/3786)) ([b1c29fa](https://github.com/snakemake/snakemake/commit/b1c29fa51b8017d3ba1101a102d8388076e4f1a4))
+
 ## [9.13.0](https://github.com/snakemake/snakemake/compare/v9.12.0...v9.13.0) (2025-10-10)
 
 
