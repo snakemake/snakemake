@@ -506,7 +506,7 @@ class UseArgsWith:
 
         return InOutput(paths, kwpaths, path_modifier)
 
-    def update_params(self, params: Tuple[List, Dict] | None):
+    def update_params(self, params: Optional[Tuple[List, Dict]]):
         if params is None:
             return self.args, self.kwargs
         old_positional = list(params[0] or [])
