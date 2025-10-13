@@ -161,6 +161,22 @@ def _parse_ruleinfo_as_name(func):
     return wrapper
 
 
+def _parse_ruleinfo_mask_names(*names):
+    def _parse(func):
+        def _ruleinfo(self, *args, **kwargs):
+            def _mask_names(ruleinfo):
+                values = func(self, *args, **kwargs)
+                for name, value in zip(names, values):
+                    setattr(ruleinfo, name, value)
+                return ruleinfo
+
+            return _mask_names
+
+        return _ruleinfo
+
+    return _parse
+
+
 @dataclass
 class Workflow(WorkflowExecutorInterface):
     config_settings: ConfigSettings
@@ -2103,31 +2119,19 @@ class Workflow(WorkflowExecutorInterface):
     def params(self, *params, **kwparams):
         return (params, kwparams)
 
+    @_parse_ruleinfo_mask_names("wildcard_constraints")
     def register_wildcard_constraints(
         self, *wildcard_constraints, **kwwildcard_constraints
     ):
-        def decorate(ruleinfo):
-            ruleinfo.wildcard_constraints = (
-                wildcard_constraints,
-                kwwildcard_constraints,
-            )
-            return ruleinfo
+        return (wildcard_constraints, kwwildcard_constraints)
 
-        return decorate
+    @_parse_ruleinfo_mask_names("cache")
+    def cache_rule(self, value):
+        return value
 
-    def cache_rule(self, cache):
-        def decorate(ruleinfo):
-            ruleinfo.cache = cache
-            return ruleinfo
-
-        return decorate
-
+    @_parse_ruleinfo_mask_names("default_target")
     def default_target_rule(self, value):
-        def decorate(ruleinfo):
-            ruleinfo.default_target = value
-            return ruleinfo
-
-        return decorate
+        return value
 
     @_parse_ruleinfo_as_name
     def localrule(self, value):
@@ -2141,12 +2145,9 @@ class Workflow(WorkflowExecutorInterface):
     def benchmark(self, benchmark):
         return InOutput(benchmark, {}, self.modifier.path_modifier)
 
-    def conda(self, conda_env):
-        def decorate(ruleinfo):
-            ruleinfo.conda_env = conda_env
-            return ruleinfo
-
-        return decorate
+    @_parse_ruleinfo_mask_names("conda_env")
+    def conda(self, value):
+        return value
 
     def global_conda(self, conda_env):
         assert self.deployment_settings is not None
@@ -2185,32 +2186,20 @@ class Workflow(WorkflowExecutorInterface):
                 )
             self.injected_conda_envs.append(env)
 
+    @_parse_ruleinfo_mask_names("container_img", "is_containerized")
     def container(self, container_img):
-        def decorate(ruleinfo):
-            # Explicitly set container_img to False if None is passed, indicating that
-            # no container image shall be used, also not a global one.
-            ruleinfo.container_img = (
-                container_img if container_img is not None else False
-            )
-            ruleinfo.is_containerized = False
-            return ruleinfo
+        return (
+            container_img if container_img is not None else False,
+            False,
+        )
 
-        return decorate
-
+    @_parse_ruleinfo_mask_names("container_img", "is_containerized")
     def containerized(self, container_img):
-        def decorate(ruleinfo):
-            ruleinfo.container_img = container_img
-            ruleinfo.is_containerized = True
-            return ruleinfo
+        return container_img, True
 
-        return decorate
-
-    def envmodules(self, *env_modules):
-        def decorate(ruleinfo):
-            ruleinfo.env_modules = env_modules
-            return ruleinfo
-
-        return decorate
+    @_parse_ruleinfo_mask_names("env_modules")
+    def envmodules(self, *value):
+        return value
 
     def global_container(self, container_img):
         self.global_container_img = container_img
@@ -2221,26 +2210,20 @@ class Workflow(WorkflowExecutorInterface):
         self.global_is_containerized = True
 
     @_parse_ruleinfo_as_name
-    def threads(self, threads):
-        return threads
+    def threads(self, value):
+        return value
 
     @_parse_ruleinfo_as_name
-    def retries(self, retries):
-        return retries
+    def retries(self, value):
+        return value
 
-    def shadow(self, shadow_depth):
-        def decorate(ruleinfo):
-            ruleinfo.shadow_depth = shadow_depth
-            return ruleinfo
+    @_parse_ruleinfo_mask_names("shadow_depth")
+    def shadow(self, value):
+        return value
 
-        return decorate
-
-    def rule_pathvars(self, **items):
-        def decorate(ruleinfo):
-            ruleinfo.pathvars = items
-            return ruleinfo
-
-        return decorate
+    @_parse_ruleinfo_mask_names("pathvars")
+    def rule_pathvars(self, **value):
+        return value
 
     @_parse_ruleinfo_as_name
     def resources(self, *args, **resources):
