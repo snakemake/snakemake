@@ -22,10 +22,11 @@ def containerize(workflow, dag):
 
     # collect envs from jobs from the initial DAG.
     conda_envs = {job.conda_env for job in dag.jobs if job.conda_env is not None}
+    dag_jobs = {job.name for job in dag.jobs if job.conda_env is not None}
 
     # collect envs from rules not in the initial DAG (e.g., for rules past checkpoints)
     for rule in workflow.rules:
-        if not rule.conda_env:
+        if not rule.conda_env or rule.name in dag_jobs:
             continue
 
         env_def = rule.conda_env
