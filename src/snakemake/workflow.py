@@ -147,6 +147,20 @@ from snakemake.jobs import jobs_to_rulenames
 SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
 
 
+def _parse_ruleinfo_as_name(func):
+    """
+    Define a function to update ruleinfo as an attribute with the function name.
+    """
+    attr_name = func.__name__
+
+    def wrapper(self, *args, **kwargs):
+        value = func(self, *args, **kwargs)
+        # slightly hacky to speed up
+        return lambda ruleinfo: (setattr(ruleinfo, attr_name, value), ruleinfo)[1]  # type: ignore
+
+    return wrapper
+
+
 @dataclass
 class Workflow(WorkflowExecutorInterface):
     config_settings: ConfigSettings
@@ -1797,7 +1811,9 @@ class Workflow(WorkflowExecutorInterface):
             [linecache.getline(sourcefile, lineno) for lineno in sorted(line_numbers)]
         )
 
-    def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
+    # region rule decorators
+
+    def rule(self, name=None, lineno: int = None, snakefile: str = None, checkpoint=False):  # type: ignore
         # choose a name for an unnamed rule
         orig_name = name or str(len(self._rules) + 1)
 
@@ -2067,33 +2083,25 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
+    @_parse_ruleinfo_as_name
     def docstring(self, string):
-        def decorate(ruleinfo):
-            ruleinfo.docstring = string.strip()
-            return ruleinfo
+        return string.strip()
 
-        return decorate
-
+    @_parse_ruleinfo_as_name
     def input(self, *paths, **kwpaths):
-        def decorate(ruleinfo):
-            ruleinfo.input = InOutput(paths, kwpaths, self.modifier.path_modifier)
-            return ruleinfo
+        return InOutput(paths, kwpaths, self.modifier.path_modifier)
 
-        return decorate
-
+    @_parse_ruleinfo_as_name
     def output(self, *paths, **kwpaths):
-        def decorate(ruleinfo):
-            ruleinfo.output = InOutput(paths, kwpaths, self.modifier.path_modifier)
-            return ruleinfo
+        return InOutput(paths, kwpaths, self.modifier.path_modifier)
 
-        return decorate
+    @_parse_ruleinfo_as_name
+    def log(self, *logs, **kwlogs):
+        return InOutput(logs, kwlogs, self.modifier.path_modifier)
 
+    @_parse_ruleinfo_as_name
     def params(self, *params, **kwparams):
-        def decorate(ruleinfo):
-            ruleinfo.params = (params, kwparams)
-            return ruleinfo
-
-        return decorate
+        return (params, kwparams)
 
     def register_wildcard_constraints(
         self, *wildcard_constraints, **kwwildcard_constraints
@@ -2121,26 +2129,17 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
+    @_parse_ruleinfo_as_name
     def localrule(self, value):
-        def decorate(ruleinfo):
-            ruleinfo.localrule = value
-            return ruleinfo
+        return value
 
-        return decorate
+    @_parse_ruleinfo_as_name
+    def message(self, value):
+        return value
 
-    def message(self, message):
-        def decorate(ruleinfo):
-            ruleinfo.message = message
-            return ruleinfo
-
-        return decorate
-
+    @_parse_ruleinfo_as_name
     def benchmark(self, benchmark):
-        def decorate(ruleinfo):
-            ruleinfo.benchmark = InOutput(benchmark, {}, self.modifier.path_modifier)
-            return ruleinfo
-
-        return decorate
+        return InOutput(benchmark, {}, self.modifier.path_modifier)
 
     def conda(self, conda_env):
         def decorate(ruleinfo):
@@ -2221,19 +2220,13 @@ class Workflow(WorkflowExecutorInterface):
         self.global_container_img = container_img
         self.global_is_containerized = True
 
+    @_parse_ruleinfo_as_name
     def threads(self, threads):
-        def decorate(ruleinfo):
-            ruleinfo.threads = threads
-            return ruleinfo
+        return threads
 
-        return decorate
-
+    @_parse_ruleinfo_as_name
     def retries(self, retries):
-        def decorate(ruleinfo):
-            ruleinfo.retries = retries
-            return ruleinfo
-
-        return decorate
+        return retries
 
     def shadow(self, shadow_depth):
         def decorate(ruleinfo):
@@ -2249,99 +2242,58 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
+    @_parse_ruleinfo_as_name
     def resources(self, *args, **resources):
-        def decorate(ruleinfo):
-            ruleinfo.resources = (args, resources)
-            return ruleinfo
+        return (args, resources)
 
-        return decorate
+    @_parse_ruleinfo_as_name
+    def priority(self, value):
+        return value
 
-    def priority(self, priority):
-        def decorate(ruleinfo):
-            ruleinfo.priority = priority
-            return ruleinfo
+    @_parse_ruleinfo_as_name
+    def group(self, value):
+        return value
 
-        return decorate
-
-    def group(self, group):
-        def decorate(ruleinfo):
-            ruleinfo.group = group
-            return ruleinfo
-
-        return decorate
-
-    def log(self, *logs, **kwlogs):
-        def decorate(ruleinfo):
-            ruleinfo.log = InOutput(logs, kwlogs, self.modifier.path_modifier)
-            return ruleinfo
-
-        return decorate
-
+    @_parse_ruleinfo_as_name
     def handover(self, value):
-        def decorate(ruleinfo):
-            ruleinfo.handover = value
-            return ruleinfo
+        return value
 
-        return decorate
+    @_parse_ruleinfo_as_name
+    def shellcmd(self, value):
+        return value
 
-    def shellcmd(self, cmd):
-        def decorate(ruleinfo):
-            ruleinfo.shellcmd = cmd
-            return ruleinfo
+    @_parse_ruleinfo_as_name
+    def script(self, value):
+        return value
 
-        return decorate
+    @_parse_ruleinfo_as_name
+    def notebook(self, value):
+        return value
 
-    def script(self, script):
-        def decorate(ruleinfo):
-            ruleinfo.script = script
-            return ruleinfo
+    @_parse_ruleinfo_as_name
+    def wrapper(self, value):
+        return value
 
-        return decorate
+    @_parse_ruleinfo_as_name
+    def template_engine(self, value):
+        return value
 
-    def notebook(self, notebook):
-        def decorate(ruleinfo):
-            ruleinfo.notebook = notebook
-            return ruleinfo
+    @_parse_ruleinfo_as_name
+    def cwl(self, value):
+        return value
 
-        return decorate
-
-    def wrapper(self, wrapper):
-        def decorate(ruleinfo):
-            ruleinfo.wrapper = wrapper
-            return ruleinfo
-
-        return decorate
-
-    def template_engine(self, template_engine):
-        def decorate(ruleinfo):
-            ruleinfo.template_engine = template_engine
-            return ruleinfo
-
-        return decorate
-
-    def cwl(self, cwl):
-        def decorate(ruleinfo):
-            ruleinfo.cwl = cwl
-            return ruleinfo
-
-        return decorate
-
+    @_parse_ruleinfo_as_name
     def norun(self):
-        def decorate(ruleinfo):
-            ruleinfo.norun = True
-            return ruleinfo
+        return True
 
-        return decorate
-
-    def name(self, name):
-        def decorate(ruleinfo):
-            ruleinfo.name = name
-            return ruleinfo
-
-        return decorate
+    @_parse_ruleinfo_as_name
+    def name(self, value):
+        return value
 
     def run(self, func):
         return RuleInfo(func)
+
+    # endregion rule decorators
 
     def module(
         self,
