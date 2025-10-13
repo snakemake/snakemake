@@ -3,27 +3,26 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
+import asyncio
+import collections
 import contextlib
+import hashlib
+import inspect
 import itertools
 import math
 import operator
+import os
 import platform
-import hashlib
-import inspect
 import shutil
 import sys
-from tempfile import NamedTemporaryFile
-from typing import Callable, List, Optional, Tuple
 import uuid
-import os
-import asyncio
-import collections
 from pathlib import Path
-from typing import Union
+from tempfile import NamedTemporaryFile
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
-from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
 
+from snakemake import __version__
 
 MIN_PY_VERSION: Tuple[int, int] = (3, 7)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
@@ -426,3 +425,111 @@ class LockFreeWritableFile:
 
     def utime(self, times: Tuple[float, float]) -> None:
         self._times = times
+
+
+class UseArgsWith:
+    "Update input, output, log, params, etc in rule defines"
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.args = args
+        self.kwargs = kwargs
+        self.marks: Dict = {"auto_update": True}
+
+    def update(self, config=None, inplace=False):
+        """Update given list or dict in place.
+
+        if use this method: the object must contain:
+            .args is an item list and .kwargs is empty (marked with args_as_items=True)
+            .args is empty and .kwargs is a dict
+
+        usage:
+            ```
+            config = {"command_args": ["a", "b", "c"]}
+
+            module xxx:
+                config:
+                    UseArgsWith(
+                        prefix="here",
+                        command_args=UseArgsWith(
+                            (2, "c1")
+                        ),
+                    ).update(config)
+            ```
+        """
+        if config is None:
+            config = {}
+        elif not self.marks.get("inplace", inplace):
+            if hasattr(config, "_clone"):
+                config = config._clone()  # special for snakemake.io.Namedlist
+            else:
+                config = config.copy()
+        if self.kwargs:
+            assert (
+                not self.args
+            ), "Should not mix key=value and ('key', value) to update"
+            items = (i for i in self.kwargs.items())
+        else:
+            items = (i for i in self.args)
+        config_get = config.get if hasattr(config, "get") else config.__getitem__
+        for k, v in items:
+            if self.updateable(v):
+                v = v.update(config_get(k))
+            config[k] = v
+        return config
+
+    @classmethod
+    def updateable(cls, obj) -> bool:
+        return isinstance(obj, cls) and obj.marks.get("auto_update", False)
+
+    def mark_as_param(self):
+        self.marks["auto_update"] = False
+        return self
+
+    def mark(self, key: str, value):
+        self.marks[key] = value
+        return self
+
+    @classmethod
+    def guard(cls, *paths, **kwpaths):
+        """Return the ModifyArgs object if it is already wrapped, otherwise None."""
+        if len(paths) == 1 and not kwpaths:
+            obj = paths[0]
+            if cls.updateable(obj):
+                return obj
+
+    @classmethod
+    def guard_ioput(cls, paths, kwpaths, path_modifier):
+        obj = cls.guard(*paths, **kwpaths)
+        if obj:
+            return obj.mark("path_modifier", path_modifier)
+        from snakemake.ruleinfo import InOutput
+
+        return InOutput(paths, kwpaths, path_modifier)
+
+    def update_params(self, params: Tuple[List, Dict] | None):
+        if params is None:
+            return self.args, self.kwargs
+        old_positional = list(params[0] or [])
+        old_keyword = dict(params[1] or {})
+        positional, keyword = self.args, self.kwargs
+        if positional:
+            if old_positional and (len(old_positional) != len(positional)):
+                from snakemake.logging import logger
+
+                logger.warning(
+                    f"Overwriting positional arguments with different length. "
+                    f"\nprevious: {old_positional}\ncurrent: {positional}"
+                )
+            old_positional = list(positional)
+        return old_positional, old_keyword | keyword
+
+    def update_ioput(self, ioput):
+        from snakemake.ruleinfo import InOutput
+
+        if ioput is None:
+            return InOutput(self.args, self.kwargs, self.marks["path_modifier"])
+        paths, kwpaths = self.update_params((ioput.paths, ioput.kwpaths))
+        return InOutput(paths, kwpaths, self.marks["path_modifier"])
+
+
+usewith = UseArgsWith
