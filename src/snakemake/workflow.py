@@ -123,6 +123,7 @@ from snakemake.common import (
     Gather,
     smart_join,
     NOTHING_TO_BE_DONE_MSG,
+    usewith,
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoints
@@ -2076,21 +2077,28 @@ class Workflow(WorkflowExecutorInterface):
 
     def input(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.input = InOutput(paths, kwpaths, self.modifier.path_modifier)
+            ruleinfo.input = usewith.guard_ioput(
+                paths, kwpaths, self.modifier.path_modifier
+            )
             return ruleinfo
 
         return decorate
 
     def output(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.output = InOutput(paths, kwpaths, self.modifier.path_modifier)
+            ruleinfo.output = usewith.guard_ioput(
+                paths, kwpaths, self.modifier.path_modifier
+            )
             return ruleinfo
 
         return decorate
 
     def params(self, *params, **kwparams):
         def decorate(ruleinfo):
-            ruleinfo.params = (params, kwparams)
+            ruleinfo.params = usewith.guard(*params, **kwparams) or (
+                params,
+                kwparams,
+            )
             return ruleinfo
 
         return decorate
@@ -2099,7 +2107,9 @@ class Workflow(WorkflowExecutorInterface):
         self, *wildcard_constraints, **kwwildcard_constraints
     ):
         def decorate(ruleinfo):
-            ruleinfo.wildcard_constraints = (
+            ruleinfo.wildcard_constraints = usewith.guard(
+                *wildcard_constraints, **kwwildcard_constraints
+            ) or (
                 wildcard_constraints,
                 kwwildcard_constraints,
             )
@@ -2251,7 +2261,10 @@ class Workflow(WorkflowExecutorInterface):
 
     def resources(self, *args, **resources):
         def decorate(ruleinfo):
-            ruleinfo.resources = (args, resources)
+            ruleinfo.resources = usewith.guard(*args, **resources) or (
+                args,
+                resources,
+            )
             return ruleinfo
 
         return decorate
@@ -2272,7 +2285,9 @@ class Workflow(WorkflowExecutorInterface):
 
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
-            ruleinfo.log = InOutput(logs, kwlogs, self.modifier.path_modifier)
+            ruleinfo.log = usewith.guard_ioput(
+                logs, kwlogs, self.modifier.path_modifier
+            )
             return ruleinfo
 
         return decorate
