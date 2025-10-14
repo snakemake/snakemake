@@ -236,8 +236,7 @@ class WorkflowModifier:
         self.workflow = workflow
         self.base_snakefile = base_snakefile
 
-        # according to docs, disable any configfile in modules
-        self.skip_configfile = self.parent_modifier is not None
+        self.skip_configfile = config is not None
         self.resolved_rulename_modifier = resolved_rulename_modifier
         self.local_rulename_modifier = local_rulename_modifier
         self.skip_validation = skip_validation
