@@ -452,9 +452,16 @@ it will execute the job within a container that is spawned from the given image.
 Allowed image urls entail everything supported by apptainer (e.g., ``shub://`` and ``docker://``).
 However, ``docker://`` is preferred, as other container runtimes will be supported in the future (e.g. podman).
 
+Additionally, instead of using a concrete url or path, it is also possible to provide one containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
+Finally it is also possible to use a callable which returns a ``str`` value and takes ``wildcards`` as single argument, similar to input functions.
+
 Note that the isolation of jobs running in containers depends on the container engine.
 For example, Docker does not pass any host environment variables to the container, whereas Apptainer/Singularity passes everything.
 To override the default behaviour, consider using ``--apptainer-args`` or ``--singularity-args``, e.g. to pass ``--cleanenv``.
+
+Files that are mounted using `params` using `workflow.source_path` are also automatically available in the container. This is realized by mounting the snakemake cache in the container (/home/<user>/.cache/snakemake/snakemake/source-cache) where the sourced files will be cached. 
+
+In general, it should be noted that only trusted containers should be used!
 
 Defining global container images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

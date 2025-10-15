@@ -167,6 +167,7 @@ def test_singularity_conda():
 
 
 @conda
+@pytest.mark.needs_envmodules
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
@@ -320,6 +321,28 @@ def test_conda_run():
     run(dpath("test_conda_run"), deployment_method={DeploymentMethod.CONDA})
 
 
+@conda
+def test_issue_3192():
+    assert (
+        sp.run(
+            "conda create -c conda-forge -n test_issue3192 python",
+            shell=True,
+        ).returncode
+        == 0
+    )
+    run(dpath("test_issue3192"), deployment_method={DeploymentMethod.CONDA})
+
+
+# Test that container and conda can be run independently using sdm
+@skip_on_windows
+@apptainer
+@connected
+@conda
+def test_issue_3202():
+    run(dpath("test_issue_3202"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_issue_3202"), deployment_method={DeploymentMethod.CONDA})
+
+
 # These tests have no explicit dependency on Conda and do not build new conda envs,
 # but will fail if 'conda info --json' does not work as expected, because the wrapper
 # code uses this to examine the installed software environment.
@@ -343,3 +366,44 @@ def test_get_log_stdout():
 
 def test_get_log_complex():
     run(dpath("test_get_log_complex"))
+
+
+@skip_on_windows
+@conda
+def test_containerize_checkpoint():
+    """Test that containerize considers rules not in the initial DAG (e.g. after checkpoints)."""
+    tmpdir = None
+    try:
+        tmpdir = run(
+            dpath("test_containerize_checkpoint"),
+            shellcmd="snakemake --containerize > Dockerfile",
+            check_results=False,
+            cleanup=False,
+            deployment_method={DeploymentMethod.CONDA},
+        )
+        tmpdir = Path(tmpdir)
+
+        dockerfile_path = tmpdir / "Dockerfile"
+        assert dockerfile_path.exists(), "Dockerfile was not generated."
+
+        with open(dockerfile_path) as f:
+            dockerfile_content = f.read()
+
+        assert "#   source: envs/a.yaml" in dockerfile_content
+        assert "#   source: envs/b.yaml" in dockerfile_content
+        module_env_path = os.path.join("workflow", "envs", "c.yaml")
+        assert f"#   source: {module_env_path}" in dockerfile_content
+
+        # check that COPY/ADD instructions use correct relative paths
+        assert "COPY envs/a.yaml" in dockerfile_content
+        assert "COPY envs/b.yaml" in dockerfile_content
+        assert f"COPY {module_env_path}" in dockerfile_content
+
+        # check three unique environments are being created
+        assert (
+            dockerfile_content.count("conda env create") == 3
+        ), "Expected 3 conda environments to be created."
+
+    finally:
+        if tmpdir and os.path.exists(tmpdir):
+            shutil.rmtree(tmpdir)

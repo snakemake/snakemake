@@ -1,0 +1,43 @@
+name: Announce Release on Mastodon
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'CHANGELOG.md'
+
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  post_to_mastodon:
+    if: "${{ contains(github.event.head_commit.message, 'chore(main): release') }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Post to Mastodon
+        uses: snakemake/mastodon-release-post-action@v1
+        with:
+          access-token: ${{ secrets.MASTODONBOT }}
+          pr-title: ${{ github.event.head_commit.message }}
+          image: "logo_dark.png"
+          image-description: "Snakemake HPC logo for Mastodon"
+          message: |
+            BEEP, BEEP - I am your friendly #Snakemake release announcement bot.
+            
+            There is a new release of Snakemake. Its version now is {{ version }}!
+            
+            Give us some time, and you will automatically find it on #Bioconda and #Pypi.
+            
+            If you want to discuss the release, you will find the maintainer here on Mastodon!
+            @johanneskoester@fosstodon.org
+            
+            If you discover any issues, please report them on {{ issue_url }}.
+
+            See {{ changelog }} for details. Here is the header of the changelog:
+            
+            ${{ steps.extract-release-notes.outputs.release_notes }}
+            

@@ -1,0 +1,8 @@
+rule all:
+  input:
+    multiext("a", out1 = ".1", out2 = ".2")
+
+rule a:
+    output:
+        multiext("a", out1 = ".1", out2 = ".2"),
+    shell: "touch {output.out1} && touch {output.out2}"

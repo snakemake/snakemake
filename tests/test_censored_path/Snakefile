@@ -1,0 +1,9 @@
+storage:
+    provider="xrootd",
+    username="my_username",
+    password="my_password",
+    url_decorator="url + '?param_name=param_value'"
+
+rule:
+    output: storage.xrootd("root://somehost//path/to/file.root")
+    shell: "echo"

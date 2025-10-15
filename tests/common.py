@@ -13,7 +13,7 @@ import time
 from os.path import join
 import tempfile
 import hashlib
-import urllib
+import urllib.request
 import pytest
 import glob
 import subprocess
@@ -26,13 +26,14 @@ from snakemake import api
 from snakemake.common import ON_WINDOWS
 from snakemake.report.html_reporter import ReportSettings
 from snakemake.resources import ResourceScopes
+from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
 
 
 def dpath(path):
     """get the path to a data file (relative to the directory this
     test lives in)"""
-    return os.path.realpath(join(os.path.dirname(__file__), path))
+    return (Path(__file__).parent / path).resolve()
 
 
 def md5sum(filename, ignore_newlines=False):
@@ -41,7 +42,7 @@ def md5sum(filename, ignore_newlines=False):
             data = f.read().strip().encode("utf8", errors="surrogateescape")
     else:
         data = open(filename, "rb").read().strip()
-    return hashlib.md5(data).hexdigest()
+    return hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
 # test skipping
@@ -49,7 +50,7 @@ def is_connected():
     try:
         urllib.request.urlopen("http://www.google.com", timeout=1)
         return True
-    except urllib.request.URLError:
+    except (urllib.request.URLError, TimeoutError):
         return False
 
 
@@ -172,12 +173,15 @@ def run(
     cleanup_scripts=True,
     scheduler_ilp_solver=None,
     report=None,
+    report_after_run=False,
     report_stylesheet=None,
+    report_metadata=None,
     deployment_method=frozenset(),
     shadow_prefix=None,
     until=frozenset(),
     omit_from=frozenset(),
     forcerun=frozenset(),
+    trust_io_cache=False,
     conda_list_envs=False,
     conda_create_envs=False,
     conda_prefix=None,
@@ -236,14 +240,14 @@ def run(
     elif "PYTHONPATH" in os.environ:
         del os.environ["PYTHONPATH"]
 
-    results_dir = join(path, "expected-results")
-    original_snakefile = join(path, snakefile)
-    original_dirname = os.path.basename(os.path.dirname(original_snakefile))
-    assert os.path.exists(original_snakefile)
+    results_dir = path / "expected-results"
+    original_snakefile = path / snakefile
+    original_dirname = original_snakefile.parent.name
+    assert original_snakefile.exists()
     if check_results:
-        assert os.path.exists(results_dir) and os.path.isdir(
-            results_dir
-        ), "{} does not exist".format(results_dir)
+        assert (
+            results_dir.exists() and results_dir.is_dir()
+        ), f"{results_dir} does not exist"
 
     if tmpdir is None:
         # If we need to further check results, we won't cleanup tmpdir
@@ -374,18 +378,25 @@ def run(
                         force_incomplete=force_incomplete,
                         forceall=forceall,
                         rerun_triggers=rerun_triggers,
+                        trust_io_cache=trust_io_cache,
                     ),
                 )
 
-                if report is not None:
+                if report is not None and not report_after_run:
                     if report_stylesheet is not None:
                         report_stylesheet = Path(report_stylesheet)
+                    if report_metadata is not None:
+                        report_metadata = Path(report_metadata)
                     report_settings = ReportSettings(
                         path=Path(report), stylesheet_path=report_stylesheet
+                    )
+                    global_report_settings = settings.GlobalReportSettings(
+                        metadata_template=report_metadata
                     )
                     dag_api.create_report(
                         reporter="html",
                         report_settings=report_settings,
+                        global_report_settings=global_report_settings,
                     )
                 elif conda_create_envs:
                     dag_api.conda_create_envs()
@@ -413,14 +424,25 @@ def run(
                             seconds_between_status_checks=0,
                             envvars=envvars,
                         ),
-                        scheduling_settings=settings.SchedulingSettings(
-                            ilp_solver=scheduler_ilp_solver,
-                        ),
                         group_settings=settings.GroupSettings(
                             group_components=group_components,
                             overwrite_groups=overwrite_groups,
                         ),
                         executor_settings=executor_settings,
+                        scheduler_settings=SchedulerSettings(
+                            solver=scheduler_ilp_solver,
+                        ),
+                    )
+
+                if report_after_run and report:
+                    if report_stylesheet is not None:
+                        report_stylesheet = Path(report_stylesheet)
+                    report_settings = ReportSettings(
+                        path=Path(report), stylesheet_path=report_stylesheet
+                    )
+                    dag_api.create_report(
+                        reporter="html",
+                        report_settings=report_settings,
                     )
             except Exception as e:
                 success = False
@@ -434,6 +456,8 @@ def run(
                 snakemake_api.print_exception(exception)
             print("Workdir:")
             print_tree(tmpdir, exclude=".snakemake/conda")
+            if exception is not None:
+                raise exception
         assert success, "expected successful execution"
 
     if check_results:
@@ -475,5 +499,5 @@ def run(
                     )
 
     if not cleanup:
-        return tmpdir
+        return Path(tmpdir)
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
