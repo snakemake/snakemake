@@ -783,7 +783,11 @@ class Rule(RuleInterface):
                 if omit_callable:
                     continue
                 if non_derived_items is not None:
-                    is_derived = self._is_deriving_function(item)
+                    if is_unpack and isinstance(item, AnnotatedString):
+                        callable_item = item.callable
+                    else:
+                        callable_item = item
+                    is_derived = self._is_deriving_function(callable_item)
                 item, incomplete = self.apply_input_function(
                     item,
                     wildcards,
