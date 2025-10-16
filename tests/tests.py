@@ -19,7 +19,7 @@ from snakemake.utils import min_version  # import so we can patch out if needed
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
-from snakemake.exceptions import AmbiguousRuleException
+from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -2642,3 +2642,8 @@ def test_checkpoint_omit_from():
         dpath("test_checkpoint_omit_from"),
         shellcmd="snakemake --omit-from B1 --cores 1",
     )
+
+
+def test_wildcard_annotatedstrings():
+    with pytest.raises(WorkflowError, match=r"unpack\(\) is not allowed with params"):
+        run(dpath("test_wildcard_annotatedstrings"), targets=["test.out"])
