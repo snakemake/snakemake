@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 from collections import namedtuple
 from copy import copy
-from snakemake.logging import logger
+from snakemake.common import usewith
 
 
 InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
@@ -72,26 +72,16 @@ class RuleInfo:
         if modifier.ruleinfo_overwrite:
             for key, value in modifier.ruleinfo_overwrite.__dict__.items():
                 if key != "func" and value is not None:
-                    if key == "params" and self.params is not None:
-                        # if positional arguments are used after the 'with' statement
-                        # overwrite all positional arguments of the original rule
-                        # for keyword arguments replace only the ones defined after 'with'
-                        original_positional, original_keyword = self.__dict__["params"]
-                        modifier_positional, modifier_keyword = value
-                        positional = original_positional
-                        if modifier_positional:
-                            if original_positional and (
-                                len(original_positional) != len(modifier_positional)
-                            ):
-                                logger.warning(
-                                    f"Overwriting positional arguments {original_positional} "
-                                    f"with {modifier_positional} in rule {rulename}"
-                                )
-                            positional = modifier_positional
-                        self.__dict__[key] = (
-                            positional,
-                            {**original_keyword, **modifier_keyword},
-                        )
+                    if usewith.updateable(value):
+                        last_value = self.__dict__.get(key)
+                        if key in {"params", "resources", "wildcard_constraints"}:
+                            updated = value.update_params(last_value)
+                        elif key in {"input", "output", "log"}:
+                            updated = value.update_ioput(last_value)
+                        else:
+                            # who do this?
+                            updated = value.update([last_value])[0]
+                        self.__dict__[key] = updated
                     else:
                         self.__dict__[key] = value
                     if key in prefix_replacables:
