@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [9.13.3](https://github.com/snakemake/snakemake/compare/v9.13.2...v9.13.3) (2025-10-17)
+
+
+### Bug Fixes
+
+* corner case bug causing key error when module statement is used without config directive; better error message when empty string is defined as input or output file ([#3792](https://github.com/snakemake/snakemake/issues/3792)) ([640c549](https://github.com/snakemake/snakemake/commit/640c549103b44e7b491959f8215572f253dd396b))
+* make `--containerize` consider conda env specs from all rules, not just from dry-run DAG jobs ([#3783](https://github.com/snakemake/snakemake/issues/3783)) ([d092d8c](https://github.com/snakemake/snakemake/commit/d092d8c2d52e3cd91739458ea4d5a5999b4ad4cd))
+
 ## [9.13.2](https://github.com/snakemake/snakemake/compare/v9.13.1...v9.13.2) (2025-10-12)
 
 
