@@ -210,8 +210,7 @@ class WorkflowModifier:
                 "checkpoints"
             ].spawn_new_namespace()
 
-            if config is not None:
-                self.globals["config"] = config
+            self.globals["config"] = config if config is not None else {}
             self.wildcard_constraints: dict = dict()
 
             assert (
@@ -223,8 +222,7 @@ class WorkflowModifier:
             self.path_modifier = path_modifier or PathModifier(None, None, workflow)
         else:
             # use rule (from same include) as ... with: init with values from parent modifier
-            parent_modifier = workflow.modifier
-            self.parent_modifier = parent_modifier
+            self.parent_modifier = parent_modifier = workflow.modifier
             self.globals = parent_modifier.globals
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.pathvars = parent_modifier.pathvars
