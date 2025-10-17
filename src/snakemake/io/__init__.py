@@ -468,7 +468,8 @@ class _IOFile(str, AnnotatedStringInterface):
             return
         if self._file == "":
             raise WorkflowError(
-                "Empty file path encountered. This is likely unintended.",
+                "Empty file path encountered. Snakemake cannot understand this. "
+                "If you want to indicate 'no file', please use an empty list ([]) instead of an empty string ('').",
                 rule=self.rule,
             )
         hint = (
