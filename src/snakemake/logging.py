@@ -156,15 +156,15 @@ class DefaultFormatter(logging.Formatter):
         formatter = formatters.get(event, default_formatter)
         return formatter(record_dict)
 
-    def format_run_info(self, msg):
+    def format_run_info(self, msg: dict[str, Any]):
         """Format the run_info log messages."""
         return msg["msg"]  # Log the message directly
 
-    def format_host(self, msg):
+    def format_host(self, msg: dict[str, Any]):
         """Format for host log."""
         return f"host: {platform.node()}"
 
-    def format_job_info(self, msg):
+    def format_job_info(self, msg: dict[str, Any]):
         """Format for job_info log."""
         output = []
 
@@ -180,13 +180,13 @@ class DefaultFormatter(logging.Formatter):
             return textwrap.indent("\n".join(output), "    ")
         return "\n".join(output)
 
-    def format_group_info(self, msg):
+    def format_group_info(self, msg: dict[str, Any]):
         """Format for group_info log."""
         msg = f"{timestamp()} {msg['msg']}"
 
         return msg
 
-    def format_job_error(self, msg):
+    def format_job_error(self, msg: dict[str, Any]):
         """Format for job_error log."""
         output = []
         output.append(timestamp())
@@ -196,28 +196,28 @@ class DefaultFormatter(logging.Formatter):
             return textwrap.indent("\n".join(output), "    ")
         return "\n".join(output)
 
-    def format_group_error(self, msg):
+    def format_group_error(self, msg: dict[str, Any]):
         """Format for group_error log."""
         output = []
         output.append(timestamp())
         output.append("\n".join(self._format_group_error(msg)))
         return "\n".join(output)
 
-    def format_progress(self, msg):
+    def format_progress(self, msg: dict[str, Any]):
         """Format for progress log."""
         done = msg["done"]
         total = msg["total"]
         return f"{done} of {total} steps ({format_percentage(done, total)}) done"
 
-    def format_job_finished(self, msg):
+    def format_job_finished(self, msg: dict[str, Any]):
         """Format for job_finished log."""
         return f"{timestamp()}\n{msg['msg']}"
 
-    def format_shellcmd(self, msg):
+    def format_shellcmd(self, msg: dict[str, Any]):
         """Format for shellcmd log."""
         return msg["msg"]
 
-    def format_dag_debug(self, msg):
+    def format_dag_debug(self, msg: dict[str, Any]):
         """Format for dag_debug log."""
         output = []
 
@@ -232,7 +232,7 @@ class DefaultFormatter(logging.Formatter):
             )
         return "\n".join(output)
 
-    def _format_job_info(self, msg):
+    def _format_job_info(self, msg: dict[str, Any]):
         """Helper method to format job info details."""
 
         def format_item(item, omit=None, valueformat=str):
@@ -271,7 +271,7 @@ class DefaultFormatter(logging.Formatter):
 
         return output
 
-    def _format_job_error(self, msg):
+    def _format_job_error(self, msg: dict[str, Any]):
         """Helper method to format job error details."""
         output = [f"Error in rule {msg['rule_name']}:"]
 
@@ -301,7 +301,7 @@ class DefaultFormatter(logging.Formatter):
 
         return output
 
-    def _format_group_error(self, msg):
+    def _format_group_error(self, msg: dict[str, Any]):
         """Helper method to format group error details."""
         output = []
 
