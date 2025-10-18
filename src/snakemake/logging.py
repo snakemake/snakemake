@@ -333,6 +333,19 @@ class DefaultFormatter(logging.Formatter):
 
 
 class DefaultFilter:
+    """Default log filter.
+
+    Attributes
+    ----------
+    quiet
+        Quietness values to filter out.
+    debug_dag
+        Whether to allow DEBUG_DAG events.
+    dryrun
+    printshellcmds
+        Whether to allow SHELLCMD events.
+    """
+
     quiet: Collection["Quietness"]
     debug_dag: bool
     dryrun: bool
@@ -516,6 +529,27 @@ class ColorizingTextHandler(logging.StreamHandler):
 
 
 class LoggerManager:
+    """Sets up and manages workflow logging system.
+
+    Attributes
+    ----------
+    logger
+        Logger object all handlers are attached to.
+    initialized
+        Whether :meth:`setup` has been called.
+    queue_listener
+        Queue listener used to process all plugin handlers in the main thread. An associated
+        :class:`logging.handlers.QueueHandler` is attached to :attr:`logger`.
+    needs_rulegraph
+        Whether any plugin requested a RULEGRAPH event be logged.
+    logfile_handlers
+        Mapping from :class:`logging.Handler` instances to their associated output files. Used to
+        report all log files at the end of the run.
+    settings
+        Global logging settings. This is used to configure the default stream/file handlers and is
+        also passed to all plugins.
+    """
+
     logger: logging.Logger
     initialized: bool
     queue_listener: Optional[logging.handlers.QueueListener]
