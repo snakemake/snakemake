@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.9.1
+        uses: prefix-dev/setup-pixi@v0.9.2
         with:
           environments: "docs"
           pixi-version: v0.42.1
@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.9.1
+        uses: prefix-dev/setup-pixi@v0.9.2
         with:
           environments: "docs"
           pixi-version: v0.42.1
