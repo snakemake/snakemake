@@ -762,8 +762,6 @@ class Rule(RuleInterface):
         mapping=None,
         no_flattening=False,
         aux_params=None,
-        path_modifier=None,
-        property=None,
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
         groupid=None,
@@ -848,16 +846,7 @@ class Rule(RuleInterface):
                             wildcards=wildcards,
                         )
 
-                    if (
-                        from_callable is not None
-                        and not incomplete
-                        and path_modifier is not None
-                    ):
-                        item_ = self.apply_path_modifier(
-                            item_, path_modifier, property=property
-                        )
-
-                    concrete = concretize(item_, wildcards, from_callable)
+                    concrete = concretize(item_, wildcards, from_callable, incomplete)
                     newitems.append(concrete)
                     if not is_derived and non_derived_items is not None:
                         non_derived_items.append(concrete)
@@ -872,8 +861,16 @@ class Rule(RuleInterface):
         return incomplete
 
     def expand_input(self, wildcards, groupid=None):
-        def concretize_iofile(f, wildcards, from_callable):
+        def concretize_iofile(f, wildcards, from_callable, incomplete):
             if from_callable is not None:
+                if (
+                    not incomplete
+                    and self.input_modifier is not None
+                ):
+                    f = self.apply_path_modifier(
+                        f, self.input_modifier, property="input"
+                    )
+
                 if isinstance(f, Path):
                     f = str(f)
                 iofile = IOFile(f, rule=self).apply_wildcards(wildcards)
@@ -904,8 +901,6 @@ class Rule(RuleInterface):
                 concretize=concretize_iofile,
                 mapping=mapping,
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
-                path_modifier=self.input_modifier,
-                property="input",
                 groupid=groupid,
             )
         except WildcardError as e:
@@ -947,7 +942,7 @@ class Rule(RuleInterface):
         return False
 
     def expand_params(self, wildcards, input, output, job, omit_callable=False):
-        def concretize_param(p, wildcards, is_from_callable):
+        def concretize_param(p, wildcards, is_from_callable, incomplete):
             if not is_from_callable:
                 if isinstance(p, str):
                     return apply_wildcards(p, wildcards)
@@ -994,7 +989,6 @@ class Rule(RuleInterface):
                 omit_callable=omit_callable,
                 allow_unpack=False,
                 no_flattening=True,
-                property="params",
                 aux_params={
                     "input": input._plainstrings(),
                     "resources": resources,
@@ -1031,8 +1025,15 @@ class Rule(RuleInterface):
         return output, mapping
 
     def expand_log(self, wildcards):
-        def concretize_logfile(f, wildcards, is_from_callable):
-            if is_from_callable:
+        def concretize_logfile(f, wildcards, from_callable, incomplete):
+            if from_callable is not None:
+                if (
+                    not incomplete
+                    and self.log_modifier is not None
+                ):
+                    f = self.apply_path_modifier(
+                        f, self.log_modifier, property="log"
+                    )
                 return IOFile(f, rule=self)
             else:
                 return f.apply_wildcards(wildcards)
@@ -1045,8 +1046,6 @@ class Rule(RuleInterface):
                 self.log,
                 wildcards,
                 concretize=concretize_logfile,
-                path_modifier=self.log_modifier,
-                property="log",
             )
         except WildcardError as e:
             raise WildcardError(
