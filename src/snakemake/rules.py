@@ -863,10 +863,7 @@ class Rule(RuleInterface):
     def expand_input(self, wildcards, groupid=None):
         def concretize_iofile(f, wildcards, from_callable, incomplete):
             if from_callable is not None:
-                if (
-                    not incomplete
-                    and self.input_modifier is not None
-                ):
+                if not incomplete and self.input_modifier is not None:
                     f = self.apply_path_modifier(
                         f, self.input_modifier, property="input"
                     )
@@ -1027,13 +1024,8 @@ class Rule(RuleInterface):
     def expand_log(self, wildcards):
         def concretize_logfile(f, wildcards, from_callable, incomplete):
             if from_callable is not None:
-                if (
-                    not incomplete
-                    and self.log_modifier is not None
-                ):
-                    f = self.apply_path_modifier(
-                        f, self.log_modifier, property="log"
-                    )
+                if not incomplete and self.log_modifier is not None:
+                    f = self.apply_path_modifier(f, self.log_modifier, property="log")
                 return IOFile(f, rule=self)
             else:
                 return f.apply_wildcards(wildcards)
