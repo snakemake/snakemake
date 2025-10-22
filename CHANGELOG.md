@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.13.4](https://github.com/snakemake/snakemake/compare/v9.13.3...v9.13.4) (2025-10-22)
+
+
+### Bug Fixes
+
+* properly handle local annotation on input functions ([#3805](https://github.com/snakemake/snakemake/issues/3805)) ([6511d30](https://github.com/snakemake/snakemake/commit/6511d308ee5fe1490ca31f754573cd59559d5899))
+
 ## [9.13.3](https://github.com/snakemake/snakemake/compare/v9.13.2...v9.13.3) (2025-10-17)
 
 
