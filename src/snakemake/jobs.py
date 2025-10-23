@@ -1151,7 +1151,9 @@ class Job(
         if not skip_input_files:
             wait_for_files.extend(self.local_input)
             wait_for_files.extend(
-                f for f in self.storage_input if not f.should_not_be_retrieved_from_storage
+                f
+                for f in self.storage_input
+                if not f.should_not_be_retrieved_from_storage
             )
 
         if self.shadow_dir:
@@ -1169,8 +1171,9 @@ class Job(
 
         if self.is_wrapper:
             script = wrapper.get_script(
-                self.rule.wrapper, self.dag.workflow.sourcecache,
-                self.dag.workflow.workflow_settings.wrapper_prefix
+                self.rule.wrapper,
+                self.dag.workflow.sourcecache,
+                self.dag.workflow.workflow_settings.wrapper_prefix,
             )
             if script is not None:
                 wait_for_files.append(script.get_path_or_uri())
