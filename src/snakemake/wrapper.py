@@ -104,7 +104,7 @@ def wrapper(
     )
     if script_source is None:
         raise WorkflowError(
-            f"Unable to locate wrapper script for wrapper {path}. "
+            f"Unable to locate wrapper script at {prefix}{path}. "
             "This can be a network issue or a mistake in the wrapper URL."
         )
     script(
