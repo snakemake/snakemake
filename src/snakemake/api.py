@@ -50,7 +50,6 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
-from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
@@ -256,16 +255,7 @@ class SnakemakeApi(ApiBase):
 
     def setup_logger(self):
         if not self.output_settings.keep_logger:
-            log_handlers = []
-            for name, settings in self.output_settings.log_handler_settings.items():
-                plugin = LoggerPluginRegistry().get_plugin(name)
-                plugin.validate_settings(settings)
-                log_handlers.append(plugin.log_handler(self.output_settings, settings))
-
-            logger_manager.setup(
-                handlers=log_handlers,
-                settings=self.output_settings,
-            )
+            logger_manager.setup(self.output_settings)
 
     def _check_is_in_context(self):
         if not self._is_in_context:
