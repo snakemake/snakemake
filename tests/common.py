@@ -18,6 +18,7 @@ import pytest
 import glob
 import subprocess
 import tarfile
+from typing import TypeAlias
 
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -30,13 +31,17 @@ from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
 
 
-def dpath(path):
+#: File system path as string or pathlike object.
+StrPath: TypeAlias = str | os.PathLike
+
+
+def dpath(path: StrPath) -> Path:
     """get the path to a data file (relative to the directory this
     test lives in)"""
     return (Path(__file__).parent / path).resolve()
 
 
-def md5sum(filename, ignore_newlines=False):
+def md5sum(filename: StrPath, ignore_newlines: bool = False) -> str:
     if ignore_newlines:
         with open(filename, "r", encoding="utf-8", errors="surrogateescape") as f:
             data = f.read().strip().encode("utf8", errors="surrogateescape")
@@ -46,7 +51,7 @@ def md5sum(filename, ignore_newlines=False):
 
 
 # test skipping
-def is_connected():
+def is_connected() -> bool:
     if is_ci():
         # always assume internet connection in CI
         return True
@@ -57,29 +62,29 @@ def is_connected():
         return False
 
 
-def is_ci():
+def is_ci() -> bool:
     return "CI" in os.environ
 
 
-def has_gcloud_service_key():
+def has_gcloud_service_key() -> bool:
     return "GCP_AVAILABLE" in os.environ
 
 
-def has_azbatch_account_url():
+def has_azbatch_account_url() -> str | None:
     return os.environ.get("AZ_BATCH_ACCOUNT_URL")
 
 
-def has_zenodo_token():
+def has_zenodo_token() -> str | None:
     return os.environ.get("ZENODO_SANDBOX_PAT")
 
 
-def has_apptainer():
+def has_apptainer() -> bool:
     return (shutil.which("apptainer") is not None) or (
         shutil.which("singularity") is not None
     )
 
 
-def has_conda():
+def has_conda() -> bool:
     return shutil.which("conda") is not None
 
 
@@ -117,14 +122,14 @@ zenodo = pytest.mark.skipif(
 )
 
 
-def copy(src, dst):
+def copy(src: StrPath, dst: StrPath):
     if os.path.isdir(src):
         shutil.copytree(src, os.path.join(dst, os.path.basename(src)))
     else:
         shutil.copy(src, dst)
 
 
-def get_expected_files(results_dir):
+def get_expected_files(results_dir: StrPath) -> list[str]:
     """Recursively walk through the expected-results directory to enumerate
     all expected files."""
     return [
@@ -134,13 +139,13 @@ def get_expected_files(results_dir):
     ]
 
 
-def untar_folder(tar_file, output_path):
+def untar_folder(tar_file: StrPath, output_path: StrPath):
     if not os.path.isdir(output_path):
         with tarfile.open(tar_file) as tar:
             tar.extractall(path=output_path)
 
 
-def print_tree(path, exclude=None):
+def print_tree(path: str, exclude: StrPath | None = None):
     for root, _dirs, files in os.walk(path):
         if exclude and root.startswith(os.path.join(path, exclude)):
             continue
