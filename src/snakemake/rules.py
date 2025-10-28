@@ -863,11 +863,6 @@ class Rule(RuleInterface):
     def expand_input(self, wildcards, groupid=None):
         def concretize_iofile(f, wildcards, from_callable, incomplete):
             if from_callable is not None:
-                if not incomplete and self.input_modifier is not None:
-                    f = self.apply_path_modifier(
-                        f, self.input_modifier, property="input"
-                    )
-
                 if isinstance(f, Path):
                     f = str(f)
                 iofile = IOFile(f, rule=self).apply_wildcards(wildcards)
@@ -878,6 +873,11 @@ class Rule(RuleInterface):
                         if key in iofile.flags:
                             continue
                         iofile.flags[key] = value
+
+                if not incomplete and self.input_modifier is not None:
+                    iofile = self.apply_path_modifier(
+                        iofile, self.input_modifier, property="input"
+                    )
 
                 return self.workflow.modifier.default_input_flags.apply(iofile)
             else:
