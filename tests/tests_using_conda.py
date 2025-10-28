@@ -136,6 +136,17 @@ def test_wrapper():
 
 @skip_on_windows  # wrappers are for linux and macos only
 @conda
+def test_wrapper_qsub():
+    run(
+        dpath("test_wrapper"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+        cluster="./qsub",
+    )
+
+
+@skip_on_windows  # wrappers are for linux and macos only
+@conda
 def test_wrapper_local_git_prefix():
     import git
 
