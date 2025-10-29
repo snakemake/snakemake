@@ -875,8 +875,11 @@ class Rule(RuleInterface):
                         iofile.flags[key] = value
 
                 if not incomplete and self.input_modifier is not None:
-                    iofile = self.apply_path_modifier(
-                        iofile, self.input_modifier, property="input"
+                    iofile = IOFile(
+                        self.apply_path_modifier(
+                            iofile, self.input_modifier, property="input"
+                        ),
+                        rule=self,
                     )
 
                 return self.workflow.modifier.default_input_flags.apply(iofile)
