@@ -16,7 +16,6 @@ import shutil
 import stat
 import string
 import time
-from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from inspect import isfunction, ismethod
@@ -39,6 +38,7 @@ from typing import (
 from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
 from snakemake_interface_common.utils import not_iterable
+from snakemake_interface_common.io import AnnotatedStringInterface
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -72,18 +72,6 @@ def lutime(file, times):
             "Unable to set mtime without following symlink because it seems "
             "unsupported by your system. Proceeding without."
         )
-
-
-class AnnotatedStringInterface(ABC):
-    @property
-    @abstractmethod
-    def flags(self) -> Dict[str, Any]: ...
-
-    @abstractmethod
-    def is_callable(self) -> bool: ...
-
-    def is_flagged(self, flag: str) -> bool:
-        return flag in self.flags and bool(self.flags[flag])
 
 
 class ExistsDict(dict):
@@ -245,8 +233,7 @@ class IOCache(IOCacheStorageInterface):
 
 
 def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
-    f = _IOFile(file)
-    f.rule = rule
+    f = _IOFile(file, rule=rule)
     return f
 
 
@@ -276,31 +263,42 @@ class _IOFile(str, AnnotatedStringInterface):
 
     if TYPE_CHECKING:
 
-        def __init__(self, file):
+        def __init__(self, file, rule: Optional["snakemake.rules.Rule"]):
             self._is_callable: bool
             self._file: str | AnnotatedString | Callable[[Namedlist], str]
             self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
             self._wildcard_constraints: Dict[str, re.Pattern] | None
 
-    def __new__(cls, file):
+    def __new__(
+        cls,
+        file: Union[str, Path, "AnnotatedString", Callable],
+        rule: Optional["snakemake.rules.Rule"],
+    ):
         is_annotated = isinstance(file, AnnotatedString)
         is_callable = (
             isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
         )
         if isinstance(file, Path):
             file = str(file.as_posix())
-        if not is_callable and file.endswith("/"):
-            # remove trailing slashes
-            stripped = file.rstrip("/")
+        if not is_callable and isinstance(file, str):
+            modified = file
+            if file.endswith("/"):
+                # remove trailing slashes
+                modified = file.rstrip("/")
+            if rule is not None:
+                try:
+                    modified = rule.pathvars.apply(modified)
+                except KeyError as e:
+                    raise WorkflowError(f"Undefined pathvar {str(e)}.", rule=rule)
             if is_annotated:
-                stripped = AnnotatedString(stripped)
-                stripped.flags = file.flags
-            file = stripped
+                modified = AnnotatedString(modified)
+                modified.flags = file.flags
+            file = modified
         obj = str.__new__(cls, file)
         obj._is_callable = is_callable
         obj._file = file
-        obj.rule = None
+        obj.rule = rule
         obj._regex = None
         obj._wildcard_constraints = None
 
@@ -468,6 +466,12 @@ class _IOFile(str, AnnotatedStringInterface):
     def check(self):
         if callable(self._file):
             return
+        if self._file == "":
+            raise WorkflowError(
+                "Empty file path encountered. Snakemake cannot understand this. "
+                "If you want to indicate 'no file', please use an empty list ([]) instead of an empty string ('').",
+                rule=self.rule,
+            )
         hint = (
             "It can also lead to inconsistent results of the file-matching "
             "approach used by Snakemake."
@@ -497,6 +501,11 @@ class _IOFile(str, AnnotatedStringInterface):
             logger.warning(
                 f"File path {self._file} contains double '{os.path.sep}'. "
                 f"This is likely unintended. {hint}"
+            )
+        if _illegal_wildcard_name_regex.search(self._file) is not None:
+            logger.warning(
+                f"File path '{self._file}' contains illegal characters in a wildcard "
+                f"name (only alphanumerics and underscores are allowed)."
             )
 
     async def exists(self):
@@ -939,7 +948,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
 class AnnotatedString(str, AnnotatedStringInterface):
     def __init__(self, value):
-        self._flags = dict()
+        self._flags = {}
         self.callable = value if is_callable(value) else None
 
     def new_from(self, new_value):
@@ -986,11 +995,32 @@ def get_flag_store_keys(flag_func: Callable) -> Set[str]:
     return set(flag_func("dummy").flags.keys())
 
 
+def remove_flag(value: MaybeAnnotated, flag: str) -> MaybeAnnotated:
+    """Remove a flag from given str or IOFile."""
+    if isinstance(value, AnnotatedStringInterface):
+        if flag in value.flags:
+            del value.flags[flag]
+        return value
+    else:
+        return value
+
+
 _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
 
 _CONSIDER_LOCAL_DEFAULT = frozenset()
+
+_illegal_wildcard_name_regex = re.compile(
+    r"""
+    \{(?!\{) # Start matching from the second {, otherwise \W will match the second {
+        \s*
+        (?P<name>
+            .*?\W[^,\{\}]*
+        ),?[^,\{\}]*? # Do we see any non-word character before comma?
+    \}
+    """,
+)
 
 
 async def wait_for_files(
@@ -1900,6 +1930,13 @@ class InputFiles(Namedlist):
         return async_run(sizes())
 
     @property
+    def size_tempfiles(self):
+        async def sizes():
+            return [await f.size() for f in self if is_flagged(f, "temp")]
+
+        return async_run(sizes())
+
+    @property
     def size_files_kb(self):
         return [f / 1024 for f in self.size_files]
 
@@ -1922,6 +1959,10 @@ class InputFiles(Namedlist):
     @property
     def size_mb(self):
         return sum(self.size_files_mb)
+
+    @property
+    def temp_size_mb(self):
+        return sum(self.size_tempfiles)
 
     @property
     def size_gb(self):

@@ -19,10 +19,10 @@ jobs:
       pull-requests: write # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.8.8
+        uses: prefix-dev/setup-pixi@v0.9.1
         with:
           environments: "quality"
           pixi-version: v0.42.1
@@ -36,7 +36,7 @@ jobs:
         if: github.event_name == 'pull_request' && failure()
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
+          message: "Please format your code with `pixi run format`"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   ################################################################################################
@@ -49,13 +49,17 @@ jobs:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         # see pyprojec.toml: [tool.pixi.feature.test] for available test types
-        os: [ubuntu-latest, windows-latest, macos-latest] #  , macos-13 not supported yet
-        env: ["py311", "py312"]
+        os: [ubuntu-latest, windows-2022, macos-latest] #  , macos-13 not supported yet
+        env: ["py311", "py312", "py313"]
         exclude:
-          - os: windows-latest
+          - os: windows-2022
+            env: "py312"
+          - os: windows-2022
             env: "py311"
           - os: macos-latest
             env: "py311"
+          - os: macos-latest
+            env: "py312"
 
     runs-on: ${{ matrix.os }}
 
@@ -65,12 +69,12 @@ jobs:
       ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
       CI: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.8.8
+        uses: prefix-dev/setup-pixi@v0.9.1
         with:
           environments: ${{ matrix.env }}
           pixi-version: v0.42.1
@@ -137,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build container image
         run: docker build .

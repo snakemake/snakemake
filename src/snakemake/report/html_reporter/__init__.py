@@ -65,6 +65,8 @@ class Reporter(ReporterBase):
         self.env.filters["get_resource_as_string"] = get_resource_as_string
 
     def render(self):
+        self.check_results()
+
         # prepare runtimes
         runtimes = [
             {"rule": rec.rule, "runtime": rec.endtime - rec.starttime}
@@ -109,6 +111,7 @@ class Reporter(ReporterBase):
         runtimes = data.render_runtimes(runtimes)
         timeline = data.render_timeline(timeline)
         packages = data.get_packages()
+        metadata = data.render_metadata(self.metadata)
 
         template = self.env.get_template("index.html.jinja2")
 
@@ -121,6 +124,7 @@ class Reporter(ReporterBase):
             runtimes=runtimes,
             timeline=timeline,
             packages=packages,
+            metadata=metadata,
             pygments_css=HtmlFormatter(style="stata-dark").get_style_defs(".source"),
             custom_stylesheet=self.custom_stylesheet,
             logo=data_uri_from_file(Path(__file__).parent / "template" / "logo.svg"),
@@ -174,3 +178,15 @@ class Reporter(ReporterBase):
         else:
             with open(self.settings.path, "w", encoding="utf-8") as htmlout:
                 htmlout.write(rendered)
+
+    def check_results(self):
+        if self.mode_embedded:
+            for subcats in self.results.values():
+                for catresults in subcats.values():
+                    for result in catresults:
+                        if result.aux_files:
+                            raise WorkflowError(
+                                f"Directory marked for inclusion in report ({result.path}). "
+                                "This is unsupported when requesting a pure HTML report. "
+                                "Please use store as zip instead (--report report.zip)."
+                            )

@@ -300,7 +300,6 @@ class SpawnedJobArgsFactory:
             ),
             "--max-inventory-time 0",
             "--nocolor",
-            "--notemp",
             "--no-hooks",
             "--nolock",
             "--ignore-incomplete",
