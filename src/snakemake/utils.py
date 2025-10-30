@@ -58,12 +58,12 @@ def validate(data, schema, set_default=True):
 
     if isinstance(schemafile, LocalSourceFile) and not schemafile.isabs() and workflow:
         # if workflow object is not available this has not been started from a workflow
-        schemafile = workflow.current_basedir.join(schemafile.get_path_or_uri())
+        schemafile = workflow.current_basedir.join(schemafile.get_path_or_uri(secret_free=True))
 
     source = (
         workflow.sourcecache.open(schemafile)
         if workflow
-        else schemafile.get_path_or_uri()
+        else schemafile.get_path_or_uri(secret_free=False)
     )
 
     schema = _load_configfile(source, filetype="Schema")
@@ -92,7 +92,7 @@ def validate(data, schema, set_default=True):
     # backwards-compatibility with the former (RefResolver based) one.
     # This is also made explicit through the
     # test_config_ref_relative_with_remote_id test added to test_schema.py.
-    schema["$id"] = Path(schemafile.get_path_or_uri()).resolve().as_uri()
+    schema["$id"] = Path(schemafile.get_path_or_uri(secret_free=False)).resolve().as_uri()
 
     def retrieve_uri(uri):
         # Note:
@@ -109,7 +109,7 @@ def validate(data, schema, set_default=True):
 
     resource = Resource.from_contents(contents=schema)
     registry = Registry(retrieve=retrieve_uri).with_resource(
-        uri=schemafile.get_path_or_uri(), resource=resource
+        uri=schemafile.get_path_or_uri(secret_free=False), resource=resource
     )
     Validator = Draft202012Validator(schema, registry=registry)
 

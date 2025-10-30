@@ -30,7 +30,7 @@ from snakemake.common.git import split_git_path
 from snakemake.logging import logger
 
 
-def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
+def _check_git_args(tag: Optional[str] = None, branch: Optional[str] = None, commit: Optional[str] = None):
     n_refs = sum(1 for ref in (tag, branch, commit) if ref is not None)
     if n_refs != 1:
         raise SourceFileError(
@@ -40,45 +40,45 @@ def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
 
 class SourceFile(ABC):
     @abstractmethod
-    def get_path_or_uri(self) -> str: ...
+    def get_path_or_uri(self, secret_free: bool) -> str: ...
 
     @abstractmethod
-    def is_persistently_cacheable(self): ...
+    def is_persistently_cacheable(self) -> bool: ...
 
     def get_cache_path(self):
-        uri = parse_uri(self.get_path_or_uri())
+        uri = parse_uri(self.get_path_or_uri(secret_free=True))
         return os.path.join(uri.scheme, unquote(uri.uri_path.lstrip("/")))
 
     def get_basedir(self):
-        path = os.path.dirname(self.get_path_or_uri())
+        path = os.path.dirname(self.get_path_or_uri(secret_free=False))
         return self.__class__(path)
 
     @abstractmethod
-    def get_filename(self): ...
+    def get_filename(self) -> str: ...
 
     def join(self, path):
         if isinstance(path, SourceFile):
-            path = path.get_path_or_uri()
-        return self.__class__(smart_join(self.get_path_or_uri(), path))
+            path = path.get_path_or_uri(secret_free=False)
+        return self.__class__(smart_join(self.get_path_or_uri(secret_free=False), path))
 
-    def mtime(self):
+    def mtime(self) -> Optional[float]:
         """If possible, return mtime of the file. Otherwise, return None."""
         return None
 
     @property
     @abstractmethod
-    def is_local(self): ...
+    def is_local(self) -> bool: ...
 
     def __hash__(self):
-        return self.get_path_or_uri().__hash__()
+        return self.get_path_or_uri(secret_free=True).__hash__()
 
     def __eq__(self, other):
         if isinstance(other, SourceFile):
-            return self.get_path_or_uri() == other.get_path_or_uri()
+            return self.get_path_or_uri(secret_free=True) == other.get_path_or_uri(secret_free=True)
         return False
 
     def __str__(self):
-        return self.get_path_or_uri()
+        return self.get_path_or_uri(secret_free=True)
 
     def simplify_path(self):
         return self
@@ -88,17 +88,17 @@ class GenericSourceFile(SourceFile):
     def __init__(self, path_or_uri):
         self.path_or_uri = path_or_uri
 
-    def get_path_or_uri(self) -> str:
+    def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path_or_uri
 
-    def get_filename(self):
+    def get_filename(self) -> str:
         return os.path.basename(self.path_or_uri)
 
-    def is_persistently_cacheable(self):
+    def is_persistently_cacheable(self) -> bool:
         return False
 
     @property
-    def is_local(self):
+    def is_local(self) -> bool:
         return False
 
 
@@ -106,13 +106,13 @@ class LocalSourceFile(SourceFile):
     def __init__(self, path):
         self.path = path
 
-    def get_path_or_uri(self) -> str:
+    def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path
 
     def is_persistently_cacheable(self):
         return False
 
-    def get_filename(self):
+    def get_filename(self) -> str:
         return os.path.basename(self.path)
 
     def abspath(self):
@@ -124,14 +124,14 @@ class LocalSourceFile(SourceFile):
     def simplify_path(self):
         return utils.simplify_path(self.path)
 
-    def mtime(self):
+    def mtime(self) -> Optional[float]:
         return os.stat(self.path).st_mtime
 
     def __fspath__(self):
         return self.path
 
     @property
-    def is_local(self):
+    def is_local(self) -> bool:
         return True
 
 
@@ -146,10 +146,8 @@ class LocalGitFile(SourceFile):
         self.repo_path = repo_path
         self.path = path
 
-    def get_path_or_uri(self) -> str:
-        return "git+file://{}/{}@{}".format(
-            os.path.abspath(self.repo_path), self.path, self.ref
-        )
+    def get_path_or_uri(self, secret_free: bool) -> str:
+        return f"git+file://{os.path.abspath(self.repo_path)}/{self.path}@{self.ref}"
 
     def join(self, path):
         path = os.path.normpath("/".join((self.path, path)))
@@ -170,10 +168,10 @@ class LocalGitFile(SourceFile):
             ref=self._ref,
         )
 
-    def is_persistently_cacheable(self):
+    def is_persistently_cacheable(self) -> bool:
         return False
 
-    def get_filename(self):
+    def get_filename(self) -> str:
         return posixpath.basename(self.path)
 
     @property
@@ -192,12 +190,12 @@ class HostingProviderFile(SourceFile):
 
     def __init__(
         self,
-        repo: str = None,
-        path: str = None,
-        tag: str = None,
-        branch: str = None,
-        commit: str = None,
-        host: str = None,
+        host: str,
+        repo: str,
+        path: str,
+        tag: Optional[str] = None,
+        branch: Optional[str] = None,
+        commit: Optional[str] = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -287,12 +285,11 @@ class GithubFile(HostingProviderFile):
             )
         self.token = os.environ.get("GITHUB_TOKEN", "")
 
-    def get_path_or_uri(self) -> str:
-        auth = f":{self.token}@" if self.token else ""
+    def get_path_or_uri(self, secret_free: bool) -> str:
+        auth = f":{self.token}@" if self.token and not secret_free else ""
         # TODO find out how this URL looks like with Github enterprise server and support
         # self.host being not none by removing the check in __post_init__
         return f"https://{auth}raw.githubusercontent.com/{self.repo}/{self.ref}/{self.path}"
-
 
 class GitlabFile(HostingProviderFile):
     def __post_init__(self):
@@ -300,10 +297,10 @@ class GitlabFile(HostingProviderFile):
             self.host = "gitlab.com"
         self.token = os.environ.get("GITLAB_TOKEN", "")
 
-    def get_path_or_uri(self) -> str:
+    def get_path_or_uri(self, secret_free: bool) -> str:
         from urllib.parse import quote
 
-        auth = f"&private_token={self.token}" if self.token else ""
+        auth = f"&private_token={self.token}" if self.token and not secret_free else ""
         return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
             self.host,
             quote(self.repo, safe=""),
@@ -318,7 +315,7 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
         if basedir is None or isinstance(path_or_uri, HostingProviderFile):
             return path_or_uri
         else:
-            path_or_uri = path_or_uri.get_path_or_uri()
+            path_or_uri = path_or_uri.get_path_or_uri(secret_free=True)
     if isinstance(path_or_uri, Path):
         path_or_uri = str(path_or_uri)
     if not isinstance(path_or_uri, str):
@@ -352,7 +349,8 @@ class SourceCache:
     ]  # TODO add more prefixes for uris that are save to be cached
 
     def __init__(self, cache_path: Path, runtime_cache_path: Optional[Path] = None):
-        self.cache_path = cache_path
+        self.runtime_cache: Optional[tempfile.TemporaryDirectory]
+        self.cache_path: Path = cache_path
         os.makedirs(self.cache_path, exist_ok=True)
         if runtime_cache_path is None:
             runtime_cache_parent = self.cache_path / "runtime-cache"
@@ -450,7 +448,7 @@ class SourceCache:
                 .encode()
             )
 
-        path_or_uri = source_file.get_path_or_uri()
+        path_or_uri = source_file.get_path_or_uri(secret_free=False)
 
         try:
             return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
