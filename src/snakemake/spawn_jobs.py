@@ -274,6 +274,9 @@ class SpawnedJobArgsFactory:
             SharedFSUsage.SOFTWARE_DEPLOYMENT
             in self.workflow.storage_settings.shared_fs_usage
         )
+        shared_source_cache = (
+            SharedFSUsage.SOURCE_CACHE in self.workflow.storage_settings.shared_fs_usage
+        )
 
         # base64 encode the prefix to ensure that eventually unexpanded env vars
         # are not replaced with values (or become empty if missing) by the shell
@@ -344,6 +347,11 @@ class SpawnedJobArgsFactory:
                 "--scheduler-solver-path",
                 os.path.dirname(sys.executable),
                 skip=not shared_deployment,
+            ),
+            format_cli_arg(
+                "--runtime-source-cache-path",
+                self.workflow.sourcecache.runtime_cache_path,
+                skip=not shared_source_cache,
             ),
             w2a(
                 "overwrite_workdir",
