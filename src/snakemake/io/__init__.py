@@ -467,10 +467,13 @@ class _IOFile(str, AnnotatedStringInterface):
         if callable(self._file):
             return
         if self._file == "":
-            raise WorkflowError(
-                "Empty file path encountered. Snakemake cannot understand this. "
-                "If you want to indicate 'no file', please use an empty list ([]) instead of an empty string ('').",
-                rule=self.rule,
+            if self.rule is not None:
+                spec = f"rule {self.rule.name}, line {self.rule.lineno}, {self.rule.snakefile}: "
+            else:
+                spec = ""
+            logger.warning(
+                f"{spec}Empty file path encountered. Snakemake cannot understand this. "
+                "If you want to indicate 'no file', please use an empty list ([]) instead of an empty string ('')."
             )
         hint = (
             "It can also lead to inconsistent results of the file-matching "
