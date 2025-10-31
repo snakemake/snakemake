@@ -531,9 +531,17 @@ def eval_resource_expression(val, threads_arg=True):
         }
         if threads_arg:
             args["threads"] = kwargs["threads"]
+        # Add ioutils functions
+        import snakemake.ioutils
+        ioutils = {}
+        snakemake.ioutils.register_in_globals(ioutils)
+        # Try to evaluate resource expression.
+        # Note that `args` take precedence, i.e. if a name is present on
+        # both (e.g. `input`), the one in `args` is used.
         try:
             value = eval(
                 val,
+                ioutils,
                 args,
             )
         # Triggers for string arguments like n1-standard-4

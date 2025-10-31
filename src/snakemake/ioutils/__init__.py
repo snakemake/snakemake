@@ -6,6 +6,7 @@ from snakemake.ioutils.lookup import lookup
 from snakemake.ioutils.rule_items_proxy import rule_item_factory
 from snakemake.ioutils.subpath import subpath
 from snakemake.ioutils.input import parse_input, extract_checksum, flatten
+from snakemake.ioutils.tmp import get_tmp
 
 
 def register_in_globals(_globals):
@@ -25,5 +26,6 @@ def register_in_globals(_globals):
             "parse_input": parse_input,
             "extract_checksum": extract_checksum,
             "flatten": flatten,
+            "get_tmp": get_tmp,
         }
     )
