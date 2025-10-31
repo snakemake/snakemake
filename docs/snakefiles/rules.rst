@@ -806,7 +806,7 @@ Depending on the architecture of our system, you might have different servers wi
 
     default_resources:
       runtime: 10
-      tmpdir: get_tmp(["/fast_nvme", "/other_local_storage"])
+      tmpdir: get_tmp(["/fast_nvme", "/home/$USER/scratch", "/other_local_storage"])
 
 .. _snakefiles-targets:
 
