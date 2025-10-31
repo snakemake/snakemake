@@ -133,6 +133,7 @@ class WorkflowSettings(SettingsBase):
     consider_ancient: Mapping[str, AnySet[Union[str, int]]] = field(
         default_factory=dict
     )
+    runtime_source_cache_path: Optional[Path] = None
 
 
 class Batch:

@@ -351,7 +351,7 @@ class SourceCache:
         r"https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
 
-    def __init__(self, cache_path: Path, runtime_cache_path: Path = None):
+    def __init__(self, cache_path: Path, runtime_cache_path: Optional[Path] = None):
         self.cache_path = cache_path
         os.makedirs(self.cache_path, exist_ok=True)
         if runtime_cache_path is None:

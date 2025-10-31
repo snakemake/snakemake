@@ -19,6 +19,7 @@ from operator import attrgetter
 from typing import Dict, Iterable, List, Optional, Sequence, Union
 from collections.abc import AsyncGenerator
 from abc import abstractmethod
+from snakemake import wrapper
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
@@ -1145,12 +1146,15 @@ class Job(
     def register(self, external_jobid: Optional[str] = None):
         self.dag.workflow.persistence.started(self, external_jobid)
 
-    def get_wait_for_files(self):
+    def get_wait_for_files(self, skip_input_files: bool = False):
         wait_for_files = []
-        wait_for_files.extend(self.local_input)
-        wait_for_files.extend(
-            f for f in self.storage_input if not f.should_not_be_retrieved_from_storage
-        )
+        if not skip_input_files:
+            wait_for_files.extend(self.local_input)
+            wait_for_files.extend(
+                f
+                for f in self.storage_input
+                if not f.should_not_be_retrieved_from_storage
+            )
 
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
@@ -1164,6 +1168,25 @@ class Job(
             # Managed or containerized envs are not present on the host FS,
             # hence we don't need to wait for them.
             wait_for_files.append(self.conda_env.address)
+
+        if self.is_wrapper:
+            script = wrapper.get_script(
+                self.rule.wrapper,
+                self.dag.workflow.sourcecache,
+                self.dag.workflow.workflow_settings.wrapper_prefix,
+            )
+            if script is not None:
+                wait_for_files.append(
+                    IOFile(self.dag.workflow.sourcecache.get_path(script))
+                )
+            env = wrapper.get_conda_env(
+                self.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
+            )
+            if env is not None:
+                wait_for_files.append(
+                    IOFile(self.dag.workflow.sourcecache.get_path(env))
+                )
+
         return wait_for_files
 
     @property
@@ -1502,15 +1525,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
         )
 
         for job in self.jobs:
-            if job.shadow_dir:
-                wait_for_files.append(job.shadow_dir)
-            if (
-                DeploymentMethod.CONDA
-                in self.dag.workflow.deployment_settings.deployment_method
-                and job.conda_env
-                and not job.conda_env.is_externally_managed
-            ):
-                wait_for_files.append(job.conda_env.address)
+            wait_for_files.extend(job.get_wait_for_files(skip_input_files=True))
         return wait_for_files
 
     @property

@@ -208,7 +208,10 @@ class Workflow(WorkflowExecutorInterface):
         self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
         self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
 
-        self._sourcecache = SourceCache(self.source_cache_path)
+        self._sourcecache = SourceCache(
+            self.source_cache_path,
+            runtime_cache_path=self.workflow_settings.runtime_source_cache_path,
+        )
         self._scheduler = None
         self._spawned_job_general_args = None
         self._executor_plugin = None
