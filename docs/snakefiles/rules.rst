@@ -786,22 +786,32 @@ The ``subpath`` function can be very handy in combination with :ref:`Snakemake's
         shell:
             "somecommand {input} --name {params.basename} --outdir {params.outdir}"
 
-
 .. _snakefiles-flatten:
 
-flatten
-"""""""
+The flatten function
+""""""""""""""""""""
 When selecting input files, sometimes you might end up with an irregular list of lists. To flatten in, you can use:
 
 .. code-block:: python
 
     flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
 
+.. _snakefiles-get_tmp:
+
+The get_tmp function
+""""""""""""""""""""
+Depending on the architecture of our system, you might have different servers with different "ideal" temp folders. For example, some might have small `/tmp` folders but fast `nvme` disks, while in others the only option might be the slow `NFS`. This function allows the user to specify a list of temp folders that, on each job submission, are evaluated. The first valid path is selected; if no path is valid, Snakemake's internal `system_tmpdir` is used.
+
+.. code-block:: yaml
+
+    default_resources:
+      runtime: 10
+      tmpdir: get_tmp(["/fast_nvme", "/other_local_storage"])
 
 .. _snakefiles-targets:
 
 Target rules
--------------
+------------
 
 By default, Snakemake always wants to execute the first rule in the snakefile.
 This gives rise to pseudo-rules at the beginning of the file that can be used to define build-targets similar to GNU Make:
