@@ -1640,16 +1640,23 @@ class Workflow(WorkflowExecutorInterface):
             print(code)
             return
 
-        snakefile_path_or_uri = snakefile.get_basedir().get_path_or_uri(secret_free=False)
+        snakefile_path_or_uri = snakefile.get_basedir().get_path_or_uri(
+            secret_free=False
+        )
         if (
             isinstance(snakefile, LocalSourceFile)
             and snakefile_path_or_uri not in sys.path
         ):
             # insert the current directory into sys.path
             # this allows to import modules from the workflow directory
-            sys.path.insert(0, snakefile.get_basedir().get_path_or_uri(secret_free=False))
+            sys.path.insert(
+                0, snakefile.get_basedir().get_path_or_uri(secret_free=False)
+            )
 
-        exec(compile(code, snakefile.get_path_or_uri(secret_free=False), "exec"), self.globals)
+        exec(
+            compile(code, snakefile.get_path_or_uri(secret_free=False), "exec"),
+            self.globals,
+        )
 
         if not overwrite_default_target:
             self.default_target = default_target
@@ -1760,7 +1767,9 @@ class Workflow(WorkflowExecutorInterface):
 
         if is_local_file(schema) and not os.path.isabs(schema):
             # schema is relative to current Snakefile
-            schema = self.current_basedir.join(schema).get_path_or_uri(secret_free=False)
+            schema = self.current_basedir.join(schema).get_path_or_uri(
+                secret_free=False
+            )
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
         eido.validate_project(project=self.globals["pep"], schema=schema)
@@ -2177,10 +2186,13 @@ class Workflow(WorkflowExecutorInterface):
                     # infer source file from unmodified uri or path
                     conda_env = infer_source_file(conda_env)
 
-            logger.info(f"Injecting conda environment {conda_env.get_path_or_uri(secret_free=True)}.")
+            logger.info(
+                f"Injecting conda environment {conda_env.get_path_or_uri(secret_free=True)}."
+            )
             try:
                 env = inject_env_file(
-                    conda_env.get_path_or_uri(secret_free=False), package_manager=package_manager
+                    conda_env.get_path_or_uri(secret_free=False),
+                    package_manager=package_manager,
                 )
             except subprocess.CalledProcessError as e:
                 raise WorkflowError(

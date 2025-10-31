@@ -888,7 +888,9 @@ class CondaEnvSpec(ABC):
 class CondaEnvFileSpec(CondaEnvSpec):
     def __init__(self, filepath, rule=None):
         if isinstance(filepath, SourceFile):
-            self.file = IOFile(str(filepath.get_path_or_uri(secret_free=False)), rule=rule)
+            self.file = IOFile(
+                str(filepath.get_path_or_uri(secret_free=False)), rule=rule
+            )
         elif isinstance(filepath, _IOFile):
             self.file = filepath
         else:

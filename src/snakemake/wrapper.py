@@ -26,7 +26,7 @@ def is_script(source_file):
     )
 
 
-def get_path(path: str, prefix: Optional[str]=None):
+def get_path(path: str, prefix: Optional[str] = None):
     if not is_url(path):
         if prefix is not None and prefix.startswith("git+file"):
             parts = path.split("/")
@@ -36,7 +36,9 @@ def get_path(path: str, prefix: Optional[str]=None):
             if ver_regex.match(ref):
                 # Best case, we have a github file with tag, so that we can
                 # persistently cache it in the sourcecache.
-                return GithubFile(repo="snakemake/snakemake-wrappers", tag=ref, path=path_tail)
+                return GithubFile(
+                    repo="snakemake/snakemake-wrappers", tag=ref, path=path_tail
+                )
             else:
                 # Otherwise, use a plain url and store it in runtime cache only.
                 path = "https://github.com/snakemake/snakemake-wrappers/raw/" + path

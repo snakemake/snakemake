@@ -30,7 +30,11 @@ from snakemake.common.git import split_git_path
 from snakemake.logging import logger
 
 
-def _check_git_args(tag: Optional[str] = None, branch: Optional[str] = None, commit: Optional[str] = None):
+def _check_git_args(
+    tag: Optional[str] = None,
+    branch: Optional[str] = None,
+    commit: Optional[str] = None,
+):
     n_refs = sum(1 for ref in (tag, branch, commit) if ref is not None)
     if n_refs != 1:
         raise SourceFileError(
@@ -74,7 +78,9 @@ class SourceFile(ABC):
 
     def __eq__(self, other):
         if isinstance(other, SourceFile):
-            return self.get_path_or_uri(secret_free=True) == other.get_path_or_uri(secret_free=True)
+            return self.get_path_or_uri(secret_free=True) == other.get_path_or_uri(
+                secret_free=True
+            )
         return False
 
     def __str__(self):
@@ -291,6 +297,7 @@ class GithubFile(HostingProviderFile):
         # self.host being not none by removing the check in __post_init__
         return f"https://{auth}raw.githubusercontent.com/{self.repo}/{self.ref}/{self.path}"
 
+
 class GitlabFile(HostingProviderFile):
     def __post_init__(self):
         if self.host is None:
@@ -453,4 +460,7 @@ class SourceCache:
         try:
             return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
         except Exception as e:
-            raise WorkflowError(f"Failed to open source file {source_file.get_path_or_uri(secret_free=True)}", e)
+            raise WorkflowError(
+                f"Failed to open source file {source_file.get_path_or_uri(secret_free=True)}",
+                e,
+            )

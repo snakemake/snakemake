@@ -777,7 +777,9 @@ class PythonScript(ScriptBase):
 
     def get_preamble(self):
         if isinstance(self.path, LocalSourceFile):
-            file_override = os.path.realpath(self.path.get_path_or_uri(secret_free=True))
+            file_override = os.path.realpath(
+                self.path.get_path_or_uri(secret_free=True)
+            )
         else:
             file_override = self.path.get_path_or_uri(secret_free=True)
         preamble_addendum = (
@@ -1091,7 +1093,9 @@ class RMarkdown(ScriptBase):
             REncoder.encode_dict(self.config),
             REncoder.encode_value(self.rulename),
             REncoder.encode_numeric(self.bench_iteration),
-            REncoder.encode_value(self.path.get_basedir().get_path_or_uri(secret_free=True)),
+            REncoder.encode_value(
+                self.path.get_basedir().get_path_or_uri(secret_free=True)
+            ),
         )
 
     def write_script(self, preamble, fd):
@@ -1175,7 +1179,9 @@ class JuliaScript(ScriptBase):
                 JuliaEncoder.encode_dict(self.config),
                 JuliaEncoder.encode_value(self.rulename),
                 JuliaEncoder.encode_value(self.bench_iteration),
-                JuliaEncoder.encode_value(self.path.get_basedir().get_path_or_uri(secret_free=True)),
+                JuliaEncoder.encode_value(
+                    self.path.get_basedir().get_path_or_uri(secret_free=True)
+                ),
             )
         )
 
