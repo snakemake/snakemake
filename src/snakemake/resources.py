@@ -533,6 +533,7 @@ def eval_resource_expression(val, threads_arg=True):
             args["threads"] = kwargs["threads"]
         # Add ioutils functions
         import snakemake.ioutils
+
         ioutils = {}
         snakemake.ioutils.register_in_globals(ioutils)
         # Try to evaluate resource expression.
