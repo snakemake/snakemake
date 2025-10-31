@@ -11,6 +11,6 @@ rule b:
     output:
         "test2.txt",
     resources:
-        tmpdir=get_tmp(["/non_existent", "foo"]),
+        tmpdir=choose_tmp(["/non_existent", "foo"]),
     shell:
         "echo {resources.tmpdir} $TMPDIR $TEMP $TMP $TEMPDIR > {output}"

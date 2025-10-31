@@ -796,9 +796,9 @@ When selecting input files, sometimes you might end up with an irregular list of
 
     flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
 
-.. _snakefiles-get_tmp:
+.. _snakefiles-choose_tmp:
 
-The get_tmp function
+The choose_tmp function
 """"""""""""""""""""
 Depending on the architecture of our system, you might have different servers with different "ideal" temp folders. For example, some might have small `/tmp` folders but fast `nvme` disks, while in others the only option might be the slow `NFS`. This function allows the user to specify a list of temp folders that, on each job submission, are evaluated. The first valid path is selected; if no path is valid, Snakemake's internal `system_tmpdir` is used.
 
@@ -806,7 +806,7 @@ Depending on the architecture of our system, you might have different servers wi
 
     default_resources:
       runtime: 10
-      tmpdir: get_tmp(["/fast_nvme", "/home/$USER/scratch", "/scratch/$SLURM_JOB_ID"])
+      tmpdir: choose_tmp(["/fast_nvme", "/home/$USER/scratch", "/scratch/$SLURM_JOB_ID"])
 
 .. _snakefiles-targets:
 
