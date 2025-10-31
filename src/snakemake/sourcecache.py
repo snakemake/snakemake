@@ -190,12 +190,12 @@ class HostingProviderFile(SourceFile):
 
     def __init__(
         self,
-        host: str,
         repo: str,
         path: str,
         tag: Optional[str] = None,
         branch: Optional[str] = None,
         commit: Optional[str] = None,
+        host: Optional[str] = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -453,4 +453,4 @@ class SourceCache:
         try:
             return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
         except Exception as e:
-            raise WorkflowError(f"Failed to open source file {path_or_uri}", e)
+            raise WorkflowError(f"Failed to open source file {source_file.get_path_or_uri(secret_free=True)}", e)
