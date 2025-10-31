@@ -1,16 +1,16 @@
 rule a:
     input:
-        "test2.txt"
+        "test2.txt",
     output:
-        "test.txt"
+        "test.txt",
     shell:
         "echo {resources.tmpdir} > {output}"
 
 
 rule b:
     output:
-        "test2.txt"
+        "test2.txt",
     resources:
-        tmpdir="foo"
+        tmpdir=get_tmp(["/non_existent", "foo"]),
     shell:
         "echo {resources.tmpdir} $TMPDIR $TEMP $TMP $TEMPDIR > {output}"
