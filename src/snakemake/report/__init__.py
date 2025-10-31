@@ -455,9 +455,7 @@ class FileRecord(FileRecordInterface):
         return self.job.rule.workflow
 
 
-def shorten_ids(results: Mapping[
-    Category, Mapping[Category, List[FileRecord]]
-]):
+def shorten_ids(results: Mapping[Category, Mapping[Category, List[FileRecord]]]):
     file_records = [
         res
         for cat, subcats in results.items()
