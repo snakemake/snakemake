@@ -23,7 +23,7 @@ def get_tmp(tmpdirs: List) -> str:
         ):
             return True
         else:
-            is_dir_creatable(dir.parent)
+            return is_dir_creatable(dir.parent)
 
     for tmpdir in tmpdirs:
         if is_dir_creatable(Path(tmpdir)):
