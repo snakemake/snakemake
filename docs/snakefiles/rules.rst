@@ -800,7 +800,7 @@ When selecting input files, sometimes you might end up with an irregular list of
 
 The choose_tmp function
 """""""""""""""""""""""
-Depending on the architecture of our system, you might have different servers with different "ideal" temp folders. For example, some might have small `/tmp` folders but fast `nvme` disks, while in others the only option might be the slow `NFS`. This function allows the user to specify a list of temp folders that, on each job submission, are evaluated. The first valid path is selected; if no path is valid, Snakemake's internal `system_tmpdir` is used.
+Depending on the architecture of our system, you might have different servers with different "ideal" temp folders. For example, some might have small ``/tmp`` folders but fast ``nvme`` disks, while in others the only option might be the slow NFS. This function allows the user to specify a list of temp folders that, on each job submission, are evaluated. The first valid path is selected; if no path is valid, Snakemake's internal ``system_tmpdir`` is used.
 
 .. code-block:: yaml
 
