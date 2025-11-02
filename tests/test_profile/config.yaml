@@ -1,4 +1,3 @@
-
 configfile: "$WORKFLOW_CONFIG"
 cores: all
 set-threads:
