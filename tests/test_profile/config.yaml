@@ -1,4 +1,5 @@
-configfile: "workflow-config.yaml"
+
+configfile: "$WORKFLOW_CONFIG"
 cores: all
 set-threads:
   - a=max(1024*24*input.size_mb, 2)
@@ -11,6 +12,7 @@ set-resources:
     mem_mb: max(1024*24*input.size_mb, 1)
     spam_factor: X
     double_jeopardy: attempt
+    tmpdir: "/tmp/$TMPDIR_SUBFOLDER"
 
 groups:
   a: grp1

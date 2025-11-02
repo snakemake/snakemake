@@ -523,6 +523,8 @@ class GroupResources:
 
 def eval_resource_expression(val, threads_arg=True):
     def generic_callable(val, threads_arg, **kwargs):
+        import os
+
         args = {
             "input": kwargs["input"],
             "attempt": kwargs["attempt"],
@@ -531,6 +533,9 @@ def eval_resource_expression(val, threads_arg=True):
         }
         if threads_arg:
             args["threads"] = kwargs["threads"]
+        # Expand env variables
+        val = os.path.expanduser(os.path.expandvars(val))
+        # Eval expression
         try:
             value = eval(
                 val,

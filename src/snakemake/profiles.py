@@ -26,7 +26,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
             )
 
         def format_one_level_dict(d):
-            return [f"{key}={os.path.expandvars(str(val))}" for key, val in d.items()]
+            return [f"{key}={val}" for key, val in d.items()]
 
         def format_two_level_dict(d, item: str):
             if not all(isinstance(val, dict) for val in d.values()):
@@ -34,7 +34,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                     f"Invalid {item} format in profile. Expected two-level mapping, got {d}"
                 )
             return [
-                f"{key}:{key2}={os.path.expandvars(str(val2))}"
+                f"{key}:{key2}={val2}"
                 for key, val in d.items()
                 for key2, val2 in val.items()
             ]
@@ -64,7 +64,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                     elif key == "set-resources":
                         result[key] = format_two_level_dict(value, "set-resources")
                 else:
-                    value = os.path.expandvars(str(value))
+                    value = os.path.expanduser(os.path.expandvars(str(value)))
 
                     # Adjust path if it exists in the profile dir.
                     # Otherwise value is not a file or not existing in the profile dir.
