@@ -1,12 +1,14 @@
 rule all:
-	input:
-		"test.out"
+  input:
+    "test.out"
 
 
 rule test_xonsh:
-	output:
-		"test.out"
-	conda:
-		"envs/hy.yaml"
-	script:
-		"scripts/test.hy"
+  input:
+    "test.in"
+  output:
+    "test.out"
+  conda:
+    "envs/hy.yaml"
+  script:
+    "scripts/test.hy"
