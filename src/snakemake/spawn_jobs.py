@@ -6,7 +6,6 @@ import sys
 from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.settings import CommonSettings
-from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import PIP_DEPLOYMENTS_PATH
@@ -96,17 +95,11 @@ class SpawnedJobArgsFactory:
         }
 
     def get_set_resources_args(self):
-        def get_orig_arg(value):
-            if isinstance(value, ParsedResource):
-                return value.orig_arg
-            else:
-                return value
-
         return [
             format_cli_arg(
                 "--set-resources",
                 [
-                    f"{rule}:{name}={get_orig_arg(value)}"
+                    f"{rule}:{name}={value.raw}"
                     for rule, res in self.workflow.resource_settings.overwrite_resources.items()
                     for name, value in res.items()
                 ],
@@ -116,7 +109,7 @@ class SpawnedJobArgsFactory:
             format_cli_arg(
                 "--set-threads",
                 [
-                    f"{rule}={get_orig_arg(value)}"
+                    f"{rule}={value.raw}"
                     for rule, value in self.workflow.resource_settings.overwrite_threads.items()
                 ],
                 skip=not self.workflow.resource_settings.overwrite_threads,
