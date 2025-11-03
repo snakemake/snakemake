@@ -4,7 +4,7 @@ rule b:
     input:
         "input.txt"
     resources:
-        mem_mb = lambda wildcards, attempt, input: attempt * 1000,
+        mem_mb = lambda wildcards, attempt, input: input.size_mb,
     params:
         mem_gb = lambda wildcards, resources: int(resources.mem_mb) / 1000,
     shell:
