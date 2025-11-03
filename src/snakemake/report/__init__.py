@@ -467,7 +467,9 @@ def shorten_ids(results: Mapping[Category, Mapping[Category, List[FileRecord]]])
             for rec in file_records:
                 rec.id = rec.id[:id_len]
             return
-    logger.warning("Obtained result IDs are non-unique. Certain results will be not accessible.")
+    logger.warning(
+        "Obtained result IDs are non-unique. Certain results will be not accessible."
+    )
 
 
 async def expand_labels(labels, wildcards, job):
