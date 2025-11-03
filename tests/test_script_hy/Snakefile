@@ -3,7 +3,7 @@ rule all:
     "test.out"
 
 
-rule test_xonsh:
+rule test_hy:
   input:
     "test.in"
   output:
