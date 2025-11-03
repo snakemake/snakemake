@@ -1760,16 +1760,26 @@ Xonsh_
 .. code-block:: python
 
     rule NAME:
-        input:
-            "path/to/inputfile",
-            "path/to/other/inputfile"
-        output:
-            "path/to/outputfile",
-            "path/to/another/outputfile"
+        ...
         script:
             "path/to/script.xsh"
 
 Because Xonsh is a superset of Python, you can use a Xonsh script as you would a Python script (see above), but with all the additional shell primitives that Xonsh provides.
+
+
+Hy_
+~~~
+
+.. _Hy: https://hylang.org/
+
+.. code-block:: python
+
+    rule NAME:
+        ...
+        script:
+            "path/to/script.hy"
+
+Hy allows you to interact with Python using a Lisp-like syntax.
 
 
 .. _snakefiles_notebook-integration:

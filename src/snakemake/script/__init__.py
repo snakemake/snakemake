@@ -1610,6 +1610,15 @@ class XonshScript(PythonScript):
         )
 
 
+class HyScript(PythonScript):
+    def write_script(self, preamble, fd):
+        fd.write(f"(pys #[[{preamble}]])".encode())
+        fd.write(self.source.encode())
+
+    def execute_script(self, fname, edit=False):
+        self._execute_cmd("hy {fname:q}", fname=fname)
+
+
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
     """Strip a substring matching a regex from a string and return the stripped part
     and the remainder of the original string.
@@ -1674,6 +1683,8 @@ def get_language(source_file, source):
         language = "bash"
     elif filename.endswith(".xsh"):
         language = "xonsh"
+    elif filename.endswith(".hy"):
+        language = "hy"
 
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
@@ -1738,10 +1749,11 @@ def script(
         "rust": RustScript,
         "bash": BashScript,
         "xonsh": XonshScript,
+        "hy": HyScript,
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
-            "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd), Julia (.jl), Rust (.rs), Bash (.sh), or Xonsh (.xsh) script."
+            "Script must be one of the following filetypes: [.py .R .Rmd .jl .rs .sh .xsh .hy]"
         )
 
     executor = exec_class(
