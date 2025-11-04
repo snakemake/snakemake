@@ -138,6 +138,8 @@ class ModuleInfo:
             if ver_match and Version(ver_match.group("ver")) >= Version("8.0.0"):
                 # New style meta-wrappers, containing concrete versions of each wrapper
                 return None
+            else:
+                return tag
         return None
 
     def get_rule_whitelist(self, rules):
