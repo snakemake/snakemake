@@ -430,7 +430,7 @@ class FileRecord(FileRecordInterface):
             except Exception as e:
                 raise WorkflowError(
                     "Error loading caption file {} of output marked for report.".format(
-                        self.raw_caption.get_path_or_uri()
+                        self.raw_caption.get_path_or_uri(secret_free=True)
                     ),
                     e,
                 )
@@ -753,7 +753,7 @@ async def auto_report(
             except UndefinedError as e:
                 raise WorkflowError(
                     "Error rendering global report caption {}:".format(
-                        dag.workflow.report_text.get_path_or_uri()
+                        dag.workflow.report_text.get_path_or_uri(secret_free=True)
                     ),
                     e,
                 )

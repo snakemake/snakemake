@@ -409,7 +409,7 @@ class Job(
         path: SourceFile = self._path_to_source_file(path)
 
         if isinstance(path, LocalSourceFile):
-            path = path.get_path_or_uri()
+            path = path.get_path_or_uri(secret_free=True)
             if os.path.exists(path):
                 script_mtime = get_script_mtime(path)
                 for f in self.output:
