@@ -129,10 +129,11 @@ class ModuleInfo:
     def get_wrapper_tag(self):
         if self.meta_wrapper:
             if wrapper.is_url(self.meta_wrapper):
-                raise WorkflowError(
-                    "meta_wrapper directive of module statement currently does not support full URLs."
-                )
-            return self.meta_wrapper.split("/", 1)[0]
+                # no wrapper tag replacement, use meta-wrapper as is
+                return None
+            tag = self.meta_wrapper.split("/", 1)[0]
+            
+            tag.rstrip("v").split(".")
         return None
 
     def get_rule_whitelist(self, rules):
