@@ -12,7 +12,7 @@ import base64
 import textwrap
 import datetime
 import io
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Mapping, Optional, Type, Union
 import uuid
 import itertools
 from collections import defaultdict
@@ -455,6 +455,23 @@ class FileRecord(FileRecordInterface):
         return self.job.rule.workflow
 
 
+def shorten_ids(results: Mapping[Category, Mapping[Category, List[FileRecord]]]):
+    file_records = [
+        res
+        for cat, subcats in results.items()
+        for subcat, catresults in subcats.items()
+        for res in catresults
+    ]
+    for id_len in range(8, 65):
+        if len({rec.id[:id_len] for rec in file_records}) == len(file_records):
+            for rec in file_records:
+                rec.id = rec.id[:id_len]
+            return
+    logger.warning(
+        "Obtained result IDs are non-unique. Certain results will be not accessible."
+    )
+
+
 async def expand_labels(labels, wildcards, job):
     if labels is None:
         return None
@@ -657,6 +674,7 @@ async def auto_report(
                             "See report documentation.",
                             rule=job.rule,
                         )
+    shorten_ids(results)
 
     for subcats in results.values():
         for catresults in subcats.values():
