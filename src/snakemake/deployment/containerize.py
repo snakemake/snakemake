@@ -60,10 +60,10 @@ def containerize(workflow, dag):
     def relfile(env):
         if isinstance(env.file, LocalSourceFile):
             return os.path.relpath(
-                env.file.get_path_or_uri(secret_free=False), os.getcwd()
+                env.file.get_path_or_uri(secret_free=True), os.getcwd()
             )
         else:
-            return env.file.get_path_or_uri(secret_free=False)
+            return env.file.get_path_or_uri(secret_free=True)
 
     envs = sorted(conda_envs, key=relfile)
     envhash = hashlib.sha256()
