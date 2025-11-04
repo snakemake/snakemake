@@ -14,7 +14,7 @@ from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file
 EXTENSIONS = [".py", ".R", ".Rmd", ".jl"]
 
 
-ver_regex = re.compile(r"v?[0-9]+\.[0-9]+\.[0-9]+")
+ver_regex = re.compile(r"v?(?P<ver>[0-9]+\.[0-9]+\.[0-9]+)")
 
 
 def is_script(source_file):
