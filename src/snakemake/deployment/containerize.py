@@ -59,9 +59,11 @@ def containerize(workflow, dag):
 
     def relfile(env):
         if isinstance(env.file, LocalSourceFile):
-            return os.path.relpath(env.file.get_path_or_uri(), os.getcwd())
+            return os.path.relpath(
+                env.file.get_path_or_uri(secret_free=True), os.getcwd()
+            )
         else:
-            return env.file.get_path_or_uri()
+            return env.file.get_path_or_uri(secret_free=True)
 
     envs = sorted(conda_envs, key=relfile)
     envhash = hashlib.sha256()
@@ -94,7 +96,9 @@ def containerize(workflow, dag):
         if isinstance(env.file, LocalSourceFile):
             get_env_cmds.append(f"COPY {env_source_path} {env_target_path}")
         else:
-            get_env_cmds.append(f"ADD {env.file.get_path_or_uri()} {env_target_path}")
+            get_env_cmds.append(
+                f"ADD {env.file.get_path_or_uri(secret_free=True)} {env_target_path}"
+            )
 
         generate_env_cmds.append(
             f"conda env create --prefix {prefix} --file {env_target_path} &&"
