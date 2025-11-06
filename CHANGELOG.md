@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.13.6](https://github.com/snakemake/snakemake/compare/v9.13.5...v9.13.6) (2025-11-06)
+
+
+### Bug Fixes
+
+* only complain about mixed rules and functions for workflows that are not in a single snakefile; improve internal pathvar error handling ([#3829](https://github.com/snakemake/snakemake/issues/3829)) ([a729a47](https://github.com/snakemake/snakemake/commit/a729a475293609af3be73e8ff16bd628e10d79d7))
+
 ## [9.13.5](https://github.com/snakemake/snakemake/compare/v9.13.4...v9.13.5) (2025-11-04)
 
 
