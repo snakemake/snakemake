@@ -35,7 +35,11 @@ class SnakefileLinter(Linter):
         rule_regex=re.compile("rule .+?:"),
         func_regex=re.compile("def .+?:"),
     ):
-        if len(self.items) > 1 and rule_regex.search(snakefile) and func_regex.search(snakefile):
+        if (
+            len(self.items) > 1
+            and rule_regex.search(snakefile)
+            and func_regex.search(snakefile)
+        ):
             yield Lint(
                 title="Mixed rules and functions in same snakefile.",
                 body="Small one-liner functions used only once should be "
