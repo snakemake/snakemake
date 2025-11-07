@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.13.7](https://github.com/snakemake/snakemake/compare/v9.13.6...v9.13.7) (2025-11-07)
+
+
+### Bug Fixes
+
+* backup output files marked for update and restore them in case of job failures ([#3833](https://github.com/snakemake/snakemake/issues/3833)) ([3e0904d](https://github.com/snakemake/snakemake/commit/3e0904d61cc8bb7acb2ef6172135a7b7df0d5ead))
+
 ## [9.13.6](https://github.com/snakemake/snakemake/compare/v9.13.5...v9.13.6) (2025-11-06)
 
 
