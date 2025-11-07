@@ -1477,7 +1477,7 @@ the Hy script might look like this:
 
     (with [f
            (-> (get snakemake.output "results_file")
-               open)]
+               (open "w"))]
       (print result :file f))
 
 
