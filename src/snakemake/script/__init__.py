@@ -658,7 +658,7 @@ class ScriptBase(ABC):
     @property
     def local_path(self):
         assert self.is_local
-        return self.path.get_path_or_uri()
+        return self.path.get_path_or_uri(secret_free=False)
 
     @abstractmethod
     def get_preamble(self) -> str: ...
@@ -724,7 +724,7 @@ class PythonScript(ScriptBase):
             config,
             rulename,
             bench_iteration,
-            path.get_basedir().get_path_or_uri(),
+            path.get_basedir().get_path_or_uri(secret_free=True),
         )
         snakemake = pickle.dumps(snakemake)
         # Obtain search path for current snakemake module.
@@ -743,7 +743,7 @@ class PythonScript(ScriptBase):
                 searchpaths.append(cache_searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if is_local:
-            searchpaths.append(path.get_basedir().get_path_or_uri())
+            searchpaths.append(path.get_basedir().get_path_or_uri(secret_free=True))
 
         shell_exec = resources.get("shell_exec")
         shell_exec_stmt = (
@@ -778,9 +778,11 @@ class PythonScript(ScriptBase):
 
     def get_preamble(self):
         if isinstance(self.path, LocalSourceFile):
-            file_override = os.path.realpath(self.path.get_path_or_uri())
+            file_override = os.path.realpath(
+                self.path.get_path_or_uri(secret_free=True)
+            )
         else:
-            file_override = self.path.get_path_or_uri()
+            file_override = self.path.get_path_or_uri(secret_free=True)
         preamble_addendum = (
             "__real_file__ = __file__; __file__ = {file_override};".format(
                 file_override=repr(file_override)
@@ -980,7 +982,7 @@ class RScript(ScriptBase):
             REncoder.encode_dict(config),
             REncoder.encode_value(rulename),
             REncoder.encode_numeric(bench_iteration),
-            REncoder.encode_value(path.get_basedir().get_path_or_uri()),
+            REncoder.encode_value(path.get_basedir().get_path_or_uri(secret_free=True)),
             preamble_addendum=preamble_addendum,
         )
 
@@ -1092,7 +1094,9 @@ class RMarkdown(ScriptBase):
             REncoder.encode_dict(self.config),
             REncoder.encode_value(self.rulename),
             REncoder.encode_numeric(self.bench_iteration),
-            REncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
+            REncoder.encode_value(
+                self.path.get_basedir().get_path_or_uri(secret_free=True)
+            ),
         )
 
     def write_script(self, preamble, fd):
@@ -1176,7 +1180,9 @@ class JuliaScript(ScriptBase):
                 JuliaEncoder.encode_dict(self.config),
                 JuliaEncoder.encode_value(self.rulename),
                 JuliaEncoder.encode_value(self.bench_iteration),
-                JuliaEncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
+                JuliaEncoder.encode_value(
+                    self.path.get_basedir().get_path_or_uri(secret_free=True)
+                ),
             )
         )
 
@@ -1244,7 +1250,7 @@ class RustScript(ScriptBase):
             config=encode_namedlist(config.items()),
             rulename=rulename,
             bench_iteration=bench_iteration,
-            scriptdir=path.get_basedir().get_path_or_uri(),
+            scriptdir=path.get_basedir().get_path_or_uri(secret_free=True),
         )
 
         json_string = json.dumps(dict(snakemake))
@@ -1544,7 +1550,7 @@ class BashScript(ScriptBase):
             config=config,
             rulename=rulename,
             bench_iteration=bench_iteration,
-            scriptdir=path.get_basedir().get_path_or_uri(),
+            scriptdir=path.get_basedir().get_path_or_uri(secret_free=True),
         )
 
         namedlists = [
@@ -1644,7 +1650,7 @@ def get_source(
 ):
     if wildcards is not None and params is not None:
         if isinstance(path, SourceFile):
-            path = path.get_path_or_uri()
+            path = path.get_path_or_uri(secret_free=False)
         # Format path if wildcards are given.
         path = infer_source_file(format(path, wildcards=wildcards, params=params))
 

@@ -4,14 +4,17 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 
+import re
+from typing import Optional
 from snakemake.exceptions import WorkflowError
 from snakemake.script import script
-from snakemake.sourcecache import SourceCache, infer_source_file
+from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file
 
-
-PREFIX = "https://github.com/snakemake/snakemake-wrappers/raw/"
 
 EXTENSIONS = [".py", ".R", ".Rmd", ".jl"]
+
+
+ver_regex = re.compile(r"v?(?P<ver>[0-9]+\.[0-9]+\.[0-9]+)")
 
 
 def is_script(source_file):
@@ -23,14 +26,24 @@ def is_script(source_file):
     )
 
 
-def get_path(path, prefix=None):
+def get_path(path: str, prefix: Optional[str] = None):
     if not is_url(path):
-        if prefix is None:
-            prefix = PREFIX
-        elif prefix.startswith("git+file"):
+        if prefix is not None and prefix.startswith("git+file"):
             parts = path.split("/")
             path = "/" + "/".join(parts[1:]) + "@" + parts[0]
-        path = prefix + path
+        if prefix is None:
+            ref, path_tail = path.split("/", 1)
+            if ver_regex.match(ref):
+                # Best case, we have a github file with tag, so that we can
+                # persistently cache it in the sourcecache.
+                return GithubFile(
+                    repo="snakemake/snakemake-wrappers", tag=ref, path=path_tail
+                )
+            else:
+                # Otherwise, use a plain url and store it in runtime cache only.
+                path = "https://github.com/snakemake/snakemake-wrappers/raw/" + path
+        else:
+            path = prefix + path
     return infer_source_file(path)
 
 
@@ -108,7 +121,7 @@ def wrapper(
             "This can be a network issue or a mistake in the wrapper URL."
         )
     script(
-        script_source.get_path_or_uri(),
+        script_source.get_path_or_uri(secret_free=False),
         "",
         input,
         output,

@@ -1,6 +1,26 @@
 # Changelog
 
 
+## [9.13.6](https://github.com/snakemake/snakemake/compare/v9.13.5...v9.13.6) (2025-11-06)
+
+
+### Bug Fixes
+
+* only complain about mixed rules and functions for workflows that are not in a single snakefile; improve internal pathvar error handling ([#3829](https://github.com/snakemake/snakemake/issues/3829)) ([a729a47](https://github.com/snakemake/snakemake/commit/a729a475293609af3be73e8ff16bd628e10d79d7))
+
+## [9.13.5](https://github.com/snakemake/snakemake/compare/v9.13.4...v9.13.5) (2025-11-04)
+
+
+### Bug Fixes
+
+* cache wrapper files and wait for them in case of shared filesystem for sources ([#3809](https://github.com/snakemake/snakemake/issues/3809)) ([498fff7](https://github.com/snakemake/snakemake/commit/498fff7863989a53349a615ea53ac9d8f70937bf))
+* correctly handle meta-wrapper tag replacement depending on the used snakemake-wrapper release ([#3826](https://github.com/snakemake/snakemake/issues/3826)) ([8d46a4a](https://github.com/snakemake/snakemake/commit/8d46a4abcc906d4a5d910c9088e3c03258abf46e))
+* ensure that flags are properly considered for input files before applying path modifiers (i.e. default storage providers) ([#3813](https://github.com/snakemake/snakemake/issues/3813)) ([d3bfe32](https://github.com/snakemake/snakemake/commit/d3bfe325161d22d6b51f1cd0c30f72d85d31b07d))
+* ensure that tokens are not leaked when paths or uris of source files are logged ([#3821](https://github.com/snakemake/snakemake/issues/3821)) ([a217e50](https://github.com/snakemake/snakemake/commit/a217e504b64efa150881cf92f5a5ce5959d1e891))
+* print secs as numeric in jsonl benchmark format ([#3814](https://github.com/snakemake/snakemake/issues/3814)) ([395a5e6](https://github.com/snakemake/snakemake/commit/395a5e61a0db5fc5394c5b590ac145b51e863144))
+* revert breaking change in 9.11.9 disallowing empty input files even when unused ([#3810](https://github.com/snakemake/snakemake/issues/3810)) ([83c05cc](https://github.com/snakemake/snakemake/commit/83c05cc780e5f0397e9561dc46d4df34e5095434))
+* shorten report ids (thus dir names) in order to avoid issues with path length on windows ([#3822](https://github.com/snakemake/snakemake/issues/3822)) ([b24d971](https://github.com/snakemake/snakemake/commit/b24d971351f4fdc4986b7115b93f61675f87156c))
+
 ## [9.13.4](https://github.com/snakemake/snakemake/compare/v9.13.3...v9.13.4) (2025-10-22)
 
 
