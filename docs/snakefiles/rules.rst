@@ -1400,6 +1400,88 @@ or using the explicit import:
 
 You can use the Python debugger from within the script if you invoke Snakemake with ``--debug``.
 
+Xonsh_
+""""""
+
+.. _Xonsh: https://xon.sh
+
+Because Xonsh is a superset of Python, you can use a Xonsh script as you would a Python script, but with all the additional shell primitives that Xonsh provides.
+
+For example, with this rule:
+
+.. code-block:: python
+
+    rule get_variants_in_genes:
+        input:
+            vcf = "input.vcf",
+            gene_locations = "genes.bed",
+        output:
+            "output.tsv"
+        conda:
+            "envs/variant_calling.yaml"
+        log:
+            "logs/get_variants_in_genes.log"
+        script:
+            "scripts/get_variants_in_genes.xsh"
+
+the Xonsh script might look like this:
+
+.. code-block:: xonsh
+
+    $XONSH_TRACEBACK_LOGFILE = snakemake.log[0]
+
+    annotations = ", ".join(
+        f'ANN["{field}"]' for field in ["Consequence", "SYMBOL", "Feature", "BIOTYPE"]
+    )
+
+    bcftools view -R @(snakemake.input.gene_locations) @(snakemake.input.vcf) \
+    | vembrane table --output @(snakemake.output[0]) @(f'CHROM, POS, ID, {annotations}')
+
+
+Hy_
+"""
+
+.. _Hy: https://hylang.org/
+
+Hy allows you to interact with Python using a Lisp-like syntax.
+
+For example, with this rule:
+
+.. code-block:: python
+
+    rule get_sum_of_odd_numbers:
+        input:
+            "list_of_numbers.txt"
+        output:
+            results_file = "sum_of_odd_numbers.txt"
+        conda:
+            "envs/hy.yaml"
+        script:
+            "scripts/sum_odd_numbers.hy"
+
+the Hy script might look like this:
+
+.. code-block:: hy
+
+    (require hyrule [-> ->>])
+
+    (defn is-odd? [n] (!= (% n 2) 0))
+
+    (setv result
+          (->> (get snakemake.input 0)
+               open
+               .readlines
+               (map int)
+               (filter is-odd?)
+               sum))
+
+    (with [f
+           (-> (get snakemake.output "results_file")
+               open)]
+      (print result :file f))
+
+
+
 R and R Markdown
 ~~~~~~~~~~~~~~~~
 
@@ -1654,7 +1736,7 @@ remaining directives can be found in the variable ``snakemake``.
     As arrays cannot be nested in Bash, use of python's ``dict`` in directives is not supported. So, adding a ``params`` key of ``data={"foo": "bar"}`` will not be reflected - ``${snakemake_params[data]}`` actually only returns ``"foo"``.
 
 Bash Example 1
-~~~~~~~~~~~~~~
+""""""""""""""
 
 .. code-block:: python
 
@@ -1697,7 +1779,7 @@ double-quote any variable that could contain a file name. However, `in some case
 such as ``${snakemake_params[opts]}`` in the above example.
 
 Bash Example 2
-~~~~~~~~~~~~~~
+""""""""""""""
 
 .. code-block:: python
 
@@ -1750,36 +1832,6 @@ as ``"${snakemake_input[0]}"`` and ``"${snakemake_input[1]}"``.
 ----
 
 For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object.
-
-
-Xonsh_
-~~~~~~
-
-.. _Xonsh: https://xon.sh
-
-.. code-block:: python
-
-    rule NAME:
-        ...
-        script:
-            "path/to/script.xsh"
-
-Because Xonsh is a superset of Python, you can use a Xonsh script as you would a Python script (see above), but with all the additional shell primitives that Xonsh provides.
-
-
-Hy_
-~~~
-
-.. _Hy: https://hylang.org/
-
-.. code-block:: python
-
-    rule NAME:
-        ...
-        script:
-            "path/to/script.hy"
-
-Hy allows you to interact with Python using a Lisp-like syntax.
 
 
 .. _snakefiles_notebook-integration:
