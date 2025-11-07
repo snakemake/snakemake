@@ -864,7 +864,7 @@ class Rule(RuleInterface):
         def concretize_iofile(f, wildcards, from_callable, incomplete):
             if from_callable is not None:
                 if isinstance(f, Path):
-                    f = str(f)
+                    f = str(f.as_posix())
                 iofile = IOFile(f, rule=self).apply_wildcards(wildcards)
 
                 # inherit flags from callable
