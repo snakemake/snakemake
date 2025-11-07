@@ -3433,7 +3433,8 @@ Consider the following example:
 
 Here, the statement ``test`` is appended to the output file ``test.txt``.
 Hence, we declare it as being updated via the ``update`` flag.
-This way, Snakemake will not delete the file before the job is executed.
+This way, Snakemake will not delete the file or directory before the job is executed.
+Furthermore, Snakemake will restore the previous version of the file/directory if the job fails.
 
 If such a file/directory has to be considered as input **before the update** for another rule
 it can be marked as ``before_update``.
