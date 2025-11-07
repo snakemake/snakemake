@@ -1413,8 +1413,8 @@ For example, with this rule:
 
     rule get_variants_in_genes:
         input:
-            vcf = "input.vcf",
-            gene_locations = "genes.bed",
+            vcf="input.vcf",
+            gene_locations="genes.bed",
         output:
             "output.tsv"
         conda:
