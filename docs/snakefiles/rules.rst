@@ -1453,7 +1453,7 @@ For example, with this rule:
         input:
             "list_of_numbers.txt"
         output:
-            results_file = "sum_of_odd_numbers.txt"
+            results_file="sum_of_odd_numbers.txt"
         conda:
             "envs/hy.yaml"
         script:
