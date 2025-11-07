@@ -115,7 +115,7 @@ class Env:
         return Conda(container_img=self._container_img, check=True)
 
     def _path_or_uri_prefix(self):
-        prefix = self.file.get_path_or_uri()
+        prefix = self.file.get_path_or_uri(secret_free=False)
         if prefix.endswith(".yaml") or prefix.endswith(".yml"):
             prefix = prefix.rsplit(".", 1)[0]
             return prefix
@@ -146,7 +146,7 @@ class Env:
             # TODO handle LocalGitFile properly
             if prefix is None:
                 logger.warning(
-                    f"Conda environment file {self.file.get_path_or_uri()} does not end "
+                    f"Conda environment file {self.file.get_path_or_uri(secret_free=True)} does not end "
                     f"on .yaml or .yml. {omit_msg}"
                 )
                 return None
@@ -330,7 +330,7 @@ class Env:
             # Download
             logger.info(
                 "Downloading packages for conda environment {}...".format(
-                    self.file.get_path_or_uri()
+                    self.file.get_path_or_uri(secret_free=True)
                 )
             )
             os.makedirs(env_archive, exist_ok=True)
@@ -443,7 +443,7 @@ class Env:
                     pin_file = tmp.name
                     tmp_pin_file = tmp.name
         else:
-            env_file = env_file.get_path_or_uri()
+            env_file = env_file.get_path_or_uri(secret_free=False)
             deploy_file = self.post_deploy_file
             if not dryrun:
                 pin_file = self.pin_file
@@ -608,7 +608,7 @@ class Env:
                     if pin_file is not None:
                         try:
                             logger.info(
-                                f"Using pinnings from {self.pin_file.get_path_or_uri()}."
+                                f"Using pinnings from {self.pin_file.get_path_or_uri(secret_free=True)}."
                             )
                             out = create_env(pin_file, filetype="pin.txt")
                         except subprocess.CalledProcessError as e:
@@ -618,10 +618,10 @@ class Env:
                             if isinstance(self.file, LocalSourceFile):
                                 advice = (
                                     " If that works, make sure to update the pin file with "
-                                    f"'snakedeploy pin-conda-env {self.file.get_path_or_uri()}'."
+                                    f"'snakedeploy pin-conda-env {self.file.get_path_or_uri(secret_free=True)}'."
                                 )
                             logger.warning(
-                                f"Failed to install conda environment from pin file ({self.pin_file.get_path_or_uri()}). "
+                                f"Failed to install conda environment from pin file ({self.pin_file.get_path_or_uri(secret_free=True)}). "
                                 f"Trying regular environment definition file.{advice}\n"
                                 f"Error message:\n{e.output}"
                             )
@@ -641,7 +641,7 @@ class Env:
 
                 logger.debug(out)
                 logger.info(
-                    f"Environment for {self.file.get_path_or_uri()} created (location: {os.path.relpath(env_path)})"
+                    f"Environment for {self.file.get_path_or_uri(secret_free=True)} created (location: {os.path.relpath(env_path)})"
                 )
             except subprocess.CalledProcessError as e:
                 # remove potential partially installed environment
@@ -888,7 +888,9 @@ class CondaEnvSpec(ABC):
 class CondaEnvFileSpec(CondaEnvSpec):
     def __init__(self, filepath, rule=None):
         if isinstance(filepath, SourceFile):
-            self.file = IOFile(str(filepath.get_path_or_uri()), rule=rule)
+            self.file = IOFile(
+                str(filepath.get_path_or_uri(secret_free=False)), rule=rule
+            )
         elif isinstance(filepath, _IOFile):
             self.file = filepath
         else:
@@ -931,7 +933,7 @@ class CondaEnvFileSpec(CondaEnvSpec):
 class CondaEnvDirSpec(CondaEnvSpec):
     def __init__(self, path, rule=None):
         if isinstance(path, SourceFile):
-            self.path = IOFile(str(path.get_path_or_uri()), rule=rule)
+            self.path = IOFile(str(path.get_path_or_uri(secret_free=False)), rule=rule)
         elif isinstance(path, _IOFile):
             self.path = path
         else:
@@ -1011,7 +1013,7 @@ class CondaEnvSpecType(Enum):
     def from_spec(cls, spec: Union[str, SourceFile, Path]):
         if isinstance(spec, SourceFile):
             if isinstance(spec, LocalSourceFile):
-                spec = spec.get_path_or_uri()
+                spec = spec.get_path_or_uri(secret_free=False)
             else:
                 spec = spec.get_filename()
         elif isinstance(spec, Path):
