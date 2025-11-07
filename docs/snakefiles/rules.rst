@@ -1426,7 +1426,7 @@ For example, with this rule:
 
 the Xonsh script might look like this:
 
-.. code-block:: xonsh
+.. code-block::
 
     $XONSH_TRACEBACK_LOGFILE = snakemake.log[0]
 
