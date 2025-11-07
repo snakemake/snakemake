@@ -953,7 +953,9 @@ class Job(
 
     async def cleanup(self):
         """Cleanup output files."""
-        to_remove = [f for f in self.output if await f.exists() and not is_flagged(f, "update")]
+        to_remove = [
+            f for f in self.output if await f.exists() and not is_flagged(f, "update")
+        ]
         to_remove.extend(
             [
                 f
@@ -1235,7 +1237,9 @@ class Job(
                 for f in self.output:
                     if is_flagged(f, "update"):
                         if error:
-                            logger.warning(f"Restoring previous version of {fmt_iofile(f)} (updating job failed).")
+                            logger.warning(
+                                f"Restoring previous version of {fmt_iofile(f)} (updating job failed)."
+                            )
                             self.dag.workflow.persistence.restore_output(Path(f))
                         else:
                             self.dag.workflow.persistence.cleanup_backup(Path(f))
