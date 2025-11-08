@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.14.0](https://github.com/snakemake/snakemake/compare/v9.13.7...v9.14.0) (2025-11-08)
+
+
+### Features
+
+* Support Hy in script directive ([#3824](https://github.com/snakemake/snakemake/issues/3824)) ([2329c9e](https://github.com/snakemake/snakemake/commit/2329c9ed7ac37b422e1b42f9f25865682b15a73d))
+
 ## [9.13.7](https://github.com/snakemake/snakemake/compare/v9.13.6...v9.13.7) (2025-11-07)
 
 
