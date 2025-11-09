@@ -158,23 +158,22 @@ def print_tree(path: str, exclude: StrPath | None = None):
 
 
 def run(
-    path,
-    shouldfail=False,
-    snakefile="Snakefile",
-    subpath=None,
-    no_tmpdir=False,
-    check_md5=True,
-    check_results=None,
-    cores=3,
-    nodes=None,
-    set_pythonpath=True,
-    cleanup=True,
+    path: StrPath,
+    shouldfail: bool = False,
+    snakefile: StrPath = "Snakefile",
+    no_tmpdir: bool = False,
+    check_md5: bool = True,
+    check_results: bool | None = None,
+    cores: int = 3,
+    nodes: int | None = None,
+    set_pythonpath: bool = True,
+    cleanup: bool = True,
     conda_frontend="conda",
     config=dict(),
     targets=set(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
-    shellcmd=None,
-    sigint_after=None,
+    shellcmd: str | None = None,
+    sigint_after: float | None = None,
     overwrite_resource_scopes=None,
     executor="local",
     executor_settings=None,
@@ -226,15 +225,45 @@ def run(
     shared_fs_usage=None,
     benchmark_extended=False,
     apptainer_args="",
-    tmpdir=None,
-):
+    tmpdir: StrPath | None = None,
+) -> Path | None:
     """
     Test the Snakefile in the path.
     There must be a Snakefile in the path and a subdirectory named
     expected-results. If cleanup is False, we return the temporary
     directory to the calling test for inspection, and the test should
     clean it up.
+
+    Parameters
+    ----------
+    path
+        Path containing workflow to run.
+    shouldfail
+        Whether the run is expected to fail.
+    snakefile
+        Path to Snakefile, relative to ``path``.
+    shellcmd
+        Shell command to run. Must start with "snakemake". If given, Snakemake will be run in a
+        subprocess.
+    sigint_after
+        If not None, send a SIGINT signal after this many seconds.
+    tmpdir
+        Temporary directory to run in. If None one will be created automatically.
+    no_tmpdir
+        If true run directly in ``path`` instead of a temporary directory.
+    cleanup
+        Whether to delete the temporary directory after running.
+    set_pythonpath
+        If true set the ``PYTHONPATH`` environment variable to current working directory. Otherwise
+        ensure it is not set.
+
+    Returns
+    -------
+    Path | None
+        Path to temporary directory if ``cleanup`` is false, otherwise None.
     """
+    path = Path(path)
+
     if check_results is None:
         if not shouldfail:
             check_results = True
@@ -268,6 +297,9 @@ def run(
         # copy files
         for f in os.listdir(path):
             copy(os.path.join(path, f), tmpdir)
+
+    else:
+        tmpdir = os.fsdecode(tmpdir)
 
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
@@ -310,6 +342,7 @@ def run(
         except subprocess.CalledProcessError as e:
             success = False
             print(e.stdout.decode(), file=sys.stderr)
+
     else:
         assert sigint_after is None, "Cannot sent SIGINT when calling directly"
 
@@ -508,4 +541,6 @@ def run(
 
     if not cleanup:
         return Path(tmpdir)
+
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    return None
