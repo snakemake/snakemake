@@ -30,7 +30,7 @@ from snakemake.common import (
     get_container_image,
 )
 from snakemake.common.configfile import load_configfile
-from snakemake.resources import DefaultResources
+from snakemake.resources import Resource, Resources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
@@ -351,16 +351,16 @@ class ResourceSettings(SettingsBase):
     nodes: Optional[int] = None
     local_cores: Optional[int] = None
     max_threads: Optional[int] = None
-    resources: Mapping[str, int] = immutables.Map()
-    overwrite_threads: Mapping[str, int] = immutables.Map()
+    resources: Resources = field(default_factory=Resources)
+    overwrite_threads: Mapping[str, Resource] = immutables.Map()
     overwrite_scatter: Mapping[str, int] = immutables.Map()
     overwrite_resource_scopes: Mapping[str, str] = immutables.Map()
-    overwrite_resources: Mapping[str, Mapping[str, Any]] = immutables.Map()
-    default_resources: Optional[DefaultResources] = None
+    overwrite_resources: Mapping[str, Resources] = immutables.Map()
+    default_resources: Optional[Resources] = None
 
     def __post_init__(self):
         if self.default_resources is None:
-            self.default_resources = DefaultResources(mode="bare")
+            self.default_resources = Resources.default("bare")
 
 
 @dataclass
