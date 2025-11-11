@@ -3302,7 +3302,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             if not isinstance(f, SourceFile) and is_local_file(f):
                 return f
             if isinstance(f, LocalSourceFile):
-                return f.get_path_or_uri()
+                return f.get_path_or_uri(secret_free=True)
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
