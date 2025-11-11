@@ -55,6 +55,7 @@ from snakemake.common import (
 from snakemake.exceptions import (
     InputOpenException,
     MissingOutputException,
+    UndefinedPathvarException,
     WildcardError,
     WorkflowError,
 )
@@ -289,8 +290,8 @@ class _IOFile(str, AnnotatedStringInterface):
             if rule is not None:
                 try:
                     modified = rule.pathvars.apply(modified)
-                except KeyError as e:
-                    raise WorkflowError(f"Undefined pathvar {str(e)}.", rule=rule)
+                except UndefinedPathvarException as e:
+                    raise WorkflowError(e, rule=rule) from e
             if is_annotated:
                 modified = AnnotatedString(modified)
                 modified.flags = file.flags

@@ -20,6 +20,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Union
 from collections.abc import AsyncGenerator
 from abc import abstractmethod
 from snakemake import wrapper
+from snakemake.rules import Rule
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
@@ -229,7 +230,7 @@ class Job(
         targetfile=None,
         groupid=None,
     ):
-        self.rule = rule
+        self.rule: Rule = rule
         self.dag = dag
 
         # the targetfile that led to the job
@@ -409,7 +410,7 @@ class Job(
         path: SourceFile = self._path_to_source_file(path)
 
         if isinstance(path, LocalSourceFile):
-            path = path.get_path_or_uri()
+            path = path.get_path_or_uri(secret_free=True)
             if os.path.exists(path):
                 script_mtime = get_script_mtime(path)
                 for f in self.output:
@@ -837,7 +838,9 @@ class Job(
             if self.resources.get("tmpdir"):
                 os.makedirs(self.resources.tmpdir, exist_ok=True)
 
-            for f, f_ in zip(self.output, self.rule.output):
+            for f in self.output:
+                if is_flagged(f, "update"):
+                    self.rule.workflow.persistence.backup_output(Path(f))
                 f.prepare()
 
             for f in self.log:
@@ -950,7 +953,9 @@ class Job(
 
     async def cleanup(self):
         """Cleanup output files."""
-        to_remove = [f for f in self.output if await f.exists()]
+        to_remove = [
+            f for f in self.output if await f.exists() and not is_flagged(f, "update")
+        ]
         to_remove.extend(
             [
                 f
@@ -1229,6 +1234,15 @@ class Job(
                 or (self.dag.workflow.remote_exec and not shared_input_output)
                 or self.is_local
             ):
+                for f in self.output:
+                    if is_flagged(f, "update"):
+                        if error:
+                            logger.warning(
+                                f"Restoring previous version of {fmt_iofile(f)} (updating job failed)."
+                            )
+                            self.dag.workflow.persistence.restore_output(Path(f))
+                        else:
+                            self.dag.workflow.persistence.cleanup_backup(Path(f))
                 if not error and handle_touch:
                     self.dag.handle_touch(self)
                 if handle_log:
