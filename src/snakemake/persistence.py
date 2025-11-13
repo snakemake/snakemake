@@ -311,8 +311,8 @@ class Persistence(PersistenceExecutorInterface):
     def restore_output(self, path: Path) -> None:
         backup_path = self._get_backup_path(path)
         if not backup_path.exists():
-            raise WorkflowError(f"Cannot restore {path}: no backup found.")
-        if backup_path.is_dir():
+            logger.warning(f"Cannot restore {path}: no backup found.")
+        elif backup_path.is_dir():
             if path.exists():
                 shutil.rmtree(path)
             shutil.copytree(backup_path, path)
