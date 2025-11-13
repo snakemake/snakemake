@@ -275,6 +275,7 @@ def notebook(
     edit,
     sourcecache_path,
     runtime_sourcecache_path,
+    local_storage_prefix,
 ):
     """
     Load a script from the given basedir + path and execute it.
@@ -348,6 +349,7 @@ def notebook(
         cleanup_scripts,
         shadow_dir,
         is_local,
+        local_storage_prefix,
     )
 
     if edit is None:
