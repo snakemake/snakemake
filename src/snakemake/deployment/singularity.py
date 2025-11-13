@@ -101,7 +101,6 @@ def shellcmd(
     shell_executable=None,
     container_workdir=None,
     is_python_script=False,
-    
 ):
     """Execute shell command inside singularity container given optional args
     and environment variables to be passed."""
@@ -142,7 +141,9 @@ def shellcmd(
             f"Source cache directory {source_cache_path} does not exist, skipping bind mount"
         )
 
-    if local_storage_prefix is not None and not local_storage_prefix.is_relative_to(Path.cwd()):
+    if local_storage_prefix is not None and not local_storage_prefix.is_relative_to(
+        Path.cwd()
+    ):
         # if the local storage prefix is outside of the working directory,
         # bind mount it into the container
         args += f" --bind {repr(str(local_storage_prefix))}"
