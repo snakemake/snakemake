@@ -104,6 +104,7 @@ def wrapper(
     shadow_dir,
     sourcecache_path,
     runtime_sourcecache_path,
+    local_storage_prefix,
 ):
     """
     Load a wrapper from https://github.com/snakemake/snakemake-wrappers under
@@ -144,4 +145,5 @@ def wrapper(
         shadow_dir,
         sourcecache_path,
         runtime_sourcecache_path,
+        local_storage_prefix,
     )
