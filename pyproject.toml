@@ -171,6 +171,7 @@ cmd = [
   "tests/test_executor_test_suite.py",
   "tests/test_api.py",
   "tests/test_internals.py",
+  "tests/test_jupyter_notebook_pathlike.py",
   # the tests below were never tested in the old CI and currently fail
   # "tests/test_args.py",
   # "tests/test_output_index.py",
