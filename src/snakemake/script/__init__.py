@@ -5,30 +5,32 @@ __license__ = "MIT"
 
 import collections
 import itertools
-import math
-import os
-from numbers import Integral, Real, Complex, Number
-from collections.abc import Iterable
 import json
+import math
 import os
 import pickle
 import re
+import shlex
 import sys
 import tempfile
 import textwrap
 import typing
-import shlex
+import urllib.parse
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
+from numbers import Complex, Integral, Number, Real
 from pathlib import Path
-from typing import List, Optional, Pattern, Tuple, Union, Dict
+from typing import Dict, List, Optional, Pattern, Tuple, TypeVar, Union
 from urllib.error import URLError
-import urllib.parse
-from typing import TypeVar
 
 from snakemake import io as io_
 from snakemake import sourcecache
-from snakemake.common import MIN_PY_VERSION, ON_WINDOWS, get_snakemake_searchpaths
+from snakemake.common import (
+    MIN_PY_VERSION,
+    ON_WINDOWS,
+    get_report_id,
+    get_snakemake_searchpaths,
+)
 from snakemake.deployment import singularity
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
@@ -40,7 +42,6 @@ from snakemake.sourcecache import (
     infer_source_file,
 )
 from snakemake.utils import format
-from snakemake.common import get_report_id
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
@@ -1616,6 +1617,15 @@ class XonshScript(PythonScript):
         )
 
 
+class HyScript(PythonScript):
+    def write_script(self, preamble, fd):
+        fd.write(f"(pys #[[{preamble}]])".encode())
+        fd.write(self.source.encode())
+
+    def execute_script(self, fname, edit=False):
+        self._execute_cmd("hy {fname:q}", fname=fname)
+
+
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
     """Strip a substring matching a regex from a string and return the stripped part
     and the remainder of the original string.
@@ -1680,6 +1690,8 @@ def get_language(source_file, source):
         language = "bash"
     elif filename.endswith(".xsh"):
         language = "xonsh"
+    elif filename.endswith(".hy"):
+        language = "hy"
 
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
@@ -1744,10 +1756,11 @@ def script(
         "rust": RustScript,
         "bash": BashScript,
         "xonsh": XonshScript,
+        "hy": HyScript,
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
-            "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd), Julia (.jl), Rust (.rs), Bash (.sh), or Xonsh (.xsh) script."
+            "Script must be one of the following filetypes: [.py .R .Rmd .jl .rs .sh .xsh .hy]"
         )
 
     executor = exec_class(
