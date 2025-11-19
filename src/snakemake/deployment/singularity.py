@@ -8,7 +8,7 @@ import subprocess
 import shutil
 import os
 import hashlib
-from typing import Optional
+from typing import List, Optional
 
 from snakemake.common import (
     get_snakemake_searchpaths,
@@ -94,7 +94,7 @@ class Image:
 def shellcmd(
     img_path,
     cmd: str,
-    local_storage_prefix: Optional[Path] = None,
+    bind: Optional[List[Path]] = None,
     args="",
     quiet=False,
     envvars=None,
@@ -129,26 +129,9 @@ def shellcmd(
     if container_workdir:
         args += f" --pwd {repr(container_workdir)}"
 
-    # mount the snakemake cache into the container per default so that
-    # params included with workflow.source_path are always mounted in the container
-    source_cache_path = os.path.join(
-        get_appdirs().user_cache_dir, "snakemake/source-cache"
-    )
-    if os.path.exists(source_cache_path):
-        args += f" --bind {repr(source_cache_path)}"
-    else:
-        logger.debug(
-            f"Source cache directory {source_cache_path} does not exist, skipping bind mount"
-        )
-
-    if (
-        local_storage_prefix is not None
-        and not local_storage_prefix.is_relative_to(Path.cwd())
-        and local_storage_prefix.exists()
-    ):
-        # if the local storage prefix is outside of the working directory,
-        # bind mount it into the container
-        args += f" --bind {repr(str(local_storage_prefix))}"
+    if bind is not None:
+        for b in bind:
+            args += f" --bind {repr(str(b))}"
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,

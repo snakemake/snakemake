@@ -585,7 +585,7 @@ class Run(RuleKeywordState):
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
             "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, "
-            "local_storage_prefix, {rule_func_marker}=True):".format(
+            "runtime_paths, {rule_func_marker}=True):".format(
                 rulename=(
                     self.rulename
                     if self.rulename is not None
@@ -688,7 +688,7 @@ class Script(AbstractCmd):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, sourcecache_path, "
-            "runtime_sourcecache_path, local_storage_prefix"
+            "runtime_sourcecache_path, runtime_paths"
         )
 
 
@@ -701,7 +701,7 @@ class Notebook(Script):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook, sourcecache_path, runtime_sourcecache_path, local_storage_prefix"
+            "edit_notebook, sourcecache_path, runtime_sourcecache_path, runtime_paths"
         )
 
 
@@ -715,7 +715,7 @@ class Wrapper(Script):
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, workflow.workflow_settings.wrapper_prefix, jobid, bench_iteration, "
             "cleanup_scripts, shadow_dir, sourcecache_path, runtime_sourcecache_path, "
-            "local_storage_prefix"
+            "runtime_paths"
         )
 
 
@@ -735,7 +735,7 @@ class CWL(Script):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, use_singularity, bench_record, jobid, sourcecache_path, "
-            "runtime_sourcecache_path, local_storage_prefix"
+            "runtime_sourcecache_path, runtime_paths"
         )
 
 
