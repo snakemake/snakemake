@@ -839,7 +839,7 @@ class Job(
                 os.makedirs(self.resources.tmpdir, exist_ok=True)
 
             for f in self.output:
-                if is_flagged(f, "update"):
+                if is_flagged(f, "update") and await f.exists():
                     self.rule.workflow.persistence.backup_output(Path(f))
                 f.prepare()
 
