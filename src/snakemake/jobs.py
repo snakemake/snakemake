@@ -951,10 +951,10 @@ class Job(
                 return path in dep.pipe_or_service_output
         return False
 
-    async def cleanup(self):
+    async def cleanup(self, skip_outputs: Sequence[_IOFile]):
         """Cleanup output files."""
         to_remove = [
-            f for f in self.output if await f.exists() and not is_flagged(f, "update")
+            f for f in self.output if await f.exists() and f not in skip_outputs
         ]
         to_remove.extend(
             [
@@ -1219,6 +1219,8 @@ class Job(
             self.dag.workflow.persistence.cleanup(self)
             return
 
+        skip_cleanup_outputs = set()
+
         shared_input_output = (
             SharedFSUsage.INPUT_OUTPUT
             in self.dag.workflow.storage_settings.shared_fs_usage
@@ -1240,7 +1242,10 @@ class Job(
                             logger.warning(
                                 f"Restoring previous version of {fmt_iofile(f)} (updating job failed)."
                             )
-                            self.dag.workflow.persistence.restore_output(Path(f))
+                            if self.dag.workflow.persistence.restore_output(Path(f)):
+                                # The output was successfully restored from the backup.
+                                # Thus, we should not clean it up, it is not corrupted.
+                                skip_cleanup_outputs.add(f)
                         else:
                             self.dag.workflow.persistence.cleanup_backup(Path(f))
                 if not error and handle_touch:
@@ -1313,7 +1318,7 @@ class Job(
             )
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
-            await self.cleanup()
+            await self.cleanup(skip_cleanup_outputs)
 
     @property
     def name(self):
@@ -1626,10 +1631,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
             last_job = sorted(self.toposorted[-1])[-1]
             self._jobid = last_job.uuid()
         return self._jobid
-
-    async def cleanup(self):
-        for job in self.jobs:
-            await job.cleanup()
 
     async def postprocess(self, error=False, **kwargs):
         def needed(job_, f):
