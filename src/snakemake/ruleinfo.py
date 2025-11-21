@@ -106,7 +106,8 @@ class RuleInfo:
         self.path_modifier = path_modifier
 
         # modify wrapper if requested
-        self.wrapper = modifier.modify_wrapper_uri(self.wrapper)
+        if self.wrapper is not None:
+            self.wrapper = modifier.modify_wrapper_uri(self.wrapper)
 
         if modifier.parent_modifier is not None:
             self.apply_modifier(modifier.parent_modifier, rulename=rulename)

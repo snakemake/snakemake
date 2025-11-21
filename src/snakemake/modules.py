@@ -108,9 +108,16 @@ class ModuleInfo:
 
     def get_snakefile(self):
         if self.meta_wrapper:
-            return wrapper.get_path(
-                self.meta_wrapper + "/test/Snakefile",
-                self.workflow.workflow_settings.wrapper_prefix,
+            for snakefile in ("/meta_wrapper.smk", "/test/Snakefile"):
+                path = wrapper.get_path(
+                    self.meta_wrapper + snakefile,
+                    self.workflow.workflow_settings.wrapper_prefix,
+                )
+                if self.workflow.sourcecache.exists(path):
+                    return path
+            raise WorkflowError(
+                f"Invalid meta wrapper {self.meta_wrapper}: Could not find "
+                "meta_wrapper.smk or test/Snakefile (old style)."
             )
         elif self.snakefile:
             return self.snakefile
@@ -120,12 +127,19 @@ class ModuleInfo:
             )
 
     def get_wrapper_tag(self):
+        from packaging.version import Version
+
         if self.meta_wrapper:
             if wrapper.is_url(self.meta_wrapper):
-                raise WorkflowError(
-                    "meta_wrapper directive of module statement currently does not support full URLs."
-                )
-            return self.meta_wrapper.split("/", 1)[0]
+                # no wrapper tag replacement, use meta-wrapper as is
+                return None
+            tag = self.meta_wrapper.split("/", 1)[0]
+            ver_match = wrapper.ver_regex.match(tag)
+            if ver_match and Version(ver_match.group("ver")) >= Version("8.0.0"):
+                # New style meta-wrappers, containing concrete versions of each wrapper
+                return None
+            else:
+                return tag
         return None
 
     def get_rule_whitelist(self, rules):
@@ -203,8 +217,7 @@ class WorkflowModifier:
                 "checkpoints"
             ].spawn_new_namespace()
 
-            if config is not None:
-                self.globals["config"] = config
+            self.globals["config"] = config if config is not None else {}
             self.wildcard_constraints: dict = dict()
 
             assert (
@@ -216,8 +229,7 @@ class WorkflowModifier:
             self.path_modifier = path_modifier or PathModifier(None, None, workflow)
         else:
             # use rule (from same include) as ... with: init with values from parent modifier
-            parent_modifier = workflow.modifier
-            self.parent_modifier = parent_modifier
+            self.parent_modifier = parent_modifier = workflow.modifier
             self.globals = parent_modifier.globals
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.pathvars = parent_modifier.pathvars

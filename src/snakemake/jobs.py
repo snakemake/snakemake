@@ -19,6 +19,8 @@ from operator import attrgetter
 from typing import Dict, Iterable, List, Optional, Sequence, Union
 from collections.abc import AsyncGenerator
 from abc import abstractmethod
+from snakemake import wrapper
+from snakemake.rules import Rule
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
@@ -228,7 +230,7 @@ class Job(
         targetfile=None,
         groupid=None,
     ):
-        self.rule = rule
+        self.rule: Rule = rule
         self.dag = dag
 
         # the targetfile that led to the job
@@ -408,7 +410,7 @@ class Job(
         path: SourceFile = self._path_to_source_file(path)
 
         if isinstance(path, LocalSourceFile):
-            path = path.get_path_or_uri()
+            path = path.get_path_or_uri(secret_free=True)
             if os.path.exists(path):
                 script_mtime = get_script_mtime(path)
                 for f in self.output:
@@ -836,7 +838,9 @@ class Job(
             if self.resources.get("tmpdir"):
                 os.makedirs(self.resources.tmpdir, exist_ok=True)
 
-            for f, f_ in zip(self.output, self.rule.output):
+            for f in self.output:
+                if is_flagged(f, "update") and await f.exists():
+                    self.rule.workflow.persistence.backup_output(Path(f))
                 f.prepare()
 
             for f in self.log:
@@ -949,7 +953,9 @@ class Job(
 
     async def cleanup(self):
         """Cleanup output files."""
-        to_remove = [f for f in self.output if await f.exists()]
+        to_remove = [
+            f for f in self.output if await f.exists() and not is_flagged(f, "update")
+        ]
         to_remove.extend(
             [
                 f
@@ -1145,12 +1151,15 @@ class Job(
     def register(self, external_jobid: Optional[str] = None):
         self.dag.workflow.persistence.started(self, external_jobid)
 
-    def get_wait_for_files(self):
+    def get_wait_for_files(self, skip_input_files: bool = False):
         wait_for_files = []
-        wait_for_files.extend(self.local_input)
-        wait_for_files.extend(
-            f for f in self.storage_input if not f.should_not_be_retrieved_from_storage
-        )
+        if not skip_input_files:
+            wait_for_files.extend(self.local_input)
+            wait_for_files.extend(
+                f
+                for f in self.storage_input
+                if not f.should_not_be_retrieved_from_storage
+            )
 
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
@@ -1164,6 +1173,25 @@ class Job(
             # Managed or containerized envs are not present on the host FS,
             # hence we don't need to wait for them.
             wait_for_files.append(self.conda_env.address)
+
+        if self.is_wrapper:
+            script = wrapper.get_script(
+                self.rule.wrapper,
+                self.dag.workflow.sourcecache,
+                self.dag.workflow.workflow_settings.wrapper_prefix,
+            )
+            if script is not None:
+                wait_for_files.append(
+                    IOFile(self.dag.workflow.sourcecache.get_path(script))
+                )
+            env = wrapper.get_conda_env(
+                self.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
+            )
+            if env is not None:
+                wait_for_files.append(
+                    IOFile(self.dag.workflow.sourcecache.get_path(env))
+                )
+
         return wait_for_files
 
     @property
@@ -1206,6 +1234,15 @@ class Job(
                 or (self.dag.workflow.remote_exec and not shared_input_output)
                 or self.is_local
             ):
+                for f in self.output:
+                    if is_flagged(f, "update"):
+                        if error:
+                            logger.warning(
+                                f"Restoring previous version of {fmt_iofile(f)} (updating job failed)."
+                            )
+                            self.dag.workflow.persistence.restore_output(Path(f))
+                        else:
+                            self.dag.workflow.persistence.cleanup_backup(Path(f))
                 if not error and handle_touch:
                     self.dag.handle_touch(self)
                 if handle_log:
@@ -1502,15 +1539,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
         )
 
         for job in self.jobs:
-            if job.shadow_dir:
-                wait_for_files.append(job.shadow_dir)
-            if (
-                DeploymentMethod.CONDA
-                in self.dag.workflow.deployment_settings.deployment_method
-                and job.conda_env
-                and not job.conda_env.is_externally_managed
-            ):
-                wait_for_files.append(job.conda_env.address)
+            wait_for_files.extend(job.get_wait_for_files(skip_input_files=True))
         return wait_for_files
 
     @property
