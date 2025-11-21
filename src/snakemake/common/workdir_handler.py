@@ -16,7 +16,7 @@ class WorkdirHandler:
             self.olddir = Path.cwd()
             if not self.workdir.exists():
                 logger.info(f"Creating specified working directory {self.workdir}.")
-                self.workdir.mkdir(parents=True)
+                self.workdir.mkdir(parents=True, exist_ok=True)
             os.chdir(self.workdir)
 
     def change_back(self):
