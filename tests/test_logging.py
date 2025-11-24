@@ -5,6 +5,7 @@ import subprocess as sp
 import logging
 from collections import Counter
 from pathlib import Path
+import json
 
 import pytest
 
@@ -240,5 +241,114 @@ def test_rule_failure(
             LogEvent.JOB_STARTED: None,
             LogEvent.ERROR: 3,
             LogEvent.JOB_ERROR: 6,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "stream,has_formatter,has_filter,needs_rulegraph",
+    [
+        (False, False, False, False),
+        (True, False, False, False),
+        (False, True, False, False),
+        (False, False, True, False),
+        (False, False, False, True),
+    ],
+)
+def test_plugin(
+    stream: bool,
+    has_formatter: bool,
+    has_filter: bool,
+    needs_rulegraph: bool,
+    tmp_path: Path,
+):
+    """Test using a logger plugin.
+
+    Adds the logging/plugins/ directory to PYTHONPATH so the plugin registry can detect the
+    "snakemake_logger_plugin_test" package. The plugin outputs each record in JSON format on a
+    single line, including the "event" attribute so we can check event counts as in the other tests.
+    The first line is a special record/event that reports information about how Snakemake has
+    configured the handler (such as whether the default formatter or filter were attached).
+
+    Parameters
+    ----------
+    stream
+        If True output to stream, otherwise to file.
+    has_formatter
+        Value plugin handler should return for the "has_formatter" property.
+    has_filter
+        Value plugin handler should return for the "has_filter" property.
+    needs_rulegraph
+        Value plugin handler should return for the "needs_rulegraph" property.
+    """
+
+    plugin_dir = dpath("logging/plugins")
+    test_dir = dpath("logging/test_logfile")
+    outfile = tmp_path / "out.log"
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "snakemake",
+        "-s",
+        str(test_dir / "Snakefile"),
+        "-j1",
+        "--verbose",
+        "--printshellcmds",
+        "--logger",
+        "test",
+    ]
+
+    if not stream:
+        cmd.extend(["--logger-test-outfile", outfile.name])
+    if has_formatter:
+        cmd.append("--logger-test-has-formatter")
+    if has_filter:
+        cmd.append("--logger-test-has-filter")
+    if needs_rulegraph:
+        cmd.append("--logger-test-needs-rulegraph")
+
+    result = sp.run(
+        cmd,
+        cwd=tmp_path,
+        env={"PYTHONPATH": str(plugin_dir)},
+        check=True,
+        capture_output=stream,
+        text=True,
+    )
+
+    # Parse output file or stderr
+    # If outputting to stderr it should replace Snakemake's default output.
+    if stream:
+        records = list(map(json.loads, result.stderr.splitlines()))
+    else:
+        with open(outfile) as fh:
+            records = list(map(json.loads, fh))
+
+    # Check logger info
+    assert records[0]["event"] == "logger_info"
+    assert records[0]["formatter_set"] == (not has_formatter)
+    assert records[0]["filter_added"] == (not has_filter)
+
+    # Check event counts
+    event_counts = Counter(
+        LogEvent[record["event"].upper()] for record in records[1:] if record["event"]
+    )
+
+    check_event_counts(
+        event_counts,
+        {
+            LogEvent.RUN_INFO: 1,
+            LogEvent.JOB_INFO: 6,
+            LogEvent.SHELLCMD: 6,
+            LogEvent.RESOURCES_INFO: 2,
+            LogEvent.PROGRESS: 6,
+            LogEvent.JOB_STARTED: None,
+            LogEvent.JOB_FINISHED: 6,
+            # These are filtered out with the default filter
+            LogEvent.WORKFLOW_STARTED: 1 if has_filter else 0,
+            LogEvent.DEBUG_DAG: None if has_filter else 0,
+            # Only emitted if requested by plugin
+            LogEvent.RULEGRAPH: 1 if needs_rulegraph else 0,
         },
     )
