@@ -70,6 +70,8 @@ class Persistence(PersistenceExecutorInterface):
         self.dag = dag
         self._lockfile = dict()
 
+        self._backup_path = self.path / "backups"
+
         self._metadata_path = os.path.join(self.path, "metadata")
         self._incomplete_path = os.path.join(self.path, "incomplete")
 
@@ -297,6 +299,41 @@ class Persistence(PersistenceExecutorInterface):
         for d in os.listdir(self.conda_env_archive_path):
             if d not in in_use:
                 shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
+
+    def backup_output(self, path: Path) -> None:
+        backup_path = self._get_backup_path(path)
+        backup_path.parent.mkdir(parents=True, exist_ok=True)
+        if path.is_dir():
+            shutil.copytree(path, backup_path)
+        else:
+            shutil.copy(path, backup_path)
+
+    def restore_output(self, path: Path) -> None:
+        backup_path = self._get_backup_path(path)
+        if not backup_path.exists():
+            logger.warning(f"Cannot restore {path}: no backup found.")
+        elif backup_path.is_dir():
+            if path.exists():
+                shutil.rmtree(path)
+            shutil.copytree(backup_path, path)
+            shutil.rmtree(backup_path)
+        else:
+            shutil.copy(backup_path, path)
+            backup_path.unlink()
+
+    def cleanup_backup(self, path: Path) -> None:
+        backup_path = self._get_backup_path(path)
+        if backup_path.exists():
+            if backup_path.is_dir():
+                shutil.rmtree(backup_path)
+            else:
+                backup_path.unlink()
+
+    def _get_backup_path(self, path: Path) -> Path:
+        if path.is_absolute():
+            path = path.relative_to(path.parents[-1])
+        backup_path = self._backup_path / path
+        return backup_path
 
     def started(self, job, external_jobid: Optional[str] = None):
         for f in job.output:
