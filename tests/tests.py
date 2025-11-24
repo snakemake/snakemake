@@ -2301,6 +2301,10 @@ def test_default_flags():
     run(dpath("test_default_flags"), executor="dryrun", check_results=False)
 
 
+def test_update_flag_fail():
+    run(dpath("test_update_flag_fail"), shouldfail=True, check_results=True)
+
+
 @skip_on_windows
 @apptainer
 def test_shell_exec_singularity():
