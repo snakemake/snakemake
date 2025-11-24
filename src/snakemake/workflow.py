@@ -123,9 +123,8 @@ from snakemake.common import (
     Gather,
     smart_join,
     NOTHING_TO_BE_DONE_MSG,
-    usewith,
 )
-from snakemake.utils import simplify_path
+from snakemake.utils import simplify_path, usewith
 from snakemake.checkpoints import Checkpoints
 from snakemake.resources import ParsedResource, ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
@@ -2107,10 +2106,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def params(self, *params, **kwparams):
         def decorate(ruleinfo):
-            ruleinfo.params = usewith.guard(*params, **kwparams) or (
-                params,
-                kwparams,
-            )
+            ruleinfo.params = usewith.guard(*params, **kwparams)
             return ruleinfo
 
         return decorate
@@ -2121,9 +2117,6 @@ class Workflow(WorkflowExecutorInterface):
         def decorate(ruleinfo):
             ruleinfo.wildcard_constraints = usewith.guard(
                 *wildcard_constraints, **kwwildcard_constraints
-            ) or (
-                wildcard_constraints,
-                kwwildcard_constraints,
             )
             return ruleinfo
 
@@ -2276,10 +2269,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def resources(self, *args, **resources):
         def decorate(ruleinfo):
-            ruleinfo.resources = usewith.guard(*args, **resources) or (
-                args,
-                resources,
-            )
+            ruleinfo.resources = usewith.guard(*args, **resources)
             return ruleinfo
 
         return decorate

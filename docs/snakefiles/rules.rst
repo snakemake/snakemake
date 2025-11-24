@@ -3092,6 +3092,37 @@ Consider the following example:
 
 As can be seen, we first declare a rule a, and then we reuse the rule a as rule b, while changing only the output file and keeping everything else the same.
 In reality, one will often change more.
+
+Sometimes a property contains many arguments, but only a few of them need to be changed.
+In such cases, the ``usewith`` marker can be used to update only the specific arguments you want:
+
+.. code-block:: python
+
+    rule c:
+        input:
+            i1="input1.txt",
+            i2="input2.txt",
+            i3="input3.txt"
+        params:
+            p1=5,
+            p2=10,
+        output:
+            "output1.txt",
+        shell:
+            "cat {input} > {output}"
+
+    use rule c as d with:
+        input:
+            i2="modified_input2.txt"
+        params:
+            usewith(p1=20)
+        output:
+            "modified_output1.txt"
+```
+The entire ``input`` section is replaced by the single file "modified_input2.txt", instead of the three original inputs.
+In contrast, the ``params`` section uses ``usewith`` to selectively update only p1 to 20, while p2 remains unchanged at 10.
+All other properties of rule ``d`` remain identical to those of rule ``c``.
+
 Analogously to the ``use rule`` from external modules, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, ``pathvars``, etc.) can be modified, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
 All unmodified properties are inherited from the parent rule.
 

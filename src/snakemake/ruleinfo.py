@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 from collections import namedtuple
 from copy import copy
-from snakemake.common import usewith
+from snakemake.utils import usewith
 
 
 InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
