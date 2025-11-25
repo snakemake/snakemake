@@ -2106,7 +2106,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def params(self, *params, **kwparams):
         def decorate(ruleinfo):
-            ruleinfo.params = usewith.guard(*params, **kwparams)
+            ruleinfo.params = usewith.guard(params, kwparams)
             return ruleinfo
 
         return decorate
@@ -2116,7 +2116,7 @@ class Workflow(WorkflowExecutorInterface):
     ):
         def decorate(ruleinfo):
             ruleinfo.wildcard_constraints = usewith.guard(
-                *wildcard_constraints, **kwwildcard_constraints
+                wildcard_constraints, kwwildcard_constraints
             )
             return ruleinfo
 
@@ -2269,7 +2269,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def resources(self, *args, **resources):
         def decorate(ruleinfo):
-            ruleinfo.resources = usewith.guard(*args, **resources)
+            ruleinfo.resources = usewith.guard(args, resources)
             return ruleinfo
 
         return decorate

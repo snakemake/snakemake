@@ -639,7 +639,7 @@ def update_config(config, overwrite_config):
 
 
 class UseArgsWith:
-    "Update input, output, log, params, etc in rule defines"
+    "Update input, output, log, params, etc in rule definitions."
 
     def __init__(self, *args, **kwargs) -> None:
         self.args = args
@@ -702,8 +702,11 @@ class UseArgsWith:
         return self
 
     @classmethod
-    def guard(cls, *paths, **kwpaths) -> "UseArgsWith | Tuple[Tuple, Dict]":
-        """Return the ModifyArgs object if it is already wrapped, otherwise None."""
+    def guard(cls, paths, kwpaths) -> "UseArgsWith | Tuple[Tuple, Dict]":
+        """
+        If called with a single `UseArgsWith` positional argument, return it;
+        otherwise return the original ``(paths, kwpaths)`` tuple unchanged.
+        """
         if len(paths) == 1 and not kwpaths:
             obj = paths[0]
             if cls.updateable(obj):
@@ -712,7 +715,7 @@ class UseArgsWith:
 
     @classmethod
     def guard_ioput(cls, paths, kwpaths, path_modifier):
-        obj = cls.guard(*paths, **kwpaths)
+        obj = cls.guard(paths, kwpaths)
         if isinstance(obj, cls):
             return obj.mark("path_modifier", path_modifier)
         from snakemake.ruleinfo import InOutput
@@ -980,8 +983,6 @@ class Paramspace:
     def instance(self, wildcards):
         """Obtain instance (dataframe row) with the given wildcard values."""
         import pandas as pd
-
-        from snakemake.io import regex_from_filepattern
 
         def convert_value_dtype(name, value):
             if self.dataframe.dtypes[name] == bool and value == "False":

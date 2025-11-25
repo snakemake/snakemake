@@ -3,26 +3,27 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
-import asyncio
-import collections
 import contextlib
-import hashlib
-import inspect
 import itertools
 import math
 import operator
-import os
 import platform
+import hashlib
+import inspect
 import shutil
 import sys
-import uuid
-from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Callable, Dict, List, Optional, Tuple, Union
-
-from snakemake_interface_common.exceptions import WorkflowError
+from typing import Callable, List, Optional, Tuple
+import uuid
+import os
+import asyncio
+import collections
+from pathlib import Path
+from typing import Union
 
 from snakemake import __version__
+from snakemake_interface_common.exceptions import WorkflowError
+
 
 MIN_PY_VERSION: Tuple[int, int] = (3, 7)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
