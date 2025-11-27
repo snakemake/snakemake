@@ -1239,10 +1239,11 @@ class Job(
                 for f in self.output:
                     if is_flagged(f, "update"):
                         if error:
-                            logger.warning(
-                                f"Restoring previous version of {fmt_iofile(f)} (updating job failed)."
-                            )
                             if self.dag.workflow.persistence.restore_output(Path(f)):
+                                logger.warning(
+                                    f"Restored previous version of {fmt_iofile(f)} "
+                                    "(updating job failed)."
+                                )
                                 # The output was successfully restored from the backup.
                                 # Thus, we should not clean it up, it is not corrupted.
                                 skip_cleanup_outputs.add(f)

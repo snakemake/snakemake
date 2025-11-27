@@ -2307,9 +2307,9 @@ def test_update_flag_fail():
 
 def test_update_flag_fail_cleanup():
     workdir = dpath("test_update_flag_fail_cleanup")
-    run(workdir, shouldfail=True, check_results=False)
+    tmpdir = run(workdir, shouldfail=True, cleanup=False, check_results=False)
 
-    assert not os.path.exists(os.path.join(workdir, "test.txt"))
+    assert not os.path.exists(os.path.join(tmpdir, "test.txt"))
 
 
 @skip_on_windows
