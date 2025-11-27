@@ -220,9 +220,7 @@ def test_log_events(
         ), f"Expected '{expected_msg}' not found in stderr output"
 
 
-def test_rule_failure(
-    caplog: pytest.LogCaptureFixture, capfd: pytest.CaptureFixture[str]
-):
+def test_rule_failure(caplog: pytest.LogCaptureFixture):
     """Test LogEvent counts of records captured during workflow run with a failing rule."""
 
     with caplog.at_level(logging.INFO):
