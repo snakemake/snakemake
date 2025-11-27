@@ -614,9 +614,7 @@ class LoggerManager:
 
             # Track file handlers for later reference
             if handler.writes_to_file:
-                self.logfile_handlers[handler] = (
-                    handler.baseFilename
-                )
+                self.logfile_handlers[handler] = handler.baseFilename
 
             handlers.append(handler)
 
@@ -633,7 +631,9 @@ class LoggerManager:
 
         return has_stream_handler
 
-    def _init_plugin_handler(self, name: str, settings: LogHandlerSettingsBase) -> LogHandlerBase:
+    def _init_plugin_handler(
+        self, name: str, settings: LogHandlerSettingsBase
+    ) -> LogHandlerBase:
         """Instantiate and configure plugin handler given plugin name and settings."""
         plugin = LoggerPluginRegistry().get_plugin(name)
         plugin.validate_settings(settings)
