@@ -417,7 +417,7 @@ class CyclicGraphException(RuleException):
 class MissingRuleException(RuleException):
     def __init__(self, file, lineno=None, snakefile=None):
         from snakemake.io.fmt import fmt_iofile
-        
+
         super().__init__(
             f"No rule to produce {fmt_iofile(file)} (if you use input "
             "functions make sure that they don't raise unexpected exceptions).",
