@@ -1920,7 +1920,6 @@ def create_output_settings(args, log_handler_settings) -> OutputSettings:
         verbose=args.verbose,
         show_failed_logs=args.show_failed_logs,
         log_handler_settings=log_handler_settings,
-        keep_logger=False,
         stdout=args.dryrun,
         benchmark_extended=args.benchmark_extended,
     )
