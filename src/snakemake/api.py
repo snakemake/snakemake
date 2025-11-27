@@ -56,7 +56,7 @@ from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegist
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
-from snakemake.logging import logger, logger_manager
+from snakemake.logging import LoggerManager, logger
 from snakemake.shell import shell
 from snakemake.common import (
     MIN_PY_VERSION,
@@ -104,11 +104,13 @@ class SnakemakeApi(ApiBase):
     """
 
     output_settings: OutputSettings = field(default_factory=OutputSettings)
+    logger_manager: LoggerManager = field(init=False)
     _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
     _is_in_context: bool = field(init=False, default=False)
 
     def __post_init__(self):
-        self.setup_logger()
+        self.logger_manager = LoggerManager(logger)
+        self.logger_manager.setup(self.output_settings)
 
     def workflow(
         self,
@@ -151,7 +153,7 @@ class SnakemakeApi(ApiBase):
         self._check_default_storage_provider(storage_settings=storage_settings)
 
         snakefile = resolve_snakefile(snakefile)
-        logger_manager.setup_logfile(workdir=workdir)
+        self.logger_manager.setup_logfile(workdir=workdir)
         self._workflow_api = WorkflowApi(
             snakemake_api=self,
             snakefile=snakefile,
@@ -169,8 +171,8 @@ class SnakemakeApi(ApiBase):
     def _cleanup(self):
         """Cleanup the workflow."""
         if not self.output_settings.keep_logger:
-            logger_manager.cleanup_logfile()
-            logger_manager.stop()
+            self.logger_manager.cleanup_logfile()
+            self.logger_manager.stop()
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
             if self._workflow_api._workflow_store is not None:
@@ -252,10 +254,6 @@ class SnakemakeApi(ApiBase):
         ):
             linemaps = self._workflow_api._workflow_store.linemaps
         print_exception(ex, linemaps)
-
-    def setup_logger(self):
-        if not self.output_settings.keep_logger:
-            logger_manager.setup(self.output_settings)
 
     def _check_is_in_context(self):
         if not self._is_in_context:
@@ -400,6 +398,7 @@ class WorkflowApi(ApiBase):
             config_settings=self.config_settings,
             resource_settings=self.resource_settings,
             workflow_settings=self.workflow_settings,
+            logger_manager=self.snakemake_api.logger_manager,
             deployment_settings=self.deployment_settings,
             storage_settings=self.storage_settings,
             output_settings=self.snakemake_api.output_settings,
