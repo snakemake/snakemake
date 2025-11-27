@@ -596,7 +596,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             selected = run_selector(self._job_selector)
             # update job rate limiter with remote jobs only
             self.job_rate_limiter.register_jobs(
-                len([job for job in selected if not job.is_local])
+                sum(1 for job in selected if not job.is_local)
             )
             return selected
 
