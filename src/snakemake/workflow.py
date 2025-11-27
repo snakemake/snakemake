@@ -2086,6 +2086,14 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
+    @property
+    def runtime_paths(self) -> List[Path]:
+        assert self.storage_settings is not None
+        return [
+            self.storage_settings.local_storage_prefix,
+            self.sourcecache.cache_path,
+        ]
+
     def input(self, *paths, **kwpaths):
         def decorate(ruleinfo):
             ruleinfo.input = InOutput(paths, kwpaths, self.modifier.path_modifier)
