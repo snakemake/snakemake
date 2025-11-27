@@ -301,6 +301,10 @@ class IOException(RuleException):
         )
 
 
+class UndefinedPathvarException(WorkflowError):
+    pass
+
+
 class MissingOutputException(RuleException):
     def __init__(
         self,
