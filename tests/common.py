@@ -48,7 +48,7 @@ def md5sum(filename, ignore_newlines=False):
 # test skipping
 def is_connected():
     try:
-        urllib.request.urlopen("http://www.google.com", timeout=1)
+        urllib.request.urlopen("https://www.google.com", timeout=1)
         return True
     except (urllib.request.URLError, TimeoutError):
         return False
