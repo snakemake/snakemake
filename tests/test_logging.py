@@ -284,8 +284,14 @@ def test_plugin(
     test_dir = dpath("logging/test_logfile")
     outfile = tmp_path / "out.log"
 
+    # Add plugin directory to PYTHONPATH so the registry can discover it
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(plugin_dir)
+    current_path = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        str(plugin_dir)
+        if current_path is None
+        else str(plugin_dir) + os.pathsep + current_path
+    )
 
     cmd = [
         sys.executable,
