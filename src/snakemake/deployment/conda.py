@@ -104,7 +104,7 @@ class Env:
         self._archive_file = None
         self._cleanup = cleanup
         self._singularity_args = workflow.deployment_settings.apptainer_args
-        self._runtime_paths = workflow.storage_settings.runtime_paths
+        self._runtime_paths = workflow.runtime_paths
 
     @property
     def is_externally_managed(self):
