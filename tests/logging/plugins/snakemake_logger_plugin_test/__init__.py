@@ -44,7 +44,7 @@ class LogHandlerSettings(LogHandlerSettingsBase):
         default=False,
         metadata={
             "help": "Value of needs_rulegraph()",
-        }
+        },
     )
 
 
@@ -72,19 +72,23 @@ class LogHandler(LogHandlerBase):
     def emit(self, record: logging.LogRecord) -> None:
         # Emit info about logger first
         if self.first_record:
-            self._emit(dict(
-                event="logger_info",
-                formatter_set=self.formatter is not None,
-                filter_added=bool(self.filters),
-            ))
+            self._emit(
+                dict(
+                    event="logger_info",
+                    formatter_set=self.formatter is not None,
+                    filter_added=bool(self.filters),
+                )
+            )
             self.first_record = False
 
         event = getattr(record, "event", None)
-        self._emit(dict(
-            event=None if event is None else str(event),
-            msg=DEFAULT_FORMATTER.format(record),
-            level=record.levelname,
-        ))
+        self._emit(
+            dict(
+                event=None if event is None else str(event),
+                msg=DEFAULT_FORMATTER.format(record),
+                level=record.levelname,
+            )
+        )
 
     def _emit(self, data: dict[str, Any]) -> None:
         json.dump(data, self.stream)
