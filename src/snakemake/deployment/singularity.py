@@ -131,7 +131,8 @@ def shellcmd(
 
     if bind is not None:
         for b in bind:
-            args += f" --bind {repr(str(b))}"
+            if b.exists():
+                args += f" --bind {repr(str(b))}"
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
