@@ -1072,11 +1072,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     for f in files:
                         if await putative(f) and not needed(job_, f):
                             yield f
-                for f, f_ in zip(job.output, job.rule.output):
+                for f in job.output:
                     if (
                         await putative(f)
                         and not needed(job, f)
-                        and not f in self.targetfiles
+                        and f not in self.targetfiles
                     ):
                         yield f
                 for f in job.input:
