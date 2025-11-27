@@ -120,19 +120,19 @@ def shellcmd(
     if is_python_script:
         # mount host snakemake module into container
         args += " ".join(
-            f" --bind {repr(searchpath)}:{repr(mountpoint)}"
+            f" --bind {str(searchpath)!r}:{str(mountpoint)!r}"
             for searchpath, mountpoint in zip(
                 get_snakemake_searchpaths(), get_snakemake_searchpath_mountpoints()
             )
         )
 
     if container_workdir:
-        args += f" --pwd {repr(container_workdir)}"
+        args += f" --pwd {str(container_workdir)!r}"
 
     if bind is not None:
         for b in bind:
             if b.exists():
-                args += f" --bind {repr(str(b))}"
+                args += f" --bind {str(b)!r}"
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
