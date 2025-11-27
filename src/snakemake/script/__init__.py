@@ -597,6 +597,7 @@ class ScriptBase(ABC):
         cleanup_scripts,
         shadow_dir,
         is_local,
+        runtime_paths,
     ):
         self.path = path
         self.cache_path = cache_path
@@ -623,6 +624,7 @@ class ScriptBase(ABC):
         self.cleanup_scripts = cleanup_scripts
         self.shadow_dir = shadow_dir
         self.is_local = is_local
+        self.runtime_paths = runtime_paths
 
     def evaluate(self, edit=False):
         assert not edit or self.editable
@@ -681,6 +683,7 @@ class ScriptBase(ABC):
             singularity_args=self.singularity_args,
             resources=self.resources,
             threads=self.threads,
+            runtime_paths=self.runtime_paths,
             **kwargs,
         )
 
@@ -1733,6 +1736,7 @@ def script(
     shadow_dir,
     sourcecache_path,
     runtime_sourcecache_path,
+    runtime_paths,
 ):
     """
     Load a script from the given basedir + path and execute it.
@@ -1788,5 +1792,6 @@ def script(
         cleanup_scripts,
         shadow_dir,
         is_local,
+        runtime_paths,
     )
     executor.evaluate()
