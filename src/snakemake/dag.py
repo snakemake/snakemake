@@ -416,7 +416,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     f.is_storage
                     and not job.is_norun
                     and (
-                        also_missing_internal
+                        # if f exists in storage, retrieve below will check if it is
+                        # newer than an eventual local copy
+                        (also_missing_internal and await f.exists_in_storage())
                         or self.is_external_input(f, job, not_needrun_is_external=True)
                     )
                 ):
