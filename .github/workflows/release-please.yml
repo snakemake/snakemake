@@ -16,7 +16,7 @@ jobs:
           release-type: python
           token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         if: ${{ steps.release.outputs.release_created }}
         with:
           fetch-depth: 0

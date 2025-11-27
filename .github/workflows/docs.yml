@@ -16,7 +16,7 @@ jobs:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Pixi
         uses: prefix-dev/setup-pixi@v0.9.1
@@ -40,7 +40,7 @@ jobs:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Pixi
         uses: prefix-dev/setup-pixi@v0.9.1
