@@ -733,4 +733,3 @@ class LoggerManager:
 
 # Global logger instance
 logger = logging.getLogger(__name__)
-logger_manager = LoggerManager(logger)
