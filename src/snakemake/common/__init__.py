@@ -48,6 +48,10 @@ SNAKEFILE_CHOICES = list(
 )
 
 
+def func_true(job):
+    return True
+
+
 def get_snakemake_searchpaths():
     paths = [str(Path(__file__).parent.parent.parent)] + [
         path for path in sys.path if os.path.isdir(path)

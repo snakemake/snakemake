@@ -71,8 +71,8 @@ from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
 
 
-def format_files(io, is_input: bool):
-    return [fmt_iofile(f, as_input=is_input, as_output=not is_input) for f in io]
+def format_files(io, as_input: bool = False, as_output: bool = False):
+    return [fmt_iofile(f, as_input=as_input, as_output=as_output) for f in io]
 
 
 def jobfiles(jobs, type):
@@ -1078,9 +1078,9 @@ class Job(
                     not self.dag.workflow.dryrun
                     and self.dag.workflow.is_local(self.rule)
                 ),
-                input=format_files(self.input, is_input=True),
-                output=format_files(self.output, is_input=False),
-                log=format_files(self.log, is_input=False),
+                input=format_files(self.input, as_input=True),
+                output=format_files(self.output, as_output=True),
+                log=format_files(self.log, as_output=True),
                 benchmark=benchmark,
                 wildcards=self.wildcards_dict,
                 reason=str(self.dag.reason(self)),
@@ -1129,9 +1129,9 @@ class Job(
             rule_name=self.rule.name,
             rule_msg=msg,
             jobid=self.dag.jobid(self),
-            input=format_files(self.input, is_input=True),
-            output=format_files(self.output, is_input=False),
-            log=format_files(self.log, is_input=False) + aux_logs,
+            input=format_files(self.input, as_input=True),
+            output=format_files(self.output, as_output=True),
+            log=format_files(self.log, as_output=True) + aux_logs,
             conda_env=conda_env_adress,
             container_img=self.container_img,
             aux=kwargs,
@@ -1918,8 +1918,8 @@ class Reason:
             yield "software environment definition has changed since last execution"
 
     def __str__(self):
-        def concat_files(files, is_input: bool):
-            return ", ".join(format_files(files, is_input=is_input))
+        def concat_files(files):
+            return ", ".join(format_files(files))
 
         s = list()
         if self.forced:
@@ -1937,20 +1937,18 @@ class Reason:
             else:
                 if self._missing_output:
                     s.append(
-                        f"Missing output files: {concat_files(self.missing_output, is_input=False)}"
+                        f"Missing output files: {concat_files(self.missing_output)}"
                     )
                 if self._incomplete_output:
                     s.append(
-                        f"Incomplete output files: {concat_files(self.incomplete_output, is_input=False)}"
+                        f"Incomplete output files: {concat_files(self.incomplete_output)}"
                     )
                 if self._updated_input:
                     updated_input = self.updated_input - self.updated_input_run
-                    s.append(
-                        f"Updated input files: {concat_files(updated_input, is_input=True)}"
-                    )
+                    s.append(f"Updated input files: {concat_files(updated_input)}")
                 if self._updated_input_run:
                     s.append(
-                        f"Input files updated by another job: {concat_files(self.updated_input_run, is_input=True)}"
+                        f"Input files updated by another job: {concat_files(self.updated_input_run)}"
                     )
                 if self.pipe:
                     s.append(
