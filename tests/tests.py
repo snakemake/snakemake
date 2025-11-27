@@ -2305,6 +2305,13 @@ def test_update_flag_fail():
     run(dpath("test_update_flag_fail"), shouldfail=True, check_results=True)
 
 
+def test_update_flag_fail_cleanup():
+    workdir = dpath("test_update_flag_fail_cleanup")
+    tmpdir = run(workdir, shouldfail=True, cleanup=False, check_results=False)
+
+    assert not os.path.exists(os.path.join(tmpdir, "test.txt"))
+
+
 @skip_on_windows
 @apptainer
 def test_shell_exec_singularity():
