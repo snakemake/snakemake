@@ -133,6 +133,11 @@ def shellcmd(
         for b in bind:
             if b.exists():
                 args += f" --bind {str(b)!r}"
+            else:
+                logger.debug(
+                    "Skipping apptainer/singularity bind-mount for "
+                    f"non-existent path {str(b)!r}"
+                )
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
