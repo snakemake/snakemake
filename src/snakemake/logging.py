@@ -556,22 +556,17 @@ class LoggerManager:
     queue_listener: Optional[logging.handlers.QueueListener]
     needs_rulegraph: bool
     logfile_handlers: dict[logging.Handler, str]
-    settings: Optional["OutputSettings"]
+    settings: "OutputSettings"
 
-    def __init__(self, logger: logging.Logger):
+    def __init__(self, logger: logging.Logger, settings: "OutputSettings"):
         self.logger = logger
+        self.settings = settings
         self.queue_listener = None
-
         self.needs_rulegraph = False
         self.logfile_handlers = {}
-        self.settings = None
 
-    def setup(self, settings: "OutputSettings") -> None:
-        """Set up the logging system based on settings and handlers."""
         # Clear any existing handlers to prevent duplicates
         self.logger.handlers.clear()
-        self.logfile_handlers.clear()
-        self.settings = settings
 
         # Set up plugin handlers
         has_stream_handler = self._setup_plugins()
@@ -596,7 +591,6 @@ class LoggerManager:
         has_stream_handler : bool
             Whether any configured plugin handlers write to stdout/stderr.
         """
-        assert self.settings is not None
 
         # Skip plugin handlers if requested and return early
         if self.settings.skip_plugin_handlers:

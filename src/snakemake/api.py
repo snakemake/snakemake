@@ -109,8 +109,7 @@ class SnakemakeApi(ApiBase):
     _is_in_context: bool = field(init=False, default=False)
 
     def __post_init__(self):
-        self.logger_manager = LoggerManager(logger)
-        self.logger_manager.setup(self.output_settings)
+        self.logger_manager = LoggerManager(logger, self.output_settings)
 
     def workflow(
         self,
