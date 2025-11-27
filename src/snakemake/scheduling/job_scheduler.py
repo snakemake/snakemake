@@ -594,7 +594,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         else:
             self.resources["_job_slot"] = n_free_jobs
             selected = run_selector(self._job_selector)
-            # update job rate limiter with remtoe jobs only
+            # update job rate limiter with remote jobs only
             self.job_rate_limiter.register_jobs(
                 len([job for job in selected if not job.is_local])
             )
