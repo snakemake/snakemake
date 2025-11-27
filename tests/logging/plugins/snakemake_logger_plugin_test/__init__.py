@@ -54,7 +54,8 @@ class LogHandler(LogHandlerBase):
 
     def __post_init__(self) -> None:
 
-        # These should be set by the
+        # These should be set by the logging manager when the handler is configured, which happens
+        # after construction.
         assert self.formatter is None
         assert not self.filters
 

@@ -60,7 +60,7 @@ def check_event_counts(
         for event, expected_count in expected.items():
             actual_count = observed.get(event, 0)
             if expected_count is None:
-                assert actual_count > 0, f"Expected at least one {event} events."
+                assert actual_count > 0, f"Expected at least one {event} event."
             else:
                 assert (
                     actual_count == expected_count
@@ -286,6 +286,9 @@ def test_plugin(
     test_dir = dpath("logging/test_logfile")
     outfile = tmp_path / "out.log"
 
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(plugin_dir)
+
     cmd = [
         sys.executable,
         "-m",
@@ -311,7 +314,7 @@ def test_plugin(
     result = sp.run(
         cmd,
         cwd=tmp_path,
-        env={"PYTHONPATH": str(plugin_dir)},
+        env=env,
         check=True,
         capture_output=stream,
         text=True,
