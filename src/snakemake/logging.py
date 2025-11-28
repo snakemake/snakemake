@@ -13,22 +13,21 @@ import time
 import datetime
 import sys
 import os
-import json
 import threading
 from queue import Queue
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 import textwrap
-from typing import List, Optional
+from typing import List, Optional, Collection, TextIO
 from snakemake_interface_logger_plugins.base import LogHandlerBase
-from snakemake_interface_logger_plugins.settings import OutputSettingsLoggerInterface
 from snakemake_interface_logger_plugins.common import LogEvent
 
 if TYPE_CHECKING:
     from snakemake.settings.enums import Quietness
+    from snakemake.settings.types import OutputSettings
 
 
-def timestamp():
+def timestamp() -> str:
     """Helper method to format the timestamp."""
     return f"[{time.asctime()}]"
 
@@ -58,7 +57,7 @@ def show_logs(logs):
         yield "=" * max_len
 
 
-def format_dict(dict_like, omit_keys=None, omit_values=None):
+def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
     from snakemake.io import Namedlist
 
     omit_keys = omit_keys or []
@@ -86,7 +85,7 @@ def format_resource_names(resources, omit_resources="_cores _nodes".split()):
     return ", ".join(name for name in resources if name not in omit_resources)
 
 
-def format_percentage(done, total):
+def format_percentage(done: int, total: int) -> str:
     """Format percentage from given fraction while avoiding superfluous precision."""
     if done == total:
         return "100%"
@@ -104,23 +103,12 @@ def format_percentage(done, total):
     return fmt(fraction)
 
 
-def get_event_level(record: logging.LogRecord) -> tuple[LogEvent, str]:
-    """
-    Gets snakemake log level from a log record. If there is no snakemake log level,
-    returns the log record's level name.
-
-    Args:
-        record (logging.LogRecord)
-    Returns:
-        tuple[LogEvent, str]
-
-    """
-    event = record.__dict__.get("event", None)
-
-    return (event, record.levelname)
+def get_event(record: logging.LogRecord) -> Optional[LogEvent]:
+    """Get snakemake log event from a log record."""
+    return getattr(record, "event", None)
 
 
-def is_quiet_about(quiet: "Quietness", msg_type: str):
+def is_quiet_about(quiet: Collection["Quietness"], msg_type: str) -> bool:
     from snakemake.settings.enums import Quietness
 
     parsed = Quietness.parse_choice(msg_type)
@@ -129,24 +117,27 @@ def is_quiet_about(quiet: "Quietness", msg_type: str):
 
 
 class DefaultFormatter(logging.Formatter):
+    quiet: Collection["Quietness"]
+    show_failed_logs: bool
+
     def __init__(
         self,
-        quiet: "Quietness",
+        quiet: Optional[Collection["Quietness"]],
         show_failed_logs: bool = False,
     ):
         self.quiet = set() if quiet is None else quiet
         self.show_failed_logs = show_failed_logs
         self.last_msg_was_job_info = False
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         """
         Override format method to format Snakemake-specific log messages.
         """
-        event, level = get_event_level(record)
+        event = get_event(record)
         record_dict = record.__dict__.copy()
 
         def default_formatter(rd):
-            return rd["msg"]
+            return rd["msg"] or ""  # handle None
 
         formatters = {
             None: default_formatter,
@@ -164,34 +155,15 @@ class DefaultFormatter(logging.Formatter):
         formatter = formatters.get(event, default_formatter)
         return formatter(record_dict)
 
-    def format_info(self, msg):
-        """
-        Format 'info' level messages.
-        """
-        output = []
-
-        # Check if 'indent' is specified
-        indent = "    " if msg.get("indent", False) else ""
-
-        # Split the message by lines in case it's multiline
-        lines = msg["msg"].split("\n")
-
-        # Apply indentation to each line
-        for line in lines:
-            output.append(f"{indent}{line}")
-
-        # Return the formatted message as a single string with newlines
-        return "\n".join(output)
-
-    def format_run_info(self, msg):
+    def format_run_info(self, msg: dict[str, Any]):
         """Format the run_info log messages."""
         return msg["msg"]  # Log the message directly
 
-    def format_host(self, msg):
+    def format_host(self, msg: dict[str, Any]):
         """Format for host log."""
         return f"host: {platform.node()}"
 
-    def format_job_info(self, msg):
+    def format_job_info(self, msg: dict[str, Any]):
         """Format for job_info log."""
         output = []
 
@@ -207,13 +179,13 @@ class DefaultFormatter(logging.Formatter):
             return textwrap.indent("\n".join(output), "    ")
         return "\n".join(output)
 
-    def format_group_info(self, msg):
+    def format_group_info(self, msg: dict[str, Any]):
         """Format for group_info log."""
         msg = f"{timestamp()} {msg['msg']}"
 
         return msg
 
-    def format_job_error(self, msg):
+    def format_job_error(self, msg: dict[str, Any]):
         """Format for job_error log."""
         output = []
         output.append(timestamp())
@@ -223,33 +195,28 @@ class DefaultFormatter(logging.Formatter):
             return textwrap.indent("\n".join(output), "    ")
         return "\n".join(output)
 
-    def format_group_error(self, msg):
+    def format_group_error(self, msg: dict[str, Any]):
         """Format for group_error log."""
         output = []
         output.append(timestamp())
         output.append("\n".join(self._format_group_error(msg)))
         return "\n".join(output)
 
-    def format_progress(self, msg):
+    def format_progress(self, msg: dict[str, Any]):
         """Format for progress log."""
         done = msg["done"]
         total = msg["total"]
         return f"{done} of {total} steps ({format_percentage(done, total)}) done"
 
-    def format_job_finished(self, msg):
+    def format_job_finished(self, msg: dict[str, Any]):
         """Format for job_finished log."""
         return f"{timestamp()}\n{msg['msg']}"
 
-    def format_shellcmd(self, msg):
+    def format_shellcmd(self, msg: dict[str, Any]):
         """Format for shellcmd log."""
         return msg["msg"]
 
-    def format_d3dag(self, msg):
-        """Format for d3dag log."""
-
-        return json.dumps({"nodes": msg["nodes"], "links": msg["edges"]})
-
-    def format_dag_debug(self, msg):
+    def format_dag_debug(self, msg: dict[str, Any]):
         """Format for dag_debug log."""
         output = []
 
@@ -264,7 +231,7 @@ class DefaultFormatter(logging.Formatter):
             )
         return "\n".join(output)
 
-    def _format_job_info(self, msg):
+    def _format_job_info(self, msg: dict[str, Any]):
         """Helper method to format job info details."""
 
         def format_item(item, omit=None, valueformat=str):
@@ -303,7 +270,7 @@ class DefaultFormatter(logging.Formatter):
 
         return output
 
-    def _format_job_error(self, msg):
+    def _format_job_error(self, msg: dict[str, Any]):
         """Helper method to format job error details."""
         output = [f"Error in rule {msg['rule_name']}:"]
 
@@ -333,7 +300,7 @@ class DefaultFormatter(logging.Formatter):
 
         return output
 
-    def _format_group_error(self, msg):
+    def _format_group_error(self, msg: dict[str, Any]):
         """Helper method to format group error details."""
         output = []
 
@@ -365,7 +332,31 @@ class DefaultFormatter(logging.Formatter):
 
 
 class DefaultFilter:
-    def __init__(self, quiet, debug_dag, dryrun, printshellcmds) -> None:
+    """Default log filter.
+
+    Attributes
+    ----------
+    quiet
+        Quietness values to filter out.
+    debug_dag
+        Whether to allow DEBUG_DAG events.
+    dryrun
+    printshellcmds
+        Whether to allow SHELLCMD events.
+    """
+
+    quiet: Collection["Quietness"]
+    debug_dag: bool
+    dryrun: bool
+    printshellcmds: bool
+
+    def __init__(
+        self,
+        quiet: Optional[Collection["Quietness"]],
+        debug_dag: bool,
+        dryrun: bool,
+        printshellcmds: bool,
+    ) -> None:
         if quiet is None:
             quiet = set()
         self.quiet = quiet
@@ -373,12 +364,10 @@ class DefaultFilter:
         self.dryrun = dryrun
         self.printshellcmds = printshellcmds
 
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         from snakemake.settings.enums import Quietness
 
-        event, level = get_event_level(record)
-        if self.dryrun and level == "run_info":
-            return True
+        event = get_event(record)
 
         if Quietness.ALL in self.quiet and not self.dryrun:
             return False
@@ -442,10 +431,13 @@ class ColorizingTextHandler(logging.StreamHandler):
         None,  # To mimic old coloring where log.info was mapped to log.warn
     ]
 
+    nocolor: bool
+    stream: TextIO
+
     def __init__(
         self,
-        nocolor=False,
-        stream=sys.stderr,
+        nocolor: bool = False,
+        stream: TextIO = sys.stderr,
         formatter: Optional[logging.Formatter] = None,
         filter: Optional[logging.Filter] = None,
     ):
@@ -459,7 +451,7 @@ class ColorizingTextHandler(logging.StreamHandler):
         if filter:
             self.addFilter(filter)
 
-    def can_color_tty(self):
+    def can_color_tty(self) -> bool:
         """
         Colors are supported when:
         1. Terminal is not "dumb"
@@ -479,18 +471,18 @@ class ColorizingTextHandler(logging.StreamHandler):
         return False
 
     @property
-    def is_tty(self):
+    def is_tty(self) -> bool:
         isatty = getattr(self.stream, "isatty", None)
-        return isatty and isatty()
+        return bool(isatty and isatty())
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """
         Emit a log message with custom formatting and color.
         """
 
         with self._output_lock:
             try:
-                event, level = get_event_level(record)
+                event = get_event(record)
 
                 if event == LogEvent.JOB_INFO:
                     if not self.last_msg_was_job_info:
@@ -515,16 +507,16 @@ class ColorizingTextHandler(logging.StreamHandler):
             except Exception:
                 self.handleError(record)
 
-    def decorate(self, record, message):
+    def decorate(self, record: logging.LogRecord, message: str) -> str:
         """
         Add color to the log message based on its level.
         """
         message = [message]
 
-        event, level = get_event_level(record)
+        event = get_event(record)
 
         if not self.nocolor and record.levelname in self.colors:
-            if level == "INFO" and event in self.yellow_info_events:
+            if record.levelno == logging.INFO and event in self.yellow_info_events:
                 color = self.colors["WARNING"]
             else:
                 color = self.colors[record.levelname]
@@ -536,19 +528,47 @@ class ColorizingTextHandler(logging.StreamHandler):
 
 
 class LoggerManager:
+    """Sets up and manages workflow logging system.
+
+    Attributes
+    ----------
+    logger
+        Logger object all handlers are attached to.
+    initialized
+        Whether :meth:`setup` has been called.
+    queue_listener
+        Queue listener used to process all plugin handlers in the main thread. An associated
+        :class:`logging.handlers.QueueHandler` is attached to :attr:`logger`.
+    needs_rulegraph
+        Whether any plugin requested a RULEGRAPH event be logged.
+    logfile_handlers
+        Mapping from :class:`logging.Handler` instances to their associated output files. Used to
+        report all log files at the end of the run.
+    settings
+        Global logging settings. This is used to configure the default stream/file handlers and is
+        also passed to all plugins.
+    """
+
+    logger: logging.Logger
+    initialized: bool
+    queue_listener: Optional[logging.handlers.QueueListener]
+    needs_rulegraph: bool
+    logfile_handlers: dict[logging.Handler, str]
+    settings: Optional["OutputSettings"]
+
     def __init__(self, logger: logging.Logger):
         self.logger = logger
         self.queue_listener = None
 
         self.needs_rulegraph = False
         self.logfile_handlers = {}
-        self.settings: OutputSettingsLoggerInterface = None
+        self.settings = None
 
     def setup(
         self,
         handlers: List[LogHandlerBase],
-        settings: OutputSettingsLoggerInterface,
-    ):
+        settings: "OutputSettings",
+    ) -> None:
         """Set up the logging system based on settings and handlers."""
         # Clear any existing handlers to prevent duplicates
         self.logger.handlers.clear()
@@ -615,14 +635,16 @@ class LoggerManager:
         else:
             self.logger.setLevel(logging.DEBUG if settings.verbose else logging.INFO)
 
-    def _configure_plugin_handler(self, plugin):
+        self.initialized = True
+
+    def _configure_plugin_handler(self, plugin: LogHandlerBase) -> LogHandlerBase:
         if not plugin.has_filter:
             plugin.addFilter(self._default_filter())
         if not plugin.has_formatter:
             plugin.setFormatter(self._default_formatter())
         return plugin
 
-    def _default_filter(self):
+    def _default_filter(self) -> DefaultFilter:
         return DefaultFilter(
             self.settings.quiet,
             self.settings.debug_dag,
@@ -630,13 +652,13 @@ class LoggerManager:
             self.settings.printshellcmds,
         )
 
-    def _default_formatter(self):
+    def _default_formatter(self) -> DefaultFormatter:
         return DefaultFormatter(
             self.settings.quiet,
             self.settings.show_failed_logs,
         )
 
-    def _default_filehandler(self, logfile):
+    def _default_filehandler(self, logfile) -> logging.Handler:
         logfile_handler = logging.FileHandler(logfile)
         logfile_handler.setFormatter(self._default_formatter())
         logfile_handler.addFilter(self._default_filter())
@@ -646,7 +668,7 @@ class LoggerManager:
         logfile_handler.name = "DefaultLogFileHandler"
         return logfile_handler
 
-    def _default_streamhandler(self):
+    def _default_streamhandler(self) -> logging.Handler:
         stream_handler = ColorizingTextHandler(
             nocolor=self.settings.nocolor,
             stream=sys.stdout if self.settings.stdout else sys.stderr,
@@ -667,13 +689,13 @@ class LoggerManager:
             self.logger.info(f"Complete log(s): {log_paths}")
         return logfiles
 
-    def cleanup_logfile(self):
+    def cleanup_logfile(self) -> None:
         if self.settings.enable_file_logging:
             for handler in self.logfile_handlers.keys():
                 self.logger.removeHandler(handler)
                 handler.close()
 
-    def setup_logfile(self, workdir: Optional[os.PathLike] = None):
+    def setup_logfile(self, workdir: Optional[os.PathLike] = None) -> None:
         if self.settings.enable_file_logging and not self.settings.dryrun:
             if workdir:
                 logdir = os.path.join(workdir, ".snakemake", "log")
@@ -695,7 +717,7 @@ class LoggerManager:
             except OSError as e:
                 self.logger.error(f"Failed to setup log file: {e}")
 
-    def stop(self):
+    def stop(self) -> None:
         if self.queue_listener is not None and self.queue_listener._thread is not None:
             self.queue_listener.stop()
 

@@ -31,7 +31,7 @@ from snakemake.logging import logger
 from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
 
 from snakemake.settings.enums import Quietness
-from snakemake.settings.types import MaxJobsPerTimespan
+from snakemake.settings.types import MaxJobsPerTimespan, SharedFSUsage
 
 registry = ExecutorPluginRegistry()
 
@@ -346,13 +346,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 f"{', '.join(j.name for j in local_runjobs)}."
                             )
                         else:
-                            if (
-                                not self.workflow.remote_exec
-                                and not self.workflow.local_exec
-                            ):
-                                # Workflow uses a remote plugin and this scheduling run
-                                # is on the main process. Hence, we have to download
-                                # non-shared remote files for the local jobs.
+                            if not self.dryrun and not self.workflow.subprocess_exec:
+                                # retrieve storage inputs for local jobs
                                 async_run(
                                     self.workflow.dag.retrieve_storage_inputs(
                                         jobs=local_runjobs, also_missing_internal=True
@@ -364,6 +359,22 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 executor=self._local_executor or self._executor,
                             )
                     if runjobs:
+                        # If we are already in a remote process, there are for now only local jobs.
+                        # TODO: there are plans to chain remote executors. In that case, we should
+                        # reconsider this logic and decide where to download the storage inputs.
+                        assert self.workflow.is_main_process
+                        if not self.workflow.dryrun and (
+                            SharedFSUsage.STORAGE_LOCAL_COPIES
+                            in self.workflow.storage_settings.shared_fs_usage
+                        ):
+                            # Retrieve storage inputs for remote jobs, as storage local copies are handled
+                            # via a shared filesystem.
+                            # If local copies are not shared, they will be downloaded in the remote job.
+                            async_run(
+                                self.workflow.dag.retrieve_storage_inputs(
+                                    jobs=runjobs, also_missing_internal=True
+                                )
+                            )
                         self.run(runjobs)
 
                 if not self.dryrun:

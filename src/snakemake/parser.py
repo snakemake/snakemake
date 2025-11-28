@@ -315,6 +315,18 @@ class Configfile(GlobalKeywordState):
     pass
 
 
+class GlobalPathvars(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "register_pathvars"
+
+
+class RulePathvars(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "rule_pathvars"
+
+
 # PEPs
 
 
@@ -576,7 +588,8 @@ class Run(RuleKeywordState):
             "resources, log, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
-            "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, {rule_func_marker}=True):".format(
+            "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, "
+            "runtime_paths, {rule_func_marker}=True):".format(
                 rulename=(
                     self.rulename
                     if self.rulename is not None
@@ -679,7 +692,7 @@ class Script(AbstractCmd):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, sourcecache_path, "
-            "runtime_sourcecache_path"
+            "runtime_sourcecache_path, runtime_paths"
         )
 
 
@@ -692,7 +705,7 @@ class Notebook(Script):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook, sourcecache_path, runtime_sourcecache_path"
+            "edit_notebook, sourcecache_path, runtime_sourcecache_path, runtime_paths"
         )
 
 
@@ -705,7 +718,8 @@ class Wrapper(Script):
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, workflow.workflow_settings.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir, sourcecache_path, runtime_sourcecache_path"
+            "cleanup_scripts, shadow_dir, sourcecache_path, runtime_sourcecache_path, "
+            "runtime_paths"
         )
 
 
@@ -725,7 +739,7 @@ class CWL(Script):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, use_singularity, bench_record, jobid, sourcecache_path, "
-            "runtime_sourcecache_path"
+            "runtime_sourcecache_path, runtime_paths"
         )
 
 
@@ -754,6 +768,7 @@ rule_property_subautomata = dict(
     handover=Handover,
     default_target=DefaultTarget,
     localrule=LocalRule,
+    pathvars=RulePathvars,
 )
 rule_property_deprecated = dict(
     version="Use conda or container directive instead (see docs)."
@@ -931,6 +946,19 @@ class ModuleReplacePrefix(ModuleKeywordState):
         return "replace_prefix"
 
 
+class ModulePathvars(ModuleKeywordState):
+    def start(self):
+        yield f"{self.keyword}=dict("
+
+    def end(self):
+        yield ")"
+        yield ","
+
+    @property
+    def keyword(self):
+        return "pathvars"
+
+
 class Module(GlobalKeywordState):
     subautomata = dict(
         name=ModuleName,
@@ -940,6 +968,7 @@ class Module(GlobalKeywordState):
         skip_validation=ModuleSkipValidation,
         replace_prefix=ModuleReplacePrefix,
         prefix=ModulePrefix,
+        pathvars=ModulePathvars,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -1279,6 +1308,7 @@ class Python(TokenAutomaton):
         include=Include,
         workdir=Workdir,
         configfile=Configfile,
+        pathvars=GlobalPathvars,
         pepfile=Pepfile,
         pepschema=Pepschema,
         report=Report,
@@ -1335,7 +1365,7 @@ class Snakefile:
         workflow: "workflow.Workflow",
         rulecount=0,
     ):
-        self.path = path.get_path_or_uri()
+        self.path = path.get_path_or_uri(secret_free=False)
         self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = rulecount

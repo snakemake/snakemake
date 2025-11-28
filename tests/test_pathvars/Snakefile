@@ -1,0 +1,43 @@
+shell.executable("bash")
+
+
+pathvars:
+    results="results/custom",
+    per="{sample}",
+    nested="<per>",
+
+
+rule all:
+    input:
+        collect("<results>/b/{sample}.{ext}", sample=["s1", "s2"], ext=["txt", "csv"])
+
+
+rule a:
+    output:
+        "<results>/a/<per>.txt"
+    shell:
+        "touch {output}"
+
+
+def infunc(wildcards):
+    return "<resources>/<resname>.2.txt"
+
+
+rule b:
+    input:
+        "<results>/a/<per>.txt",
+        "<resources>/<resname>.txt",
+        infunc,
+    output:
+        "<results>/b/<nested>.txt"
+    pathvars:
+        resname="test"
+    shell:
+        "touch {output}"
+
+
+use rule b as c with:
+    output:
+        "<results>/b/<nested>.csv"
+    pathvars:
+        resname="test2"

@@ -301,6 +301,10 @@ class IOException(RuleException):
         )
 
 
+class UndefinedPathvarException(WorkflowError):
+    pass
+
+
 class MissingOutputException(RuleException):
     def __init__(
         self,
@@ -412,8 +416,10 @@ class CyclicGraphException(RuleException):
 
 class MissingRuleException(RuleException):
     def __init__(self, file, lineno=None, snakefile=None):
+        from snakemake.io.fmt import fmt_iofile
+
         super().__init__(
-            f"No rule to produce {file} (if you use input "
+            f"No rule to produce {fmt_iofile(file)} (if you use input "
             "functions make sure that they don't raise unexpected exceptions).",
             lineno=lineno,
             snakefile=snakefile,

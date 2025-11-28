@@ -16,10 +16,10 @@ jobs:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.9.0
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           environments: "docs"
           pixi-version: v0.42.1
@@ -31,7 +31,7 @@ jobs:
           pixi run --environment docs build-docs
 
       - name: Upload documentation
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: docs-html
           path: docs/_build/html/
@@ -40,10 +40,10 @@ jobs:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.9.0
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           environments: "docs"
           pixi-version: v0.42.1
@@ -55,7 +55,7 @@ jobs:
           pixi run --environment docs build-apidocs
 
       - name: Upload documentation
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: apidocs-html
           path: apidocs/_build/html/
