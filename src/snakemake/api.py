@@ -14,10 +14,8 @@ import os
 import tarfile
 import uuid
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
-from snakemake.settings.enums import ExperimentalFeatures
 from snakemake.settings.types import (
     ChangeType,
-    GlobalSettings,
     GroupSettings,
     SchedulingSettings,
     WorkflowSettings,

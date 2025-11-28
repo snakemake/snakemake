@@ -2045,27 +2045,6 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 rule.software_env_spec = ruleinfo.software_env_spec
 
-            if ruleinfo.software_env_spec:
-                if not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                ):
-                    raise RuleException(
-                        "Software directive is only allowed "
-                        "with shell, script, notebook or wrapper directives "
-                        "(not with run or template_engine).",
-                        rule=rule,
-                    )
-                rule.software_env_spec = ruleinfo.software_env_spec
-
-            invalid_rule = not (
-                ruleinfo.script
-                or ruleinfo.wrapper
-                or ruleinfo.shellcmd
-                or ruleinfo.notebook
-            )
             if ruleinfo.container_img:
                 check_may_use_software_deployment("container/singularity")
                 rule.container_img = ruleinfo.container_img

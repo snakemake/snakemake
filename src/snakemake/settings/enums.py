@@ -38,7 +38,3 @@ class StrictDagEvaluation(SettingsEnumBase):
 class PrintDag(SettingsEnumBase):
     DOT = 0
     MERMAID_JS = 1
-
-
-class ExperimentalFeatures(SettingsEnumBase):
-    SOFTWARE_DEPLOYMENT_PLUGINS = 1
