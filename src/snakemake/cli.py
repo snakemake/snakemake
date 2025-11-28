@@ -1346,7 +1346,12 @@ def get_argument_parser(profiles=None):
         help="Same behaviour as `--wait-for-files`, but file list is "
         "stored in file instead of being passed on the commandline. "
         "This is useful when the list of files is too long to be "
-        "passed on the commandline.",
+        "passed on the commandline. Meant for internal use.",
+    )
+    group_behavior.add_argument(
+        "--runtime-source-cache-path",
+        metavar="PATH",
+        help="Path to the runtime source cache directory. Meant for internal use.",
     )
     group_behavior.add_argument(
         "--queue-input-wait-time",
@@ -1990,6 +1995,7 @@ def args_to_api(args, parser):
                         exec_mode=args.mode,
                         cache=args.cache,
                         consider_ancient=args.consider_ancient,
+                        runtime_source_cache_path=args.runtime_source_cache_path,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,

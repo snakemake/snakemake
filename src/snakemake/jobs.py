@@ -19,6 +19,8 @@ from operator import attrgetter
 from typing import Dict, Iterable, List, Optional, Sequence, Union
 from collections.abc import AsyncGenerator
 from abc import abstractmethod
+from snakemake import wrapper
+from snakemake.rules import Rule
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
@@ -69,8 +71,8 @@ from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
 
 
-def format_files(io, is_input: bool):
-    return [fmt_iofile(f, as_input=is_input, as_output=not is_input) for f in io]
+def format_files(io, as_input: bool = False, as_output: bool = False):
+    return [fmt_iofile(f, as_input=as_input, as_output=as_output) for f in io]
 
 
 def jobfiles(jobs, type):
@@ -230,7 +232,7 @@ class Job(
         targetfile=None,
         groupid=None,
     ):
-        self.rule = rule
+        self.rule: Rule = rule
         self.dag = dag
 
         # the targetfile that led to the job
@@ -412,7 +414,7 @@ class Job(
         path: SourceFile = self._path_to_source_file(path)
 
         if isinstance(path, LocalSourceFile):
-            path = path.get_path_or_uri()
+            path = path.get_path_or_uri(secret_free=True)
             if os.path.exists(path):
                 script_mtime = get_script_mtime(path)
                 for f in self.output:
@@ -860,7 +862,9 @@ class Job(
             if self.resources.get("tmpdir"):
                 os.makedirs(self.resources.tmpdir, exist_ok=True)
 
-            for f, f_ in zip(self.output, self.rule.output):
+            for f in self.output:
+                if is_flagged(f, "update") and await f.exists():
+                    self.rule.workflow.persistence.backup_output(Path(f))
                 f.prepare()
 
             for f in self.log:
@@ -971,9 +975,11 @@ class Job(
                 return path in dep.pipe_or_service_output
         return False
 
-    async def cleanup(self):
+    async def cleanup(self, skip_outputs: Sequence[_IOFile]):
         """Cleanup output files."""
-        to_remove = [f for f in self.output if await f.exists()]
+        to_remove = [
+            f for f in self.output if await f.exists() and f not in skip_outputs
+        ]
         to_remove.extend(
             [
                 f
@@ -1096,9 +1102,9 @@ class Job(
                     not self.dag.workflow.dryrun
                     and self.dag.workflow.is_local(self.rule)
                 ),
-                input=format_files(self.input, is_input=True),
-                output=format_files(self.output, is_input=False),
-                log=format_files(self.log, is_input=False),
+                input=format_files(self.input, as_input=True),
+                output=format_files(self.output, as_output=True),
+                log=format_files(self.log, as_output=True),
                 benchmark=benchmark,
                 wildcards=self.wildcards_dict,
                 reason=str(self.dag.reason(self)),
@@ -1147,9 +1153,9 @@ class Job(
             rule_name=self.rule.name,
             rule_msg=msg,
             jobid=self.dag.jobid(self),
-            input=format_files(self.input, is_input=True),
-            output=format_files(self.output, is_input=False),
-            log=format_files(self.log, is_input=False) + aux_logs,
+            input=format_files(self.input, as_input=True),
+            output=format_files(self.output, as_output=True),
+            log=format_files(self.log, as_output=True) + aux_logs,
             conda_env=conda_env_adress,
             container_img=self.container_img,
             aux=kwargs,
@@ -1169,12 +1175,15 @@ class Job(
     def register(self, external_jobid: Optional[str] = None):
         self.dag.workflow.persistence.started(self, external_jobid)
 
-    def get_wait_for_files(self):
+    def get_wait_for_files(self, skip_input_files: bool = False):
         wait_for_files = []
-        wait_for_files.extend(self.local_input)
-        wait_for_files.extend(
-            f for f in self.storage_input if not f.should_not_be_retrieved_from_storage
-        )
+        if not skip_input_files:
+            wait_for_files.extend(self.local_input)
+            wait_for_files.extend(
+                f
+                for f in self.storage_input
+                if not f.should_not_be_retrieved_from_storage
+            )
 
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
@@ -1188,6 +1197,25 @@ class Job(
             # Managed or containerized envs are not present on the host FS,
             # hence we don't need to wait for them.
             wait_for_files.append(self.conda_env.address)
+
+        if self.is_wrapper:
+            script = wrapper.get_script(
+                self.rule.wrapper,
+                self.dag.workflow.sourcecache,
+                self.dag.workflow.workflow_settings.wrapper_prefix,
+            )
+            if script is not None:
+                wait_for_files.append(
+                    IOFile(self.dag.workflow.sourcecache.get_path(script))
+                )
+            env = wrapper.get_conda_env(
+                self.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
+            )
+            if env is not None:
+                wait_for_files.append(
+                    IOFile(self.dag.workflow.sourcecache.get_path(env))
+                )
+
         return wait_for_files
 
     @property
@@ -1215,6 +1243,8 @@ class Job(
             self.dag.workflow.persistence.cleanup(self)
             return
 
+        skip_cleanup_outputs = set()
+
         shared_input_output = (
             SharedFSUsage.INPUT_OUTPUT
             in self.dag.workflow.storage_settings.shared_fs_usage
@@ -1230,6 +1260,19 @@ class Job(
                 or (self.dag.workflow.remote_exec and not shared_input_output)
                 or self.is_local
             ):
+                for f in self.output:
+                    if is_flagged(f, "update"):
+                        if error:
+                            if self.dag.workflow.persistence.restore_output(Path(f)):
+                                logger.warning(
+                                    f"Restored previous version of {fmt_iofile(f)} "
+                                    "(updating job failed)."
+                                )
+                                # The output was successfully restored from the backup.
+                                # Thus, we should not clean it up, it is not corrupted.
+                                skip_cleanup_outputs.add(f)
+                        else:
+                            self.dag.workflow.persistence.cleanup_backup(Path(f))
                 if not error and handle_touch:
                     self.dag.handle_touch(self)
                 if handle_log:
@@ -1300,7 +1343,7 @@ class Job(
             )
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
-            await self.cleanup()
+            await self.cleanup(skip_cleanup_outputs)
 
     @property
     def name(self):
@@ -1526,15 +1569,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
         )
 
         for job in self.jobs:
-            if job.shadow_dir:
-                wait_for_files.append(job.shadow_dir)
-            if (
-                DeploymentMethod.CONDA
-                in self.dag.workflow.legacy_deployment_settings.deployment_method
-                and job.conda_env
-                and not job.conda_env.is_externally_managed
-            ):
-                wait_for_files.append(job.conda_env.address)
+            wait_for_files.extend(job.get_wait_for_files(skip_input_files=True))
         return wait_for_files
 
     @property
@@ -1621,10 +1656,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
             last_job = sorted(self.toposorted[-1])[-1]
             self._jobid = last_job.uuid()
         return self._jobid
-
-    async def cleanup(self):
-        for job in self.jobs:
-            await job.cleanup()
 
     async def postprocess(self, error=False, **kwargs):
         def needed(job_, f):
@@ -1911,8 +1942,8 @@ class Reason:
             yield "software environment definition has changed since last execution"
 
     def __str__(self):
-        def concat_files(files, is_input: bool):
-            return ", ".join(format_files(files, is_input=is_input))
+        def concat_files(files):
+            return ", ".join(format_files(files))
 
         s = list()
         if self.forced:
@@ -1930,20 +1961,18 @@ class Reason:
             else:
                 if self._missing_output:
                     s.append(
-                        f"Missing output files: {concat_files(self.missing_output, is_input=False)}"
+                        f"Missing output files: {concat_files(self.missing_output)}"
                     )
                 if self._incomplete_output:
                     s.append(
-                        f"Incomplete output files: {concat_files(self.incomplete_output, is_input=False)}"
+                        f"Incomplete output files: {concat_files(self.incomplete_output)}"
                     )
                 if self._updated_input:
                     updated_input = self.updated_input - self.updated_input_run
-                    s.append(
-                        f"Updated input files: {concat_files(updated_input, is_input=True)}"
-                    )
+                    s.append(f"Updated input files: {concat_files(updated_input)}")
                 if self._updated_input_run:
                     s.append(
-                        f"Input files updated by another job: {concat_files(self.updated_input_run, is_input=True)}"
+                        f"Input files updated by another job: {concat_files(self.updated_input_run)}"
                     )
                 if self.pipe:
                     s.append(

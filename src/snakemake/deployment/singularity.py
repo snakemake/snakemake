@@ -8,6 +8,7 @@ import subprocess
 import shutil
 import os
 import hashlib
+from typing import List, Optional
 
 from snakemake.common import (
     get_snakemake_searchpaths,
@@ -92,7 +93,8 @@ class Image:
 
 def shellcmd(
     img_path,
-    cmd,
+    cmd: str,
+    bind: Optional[List[Path]] = None,
     args="",
     quiet=False,
     envvars=None,
@@ -118,27 +120,24 @@ def shellcmd(
     if is_python_script:
         # mount host snakemake module into container
         args += " ".join(
-            f" --bind {repr(searchpath)}:{repr(mountpoint)}"
+            f" --bind {str(searchpath)!r}:{str(mountpoint)!r}"
             for searchpath, mountpoint in zip(
                 get_snakemake_searchpaths(), get_snakemake_searchpath_mountpoints()
             )
         )
 
     if container_workdir:
-        args += f" --pwd {repr(container_workdir)}"
+        args += f" --pwd {str(container_workdir)!r}"
 
-    # mount the snakemake cache into the container per default so that
-    # params included with workflow.source_path are always mounted in the container
-    if len(args) == 0:
-        source_cache_path = os.path.join(
-            get_appdirs().user_cache_dir, "snakemake/source-cache"
-        )
-        if os.path.exists(source_cache_path):
-            args += "--bind " + source_cache_path
-        else:
-            logger.debug(
-                f"Source cache directory {source_cache_path} does not exist, skipping bind mount"
-            )
+    if bind is not None:
+        for b in bind:
+            if b.exists():
+                args += f" --bind {str(b)!r}"
+            else:
+                logger.debug(
+                    "Skipping apptainer/singularity bind-mount for "
+                    f"non-existent path {str(b)!r}"
+                )
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,

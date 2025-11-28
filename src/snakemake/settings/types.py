@@ -134,6 +134,7 @@ class WorkflowSettings(SettingsBase):
     consider_ancient: Mapping[str, AnySet[Union[str, int]]] = field(
         default_factory=dict
     )
+    runtime_source_cache_path: Optional[Path] = None
 
 
 class Batch:
@@ -362,6 +363,29 @@ class ConfigSettings(SettingsBase):
 
 @dataclass
 class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
+    """
+    Attributes
+    ----------
+    dryrun
+    printshellcmds
+    nocolor
+    quiet
+    debug_dag
+    verbose
+    show_failed_logs
+    log_handler_settings
+        Settings for all enabled logger plugins (dictionary keyed by plugin name).
+    keep_logger
+    stdout
+        Log to stdout instead of stderr.
+    benchmark_extended
+    log_level_override
+        Override global log level (e.g., ``ERROR`` for subprocess).
+    skip_plugin_handlers
+        Skip plugins/queue (remote mode).
+    enable_file_logging
+    """
+
     dryrun: bool = False
     printshellcmds: bool = False
     nocolor: bool = False
@@ -373,10 +397,8 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     keep_logger: bool = False
     stdout: bool = False
     benchmark_extended: bool = False
-    log_level_override: Optional[int] = (
-        None  # Override log level (e.g., ERROR for subprocess)
-    )
-    skip_plugin_handlers: bool = False  # Skip plugins/queue (remote mode)
+    log_level_override: Optional[int] = None
+    skip_plugin_handlers: bool = False
     enable_file_logging: bool = True
 
 

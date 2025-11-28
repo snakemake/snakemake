@@ -47,8 +47,11 @@ def md5sum(filename, ignore_newlines=False):
 
 # test skipping
 def is_connected():
+    if is_ci():
+        # always assume internet connection in CI
+        return True
     try:
-        urllib.request.urlopen("http://www.google.com", timeout=1)
+        urllib.request.urlopen("https://www.google.com", timeout=1)
         return True
     except (urllib.request.URLError, TimeoutError):
         return False
