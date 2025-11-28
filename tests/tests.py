@@ -19,7 +19,7 @@ from snakemake.utils import min_version  # import so we can patch out if needed
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
-from snakemake.exceptions import AmbiguousRuleException
+from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -2305,6 +2305,13 @@ def test_update_flag_fail():
     run(dpath("test_update_flag_fail"), shouldfail=True, check_results=True)
 
 
+def test_update_flag_fail_cleanup():
+    workdir = dpath("test_update_flag_fail_cleanup")
+    tmpdir = run(workdir, shouldfail=True, cleanup=False, check_results=False)
+
+    assert not os.path.exists(os.path.join(tmpdir, "test.txt"))
+
+
 @skip_on_windows
 @apptainer
 def test_shell_exec_singularity():
@@ -2646,3 +2653,8 @@ def test_checkpoint_omit_from():
         dpath("test_checkpoint_omit_from"),
         shellcmd="snakemake --omit-from B1 --cores 1",
     )
+
+
+def test_wildcard_annotatedstrings():
+    with pytest.raises(WorkflowError, match=r"unpack\(\) is not allowed with params"):
+        run(dpath("test_wildcard_annotatedstrings"), targets=["test.out"])

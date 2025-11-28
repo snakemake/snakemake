@@ -71,8 +71,8 @@ from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
 
 
-def format_files(io, is_input: bool):
-    return [fmt_iofile(f, as_input=is_input, as_output=not is_input) for f in io]
+def format_files(io, as_input: bool = False, as_output: bool = False):
+    return [fmt_iofile(f, as_input=as_input, as_output=as_output) for f in io]
 
 
 def jobfiles(jobs, type):
@@ -839,7 +839,7 @@ class Job(
                 os.makedirs(self.resources.tmpdir, exist_ok=True)
 
             for f in self.output:
-                if is_flagged(f, "update"):
+                if is_flagged(f, "update") and await f.exists():
                     self.rule.workflow.persistence.backup_output(Path(f))
                 f.prepare()
 
@@ -951,10 +951,10 @@ class Job(
                 return path in dep.pipe_or_service_output
         return False
 
-    async def cleanup(self):
+    async def cleanup(self, skip_outputs: Sequence[_IOFile]):
         """Cleanup output files."""
         to_remove = [
-            f for f in self.output if await f.exists() and not is_flagged(f, "update")
+            f for f in self.output if await f.exists() and f not in skip_outputs
         ]
         to_remove.extend(
             [
@@ -1078,9 +1078,9 @@ class Job(
                     not self.dag.workflow.dryrun
                     and self.dag.workflow.is_local(self.rule)
                 ),
-                input=format_files(self.input, is_input=True),
-                output=format_files(self.output, is_input=False),
-                log=format_files(self.log, is_input=False),
+                input=format_files(self.input, as_input=True),
+                output=format_files(self.output, as_output=True),
+                log=format_files(self.log, as_output=True),
                 benchmark=benchmark,
                 wildcards=self.wildcards_dict,
                 reason=str(self.dag.reason(self)),
@@ -1129,9 +1129,9 @@ class Job(
             rule_name=self.rule.name,
             rule_msg=msg,
             jobid=self.dag.jobid(self),
-            input=format_files(self.input, is_input=True),
-            output=format_files(self.output, is_input=False),
-            log=format_files(self.log, is_input=False) + aux_logs,
+            input=format_files(self.input, as_input=True),
+            output=format_files(self.output, as_output=True),
+            log=format_files(self.log, as_output=True) + aux_logs,
             conda_env=conda_env_adress,
             container_img=self.container_img,
             aux=kwargs,
@@ -1219,6 +1219,8 @@ class Job(
             self.dag.workflow.persistence.cleanup(self)
             return
 
+        skip_cleanup_outputs = set()
+
         shared_input_output = (
             SharedFSUsage.INPUT_OUTPUT
             in self.dag.workflow.storage_settings.shared_fs_usage
@@ -1237,10 +1239,14 @@ class Job(
                 for f in self.output:
                     if is_flagged(f, "update"):
                         if error:
-                            logger.warning(
-                                f"Restoring previous version of {fmt_iofile(f)} (updating job failed)."
-                            )
-                            self.dag.workflow.persistence.restore_output(Path(f))
+                            if self.dag.workflow.persistence.restore_output(Path(f)):
+                                logger.warning(
+                                    f"Restored previous version of {fmt_iofile(f)} "
+                                    "(updating job failed)."
+                                )
+                                # The output was successfully restored from the backup.
+                                # Thus, we should not clean it up, it is not corrupted.
+                                skip_cleanup_outputs.add(f)
                         else:
                             self.dag.workflow.persistence.cleanup_backup(Path(f))
                 if not error and handle_touch:
@@ -1313,7 +1319,7 @@ class Job(
             )
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
-            await self.cleanup()
+            await self.cleanup(skip_cleanup_outputs)
 
     @property
     def name(self):
@@ -1627,10 +1633,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
             self._jobid = last_job.uuid()
         return self._jobid
 
-    async def cleanup(self):
-        for job in self.jobs:
-            await job.cleanup()
-
     async def postprocess(self, error=False, **kwargs):
         def needed(job_, f):
             # Files that are targetfiles, non-temp files, or temp files that
@@ -1916,8 +1918,8 @@ class Reason:
             yield "software environment definition has changed since last execution"
 
     def __str__(self):
-        def concat_files(files, is_input: bool):
-            return ", ".join(format_files(files, is_input=is_input))
+        def concat_files(files):
+            return ", ".join(format_files(files))
 
         s = list()
         if self.forced:
@@ -1935,20 +1937,18 @@ class Reason:
             else:
                 if self._missing_output:
                     s.append(
-                        f"Missing output files: {concat_files(self.missing_output, is_input=False)}"
+                        f"Missing output files: {concat_files(self.missing_output)}"
                     )
                 if self._incomplete_output:
                     s.append(
-                        f"Incomplete output files: {concat_files(self.incomplete_output, is_input=False)}"
+                        f"Incomplete output files: {concat_files(self.incomplete_output)}"
                     )
                 if self._updated_input:
                     updated_input = self.updated_input - self.updated_input_run
-                    s.append(
-                        f"Updated input files: {concat_files(updated_input, is_input=True)}"
-                    )
+                    s.append(f"Updated input files: {concat_files(updated_input)}")
                 if self._updated_input_run:
                     s.append(
-                        f"Input files updated by another job: {concat_files(self.updated_input_run, is_input=True)}"
+                        f"Input files updated by another job: {concat_files(self.updated_input_run)}"
                     )
                 if self.pipe:
                     s.append(

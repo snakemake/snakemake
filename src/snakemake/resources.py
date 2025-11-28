@@ -523,6 +523,8 @@ class GroupResources:
 
 def eval_resource_expression(val, threads_arg=True):
     def generic_callable(val, threads_arg, **kwargs):
+        import os
+
         args = {
             "input": kwargs["input"],
             "attempt": kwargs["attempt"],
@@ -531,6 +533,8 @@ def eval_resource_expression(val, threads_arg=True):
         }
         if threads_arg:
             args["threads"] = kwargs["threads"]
+        # Expand env variables
+        val = os.path.expanduser(os.path.expandvars(val))
         # Add ioutils functions
         import snakemake.ioutils
 
@@ -539,6 +543,7 @@ def eval_resource_expression(val, threads_arg=True):
         # Try to evaluate resource expression.
         # Note that `args` take precedence, i.e. if a name is present on
         # both (e.g. `input`), the one in `args` is used.
+        # Eval expression
         try:
             value = eval(
                 val,

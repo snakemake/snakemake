@@ -1,6 +1,32 @@
 # Changelog
 
 
+## [9.14.0](https://github.com/snakemake/snakemake/compare/v9.13.7...v9.14.0) (2025-11-27)
+
+
+### Features
+
+* Support Hy in script directive ([#3824](https://github.com/snakemake/snakemake/issues/3824)) ([2329c9e](https://github.com/snakemake/snakemake/commit/2329c9ed7ac37b422e1b42f9f25865682b15a73d))
+
+
+### Bug Fixes
+
+* Add support for pathlib in `notebook` field ([#3811](https://github.com/snakemake/snakemake/issues/3811)) ([7b2180a](https://github.com/snakemake/snakemake/commit/7b2180a33c6bd8efbdb213ef0caafe7c3febbe7c))
+* Addressed race condition in workdir_handler.py ([#3844](https://github.com/snakemake/snakemake/issues/3844)) ([8dbfcfb](https://github.com/snakemake/snakemake/commit/8dbfcfb23d9fe35f28a8153180c644c384ae21ee))
+* cleanup update-marked output files of failed jobs if there was no backup to restore them ([#3843](https://github.com/snakemake/snakemake/issues/3843)) ([41f1ce8](https://github.com/snakemake/snakemake/commit/41f1ce838fdca84c764eb4126419dfc5d910308f))
+* correct Windows callable path handling ([#3832](https://github.com/snakemake/snakemake/issues/3832)) ([5caad70](https://github.com/snakemake/snakemake/commit/5caad70003bdda91a6b9965e7742c7e796a1cc12))
+* expand env vars on resources ([#3823](https://github.com/snakemake/snakemake/issues/3823)) ([fcfa1bc](https://github.com/snakemake/snakemake/commit/fcfa1bc0449a1a1fbaa9effdc4a30f264e129070))
+* fix backup for output marked by `update` ([#3839](https://github.com/snakemake/snakemake/issues/3839)) ([09c64b7](https://github.com/snakemake/snakemake/commit/09c64b7789e36d700c9806b86a0659e9a2d2b7ad))
+* Minor fixes/additions to logging module. ([#3802](https://github.com/snakemake/snakemake/issues/3802)) ([3b3986d](https://github.com/snakemake/snakemake/commit/3b3986ddc9ce6b796a465bb37c0053b3a5cce207))
+* mount local storage prefix into containers ([#3840](https://github.com/snakemake/snakemake/issues/3840)) ([f1e8b62](https://github.com/snakemake/snakemake/commit/f1e8b6293803339ba49ef1fdd7cfe451a4e9c853))
+* properly format input/output files in case of missing rule to produce them ([#3849](https://github.com/snakemake/snakemake/issues/3849)) ([69d5d24](https://github.com/snakemake/snakemake/commit/69d5d246e90b8976e9228c6e6151d0d447e782df))
+* Unpack AnnotatedString in _apply_wildcards ([#3798](https://github.com/snakemake/snakemake/issues/3798)) ([7886508](https://github.com/snakemake/snakemake/commit/7886508641ce9a1912dd94f3f2b522f8b222c050))
+
+
+### Performance Improvements
+
+* retrieve storage inputs immediately before scheduling jobs instead of before running the entire workflow ([#3850](https://github.com/snakemake/snakemake/issues/3850)) ([4ac6cda](https://github.com/snakemake/snakemake/commit/4ac6cdaf9a0826563535387de344b25db26c2ef1))
+
 ## [9.13.7](https://github.com/snakemake/snakemake/compare/v9.13.6...v9.13.7) (2025-11-07)
 
 

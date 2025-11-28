@@ -104,6 +104,7 @@ class Env:
         self._archive_file = None
         self._cleanup = cleanup
         self._singularity_args = workflow.deployment_settings.apptainer_args
+        self._runtime_paths = workflow.runtime_paths
 
     @property
     def is_externally_managed(self):
@@ -457,6 +458,7 @@ class Env:
                         singularity.shellcmd(
                             self._container_img.path,
                             f"[ -d '{env_path}' ]",
+                            bind=self._runtime_paths,
                             args=self._singularity_args,
                             envvars=self.get_singularity_envvars(),
                             quiet=True,
@@ -540,6 +542,7 @@ class Env:
                         cmd = singularity.shellcmd(
                             self._container_img.path,
                             cmd,
+                            bind=self._runtime_paths,
                             args=self._singularity_args,
                             envvars=self.get_singularity_envvars(),
                         )
@@ -585,6 +588,7 @@ class Env:
                             cmd = singularity.shellcmd(
                                 self._container_img.path,
                                 cmd,
+                                bind=self._runtime_paths,
                                 args=self._singularity_args,
                                 envvars=self.get_singularity_envvars(),
                             )

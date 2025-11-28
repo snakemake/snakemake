@@ -781,7 +781,15 @@ class Rule(RuleInterface):
                 if omit_callable:
                     continue
                 if non_derived_items is not None:
-                    is_derived = self._is_deriving_function(item)
+                    if (
+                        is_unpack
+                        and isinstance(item, AnnotatedString)
+                        and item.callable
+                    ):
+                        callable_item = item.callable
+                    else:
+                        callable_item = item
+                    is_derived = self._is_deriving_function(callable_item)
                 item, incomplete = self.apply_input_function(
                     item,
                     wildcards,
@@ -864,7 +872,7 @@ class Rule(RuleInterface):
         def concretize_iofile(f, wildcards, from_callable, incomplete):
             if from_callable is not None:
                 if isinstance(f, Path):
-                    f = str(f)
+                    f = str(f.as_posix())
                 iofile = IOFile(f, rule=self).apply_wildcards(wildcards)
 
                 # inherit flags from callable
