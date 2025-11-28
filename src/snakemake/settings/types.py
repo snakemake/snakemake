@@ -256,7 +256,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         deployment method to use (CONDA, APPTAINER, ENV_MODULES)
     """
 
-    deployment_method: AnySet[str] = frozenset() # type: ignore (the interface expects a frozen set, but for initialization we can also take a mutable set)
+    deployment_method: AnySet[str] = frozenset()  # type: ignore (the interface expects a frozen set, but for initialization we can also take a mutable set)
     cache_prefix: Optional[Path] = None
     deployment_prefix: Optional[Path] = None
     cleanup_cache: bool = False

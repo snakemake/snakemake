@@ -286,6 +286,7 @@ class Rule(RuleInterface):
     @software_env_spec.setter
     def software_env_spec(self, software_env_spec):
         self._software_env_spec = software_env_spec
+
     @property
     def input(self):
         return self._input

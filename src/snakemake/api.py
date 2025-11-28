@@ -120,7 +120,6 @@ class SnakemakeApi(ApiBase):
         storage_settings: Optional[StorageSettings] = None,
         workflow_settings: Optional[WorkflowSettings] = None,
         deployment_settings: Optional[DeploymentSettings] = None,
-
         storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
