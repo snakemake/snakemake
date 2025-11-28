@@ -8,7 +8,6 @@ from snakemake_interface_software_deployment_plugins.registry import (
 from snakemake_interface_software_deployment_plugins import EnvSpecBase, EnvBase, EnvSpecSourceFile
 
 from snakemake.common import get_function_params, overwrite_function_params
-from snakemake.jobs import Job
 
 
 class SoftwareDeploymentManager:
@@ -35,7 +34,7 @@ class SoftwareDeploymentManager:
                     f"Choose one of {plugin_name} and {self.plugins[kind].name}."
                 )
 
-    def collect_envs(self, jobs: Iterable[Job]) -> None:
+    def collect_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
         for job in jobs:
             if job.env_spec is not None and job.env_spec not in self.specs_to_envs:
                 self.get_env(job.env_spec)
