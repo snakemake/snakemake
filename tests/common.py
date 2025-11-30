@@ -18,6 +18,7 @@ import pytest
 import glob
 import subprocess
 import tarfile
+from typing import TypeAlias
 
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -30,13 +31,17 @@ from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
 
 
-def dpath(path):
+#: File system path as string or pathlike object.
+StrPath: TypeAlias = str | os.PathLike
+
+
+def dpath(path: StrPath) -> Path:
     """get the path to a data file (relative to the directory this
     test lives in)"""
     return (Path(__file__).parent / path).resolve()
 
 
-def md5sum(filename, ignore_newlines=False):
+def md5sum(filename: StrPath, ignore_newlines: bool = False) -> str:
     if ignore_newlines:
         with open(filename, "r", encoding="utf-8", errors="surrogateescape") as f:
             data = f.read().strip().encode("utf8", errors="surrogateescape")
@@ -46,7 +51,7 @@ def md5sum(filename, ignore_newlines=False):
 
 
 # test skipping
-def is_connected():
+def is_connected() -> bool:
     if is_ci():
         # always assume internet connection in CI
         return True
@@ -57,29 +62,29 @@ def is_connected():
         return False
 
 
-def is_ci():
+def is_ci() -> bool:
     return "CI" in os.environ
 
 
-def has_gcloud_service_key():
+def has_gcloud_service_key() -> bool:
     return "GCP_AVAILABLE" in os.environ
 
 
-def has_azbatch_account_url():
+def has_azbatch_account_url() -> str | None:
     return os.environ.get("AZ_BATCH_ACCOUNT_URL")
 
 
-def has_zenodo_token():
+def has_zenodo_token() -> str | None:
     return os.environ.get("ZENODO_SANDBOX_PAT")
 
 
-def has_apptainer():
+def has_apptainer() -> bool:
     return (shutil.which("apptainer") is not None) or (
         shutil.which("singularity") is not None
     )
 
 
-def has_conda():
+def has_conda() -> bool:
     return shutil.which("conda") is not None
 
 
@@ -117,14 +122,14 @@ zenodo = pytest.mark.skipif(
 )
 
 
-def copy(src, dst):
+def copy(src: StrPath, dst: StrPath):
     if os.path.isdir(src):
         shutil.copytree(src, os.path.join(dst, os.path.basename(src)))
     else:
         shutil.copy(src, dst)
 
 
-def get_expected_files(results_dir):
+def get_expected_files(results_dir: StrPath) -> list[str]:
     """Recursively walk through the expected-results directory to enumerate
     all expected files."""
     return [
@@ -134,13 +139,13 @@ def get_expected_files(results_dir):
     ]
 
 
-def untar_folder(tar_file, output_path):
+def untar_folder(tar_file: StrPath, output_path: StrPath):
     if not os.path.isdir(output_path):
         with tarfile.open(tar_file) as tar:
             tar.extractall(path=output_path)
 
 
-def print_tree(path, exclude=None):
+def print_tree(path: str, exclude: StrPath | None = None):
     for root, _dirs, files in os.walk(path):
         if exclude and root.startswith(os.path.join(path, exclude)):
             continue
@@ -153,23 +158,22 @@ def print_tree(path, exclude=None):
 
 
 def run(
-    path,
-    shouldfail=False,
-    snakefile="Snakefile",
-    subpath=None,
-    no_tmpdir=False,
-    check_md5=True,
-    check_results=None,
-    cores=3,
-    nodes=None,
-    set_pythonpath=True,
-    cleanup=True,
+    path: StrPath,
+    shouldfail: bool = False,
+    snakefile: StrPath = "Snakefile",
+    no_tmpdir: bool = False,
+    check_md5: bool = True,
+    check_results: bool | None = None,
+    cores: int = 3,
+    nodes: int | None = None,
+    set_pythonpath: bool = True,
+    cleanup: bool = True,
     conda_frontend="conda",
     config=dict(),
     targets=set(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
-    shellcmd=None,
-    sigint_after=None,
+    shellcmd: str | None = None,
+    sigint_after: float | None = None,
     overwrite_resource_scopes=None,
     executor="local",
     executor_settings=None,
@@ -221,15 +225,45 @@ def run(
     shared_fs_usage=None,
     benchmark_extended=False,
     apptainer_args="",
-    tmpdir=None,
-):
+    tmpdir: StrPath | None = None,
+) -> Path | None:
     """
     Test the Snakefile in the path.
     There must be a Snakefile in the path and a subdirectory named
     expected-results. If cleanup is False, we return the temporary
     directory to the calling test for inspection, and the test should
     clean it up.
+
+    Parameters
+    ----------
+    path
+        Path containing workflow to run.
+    shouldfail
+        Whether the run is expected to fail.
+    snakefile
+        Path to Snakefile, relative to ``path``.
+    shellcmd
+        Shell command to run. Must start with "snakemake". If given, Snakemake will be run in a
+        subprocess.
+    sigint_after
+        If not None, send a SIGINT signal after this many seconds.
+    tmpdir
+        Temporary directory to run in. If None one will be created automatically.
+    no_tmpdir
+        If true run directly in ``path`` instead of a temporary directory.
+    cleanup
+        Whether to delete the temporary directory after running.
+    set_pythonpath
+        If true set the ``PYTHONPATH`` environment variable to current working directory. Otherwise
+        ensure it is not set.
+
+    Returns
+    -------
+    Path | None
+        Path to temporary directory if ``cleanup`` is false, otherwise None.
     """
+    path = Path(path)
+
     if check_results is None:
         if not shouldfail:
             check_results = True
@@ -263,6 +297,9 @@ def run(
         # copy files
         for f in os.listdir(path):
             copy(os.path.join(path, f), tmpdir)
+
+    else:
+        tmpdir = os.fsdecode(tmpdir)
 
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
@@ -305,6 +342,7 @@ def run(
         except subprocess.CalledProcessError as e:
             success = False
             print(e.stdout.decode(), file=sys.stderr)
+
     else:
         assert sigint_after is None, "Cannot sent SIGINT when calling directly"
 
@@ -503,4 +541,6 @@ def run(
 
     if not cleanup:
         return Path(tmpdir)
+
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    return None

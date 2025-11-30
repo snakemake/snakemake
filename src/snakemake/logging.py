@@ -572,6 +572,7 @@ class LoggerManager:
         """Set up the logging system based on settings and handlers."""
         # Clear any existing handlers to prevent duplicates
         self.logger.handlers.clear()
+        self.logfile_handlers.clear()
         self.settings = settings
 
         # Skip plugin handlers if requested and return early
@@ -694,6 +695,7 @@ class LoggerManager:
             for handler in self.logfile_handlers.keys():
                 self.logger.removeHandler(handler)
                 handler.close()
+            self.logfile_handlers.clear()
 
     def setup_logfile(self, workdir: Optional[os.PathLike] = None) -> None:
         if self.settings.enable_file_logging and not self.settings.dryrun:
