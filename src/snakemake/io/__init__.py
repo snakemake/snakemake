@@ -1940,7 +1940,7 @@ class InputFiles(Namedlist):
                         ), f"Invalid size for file {f}: {size}"
                     else:
                         return f
-                return 0
+                return None
 
             sizes = await asyncio.gather(*map(get_size, self))
             for res in sizes:
@@ -1950,6 +1950,7 @@ class InputFiles(Namedlist):
                         "cannot determine size of not (yet) present file or directory",
                         res,
                     )
+            return [res for res in sizes if res is not None]
 
         return async_run(sizes())
 
