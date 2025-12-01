@@ -302,6 +302,7 @@ class SpawnedJobArgsFactory:
                 flag="--keep-storage-local-copies",
             ),
             "--max-inventory-time 0",
+            "--retries 0", # retries are handled by the main process
             "--nocolor",
             "--no-hooks",
             "--nolock",
