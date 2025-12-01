@@ -1931,7 +1931,7 @@ class InputFiles(Namedlist):
         self, predicate: Callable[_IOFile, Awaitable[bool]]
     ) -> List[_IOFile]:
         async def sizes():
-            async def get_size(f):
+            async def get_size(f: _IOFile) -> Optional[Union[int, str]]:
                 if await predicate(f):
                     if await f.exists():
                         size = await f.size()
