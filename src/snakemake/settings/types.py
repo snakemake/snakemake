@@ -34,9 +34,7 @@ from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
-    ExperimentalFeatures,
     RerunTrigger,
-    ChangeType,
     CondaCleanupPkgs,
     Quietness,
     StrictDagEvaluation,
