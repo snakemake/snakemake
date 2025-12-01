@@ -645,7 +645,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return stat.S_ISFIFO(os.stat(self).st_mode)
 
     @iocache
-    async def size(self):
+    async def size(self) -> int:
         if self.is_storage:
             try:
                 return await self.storage_object.managed_size()
@@ -1928,9 +1928,9 @@ class Namedlist(list):
 
 class InputFiles(Namedlist):
     def _predicated_size_files(
-        self, predicate: Callable[_IOFile, Awaitable[bool]]
-    ) -> List[_IOFile]:
-        async def sizes():
+        self, predicate: Callable[[_IOFile], Awaitable[bool]]
+    ) -> List[int]:
+        async def sizes() -> List[int]:
             async def get_size(f: _IOFile) -> Optional[Union[int, str]]:
                 if await predicate(f):
                     if await f.exists():
@@ -1938,6 +1938,7 @@ class InputFiles(Namedlist):
                         assert (
                             isinstance(size, int) and size >= 0
                         ), f"Invalid size for file {f}: {size}"
+                        return size
                     else:
                         return f
                 return None
@@ -1950,13 +1951,13 @@ class InputFiles(Namedlist):
                         "cannot determine size of not (yet) present file or directory",
                         res,
                     )
-            return [res for res in sizes if res is not None]
+            return [res for res in sizes if res is not None]  # type: ignore
 
         return async_run(sizes())
 
     @property
     def size_files(self):
-        async def func_true(iofile):
+        async def func_true(_) -> bool:
             return True
 
         return self._predicated_size_files(func_true)
