@@ -34,6 +34,7 @@ from typing import (
     Union,
     TYPE_CHECKING,
 )
+from collections.abc import Awaitable
 
 from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
@@ -1926,19 +1927,45 @@ class Namedlist(list):
 
 
 class InputFiles(Namedlist):
-    @property
-    def size_files(self):
+    def _predicated_size_files(
+        self, predicate: Callable[_IOFile, Awaitable[bool]]
+    ) -> List[_IOFile]:
         async def sizes():
-            return [await f.size() for f in self]
+            async def get_size(f):
+                if await predicate(f):
+                    if await f.exists():
+                        size = await f.size()
+                        assert (
+                            isinstance(size, int) and size >= 0
+                        ), f"Invalid size for file {f}: {size}"
+                    else:
+                        return f
+                return 0
+
+            sizes = await asyncio.gather(*map(get_size, self))
+            for res in sizes:
+                if isinstance(res, str):
+                    raise FileNotFoundError(
+                        2,
+                        "cannot determine size of not (yet) present file or directory",
+                        res,
+                    )
 
         return async_run(sizes())
+
+    @property
+    def size_files(self):
+        async def func_true(iofile):
+            return True
+
+        return self._predicated_size_files(func_true)
 
     @property
     def size_tempfiles(self):
-        async def sizes():
-            return [await f.size() for f in self if is_flagged(f, "temp")]
+        async def is_temp(iofile):
+            return is_flagged(iofile, "temp")
 
-        return async_run(sizes())
+        return self._predicated_size_files(is_temp)
 
     @property
     def size_files_kb(self):
