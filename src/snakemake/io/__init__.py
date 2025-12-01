@@ -46,6 +46,7 @@ from snakemake_interface_storage_plugins.io import (
     Mtime,
     get_constant_prefix,
 )
+from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 
 from snakemake.common import (
     ON_WINDOWS,
@@ -647,20 +648,17 @@ class _IOFile(str, AnnotatedStringInterface):
     @iocache
     async def size(self) -> int:
         if self.is_storage:
-            try:
-                return await self.storage_object.managed_size()
-            except WorkflowError as e:
-                try:
-                    return await self.size_local()
-                except IOError:
-                    raise e
+            return await self.storage_object.managed_size()
         else:
             return await self.size_local()
 
     async def size_local(self):
         # follow symlinks but throw error if invalid
         await self.check_broken_symlink()
-        return os.path.getsize(self.file)
+        try:
+            return os.path.getsize(self.file)
+        except FileNotFoundError:
+            raise FileOrDirectoryNotFoundError(Path(self.file))
 
     async def is_checksum_eligible(self, threshold):
         return (
@@ -1931,27 +1929,13 @@ class InputFiles(Namedlist):
         self, predicate: Callable[[_IOFile], Awaitable[bool]]
     ) -> List[int]:
         async def sizes() -> List[int]:
-            async def get_size(f: _IOFile) -> Optional[Union[int, str]]:
+            async def get_size(f: _IOFile) -> Optional[int]:
                 if await predicate(f):
-                    if await f.exists():
-                        size = await f.size()
-                        assert (
-                            isinstance(size, int) and size >= 0
-                        ), f"Invalid size for file {f}: {size}"
-                        return size
-                    else:
-                        return f
+                    return await f.size()
                 return None
 
             sizes = await asyncio.gather(*map(get_size, self))
-            for res in sizes:
-                if isinstance(res, str):
-                    raise FileNotFoundError(
-                        2,
-                        "cannot determine size of not (yet) present file or directory",
-                        res,
-                    )
-            return [res for res in sizes if res is not None]  # type: ignore
+            return [res for res in sizes if res is not None]
 
         return async_run(sizes())
 
