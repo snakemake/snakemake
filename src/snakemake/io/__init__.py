@@ -34,7 +34,6 @@ from typing import (
     Union,
     TYPE_CHECKING,
 )
-from collections.abc import Awaitable
 
 from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
@@ -1925,9 +1924,7 @@ class Namedlist(list):
 
 
 class InputFiles(Namedlist):
-    def _predicated_size_files(
-        self, predicate: Callable[[_IOFile], Awaitable[bool]]
-    ) -> List[int]:
+    def _predicated_size_files(self, predicate: Callable) -> List[int]:
         async def sizes() -> List[int]:
             async def get_size(f: _IOFile) -> Optional[int]:
                 if await predicate(f):
