@@ -2663,5 +2663,6 @@ def test_wildcard_annotatedstrings():
 def test_cyclic_dependency_split():
     run(dpath("test_cyclic_dependency_split"))
 
+
 def test_cyclic_dependency_single():
     run(dpath("test_cyclic_dependency_single"))
