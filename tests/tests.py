@@ -2658,3 +2658,10 @@ def test_checkpoint_omit_from():
 def test_wildcard_annotatedstrings():
     with pytest.raises(WorkflowError, match=r"unpack\(\) is not allowed with params"):
         run(dpath("test_wildcard_annotatedstrings"), targets=["test.out"])
+
+
+def test_cyclic_dependency_split():
+    run(dpath("test_cyclic_dependency_split"))
+
+def test_cyclic_dependency_single():
+    run(dpath("test_cyclic_dependency_single"))
