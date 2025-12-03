@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [9.14.1](https://github.com/snakemake/snakemake/compare/v9.14.0...v9.14.1) (2025-12-02)
+
+
+### Bug Fixes
+
+* always raise FileNotFoundError in case of missing files in resource expressions that do size evaluations ([#3854](https://github.com/snakemake/snakemake/issues/3854)) ([0f1991a](https://github.com/snakemake/snakemake/commit/0f1991af02b25ef7911734f131e4af34501ed84f))
+* ensure that spawned jobs do not handle retries themselves. The main process does that. ([#3855](https://github.com/snakemake/snakemake/issues/3855)) ([396271b](https://github.com/snakemake/snakemake/commit/396271b45fe49cb52ad8b548fed91ee235adb1f9))
+
 ## [9.14.0](https://github.com/snakemake/snakemake/compare/v9.13.7...v9.14.0) (2025-11-27)
 
 
