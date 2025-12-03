@@ -2,7 +2,7 @@ from typing import List
 from pathlib import Path
 
 
-def choose_tmp(tmpdirs: List) -> str:
+def choose_tmp(tmpdirs: List[Union[Path, str]]) -> str:
     """
     Given a list of possible temp folder paths, return the first path that
     can be created and where the current user has read/write/exe permissions.
