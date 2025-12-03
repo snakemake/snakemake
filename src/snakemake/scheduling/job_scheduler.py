@@ -588,17 +588,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
             ), f"Job count is {self.resources['_job_slot']}, but should be {sys.maxsize}"
             return run_selector(self._job_selector)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
-        if n_free_jobs == 0:
-            logger.info("Job rate limit reached, waiting for free slots.")
-            return set()
-        else:
-            self.resources["_job_slot"] = n_free_jobs
-            selected = run_selector(self._job_selector)
-            # update job rate limiter with remote jobs only
-            self.job_rate_limiter.register_jobs(
-                sum(1 for job in selected if not job.is_local)
-            )
-            return selected
+        self.resources["_job_slot"] = n_free_jobs
+        selected = run_selector(self._job_selector)
+        # update job rate limiter with remote jobs only
+        self.job_rate_limiter.register_jobs(
+            sum(1 for job in selected if not job.is_local)
+        )
+        return selected
 
     def update_available_resources(self, selected_jobs):
         for name in self.global_resources:
