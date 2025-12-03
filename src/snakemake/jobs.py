@@ -107,6 +107,8 @@ class AbstractJob(JobExecutorInterface, JobSchedulerInterface):
                     for k, v in self.resources.items()
                     if not isinstance(self.resources[k], TBDString)
                 }
+                # Locally executed jobs do not occupy a job slot
+                res_dict["_job_slot"] = 0
             else:
                 res_dict = {
                     k: self.resources[k]
@@ -116,7 +118,8 @@ class AbstractJob(JobExecutorInterface, JobSchedulerInterface):
                     )
                     if not isinstance(self.resources[k], TBDString)
                 }
-            res_dict["_job_count"] = 1
+                res_dict["_job_slot"] = 1
+                res_dict["_cores"] = 0
             self._scheduler_resources = res_dict
         return self._scheduler_resources
 
