@@ -8,6 +8,8 @@ import tempfile
 import math
 from typing import Any
 
+from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
+
 from snakemake.exceptions import (
     ResourceScopesException,
     WorkflowError,
@@ -260,7 +262,7 @@ class GroupResources:
                         pipe_resources[job.pipe_group].append(res)
                     else:
                         job_resources.append(res)
-                except FileNotFoundError:
+                except (FileNotFoundError, FileOrDirectoryNotFoundError):
                     # Skip job if resource evaluation leads to a file not found error.
                     # This will be caused by an inner job, which needs files created by
                     # the same group. All we can do is to ignore such jobs for now.
