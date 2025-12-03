@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 from pathlib import Path
 
 
