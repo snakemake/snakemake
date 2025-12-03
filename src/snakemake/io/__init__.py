@@ -45,6 +45,7 @@ from snakemake_interface_storage_plugins.io import (
     Mtime,
     get_constant_prefix,
 )
+from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 
 from snakemake.common import (
     ON_WINDOWS,
@@ -644,22 +645,19 @@ class _IOFile(str, AnnotatedStringInterface):
         return stat.S_ISFIFO(os.stat(self).st_mode)
 
     @iocache
-    async def size(self):
+    async def size(self) -> int:
         if self.is_storage:
-            try:
-                return await self.storage_object.managed_size()
-            except WorkflowError as e:
-                try:
-                    return await self.size_local()
-                except IOError:
-                    raise e
+            return await self.storage_object.managed_size()
         else:
             return await self.size_local()
 
     async def size_local(self):
         # follow symlinks but throw error if invalid
         await self.check_broken_symlink()
-        return os.path.getsize(self.file)
+        try:
+            return os.path.getsize(self.file)
+        except FileNotFoundError:
+            raise FileOrDirectoryNotFoundError(Path(self.file))
 
     async def is_checksum_eligible(self, threshold):
         return (
@@ -1926,19 +1924,31 @@ class Namedlist(list):
 
 
 class InputFiles(Namedlist):
-    @property
-    def size_files(self):
-        async def sizes():
-            return [await f.size() for f in self]
+    def _predicated_size_files(self, predicate: Callable) -> List[int]:
+        async def sizes() -> List[int]:
+            async def get_size(f: _IOFile) -> Optional[int]:
+                if await predicate(f):
+                    return await f.size()
+                return None
+
+            sizes = await asyncio.gather(*map(get_size, self))
+            return [res for res in sizes if res is not None]
 
         return async_run(sizes())
+
+    @property
+    def size_files(self):
+        async def func_true(_) -> bool:
+            return True
+
+        return self._predicated_size_files(func_true)
 
     @property
     def size_tempfiles(self):
-        async def sizes():
-            return [await f.size() for f in self if is_flagged(f, "temp")]
+        async def is_temp(iofile):
+            return is_flagged(iofile, "temp")
 
-        return async_run(sizes())
+        return self._predicated_size_files(is_temp)
 
     @property
     def size_files_kb(self):
