@@ -566,7 +566,8 @@ class LoggerManager:
         self.logfile_handlers = {}
 
         # Clear any existing handlers to prevent duplicates
-        self.logger.handlers.clear()
+        for handler in list(self.logger.handlers):
+            self.logger.removeHandler(handler)
 
         # Set up plugin handlers
         has_stream_handler = self._setup_plugins()
@@ -691,13 +692,6 @@ class LoggerManager:
             self.logger.info(f"Complete log(s): {log_paths}")
         return logfiles
 
-    def cleanup_logfile(self) -> None:
-        if self.settings.enable_file_logging:
-            for handler in self.logfile_handlers.keys():
-                self.logger.removeHandler(handler)
-                handler.close()
-            self.logfile_handlers.clear()
-
     def setup_logfile(self, workdir: Optional[os.PathLike] = None) -> None:
         if self.settings.enable_file_logging and not self.settings.dryrun:
             if workdir:
@@ -721,8 +715,16 @@ class LoggerManager:
                 self.logger.error(f"Failed to setup log file: {e}")
 
     def stop(self) -> None:
+        """Shut down logging, removing and closing all log handlers."""
+        # Stop the queue listener (if it exists) - this finishes processing the remaining records
+        # and waits for the thread to exit.
         if self.queue_listener is not None and self.queue_listener._thread is not None:
             self.queue_listener.stop()
+
+        # Remove and close all handlers - this should mostly clean up the global logger instance.
+        for handler in list(self.logger.handlers):
+            self.logger.removeHandler(handler)
+            handler.close()
 
 
 # Global logger instance

@@ -169,7 +169,6 @@ class SnakemakeApi(ApiBase):
 
     def _cleanup(self):
         """Cleanup the workflow."""
-        self.logger_manager.cleanup_logfile()
         self.logger_manager.stop()
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
