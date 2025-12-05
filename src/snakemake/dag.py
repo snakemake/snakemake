@@ -404,25 +404,34 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 )
                 self.conda_envs[key] = env
 
-    async def retrieve_storage_inputs(self, jobs, also_missing_internal=False):
+    async def retrieve_storage_inputs(
+        self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
+    ):
 
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
         to_retrieve = defaultdict(list)
         for job in jobs:
-            for f in job.input:
-                if (
-                    f.is_storage
-                    and not job.is_norun
-                    and (
-                        # if f exists in storage, retrieve below will check if it is
-                        # newer than an eventual local copy
-                        (also_missing_internal and await f.exists_in_storage())
-                        or self.is_external_input(f, job, not_needrun_is_external=True)
-                    )
-                ):
-                    to_retrieve[f].append(access_pattern(f))
+            if isinstance(job, GroupJob):
+                inner_jobs = job.jobs
+            else:
+                inner_jobs = [job]
+            for inner_job in inner_jobs:
+                for f in inner_job.input:
+                    if (
+                        f.is_storage
+                        and not job.is_norun
+                        and (
+                            # if f exists in storage, retrieve below will check if it is
+                            # newer than an eventual local copy
+                            (also_missing_internal and await f.exists_in_storage())
+                            or self.is_external_input(
+                                f, job, not_needrun_is_external=True
+                            )
+                        )
+                    ):
+                        to_retrieve[f].append(access_pattern(f))
 
         if to_retrieve:
             try:
