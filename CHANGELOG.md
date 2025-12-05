@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.14.2](https://github.com/snakemake/snakemake/compare/v9.14.1...v9.14.2) (2025-12-05)
+
+
+### Bug Fixes
+
+* correctly handle groups when retrieving storage input ([#3861](https://github.com/snakemake/snakemake/issues/3861)) ([8c818f4](https://github.com/snakemake/snakemake/commit/8c818f47175b236e1699fe42404ca03d7b68aa71))
+
 ## [9.14.1](https://github.com/snakemake/snakemake/compare/v9.14.0...v9.14.1) (2025-12-02)
 
 
