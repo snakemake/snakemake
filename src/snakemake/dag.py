@@ -391,9 +391,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 DeploymentMethod.APPTAINER
                 in self.workflow.deployment_settings.deployment_method
             ):
-                assert (
-                    simg_url in self.container_imgs
-                ), "bug: must first pull singularity images"
+                assert simg_url in self.container_imgs, (
+                    "bug: must first pull singularity images"
+                )
                 simg = self.container_imgs[simg_url]
             key = (env_spec, simg_url)
             if key not in self.conda_envs:
@@ -407,7 +407,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     async def retrieve_storage_inputs(
         self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
     ):
-
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
@@ -2153,80 +2152,96 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
 
-        async def is_output_present(job):
-            return (self.finished(job) or not self.needrun(job)) and all(
-                await asyncio.gather(*(out.exists() for out in job.output))
-            )
+        async def compute_completed_checkpoint_jobs(jobs, check_is_output_present):
+            async def is_output_present(job):
+                return (self.finished(job) or not self.needrun(job)) and all(
+                    await asyncio.gather(*(out.exists() for out in job.output))
+                )
 
-        job_queue = defaultdict(set)
-        if jobs is None:
-            jobs = [
+            return [
                 job
-                for job in self.jobs
-                if job.is_checkpoint and await is_output_present(job)
+                for job in jobs
+                if job.is_checkpoint
+                and (not check_is_output_present or await is_output_present(job))
             ]
-        else:
-            # called with finished jobs, no need to check if output is present
-            jobs = [job for job in jobs if job.is_checkpoint]
-        for job in jobs:
-            for depending in self.depending[job]:
-                job_queue[depending].add(job)
-            self.workflow.checkpoints.created_output.update(job.output)
 
-        updated = len(job_queue) > 0
-        if updated:
-            logger.info("Updating checkpoint dependencies.")
+        def compute_checkpoint_consumers(completed_checkpoint_jobs):
+            checkpoint_consumers = defaultdict(set)
+            for checkpoint_job in completed_checkpoint_jobs:
+                for consumer in self.depending[checkpoint_job]:
+                    checkpoint_consumers[consumer].add(checkpoint_job)
+            return checkpoint_consumers
+
+        def flag_checkpoints_as_completed(checkpoints, completed_checkpoint_jobs):
+            for checkpoint_job in completed_checkpoint_jobs:
+                checkpoints.created_output.update(checkpoint_job.output)
+
+        def get_checkpoint_target_inputs(job):
+            return {
+                input_file
+                for input_file in job.input
+                if is_flagged(input_file, "checkpoint_target")
+            }
+
+        # `jobs` (if not None) are finished jobs, no need to check if output is present
+        completed_checkpoint_jobs = await compute_completed_checkpoint_jobs(
+            jobs or self.jobs, check_is_output_present=(jobs is not None)
+        )
+        flag_checkpoints_as_completed(
+            self.workflow.checkpoints, completed_checkpoint_jobs
+        )
+        consumers_prior = compute_checkpoint_consumers(completed_checkpoint_jobs)
+        if len(consumers_prior) == 0:
+            return False
+
+        logger.info("Updating checkpoint dependencies.")
 
         i = 1
-        while job_queue:
+        MAX_CHECKPOINT_UPDATE_ROUNDS = 100
+        while True:
             logger.debug(f"Checkpoint dependency update round {i}")
-            for noneedrun_checkpoint_deps in job_queue.values():
-                for checkpoint in noneedrun_checkpoint_deps:
-                    self.workflow.checkpoints.created_output.update(checkpoint.output)
 
-            candidate_job_queue = defaultdict(set)
-            for job in job_queue.keys():
-                prior_checkpoint_targets = {
-                    infile
-                    for infile in job.input
-                    if is_flagged(infile, "checkpoint_target")
-                }
-                updated_job = await job.updated()
+            maybe_has_incomplete_consumers = False
+            for consumer in consumers_prior:
+                # we need these to see if they change
+                target_inputs_prior = get_checkpoint_target_inputs(consumer)
+                updated_consumer = await consumer.updated()
+                target_inputs_posterior = get_checkpoint_target_inputs(updated_consumer)
+                if len(target_inputs_prior.difference(target_inputs_posterior)) > 0:
+                    maybe_has_incomplete_consumers = True
 
-                await self.replace_job(job, updated_job, recursive=False)
+                await self.replace_job(consumer, updated_consumer, recursive=False)
 
-                posterior_checkpoint_targets = {
-                    infile
-                    for infile in updated_job.input
-                    if is_flagged(infile, "checkpoint_target")
-                    and infile not in prior_checkpoint_targets
-                }
-                posterior_checkpoint_deps = {
-                    dep
-                    for dep, files in self.dependencies[updated_job].items()
-                    if dep.is_checkpoint
-                    and not files.isdisjoint(posterior_checkpoint_targets)
-                }
-                if posterior_checkpoint_deps:
-                    # there is at least one dep that is a new potentially
-                    # unfinished checkpoint target
-                    candidate_job_queue[updated_job].update(posterior_checkpoint_deps)
+            await self.update_needrun()
+            completed_checkpoint_jobs = await compute_completed_checkpoint_jobs(
+                jobs or self.jobs, check_is_output_present=(jobs is not None)
+            )
+            flag_checkpoints_as_completed(
+                self.workflow.checkpoints, completed_checkpoint_jobs
+            )
+            consumers_posterior = compute_checkpoint_consumers(
+                completed_checkpoint_jobs
+            )
 
-            job_queue = defaultdict(set)
-            if candidate_job_queue:
-                await self.update_needrun()
-                for job, posterior_checkpoint_deps in candidate_job_queue.items():
-                    for checkpoint in posterior_checkpoint_deps:
-                        if not self.needrun(checkpoint):
-                            job_queue[job].add(checkpoint)
+            for consumer in consumers_posterior:
+                if consumer.rule not in map(lambda job: job.rule, consumers_prior):
+                    maybe_has_incomplete_consumers = True
+
+            if not maybe_has_incomplete_consumers:
+                self.set_until_jobs()
+                self.delete_omitfrom_jobs()
+                await self.postprocess_after_update()
+                return True
+
+            consumers_prior = consumers_posterior
+
+            if i > MAX_CHECKPOINT_UPDATE_ROUNDS:
+                logger.error(
+                    f"Checkpoint update did not converge after {MAX_CHECKPOINT_UPDATE_ROUNDS} rounds"
+                )
+                exit(1)
+
             i += 1
-
-        if updated:
-            self.set_until_jobs()
-            self.delete_omitfrom_jobs()
-            await self.postprocess_after_update()
-
-        return updated
 
     async def postprocess_after_update(self):
         await self.postprocess()
@@ -2732,18 +2747,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for node, deps in graph.items()
             for dep in deps
         ]
-        return (
-            textwrap.dedent(
-                """\
+        return textwrap.dedent(
+            """\
             ---
             title: DAG
             ---
             flowchart TB
             """
-            )
-            + "{}\n{}\n{}".format(
-                "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
-            )
+        ) + "{}\n{}\n{}".format(
+            "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
         )
 
     def _dot(
@@ -3050,8 +3062,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             logger.info("archived " + f)
 
                 logger.info(
-                    "Archiving snakefiles, scripts and files under "
-                    "version control..."
+                    "Archiving snakefiles, scripts and files under version control..."
                 )
                 for f in self.get_sources():
                     add(f)
