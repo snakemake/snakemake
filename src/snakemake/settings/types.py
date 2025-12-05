@@ -385,9 +385,11 @@ class ResourceSettings(SettingsBase):
     @cached_property
     def _parsed_overwrite_threads(self):
         return {
-            rule: Resource("_cores", threads)
-            if not isinstance(threads, Resource)
-            else threads
+            rule: (
+                Resource("_cores", threads)
+                if not isinstance(threads, Resource)
+                else threads
+            )
             for rule, threads in self.overwrite_threads.items()
         }
 

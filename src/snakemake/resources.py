@@ -54,11 +54,11 @@ from snakemake.exceptions import (
 )
 from snakemake.common.tbdstring import TBDString
 from snakemake.io import AnnotatedString
-from snakemake.settings.types import ValidResource
 
 if TYPE_CHECKING:
     from snakemake.jobs import Job
     from snakemake.io import Wildcards
+    from snakemake.settings.types import ValidResource
 
 
 class GroupResources:
