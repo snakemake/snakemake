@@ -95,24 +95,25 @@ class SpawnedJobArgsFactory:
         }
 
     def get_set_resources_args(self):
+        overwrite_resources = (
+            self.workflow.resource_settings._parsed_overwrite_resources
+        )
+        overwrite_threads = self.workflow.resource_settings._parsed_overwrite_threads
         return [
             format_cli_arg(
                 "--set-resources",
                 [
                     f"{rule}:{name}={value.raw}"
-                    for rule, res in self.workflow.resource_settings.overwrite_resources.items()
+                    for rule, res in overwrite_resources.items()
                     for name, value in res.items()
                 ],
-                skip=not self.workflow.resource_settings.overwrite_resources,
+                skip=not overwrite_resources,
                 base64_encode=True,
             ),
             format_cli_arg(
                 "--set-threads",
-                [
-                    f"{rule}={value.raw}"
-                    for rule, value in self.workflow.resource_settings.overwrite_threads.items()
-                ],
-                skip=not self.workflow.resource_settings.overwrite_threads,
+                [f"{rule}={value.raw}" for rule, value in overwrite_threads.items()],
+                skip=not overwrite_threads,
                 base64_encode=True,
             ),
         ]
@@ -362,7 +363,8 @@ class SpawnedJobArgsFactory:
         if executor_common_settings.pass_default_resources_args:
             args.append(
                 w2a(
-                    "resource_settings.default_resources",
+                    "resource_settings._parsed_default_resources",
+                    flag="--default-resources",
                     attr="args",
                     base64_encode=True,
                 )

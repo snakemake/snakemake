@@ -54,6 +54,7 @@ from snakemake.exceptions import (
 )
 from snakemake.common.tbdstring import TBDString
 from snakemake.io import AnnotatedString
+from snakemake.settings.types import ValidResource
 
 if TYPE_CHECKING:
     from snakemake.jobs import Job
@@ -448,8 +449,6 @@ class GroupResources:
 def mb_to_str(size: int) -> str:
     return humanfriendly.format_size(size * (10**6))
 
-
-ValidResource: TypeAlias = int | str | float | None | Callable[..., "ValidResource"]
 
 SizedResources = {"mem", "disk"}
 TimeResources = {"runtime"}
@@ -1070,7 +1069,7 @@ class Resources(Mapping[str, Resource]):
         return cls(result)
 
     @classmethod
-    def from_mapping(cls, mapping: Mapping[str, Any]):
+    def from_mapping(cls, mapping: Mapping[str, ValidResource] | Self) -> Self:
         """Initialize from a mapping of resource to values.
 
         No validation is done on the keys. Values are converted into ``Resource``s and
@@ -1090,6 +1089,9 @@ class Resources(Mapping[str, Resource]):
         WorkflowError
             if a given resource is of the human-readable group but cannot be parsed
         """
+        if isinstance(mapping, cls):
+            return mapping
+
         return cls({key: Resource(key, val) for key, val in mapping.items()})
 
     def update(self, other: Resources | Mapping[str, ValidResource]):

@@ -182,7 +182,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         from snakemake.storage import StorageRegistry
 
-        self.global_resources = self.resource_settings.resources
+        self.global_resources = self.resource_settings._parsed_resources
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
 
@@ -1898,15 +1898,14 @@ class Workflow(WorkflowExecutorInterface):
             # If requested, modify ruleinfo via the modifier.
             rule.module_globals = self.modifier.globals
 
-            # handle default resources
-            if self.resource_settings.default_resources is not None:
-                rule.resources = self.resource_settings.default_resources.copy()
-            else:
-                rule.resources = Resources()
+            # initialize rule with default resources
+            rule.resources = self.resource_settings._parsed_default_resources.copy()
             # Always require one node
             rule.resources["_nodes"] = 1
 
-            overwrite_threads = self.resource_settings.overwrite_threads.get(name)
+            overwrite_threads = self.resource_settings._parsed_overwrite_threads.get(
+                name
+            )
             try:
                 if overwrite_threads is not None:
                     rule.resources["_cores"] = overwrite_threads
@@ -1936,8 +1935,9 @@ class Workflow(WorkflowExecutorInterface):
 
                 rule.resources.update(resources)
 
-            if name in self.resource_settings.overwrite_resources:
-                rule.resources.update(self.resource_settings.overwrite_resources[name])
+            rule.resources.update(
+                self.resource_settings._parsed_overwrite_resources.get(name, {})
+            )
 
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (
