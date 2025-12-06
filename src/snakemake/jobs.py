@@ -281,7 +281,7 @@ class Job(
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
         self.pipe_or_service_output = set()
-        self._queue_input = defaultdict(list)
+        self._queue_input = set()
         for f in self.output:
             f_ = output_mapping[f]
             if f_ in self.rule.temp_output:
@@ -292,11 +292,10 @@ class Job(
                 self.touch_output.add(f)
             if is_flagged(f_, "pipe") or is_flagged(f_, "service"):
                 self.pipe_or_service_output.add(f)
-        for f in self.input:
-            f_ = input_mapping[f]
-            queue_info = get_flag_value(f_, "from_queue")
+        for f in self.rule.input:
+            queue_info = get_flag_value(f, "from_queue")
             if queue_info:
-                self._queue_input[queue_info].append(f)
+                self._queue_input.add(queue_info)
 
     def add_aux_resource(self, name: str, value: Union[str, int]) -> None:
         if name in self._aux_resources:
