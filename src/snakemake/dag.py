@@ -1939,9 +1939,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         await self.check_jobs()
 
         if check_initial:
-            assert (
-                self.has_unfinished_queue_input_jobs()
-                or (not any(self.needrun_jobs()) or any(self.ready_jobs))
+            assert self.has_unfinished_queue_input_jobs() or (
+                not any(self.needrun_jobs()) or any(self.ready_jobs)
             ), (
                 "bug: DAG contains jobs that have to be executed but no such job is "
                 "ready for execution."
