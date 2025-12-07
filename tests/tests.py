@@ -2665,4 +2665,8 @@ def test_cyclic_dependency_split():
 
 
 def test_cyclic_dependency_single():
-    run(dpath("test_cyclic_dependency_single"))
+    # We force a rerun because the (to be updated) output file is already there
+    # and there is no input file with a newer date.
+    # It is expected behavior that Snakemake would not rerun in such a case without
+    # forcing it.
+    run(dpath("test_cyclic_dependency_single"), forceall=True)
