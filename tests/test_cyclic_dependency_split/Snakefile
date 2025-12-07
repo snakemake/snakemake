@@ -1,6 +1,7 @@
 rule all:
     input:
-        "test.txt"
+        "test.txt",
+        "test1.txt",
 
 rule b:
     input:
