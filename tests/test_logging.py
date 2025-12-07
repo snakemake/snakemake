@@ -2,9 +2,13 @@ import os
 import shutil
 import sys
 import subprocess as sp
-import pytest
 import logging
 from collections import Counter
+from pathlib import Path
+import json
+
+import pytest
+
 from snakemake_interface_logger_plugins.common import LogEvent
 
 
@@ -18,6 +22,57 @@ from .conftest import (
     needs_strace,
     ON_MACOS,
 )
+
+
+def count_events(caplog: pytest.LogCaptureFixture) -> dict[LogEvent, int]:
+    """Count number of captured records for each event type."""
+
+    counts = Counter()
+
+    for record in caplog.records:
+        event = getattr(record, "event", None)
+        if event:
+            counts[event] += 1
+
+    return counts
+
+
+def check_event_counts(
+    observed: dict[LogEvent, int], expected: dict[LogEvent, int | None]
+):
+    """Check that captured event counts match expected values.
+
+    Parameters
+    ----------
+    observed
+        Observed event counts from ``count_events()``.
+    expected
+        Expected event counts. A value of None means any nonzero value.
+    """
+
+    unexpected = {
+        event: count for event, count in observed.items() if event not in expected
+    }
+
+    try:
+        assert not unexpected, f"Unexpected log events found: {unexpected}."
+
+        for event, expected_count in expected.items():
+            actual_count = observed.get(event, 0)
+            if expected_count is None:
+                assert actual_count > 0, f"Expected at least one {event} event."
+            else:
+                assert (
+                    actual_count == expected_count
+                ), f"Expected {expected_count} {event} events, got {actual_count}."
+
+    except AssertionError:
+        # Print all event counts to stderr for debugging if any checks fail.
+        print("\nObserved event counts:", file=sys.stderr)
+        for event in sorted(observed):
+            print(f"  {event}: {observed[event]}", file=sys.stderr)
+
+        raise
 
 
 def test_logfile():
@@ -47,14 +102,18 @@ Finished jobid: 0 (Rule: all)
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
-def test_logging_config():
-    """Relevant issue: https://github.com/snakemake/snakemake/issues/3044"""
-    snakefile = os.path.join(dpath("logging/test_logging_config"), "Snakefile")
+def test_logging_config(tmp_path: Path):
+    """Test configuring logging using ``logging.config.dictConfig()`` in the Snakefile.
+
+    Relevant issue: https://github.com/snakemake/snakemake/issues/3044
+    """
+    snakefile = dpath("logging/test_logging_config") / "Snakefile"
     p = sp.Popen(
         f"snakemake -s {snakefile}",
         shell=True,
         stdout=sp.PIPE,
         stderr=sp.PIPE,
+        cwd=tmp_path,
     )
     stdout, stderr = p.communicate()
 
@@ -64,7 +123,10 @@ def test_logging_config():
 
 
 def test_logger_in_workflow():
-    """relevant issue: https://github.com/snakemake/snakemake/issues/3558"""
+    """Test adding a handler to the ``logger`` global in the Snakefile.
+
+    relevant issue: https://github.com/snakemake/snakemake/issues/3558
+    """
     import glob
 
     tmpdir = run(
@@ -100,68 +162,49 @@ def test_logger_in_workflow():
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
-def test_log_events_dryrun(caplog):
+def test_log_events_dryrun(caplog: pytest.LogCaptureFixture):
+    """Test LogEvent counts of records captured during dry run."""
+
     with caplog.at_level(logging.INFO):
         run(dpath("logging/test_logfile"), executor="dryrun", check_results=False)
 
-    events_found = []
-    for record in caplog.records:
-        if hasattr(record, "event") and record.event:
-            events_found.append(record.event)
+    event_counts = count_events(caplog)
 
-    event_counts = Counter(events_found)
-
-    expected_event_counts = {
-        LogEvent.WORKFLOW_STARTED: 1,
-        LogEvent.RUN_INFO: 2,
-        LogEvent.JOB_INFO: 6,
-        LogEvent.SHELLCMD: 6,
-    }
-
-    for expected_event, expected_count in expected_event_counts.items():
-        actual_count = event_counts.get(expected_event, 0)
-        assert actual_count == expected_count, (
-            f"Expected {expected_count} {expected_event} events, got {actual_count}. "
-            f"All event counts: {event_counts}"
-        )
+    check_event_counts(
+        event_counts,
+        {
+            LogEvent.WORKFLOW_STARTED: 1,
+            LogEvent.RUN_INFO: 2,
+            LogEvent.JOB_INFO: 6,
+            LogEvent.SHELLCMD: 6,
+        },
+    )
 
 
-def test_log_events(caplog, capfd):
+def test_log_events(
+    caplog: pytest.LogCaptureFixture, capfd: pytest.CaptureFixture[str]
+):
+    """Test LogEvent counts of records captured during workflow run."""
+
     with caplog.at_level(logging.INFO):
         run(dpath("logging/test_logfile"), check_results=False)
 
-    events_found = []
-    for record in caplog.records:
-        if hasattr(record, "event") and record.event:
-            events_found.append(record.event)
+    event_counts = count_events(caplog)
 
-    event_counts = Counter(events_found)
-
-    expected_event_counts = {
-        LogEvent.WORKFLOW_STARTED: 1,
-        LogEvent.RUN_INFO: 1,
-        LogEvent.JOB_INFO: 6,
-        LogEvent.SHELLCMD: 6,
-        LogEvent.RESOURCES_INFO: 2,
-        LogEvent.PROGRESS: 6,
-        LogEvent.JOB_STARTED: 4,
-        LogEvent.JOB_FINISHED: 6,
-    }
-
-    # Check for unexpected events
-    unexpected_events = set(event_counts.keys()) - set(expected_event_counts.keys())
-    assert not unexpected_events, (
-        f"Unexpected log events found: {unexpected_events}. "
-        f"All event counts: {event_counts}"
+    check_event_counts(
+        event_counts,
+        {
+            LogEvent.WORKFLOW_STARTED: 1,
+            LogEvent.RUN_INFO: 1,
+            LogEvent.JOB_INFO: 6,
+            LogEvent.SHELLCMD: 6,
+            LogEvent.RESOURCES_INFO: 2,
+            LogEvent.PROGRESS: 6,
+            LogEvent.JOB_STARTED: None,
+            LogEvent.JOB_FINISHED: 6,
+        },
     )
 
-    # Check expected event counts
-    for expected_event, expected_count in expected_event_counts.items():
-        actual_count = event_counts.get(expected_event, 0)
-        assert actual_count == expected_count, (
-            f"Expected {expected_count} {expected_event} events, got {actual_count}. "
-            f"All event counts: {event_counts}"
-        )
     captured = capfd.readouterr()
     stderr_output = captured.err
     expected_in_stderr = [
@@ -177,5 +220,142 @@ def test_log_events(caplog, capfd):
         ), f"Expected '{expected_msg}' not found in stderr output"
 
 
-def test_rule_failure(caplog, capfd):
-    run(dpath("logging/test_rule_failure"), check_results=False)
+def test_rule_failure(caplog: pytest.LogCaptureFixture):
+    """Test LogEvent counts of records captured during workflow run with a failing rule."""
+
+    with caplog.at_level(logging.INFO):
+        run(dpath("logging/test_rule_failure"), check_results=False, shouldfail=True)
+
+    event_counts = count_events(caplog)
+
+    check_event_counts(
+        event_counts,
+        {
+            LogEvent.WORKFLOW_STARTED: 1,
+            LogEvent.RUN_INFO: 1,
+            LogEvent.JOB_INFO: 3,
+            LogEvent.SHELLCMD: 3,
+            LogEvent.RESOURCES_INFO: 2,
+            LogEvent.JOB_STARTED: None,
+            LogEvent.ERROR: 3,
+            LogEvent.JOB_ERROR: 6,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "stream,has_formatter,has_filter,needs_rulegraph",
+    [
+        (False, False, False, False),
+        (True, False, False, False),
+        (False, True, False, False),
+        (False, False, True, False),
+        (False, False, False, True),
+    ],
+)
+def test_plugin(
+    stream: bool,
+    has_formatter: bool,
+    has_filter: bool,
+    needs_rulegraph: bool,
+    tmp_path: Path,
+):
+    """Test using a logger plugin.
+
+    Adds the logging/plugins/ directory to PYTHONPATH so the plugin registry can detect the
+    "snakemake_logger_plugin_test" package. The plugin outputs each record in JSON format on a
+    single line, including the "event" attribute so we can check event counts as in the other tests.
+    The first line is a special record/event that reports information about how Snakemake has
+    configured the handler (such as whether the default formatter or filter were attached).
+
+    Parameters
+    ----------
+    stream
+        If True output to stream, otherwise to file.
+    has_formatter
+        Value plugin handler should return for the "has_formatter" property.
+    has_filter
+        Value plugin handler should return for the "has_filter" property.
+    needs_rulegraph
+        Value plugin handler should return for the "needs_rulegraph" property.
+    """
+
+    plugin_dir = dpath("logging/plugins")
+    test_dir = dpath("logging/test_logfile")
+    outfile = tmp_path / "out.log"
+
+    # Add plugin directory to PYTHONPATH so the registry can discover it
+    env = dict(os.environ)
+    current_path = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        str(plugin_dir)
+        if current_path is None
+        else str(plugin_dir) + os.pathsep + current_path
+    )
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "snakemake",
+        "-s",
+        str(test_dir / "Snakefile"),
+        "-j1",
+        "--verbose",
+        "--printshellcmds",
+        "--logger",
+        "test",
+    ]
+
+    if not stream:
+        cmd.extend(["--logger-test-outfile", outfile.name])
+    if has_formatter:
+        cmd.append("--logger-test-has-formatter")
+    if has_filter:
+        cmd.append("--logger-test-has-filter")
+    if needs_rulegraph:
+        cmd.append("--logger-test-needs-rulegraph")
+
+    result = sp.run(
+        cmd,
+        cwd=tmp_path,
+        env=env,
+        check=True,
+        capture_output=stream,
+        text=True,
+    )
+
+    # Parse output file or stderr
+    # If outputting to stderr it should replace Snakemake's default output.
+    if stream:
+        records = list(map(json.loads, result.stderr.splitlines()))
+    else:
+        with open(outfile) as fh:
+            records = list(map(json.loads, fh))
+
+    # Check logger info
+    assert records[0]["event"] == "logger_info"
+    assert records[0]["formatter_set"] == (not has_formatter)
+    assert records[0]["filter_added"] == (not has_filter)
+
+    # Check event counts
+    event_counts = Counter(
+        LogEvent[record["event"].upper()] for record in records[1:] if record["event"]
+    )
+
+    check_event_counts(
+        event_counts,
+        {
+            LogEvent.RUN_INFO: 1,
+            LogEvent.JOB_INFO: 6,
+            LogEvent.SHELLCMD: 6,
+            LogEvent.RESOURCES_INFO: 2,
+            LogEvent.PROGRESS: 6,
+            LogEvent.JOB_STARTED: None,
+            LogEvent.JOB_FINISHED: 6,
+            # These are filtered out with the default filter
+            LogEvent.WORKFLOW_STARTED: 1 if has_filter else 0,
+            LogEvent.DEBUG_DAG: None if has_filter else 0,
+            # Only emitted if requested by plugin
+            LogEvent.RULEGRAPH: 1 if needs_rulegraph else 0,
+        },
+    )
