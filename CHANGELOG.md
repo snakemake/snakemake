@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [9.14.3](https://github.com/snakemake/snakemake/compare/v9.14.2...v9.14.3) (2025-12-08)
+
+
+### Bug Fixes
+
+* ensure that queue input jobs wait if the queue is still empty upon job creation ([#3866](https://github.com/snakemake/snakemake/issues/3866)) ([555ab6a](https://github.com/snakemake/snakemake/commit/555ab6a31def48feec9ce584d70022f9f683bf29))
+* fix issues with cyclic dependencies when using the update and before_update flag ([#3857](https://github.com/snakemake/snakemake/issues/3857)) ([21cc94e](https://github.com/snakemake/snakemake/commit/21cc94effa272683a73aed30b8c3a62eb1bc45fc))
+
 ## [9.14.2](https://github.com/snakemake/snakemake/compare/v9.14.1...v9.14.2) (2025-12-05)
 
 
