@@ -1148,7 +1148,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             logger.debug(
                 None, extra=dict(event=LogEvent.DEBUG_DAG, status="candidate", job=job)
             )
-            if file in job.input:
+            if file in job.input and not any(
+                is_flagged(f, "before_update") for f in job.input if f == file
+            ):
                 cycles.append(job)
                 continue
             if job in visited:
@@ -2430,12 +2432,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         before_update_jobs = dict()
         update_jobs = dict()
         for job in self.needrun_jobs():
-            for f in job.input:
-                if is_flagged(f, "before_update"):
-                    before_update_jobs[f] = job
             for f in job.output:
                 if is_flagged(f, "update"):
                     update_jobs[f] = job
+            for f in job.input:
+                if is_flagged(f, "before_update") and job is not update_jobs.get(f):
+                    before_update_jobs[f] = job
 
         for f, job in before_update_jobs.items():
             update_job = update_jobs.get(f)
