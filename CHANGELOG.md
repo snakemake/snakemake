@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.14.4](https://github.com/snakemake/snakemake/compare/v9.14.3...v9.14.4) (2025-12-09)
+
+
+### Bug Fixes
+
+* fix follow-up issue with group job handling when retrieving storage ([#3871](https://github.com/snakemake/snakemake/issues/3871)) ([20b99ac](https://github.com/snakemake/snakemake/commit/20b99ac43ecaa1d6d1454321ed701e9cf14bb8fb))
+
 ## [9.14.3](https://github.com/snakemake/snakemake/compare/v9.14.2...v9.14.3) (2025-12-08)
 
 
