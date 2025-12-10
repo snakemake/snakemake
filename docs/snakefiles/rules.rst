@@ -1109,7 +1109,7 @@ You could, for example, provide the following workflow profile in a file ``profi
 
 to set the requirements for rule ``b`` to 3 threads and 1000 MB.
 
-Another case of dynamic resources, is for the `tempdir`. Depending on the architecture of our system, you might have different servers with different "ideal" temp folders. For example, some might have small but fast ``nvme`` disks, others might have a job-specific temp folder (e.g. ``/scratch/$SLURM_JOB_ID``, while in others the only option might be the slow NFS. The function ``choose_tmp`` allows the user to specify a list of temp folders that, on each job submission, are evaluated. The first valid path is selected; if no path is valid, Snakemake's internal ``system_tmpdir`` is used. For example, one can specify the function in a profile:
+Another case of dynamic resources, is for the `tmpdir`. Depending on the architecture of our system, you might have different servers with different "ideal" temp folders. For example, some might have small but fast ``nvme`` disks, others might have a job-specific temp folder (e.g. ``/scratch/$SLURM_JOB_ID``, while in others the only option might be the slow NFS. The function ``choose_tmp`` allows the user to specify a list of temp folders that, on each job submission, are evaluated. The first valid path is selected; if no path is valid, Snakemake's internal ``system_tmpdir`` is used. For example, one can specify the function in a profile:
 
 .. code-block:: yaml
 
