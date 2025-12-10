@@ -1318,7 +1318,7 @@ def test_tmpdir():
 
 
 def test_tmpdir_default():
-    test_path = run(dpath("test_tmpdir"))
+    test_path = dpath("test_tmpdir")
     general_profile = os.path.join(test_path, "profile")
     # workflow profile is loaded by default
     run(
