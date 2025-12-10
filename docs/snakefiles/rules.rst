@@ -796,18 +796,6 @@ When selecting input files, sometimes you might end up with an irregular list of
 
     flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
 
-.. _snakefiles-choose_tmp:
-
-The choose_tmp function
-"""""""""""""""""""""""
-Depending on the architecture of our system, you might have different servers with different "ideal" temp folders. For example, some might have small ``/tmp`` folders but fast ``nvme`` disks, while in others the only option might be the slow NFS. This function allows the user to specify a list of temp folders that, on each job submission, are evaluated. The first valid path is selected; if no path is valid, Snakemake's internal ``system_tmpdir`` is used.
-
-.. code-block:: yaml
-
-    default_resources:
-      runtime: 10
-      tmpdir: choose_tmp(["/fast_nvme", "/home/$USER/scratch", "/scratch/$SLURM_JOB_ID"])
-
 .. _snakefiles-targets:
 
 Target rules
@@ -988,6 +976,59 @@ If no limits are given, the resources are ignored in local execution.
 Resources can have any arbitrary name, and must be assigned ``int`` or ``str`` values.
 In case of ``None``, the resource is considered to be unset (i.e. ignored) in the rule.
 
+.. _snakefiles-standard-resources:
+
+Standard Resources
+~~~~~~~~~~~~~~~~~~
+
+There are several **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem``, ``disk``, ``runtime``, and ``tmpdir``.
+All of these resources have specific meanings understood by snakemake and are treated in varying unique ways:
+
+* The ``tmpdir`` resource automatically leads to setting the ``$TMPDIR`` variable for shell commands, scripts, wrappers and notebooks. In cluster or cloud setups, its evaluation is delayed until the actual execution of the job. This way, it can dynamically react on the context of the node of execution.
+
+* The ``runtime`` resource indicates the amount of wall clock time a job needs to run.
+  It can be given as string defining a time span or as integer defining **minutes**.
+  In the former case, the time span can be defined as a string with a number followed by a unit
+  (``ms``, ``s``, ``m``, ``h``, ``d``, ``w``, ``y`` for seconds, minutes, hours, days, and years, respectively).
+  The interpretation happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_timespan>`__.
+  Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
+  See :ref:`the section below <resources-remote-execution>` for more information.
+
+* ``disk`` and ``mem`` define the amount of memory and disk space needed by the job.
+  They are given as strings with a number followed by a unit (``B``, ``KB``, ``MB``, ``GB``, ``TB``, ``PB``, ``KiB``, ``MiB``, ``GiB``, ``TiB``, ``PiB``).
+  The interpretation of the definition happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_size>`__.
+  Alternatively, the two can be directly defined as integers via the resources ``mem_mb`` and ``disk_mb`` (to which ``disk`` and ``mem`` are also automatically translated internally).
+  They are both locally scoped by default, a fact important for cluster and compute execution.
+  :ref:`See below <resources-remote-execution>` for more info.
+  They are usually passed to execution backends, e.g. to allow the selection of appropriate compute nodes for the job execution.
+
+* ``gpu``, ``gpu_manufacturer``, and ``gpu_model`` define the number of GPUs, the manufacturer of the GPUs, and the gpu model needed by the job.
+  The ``gpu`` resource is an integer and the other two are strings. Please check the executor plugin docs in order to see
+  whether and how these resources are supported and properly interpreted by the executor.
+  For example, the `kubernetes executor plugin <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/kubernetes.html>`__ accepts the terms ``nvidia`` or ``amd`` for the ``gpu_manufacturer`` resource.
+
+Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``time``, ``temp``, etc).
+
+.. _default-resources:
+
+Default Resources
+~~~~~~~~~~~~~~~~~~
+
+Since it could be cumbersome to define these standard resources for every rule, you can set default values via the command line flag ``--default-resources`` or in a :ref:`profile <profiles>`.
+As with ``--set-resources``, this can be done dynamically, using the variables specified for the callables in the section on :ref:`snakefiles-dynamic-resources`.
+If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
+Any resource definitions inside a rule override what has been defined with ``--default-resources``.
+If ``--default-resources`` are specified without any further arguments, Snakemake uses ``'mem_mb=min(max(2*input.size_mb, 1000), 8000)'``, ``'disk_mb=max(2*input.size_mb, 1000) if input else 50000'``, and ``'tmpdir=system_tmpdir'``.
+
+* The ``tmpdir`` value points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`__.
+* The rationale for the default value of ``disk_mb`` is the following: if there are input files, we assume the rule will use at most twice their size during execution.
+  If there are no input files, we cannot know what the rule will need, hence we assume a conservative default of 50GB.
+* The rationale for the default value of ``mem_mb`` is the following: we try to scale the required memory with the input file size (conservatively assuming that they are loaded entirely into memory).
+  However, we stop at 8GB, in order to avoid artificially high requests. Tools that read very large files rather tend to stream them instead of fully loading them into memory.
+* If ``--default-resources`` is specified with some definitions, but any of the above defaults (e.g. ``mem_mb``) is omitted, these are still used.
+  In order to explicitly unset these defaults, assign them a value of ``None``, e.g. ``--default-resources mem_mb=None``.
+* Of course, any rule specifying concrete resources either via the rule definition or via ``--set-resources`` will override the defaults.
+
 .. _snakefiles-dynamic-resources:
 
 Dynamic Resources
@@ -1068,58 +1109,14 @@ You could, for example, provide the following workflow profile in a file ``profi
 
 to set the requirements for rule ``b`` to 3 threads and 1000 MB.
 
-.. _snakefiles-standard-resources:
+Another case of dynamic resources, is for the `tempdir`. Depending on the architecture of our system, you might have different servers with different "ideal" temp folders. For example, some might have small but fast ``nvme`` disks, others might have a job-specific temp folder (e.g. ``/scratch/$SLURM_JOB_ID``, while in others the only option might be the slow NFS. The function ``choose_tmp`` allows the user to specify a list of temp folders that, on each job submission, are evaluated. The first valid path is selected; if no path is valid, Snakemake's internal ``system_tmpdir`` is used. For example, one can specify the function in a profile:
 
-Standard Resources
-~~~~~~~~~~~~~~~~~~
+.. code-block:: yaml
 
-There are several **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem``, ``disk``, ``runtime``, and ``tmpdir``.
-All of these resources have specific meanings understood by snakemake and are treated in varying unique ways:
+    default_resources:
+      tmpdir: choose_tmp(["/scratch/nvme", "/home/$USER/scratch", "/scratch/$SLURM_JOB_ID"])
 
-* The ``tmpdir`` resource automatically leads to setting the ``$TMPDIR`` variable for shell commands, scripts, wrappers and notebooks. In cluster or cloud setups, its evaluation is delayed until the actual execution of the job. This way, it can dynamically react on the context of the node of execution.
-
-* The ``runtime`` resource indicates the amount of wall clock time a job needs to run.
-  It can be given as string defining a time span or as integer defining **minutes**.
-  In the former case, the time span can be defined as a string with a number followed by a unit
-  (``ms``, ``s``, ``m``, ``h``, ``d``, ``w``, ``y`` for seconds, minutes, hours, days, and years, respectively).
-  The interpretation happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_timespan>`__.
-  Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
-  See :ref:`the section below <resources-remote-execution>` for more information.
-
-* ``disk`` and ``mem`` define the amount of memory and disk space needed by the job.
-  They are given as strings with a number followed by a unit (``B``, ``KB``, ``MB``, ``GB``, ``TB``, ``PB``, ``KiB``, ``MiB``, ``GiB``, ``TiB``, ``PiB``).
-  The interpretation of the definition happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_size>`__.
-  Alternatively, the two can be directly defined as integers via the resources ``mem_mb`` and ``disk_mb`` (to which ``disk`` and ``mem`` are also automatically translated internally).
-  They are both locally scoped by default, a fact important for cluster and compute execution.
-  :ref:`See below <resources-remote-execution>` for more info.
-  They are usually passed to execution backends, e.g. to allow the selection of appropriate compute nodes for the job execution.
-
-* ``gpu``, ``gpu_manufacturer``, and ``gpu_model`` define the number of GPUs, the manufacturer of the GPUs, and the gpu model needed by the job.
-  The ``gpu`` resource is an integer and the other two are strings. Please check the executor plugin docs in order to see
-  whether and how these resources are supported and properly interpreted by the executor.
-  For example, the `kubernetes executor plugin <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/kubernetes.html>`__ accepts the terms ``nvidia`` or ``amd`` for the ``gpu_manufacturer`` resource.
-
-Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``time``, ``temp``, etc).
-
-.. _default-resources:
-
-Default Resources
-~~~~~~~~~~~~~~~~~~
-
-Since it could be cumbersome to define these standard resources for every rule, you can set default values via the command line flag ``--default-resources`` or in a :ref:`profile <profiles>`.
-As with ``--set-resources``, this can be done dynamically, using the variables specified for the callables in the section on :ref:`snakefiles-dynamic-resources`.
-If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
-Any resource definitions inside a rule override what has been defined with ``--default-resources``.
-If ``--default-resources`` are specified without any further arguments, Snakemake uses ``'mem_mb=min(max(2*input.size_mb, 1000), 8000)'``, ``'disk_mb=max(2*input.size_mb, 1000) if input else 50000'``, and ``'tmpdir=system_tmpdir'``.
-
-* The ``tmpdir`` value points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`__.
-* The rationale for the default value of ``disk_mb`` is the following: if there are input files, we assume the rule will use at most twice their size during execution.
-  If there are no input files, we cannot know what the rule will need, hence we assume a conservative default of 50GB.
-* The rationale for the default value of ``mem_mb`` is the following: we try to scale the required memory with the input file size (conservatively assuming that they are loaded entirely into memory).
-  However, we stop at 8GB, in order to avoid artificially high requests. Tools that read very large files rather tend to stream them instead of fully loading them into memory.
-* If ``--default-resources`` is specified with some definitions, but any of the above defaults (e.g. ``mem_mb``) is omitted, these are still used.
-  In order to explicitly unset these defaults, assign them a value of ``None``, e.g. ``--default-resources mem_mb=None``.
-* Of course, any rule specifying concrete resources either via the rule definition or via ``--set-resources`` will override the defaults.
+and each job, depending on the hardware specification of each node, will select the first valid path.
 
 .. _resources-remote-execution:
 

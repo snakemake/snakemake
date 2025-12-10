@@ -1318,9 +1318,14 @@ def test_tmpdir():
 
 
 def test_tmpdir_default():
-    # Do not check the content (OS and setup dependent),
-    # just check whether everything runs smoothly with the default.
-    run(dpath("test_tmpdir"), check_md5=False)
+    test_path = run(dpath("test_tmpdir"))
+    general_profile = os.path.join(test_path, "profile")
+    # workflow profile is loaded by default
+    run(
+        test_path,
+        snakefile="Snakefile",
+        shellcmd=f"snakemake --profile {general_profile} -c1",
+    )
 
 
 def test_issue1284():
