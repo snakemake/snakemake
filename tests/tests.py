@@ -1313,11 +1313,6 @@ def test_default_resources():
 
 @skip_on_windows  # TODO fix the windows case: it somehow does not consistently modify all temp env vars as desired
 def test_tmpdir():
-    # artificially set the tmpdir to an expected value
-    run(dpath("test_tmpdir"), overwrite_resources={"a": {"tmpdir": "/tmp"}})
-
-
-def test_tmpdir_default():
     test_path = dpath("test_tmpdir")
     general_profile = os.path.join(test_path, "profile")
     # workflow profile is loaded by default
@@ -1325,6 +1320,7 @@ def test_tmpdir_default():
         test_path,
         snakefile="Snakefile",
         shellcmd=f"snakemake --profile {general_profile} -c1",
+        overwrite_resources={"a": {"tmpdir": "/tmp"}},
     )
 
 
