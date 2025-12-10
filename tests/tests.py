@@ -1318,9 +1318,7 @@ def test_tmpdir():
     # workflow profile is loaded by default
     run(
         test_path,
-        snakefile="Snakefile",
-        shellcmd=f"snakemake --profile {general_profile} -c1",
-        overwrite_resources={"a": {"tmpdir": "/tmp"}},
+        shellcmd=f"snakemake -c1 --profile {general_profile} --set-resources 'a:tmpdir=/tmp'",
     )
 
 
