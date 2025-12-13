@@ -2278,6 +2278,10 @@ def test_pathvars_modules():
     run(dpath("test_pathvars_modules"))
 
 
+def test_pathvars_module_inputfkt():
+    run(dpath("test_pathvars_module_inputfkt"))
+
+
 def test_pathvars_cycle():
     run(dpath("test_pathvars_cycle"), shouldfail=True)
 
