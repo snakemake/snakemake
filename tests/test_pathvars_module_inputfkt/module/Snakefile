@@ -1,0 +1,10 @@
+rule touch_testfile:
+    output:
+        touch("<results>/intermediate.txt"),
+
+
+rule touch_testfile_input:
+    input:
+        lambda wc: "<results>/intermediate.txt",
+    output:
+        touch("<results>/all.txt"),
