@@ -100,7 +100,7 @@ class ReportHref:
             anchor = f"#{urllib.parse.quote(self._anchor)}"
         else:
             anchor = ""
-        return f"../{self._id}/{path}{args}{anchor}"
+        return f"../{self._id[:16]}/{path}{args}{anchor}"
 
 
 class Snakemake:
@@ -957,7 +957,7 @@ class RScript(ScriptBase):
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
-            
+
                 is_url <- grepl("^https?://", snakemake@scriptdir)
                 file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
                 if (!is_url) setwd(snakemake@scriptdir)
@@ -1070,7 +1070,7 @@ class RMarkdown(ScriptBase):
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
-            
+
                 is_url <- grepl("^https?://", snakemake@scriptdir)
                 file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
                 if (!is_url) setwd(snakemake@scriptdir)

@@ -63,7 +63,7 @@ def get_report_id(path: Union[str, Path]) -> str:
     h = hashlib.sha256()
     h.update(str(path).encode())
 
-    return h.hexdigest()[:16]
+    return h.hexdigest()
 
 
 def mb_to_mib(mb):
