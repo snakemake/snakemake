@@ -462,14 +462,15 @@ def shorten_ids(results: Mapping[Category, Mapping[Category, List[FileRecord]]])
         for subcat, catresults in subcats.items()
         for res in catresults
     ]
-    for id_len in range(8, 65):
-        if len({rec.id[:id_len] for rec in file_records}) == len(file_records):
-            for rec in file_records:
-                rec.id = rec.id[:id_len]
-            return
-    logger.warning(
-        "Obtained result IDs are non-unique. Certain results will be not accessible."
-    )
+    shortened_ids = [rec.id[:16] for rec in file_records]
+    if len(set(shortened_ids)) != len(shortened_ids):
+        raise WorkflowError(
+            "Collision detected when shortening report file hashes to 16 characters. "
+            "Please open an issue at https://github.com/snakemake/snakemake/issues/new to request a greater hash length."
+        )
+
+    for rec, short_id in zip(file_records, shortened_ids):
+        rec.id = short_id
 
 
 async def expand_labels(labels, wildcards, job):
