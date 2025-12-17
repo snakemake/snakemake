@@ -465,9 +465,7 @@ def shorten_ids(results: Mapping[Category, Mapping[Category, List[FileRecord]]])
     full_ids = [rec.id for rec in file_records]
     shortened_ids = [rec.id[:16] for rec in file_records]
     # We only need to check for collisions that appear because of the shortening
-    if len(set(shortened_ids)) != len(set(full_ids)) and len(shortened_ids) != len(
-        full_ids
-    ):
+    if len(set(shortened_ids)) != len(set(full_ids)):
         raise WorkflowError(
             "Collision detected when shortening report file hashes to 16 characters. "
             "Please open an issue at https://github.com/snakemake/snakemake/issues/new to request a greater hash length."
