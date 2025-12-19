@@ -446,14 +446,22 @@ class SourceCache:
     def _open(self, source_file: SourceFile, mode, encoding=None):
         from smart_open import open
 
+        log_path = source_file.get_path_or_uri(secret_free=True)
+
         if isinstance(source_file, LocalGitFile):
             import git
 
-            return io.BytesIO(
-                git.Repo(source_file.repo_path)
-                .git.show(f"{source_file.ref}:{source_file.path}")
-                .encode()
-            )
+            try:
+                return io.BytesIO(
+                    git.Repo(source_file.repo_path)
+                    .git.show(f"{source_file.ref}:{source_file.path}")
+                    .encode()
+                )
+            except git.GitCommandError as e:
+               raise WorkflowError(
+                   f"Failed to get local git source file {log_path}: {e}. "
+                   "Is the local git clone up to date?"
+               )
 
         path_or_uri = source_file.get_path_or_uri(secret_free=False)
 
@@ -461,6 +469,6 @@ class SourceCache:
             return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
         except Exception as e:
             raise WorkflowError(
-                f"Failed to open source file {source_file.get_path_or_uri(secret_free=True)}",
+                f"Failed to open source file {log_path}",
                 e,
             )
