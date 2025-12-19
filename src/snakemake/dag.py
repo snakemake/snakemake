@@ -2185,7 +2185,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 if is_flagged(input_file, "checkpoint_target")
             }
 
-        #  If jobs is not None, those are the finished jobs passed to this method.
+        # If jobs is not None, those are the finished jobs passed to this method.
         # For those, the output is already present and thus does not need to be checked. 
         completed_checkpoint_jobs = await compute_completed_checkpoint_jobs(
             jobs or self.jobs, check_is_output_present=(jobs is not None)
