@@ -189,8 +189,8 @@ This behaves similarly to inheriting an existing rule within the current workflo
         output:
             "results/some-result.txt"
 
-When using the ``with:`` block, keyword arguments in ``params`` will be selectively replaced, while positional arguments are overwritten if provided.
-All other properties (e.g., ``input``, ``output``, ``log``, ``params``, etc.) will be fully overwritten with the values specified in the block, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
+All properties (e.g., ``input``, ``output``, ``log``, ``params``, etc.) are either fully replaced by the values specified in the with block, or partially updated when using the ``usewith`` marker.
+The execution directive (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``) cannot be overridden, which is always inherited from the original rule.
 
 Note that the second use statement has to use the original rule name, not the one that has been prefixed with ``other_`` via the first use statement (there is no rule ``other_some_task`` in the module ``other_workflow``).
 
@@ -255,7 +255,7 @@ It is possible to define :ref:`pathvars <snakefiles-pathvars>` on a per-module b
             results="results/other_workflow"
 
 All rules in the module that make use of the defined pathvars will use whatever new values are defined there.
-The given values will override eventual pathvar definitions inside of the module. 
+The given values will override eventual pathvar definitions inside of the module.
 
 If further a config is passed to the module, any pathvar definitions in the config take precedence over pathvar definitions in the module definition, e.g.:
 
@@ -285,7 +285,7 @@ If instead the config contains:
     pathvars:
         results: "custom/results"
         resources: "custom/path/to/resources"
-        
+
 Then inside of the module the two considered pathvars will be ``results="custom/results"`` and ``resources="custom/path/to/resources"``.
 
 Note that defining pathvars in the config should be considered a rare, discouraged and advanced use case, since the users has to know about the internal pathvar expectations of the module.
