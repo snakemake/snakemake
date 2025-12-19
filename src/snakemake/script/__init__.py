@@ -54,6 +54,8 @@ snakemake: "Snakemake"
 # For compatibility with Python <3.11 where typing.Self is not available.
 ReportHrefType = TypeVar("ReportHrefType", bound="ReportHref")
 
+FILE_HASH_PREFIX_LEN = 16
+
 
 class ReportHref:
     def __init__(
@@ -100,7 +102,7 @@ class ReportHref:
             anchor = f"#{urllib.parse.quote(self._anchor)}"
         else:
             anchor = ""
-        return f"../{self._id}/{path}{args}{anchor}"
+        return f"../{self._id[:FILE_HASH_PREFIX_LEN]}/{path}{args}{anchor}"
 
 
 class Snakemake:
@@ -957,7 +959,7 @@ class RScript(ScriptBase):
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
-            
+
                 is_url <- grepl("^https?://", snakemake@scriptdir)
                 file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
                 if (!is_url) setwd(snakemake@scriptdir)
@@ -1070,7 +1072,7 @@ class RMarkdown(ScriptBase):
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
-            
+
                 is_url <- grepl("^https?://", snakemake@scriptdir)
                 file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
                 if (!is_url) setwd(snakemake@scriptdir)
