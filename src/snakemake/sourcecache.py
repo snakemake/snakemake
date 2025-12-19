@@ -458,10 +458,10 @@ class SourceCache:
                     .encode()
                 )
             except git.GitCommandError as e:
-               raise WorkflowError(
-                   f"Failed to get local git source file {log_path}: {e}. "
-                   "Is the local git clone up to date?"
-               )
+                raise WorkflowError(
+                    f"Failed to get local git source file {log_path}: {e}. "
+                    "Is the local git clone up to date?"
+                )
 
         path_or_uri = source_file.get_path_or_uri(secret_free=False)
 
