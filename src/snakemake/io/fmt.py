@@ -14,7 +14,7 @@ def fmt_iofile(f, as_input: bool = False, as_output: bool = False):
         elif as_output:
             storage_phrase = "send to storage"
         else:
-            storage_phrase = ""
+            storage_phrase = "in storage"
         f_str = f.storage_object.print_query
     else:
         f_str = f
@@ -46,4 +46,5 @@ def fmt_iofile(f, as_input: bool = False, as_output: bool = False):
             return TBDString()
         else:
             return annotate(f_str)
-    return f
+    else:
+        return annotate(f_str)

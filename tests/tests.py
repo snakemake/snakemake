@@ -19,7 +19,7 @@ from snakemake.utils import min_version  # import so we can patch out if needed
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
-from snakemake.exceptions import AmbiguousRuleException
+from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -828,6 +828,17 @@ def test_singularity_none():
 def test_singularity_global():
     run(
         dpath("test_singularity_global"), deployment_method={DeploymentMethod.APPTAINER}
+    )
+
+
+@skip_on_windows
+@apptainer
+@connected
+def test_singularity_source_cache():
+    run(
+        dpath("test_singularity_source_cache"),
+        deployment_method={DeploymentMethod.APPTAINER},
+        apptainer_args="--bind /tmp:/tmp",
     )
 
 
@@ -2261,6 +2272,18 @@ def test_exists():
     run(dpath("test_exists"), check_results=False, executor="dryrun")
 
 
+def test_pathvars():
+    run(dpath("test_pathvars"))
+
+
+def test_pathvars_modules():
+    run(dpath("test_pathvars_modules"))
+
+
+def test_pathvars_cycle():
+    run(dpath("test_pathvars_cycle"), shouldfail=True)
+
+
 @skip_on_windows  # OS agnostic
 def test_handle_storage_multi_consumers():
     run(
@@ -2278,6 +2301,17 @@ def test_github_issue2732():
 
 def test_default_flags():
     run(dpath("test_default_flags"), executor="dryrun", check_results=False)
+
+
+def test_update_flag_fail():
+    run(dpath("test_update_flag_fail"), shouldfail=True, check_results=True)
+
+
+def test_update_flag_fail_cleanup():
+    workdir = dpath("test_update_flag_fail_cleanup")
+    tmpdir = run(workdir, shouldfail=True, cleanup=False, check_results=False)
+
+    assert not os.path.exists(os.path.join(tmpdir, "test.txt"))
 
 
 @skip_on_windows
@@ -2610,3 +2644,33 @@ def test_temp_checkpoint():
     real = set(tmpdir.glob("results/*/*"))
     assert expected == real, "temp files not removed"
     shutil.rmtree(tmpdir)
+
+
+def test_checkpoint_until():
+    run(dpath("test_checkpoint_until"), shellcmd="snakemake --until B1 --cores 1")
+
+
+def test_checkpoint_omit_from():
+    run(
+        dpath("test_checkpoint_omit_from"),
+        shellcmd="snakemake --omit-from B1 --cores 1",
+    )
+
+
+def test_wildcard_annotatedstrings():
+    with pytest.raises(WorkflowError, match=r"unpack\(\) is not allowed with params"):
+        run(dpath("test_wildcard_annotatedstrings"), targets=["test.out"])
+
+
+@skip_on_windows  # platform will have no effect
+def test_cyclic_dependency_split():
+    run(dpath("test_cyclic_dependency_split"))
+
+
+@skip_on_windows  # platform will have no effect
+def test_cyclic_dependency_single():
+    # We force a rerun because the (to be updated) output file is already there
+    # and there is no input file with a newer date.
+    # It is expected behavior that Snakemake would not rerun in such a case without
+    # forcing it.
+    run(dpath("test_cyclic_dependency_single"), forceall=True)

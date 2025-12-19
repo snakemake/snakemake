@@ -206,6 +206,7 @@ class shell:
         resources = context.get("resources", {})
         singularity_args = context.get("singularity_args", "")
         threads = context.get("threads", 1)
+        runtime_paths = context.get("runtime_paths", None)
 
         shell_executable = resources.get("shell_exec")
         if shell_executable is not None:
@@ -253,7 +254,8 @@ class shell:
             cmd = singularity.shellcmd(
                 container_img,
                 cmd,
-                singularity_args,
+                bind=runtime_paths,
+                args=singularity_args,
                 envvars=None,
                 shell_executable=shell_executable,
                 container_workdir=shadow_dir,

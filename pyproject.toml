@@ -50,9 +50,9 @@ dependencies = [
   "smart-open>=4.0,<8.0",
   "snakemake-interface-executor-plugins>=9.3.2,<10.0",
   "snakemake-interface-common>=1.20.1,<2.0",
-  "snakemake-interface-storage-plugins>=4.1.0,<5.0",
+  "snakemake-interface-storage-plugins>=4.3.2,<5.0",
   "snakemake-interface-report-plugins>=1.2.0,<2.0.0",
-  "snakemake-interface-logger-plugins>=1.1.0,<2.0.0",
+  "snakemake-interface-logger-plugins>=1.1.0,<3.0.0",
   "snakemake-interface-scheduler-plugins>=2.0.0,<3.0.0",
   "tabulate",
   "throttler",
@@ -90,7 +90,7 @@ ignore-words-list = 'testin'
 ####################################################################
 # Pixi Configuration
 ####################################################################
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "osx-arm64", "win-64", "osx-64", "linux-aarch64"]
 
@@ -171,6 +171,8 @@ cmd = [
   "tests/test_executor_test_suite.py",
   "tests/test_api.py",
   "tests/test_internals.py",
+  "tests/test_jupyter_notebook_pathlike.py",
+  "tests/test_logging.py",
   # the tests below were never tested in the old CI and currently fail
   # "tests/test_args.py",
   # "tests/test_output_index.py",

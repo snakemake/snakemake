@@ -173,7 +173,7 @@ class BenchmarkRecord:
                 "Benchmark: unable to collect cpu and memory benchmark statistics"
             )
         record = [
-            f"{self.running_time:.4f}",
+            round(self.running_time, 4),
             self.timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
             self.max_rss if self.data_collected else "NA",
             self.max_vms if self.data_collected else "NA",
