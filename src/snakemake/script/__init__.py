@@ -54,6 +54,8 @@ snakemake: "Snakemake"
 # For compatibility with Python <3.11 where typing.Self is not available.
 ReportHrefType = TypeVar("ReportHrefType", bound="ReportHref")
 
+FILE_HASH_PREFIX_LEN = 16
+
 
 class ReportHref:
     def __init__(
@@ -100,7 +102,7 @@ class ReportHref:
             anchor = f"#{urllib.parse.quote(self._anchor)}"
         else:
             anchor = ""
-        return f"../{self._id[:16]}/{path}{args}{anchor}"
+        return f"../{self._id[:FILE_HASH_PREFIX_LEN]}/{path}{args}{anchor}"
 
 
 class Snakemake:

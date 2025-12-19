@@ -45,7 +45,7 @@ from snakemake.io import (
     contains_wildcard,
 )
 from snakemake.exceptions import InputFunctionException, WorkflowError
-from snakemake.script import Snakemake
+from snakemake.script import Snakemake, FILE_HASH_PREFIX_LEN
 from snakemake.common import (
     get_input_function_aux_params,
 )
@@ -463,7 +463,7 @@ def shorten_ids(results: Mapping[Category, Mapping[Category, List[FileRecord]]])
         for res in catresults
     ]
     full_ids = [rec.id for rec in file_records]
-    shortened_ids = [rec.id[:16] for rec in file_records]
+    shortened_ids = [rec.id[:FILE_HASH_PREFIX_LEN] for rec in file_records]
     # We only need to check for collisions that appear because of the shortening
     if len(set(shortened_ids)) != len(set(full_ids)):
         raise WorkflowError(
