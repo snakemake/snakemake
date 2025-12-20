@@ -141,6 +141,14 @@ rule minimal_symbolic:
         ln -s minimal_real.out minimal_symbolic.out
         """
 
+# Test huge command line in shadow: "minimal"
+rule minimal_huge_cmd:
+    output: "outdir/minimal_huge.out"
+    params: huge_cmd="#" * 16 * 4096
+    shadow: "minimal"
+    shell:
+        "touch {output}; {params.huge_cmd}"
+
 # Tests absolute input/output
 rule minimal_absolute:
     input:
@@ -157,6 +165,7 @@ rule minimal_ok:
     input:  "simple_minimal.out",
             "outdir/minimal.out",
             "outdir/minimal_symbolic.out",
+            "outdir/minimal_huge.out",
             os.path.join(os.getcwd(),"outdir/minimal_absolute.out")
     output: "minimal_ok.out"
     shell:
