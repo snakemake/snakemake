@@ -206,6 +206,8 @@ class Job(
         "_conda_env_file",
         "_conda_env",
         "_container_img_url",
+        "_software_env_spec",
+        "_software_env",
         "_shadow_dir",
         "temp_output",
         "protected_output",
@@ -262,6 +264,8 @@ class Job(
         self._resources = None
         self._conda_env_spec = None
         self._container_img_url = None
+        self._software_env_spec = None
+        self._software_env = None
         self._scheduler_resources = None
         self._conda_env = None
         self._group = None
@@ -538,6 +542,26 @@ class Job(
             return self._conda_env
         return None
 
+    @property
+    def software_env_spec(self):
+        if self._software_env_spec is None:
+            self._software_env_spec = self.rule.expand_software_env_spec(
+                self.wildcards_dict, self.params, self.input
+            )
+        return self._software_env_spec
+
+    @property
+    def software_env(self):
+        if self.software_env_spec:
+            if self._software_env is None:
+                self._software_env = (
+                    self.dag.workflow.software_deployment_manager.get_env(
+                        self.software_env_spec
+                    )
+                )
+            return self._software_env
+        return None
+
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
         if self.conda_env_spec:
@@ -571,7 +595,7 @@ class Job(
     def container_img(self):
         if (
             DeploymentMethod.APPTAINER
-            in self.dag.workflow.deployment_settings.deployment_method
+            in self.dag.workflow.legacy_deployment_settings.deployment_method
             and self.container_img_url
         ):
             return self.dag.container_imgs[self.container_img_url]
@@ -1164,7 +1188,7 @@ class Job(
             wait_for_files.append(self.shadow_dir)
         if (
             DeploymentMethod.CONDA
-            in self.dag.workflow.deployment_settings.deployment_method
+            in self.dag.workflow.legacy_deployment_settings.deployment_method
             and self.conda_env
             and not self.conda_env.is_externally_managed
             and not self.conda_env.is_containerized
