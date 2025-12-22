@@ -169,7 +169,18 @@ class SnakemakeApi(ApiBase):
 
     def _cleanup(self):
         """Cleanup the workflow."""
-        self.logger_manager.stop()
+        if self.output_settings.keep_logger:
+            import warnings
+
+            warnings.warn(
+                "OutputSettings.keep_logger is deprecated and will be removed in v10.0. "
+                "If you rely on this behavior, please open an issue describing your use case.",
+                FutureWarning,
+                stacklevel=2,
+            )
+        else:
+            self.logger_manager.stop()
+
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
             if self._workflow_api._workflow_store is not None:

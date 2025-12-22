@@ -416,6 +416,8 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     skip_plugin_handlers
         Skip plugins/queue (remote mode).
     enable_file_logging
+    keep_logger
+        Deprecated, no longer functional. Will be removed in v10.0.
     """
 
     dryrun: bool = False
@@ -431,6 +433,7 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     log_level_override: Optional[int] = None
     skip_plugin_handlers: bool = False
     enable_file_logging: bool = True
+    keep_logger: bool = False
 
 
 @dataclass
