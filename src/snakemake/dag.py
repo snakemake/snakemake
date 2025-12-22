@@ -404,25 +404,34 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 )
                 self.conda_envs[key] = env
 
-    async def retrieve_storage_inputs(self, jobs, also_missing_internal=False):
+    async def retrieve_storage_inputs(
+        self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
+    ):
 
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
         to_retrieve = defaultdict(list)
         for job in jobs:
-            for f in job.input:
-                if (
-                    f.is_storage
-                    and not job.is_norun
-                    and (
-                        # if f exists in storage, retrieve below will check if it is
-                        # newer than an eventual local copy
-                        (also_missing_internal and await f.exists_in_storage())
-                        or self.is_external_input(f, job, not_needrun_is_external=True)
-                    )
-                ):
-                    to_retrieve[f].append(access_pattern(f))
+            if isinstance(job, GroupJob):
+                inner_jobs = job.jobs
+            else:
+                inner_jobs = [job]
+            for inner_job in inner_jobs:
+                for f in inner_job.input:
+                    if (
+                        f.is_storage
+                        and not inner_job.is_norun
+                        and (
+                            # if f exists in storage, retrieve below will check if it is
+                            # newer than an eventual local copy
+                            (also_missing_internal and await f.exists_in_storage())
+                            or self.is_external_input(
+                                f, inner_job, not_needrun_is_external=True
+                            )
+                        )
+                    ):
+                        to_retrieve[f].append(access_pattern(f))
 
         if to_retrieve:
             try:
@@ -1139,7 +1148,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             logger.debug(
                 None, extra=dict(event=LogEvent.DEBUG_DAG, status="candidate", job=job)
             )
-            if file in job.input:
+            if file in job.input and not any(
+                is_flagged(f, "before_update") for f in job.input if f == file
+            ):
                 cycles.append(job)
                 continue
             if job in visited:
@@ -1930,7 +1941,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         await self.check_jobs()
 
         if check_initial:
-            assert not (not self.ready_jobs and any(self.needrun_jobs())), (
+            assert self.has_unfinished_queue_input_jobs() or (
+                not any(self.needrun_jobs()) or any(self.ready_jobs)
+            ), (
                 "bug: DAG contains jobs that have to be executed but no such job is "
                 "ready for execution."
             )
@@ -2419,12 +2432,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         before_update_jobs = dict()
         update_jobs = dict()
         for job in self.needrun_jobs():
-            for f in job.input:
-                if is_flagged(f, "before_update"):
-                    before_update_jobs[f] = job
             for f in job.output:
                 if is_flagged(f, "update"):
                     update_jobs[f] = job
+            for f in job.input:
+                if is_flagged(f, "before_update") and job is not update_jobs.get(f):
+                    before_update_jobs[f] = job
 
         for f, job in before_update_jobs.items():
             update_job = update_jobs.get(f)

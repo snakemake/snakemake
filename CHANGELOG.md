@@ -1,6 +1,35 @@
 # Changelog
 
 
+## [9.14.5](https://github.com/snakemake/snakemake/compare/v9.14.4...v9.14.5) (2025-12-15)
+
+
+### Bug Fixes
+
+* remove erroneous assert in the scheduler (is_main_process) ([#3881](https://github.com/snakemake/snakemake/issues/3881)) ([d5acdd1](https://github.com/snakemake/snakemake/commit/d5acdd121955364a1cb55dc771235aff5081f1cb))
+
+## [9.14.4](https://github.com/snakemake/snakemake/compare/v9.14.3...v9.14.4) (2025-12-09)
+
+
+### Bug Fixes
+
+* fix follow-up issue with group job handling when retrieving storage ([#3871](https://github.com/snakemake/snakemake/issues/3871)) ([20b99ac](https://github.com/snakemake/snakemake/commit/20b99ac43ecaa1d6d1454321ed701e9cf14bb8fb))
+
+## [9.14.3](https://github.com/snakemake/snakemake/compare/v9.14.2...v9.14.3) (2025-12-08)
+
+
+### Bug Fixes
+
+* ensure that queue input jobs wait if the queue is still empty upon job creation ([#3866](https://github.com/snakemake/snakemake/issues/3866)) ([555ab6a](https://github.com/snakemake/snakemake/commit/555ab6a31def48feec9ce584d70022f9f683bf29))
+* fix issues with cyclic dependencies when using the update and before_update flag ([#3857](https://github.com/snakemake/snakemake/issues/3857)) ([21cc94e](https://github.com/snakemake/snakemake/commit/21cc94effa272683a73aed30b8c3a62eb1bc45fc))
+
+## [9.14.2](https://github.com/snakemake/snakemake/compare/v9.14.1...v9.14.2) (2025-12-05)
+
+
+### Bug Fixes
+
+* correctly handle groups when retrieving storage input ([#3861](https://github.com/snakemake/snakemake/issues/3861)) ([8c818f4](https://github.com/snakemake/snakemake/commit/8c818f47175b236e1699fe42404ca03d7b68aa71))
+
 ## [9.14.1](https://github.com/snakemake/snakemake/compare/v9.14.0...v9.14.1) (2025-12-02)
 
 

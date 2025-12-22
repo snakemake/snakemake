@@ -2658,3 +2658,17 @@ def test_checkpoint_omit_from():
 def test_wildcard_annotatedstrings():
     with pytest.raises(WorkflowError, match=r"unpack\(\) is not allowed with params"):
         run(dpath("test_wildcard_annotatedstrings"), targets=["test.out"])
+
+
+@skip_on_windows  # platform will have no effect
+def test_cyclic_dependency_split():
+    run(dpath("test_cyclic_dependency_split"))
+
+
+@skip_on_windows  # platform will have no effect
+def test_cyclic_dependency_single():
+    # We force a rerun because the (to be updated) output file is already there
+    # and there is no input file with a newer date.
+    # It is expected behavior that Snakemake would not rerun in such a case without
+    # forcing it.
+    run(dpath("test_cyclic_dependency_single"), forceall=True)
