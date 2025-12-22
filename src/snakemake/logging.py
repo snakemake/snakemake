@@ -547,6 +547,8 @@ class LoggerManager:
     settings
         Global logging settings. This is used to configure the default stream/file handlers and is
         also passed to all plugins.
+    plugin_handlers
+        List of instantiated :class:`LogHandlerBase` objects. Accessible after :meth:`setup` is called.
     """
 
     logger: logging.Logger
@@ -555,6 +557,7 @@ class LoggerManager:
     needs_rulegraph: bool
     logfile_handlers: dict[logging.Handler, str]
     settings: Optional["OutputSettings"]
+    plugin_handlers: List[LogHandlerBase]
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
@@ -563,6 +566,7 @@ class LoggerManager:
         self.needs_rulegraph = False
         self.logfile_handlers = {}
         self.settings = None
+        self.plugin_handlers = []
 
     def setup(
         self,
@@ -573,6 +577,7 @@ class LoggerManager:
         # Clear any existing handlers to prevent duplicates
         self.logger.handlers.clear()
         self.logfile_handlers.clear()
+        self.plugin_handlers = []
         self.settings = settings
 
         # Skip plugin handlers if requested and return early
@@ -614,6 +619,9 @@ class LoggerManager:
                 )
 
             plugin_handlers.append(configured_handler)
+
+        # Store plugin handlers for external access
+        self.plugin_handlers = plugin_handlers
 
         # Set up queue for thread-safe plugin handlers
         if plugin_handlers:
@@ -681,6 +689,17 @@ class LoggerManager:
 
     def get_logfile(self) -> List[str]:
         return list(self.logfile_handlers.values())
+
+    def get_log_handlers(self) -> List[LogHandlerBase]:
+        """Return the list of instantiated plugin log handlers.
+
+        Returns
+        -------
+        List[LogHandlerBase]
+            List of instantiated :class:`LogHandlerBase` objects from logger plugins.
+            Returns an empty list if no plugin handlers were set up.
+        """
+        return self.plugin_handlers
 
     def logfile_hint(self):
         """Log the logfile location if applicable."""
