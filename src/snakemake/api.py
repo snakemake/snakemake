@@ -52,6 +52,7 @@ from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
 
@@ -267,7 +268,7 @@ class SnakemakeApi(ApiBase):
                 settings=self.output_settings,
             )
 
-    def get_log_handlers(self) -> List:
+    def get_log_handlers(self) -> List[LogHandlerBase]:
         """Return the list of instantiated plugin log handlers.
 
         This method provides access to the :class:`LogHandlerBase` objects that were
