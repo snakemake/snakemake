@@ -408,7 +408,7 @@ class Persistence(PersistenceExecutorInterface):
                             async for infile, checksum in checksums
                             if checksum is not None
                         },
-                        "wildcards": dict(job.wildcards_dict) if job.wildcards_dict else None,
+                        "wildcards": dict(job.wildcards_dict) if job.wildcards_dict is not None else None,
                     },
                     f,
                 )
