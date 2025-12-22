@@ -267,6 +267,21 @@ class SnakemakeApi(ApiBase):
                 settings=self.output_settings,
             )
 
+    def get_log_handlers(self) -> List:
+        """Return the list of instantiated plugin log handlers.
+
+        This method provides access to the :class:`LogHandlerBase` objects that were
+        instantiated during :meth:`setup_logger`. This is useful for testing utilities
+        that need to inspect logger state after workflow execution.
+
+        Returns
+        -------
+        List[LogHandlerBase]
+            List of instantiated log handler objects from logger plugins.
+            Returns an empty list if no plugin handlers were set up.
+        """
+        return logger_manager.get_log_handlers()
+
     def _check_is_in_context(self):
         if not self._is_in_context:
             raise ApiError(
