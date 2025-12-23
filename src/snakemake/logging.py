@@ -21,6 +21,8 @@ import textwrap
 from typing import List, Optional, Collection, TextIO
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
+from snakemake_interface_logger_plugins.settings import LogHandlerSettingsBase
 
 if TYPE_CHECKING:
     from snakemake.settings.enums import Quietness
@@ -554,79 +556,23 @@ class LoggerManager:
     queue_listener: Optional[logging.handlers.QueueListener]
     needs_rulegraph: bool
     logfile_handlers: dict[logging.Handler, str]
-    settings: Optional["OutputSettings"]
+    settings: "OutputSettings"
 
-    def __init__(self, logger: logging.Logger):
+    def __init__(self, logger: logging.Logger, settings: "OutputSettings"):
         self.logger = logger
+        self.settings = settings
         self.queue_listener = None
-
         self.needs_rulegraph = False
         self.logfile_handlers = {}
-        self.settings = None
 
-    def setup(
-        self,
-        handlers: List[LogHandlerBase],
-        settings: "OutputSettings",
-    ) -> None:
-        """Set up the logging system based on settings and handlers."""
         # Clear any existing handlers to prevent duplicates
-        self.logger.handlers.clear()
-        self.logfile_handlers.clear()
-        self.settings = settings
+        for handler in list(self.logger.handlers):
+            self.logger.removeHandler(handler)
 
-        # Skip plugin handlers if requested and return early
-        if settings.skip_plugin_handlers or not handlers:
-            handler = self._default_streamhandler()
-            if settings.log_level_override is not None:
-                handler.setLevel(settings.log_level_override)
-            self.logger.addHandler(handler)
+        # Set up plugin handlers
+        has_stream_handler = self._setup_plugins()
 
-            # Set logger level
-            if settings.log_level_override is not None:
-                self.logger.setLevel(settings.log_level_override)
-            else:
-                self.logger.setLevel(
-                    logging.DEBUG if settings.verbose else logging.INFO
-                )
-            return
-
-        # Configure plugin handlers
-        plugin_handlers = []
-        has_stream_handler = False
-
-        for handler in handlers:
-            if handler.needs_rulegraph:
-                self.needs_rulegraph = True
-
-            configured_handler = self._configure_plugin_handler(handler)
-
-            # Check for stream handlers (only one allowed)
-            if configured_handler.writes_to_stream:
-                if has_stream_handler:
-                    raise ValueError("More than 1 stream log handler specified!")
-                has_stream_handler = True
-
-            # Track file handlers for later reference
-            if configured_handler.writes_to_file:
-                self.logfile_handlers[configured_handler] = (
-                    configured_handler.baseFilename
-                )
-
-            plugin_handlers.append(configured_handler)
-
-        # Set up queue for thread-safe plugin handlers
-        if plugin_handlers:
-            self._queue = Queue(-1)
-            self.queue_listener = logging.handlers.QueueListener(
-                self._queue,
-                *plugin_handlers,
-                respect_handler_level=True,
-            )
-            self.queue_listener.start()
-            self.logger.addHandler(logging.handlers.QueueHandler(self._queue))
-
-        # Ensure we have console output
+        # Add default stream handler unless a plugin is already writing to stream
         if not has_stream_handler:
             self.logger.addHandler(self._default_streamhandler())
 
@@ -638,12 +584,68 @@ class LoggerManager:
 
         self.initialized = True
 
-    def _configure_plugin_handler(self, plugin: LogHandlerBase) -> LogHandlerBase:
-        if not plugin.has_filter:
-            plugin.addFilter(self._default_filter())
-        if not plugin.has_formatter:
-            plugin.setFormatter(self._default_formatter())
-        return plugin
+    def _setup_plugins(self) -> bool:
+        """Initialize and configure plugin handlers.
+
+        Returns
+        -------
+        has_stream_handler : bool
+            Whether any configured plugin handlers write to stdout/stderr.
+        """
+
+        # Skip plugin handlers if requested and return early
+        if self.settings.skip_plugin_handlers:
+            return False
+
+        handlers = []
+        has_stream_handler = False
+
+        for name, plugin_settings in self.settings.log_handler_settings.items():
+            # Create plugin handler from settings
+            handler = self._init_plugin_handler(name, plugin_settings)
+
+            if handler.needs_rulegraph:
+                self.needs_rulegraph = True
+
+            # Check for stream handlers (only one allowed)
+            if handler.writes_to_stream:
+                if has_stream_handler:
+                    raise ValueError("More than 1 stream log handler specified!")
+                has_stream_handler = True
+
+            # Track file handlers for later reference
+            if handler.writes_to_file:
+                self.logfile_handlers[handler] = handler.baseFilename
+
+            handlers.append(handler)
+
+        # Set up queue for thread-safe plugin handlers
+        if handlers:
+            self._queue = Queue(-1)
+            self.queue_listener = logging.handlers.QueueListener(
+                self._queue,
+                *handlers,
+                respect_handler_level=True,
+            )
+            self.queue_listener.start()
+            self.logger.addHandler(logging.handlers.QueueHandler(self._queue))
+
+        return has_stream_handler
+
+    def _init_plugin_handler(
+        self, name: str, settings: LogHandlerSettingsBase
+    ) -> LogHandlerBase:
+        """Instantiate and configure plugin handler given plugin name and settings."""
+        plugin = LoggerPluginRegistry().get_plugin(name)
+        plugin.validate_settings(settings)
+        handler = plugin.log_handler(self.settings, settings)
+
+        if not handler.has_filter:
+            handler.addFilter(self._default_filter())
+        if not handler.has_formatter:
+            handler.setFormatter(self._default_formatter())
+
+        return handler
 
     def _default_filter(self) -> DefaultFilter:
         return DefaultFilter(
@@ -690,13 +692,6 @@ class LoggerManager:
             self.logger.info(f"Complete log(s): {log_paths}")
         return logfiles
 
-    def cleanup_logfile(self) -> None:
-        if self.settings.enable_file_logging:
-            for handler in self.logfile_handlers.keys():
-                self.logger.removeHandler(handler)
-                handler.close()
-            self.logfile_handlers.clear()
-
     def setup_logfile(self, workdir: Optional[os.PathLike] = None) -> None:
         if self.settings.enable_file_logging and not self.settings.dryrun:
             if workdir:
@@ -720,10 +715,17 @@ class LoggerManager:
                 self.logger.error(f"Failed to setup log file: {e}")
 
     def stop(self) -> None:
+        """Shut down logging, removing and closing all log handlers."""
+        # Stop the queue listener (if it exists) - this finishes processing the remaining records
+        # and waits for the thread to exit.
         if self.queue_listener is not None and self.queue_listener._thread is not None:
             self.queue_listener.stop()
+
+        # Remove and close all handlers - this should mostly clean up the global logger instance.
+        for handler in list(self.logger.handlers):
+            self.logger.removeHandler(handler)
+            handler.close()
 
 
 # Global logger instance
 logger = logging.getLogger(__name__)
-logger_manager = LoggerManager(logger)
