@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [9.14.6](https://github.com/snakemake/snakemake/compare/v9.14.5...v9.14.6) (2025-12-23)
+
+
+### Bug Fixes
+
+* refactor LoggerManager setup and scope ([#3851](https://github.com/snakemake/snakemake/issues/3851)) ([f46d904](https://github.com/snakemake/snakemake/commit/f46d90417700484149b3ba40ef89abd2f32f9eba))
+* yield proper error message in case a local git source file is not retrievable ([#3892](https://github.com/snakemake/snakemake/issues/3892)) ([ed79cae](https://github.com/snakemake/snakemake/commit/ed79cae0f171eda52b6a710b855253966d5fa8e5))
+
+
+### Documentation
+
+* explain how to pass nested config via CLI ([#3885](https://github.com/snakemake/snakemake/issues/3885)) ([9d8c539](https://github.com/snakemake/snakemake/commit/9d8c539ec305315034e38146e9cb2d37c9afe718))
+
 ## [9.14.5](https://github.com/snakemake/snakemake/compare/v9.14.4...v9.14.5) (2025-12-15)
 
 
