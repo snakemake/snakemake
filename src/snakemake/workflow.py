@@ -64,7 +64,7 @@ from snakemake_interface_scheduler_plugins.registry.plugin import (
 )
 
 from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
-from snakemake.logging import logger, format_resources, logger_manager
+from snakemake.logging import LoggerManager, logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
@@ -152,6 +152,7 @@ class Workflow(WorkflowExecutorInterface):
     config_settings: ConfigSettings
     resource_settings: ResourceSettings
     workflow_settings: WorkflowSettings
+    logger_manager: LoggerManager
     storage_settings: Optional[StorageSettings] = None
     dag_settings: Optional[DAGSettings] = None
     execution_settings: Optional[ExecutionSettings] = None
@@ -1211,7 +1212,7 @@ class Workflow(WorkflowExecutorInterface):
 
             return {"nodes": nodes, "links": edges}
 
-        if logger_manager.needs_rulegraph:
+        if self.logger_manager.needs_rulegraph:
             rulegraph = simple_rulegraph()
             logger.info(None, extra=dict(event=LogEvent.RULEGRAPH, rulegraph=rulegraph))
 
@@ -1428,7 +1429,7 @@ class Workflow(WorkflowExecutorInterface):
                     return
 
             if not self.dryrun and not self.execution_settings.no_hooks:
-                self._onstart(logger_manager.get_logfile())
+                self._onstart(self.logger_manager.get_logfile())
 
             has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
 
@@ -1476,13 +1477,13 @@ class Workflow(WorkflowExecutorInterface):
                             "jobs (e.g. adding more jobs) after their completion."
                         )
                 else:
-                    logger_manager.logfile_hint()
+                    self.logger_manager.logfile_hint()
                 if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onsuccess(logger_manager.get_logfile())
+                    self._onsuccess(self.logger_manager.get_logfile())
             else:
                 if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onerror(logger_manager.get_logfile())
-                logger_manager.logfile_hint()
+                    self._onerror(self.logger_manager.get_logfile())
+                self.logger_manager.logfile_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
 
     def log_metadata_info(self, metadata_attr, description):
