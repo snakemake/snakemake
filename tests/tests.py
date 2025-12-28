@@ -333,6 +333,41 @@ def test_same_wildcard():
     run(dpath("test_same_wildcard"))
 
 
+def test_wildcards_in_metadata():
+    """Test that job metadata includes wildcards (issue #3888)."""
+    import json
+
+    # Use test_same_wildcard which has a rule with {name} wildcard
+    tmpdir = run(dpath("test_same_wildcard"), cleanup=False)
+
+    try:
+        # Find and read the metadata file for the output
+        metadata_dir = Path(tmpdir) / ".snakemake" / "metadata"
+        metadata_files = list(metadata_dir.rglob("*"))
+        assert metadata_files, "No metadata files found"
+
+        # Find the metadata file for test_test.out (the one with wildcards)
+        # Metadata files are named based on output path hash
+        found_wildcards = False
+        for metadata_file in metadata_files:
+            if metadata_file.is_file():
+                with open(metadata_file) as f:
+                    metadata = json.load(f)
+                # Check if this is the job with wildcards (rule 2)
+                if metadata.get("rule") == "2":
+                    assert "wildcards" in metadata, "wildcards key missing from metadata"
+                    assert metadata["wildcards"] is not None, "wildcards should not be None"
+                    assert metadata["wildcards"] == {"name": "test"}, (
+                        f"Expected wildcards {{'name': 'test'}}, got {metadata['wildcards']}"
+                    )
+                    found_wildcards = True
+                    break
+
+        assert found_wildcards, "Could not find metadata for rule with wildcards"
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
 def test_conditional():
     run(
         dpath("test_conditional"),
