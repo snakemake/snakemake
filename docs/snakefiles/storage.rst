@@ -217,6 +217,19 @@ you can let Snakemake automatically infer the plugin to use::
         shell:
             "..."
 
+You can also pass additional arguments to the storage call within a rule. 
+These arguments will be forwarded to the storage provider settings.
+For example::
+
+    rule example:
+        input:
+            storage("s3://mybucket/example.txt", retries=10)
+        output:
+            "example.txt"
+        shell:
+            "..."
+
+
 Credentials
 ^^^^^^^^^^^
 
@@ -252,7 +265,7 @@ For specific files, the access pattern can be annotated by the respective flags 
 .. code-block:: python
 
     inputflags:
-    access.sequential
+        access.sequential
 
 
     rule a:

@@ -8,6 +8,7 @@ import traceback
 from tokenize import TokenError
 from snakemake_interface_common.exceptions import WorkflowError, ApiError
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 
 
 def format_error(
@@ -301,6 +302,10 @@ class IOException(RuleException):
         )
 
 
+class UndefinedPathvarException(WorkflowError):
+    pass
+
+
 class MissingOutputException(RuleException):
     def __init__(
         self,
@@ -412,8 +417,10 @@ class CyclicGraphException(RuleException):
 
 class MissingRuleException(RuleException):
     def __init__(self, file, lineno=None, snakefile=None):
+        from snakemake.io.fmt import fmt_iofile
+
         super().__init__(
-            f"No rule to produce {file} (if you use input "
+            f"No rule to produce {fmt_iofile(file)} (if you use input "
             "functions make sure that they don't raise unexpected exceptions).",
             lineno=lineno,
             snakefile=snakefile,
@@ -627,6 +634,8 @@ class MissingOutputFileCachePathException(Exception):
 def is_file_not_found_error(exc, considered_files):
     # TODO find a better way to detect whether the input files are not present
     if isinstance(exc, FileNotFoundError) and exc.filename in considered_files:
+        return True
+    elif isinstance(exc, FileOrDirectoryNotFoundError):
         return True
     elif isinstance(exc, WorkflowError) and "FileNotFoundError" in str(exc):
         return True

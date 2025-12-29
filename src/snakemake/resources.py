@@ -8,6 +8,8 @@ import tempfile
 import math
 from typing import Any
 
+from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
+
 from snakemake.exceptions import (
     ResourceScopesException,
     WorkflowError,
@@ -25,7 +27,7 @@ class ParsedResource:
 class DefaultResources:
     defaults = {
         "mem_mb": "min(max(2*input.size_mb, 1000), 8000)",
-        "disk_mb": "max(2*input.size_mb, 1000)",
+        "disk_mb": "max(2*input.size_mb, 1000) if input else 50000",
         "tmpdir": "system_tmpdir",
     }
 
@@ -260,7 +262,7 @@ class GroupResources:
                         pipe_resources[job.pipe_group].append(res)
                     else:
                         job_resources.append(res)
-                except FileNotFoundError:
+                except (FileNotFoundError, FileOrDirectoryNotFoundError):
                     # Skip job if resource evaluation leads to a file not found error.
                     # This will be caused by an inner job, which needs files created by
                     # the same group. All we can do is to ignore such jobs for now.
@@ -523,6 +525,8 @@ class GroupResources:
 
 def eval_resource_expression(val, threads_arg=True):
     def generic_callable(val, threads_arg, **kwargs):
+        import os
+
         args = {
             "input": kwargs["input"],
             "attempt": kwargs["attempt"],
@@ -531,6 +535,9 @@ def eval_resource_expression(val, threads_arg=True):
         }
         if threads_arg:
             args["threads"] = kwargs["threads"]
+        # Expand env variables
+        val = os.path.expanduser(os.path.expandvars(val))
+        # Eval expression
         try:
             value = eval(
                 val,
@@ -540,7 +547,10 @@ def eval_resource_expression(val, threads_arg=True):
         except (NameError, SyntaxError):
             return val
         except Exception as e:
-            if is_humanfriendly_resource(val):
+            if is_humanfriendly_resource(val) or is_ordinary_string(val):
+                # case 1: resource can be parsed by humanfriendly package, just return
+                # it
+                # case 2: resource is an ordinary string, just return it
                 return val
             if not is_file_not_found_error(e, kwargs["input"]):
                 # Missing input files are handled by the caller
@@ -656,6 +666,42 @@ def infer_resources(name, value, resources: dict):
                 f"Cannot parse runtime value into minutes for setting runtime resource: {value}"
             )
         resources["runtime"] = parsed
+
+
+def is_ordinary_string(val):
+    r"""
+    Check if a string is an ordinary string.
+    Ordinary strings are not evaluated and are not
+    expected to be python expressions and be returned as is.
+
+    Additionally, strings representing function calls, dictionary literals,
+    or lambda expressions are considered offending strings.
+    This function is useful for determining if a string can be safely
+    returned to represent a resource value without further evaluation.
+    It is important to note that this function does not check if the string
+    is a valid Python identifier or a valid expression. It only checks
+    if the string is an instance of `str` and does not match certain
+    patterns that indicate it is a Python expression or callable.
+
+    An ordinary string is defined as a string that:
+    - Is an instance of the `str` type.
+    - Does not match patterns that indicate it is a Python expression or a callable.
+
+    The regular expression used for validation:
+    - `^[a-zA-Z_]\w*\(.*\)$`: Matches function calls (e.g., `func_name(...)`).
+    - `^\{.*\}$`: Matches strings that look like dictionary literals (e.g., `{...}`).
+    - `^lambda\s.*:.*$`: Matches lambda expressions (e.g., `lambda x: x + 1`).
+    - `.*[\+\-\*/\%].*|.*\.\w+.*`: Matches strings containing math operators or attribute access
+
+    Parameters:
+        val (any): The value to check.
+
+    Returns:
+        bool: True if the value is an ordinary string in this sense, False otherwise.
+    """
+    return isinstance(val, str) and not re.match(
+        r"^[a-zA-Z_]\w*\(.*\)$|^\{.*\}$|^lambda\s.*:.*$|.*[\+\-\*/\%].*|.*\.\w+.*", val
+    )
 
 
 def is_humanfriendly_resource(value):

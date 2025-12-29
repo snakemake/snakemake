@@ -19,6 +19,7 @@ from urllib.parse import unquote
 
 from snakemake.common import (
     ON_WINDOWS,
+    LockFreeWritableFile,
     is_local_file,
     parse_uri,
     smart_join,
@@ -32,7 +33,11 @@ if TYPE_CHECKING:
     import git
 
 
-def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
+def _check_git_args(
+    tag: Optional[str] = None,
+    branch: Optional[str] = None,
+    commit: Optional[str] = None,
+):
     n_refs = sum(1 for ref in (tag, branch, commit) if ref is not None)
     if n_refs != 1:
         raise SourceFileError(
@@ -42,45 +47,47 @@ def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
 
 class SourceFile(ABC):
     @abstractmethod
-    def get_path_or_uri(self) -> str: ...
+    def get_path_or_uri(self, secret_free: bool) -> str: ...
 
     @abstractmethod
-    def is_persistently_cacheable(self): ...
+    def is_persistently_cacheable(self) -> bool: ...
 
     def get_cache_path(self):
-        uri = parse_uri(self.get_path_or_uri())
+        uri = parse_uri(self.get_path_or_uri(secret_free=True))
         return os.path.join(uri.scheme, unquote(uri.uri_path.lstrip("/")))
 
     def get_basedir(self):
-        path = os.path.dirname(self.get_path_or_uri())
+        path = os.path.dirname(self.get_path_or_uri(secret_free=False))
         return self.__class__(path)
 
     @abstractmethod
-    def get_filename(self): ...
+    def get_filename(self) -> str: ...
 
     def join(self, path):
         if isinstance(path, SourceFile):
-            path = path.get_path_or_uri()
-        return self.__class__(smart_join(self.get_path_or_uri(), path))
+            path = path.get_path_or_uri(secret_free=False)
+        return self.__class__(smart_join(self.get_path_or_uri(secret_free=False), path))
 
-    def mtime(self):
+    def mtime(self) -> Optional[float]:
         """If possible, return mtime of the file. Otherwise, return None."""
         return None
 
     @property
     @abstractmethod
-    def is_local(self): ...
+    def is_local(self) -> bool: ...
 
     def __hash__(self):
-        return self.get_path_or_uri().__hash__()
+        return self.get_path_or_uri(secret_free=True).__hash__()
 
     def __eq__(self, other):
         if isinstance(other, SourceFile):
-            return self.get_path_or_uri() == other.get_path_or_uri()
+            return self.get_path_or_uri(secret_free=True) == other.get_path_or_uri(
+                secret_free=True
+            )
         return False
 
     def __str__(self):
-        return self.get_path_or_uri()
+        return self.get_path_or_uri(secret_free=True)
 
     def simplify_path(self):
         return self
@@ -90,17 +97,17 @@ class GenericSourceFile(SourceFile):
     def __init__(self, path_or_uri):
         self.path_or_uri = path_or_uri
 
-    def get_path_or_uri(self) -> str:
+    def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path_or_uri
 
-    def get_filename(self):
+    def get_filename(self) -> str:
         return os.path.basename(self.path_or_uri)
 
-    def is_persistently_cacheable(self):
+    def is_persistently_cacheable(self) -> bool:
         return False
 
     @property
-    def is_local(self):
+    def is_local(self) -> bool:
         return False
 
 
@@ -108,13 +115,13 @@ class LocalSourceFile(SourceFile):
     def __init__(self, path):
         self.path = path
 
-    def get_path_or_uri(self) -> str:
+    def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path
 
     def is_persistently_cacheable(self):
         return False
 
-    def get_filename(self):
+    def get_filename(self) -> str:
         return os.path.basename(self.path)
 
     def abspath(self):
@@ -126,14 +133,14 @@ class LocalSourceFile(SourceFile):
     def simplify_path(self):
         return utils.simplify_path(self.path)
 
-    def mtime(self):
+    def mtime(self) -> Optional[float]:
         return os.stat(self.path).st_mtime
 
     def __fspath__(self):
         return self.path
 
     @property
-    def is_local(self):
+    def is_local(self) -> bool:
         return True
 
 
@@ -148,10 +155,8 @@ class LocalGitFile(SourceFile):
         self.repo_path = repo_path
         self.path = path
 
-    def get_path_or_uri(self) -> str:
-        return "git+file://{}/{}@{}".format(
-            os.path.abspath(self.repo_path), self.path, self.ref
-        )
+    def get_path_or_uri(self, secret_free: bool) -> str:
+        return f"git+file://{os.path.abspath(self.repo_path)}/{self.path}@{self.ref}"
 
     def join(self, path):
         path = os.path.normpath("/".join((self.path, path)))
@@ -172,10 +177,10 @@ class LocalGitFile(SourceFile):
             ref=self._ref,
         )
 
-    def is_persistently_cacheable(self):
+    def is_persistently_cacheable(self) -> bool:
         return False
 
-    def get_filename(self):
+    def get_filename(self) -> str:
         return posixpath.basename(self.path)
 
     @property
@@ -432,6 +437,12 @@ class GithubFile(HostingProviderFile):
             return f"{self.token}@"
         return ""
 
+    def get_path_or_uri(self, secret_free: bool) -> str:
+        auth = f":{self.token}@" if self.token and not secret_free else ""
+        # TODO find out how this URL looks like with Github enterprise server and support
+        # self.host being not none by removing the check in __post_init__
+        return f"https://{auth}raw.githubusercontent.com/{self.repo}/{self.ref}/{self.path}"
+
 
 class GitlabFile(HostingProviderFile):
     def __post_init__(self):
@@ -445,13 +456,25 @@ class GitlabFile(HostingProviderFile):
             return f"{self.token}@"
         return ""
 
+    def get_path_or_uri(self, secret_free: bool) -> str:
+        from urllib.parse import quote
+
+        auth = f"&private_token={self.token}" if self.token and not secret_free else ""
+        return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
+            self.host,
+            quote(self.repo, safe=""),
+            quote(self.path, safe=""),
+            self.ref,
+            auth,
+        )
+
 
 def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> SourceFile:
     if isinstance(path_or_uri, SourceFile):
         if basedir is None or isinstance(path_or_uri, HostingProviderFile):
             return path_or_uri
         else:
-            path_or_uri = path_or_uri.get_path_or_uri()
+            path_or_uri = path_or_uri.get_path_or_uri(secret_free=True)
     if isinstance(path_or_uri, Path):
         path_or_uri = str(path_or_uri)
     if not isinstance(path_or_uri, str):
@@ -484,8 +507,9 @@ class SourceCache:
         r"https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
 
-    def __init__(self, cache_path: Path, runtime_cache_path: Path = None):
-        self.cache_path = cache_path
+    def __init__(self, cache_path: Path, runtime_cache_path: Optional[Path] = None):
+        self.runtime_cache: Optional[tempfile.TemporaryDirectory]
+        self.cache_path: Path = cache_path
         os.makedirs(self.cache_path, exist_ok=True)
         if runtime_cache_path is None:
             runtime_cache_parent = self.cache_path / "snakemake-runtime-cache"
@@ -541,31 +565,21 @@ class SourceCache:
         return cache_entry
 
     def _do_cache(self, source_file, cache_entry: Path, retries: int = 3):
+        mtime = source_file.mtime()
         # open from origin
         with self._open_local_or_remote(source_file, "rb", retries=retries) as source:
             cache_entry.parent.mkdir(parents=True, exist_ok=True)
-            tmp_source = tempfile.NamedTemporaryFile(
-                prefix=str(cache_entry),
-                delete=False,  # no need to delete since we move it below
-            )
-            tmp_source.write(source.read())
-            tmp_source.close()
-            # ensure read and write permissions for owner and group
-            os.chmod(
-                tmp_source.name,
-                stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP,
-            )
-            # Atomic move to right name.
-            # This way we avoid the need to lock.
-            shutil.move(tmp_source.name, cache_entry)
-
-        mtime = source_file.mtime()
-        if mtime is not None:
-            # Set to mtime of original file
-            # In case we don't have that mtime, it is fine
-            # to just keep the time at the time of caching
-            # as mtime.
-            os.utime(cache_entry, times=(mtime, mtime))
+            with LockFreeWritableFile(cache_entry, binary=True) as entryfile:
+                entryfile.chmod(
+                    stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
+                )
+                if mtime is not None:
+                    # Set to mtime of original file
+                    # In case we don't have that mtime, it is fine
+                    # to just keep the time at the time of caching
+                    # as mtime.
+                    entryfile.utime((mtime, mtime))
+                entryfile.write_from_fileobj(source)
 
     def _open_local_or_remote(
         self, source_file: SourceFile, mode, encoding=None, retries: int = 3
@@ -587,18 +601,29 @@ class SourceCache:
     def _open(self, source_file: SourceFile, mode, encoding=None):
         from smart_open import open
 
+        log_path = source_file.get_path_or_uri(secret_free=True)
+
         if isinstance(source_file, LocalGitFile):
             import git
 
-            return io.BytesIO(
-                git.Repo(source_file.repo_path)
-                .git.show(f"{source_file.ref}:{source_file.path}")
-                .encode()
-            )
+            try:
+                return io.BytesIO(
+                    git.Repo(source_file.repo_path)
+                    .git.show(f"{source_file.ref}:{source_file.path}")
+                    .encode()
+                )
+            except git.GitCommandError as e:
+                raise WorkflowError(
+                    f"Failed to get local git source file {log_path}: {e}. "
+                    "Is the local git clone up to date?"
+                )
 
-        path_or_uri = source_file.get_path_or_uri()
+        path_or_uri = source_file.get_path_or_uri(secret_free=False)
 
         try:
             return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
         except Exception as e:
-            raise WorkflowError(f"Failed to open source file {path_or_uri}", e)
+            raise WorkflowError(
+                f"Failed to open source file {log_path}",
+                e,
+            )

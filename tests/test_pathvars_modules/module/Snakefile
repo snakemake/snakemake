@@ -1,0 +1,8 @@
+pathvars:
+    results="results/custom",
+
+rule a:
+    output:
+        "<results>/text.txt"
+    shell:
+        "touch {output}"
