@@ -216,7 +216,8 @@ class HostedGitRepo:
             self.repo_clone.parent.mkdir(parents=True, exist_ok=True)
             with self._tmpdir() as tmpdir:
                 # the clone is not atomic, hence we do that in a temporary directory
-                Repo.clone_from(repo_url, to_path=tmpdir)
+                # We only want the database, thus we create a bare clone
+                Repo.clone_from(repo_url, to_path=tmpdir, bare=True)
                 # move is atomic if repo_clone does not exist, so we can safely move
                 # the directory to the final location
                 shutil.move(tmpdir, self.repo_clone)
