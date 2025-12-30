@@ -214,71 +214,50 @@ class HostedGitRepo:
             # lock-free cloning of the repository
             logger.info(f"Cloning {host}/{repo} to {self.repo_clone}")
             self.repo_clone.parent.mkdir(parents=True, exist_ok=True)
-            with tempfile.TemporaryDirectory(prefix=f"{self.repo_clone}.") as tmpdir:
+            with self._tmpdir() as tmpdir:
                 # the clone is not atomic, hence we do that in a temporary directory
                 Repo.clone_from(repo_url, to_path=tmpdir)
-                # move is atomic, so we can safely move the directory to the final
-                # location
+                # move is atomic if repo_clone does not exist, so we can safely move
+                # the directory to the final location
                 shutil.move(tmpdir, self.repo_clone)
             self._repo = Repo(self.repo_clone)
 
-        self._checkout = None
+    def _tmpdir(self) -> tempfile.TemporaryDirectory:
+        return tempfile.TemporaryDirectory(prefix=f"{self.repo_clone}.")
+
+    def ref_exists(self, ref: str):
+        import git
+
+        try:
+            self.repo.git.rev_parse("--verify", ref)
+            return True
+        except git.GitCommandError:
+            return False
+
+    def file_exists(self, path: str, ref: str):
+        try:
+            # Get the tree for the specific revision
+            tree = self.repo.commit(ref).tree
+            # Attempt to access the file by path
+            tree[path]
+            return True
+        except KeyError:
+            return False
+
+    def fetch(self):
+        from git import Repo
+
+        # lock free fetching: first copy the repo to a tmp dir,
+        # then fetch and move back
+
+        with self._tmpdir() as tmpdir:
+            shutil.copytree(self.repo_clone, tmpdir)
+            Repo(tmpdir).fetch()
+            shutil.move(tmpdir, self.repo_clone)
 
     @property
     def repo(self) -> "git.Repo":
         return self._repo
-
-    def checkout(
-        self,
-        branch: Optional[str] = None,
-        tag_or_commit: Optional[str] = None,
-    ):
-        if self._checkout is not None:
-            if (
-                self._checkout.branch == branch
-                and self._checkout.tag_or_commit == tag_or_commit
-            ):
-                return self._checkout
-            else:
-                self._checkout.stale = True
-        return HostedGitRepoCheckout(self, branch, tag_or_commit)
-
-
-class HostedGitRepoCheckout:
-    def __init__(
-        self,
-        hosted_repo: HostedGitRepo,
-        branch: Optional[str] = None,
-        tag_or_commit: Optional[str] = None,
-    ):
-        self.hosted_repo = hosted_repo
-        self.ref = tag_or_commit or branch
-
-        if self.hosted_repo._existed_before and branch:
-            # clone existed before and shall point to branch, update it
-            origin = self.hosted_repo.repo.remote("origin")
-            origin.fetch()
-            self.hosted_repo.repo.git.checkout(self.ref)
-            self.hosted_repo.repo.git.pull("origin", self.ref)
-        else:
-            try:
-                self.hosted_repo.repo.git.checkout(self.ref)
-            except Exception:
-                origin = self.hosted_repo.repo.remote("origin")
-                origin.fetch()
-                self.hosted_repo.repo.git.checkout(self.ref)
-
-        self.stale = False
-
-    def mtime(self, path: Path) -> float:
-        # Every change in the repo is a potential change in the input, hence,
-        # the mtime is just the mtime of the file in the cloned repo.
-        # If that file is changed, the mtime is accordingly updated.
-        return os.stat(self.source_path(path)).st_mtime
-
-    def source_path(self, path: Path) -> Path:
-        assert not self.stale, "bug: source_path called on stale checkout"
-        return self.hosted_repo.repo_clone / path
 
 
 class HostingProviderFile(SourceFile):
@@ -345,7 +324,9 @@ class HostingProviderFile(SourceFile):
 
     @property
     def cache_path(self) -> Path:
-        assert self._cache_path, "bug: cache_dir not set, should be done by SourceCache"
+        assert (
+            self._cache_path
+        ), "bug: cache_path not set, should be done by SourceCache"
 
         return self._cache_path
 
@@ -371,22 +352,24 @@ class HostingProviderFile(SourceFile):
     def get_filename(self):
         return os.path.basename(self.path)
 
-    def get_path_or_uri(self):
-        checkout = self._checkout()
-        return str(checkout.source_path(self.path))
-
     def mtime(self) -> float:
-        checkout = self._checkout()
-        return checkout.mtime(self.path)
+        last_commit = next(
+            self.hosted_repo.iter_commits(rev=self.ref, paths=self.path, max_count=1)
+        )
+        return last_commit.committed_date
 
-    def _checkout(self):
+    def open(self) -> io.BytesIO:
+        if not self.hosted_repo.ref_exists(
+            self.ref
+        ) or not self.hosted_repo.file_exists(path=self.path, ref=self.ref):
+            self.hosted_repo.fetch()
         try:
-            return self.hosted_repo.checkout(self.branch, self.commit or self.tag)
-        except Exception as e:
+            return io.BytesIO(
+                self.hosted_repo.git.show(f"{self.ref}:{self.path}").encode()
+            )
+        except git.GitCommandError as e:
             raise WorkflowError(
-                "Failed to clone/checkout git repository "
-                f"{self.host}/{self.repo} at {self.branch or self.commit or self.tag}.",
-                e,
+                f"Failed to get cached git source file {self.repo}:{self.path}: {e}. "
             )
 
     @property
@@ -617,6 +600,8 @@ class SourceCache:
                     f"Failed to get local git source file {log_path}: {e}. "
                     "Is the local git clone up to date?"
                 )
+        elif isinstance(source_file, HostingProviderFile):
+            return source_file.open()
 
         path_or_uri = source_file.get_path_or_uri(secret_free=False)
 

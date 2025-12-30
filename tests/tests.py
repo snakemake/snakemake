@@ -1707,7 +1707,7 @@ def test_modules_prefix_local():
 
 
 @connected
-@skip_on_windows # filenames too long on windows
+@skip_on_windows  # filenames too long on windows
 def test_module_with_script():
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
