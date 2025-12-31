@@ -235,19 +235,22 @@ class Executor(RealExecutor):
             raise SpawnedJobError()
 
     def cached_or_run(self, job: SingleJobExecutorInterface, run_func, *args):
+        async_run(self.acached_or_run(job, run_func, *args))
+
+    async def acached_or_run(self, job: SingleJobExecutorInterface, run_func, *args):
         """
         Either retrieve result from cache, or run job with given function.
         """
         cache_mode = self.workflow.get_cache_mode(job.rule)
         try:
             if cache_mode:
-                async_run(self.workflow.output_file_cache.fetch(job, cache_mode))
+                await self.workflow.output_file_cache.fetch(job, cache_mode)
                 return
         except CacheMissException:
             pass
         run_func(*args)
         if cache_mode:
-            async_run(self.workflow.output_file_cache.store(job, cache_mode))
+            await self.workflow.output_file_cache.store(job, cache_mode)
 
     def shutdown(self):
         self.pool.shutdown()

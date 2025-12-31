@@ -47,7 +47,9 @@ class Executor(AbstractExecutor):
     def printcache(self, job: JobExecutorInterface):
         cache_mode = self.workflow.get_cache_mode(job.rule)
         if cache_mode:
-            if async_run(self.workflow.output_file_cache.exists(job, cache_mode)):
+            if self.workflow._async_runner.run(
+                self.workflow.output_file_cache.exists(job, cache_mode)
+            ):
                 logger.info(
                     "Output file {} will be obtained from global between-workflow cache.".format(
                         job.output[0]

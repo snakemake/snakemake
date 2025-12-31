@@ -24,7 +24,6 @@ from snakemake.io import _IOFile
 from snakemake.jobs import AbstractJob
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
-from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.logging import logger
@@ -597,9 +596,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # get number of free jobs to submit
         if self.job_rate_limiter is None:
             # ensure that the job count is not restricted
-            assert (
-                self.resources["_job_count"] == sys.maxsize
-            ), f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
+            assert self.resources["_job_count"] == sys.maxsize, (
+                f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
+            )
             return run_selector(self._job_selector)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:

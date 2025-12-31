@@ -38,7 +38,6 @@ class Executor(RealExecutor):
     ):
         job_info = SubmittedJobInfo(job=job)
         try:
-
             if job.output:
 
                 async def touch():
@@ -68,7 +67,7 @@ class Executor(RealExecutor):
                             f"Output files not touched because they don't exist: {', '.join(non_existing_files)}"
                         )
 
-                async_run(touch())
+                self.workflow._async_runner.run(touch())
 
             self.report_job_submission(job_info)
             self.report_job_success(job_info)
