@@ -93,24 +93,31 @@ def dict_to_key_value_args(
     return items
 
 
-def async_run(coroutine):
-    """Attaches to running event loop or creates a new one to execute a
-    coroutine.
+def async_runner():
+    """
+    Creates a new async Runner after checking we are outside of a running event loop
+
     .. seealso::
          https://github.com/snakemake/snakemake/issues/1105
          https://stackoverflow.com/a/65696398
     """
-    try:
-        return asyncio.run(coroutine)
-    except RuntimeError as e:
-        coroutine.close()
+
+    # asyncio.run fast-path to detect a running event loop, which we do not support yet
+    if asyncio.events._get_running_loop() is not None:
         raise WorkflowError(
             "Error running coroutine in event loop. Snakemake currently does not "
             "support being executed from an already running event loop. "
             "If you run Snakemake e.g. from a Jupyter notebook, make sure to spawn a "
             "separate process for Snakemake.",
-            e,
         )
+
+    return asyncio.Runner()
+
+
+def async_run(coroutine):
+    """Creates a new event loop to execute a coroutine."""
+    with async_runner() as runner:
+        return runner.run(coroutine)
 
 
 APPDIRS = None

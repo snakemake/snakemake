@@ -348,7 +348,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         else:
                             if not self.dryrun and not self.workflow.subprocess_exec:
                                 # retrieve storage inputs for local jobs
-                                async_run(
+                                self.workflow._async_runner.run(
                                     self.workflow.dag.retrieve_storage_inputs(
                                         jobs=local_runjobs, also_missing_internal=True
                                     )
@@ -484,7 +484,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     update_checkpoint_dependencies=self.update_checkpoint_dependencies,
                 )
 
-        async_run(postprocess())
+        self.workflow._async_runner.run(postprocess())
         self._tofinish.clear()
 
     def update_queue_input_jobs(self):
@@ -494,7 +494,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             >= self.workflow.execution_settings.queue_input_wait_time
         ):
             self._last_update_queue_input_jobs = currtime
-            async_run(self.workflow.dag.update_queue_input_jobs())
+            self.workflow._async_runner.run(self.workflow.dag.update_queue_input_jobs())
 
     def _error_jobs(self):
         # must be called from within lock
@@ -550,12 +550,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """
         # must be called from within lock
         if postprocess_job and not self.workflow.dryrun:
-
-            async_run(
-                job.postprocess(
-                    error=True,
-                )
-            )
+            self.workflow._async_runner.run(job.postprocess(error=True))
         self.get_executor(job).handle_job_error(job)
         self.running.remove(job)
         self._free_resources(job)
@@ -579,7 +574,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         for job in jobs:
             self.validate_job(job)
 
-        async_run(self.update_input_sizes(jobs))
+        self.workflow._async_runner.run(self.update_input_sizes(jobs))
 
         def run_selector(job_selector) -> Sequence[AbstractJob]:
             with self._lock:
