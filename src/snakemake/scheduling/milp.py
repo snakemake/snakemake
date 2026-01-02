@@ -1,35 +1,54 @@
 from dataclasses import dataclass, field
 import math
 import os
+from functools import cached_property
 from pathlib import Path
-from typing import Dict, Mapping, Optional, Sequence, Union
+from typing import Collection, Dict, Iterator, Mapping, Optional, Sequence, Union
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
 from snakemake_interface_common.io import AnnotatedStringInterface
 
 
-def get_lp_solvers():
-    default = "PULP_CBC_CMD"
-    try:
-        import pulp
+class LpSolverCollection(Collection[str]):
+    """
+    A lazy collection that avoids calling pulp.listSolvers if the default solver is selected
+    """
 
-        return [default] + sorted(
-            solver
-            for solver in pulp.listSolvers(onlyAvailable=True)
-            if solver != default
-        )
-    except Exception:
-        return [default]
+    def __init__(self, default: str):
+        self.default = default
+
+    @cached_property
+    def nondefault_solvers(self) -> list[str]:
+        try:
+            import pulp
+
+            return sorted(
+                solver
+                for solver in pulp.listSolvers(onlyAvailable=True)
+                if solver != self.default
+            )
+        except ImportError:
+            return []
+
+    def __iter__(self) -> Iterator[str]:
+        yield self.default
+        yield from self.nondefault_solvers
+
+    def __contains__(self, x: object) -> bool:
+        return x == self.default or x in self.nondefault_solvers
+
+    def __len__(self) -> int:
+        return 1 + len(self.nondefault_solvers)
 
 
-lp_solvers = get_lp_solvers()
+lp_solvers = LpSolverCollection(default="PULP_CBC_CMD")
 
 
 @dataclass
 class SchedulerSettings(SchedulerSettingsBase):
     solver: Optional[str] = field(
-        default=lp_solvers[0],
+        default=lp_solvers.default,
         metadata={
             "help": "Set MILP solver to use",
             "choices": lp_solvers,
