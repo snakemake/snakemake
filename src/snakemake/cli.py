@@ -670,7 +670,9 @@ def get_argument_parser(profiles=None):
             "Set or overwrite values in the workflow config object. "
             "The workflow config object is accessible as variable config inside "
             "the workflow. Default values can be set by providing a YAML JSON file "
-            "(see `--configfile` and Documentation)."
+            "(see `--configfile` and Documentation). "
+            "Nested values must be defined in Python dict format, e.g., "
+            "`--config \"foo={'bar': 42}\"`."
         ),
     )
     group_exec.add_argument(
@@ -1920,7 +1922,6 @@ def create_output_settings(args, log_handler_settings) -> OutputSettings:
         verbose=args.verbose,
         show_failed_logs=args.show_failed_logs,
         log_handler_settings=log_handler_settings,
-        keep_logger=False,
         stdout=args.dryrun,
         benchmark_extended=args.benchmark_extended,
     )

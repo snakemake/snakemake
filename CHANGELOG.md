@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.14.5](https://github.com/snakemake/snakemake/compare/v9.14.4...v9.14.5) (2025-12-15)
+
+
+### Bug Fixes
+
+* remove erroneous assert in the scheduler (is_main_process) ([#3881](https://github.com/snakemake/snakemake/issues/3881)) ([d5acdd1](https://github.com/snakemake/snakemake/commit/d5acdd121955364a1cb55dc771235aff5081f1cb))
+
 ## [9.14.4](https://github.com/snakemake/snakemake/compare/v9.14.3...v9.14.4) (2025-12-09)
 
 
