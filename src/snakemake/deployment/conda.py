@@ -890,22 +890,12 @@ class CondaEnvSpec(ABC):
 
 
 class CondaEnvFileSpec(CondaEnvSpec):
-    def __init__(self, filepath, rule=None):
-        if isinstance(filepath, SourceFile):
-            self.file = IOFile(
-                str(filepath.get_path_or_uri(secret_free=False)), rule=rule
-            )
-        elif isinstance(filepath, _IOFile):
-            self.file = filepath
-        else:
-            self.file = IOFile(filepath, rule=rule)
+    def __init__(self, source_file, rule=None):
+        self.file = source_file
 
     def apply_wildcards(self, wildcards, rule):
-        filepath = self.file.apply_wildcards(wildcards)
-        if is_local_file(filepath):
-            # Normalize 'file:///my/path.yml' to '/my/path.yml'
-            filepath = parse_uri(filepath).uri_path
-        return CondaEnvFileSpec(filepath, rule)
+        source_file = self.file.apply_wildcards(wildcards)
+        return self.__class__(source_file, rule)
 
     def check(self):
         self.file.check()

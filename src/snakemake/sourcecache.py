@@ -9,7 +9,7 @@ import re
 import os
 import shutil
 import stat
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, Optional, Self
 from snakemake import utils
 import tempfile
 import io
@@ -27,10 +27,15 @@ from snakemake.common import (
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.common.git import split_git_path
 from snakemake.logging import logger
+from snakemake.io import apply_wildcards
 
 
 if TYPE_CHECKING:
     import git
+
+
+def apply_wildcards_or_none(pattern: Optional[str], wildcards: Mapping[str, str]):
+    return apply_wildcards(pattern, wildcards) if pattern is not None else None
 
 
 def _check_git_args(
@@ -61,12 +66,17 @@ class SourceFile(ABC):
         return self.__class__(path)
 
     @abstractmethod
+    def apply_wildcards(self, wildcards) -> Self: ...
+
+    @abstractmethod
     def get_filename(self) -> str: ...
 
     def join(self, path):
         if isinstance(path, SourceFile):
             path = path.get_path_or_uri(secret_free=False)
-        return self.__class__(smart_join(self.get_path_or_uri(secret_free=False), path))
+        return self.__class__(
+            smart_join(base=self.get_path_or_uri(secret_free=False), path=path)
+        )
 
     def mtime(self) -> Optional[float]:
         """If possible, return mtime of the file. Otherwise, return None."""
@@ -90,12 +100,15 @@ class SourceFile(ABC):
         return self.get_path_or_uri(secret_free=True)
 
     def simplify_path(self):
-        return self
+        return self.get_path_or_uri(secret_free=True)
 
 
 class GenericSourceFile(SourceFile):
     def __init__(self, path_or_uri):
         self.path_or_uri = path_or_uri
+
+    def apply_wildcards(self, wildcards) -> Self:
+        return self.__class__(apply_wildcards(self.path_or_uri, wildcards))
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path_or_uri
@@ -114,6 +127,9 @@ class GenericSourceFile(SourceFile):
 class LocalSourceFile(SourceFile):
     def __init__(self, path):
         self.path = path
+
+    def apply_wildcards(self, wildcards) -> Self:
+        return self.__class__(apply_wildcards(self.path, wildcards))
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path
@@ -146,7 +162,12 @@ class LocalSourceFile(SourceFile):
 
 class LocalGitFile(SourceFile):
     def __init__(
-        self, repo_path, path: str, tag: str = None, ref: str = None, commit: str = None
+        self,
+        repo_path,
+        path: str,
+        tag: Optional[str] = None,
+        ref: Optional[str] = None,
+        commit: Optional[str] = None,
     ):
         _check_git_args(tag, ref, commit)
         self.tag = tag
@@ -154,6 +175,15 @@ class LocalGitFile(SourceFile):
         self._ref = ref
         self.repo_path = repo_path
         self.path = path
+
+    def apply_wildcards(self, wildcards) -> Self:
+        return self.__class__(
+            repo_path=apply_wildcards(self.repo_path, wildcards),
+            path=apply_wildcards(self.path, wildcards),
+            tag=apply_wildcards_or_none(self.tag, wildcards),
+            ref=apply_wildcards_or_none(self._ref, wildcards),
+            commit=apply_wildcards_or_none(self.commit, wildcards),
+        )
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         return f"git+file://{os.path.abspath(self.repo_path)}/{self.path}@{self.ref}"
@@ -204,6 +234,9 @@ class HostedGitRepo:
 
         repo_url = f"https://{auth}{host}/{repo}"
 
+        self.host: str = host
+        self.repo_name: str = repo
+
         self.repo_clone = cache_path / host / repo
 
         self._existed_before = self.repo_clone.exists()
@@ -252,8 +285,11 @@ class HostedGitRepo:
         # then fetch and move back
 
         with self._tmpdir() as tmpdir:
+            logger.info(
+                f"Fetching latest changes of {self.host}/{self.repo} to {self.repo_clone}"
+            )
             shutil.copytree(self.repo_clone, tmpdir)
-            Repo(tmpdir).fetch()
+            Repo(tmpdir).remotes.origin.fetch()
             shutil.move(tmpdir, self.repo_clone)
 
     @property
@@ -265,6 +301,7 @@ class HostingProviderFile(SourceFile):
     """Marker for denoting github source files from releases."""
 
     valid_repo = re.compile("^.+/.+$")
+    _hosted_repos: Dict[str, HostedGitRepo] = {}
 
     def __init__(
         self,
@@ -302,22 +339,25 @@ class HostingProviderFile(SourceFile):
         self.path = path.strip("/")
         self.host = host
 
-        self._hosted_repo: Optional[HostedGitRepo] = None
         self._cache_path: Optional[Path] = cache_path
 
         # Via __post_init__ implementing subclasses can do additional things without
         # replicating the constructor args.
         self.__post_init__()
 
-        if self.host.startswith("https://") or self.host.startswith("http://"):
-            raise WorkflowError(
-                "host must be given as domain name without protocol prefix "
-                f"(e.g. github.com, but found {self.host})  for git-hosted source "
-                f"file {self.path} in repo {self.repo}."
-            )
-
     def __post_init__(self):
         pass
+
+    def apply_wildcards(self, wildcards) -> Self:
+        return self.__class__(
+            repo=apply_wildcards_or_none(self.repo),
+            path=apply_wildcards_or_none(self.path, wildcards),
+            tag=apply_wildcards_or_none(self.tag, wildcards),
+            branch=apply_wildcards_or_none(self.branch, wildcards),
+            commit=apply_wildcards_or_none(self.commit, wildcards),
+            host=apply_wildcards_or_none(self.host, wildcards),
+            cache_path=self._cache_path,
+        )
 
     @property
     def auth(self) -> str:
@@ -337,11 +377,22 @@ class HostingProviderFile(SourceFile):
 
     @property
     def hosted_repo(self) -> HostedGitRepo:
-        if self._hosted_repo is None:
-            self._hosted_repo = HostedGitRepo(
+        try:
+            return self._hosted_repos[self.repo]
+        except KeyError:
+            assert self.host is not None
+            if self.host.startswith("https://") or self.host.startswith("http://"):
+                raise WorkflowError(
+                    "host must be given as domain name without protocol prefix "
+                    f"(e.g. github.com, but found {self.host})  for git-hosted source "
+                    f"file {self.path} in repo {self.repo}."
+                )
+
+            hosted_repo = HostedGitRepo(
                 self.repo, self.cache_path, self.auth, self.host
             )
-        return self._hosted_repo
+            self._hosted_repos[self.repo] = hosted_repo
+            return hosted_repo
 
     @hosted_repo.setter
     def hosted_repo(self, hosted_repo: HostedGitRepo):
@@ -355,7 +406,9 @@ class HostingProviderFile(SourceFile):
 
     def mtime(self) -> float:
         last_commit = next(
-            self.hosted_repo.iter_commits(rev=self.ref, paths=self.path, max_count=1)
+            self.hosted_repo.repo.iter_commits(
+                rev=self.ref, paths=self.path, max_count=1
+            )
         )
         return last_commit.committed_date
 
@@ -366,7 +419,7 @@ class HostingProviderFile(SourceFile):
             self.hosted_repo.fetch()
         try:
             return io.BytesIO(
-                self.hosted_repo.git.show(f"{self.ref}:{self.path}").encode()
+                self.hosted_repo.repo.git.show(f"{self.ref}:{self.path}").encode()
             )
         except git.GitCommandError as e:
             raise WorkflowError(
@@ -374,8 +427,10 @@ class HostingProviderFile(SourceFile):
             )
 
     @property
-    def ref(self):
-        return self.tag or self.commit or self.branch
+    def ref(self) -> str:
+        ref = self.tag or self.commit or self.branch
+        assert ref is not None
+        return ref
 
     def get_basedir(self):
         return self.__class__(
@@ -385,7 +440,7 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
             host=self.host,
-            cache_path=self.cache_path,
+            cache_path=self._cache_path,
         )
 
     def join(self, path):
@@ -401,7 +456,7 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
             host=self.host,
-            cache_path=self.cache_path,
+            cache_path=self._cache_path,
         )
 
     @property
