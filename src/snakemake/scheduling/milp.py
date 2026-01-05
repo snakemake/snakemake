@@ -15,7 +15,17 @@ class LpSolverCollection(Collection[str]):
     A lazy collection that avoids calling pulp.listSolvers if the default solver is selected
     """
 
-    def __init__(self, default: str):
+    def __init__(self):
+        default = None
+        try:
+            import pulp
+
+            solver_default = pulp.apis.LpSolverDefault
+            if solver_default is not None:
+                default = solver_default.name
+        except ImportError:
+            pass
+
         self.default = default
 
     @cached_property
@@ -32,17 +42,25 @@ class LpSolverCollection(Collection[str]):
             return []
 
     def __iter__(self) -> Iterator[str]:
-        yield self.default
-        yield from self.nondefault_solvers
+        if self.default is not None:
+            yield self.default
+            yield from self.nondefault_solvers
 
     def __contains__(self, x: object) -> bool:
-        return x == self.default or x in self.nondefault_solvers
+        try:
+            import pulp
+
+            return pulp.getSolver(x).available()
+        except (ImportError, KeyError):
+            return False
 
     def __len__(self) -> int:
+        if self.default is None:
+            return 0
         return 1 + len(self.nondefault_solvers)
 
 
-lp_solvers = LpSolverCollection(default="PULP_CBC_CMD")
+lp_solvers = LpSolverCollection()
 
 
 @dataclass
@@ -58,6 +76,10 @@ class SchedulerSettings(SchedulerSettingsBase):
         default=None,
         metadata={"help": "Set the PATH to search for scheduler solver binaries."},
     )
+
+    @property
+    def lp_solver_available(self):
+        return self.solver in lp_solvers
 
 
 class Scheduler(SchedulerBase):
