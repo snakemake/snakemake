@@ -1,35 +1,104 @@
 from dataclasses import dataclass, field
 import math
 import os
+from functools import cached_property
 from pathlib import Path
-from typing import Dict, Mapping, Optional, Sequence, Union
+from typing import Collection, Dict, Iterator, List, Mapping, Optional, Sequence, Union
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
 from snakemake_interface_common.io import AnnotatedStringInterface
 
 
-def get_lp_solvers():
-    default = "PULP_CBC_CMD"
-    try:
-        import pulp
+class LpSolverCollection(Collection[str]):
+    """
+    A lazy collection that avoids calling pulp.listSolvers if the default solver is selected
+    """
 
-        return [default] + sorted(
-            solver
-            for solver in pulp.listSolvers(onlyAvailable=True)
-            if solver != default
-        )
-    except Exception:
-        return [default]
+    def __init__(self):
+        """
+        Initialize the collection and determine the default PuLP solver name if available.
+        
+        Sets self.default to the name of pulp.apis.LpSolverDefault when PuLP is importable and a default is defined; otherwise sets self.default to None. Import errors are suppressed.
+        """
+        default = None
+        try:
+            import pulp
+
+            solver_default = pulp.apis.LpSolverDefault
+            if solver_default is not None:
+                default = solver_default.name
+        except ImportError:
+            pass
+
+        self.default = default
+
+    @cached_property
+    def nondefault_solvers(self) -> List[str]:
+        """
+        Return a sorted list of available MILP solver names excluding the configured default.
+        
+        If the pulp package is not installed, returns an empty list.
+        
+        Returns:
+            List[str]: Sorted solver names available on the system, excluding self.default.
+        """
+        try:
+            import pulp
+
+            return sorted(
+                solver
+                for solver in pulp.listSolvers(onlyAvailable=True)
+                if solver != self.default
+            )
+        except ImportError:
+            return []
+
+    def __iter__(self) -> Iterator[str]:
+        """
+        Iterate over available solver names, yielding the default first if present.
+        
+        Returns:
+            Iterator[str]: Solver names with the default solver (if set) yielded first, followed by non-default solvers.
+        """
+        if self.default is not None:
+            yield self.default
+        yield from self.nondefault_solvers
+
+    def __contains__(self, x: object) -> bool:
+        """
+        Check whether the given solver identifier is available to pulp.
+        
+        Parameters:
+            x (object): Solver name or solver specification passed to pulp.getSolver.
+        
+        Returns:
+            `true` if pulp reports the solver is available, `false` otherwise (including when pulp is unavailable or the lookup fails).
+        """
+        try:
+            import pulp
+
+            return pulp.getSolver(x).available()
+        except Exception:  # noqa: BLE001
+            return False
+
+    def __len__(self) -> int:
+        """
+        Compute the number of available MILP solvers, counting the default solver if present.
+        
+        Returns:
+            total (int): Total number of solvers; includes 1 if a default solver exists plus the number of nondefault solvers.
+        """
+        return (1 if self.default is not None else 0) + len(self.nondefault_solvers)
 
 
-lp_solvers = get_lp_solvers()
+lp_solvers = LpSolverCollection()
 
 
 @dataclass
 class SchedulerSettings(SchedulerSettingsBase):
     solver: Optional[str] = field(
-        default=lp_solvers[0],
+        default=lp_solvers.default,
         metadata={
             "help": "Set MILP solver to use",
             "choices": lp_solvers,
@@ -40,9 +109,24 @@ class SchedulerSettings(SchedulerSettingsBase):
         metadata={"help": "Set the PATH to search for scheduler solver binaries."},
     )
 
+    @property
+    def lp_solver_available(self):
+        """
+        Indicates whether the configured MILP solver is available.
+        
+        Returns:
+            True if the configured solver name is present in lp_solvers, False otherwise.
+        """
+        return self.solver in lp_solvers
+
 
 class Scheduler(SchedulerBase):
     def __post_init__(self) -> None:
+        """
+        Initialize post-construction state for the scheduler.
+        
+        Set the internal `_technical_failure` flag to False to indicate no solver-related technical failure has occurred yet.
+        """
         self._technical_failure = False
 
     def select_jobs(
@@ -200,6 +284,20 @@ class Scheduler(SchedulerBase):
         return selected_jobs
 
     def _solve_ilp(self, prob, threads=2, time_limit=10):
+        """
+        Solve the given ILP problem using the configured PuLP solver and return the solver status.
+        
+        Parameters:
+            prob: The PuLP LpProblem to solve.
+            threads (int): Number of threads to request from the solver.
+            time_limit (int): Time limit (in seconds) to pass to the solver.
+        
+        Notes:
+            If SchedulerSettings.solver_path is set, this function temporarily prepends that path to the process PATH so the solver binary can be found and restores the original PATH before solving.
+        
+        Returns:
+            status (str): Solver result status such as "Optimal", "Infeasible", or "Not Solved".
+        """
         import pulp
 
         old_path = os.environ["PATH"]
@@ -212,11 +310,7 @@ class Scheduler(SchedulerBase):
                 os.environ["PATH"],
             )
         try:
-            solver = (
-                pulp.getSolver(self.settings.solver)
-                if self.settings.solver
-                else pulp.apis.LpSolverDefault
-            )
+            solver = pulp.getSolver(self.settings.solver)
         finally:
             os.environ["PATH"] = old_path
         solver.optionsDict["threads"] = threads

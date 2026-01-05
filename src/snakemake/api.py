@@ -50,13 +50,14 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
+from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
-from snakemake.logging import LoggerManager, logger
+from snakemake.logging import logger, logger_manager
 from snakemake.shell import shell
 from snakemake.common import (
     MIN_PY_VERSION,
@@ -104,12 +105,11 @@ class SnakemakeApi(ApiBase):
     """
 
     output_settings: OutputSettings = field(default_factory=OutputSettings)
-    logger_manager: LoggerManager = field(init=False)
     _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
     _is_in_context: bool = field(init=False, default=False)
 
     def __post_init__(self):
-        self.logger_manager = LoggerManager(logger, self.output_settings)
+        self.setup_logger()
 
     def workflow(
         self,
@@ -152,7 +152,7 @@ class SnakemakeApi(ApiBase):
         self._check_default_storage_provider(storage_settings=storage_settings)
 
         snakefile = resolve_snakefile(snakefile)
-        self.logger_manager.setup_logfile(workdir=workdir)
+        logger_manager.setup_logfile(workdir=workdir)
         self._workflow_api = WorkflowApi(
             snakemake_api=self,
             snakefile=snakefile,
@@ -169,18 +169,9 @@ class SnakemakeApi(ApiBase):
 
     def _cleanup(self):
         """Cleanup the workflow."""
-        if self.output_settings.keep_logger:
-            import warnings
-
-            warnings.warn(
-                "OutputSettings.keep_logger is deprecated and will be removed in v10.0. "
-                "If you rely on this behavior, please open an issue describing your use case.",
-                FutureWarning,
-                stacklevel=2,
-            )
-        else:
-            self.logger_manager.stop()
-
+        if not self.output_settings.keep_logger:
+            logger_manager.cleanup_logfile()
+            logger_manager.stop()
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
             if self._workflow_api._workflow_store is not None:
@@ -262,6 +253,19 @@ class SnakemakeApi(ApiBase):
         ):
             linemaps = self._workflow_api._workflow_store.linemaps
         print_exception(ex, linemaps)
+
+    def setup_logger(self):
+        if not self.output_settings.keep_logger:
+            log_handlers = []
+            for name, settings in self.output_settings.log_handler_settings.items():
+                plugin = LoggerPluginRegistry().get_plugin(name)
+                plugin.validate_settings(settings)
+                log_handlers.append(plugin.log_handler(self.output_settings, settings))
+
+            logger_manager.setup(
+                handlers=log_handlers,
+                settings=self.output_settings,
+            )
 
     def _check_is_in_context(self):
         if not self._is_in_context:
@@ -406,7 +410,6 @@ class WorkflowApi(ApiBase):
             config_settings=self.config_settings,
             resource_settings=self.resource_settings,
             workflow_settings=self.workflow_settings,
-            logger_manager=self.snakemake_api.logger_manager,
             deployment_settings=self.deployment_settings,
             storage_settings=self.storage_settings,
             output_settings=self.snakemake_api.output_settings,
@@ -457,16 +460,27 @@ class DAGApi(ApiBase):
         scheduler_settings: Optional[SchedulerSettingsBase] = None,
         greedy_scheduler_settings: Optional[GreedySchedulerSettings] = None,
     ):
-        """Execute the workflow.
-
-        Arguments
-        ---------
-        executor: str -- The executor to use.
-        execution_settings: ExecutionSettings -- The execution settings for the workflow.
-        resource_settings: ResourceSettings -- The resource settings for the workflow.
-        remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
-        executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
-        updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
+        """
+        Execute the workflow with the specified executor and scheduling and execution settings.
+        
+        Parameters:
+            executor (str): Name of the executor plugin to use (e.g., "local", "cluster").
+            execution_settings (Optional[ExecutionSettings]): Execution-level options (debug, use_threads, edit_notebook, etc.).
+            remote_execution_settings (Optional[RemoteExecutionSettings]): Settings for remote submission (immediate_submit, job_deploy_sources, etc.).
+            scheduling_settings (Optional[SchedulingSettings]): High-level scheduling options (scheduler choice, greediness).
+            group_settings (Optional[GroupSettings]): Grouping-related scheduling settings.
+            executor_settings (Optional[ExecutorSettingsBase]): Executor-specific configuration validated against the executor plugin.
+            updated_files (Optional[List[str]]): Optional list that will be populated with paths of updated files.
+            scheduler_settings (Optional[SchedulerSettingsBase]): Scheduler-specific settings; when using ILP this should be ILP settings.
+            greedy_scheduler_settings (Optional[GreedySchedulerSettings]): Settings for the greedy scheduler.
+        
+        Raises:
+            ApiError: If the provided configuration is invalid or incompatible, for example:
+                - immediate_submit is used without notemp;
+                - local execution requested but cores not specified or shared-fs usage is restricted;
+                - remote execution requested but nodes (jobs) not specified;
+                - debug or notebook edit modes used in incompatible execution modes;
+                - no shared filesystem for input/output while no default storage provider/prefix is configured.
         """
 
         if execution_settings is None:
@@ -602,13 +616,12 @@ class DAGApi(ApiBase):
         if scheduler == "ilp":
             if scheduler_settings is None:
                 scheduler_settings = IlpSchedulerSettings()
-            import pulp
 
-            if pulp.apis.LpSolverDefault is None:
+            if not scheduler_settings.lp_solver_available:
                 logger.warning(
-                    "Falling back to greedy scheduler because no default "
-                    "ILP solver is found (you have to install either "
-                    "coincbc or glpk)."
+                    "Falling back to greedy scheduler because no ILP solver "
+                    "is found (you have to install pulp and either coincbc "
+                    "or glpk)."
                 )
                 scheduler = "greedy"
                 scheduler_settings = greedy_scheduler_settings
