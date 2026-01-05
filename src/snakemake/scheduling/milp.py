@@ -77,6 +77,7 @@ class SchedulerSettings(SchedulerSettingsBase):
 
     @property
     def lp_solver_available(self):
+        """Check if the configured solver is available via pulp.getSolver().available()."""
         return self.solver in lp_solvers
 
 
