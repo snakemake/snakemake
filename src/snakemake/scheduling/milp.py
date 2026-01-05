@@ -44,7 +44,7 @@ class LpSolverCollection(Collection[str]):
     def __iter__(self) -> Iterator[str]:
         if self.default is not None:
             yield self.default
-            yield from self.nondefault_solvers
+        yield from self.nondefault_solvers
 
     def __contains__(self, x: object) -> bool:
         try:
@@ -55,9 +55,7 @@ class LpSolverCollection(Collection[str]):
             return False
 
     def __len__(self) -> int:
-        if self.default is None:
-            return 0
-        return 1 + len(self.nondefault_solvers)
+        return (1 if self.default is not None else 0) + len(self.nondefault_solvers)
 
 
 lp_solvers = LpSolverCollection()
