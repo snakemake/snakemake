@@ -3,7 +3,7 @@ import math
 import os
 from functools import cached_property
 from pathlib import Path
-from typing import Collection, Dict, Iterator, Mapping, Optional, Sequence, Union
+from typing import Collection, Dict, Iterator, List, Mapping, Optional, Sequence, Union
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
@@ -29,7 +29,7 @@ class LpSolverCollection(Collection[str]):
         self.default = default
 
     @cached_property
-    def nondefault_solvers(self) -> list[str]:
+    def nondefault_solvers(self) -> List[str]:
         try:
             import pulp
 
