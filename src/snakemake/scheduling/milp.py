@@ -251,11 +251,7 @@ class Scheduler(SchedulerBase):
                 os.environ["PATH"],
             )
         try:
-            solver = (
-                pulp.getSolver(self.settings.solver)
-                if self.settings.solver
-                else pulp.apis.LpSolverDefault
-            )
+            solver = pulp.getSolver(self.settings.solver)
         finally:
             os.environ["PATH"] = old_path
         solver.optionsDict["threads"] = threads
