@@ -51,7 +51,7 @@ class LpSolverCollection(Collection[str]):
             import pulp
 
             return pulp.getSolver(x).available()
-        except (ImportError, KeyError):
+        except Exception:  # noqa: BLE001
             return False
 
     def __len__(self) -> int:
