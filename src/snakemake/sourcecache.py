@@ -9,7 +9,7 @@ import re
 import os
 import shutil
 import stat
-from typing import TYPE_CHECKING, Dict, Optional, Self
+from typing import TYPE_CHECKING, Dict, List, Mapping, Optional, Self
 from snakemake import utils
 import tempfile
 import io
@@ -27,14 +27,14 @@ from snakemake.common import (
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.common.git import split_git_path
 from snakemake.logging import logger
-from snakemake.io import apply_wildcards
+from snakemake.io import apply_wildcards, check
 
 
 if TYPE_CHECKING:
     import git
 
 
-def apply_wildcards_or_none(pattern: Optional[str], wildcards: Mapping[str, str]):
+def _apply_wildcards_or_none(pattern: Optional[str], wildcards: Mapping[str, str]):
     return apply_wildcards(pattern, wildcards) if pattern is not None else None
 
 
@@ -50,7 +50,17 @@ def _check_git_args(
         )
 
 
+def _replace_suffix(path: str, suffix: List[str], replacement: str) -> Optional[str]:
+    for suff in suffix:
+        if path.endswith(suff):
+            return path[: -len(suff)] + replacement
+    return None
+
+
 class SourceFile(ABC):
+    @abstractmethod
+    def check(self) -> None: ...
+
     @abstractmethod
     def get_path_or_uri(self, secret_free: bool) -> str: ...
 
@@ -70,6 +80,9 @@ class SourceFile(ABC):
 
     @abstractmethod
     def get_filename(self) -> str: ...
+
+    @abstractmethod
+    def replace_suffix(self, suffix: List[str], replacement: str) -> Optional[Self]: ...
 
     def join(self, path):
         if isinstance(path, SourceFile):
@@ -100,12 +113,22 @@ class SourceFile(ABC):
         return self.get_path_or_uri(secret_free=True)
 
     def simplify_path(self):
-        return self.get_path_or_uri(secret_free=True)
+        return str(self)
 
 
 class GenericSourceFile(SourceFile):
     def __init__(self, path_or_uri):
         self.path_or_uri = path_or_uri
+
+    def replace_suffix(self, suffix: List[str], replacement: str) -> Optional[Self]:
+        repl = _replace_suffix(self.path_or_uri, suffix, replacement)
+        if repl is None:
+            return None
+        else:
+            return self.__class__(repl)
+
+    def check(self) -> None:
+        pass
 
     def apply_wildcards(self, wildcards) -> Self:
         return self.__class__(apply_wildcards(self.path_or_uri, wildcards))
@@ -127,6 +150,16 @@ class GenericSourceFile(SourceFile):
 class LocalSourceFile(SourceFile):
     def __init__(self, path):
         self.path = path
+
+    def replace_suffix(self, suffix: List[str], replacement: str) -> Optional[Self]:
+        repl = _replace_suffix(self.path, suffix, replacement)
+        if repl is None:
+            return None
+        else:
+            return self.__class__(repl)
+
+    def check(self) -> None:
+        check(self.path)
 
     def apply_wildcards(self, wildcards) -> Self:
         return self.__class__(apply_wildcards(self.path, wildcards))
@@ -176,13 +209,29 @@ class LocalGitFile(SourceFile):
         self.repo_path = repo_path
         self.path = path
 
+    def replace_suffix(self, suffix: List[str], replacement: str) -> Optional[Self]:
+        repl = _replace_suffix(self.path, suffix, replacement)
+        if repl is None:
+            return None
+        else:
+            return self.__class__(
+                self.repo_path,
+                path=repl,
+                tag=self.tag,
+                ref=self._ref,
+                commit=self.commit,
+            )
+
+    def check(self) -> None:
+        check(self.path)
+
     def apply_wildcards(self, wildcards) -> Self:
         return self.__class__(
             repo_path=apply_wildcards(self.repo_path, wildcards),
             path=apply_wildcards(self.path, wildcards),
-            tag=apply_wildcards_or_none(self.tag, wildcards),
-            ref=apply_wildcards_or_none(self._ref, wildcards),
-            commit=apply_wildcards_or_none(self.commit, wildcards),
+            tag=_apply_wildcards_or_none(self.tag, wildcards),
+            ref=_apply_wildcards_or_none(self._ref, wildcards),
+            commit=_apply_wildcards_or_none(self.commit, wildcards),
         )
 
     def get_path_or_uri(self, secret_free: bool) -> str:
@@ -348,14 +397,32 @@ class HostingProviderFile(SourceFile):
     def __post_init__(self):
         pass
 
+    def replace_suffix(self, suffix: List[str], replacement: str) -> Optional[Self]:
+        repl = _replace_suffix(self.path, suffix, replacement)
+        if repl is None:
+            return None
+        else:
+            return self.__class__(
+                repo=self.repo,
+                path=repl,
+                tag=self.tag,
+                branch=self.branch,
+                commit=self.commit,
+                host=self.host,
+                cache_path=self._cache_path,
+            )
+
+    def check(self) -> None:
+        check(self.path)
+
     def apply_wildcards(self, wildcards) -> Self:
         return self.__class__(
-            repo=apply_wildcards_or_none(self.repo),
-            path=apply_wildcards_or_none(self.path, wildcards),
-            tag=apply_wildcards_or_none(self.tag, wildcards),
-            branch=apply_wildcards_or_none(self.branch, wildcards),
-            commit=apply_wildcards_or_none(self.commit, wildcards),
-            host=apply_wildcards_or_none(self.host, wildcards),
+            repo=_apply_wildcards_or_none(self.repo, wildcards),
+            path=_apply_wildcards_or_none(self.path, wildcards),
+            tag=_apply_wildcards_or_none(self.tag, wildcards),
+            branch=_apply_wildcards_or_none(self.branch, wildcards),
+            commit=_apply_wildcards_or_none(self.commit, wildcards),
+            host=_apply_wildcards_or_none(self.host, wildcards),
             cache_path=self._cache_path,
         )
 
@@ -462,6 +529,9 @@ class HostingProviderFile(SourceFile):
     @property
     def is_local(self):
         return False
+
+    def __str__(self) -> str:
+        return f"{self.host}/{self.repo}/{self.path}@{self.ref}"
 
 
 class GithubFile(HostingProviderFile):

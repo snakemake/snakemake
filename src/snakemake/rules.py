@@ -1229,13 +1229,13 @@ class Rule(RuleInterface):
                     # infer source file from unmodified uri or path
                     conda_env = infer_source_file(conda_env)
 
-            conda_env = CondaEnvFileSpec(conda_env, rule=self)
+            conda_env = CondaEnvFileSpec(conda_env)
         elif spec_type is CondaEnvSpecType.NAME:
             conda_env = CondaEnvNameSpec(conda_env)
         elif spec_type is CondaEnvSpecType.DIR:
             conda_env = CondaEnvDirSpec(conda_env, rule=self)
 
-        conda_env = conda_env.apply_wildcards(wildcards, self)
+        conda_env = conda_env.apply_wildcards(wildcards)
         conda_env.check()
 
         if cacheable:

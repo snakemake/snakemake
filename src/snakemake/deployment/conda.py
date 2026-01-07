@@ -6,7 +6,7 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 import re
-from typing import Union
+from typing import Self, Union
 from snakemake.sourcecache import (
     LocalGitFile,
     LocalSourceFile,
@@ -115,14 +115,6 @@ class Env:
     def conda(self):
         return Conda(container_img=self._container_img, check=True)
 
-    def _path_or_uri_prefix(self):
-        prefix = self.file.get_path_or_uri(secret_free=False)
-        if prefix.endswith(".yaml") or prefix.endswith(".yml"):
-            prefix = prefix.rsplit(".", 1)[0]
-            return prefix
-        else:
-            return None
-
     @lazy_property
     def pin_file(self):
         return self._get_aux_file(
@@ -143,16 +135,14 @@ class Env:
 
     def _get_aux_file(self, suffix: str, omit_msg: str):
         if self.file:
-            prefix = self._path_or_uri_prefix()
+            aux_file = self.file.replace_suffix([".yaml", ".yml"], suffix)
             # TODO handle LocalGitFile properly
-            if prefix is None:
+            if aux_file is None:
                 logger.warning(
-                    f"Conda environment file {self.file.get_path_or_uri(secret_free=True)} does not end "
+                    f"Conda environment file {self.file} does not end "
                     f"on .yaml or .yml. {omit_msg}"
                 )
                 return None
-            aux_file = f"{prefix}{suffix}"
-            aux_file = infer_source_file(aux_file)
             if self.workflow.sourcecache.exists(aux_file):
                 return aux_file
             else:
@@ -864,7 +854,7 @@ class Conda:
 
 class CondaEnvSpec(ABC):
     @abstractmethod
-    def apply_wildcards(self, wildcards): ...
+    def apply_wildcards(self, wildcards) -> Self: ...
 
     @abstractmethod
     def get_conda_env(
@@ -890,12 +880,12 @@ class CondaEnvSpec(ABC):
 
 
 class CondaEnvFileSpec(CondaEnvSpec):
-    def __init__(self, source_file, rule=None):
+    def __init__(self, source_file):
         self.file = source_file
 
-    def apply_wildcards(self, wildcards, rule):
+    def apply_wildcards(self, wildcards) -> Self:
         source_file = self.file.apply_wildcards(wildcards)
-        return self.__class__(source_file, rule)
+        return self.__class__(source_file)
 
     def check(self):
         self.file.check()

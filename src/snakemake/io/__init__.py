@@ -468,50 +468,7 @@ class _IOFile(str, AnnotatedStringInterface):
     def check(self):
         if callable(self._file):
             return
-        if self._file == "":
-            if self.rule is not None:
-                spec = f"rule {self.rule.name}, line {self.rule.lineno}, {self.rule.snakefile}: "
-            else:
-                spec = ""
-            logger.warning(
-                f"{spec}Empty file path encountered. Snakemake cannot understand this. "
-                "If you want to indicate 'no file', please use an empty list ([]) instead of an empty string ('')."
-            )
-        hint = (
-            "It can also lead to inconsistent results of the file-matching "
-            "approach used by Snakemake."
-        )
-        if self._file.startswith("./"):
-            logger.warning(
-                f"Relative file path '{self._file}' starts with './'. This is redundant "
-                f"and strongly discouraged. {hint} You can simply omit the './' "
-                "for relative file paths."
-            )
-        if self._file.startswith(" "):
-            logger.warning(
-                f"File path '{self._file}' starts with whitespace. "
-                f"This is likely unintended. {hint}"
-            )
-        if self._file.endswith(" "):
-            logger.warning(
-                f"File path '{self._file}' ends with whitespace. "
-                f"This is likely unintended. {hint}"
-            )
-        if "\n" in self._file:
-            logger.warning(
-                f"File path '{self._file}' contains line break. "
-                f"This is likely unintended. {hint}"
-            )
-        if _double_slash_regex.search(self._file) is not None and not self.is_storage:
-            logger.warning(
-                f"File path {self._file} contains double '{os.path.sep}'. "
-                f"This is likely unintended. {hint}"
-            )
-        if _illegal_wildcard_name_regex.search(self._file) is not None:
-            logger.warning(
-                f"File path '{self._file}' contains illegal characters in a wildcard "
-                f"name (only alphanumerics and underscores are allowed)."
-            )
+        check(self.file, rule=self.rule, is_storage=self.is_storage)
 
     async def exists(self):
         if self.is_storage:
@@ -991,6 +948,56 @@ def flag(value, flag_type, flag_value=True):
         value.flags[flag_type] = flag_value
         return value
     return [flag(v, flag_type, flag_value=flag_value) for v in value]
+
+
+def check(
+    iofile: str, rule: Optional["snakemake.rules.Rule"] = None, is_storage: bool = False
+) -> None:
+    if rule is not None:
+        spec = f"rule {rule.name}, line {rule.lineno}, {rule.snakefile}: "
+    else:
+        spec = ""
+
+    if iofile == "":
+        logger.warning(
+            f"{spec}Empty file path encountered. Snakemake cannot understand this. "
+            "If you want to indicate 'no file', please use an empty list ([]) instead of an empty string ('')."
+        )
+    hint = (
+        "It can also lead to inconsistent results of the file-matching "
+        "approach used by Snakemake."
+    )
+    if iofile.startswith("./"):
+        logger.warning(
+            f"{spec}Relative file path '{iofile}' starts with './'. This is redundant "
+            f"and strongly discouraged. {hint} You can simply omit the './' "
+            "for relative file paths."
+        )
+    if iofile.startswith(" "):
+        logger.warning(
+            f"File path '{iofile}' starts with whitespace. "
+            f"This is likely unintended. {hint}"
+        )
+    if iofile.endswith(" "):
+        logger.warning(
+            f"File path '{iofile}' ends with whitespace. "
+            f"This is likely unintended. {hint}"
+        )
+    if "\n" in iofile:
+        logger.warning(
+            f"File path '{iofile}' contains line break. "
+            f"This is likely unintended. {hint}"
+        )
+    if _double_slash_regex.search(iofile) is not None and not is_storage:
+        logger.warning(
+            f"File path {iofile} contains double '{os.path.sep}'. "
+            f"This is likely unintended. {hint}"
+        )
+    if _illegal_wildcard_name_regex.search(iofile) is not None:
+        logger.warning(
+            f"File path '{iofile}' contains illegal characters in a wildcard "
+            f"name (only alphanumerics and underscores are allowed)."
+        )
 
 
 def get_flag_store_keys(flag_func: Callable) -> Set[str]:
