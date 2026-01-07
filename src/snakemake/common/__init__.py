@@ -93,6 +93,12 @@ def dict_to_key_value_args(
     return items
 
 
+if ON_WINDOWS:
+    import threading
+
+    _thread_local = threading.local()
+
+
 def async_run(coroutine):
     """Attaches to running event loop or creates a new one to execute a
     coroutine.
@@ -100,6 +106,21 @@ def async_run(coroutine):
          https://github.com/snakemake/snakemake/issues/1105
          https://stackoverflow.com/a/65696398
     """
+    if ON_WINDOWS:
+        # On Windows, asyncio.run() creates a new ProactorEventLoop every time.
+        # This loop uses a socket pair for the self-pipe, which consumes ephemeral ports.
+        # Repeated calls to asyncio.run() (as done in the scheduler) can lead to
+        # port exhaustion and hangs. We reuse a thread-local loop to avoid this,
+        # ensuring each thread has its own long-lived loop.
+        if not hasattr(_thread_local, "loop") or _thread_local.loop.is_closed():
+            _thread_local.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(_thread_local.loop)
+        try:
+            return _thread_local.loop.run_until_complete(coroutine)
+        except RuntimeError as e:
+            coroutine.close()
+            raise WorkflowError("Error running coroutine in event loop.", e)
+
     try:
         return asyncio.run(coroutine)
     except RuntimeError as e:
