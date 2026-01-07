@@ -6,7 +6,7 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 import re
-from typing import Self, Union
+from typing import Union
 from snakemake.sourcecache import (
     LocalGitFile,
     LocalSourceFile,
@@ -854,7 +854,7 @@ class Conda:
 
 class CondaEnvSpec(ABC):
     @abstractmethod
-    def apply_wildcards(self, wildcards) -> Self: ...
+    def apply_wildcards(self, wildcards): ...
 
     @abstractmethod
     def get_conda_env(
@@ -883,7 +883,7 @@ class CondaEnvFileSpec(CondaEnvSpec):
     def __init__(self, source_file):
         self.file = source_file
 
-    def apply_wildcards(self, wildcards) -> Self:
+    def apply_wildcards(self, wildcards):
         source_file = self.file.apply_wildcards(wildcards)
         return self.__class__(source_file)
 

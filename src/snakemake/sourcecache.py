@@ -9,7 +9,8 @@ import re
 import os
 import shutil
 import stat
-from typing import TYPE_CHECKING, Dict, List, Mapping, Optional, Self
+import typing
+from typing import TYPE_CHECKING, Dict, List, Mapping, Optional
 from snakemake import utils
 import tempfile
 import io
@@ -76,13 +77,15 @@ class SourceFile(ABC):
         return self.__class__(path)
 
     @abstractmethod
-    def apply_wildcards(self, wildcards) -> Self: ...
+    def apply_wildcards(self, wildcards) -> "typing.Self": ...
 
     @abstractmethod
     def get_filename(self) -> str: ...
 
     @abstractmethod
-    def replace_suffix(self, suffix: List[str], replacement: str) -> Optional[Self]: ...
+    def replace_suffix(
+        self, suffix: List[str], replacement: str
+    ) -> Optional["typing.Self"]: ...
 
     def join(self, path):
         if isinstance(path, SourceFile):
@@ -113,14 +116,16 @@ class SourceFile(ABC):
         return self.get_path_or_uri(secret_free=True)
 
     def simplify_path(self):
-        return str(self)
+        return self.get_path_or_uri(secret_free=True)
 
 
 class GenericSourceFile(SourceFile):
     def __init__(self, path_or_uri):
         self.path_or_uri = path_or_uri
 
-    def replace_suffix(self, suffix: List[str], replacement: str) -> Optional[Self]:
+    def replace_suffix(
+        self, suffix: List[str], replacement: str
+    ) -> Optional["typing.Self"]:
         repl = _replace_suffix(self.path_or_uri, suffix, replacement)
         if repl is None:
             return None
@@ -130,7 +135,7 @@ class GenericSourceFile(SourceFile):
     def check(self) -> None:
         pass
 
-    def apply_wildcards(self, wildcards) -> Self:
+    def apply_wildcards(self, wildcards) -> "typing.Self":
         return self.__class__(apply_wildcards(self.path_or_uri, wildcards))
 
     def get_path_or_uri(self, secret_free: bool) -> str:
@@ -151,7 +156,9 @@ class LocalSourceFile(SourceFile):
     def __init__(self, path):
         self.path = path
 
-    def replace_suffix(self, suffix: List[str], replacement: str) -> Optional[Self]:
+    def replace_suffix(
+        self, suffix: List[str], replacement: str
+    ) -> Optional["typing.Self"]:
         repl = _replace_suffix(self.path, suffix, replacement)
         if repl is None:
             return None
@@ -161,7 +168,7 @@ class LocalSourceFile(SourceFile):
     def check(self) -> None:
         check(self.path)
 
-    def apply_wildcards(self, wildcards) -> Self:
+    def apply_wildcards(self, wildcards) -> "typing.Self":
         return self.__class__(apply_wildcards(self.path, wildcards))
 
     def get_path_or_uri(self, secret_free: bool) -> str:
@@ -209,7 +216,9 @@ class LocalGitFile(SourceFile):
         self.repo_path = repo_path
         self.path = path
 
-    def replace_suffix(self, suffix: List[str], replacement: str) -> Optional[Self]:
+    def replace_suffix(
+        self, suffix: List[str], replacement: str
+    ) -> Optional["typing.Self"]:
         repl = _replace_suffix(self.path, suffix, replacement)
         if repl is None:
             return None
@@ -225,7 +234,7 @@ class LocalGitFile(SourceFile):
     def check(self) -> None:
         check(self.path)
 
-    def apply_wildcards(self, wildcards) -> Self:
+    def apply_wildcards(self, wildcards) -> "typing.Self":
         return self.__class__(
             repo_path=apply_wildcards(self.repo_path, wildcards),
             path=apply_wildcards(self.path, wildcards),
@@ -397,7 +406,9 @@ class HostingProviderFile(SourceFile):
     def __post_init__(self):
         pass
 
-    def replace_suffix(self, suffix: List[str], replacement: str) -> Optional[Self]:
+    def replace_suffix(
+        self, suffix: List[str], replacement: str
+    ) -> Optional["typing.Self"]:
         repl = _replace_suffix(self.path, suffix, replacement)
         if repl is None:
             return None
@@ -415,7 +426,7 @@ class HostingProviderFile(SourceFile):
     def check(self) -> None:
         check(self.path)
 
-    def apply_wildcards(self, wildcards) -> Self:
+    def apply_wildcards(self, wildcards) -> "typing.Self":
         return self.__class__(
             repo=_apply_wildcards_or_none(self.repo, wildcards),
             path=_apply_wildcards_or_none(self.path, wildcards),
