@@ -468,7 +468,7 @@ class _IOFile(str, AnnotatedStringInterface):
     def check(self):
         if callable(self._file):
             return
-        check(self.file, rule=self.rule, is_storage=self.is_storage)
+        check(self._file, rule=self.rule, is_storage=self.is_storage)
 
     async def exists(self):
         if self.is_storage:
