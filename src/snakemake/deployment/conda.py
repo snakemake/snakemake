@@ -915,20 +915,15 @@ class CondaEnvFileSpec(CondaEnvSpec):
 
 
 class CondaEnvDirSpec(CondaEnvSpec):
-    def __init__(self, path, rule=None):
-        if isinstance(path, SourceFile):
-            self.path = IOFile(str(path.get_path_or_uri(secret_free=False)), rule=rule)
-        elif isinstance(path, _IOFile):
-            self.path = path
-        else:
-            self.path = IOFile(path, rule=rule)
+    def __init__(self, path):
+        self.path = str(path)
 
-    def apply_wildcards(self, wildcards, rule):
-        filepath = self.path.apply_wildcards(wildcards)
+    def apply_wildcards(self, wildcards):
+        filepath = apply_wildcards(self.path, wildcards)
         if is_local_file(filepath):
             # Normalize 'file:///my/path.yml' to '/my/path.yml'
             filepath = parse_uri(filepath).uri_path
-        return CondaEnvDirSpec(filepath, rule)
+        return self.__class__(filepath)
 
     def check(self):
         pass
@@ -961,7 +956,7 @@ class CondaEnvNameSpec(CondaEnvSpec):
     def __init__(self, name: str):
         self.name = name
 
-    def apply_wildcards(self, wildcards, _):
+    def apply_wildcards(self, wildcards):
         return CondaEnvNameSpec(apply_wildcards(self.name, wildcards))
 
     def get_conda_env(self, workflow, envs_dir=None, container_img=None, cleanup=None):
