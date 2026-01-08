@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [9.14.6](https://github.com/snakemake/snakemake/compare/v9.14.5...v9.14.6) (2026-01-08)
+
+
+### Bug Fixes
+
+* create local clone of git repos for source files from hosting providers ([#3643](https://github.com/snakemake/snakemake/issues/3643)) ([d2f8aba](https://github.com/snakemake/snakemake/commit/d2f8aba8b7a05f0e71534b5603f3f3ded7ada28d))
+* create potentially missing .snakemake folder in case of very long command lines for spawned jobs ([#3894](https://github.com/snakemake/snakemake/issues/3894)) ([4b431dd](https://github.com/snakemake/snakemake/commit/4b431dd540ef5341cf7c684e47e9ea1fe57a21e1))
+* make ilp solver enumeration lazy ([#3900](https://github.com/snakemake/snakemake/issues/3900)) ([30e1509](https://github.com/snakemake/snakemake/commit/30e1509800915c6dcccd49d4eb998b93180f03ef))
+* Prevent broken report_href links by using deterministic report IDs with fixed prefix length ([#3889](https://github.com/snakemake/snakemake/issues/3889)) ([6d8f4d8](https://github.com/snakemake/snakemake/commit/6d8f4d88fd54f0c7cae7cab9398ab64798ec36db))
+* refactor LoggerManager setup and scope ([#3851](https://github.com/snakemake/snakemake/issues/3851)) ([f46d904](https://github.com/snakemake/snakemake/commit/f46d90417700484149b3ba40ef89abd2f32f9eba))
+* yield proper error message in case a local git source file is not retrievable ([#3892](https://github.com/snakemake/snakemake/issues/3892)) ([ed79cae](https://github.com/snakemake/snakemake/commit/ed79cae0f171eda52b6a710b855253966d5fa8e5))
+
+
+### Documentation
+
+* explain how to pass nested config via CLI ([#3885](https://github.com/snakemake/snakemake/issues/3885)) ([9d8c539](https://github.com/snakemake/snakemake/commit/9d8c539ec305315034e38146e9cb2d37c9afe718))
+
 ## [9.14.5](https://github.com/snakemake/snakemake/compare/v9.14.4...v9.14.5) (2025-12-15)
 
 
