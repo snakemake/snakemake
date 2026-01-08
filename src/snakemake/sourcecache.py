@@ -521,18 +521,22 @@ class HostingProviderFile(SourceFile):
     def open(self) -> io.BytesIO:
         import git
 
+        fetch_error = None
+
         if not self.hosted_repo.ref_exists(
             self.ref
         ) or not self.hosted_repo.file_exists(path=self.path, ref=self.ref):
             fetch_error = self.hosted_repo.fetch()
+
         try:
             return io.BytesIO(
                 self.hosted_repo.repo.git.show(f"{self.ref}:{self.path}").encode()
             )
         except git.GitCommandError as e:
-            raise WorkflowError(
-                f"Failed to get cached git source file {self.repo}:{self.path}: {e}. "
-            )
+            msg = f"Failed to get cached git source file {self.repo}:{self.path}: {e}. "
+            if fetch_error:
+                msg += f" Unable to fetch from remote: {fetch_error}."
+            raise WorkflowError(msg)
 
     @property
     def ref(self) -> str:
