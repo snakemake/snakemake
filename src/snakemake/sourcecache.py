@@ -319,27 +319,24 @@ class HostedGitRepo:
             # lock-free cloning of the repository
             logger.info(f"Cloning {host}/{repo} to {self.repo_clone}")
             self.repo_clone.parent.mkdir(parents=True, exist_ok=True)
-            with self._tmpdir() as tmpdir:
-                # the clone is not atomic, hence we do that in a temporary directory
-                # We only want the database, thus we create a bare clone
-                try:
-                    Repo.clone_from(repo_url, to_path=tmpdir, bare=True)
-                except Exception:
-                    # clean up on any exception
-                    shutil.rmtree(tmpdir)
-                    raise
-                try:
-                    # move is atomic if repo_clone does not exist, so we can safely move
-                    # the directory to the final location
-                    os.rename(tmpdir, self.repo_clone)
-                except FileExistsError:
-                    # another process won the race
-                    shutil.rmtree(tmpdir)
+            tmpdir = tempfile.mkdtemp(prefix=f"{self.repo_clone}.")
+            # the clone is not atomic, hence we do that in a temporary directory
+            # We only want the database, thus we create a bare clone
+            try:
+                Repo.clone_from(repo_url, to_path=tmpdir, bare=True)
+            except Exception:
+                # clean up on any exception
+                shutil.rmtree(tmpdir)
+                raise
+            try:
+                # move is atomic if repo_clone does not exist, so we can safely move
+                # the directory to the final location
+                os.rename(tmpdir, self.repo_clone)
+            except FileExistsError:
+                # another process won the race
+                shutil.rmtree(tmpdir)
 
             self._repo = Repo(self.repo_clone)
-
-    def _tmpdir(self) -> tempfile.TemporaryDirectory:
-        return tempfile.TemporaryDirectory(prefix=f"{self.repo_clone}.", delete=False)
 
     def ref_exists(self, ref: str):
         import git
