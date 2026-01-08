@@ -14,7 +14,6 @@ from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFou
 def format_error(
     ex, lineno, linemaps=None, snakefile=None, show_traceback=False, rule=None
 ):
-    breakpoint()
     if linemaps is None:
         linemaps = dict()
     msg = str(ex)
