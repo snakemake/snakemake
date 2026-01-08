@@ -18,6 +18,8 @@ import uuid
 import os
 import asyncio
 import collections
+import threading
+import concurrent.futures
 from pathlib import Path
 from typing import Union
 
@@ -93,10 +95,7 @@ def dict_to_key_value_args(
     return items
 
 
-if ON_WINDOWS:
-    import threading
-
-    _thread_local = threading.local()
+_thread_local = threading.local()
 
 
 def async_run(coroutine):
@@ -106,23 +105,18 @@ def async_run(coroutine):
          https://github.com/snakemake/snakemake/issues/1105
          https://stackoverflow.com/a/65696398
     """
-    if ON_WINDOWS:
-        # On Windows, asyncio.run() creates a new ProactorEventLoop every time.
-        # This loop uses a socket pair for the self-pipe, which consumes ephemeral ports.
-        # Repeated calls to asyncio.run() (as done in the scheduler) can lead to
-        # port exhaustion and hangs. We reuse a thread-local loop to avoid this,
-        # ensuring each thread has its own long-lived loop.
-        if not hasattr(_thread_local, "loop") or _thread_local.loop.is_closed():
-            _thread_local.loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(_thread_local.loop)
-        try:
-            return _thread_local.loop.run_until_complete(coroutine)
-        except RuntimeError as e:
-            coroutine.close()
-            raise WorkflowError("Error running coroutine in event loop.", e)
-
+    # We reuse a thread-local loop to avoid:
+    # 1. On Windows: Port exhaustion (ProactorEventLoop creates TCP sockets)
+    # 2. On Linux: Thread bloat (New loops spawn new ThreadPoolExecutors)
+    if not hasattr(_thread_local, "loop") or _thread_local.loop.is_closed():
+        _thread_local.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(_thread_local.loop)
+        # Limit inner threads to 1, effectively flattening the "Pool of Pools"
+        _thread_local.loop.set_default_executor(
+            concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        )
     try:
-        return asyncio.run(coroutine)
+        return _thread_local.loop.run_until_complete(coroutine)
     except RuntimeError as e:
         coroutine.close()
         raise WorkflowError(
