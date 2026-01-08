@@ -11,13 +11,14 @@ import shutil
 import stat
 import threading
 import typing
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
-from snakemake import utils
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
+
 import tempfile
 import io
 from abc import ABC, abstractmethod
 from urllib.parse import unquote
 
+from snakemake import utils
 from snakemake.utils import format
 from snakemake.common import (
     ON_WINDOWS,
@@ -349,19 +350,21 @@ class HostedGitRepo:
         except KeyError:
             return False
 
-    def fetch(self):
-        from git import Repo
+    def fetch(self) -> Optional[str]:
+        import git
+        from reretry import retry_call
 
-        # lock free fetching: first copy the repo to a tmp dir,
-        # then fetch and move back
-
-        with self._tmpdir() as tmpdir:
-            logger.info(
-                f"Fetching latest changes of {self.host}/{self.repo} to {self.repo_clone}"
+        logger.info(
+            f"Fetching latest changes of {self.host}/{self.repo_name} to {self.repo_clone}"
+        )
+        try:
+            retry_call(
+                self.repo.remotes.origin.fetch,
+                delay=3,
+                backoff=2,
             )
-            shutil.copytree(self.repo_clone, tmpdir)
-            Repo(tmpdir).remotes.origin.fetch()
-            shutil.move(tmpdir, self.repo_clone)
+        except git.GitCommandError as e:
+            return str(e)
 
     @property
     def repo(self) -> "git.Repo":
@@ -371,9 +374,9 @@ class HostedGitRepo:
 class HostingProviderFile(SourceFile):
     """Marker for denoting github source files from releases."""
 
-    valid_repo = re.compile("^.+/.+$")
-    _hosted_repos: Dict[str, HostedGitRepo] = {}
-    _lock = threading.Lock()
+    valid_repo: ClassVar[re.Pattern] = re.compile("^.+/.+$")
+    _hosted_repos: ClassVar[Dict[str, HostedGitRepo]] = {}
+    _lock: ClassVar[threading.Lock] = threading.Lock()
 
     def __init__(
         self,
@@ -511,7 +514,7 @@ class HostingProviderFile(SourceFile):
         if not self.hosted_repo.ref_exists(
             self.ref
         ) or not self.hosted_repo.file_exists(path=self.path, ref=self.ref):
-            self.hosted_repo.fetch()
+            fetch_error = self.hosted_repo.fetch()
         try:
             return io.BytesIO(
                 self.hosted_repo.repo.git.show(f"{self.ref}:{self.path}").encode()
