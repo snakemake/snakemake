@@ -49,7 +49,7 @@ from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFou
 
 from snakemake.common import (
     ON_WINDOWS,
-    async_run,
+    async_run as async_run_fallback,
     get_input_function_aux_params,
     is_namedtuple_instance,
 )
@@ -461,8 +461,7 @@ class _IOFile(str, AnnotatedStringInterface):
             return self._file
         else:
             raise ValueError(
-                "This IOFile is specified as a function and "
-                "may not be used directly."
+                "This IOFile is specified as a function and may not be used directly."
             )
 
     def check(self):
@@ -1934,7 +1933,8 @@ class InputFiles(Namedlist):
             sizes = await asyncio.gather(*map(get_size, self))
             return [res for res in sizes if res is not None]
 
-        return async_run(sizes())
+        # the async_run method is expected to be provided through the eval context
+        return globals().get("async_run", async_run_fallback)(sizes())
 
     @property
     def size_files(self):

@@ -1069,8 +1069,7 @@ class Rule(RuleInterface):
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in benchmark file cannot be "
-                "determined from output files:",
+                "Wildcards in benchmark file cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -1092,7 +1091,7 @@ class Rule(RuleInterface):
                 if isinstance(res, AnnotatedString) and res.callable:
                     res = res.callable
                 if callable(res):
-                    aux = dict(rulename=self.name)
+                    aux = dict(rulename=self.name, async_run=self.workflow.async_run)
                     if threads is not None:
                         aux["threads"] = threads
                     try:
