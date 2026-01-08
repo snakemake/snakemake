@@ -9,6 +9,7 @@ import re
 import os
 import shutil
 import stat
+import threading
 import typing
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from snakemake import utils
@@ -372,6 +373,7 @@ class HostingProviderFile(SourceFile):
 
     valid_repo = re.compile("^.+/.+$")
     _hosted_repos: Dict[str, HostedGitRepo] = {}
+    _lock = threading.Lock()
 
     def __init__(
         self,
@@ -481,15 +483,13 @@ class HostingProviderFile(SourceFile):
                     f"file {self.path} in repo {self.repo}."
                 )
 
-            hosted_repo = HostedGitRepo(
-                self.repo, self.cache_path, self.auth, self.host
-            )
-            self._hosted_repos[self.repo] = hosted_repo
+            # Ensure that multiple threads don't concurrently create the same instance
+            with self._lock:
+                hosted_repo = HostedGitRepo(
+                    self.repo, self.cache_path, self.auth, self.host
+                )
+                self._hosted_repos[self.repo] = hosted_repo
             return hosted_repo
-
-    @hosted_repo.setter
-    def hosted_repo(self, hosted_repo: HostedGitRepo):
-        self._hosted_repo = hosted_repo
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
@@ -506,6 +506,8 @@ class HostingProviderFile(SourceFile):
         return last_commit.committed_date
 
     def open(self) -> io.BytesIO:
+        import git
+
         if not self.hosted_repo.ref_exists(
             self.ref
         ) or not self.hosted_repo.file_exists(path=self.path, ref=self.ref):
