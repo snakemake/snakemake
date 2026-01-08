@@ -536,7 +536,7 @@ class HostingProviderFile(SourceFile):
             msg = f"Failed to get cached git source file {self.repo}:{self.path}: {e}. "
             if fetch_error:
                 msg += f" Unable to fetch from remote: {fetch_error}."
-            raise WorkflowError(msg)
+            raise WorkflowError(msg) from e
 
     @property
     def ref(self) -> str:
