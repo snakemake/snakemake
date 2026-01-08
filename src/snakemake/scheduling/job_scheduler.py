@@ -347,7 +347,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         else:
                             if not self.dryrun and not self.workflow.subprocess_exec:
                                 # retrieve storage inputs for local jobs
-                                self.workflow._async_runner.run(
+                                self.workflow.async_run(
                                     self.workflow.dag.retrieve_storage_inputs(
                                         jobs=local_runjobs, also_missing_internal=True
                                     )
@@ -371,7 +371,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             # Retrieve storage inputs for remote jobs, as storage local copies are handled
                             # via a shared filesystem.
                             # If local copies are not shared, they will be downloaded in the remote job.
-                            self.workflow._async_runner.run(
+                            self.workflow.async_run(
                                 self.workflow.dag.retrieve_storage_inputs(
                                     jobs=runjobs, also_missing_internal=True
                                 )
@@ -483,7 +483,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     update_checkpoint_dependencies=self.update_checkpoint_dependencies,
                 )
 
-        self.workflow._async_runner.run(postprocess())
+        self.workflow.async_run(postprocess())
         self._tofinish.clear()
 
     def update_queue_input_jobs(self):
@@ -493,7 +493,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             >= self.workflow.execution_settings.queue_input_wait_time
         ):
             self._last_update_queue_input_jobs = currtime
-            self.workflow._async_runner.run(self.workflow.dag.update_queue_input_jobs())
+            self.workflow.async_run(self.workflow.dag.update_queue_input_jobs())
 
     def _error_jobs(self):
         # must be called from within lock
@@ -549,7 +549,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """
         # must be called from within lock
         if postprocess_job and not self.workflow.dryrun:
-            self.workflow._async_runner.run(job.postprocess(error=True))
+            self.workflow.async_run.run(job.postprocess(error=True))
         self.get_executor(job).handle_job_error(job)
         self.running.remove(job)
         self._free_resources(job)
@@ -573,7 +573,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         for job in jobs:
             self.validate_job(job)
 
-        self.workflow._async_runner.run(self.update_input_sizes(jobs))
+        self.workflow.async_run.run(self.update_input_sizes(jobs))
 
         def run_selector(job_selector) -> Sequence[AbstractJob]:
             with self._lock:

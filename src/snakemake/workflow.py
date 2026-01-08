@@ -12,6 +12,7 @@ import sys
 import platform
 import dis
 import linecache
+import threading
 from collections import OrderedDict, namedtuple
 from collections.abc import Iterator, Mapping
 from itertools import filterfalse, chain
@@ -220,7 +221,8 @@ class Workflow(WorkflowExecutorInterface):
         self._source_archive = None
         self._checkpoints = Checkpoints()
 
-        self._async_runner = async_runner().__enter__()
+        self._async_runners = dict()
+        self._async_lock = threading.Lock()
 
         _globals = globals()
         from snakemake.shell import shell
@@ -250,6 +252,15 @@ class Workflow(WorkflowExecutorInterface):
         self.globals["config"] = config
         self.pathvars.update(Pathvars.from_config(config))
 
+    def async_run(self, coro):
+        threadid = threading.get_ident()
+        with self._async_lock:
+            runner = self._async_runners.get(threadid)
+            if runner is None:
+                runner = async_runner().__enter__()
+                self._async_runners[threadid] = runner
+        return runner.run(coro)
+
     @property
     def included(self) -> Iterator[SourceFile]:
         """
@@ -271,7 +282,9 @@ class Workflow(WorkflowExecutorInterface):
         if self._workdir_handler is not None:
             self._workdir_handler.change_back()
         self._snakemake_tmp_dir.cleanup()
-        self._async_runner.close()
+        with self._async_lock:
+            for runner in self._async_runners.values():
+                runner.close()
 
     @property
     def is_main_process(self):
@@ -318,7 +331,7 @@ class Workflow(WorkflowExecutorInterface):
             obj = self.storage_registry.default_storage_provider.object(
                 self._source_archive.query
             )
-            self._async_runner.run(obj.managed_remove())
+            self.async_run(obj.managed_remove())
 
     def upload_sources(self):
         assert self.storage_settings is not None
@@ -338,7 +351,7 @@ class Workflow(WorkflowExecutorInterface):
             obj = self.storage_registry.default_storage_provider.object(query)
             obj.set_local_path(Path(tf.name))
             logger.info("Uploading source archive to storage provider...")
-            self._async_runner.run(obj.managed_store())
+            self.async_run(obj.managed_store())
 
     def write_source_archive(self, path: Path):
         def get_files():
@@ -971,7 +984,7 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
 
-        self._async_runner.run(self.dag.clean(only_temp=only_temp, dryrun=dryrun))
+        self.async_run(self.dag.clean(only_temp=only_temp, dryrun=dryrun))
 
     def list_untracked(self):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
@@ -983,7 +996,7 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
 
-        items = self._async_runner.run(self.dag.get_outputs_with_changes(change_type))
+        items = self.async_run(self.dag.get_outputs_with_changes(change_type))
         if items:
             print(*items, sep="\n")
 
@@ -1012,7 +1025,7 @@ class Workflow(WorkflowExecutorInterface):
                 [line async for line in self.dag.summary(detailed=detailed)]
             )
 
-        print(self._async_runner.run(join_summary(detailed)))
+        print(self.async_run(join_summary(detailed)))
 
     def printdag(self):
         assert self.dag_settings is not None
@@ -1104,7 +1117,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        self._async_runner.run(
+        self.async_run(
             auto_report(
                 self.dag, report_plugin, report_settings, global_report_settings
             )
@@ -1221,8 +1234,8 @@ class Workflow(WorkflowExecutorInterface):
 
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
-        self._async_runner.run(self.dag.init())
-        self._async_runner.run(self.dag.update_checkpoint_dependencies())
+        self.async_run(self.dag.init())
+        self.async_run(self.dag.update_checkpoint_dependencies())
 
         self.log_rulegraph()
 
@@ -1257,7 +1270,7 @@ class Workflow(WorkflowExecutorInterface):
 
         if self.execution_settings.wait_for_files:
             try:
-                self._async_runner.run(
+                self.async_run(
                     snakemake.io.wait_for_files(
                         self.execution_settings.wait_for_files,
                         latency_wait=self.execution_settings.latency_wait,
@@ -1281,7 +1294,7 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         with self.persistence.lock():
-            self._async_runner.run(
+            self.async_run(
                 self.dag.postprocess(update_needrun=False, check_initial=True)
             )
             if not self.dryrun:
@@ -1456,9 +1469,9 @@ class Workflow(WorkflowExecutorInterface):
                 self.dag.cleanup_workdir()
 
             if not dryrun_or_touch:
-                self._async_runner.run(self.dag.store_storage_outputs())
+                self.async_run(self.dag.store_storage_outputs())
                 if not self.storage_settings.keep_storage_local:
-                    self._async_runner.run(self.dag.cleanup_storage_objects())
+                    self.async_run(self.dag.cleanup_storage_objects())
 
             if success:
                 if self.dryrun:

@@ -66,7 +66,7 @@ class Executor(RealExecutor):
                             f"Output files not touched because they don't exist: {', '.join(non_existing_files)}"
                         )
 
-                self.workflow._async_runner.run(touch())
+                self.workflow.async_run(touch())
 
             self.report_job_submission(job_info)
             self.report_job_success(job_info)
