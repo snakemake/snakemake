@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from functools import partial
 from pathlib import Path
 import posixpath
 import re
@@ -366,9 +367,12 @@ class HostedGitRepo:
         )
         try:
             retry_call(
-                self.repo.remotes.origin.fetch,
+                # arg is needed in order to have a refspec, associated issue with
+                # workaround is here: https://github.com/gitpython-developers/GitPython/issues/296
+                partial(self.repo.remotes.origin.fetch, "+refs/heads/*:refs/heads/*"),
                 delay=3,
                 backoff=2,
+                tries=3,
             )
         except git.GitCommandError as e:
             return str(e)
