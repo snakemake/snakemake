@@ -47,7 +47,7 @@ def containerize(workflow, dag):
             )
 
         env_def = infer_source_file(rule.conda_env, rule.basedir)
-        spec = CondaEnvFileSpec(env_def, rule=rule)
+        spec = CondaEnvFileSpec(env_def)
         conda_env = spec.get_conda_env(workflow, envs_dir=CONDA_ENV_PATH)
         if conda_env.is_externally_managed:
             logger.warning(
