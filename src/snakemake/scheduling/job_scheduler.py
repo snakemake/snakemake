@@ -359,13 +359,15 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 executor=self._local_executor or self._executor,
                             )
                     if runjobs:
-                        # If we are already in a remote process, there are for now only local jobs.
-                        # TODO: there are plans to chain remote executors. In that case, we should
-                        # reconsider this logic and decide where to download the storage inputs.
-                        assert self.workflow.is_main_process
-                        if not self.workflow.dryrun and (
+                        is_shared_fs = (
                             SharedFSUsage.STORAGE_LOCAL_COPIES
                             in self.workflow.storage_settings.shared_fs_usage
+                        )
+                        # TODO: there are plans to chain remote executors. In that case, we should
+                        # reconsider this logic and decide where to download the storage inputs.
+                        if not self.workflow.dryrun and (
+                            (self.workflow.is_main_process and is_shared_fs)
+                            or (not is_shared_fs and self.workflow.remote_exec)
                         ):
                             # Retrieve storage inputs for remote jobs, as storage local copies are handled
                             # via a shared filesystem.

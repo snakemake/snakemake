@@ -408,7 +408,6 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     show_failed_logs
     log_handler_settings
         Settings for all enabled logger plugins (dictionary keyed by plugin name).
-    keep_logger
     stdout
         Log to stdout instead of stderr.
     benchmark_extended
@@ -417,6 +416,8 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     skip_plugin_handlers
         Skip plugins/queue (remote mode).
     enable_file_logging
+    keep_logger
+        Deprecated, no longer functional. Will be removed in v10.0.
     """
 
     dryrun: bool = False
@@ -427,12 +428,12 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     verbose: bool = False
     show_failed_logs: bool = False
     log_handler_settings: Mapping[str, LogHandlerSettingsBase] = immutables.Map()
-    keep_logger: bool = False
     stdout: bool = False
     benchmark_extended: bool = False
     log_level_override: Optional[int] = None
     skip_plugin_handlers: bool = False
     enable_file_logging: bool = True
+    keep_logger: bool = False
 
 
 @dataclass

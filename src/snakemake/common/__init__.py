@@ -150,7 +150,7 @@ def parse_uri(path_or_uri):
             raise e
 
 
-def smart_join(base, path, abspath=False):
+def smart_join(base, path, abspath=False) -> str:
     if is_local_file(base):
         full = os.path.join(base, path)
         if abspath:

@@ -1216,6 +1216,7 @@ class Rule(RuleInterface):
             self._expanded_conda_env = None
             return None
 
+        assert isinstance(conda_env, (str, Path, SourceFile))
         spec_type = CondaEnvSpecType.from_spec(conda_env)
 
         if spec_type is CondaEnvSpecType.FILE:
@@ -1229,13 +1230,16 @@ class Rule(RuleInterface):
                     # infer source file from unmodified uri or path
                     conda_env = infer_source_file(conda_env)
 
-            conda_env = CondaEnvFileSpec(conda_env, rule=self)
+            conda_env = CondaEnvFileSpec(conda_env)
         elif spec_type is CondaEnvSpecType.NAME:
+            assert isinstance(conda_env, str)
             conda_env = CondaEnvNameSpec(conda_env)
         elif spec_type is CondaEnvSpecType.DIR:
-            conda_env = CondaEnvDirSpec(conda_env, rule=self)
+            conda_env = CondaEnvDirSpec(conda_env)
+        else:
+            raise RuntimeError(f"bug: unsupported conda spec type {spec_type}")
 
-        conda_env = conda_env.apply_wildcards(wildcards, self)
+        conda_env = conda_env.apply_wildcards(wildcards)
         conda_env.check()
 
         if cacheable:

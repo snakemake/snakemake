@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from functools import partial
 import os
 import shutil
 import sys
@@ -12,6 +13,7 @@ import tempfile
 
 import pytest
 from snakemake.deployment.conda import get_env_setup_done_flag_file
+from snakemake.sourcecache import HostingProviderFile
 
 sys.path.insert(0, os.path.dirname(__file__))
 

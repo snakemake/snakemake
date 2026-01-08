@@ -173,14 +173,13 @@ cmd = [
   "tests/test_internals.py",
   "tests/test_jupyter_notebook_pathlike.py",
   "tests/test_logging.py",
+  "tests/test_sourcecache.py",
+  "tests/test_output_index.py",
+  "tests/test_prefix_lookup.py",
+  "tests/test_args.py",
   # the tests below were never tested in the old CI and currently fail
-  # "tests/test_args.py",
-  # "tests/test_output_index.py",
-  # "tests/test_path_modifier.py",
   # "tests/test_persistence.py"
-  # "tests/test_prefix_lookup.py",
   # "tests/test_script.py",
-  # "tests/test_sourcecache.py",
 ]
 
 [tool.pixi.feature.test.dependencies]
