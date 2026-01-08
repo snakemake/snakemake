@@ -549,7 +549,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """
         # must be called from within lock
         if postprocess_job and not self.workflow.dryrun:
-            self.workflow.async_run.run(job.postprocess(error=True))
+            self.workflow.async_run(job.postprocess(error=True))
         self.get_executor(job).handle_job_error(job)
         self.running.remove(job)
         self._free_resources(job)
@@ -573,7 +573,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         for job in jobs:
             self.validate_job(job)
 
-        self.workflow.async_run.run(self.update_input_sizes(jobs))
+        self.workflow.async_run(self.update_input_sizes(jobs))
 
         def run_selector(job_selector) -> Sequence[AbstractJob]:
             with self._lock:
