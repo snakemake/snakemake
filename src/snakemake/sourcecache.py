@@ -28,7 +28,7 @@ from snakemake.common import (
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.common.git import split_git_path
 from snakemake.logging import logger
-from snakemake.io import apply_wildcards, check
+from snakemake.io import check
 
 
 if TYPE_CHECKING:
@@ -249,7 +249,7 @@ class LocalGitFile(SourceFile):
     def format(self, **kwargs: Any) -> "typing.Self":
         return self.__class__(
             repo_path=format(self.repo_path, **kwargs),
-            path=apply_wildcards(self.path, **kwargs),
+            path=format(self.path, **kwargs),
             tag=_format_or_none(self.tag, **kwargs),
             ref=_format_or_none(self._ref, **kwargs),
             commit=_format_or_none(self.commit, **kwargs),
@@ -441,7 +441,7 @@ class HostingProviderFile(SourceFile):
     def check(self) -> None:
         check(self.path)
 
-    def apply_wildcards(self, **kwargs: Any) -> "typing.Self":
+    def format(self, **kwargs: Any) -> "typing.Self":
         return self.__class__(
             repo=_format_or_none(self.repo, **kwargs),
             path=_format_or_none(self.path, **kwargs),
