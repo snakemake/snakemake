@@ -680,6 +680,7 @@ class Rule(RuleInterface):
         incomplete_checkpoint_func=lambda e: None,
         raw_exceptions=False,
         groupid=None,
+        async_run=None,
         **aux_params,
     ):
         if isinstance(func, _IOFile):
@@ -703,6 +704,11 @@ class Rule(RuleInterface):
         for name, value in list(_aux_params.items()):
             if callable(value):
                 _aux_params[name] = value()
+
+        # async_run needs to be passed as a method and therefore is only added after
+        # evaluating the others
+        if async_run is not None and "async_run" in get_function_params(func):
+            _aux_params["async_run"] = async_run
 
         wildcards_arg = Wildcards(fromdict=wildcards)
 
