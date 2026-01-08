@@ -6,7 +6,7 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 import re
-from typing import Union
+from typing import Optional, Union
 from snakemake.sourcecache import (
     LocalGitFile,
     LocalSourceFile,
@@ -434,7 +434,7 @@ class Env:
                     pin_file = tmp.name
                     tmp_pin_file = tmp.name
         else:
-            env_file = env_file.get_path_or_uri(secret_free=False)
+            env_file = env_file.get_path_or_uri(secret_free=True)
             deploy_file = self.post_deploy_file
             if not dryrun:
                 pin_file = self.pin_file
@@ -884,7 +884,7 @@ class CondaEnvFileSpec(CondaEnvSpec):
         self.file = source_file
 
     def apply_wildcards(self, wildcards):
-        source_file = self.file.apply_wildcards(wildcards)
+        source_file = self.file.format(**wildcards)
         return self.__class__(source_file)
 
     def check(self):
@@ -991,16 +991,19 @@ class CondaEnvSpecType(Enum):
     @classmethod
     def from_spec(cls, spec: Union[str, SourceFile, Path]):
         if isinstance(spec, SourceFile):
-            if isinstance(spec, LocalSourceFile):
-                spec = spec.get_path_or_uri(secret_free=False)
+            if spec.endswith(".yaml") or spec.endswith(".yml"):
+                return cls.FILE
+            elif isinstance(spec, LocalSourceFile) and os.path.isdir(spec.path):
+                return cls.DIR
             else:
-                spec = spec.get_filename()
-        elif isinstance(spec, Path):
-            spec = str(spec)
-
-        if spec.endswith(".yaml") or spec.endswith(".yml"):
-            return cls.FILE
-        elif is_local_file(spec) and os.path.isdir(spec):
-            return cls.DIR
+                return cls.NAME
         else:
-            return cls.NAME
+            if isinstance(spec, Path):
+                spec = str(spec)
+
+            if spec.endswith(".yaml") or spec.endswith(".yml"):
+                return cls.FILE
+            elif is_local_file(spec) and os.path.isdir(spec):
+                return cls.DIR
+            else:
+                return cls.NAME

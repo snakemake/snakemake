@@ -2492,6 +2492,13 @@ def test_temp_and_all_input():
     run(dpath("test_temp_and_all_input"))
 
 
+@pytest.mark.skip(
+    reason="Unsupported for now, we would have to maintain the entire github repo on the local disk. "
+    "This can cause race conditions and is quite inefficient on network filesystems. "
+    "Currently, we do a bare checkout of the repo only. "
+    "One way would be a non-bare checkout that could be enabled optionally upon "
+    "snakefile module import."
+)
 def test_python_import_from_github_module():
     run(dpath("test_python_import_from_github_module"))
 

@@ -660,7 +660,7 @@ class ScriptBase(ABC):
     @property
     def local_path(self):
         assert self.is_local
-        return self.path.get_path_or_uri(secret_free=False)
+        return self.path.get_path_or_uri(secret_free=True)
 
     @abstractmethod
     def get_preamble(self) -> str: ...
@@ -957,7 +957,7 @@ class RScript(ScriptBase):
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
-            
+
                 is_url <- grepl("^https?://", snakemake@scriptdir)
                 file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
                 if (!is_url) setwd(snakemake@scriptdir)
@@ -1070,7 +1070,7 @@ class RMarkdown(ScriptBase):
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
-            
+
                 is_url <- grepl("^https?://", snakemake@scriptdir)
                 file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
                 if (!is_url) setwd(snakemake@scriptdir)
@@ -1653,9 +1653,9 @@ def get_source(
 ):
     if wildcards is not None and params is not None:
         if isinstance(path, SourceFile):
-            path = path.get_path_or_uri(secret_free=False)
-        # Format path if wildcards are given.
-        path = infer_source_file(format(path, wildcards=wildcards, params=params))
+            path = path.format(wildcards=wildcards, params=params)
+        else:
+            path = infer_source_file(format(path, wildcards=wildcards, params=params))
 
     if basedir is not None:
         basedir = infer_source_file(basedir)

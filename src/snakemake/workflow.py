@@ -1623,12 +1623,12 @@ class Workflow(WorkflowExecutorInterface):
         if not self.modifier.is_module and snakefile in self.included:
             logger.info(f"Multiple includes of {snakefile} ignored")
             return
-        self._included[snakefile.get_path_or_uri(secret_free=False)] = snakefile
+        self._included[snakefile.get_path_or_uri(secret_free=True)] = snakefile
         self.included_stack.append(snakefile)
 
         default_target = self.default_target
         linemap: Dict[int, int] = dict()
-        self.linemaps[snakefile.get_path_or_uri(secret_free=False)] = linemap
+        self.linemaps[snakefile.get_path_or_uri(secret_free=True)] = linemap
         code, rulecount = parse(
             snakefile,
             self,

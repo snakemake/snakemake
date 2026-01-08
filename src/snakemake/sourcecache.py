@@ -10,14 +10,14 @@ import os
 import shutil
 import stat
 import typing
-from typing import TYPE_CHECKING, Dict, List, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from snakemake import utils
 import tempfile
 import io
 from abc import ABC, abstractmethod
 from urllib.parse import unquote
 
-
+from snakemake.utils import format
 from snakemake.common import (
     ON_WINDOWS,
     LockFreeWritableFile,
@@ -35,8 +35,8 @@ if TYPE_CHECKING:
     import git
 
 
-def _apply_wildcards_or_none(pattern: Optional[str], wildcards: Mapping[str, str]):
-    return apply_wildcards(pattern, wildcards) if pattern is not None else None
+def _format_or_none(pattern: Optional[str], **kwargs: Any):
+    return format(pattern, **kwargs) if pattern is not None else None
 
 
 def _check_git_args(
@@ -77,10 +77,13 @@ class SourceFile(ABC):
         return self.__class__(path)
 
     @abstractmethod
-    def apply_wildcards(self, wildcards) -> "typing.Self": ...
+    def format(self, **kwargs: Any) -> "typing.Self": ...
 
     @abstractmethod
     def get_filename(self) -> str: ...
+
+    @abstractmethod
+    def endswith(self, suffix: str) -> bool: ...
 
     @abstractmethod
     def replace_suffix(
@@ -123,6 +126,9 @@ class GenericSourceFile(SourceFile):
     def __init__(self, path_or_uri):
         self.path_or_uri = path_or_uri
 
+    def endswith(self, suffix: str) -> bool:
+        return self.path_or_uri.endswith(suffix)
+
     def replace_suffix(
         self, suffix: List[str], replacement: str
     ) -> Optional["typing.Self"]:
@@ -135,8 +141,8 @@ class GenericSourceFile(SourceFile):
     def check(self) -> None:
         pass
 
-    def apply_wildcards(self, wildcards) -> "typing.Self":
-        return self.__class__(apply_wildcards(self.path_or_uri, wildcards))
+    def format(self, **kwargs: Any) -> "typing.Self":
+        return self.__class__(format(self.path_or_uri, **kwargs))
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path_or_uri
@@ -156,6 +162,9 @@ class LocalSourceFile(SourceFile):
     def __init__(self, path):
         self.path = path
 
+    def endswith(self, suffix: str) -> bool:
+        return self.path.endswith(suffix)
+
     def replace_suffix(
         self, suffix: List[str], replacement: str
     ) -> Optional["typing.Self"]:
@@ -168,8 +177,8 @@ class LocalSourceFile(SourceFile):
     def check(self) -> None:
         check(self.path)
 
-    def apply_wildcards(self, wildcards) -> "typing.Self":
-        return self.__class__(apply_wildcards(self.path, wildcards))
+    def format(self, **kwargs: Any) -> "typing.Self":
+        return self.__class__(format(self.path, **kwargs))
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path
@@ -216,6 +225,9 @@ class LocalGitFile(SourceFile):
         self.repo_path = repo_path
         self.path = path
 
+    def endswith(self, suffix: str) -> bool:
+        return self.path.endswith(suffix)
+
     def replace_suffix(
         self, suffix: List[str], replacement: str
     ) -> Optional["typing.Self"]:
@@ -234,13 +246,13 @@ class LocalGitFile(SourceFile):
     def check(self) -> None:
         check(self.path)
 
-    def apply_wildcards(self, wildcards) -> "typing.Self":
+    def format(self, **kwargs: Any) -> "typing.Self":
         return self.__class__(
-            repo_path=apply_wildcards(self.repo_path, wildcards),
-            path=apply_wildcards(self.path, wildcards),
-            tag=_apply_wildcards_or_none(self.tag, wildcards),
-            ref=_apply_wildcards_or_none(self._ref, wildcards),
-            commit=_apply_wildcards_or_none(self.commit, wildcards),
+            repo_path=format(self.repo_path, **kwargs),
+            path=apply_wildcards(self.path, **kwargs),
+            tag=_format_or_none(self.tag, **kwargs),
+            ref=_format_or_none(self._ref, **kwargs),
+            commit=_format_or_none(self.commit, **kwargs),
         )
 
     def get_path_or_uri(self, secret_free: bool) -> str:
@@ -406,6 +418,9 @@ class HostingProviderFile(SourceFile):
     def __post_init__(self):
         pass
 
+    def endswith(self, suffix: str) -> bool:
+        return self.path.endswith(suffix)
+
     def replace_suffix(
         self, suffix: List[str], replacement: str
     ) -> Optional["typing.Self"]:
@@ -426,14 +441,14 @@ class HostingProviderFile(SourceFile):
     def check(self) -> None:
         check(self.path)
 
-    def apply_wildcards(self, wildcards) -> "typing.Self":
+    def apply_wildcards(self, **kwargs: Any) -> "typing.Self":
         return self.__class__(
-            repo=_apply_wildcards_or_none(self.repo, wildcards),
-            path=_apply_wildcards_or_none(self.path, wildcards),
-            tag=_apply_wildcards_or_none(self.tag, wildcards),
-            branch=_apply_wildcards_or_none(self.branch, wildcards),
-            commit=_apply_wildcards_or_none(self.commit, wildcards),
-            host=_apply_wildcards_or_none(self.host, wildcards),
+            repo=_format_or_none(self.repo, **kwargs),
+            path=_format_or_none(self.path, **kwargs),
+            tag=_format_or_none(self.tag, **kwargs),
+            branch=_format_or_none(self.branch, **kwargs),
+            commit=_format_or_none(self.commit, **kwargs),
+            host=_format_or_none(self.host, **kwargs),
             cache_path=self._cache_path,
         )
 

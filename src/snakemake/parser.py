@@ -1360,7 +1360,7 @@ class Snakefile:
         workflow: "workflow.Workflow",
         rulecount=0,
     ):
-        self.path = path.get_path_or_uri(secret_free=False)
+        self.path = path.get_path_or_uri(secret_free=True)
         self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = rulecount
