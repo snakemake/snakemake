@@ -596,9 +596,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # get number of free jobs to submit
         if self.job_rate_limiter is None:
             # ensure that the job count is not restricted
-            assert self.resources["_job_count"] == sys.maxsize, (
-                f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
-            )
+            assert (
+                self.resources["_job_count"] == sys.maxsize
+            ), f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
             return run_selector(self._job_selector)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:
