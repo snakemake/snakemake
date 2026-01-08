@@ -9,7 +9,6 @@ from snakemake_interface_executor_plugins.jobs import (
 )
 from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
-from snakemake.common import async_run
 
 from snakemake.logging import logger
 
