@@ -13,7 +13,7 @@ import inspect
 import shutil
 import sys
 from tempfile import NamedTemporaryFile
-from typing import Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Mapping, Optional, Tuple
 import uuid
 import os
 import asyncio
@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Union
 
 from snakemake import __version__
-from snakemake_interface_common.exceptions import WorkflowError
+from snakemake.exceptions import NestedCoroutineError
 
 
 MIN_PY_VERSION: Tuple[int, int] = (3, 7)
@@ -66,8 +66,12 @@ def get_report_id(path: Union[str, Path]) -> str:
     return h.hexdigest()
 
 
-def mb_to_mib(mb):
+def mb_to_mib(mb: int):
     return int(math.ceil(mb * 0.95367431640625))
+
+
+def mib_to_mb(mib: int):
+    return int(math.floor(mib / 0.95367431640625))
 
 
 def parse_key_value_arg(arg, errmsg, strip_quotes=True):
@@ -104,7 +108,7 @@ def async_run(coroutine):
         return asyncio.run(coroutine)
     except RuntimeError as e:
         coroutine.close()
-        raise WorkflowError(
+        raise NestedCoroutineError(
             "Error running coroutine in event loop. Snakemake currently does not "
             "support being executed from an already running event loop. "
             "If you run Snakemake e.g. from a Jupyter notebook, make sure to spawn a "
@@ -308,7 +312,9 @@ def overwrite_function_params(func: Callable, params: List[str]):
     setattr(func, FUNC_OVERWRITE_PARAMS_ATTR, params)
 
 
-def get_input_function_aux_params(func, candidate_params):
+def get_input_function_aux_params(
+    func: Callable[..., Any], candidate_params: Mapping[str, Any]
+) -> Mapping[str, Any]:
     func_params = get_function_params(func)
     has_var_keyword = any(
         param.kind == param.VAR_KEYWORD for param in func_params.values()

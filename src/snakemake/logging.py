@@ -16,7 +16,7 @@ import os
 import threading
 from queue import Queue
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 import textwrap
 from typing import List, Optional, Collection, TextIO
 from snakemake_interface_logger_plugins.base import LogHandlerBase
@@ -65,7 +65,7 @@ def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
     omit_keys = omit_keys or []
     omit_values = omit_values or []
 
-    if isinstance(dict_like, (Namedlist, dict)):
+    if isinstance(dict_like, (Namedlist, Mapping)):
         items = dict_like.items()
 
     else:
