@@ -134,6 +134,7 @@ from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
+    HostingProviderFile,
     LocalSourceFile,
     SourceCache,
     SourceFile,
@@ -1638,17 +1639,21 @@ class Workflow(WorkflowExecutorInterface):
         Include a snakefile.
         """
         basedir = self.current_basedir if self.included_stack else None
+
+        if isinstance(snakefile, HostingProviderFile):
+            snakefile.cache_path = self.sourcecache.cache_path
+
         snakefile = infer_source_file(snakefile, basedir)
 
         if not self.modifier.is_module and snakefile in self.included:
             logger.info(f"Multiple includes of {snakefile} ignored")
             return
-        self._included[snakefile.get_path_or_uri(secret_free=False)] = snakefile
+        self._included[snakefile.get_path_or_uri(secret_free=True)] = snakefile
         self.included_stack.append(snakefile)
 
         default_target = self.default_target
         linemap: Dict[int, int] = dict()
-        self.linemaps[snakefile.get_path_or_uri(secret_free=False)] = linemap
+        self.linemaps[snakefile.get_path_or_uri(secret_free=True)] = linemap
         code, rulecount = parse(
             snakefile,
             self,
@@ -1665,14 +1670,12 @@ class Workflow(WorkflowExecutorInterface):
             secret_free=False
         )
         if (
-            isinstance(snakefile, LocalSourceFile)
+            isinstance(snakefile, (LocalSourceFile, HostingProviderFile))
             and snakefile_path_or_uri not in sys.path
         ):
             # insert the current directory into sys.path
             # this allows to import modules from the workflow directory
-            sys.path.insert(
-                0, snakefile.get_basedir().get_path_or_uri(secret_free=False)
-            )
+            sys.path.insert(0, snakefile_path_or_uri)
 
         exec(
             compile(code, snakefile.get_path_or_uri(secret_free=False), "exec"),
