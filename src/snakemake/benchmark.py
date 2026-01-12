@@ -214,7 +214,6 @@ class BenchmarkRecord:
     def to_json(self, extended_fmt):
         """Return ``str`` with the JSON representation of this record"""
         import json
-        from pathlib import Path
 
         def _default(o):
             if isinstance(o, Path):
