@@ -1,0 +1,11 @@
+from pathlib import Path
+
+rule path_jsonl_benchmark:
+    output:
+        "test.txt"
+    benchmark:
+        "test.jsonl"
+    params:
+        path=Path("/tmp"),
+    shell:
+        "echo {params.path} > {output}"

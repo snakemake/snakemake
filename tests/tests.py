@@ -2414,6 +2414,10 @@ def test_github_issue_3374():
     )
 
 
+def test_issue3916():
+    run(dpath("test_issue3916"), benchmark_extended=True)
+
+
 @skip_on_windows  # OS agnostic
 @apptainer
 def test_issue3361_pass():

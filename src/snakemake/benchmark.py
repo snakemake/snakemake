@@ -214,10 +214,24 @@ class BenchmarkRecord:
     def to_json(self, extended_fmt):
         """Return ``str`` with the JSON representation of this record"""
         import json
+        from pathlib import Path
+
+        def _default(o):
+            if isinstance(o, Path):
+                return str(o)
+            try:
+                import numpy as np
+
+                if isinstance(o, np.generic):
+                    return o.item()
+            except ImportError:
+                pass
+            return str(o)
 
         return json.dumps(
             dict(zip(self.get_header(extended_fmt), self.get_benchmarks(extended_fmt))),
             sort_keys=True,
+            default=_default,
         )
 
 
