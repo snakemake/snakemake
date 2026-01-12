@@ -288,7 +288,8 @@ class Workflow(WorkflowExecutorInterface):
             for runner in self._async_runners.values():
                 # Remove executor from runner manually to prevent `runner.close`
                 # shutting it down before the other runners finish using it
-                runner._default_executor = None
+                if runner._loop is not None:
+                    runner._loop._default_executor = None
                 runner.close()
         self._async_executor.shutdown()
 
