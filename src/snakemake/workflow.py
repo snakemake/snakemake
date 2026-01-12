@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 import hashlib
 import re
@@ -222,6 +223,7 @@ class Workflow(WorkflowExecutorInterface):
         self._checkpoints = Checkpoints()
 
         self._async_runners = dict()
+        self._async_executor = ThreadPoolExecutor()
         self._async_lock = threading.Lock()
 
         _globals = globals()
@@ -257,7 +259,7 @@ class Workflow(WorkflowExecutorInterface):
         with self._async_lock:
             runner = self._async_runners.get(threadid)
             if runner is None:
-                runner = async_runner().__enter__()
+                runner = async_runner(executor=self._async_executor).__enter__()
                 self._async_runners[threadid] = runner
         return runner.run(coro)
 
