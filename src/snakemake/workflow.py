@@ -286,7 +286,11 @@ class Workflow(WorkflowExecutorInterface):
         self._snakemake_tmp_dir.cleanup()
         with self._async_lock:
             for runner in self._async_runners.values():
+                # Remove executor from runner manually to prevent `runner.close`
+                # shutting it down before the other runners finish using it
+                runner._default_executor = None
                 runner.close()
+        self._async_executor.shutdown()
 
     @property
     def is_main_process(self):
