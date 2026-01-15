@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [9.14.7](https://github.com/snakemake/snakemake/compare/v9.14.6...v9.14.7) (2026-01-15)
+
+
+### Bug Fixes
+
+* report psutil errors in case benchmark fails ([#3925](https://github.com/snakemake/snakemake/issues/3925)) ([293ec40](https://github.com/snakemake/snakemake/commit/293ec40d9968350c4982ec31ba867113b8c1e059))
+* reuse async runner to prevent port exhaustion ([#3911](https://github.com/snakemake/snakemake/issues/3911)) ([385e0ca](https://github.com/snakemake/snakemake/commit/385e0cac3f795bfe1aea97c8e87d953f0a6f3dfb))
+
 ## [9.14.6](https://github.com/snakemake/snakemake/compare/v9.14.5...v9.14.6) (2026-01-08)
 
 
