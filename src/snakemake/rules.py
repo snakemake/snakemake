@@ -680,6 +680,7 @@ class Rule(RuleInterface):
         incomplete_checkpoint_func=lambda e: None,
         raw_exceptions=False,
         groupid=None,
+        async_run=None,
         **aux_params,
     ):
         if isinstance(func, _IOFile):
@@ -703,6 +704,11 @@ class Rule(RuleInterface):
         for name, value in list(_aux_params.items()):
             if callable(value):
                 _aux_params[name] = value()
+
+        # async_run needs to be passed as a method and therefore is only added after
+        # evaluating the others
+        if async_run is not None and "async_run" in get_function_params(func):
+            _aux_params["async_run"] = async_run
 
         wildcards_arg = Wildcards(fromdict=wildcards)
 
@@ -1069,8 +1075,7 @@ class Rule(RuleInterface):
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in benchmark file cannot be "
-                "determined from output files:",
+                "Wildcards in benchmark file cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -1092,7 +1097,7 @@ class Rule(RuleInterface):
                 if isinstance(res, AnnotatedString) and res.callable:
                     res = res.callable
                 if callable(res):
-                    aux = dict(rulename=self.name)
+                    aux = dict(rulename=self.name, async_run=self.workflow.async_run)
                     if threads is not None:
                         aux["threads"] = threads
                     try:

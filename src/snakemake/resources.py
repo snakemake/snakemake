@@ -255,7 +255,7 @@ class GroupResources:
                     # specify their resources
                     res = {
                         k: res
-                        for k, res, in job.resources.items()
+                        for k, res in job.resources.items()
                         if not isinstance(res, TBDString)
                     }
                     if job.pipe_group:
@@ -532,6 +532,7 @@ def eval_resource_expression(val, threads_arg=True):
             "attempt": kwargs["attempt"],
             "system_tmpdir": tempfile.gettempdir(),
             "shutil": shutil,
+            "async_run": kwargs["async_run"],
         }
         if threads_arg:
             args["threads"] = kwargs["threads"]
@@ -571,7 +572,7 @@ def eval_resource_expression(val, threads_arg=True):
 
     if threads_arg:
 
-        def callable(wildcards, input, attempt, threads, rulename):
+        def callable(wildcards, input, attempt, threads, rulename, async_run):
             return generic_callable(
                 val,
                 threads_arg=threads_arg,
@@ -580,11 +581,12 @@ def eval_resource_expression(val, threads_arg=True):
                 attempt=attempt,
                 threads=threads,
                 rulename=rulename,
+                async_run=async_run,
             )
 
     else:
 
-        def callable(wildcards, input, attempt, rulename):
+        def callable(wildcards, input, attempt, rulename, async_run):
             return generic_callable(
                 val,
                 threads_arg=threads_arg,
@@ -592,6 +594,7 @@ def eval_resource_expression(val, threads_arg=True):
                 input=input,
                 attempt=attempt,
                 rulename=rulename,
+                async_run=async_run,
             )
 
     return callable
