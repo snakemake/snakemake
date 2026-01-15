@@ -10,6 +10,7 @@ import os
 import time
 import threading
 from pathlib import Path
+from typing import List
 
 from snakemake.logging import logger
 
@@ -113,6 +114,7 @@ class BenchmarkRecord:
         self.skipped_procs = set()
         #: Track if data has been collected
         self.data_collected = False
+        self.errors: List[str] = []
 
     def timedelta_to_str(self, x):
         """Conversion of timedelta to str without fractions of seconds"""
@@ -169,8 +171,9 @@ class BenchmarkRecord:
         # If no data has been collect mem and cpu statistics will be printed as NA
         # to make it possible to distinguish this case from processes that complete instantly
         if not self.data_collected:
+            err_msg = "\n".join(self.errors)
             logger.warning(
-                "Benchmark: unable to collect cpu and memory benchmark statistics"
+                f"Benchmark: unable to collect cpu and memory benchmark statistics: {err_msg}"
             )
         record = [
             round(self.running_time, 4),
@@ -386,6 +389,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                 io_out = None
             data_collected = True
         except psutil.Error as e:
+            self.bench_record.errors.append(str(e))
             return
 
         # Update benchmark record's RSS and VMS
