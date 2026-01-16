@@ -363,6 +363,7 @@ class HostedGitRepo:
     def fetch(self) -> Optional[str]:
         import git
         from reretry import retry_call
+
         if self._fetched:
             # up to date, nothing to do
             return
@@ -533,11 +534,12 @@ class HostingProviderFile(SourceFile):
             )
             return last_commit.committed_date
         except git.GitCommandError as e:
-            msg = f"Failed to get mtime of cached git source file {self.ref}:{self.path}"
+            msg = (
+                f"Failed to get mtime of cached git source file {self.ref}:{self.path}"
+            )
             if fetch_error:
                 msg += f" Unable to fetch from remote: {fetch_error}."
             raise WorkflowError(msg) from e
-
 
     def open(self) -> io.BytesIO:
         import git
