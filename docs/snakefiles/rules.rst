@@ -1836,14 +1836,15 @@ For technical reasons, scripts are executed in ``.snakemake/scripts``. The origi
 
 .. _snakefiles_notebook-integration:
 
-Jupyter notebook integration
+Notebook integration
 ----------------------------
 
-Instead of plain scripts (see above), one can integrate Jupyter_ Notebooks.
+Instead of plain scripts (see above), one can integrate Jupyter_ or Marimo_ Notebooks.
 This enables the interactive development of data analysis components (e.g. for plotting).
 Integration works as follows (note the use of `notebook:` instead of `script:`):
 
 .. _Jupyter: https://jupyter.org/
+.. _Marimo: https://marimo.io/
 
 .. code-block:: python
 
@@ -1862,11 +1863,12 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
     A modular, readable workflow definition with Snakemake, and the ability to quickly explore and plot data with Jupyter.
     The benefit will be maximal when integrating many small notebooks that each do a particular job, hence allowing to get away from large monolithic, and therefore unreadable notebooks.
 
-It is recommended to prefix the ``.ipynb`` suffix with either ``.py`` or ``.r`` to indicate the notebook language.
+It is recommended to prefix the ``.ipynb`` suffix with either ``.py`` or ``.r`` to indicate the notebook language. For Marimo notebooks, the file must end with ``.marimo.py``.
 In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles-external_scripts>`.
 In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
 Optionally it is possible to automatically store the processed notebook.
 This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
+(Note that Marimo notebook logs will be stored as flat Python scripts.)
 
 .. note::
 
