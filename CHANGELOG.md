@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [9.14.8](https://github.com/snakemake/snakemake/compare/v9.14.7...v9.14.8) (2026-01-16)
+
+
+### Bug Fixes
+
+* ensure that git repos backing source files are fetched only once per run ([#3928](https://github.com/snakemake/snakemake/issues/3928)) ([2ebcd85](https://github.com/snakemake/snakemake/commit/2ebcd851964566351edb34d5b855d6efaae8f623))
+
+
+### Reverts
+
+* Config validation skip for remote jobs ([#3924](https://github.com/snakemake/snakemake/issues/3924)) ([cc7c6f0](https://github.com/snakemake/snakemake/commit/cc7c6f008d94d9646af6368242e392000dd7aace))
+
+
+### Documentation
+
+* Use snakemake logo as favicon ([#3914](https://github.com/snakemake/snakemake/issues/3914)) ([24cdf1e](https://github.com/snakemake/snakemake/commit/24cdf1e20971ff25e0a9ae97475a15b5e3e36476))
+
 ## [9.14.7](https://github.com/snakemake/snakemake/compare/v9.14.6...v9.14.7) (2026-01-15)
 
 
