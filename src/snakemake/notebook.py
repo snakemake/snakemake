@@ -245,13 +245,15 @@ class MarimoNotebook(PythonScript):
 
     def write_script(self, preamble, fd):
         preamble = re.sub(
-            "__real_file__ = __file__", "__real_file__ = __name__", preamble
+            r"(?:#)\n|(?:\n)#",
+            "\n    ",
+            re.sub("__real_file__ = __file__", "__real_file__ = __name__", preamble),
         )
         preamble_cell = "\n".join(
             [
                 "@app.cell(hide_code=True)",
                 "def _():",
-                f"    {re.sub(r'(?:#)\n|(?:\n)#', '\n    ', preamble)}",
+                f"    {preamble}",
                 "    return",
             ]
         ).replace("\\", r"\\")
