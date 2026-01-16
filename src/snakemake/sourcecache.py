@@ -313,6 +313,7 @@ class HostedGitRepo:
         self.repo_clone = cache_path / host / repo
 
         self._existed_before = self.repo_clone.exists()
+        self._fetched = False
 
         if self._existed_before:
             self._repo = Repo(self.repo_clone)
@@ -336,6 +337,7 @@ class HostedGitRepo:
             except FileExistsError:
                 # another process won the race
                 shutil.rmtree(tmpdir)
+            self._fetched = True
 
             self._repo = Repo(self.repo_clone)
 
@@ -361,6 +363,9 @@ class HostedGitRepo:
     def fetch(self) -> Optional[str]:
         import git
         from reretry import retry_call
+        if self._fetched:
+            # up to date, nothing to do
+            return
 
         logger.info(
             f"Fetching latest changes of {self.host}/{self.repo_name} to {self.repo_clone}"
@@ -376,6 +381,7 @@ class HostedGitRepo:
             )
         except git.GitCommandError as e:
             return str(e)
+        self._fetched = True
 
     @property
     def repo(self) -> "git.Repo":
@@ -511,23 +517,32 @@ class HostingProviderFile(SourceFile):
     def get_filename(self):
         return os.path.basename(self.path)
 
+    def fetch_if_required(self) -> Optional[str]:
+        if not self.hosted_repo.ref_exists(
+            self.ref
+        ) or not self.hosted_repo.file_exists(path=self.path, ref=self.ref):
+            return self.hosted_repo.fetch()
+
     def mtime(self) -> float:
-        last_commit = next(
-            self.hosted_repo.repo.iter_commits(
-                rev=self.ref, paths=self.path, max_count=1
+        fetch_error = self.fetch_if_required()
+        try:
+            last_commit = next(
+                self.hosted_repo.repo.iter_commits(
+                    rev=self.ref, paths=self.path, max_count=1
+                )
             )
-        )
-        return last_commit.committed_date
+            return last_commit.committed_date
+        except git.GitCommandError as e:
+            msg = f"Failed to get mtime of cached git source file {self.ref}:{self.path}"
+            if fetch_error:
+                msg += f" Unable to fetch from remote: {fetch_error}."
+            raise WorkflowError(msg) from e
+
 
     def open(self) -> io.BytesIO:
         import git
 
-        fetch_error = None
-
-        if not self.hosted_repo.ref_exists(
-            self.ref
-        ) or not self.hosted_repo.file_exists(path=self.path, ref=self.ref):
-            fetch_error = self.hosted_repo.fetch()
+        fetch_error = self.fetch_if_required()
 
         try:
             return io.BytesIO(
