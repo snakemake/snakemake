@@ -525,6 +525,8 @@ class HostingProviderFile(SourceFile):
             return self.hosted_repo.fetch()
 
     def mtime(self) -> float:
+        import git
+
         fetch_error = self.fetch_if_required()
         try:
             last_commit = next(
