@@ -1680,7 +1680,7 @@ def get_language(source_file, source):
 
     language = None
     if filename.endswith(".py"):
-        if filename.endswith(".py"):
+        if filename.endswith(".marimo.py"):
             language = "marimo_py"
         else:
             language = "python"
