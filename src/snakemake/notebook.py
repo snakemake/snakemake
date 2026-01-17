@@ -264,20 +264,16 @@ class MarimoNotebook(PythonScript):
         fd.write(source_with_preamble.encode())
 
     def execute_script(self, fname, edit=None):
+        if edit:
+            cmd = "marimo edit {fname:q}"
+        else:
+            cmd = "python {fname:q}"
+
         if fname_out := self.log.get("notebook", None):
             fname_out = os.path.abspath(fname_out)
+            cmd += " && marimo export script {fname:q} -o {fname_out:q}"
 
-            if ON_WINDOWS:
-                fname = fname.replace("\\", "/")
-                fname_out = fname_out.replace("\\", "/") if fname_out else fname_out
-
-            self._execute_cmd(
-                "marimo edit {fname:q} && marimo export script {fname:q} -o {fname_out:q}",
-                fname=fname,
-                fname_out=fname_out,
-            )
-        else:
-            self._execute_cmd("marimo edit {fname:q}", fname=fname)
+        self._execute_cmd(cmd, fname=fname, fname_out=fname_out)
 
 
 def get_exec_class(language):
