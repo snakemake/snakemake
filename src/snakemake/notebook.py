@@ -275,7 +275,7 @@ class MarimoNotebook(PythonScript):
 
     def execute_script(self, fname, edit=None):
         if edit:
-            cmd = "marimo edit {fname:q}"
+            cmd = "marimo edit {fname:q} --port {edit.port}"
         else:
             cmd = "python {fname:q}"
 
@@ -283,7 +283,7 @@ class MarimoNotebook(PythonScript):
             fname_out = os.path.abspath(fname_out)
             cmd += " && marimo export script {fname:q} -o {fname_out:q}"
 
-        self._execute_cmd(cmd, fname=fname, fname_out=fname_out)
+        self._execute_cmd(cmd, fname=fname, fname_out=fname_out, edit=edit)
 
 
 def get_exec_class(language):
