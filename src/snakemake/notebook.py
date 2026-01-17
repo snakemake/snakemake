@@ -260,6 +260,16 @@ class MarimoNotebook(PythonScript):
         source_with_preamble = re.sub(
             '(if __name__ == "__main__":)', rf"{preamble_cell}\n\n\g<1>", self.source
         )
+        if source_with_preamble == self.source:
+            raise ValueError(
+                "\n".join(
+                    [
+                        "Could not inject Snakemake preamble into marimo notebook.",
+                        "Are you sure it is a valid marimo notebook?",
+                        "Hint: Use `marimo check` to check the format of the file.",
+                    ]
+                )
+            )
 
         fd.write(source_with_preamble.encode())
 
