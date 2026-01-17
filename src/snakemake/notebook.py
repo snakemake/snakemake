@@ -294,7 +294,7 @@ def get_exec_class(language):
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
-            "Unsupported notebook: Expecting Jupyter or Marimo Notebook (.ipynb)."
+            "Unsupported notebook: Expecting Jupyter (.ipynb) or marimo (.py) notebook."
         )
     return exec_class
 
