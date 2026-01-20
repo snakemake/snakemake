@@ -173,8 +173,8 @@ class AbstractResults extends React.Component {
         // If there are at least two labels, consider all but the first label for
         // being shown as toggles. The latter is possible if a label
         // has exactly two values, each of which occur in half of the results.
-        // Example: a plot which is created twice for each sample, once with and 
-        // once without legend (for inclusion in larger panel figures where a 
+        // Example: a plot which is created twice for each sample, once with and
+        // once without legend (for inclusion in larger panel figures where a
         // repeating legend would be superfluous).
         if (labels !== undefined && labels.length > 1) {
             labels.slice(1).forEach(function (label) {
@@ -310,6 +310,13 @@ class AbstractResults extends React.Component {
                 )
             );
 
+            let selectedEntryHighlight = "";
+
+            if (entryPath === app.state.resultPath) {
+              selectedEntryHighlight = "text-white whitespace-nowrap align-middle text-xs m-2 p-2 rounded-lg border-separate bg-slate-700 min-w-fit";
+              console.log("Paths are equal: " + entryPath + " = " + app.state.resultPath);
+            }
+
             return [
                 e(
                     "tr",
@@ -317,7 +324,7 @@ class AbstractResults extends React.Component {
                     entryLabels.map(function (labelValue) {
                         return e(
                             "td",
-                            { className: "p-1" },
+                            { className: `p-1 ${selectedEntryHighlight}` },
                             labelValue
                         );
                     }),
