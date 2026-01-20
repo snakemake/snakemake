@@ -388,7 +388,8 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                 io_in = None
                 io_out = None
             data_collected = True
-        except psutil.Error as e:
+        except (OSError, psutil.Error) as e:
+            # Also collect OSError, which can be raised when too many proc files are opened.
             self.bench_record.errors.append(str(e))
             return
 
