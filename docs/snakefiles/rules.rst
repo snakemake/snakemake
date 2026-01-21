@@ -2366,6 +2366,8 @@ Alternatively, you can also use the rule directive `localrule`:
     rule bar:
         ...
 
+.. _snakefiles-benchmark-rules:
+
 Benchmark Rules
 ---------------
 
@@ -2389,14 +2391,14 @@ benchmarks the
 
 * `s`: Wall clock time (in seconds),
 * `h:m:s`: Wall clock time (in `hour:minutes:seconds`),
-* `max_rss`: Max `RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_ memory usage (in megabytes),
-* `max_vms`: Max `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_ memory usage (in megabytes),
-* `max_uss`: Max `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_ memory usage (in megabytes),
-* `max_pss`: Max `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_ memory usage (in megabytes),
+* `max_rss`: Max `RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_ memory usage (in MB),
+* `max_vms`: Max `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_ memory usage (in MB),
+* `max_uss`: Max `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_ memory usage (in MB),
+* `max_pss`: Max `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_ memory usage (in MB),
 * `io_in`: I/O read (in bytes),
 * `io_out`: I/O written (in bytes),
-* `mean_load`: CPU load = CPU time (`cpu_usage`) divided by wall clock time (`s`),
-* `cpu_time`: CPU time user+system (seconds),
+* `cpu_time`: CPU time user+system (in seconds),
+* `mean_load`: CPU load (`cpu_time` over `s`),
 
 Since version 8.11.0, it is possible to have extra benchmark metrics with the command ``--benchmark-extended``:
 
@@ -2405,7 +2407,6 @@ Since version 8.11.0, it is possible to have extra benchmark metrics with the co
 * `wildcards`: Job wildcards,
 * `params`: Job parameters,
 * `threads`: Number of threads requested for this job,
-* `cpu_usage`: Total CPU load,
 * `resources`: Resources requested for this job,
 * `input_size_mb`: Size of input files (MiB),
 
