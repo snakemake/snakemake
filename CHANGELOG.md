@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [9.15.0](https://github.com/snakemake/snakemake/compare/v9.14.8...v9.15.0) (2026-01-21)
+
+
+### Features
+
+* expose logger plugin handlers via get_log_handlers() method ([#3897](https://github.com/snakemake/snakemake/issues/3897)) ([4783371](https://github.com/snakemake/snakemake/commit/4783371b06c47d18d5609f5ebee8785e05f91a5b))
+
+
+### Bug Fixes
+
+* catch OSError raised during benchmarking (e.g. when too many proc files are opened in highly parallel environments ([#3931](https://github.com/snakemake/snakemake/issues/3931)) ([54dbefc](https://github.com/snakemake/snakemake/commit/54dbefc89092809ec956dce40bad96c64f806803))
+* ensure that fetching of remote git repo updates properly handles commit ids ([#3933](https://github.com/snakemake/snakemake/issues/3933)) ([7a0840b](https://github.com/snakemake/snakemake/commit/7a0840bbdbc7a1679f29e6e8b2e01d01b8284932))
+
 ## [9.14.8](https://github.com/snakemake/snakemake/compare/v9.14.7...v9.14.8) (2026-01-16)
 
 
