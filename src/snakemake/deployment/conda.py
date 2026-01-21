@@ -25,6 +25,7 @@ import uuid
 from enum import Enum
 import threading
 from abc import ABC, abstractmethod
+import yaml
 
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
@@ -45,6 +46,37 @@ MIN_CONDA_VER = "24.7.1"
 
 def get_env_setup_done_flag_file(env_path: Path) -> Path:
     return env_path.with_suffix(".env_setup_done")
+
+
+def copy_pip_requirements_files(env_file: str, target_env_file: str):
+    """Parse environment file and copy any pip requirements files referenced with -r flag."""
+    try:
+        with open(env_file, "r") as f:
+            env_content = yaml.safe_load(f)
+
+        dependencies = env_content.get("dependencies")
+        if dependencies is None:
+            return
+        pip_dependencies = []
+        for dep in dependencies:
+            if isinstance(dep, dict) and "pip" in dep:
+                pip_dependencies += dep["pip"]
+        for pip_dep in pip_dependencies:
+            if isinstance(pip_dep, str) and pip_dep.strip().startswith("-r "):
+                req_file = pip_dep.strip()[3:].strip()
+                req_file_path = os.path.join(os.path.dirname(env_file), req_file)
+                if os.path.exists(req_file_path):
+                    target_req_file = os.path.join(
+                        os.path.dirname(target_env_file), req_file
+                    )
+                    os.makedirs(os.path.dirname(target_req_file), exist_ok=True)
+                    copy_permission_safe(req_file_path, target_req_file)
+                else:
+                    logger.warning(
+                        f"Could not find a requirements file {req_file_path} to copy"
+                    )
+    except Exception as e:
+        logger.warning(f"Could not parse environment file for pip requirements: {e}")
 
 
 class CondaCleanupMode(Enum):
@@ -540,6 +572,9 @@ class Env:
                         # environment in .snakemake/conda contains.
                         target_env_file = env_path + f".{filetype}"
                         copy_permission_safe(env_file, target_env_file)
+                        
+                        if filetype == "yaml":
+                            copy_pip_requirements_files(env_file, target_env_file)
 
                         logger.info("Downloading and installing remote packages.")
 
