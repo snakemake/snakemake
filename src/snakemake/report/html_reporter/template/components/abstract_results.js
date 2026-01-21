@@ -291,12 +291,10 @@ class AbstractResults extends React.Component {
         return data.entryLabelValues.map(function (entryLabels) {
             let toggleLabels = Array.from(data.toggleLabels.keys()).map((label) => state.toggles.get(label));
             let entryPath = data.entries.get(arrayKey(entryLabels)).get(arrayKey(toggleLabels));
-            let rowActive = false;
 
             if (entryPath === app.state.resultPath) {
               selectedEntryHighlightLeft = "text-white whitespace-nowrap align-middle pl-2 rounded-l-lg bg-slate-700 min-w-fit";
               selectedEntryHighlightRight = "text-white whitespace-nowrap align-middle rounded-r-lg bg-slate-700 min-w-fit";
-              rowActive = true;
               }
 
             let actions = e(
