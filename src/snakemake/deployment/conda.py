@@ -6,7 +6,7 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 import re
-from typing import Optional, Union
+from typing import Union
 from snakemake.sourcecache import (
     LocalGitFile,
     LocalSourceFile,
@@ -24,7 +24,6 @@ import zipfile
 import uuid
 from enum import Enum
 import threading
-import shutil
 from abc import ABC, abstractmethod
 
 
@@ -37,12 +36,7 @@ from snakemake.common import (
     ON_WINDOWS,
 )
 from snakemake.deployment import singularity, containerize
-from snakemake.io import (
-    IOFile,
-    apply_wildcards,
-    contains_wildcard,
-    _IOFile,
-)
+from snakemake.io import apply_wildcards, contains_wildcard
 from snakemake_interface_common.utils import lazy_property
 
 
