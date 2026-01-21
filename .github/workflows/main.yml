@@ -46,6 +46,7 @@ jobs:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     strategy:
       fail-fast: false
+      max-parallel: 10
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         # see pyprojec.toml: [tool.pixi.feature.test] for available test types
