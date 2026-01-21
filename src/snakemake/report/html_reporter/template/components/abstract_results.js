@@ -284,14 +284,24 @@ class AbstractResults extends React.Component {
 
         let app = this.props.app;
         let state = this.state;
+        let selectedEntryHighlightLeft = "";
+        let selectedEntryHighlightRight = "";
+
 
         return data.entryLabelValues.map(function (entryLabels) {
             let toggleLabels = Array.from(data.toggleLabels.keys()).map((label) => state.toggles.get(label));
             let entryPath = data.entries.get(arrayKey(entryLabels)).get(arrayKey(toggleLabels));
+            let rowActive = false;
+
+            if (entryPath === app.state.resultPath) {
+              selectedEntryHighlightLeft = "text-white whitespace-nowrap align-middle text-xs m-2 p-2 rounded-l-lg border-separate bg-slate-700 min-w-fit";
+              selectedEntryHighlightRight = "text-white whitespace-nowrap align-middle text-xs m-2 p-2 rounded-r-lg border-separate bg-slate-700 min-w-fit";
+              rowActive = true;
+              }
 
             let actions = e(
                 "td",
-                { className: "p-1 text-right" },
+                { className: `p-1 text-right ${selectedEntryHighlightRight}` },
                 e(
                     "div",
                     { className: "inline-flex gap-1", role: "group" },
@@ -310,12 +320,6 @@ class AbstractResults extends React.Component {
                 )
             );
 
-            let selectedEntryHighlight = "";
-
-            if (entryPath === app.state.resultPath) {
-              selectedEntryHighlight = "text-white whitespace-nowrap align-middle text-xs m-2 p-2 rounded-lg border-separate bg-slate-700 min-w-fit";
-              console.log("Paths are equal: " + entryPath + " = " + app.state.resultPath);
-            }
 
             return [
                 e(
@@ -324,7 +328,7 @@ class AbstractResults extends React.Component {
                     entryLabels.map(function (labelValue) {
                         return e(
                             "td",
-                            { className: `p-1 ${selectedEntryHighlight}` },
+                            { className: `p-1 ${selectedEntryHighlightLeft}` },
                             labelValue
                         );
                     }),
