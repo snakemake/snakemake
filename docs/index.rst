@@ -76,8 +76,8 @@ Support
 
 * For releases, see :ref:`Changelog <changelog>`.
 * Check :ref:`frequently asked questions (FAQ) <project_info-faq>`.
-* In case of **questions**, please post on `stack overflow <https://stackoverflow.com/questions/tagged/snakemake>`_.
-* To **discuss** with other Snakemake users, use the `discord server <https://discord.gg/kHvtG6N>`_. **Please do not post questions there. Use stack overflow for questions.**
+* For **questions and help**, we recommend joining our active `discord server <https://discord.gg/kHvtG6N>`_ where the community and maintainers regularly help users with their workflows and issues.
+* You can also try `stack overflow <https://stackoverflow.com/questions/tagged/snakemake>`_ for questions, though response may be slower or lacking.
 * For **bugs and feature requests**, please use the `issue tracker <https://github.com/snakemake/snakemake/issues>`_.
 * For **contributions**, visit Snakemake on `Github <https://github.com/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
 * Check out our `code of conduct <https://github.com/snakemake/snakemake/blob/main/CODE_OF_CONDUCT.md>`_ and refer to it for requests or concerns in that direction.
