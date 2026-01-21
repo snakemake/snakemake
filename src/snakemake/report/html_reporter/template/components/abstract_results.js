@@ -294,8 +294,8 @@ class AbstractResults extends React.Component {
             let rowActive = false;
 
             if (entryPath === app.state.resultPath) {
-              selectedEntryHighlightLeft = "text-white whitespace-nowrap align-middle text-xs m-2 p-2 rounded-l-lg border-separate bg-slate-700 min-w-fit";
-              selectedEntryHighlightRight = "text-white whitespace-nowrap align-middle text-xs m-2 p-2 rounded-r-lg border-separate bg-slate-700 min-w-fit";
+              selectedEntryHighlightLeft = "text-white whitespace-nowrap align-middle pl-2 rounded-l-lg bg-slate-700 min-w-fit";
+              selectedEntryHighlightRight = "text-white whitespace-nowrap align-middle rounded-r-lg bg-slate-700 min-w-fit";
               rowActive = true;
               }
 
@@ -328,7 +328,7 @@ class AbstractResults extends React.Component {
                     entryLabels.map(function (labelValue) {
                         return e(
                             "td",
-                            { className: `p-1 ${selectedEntryHighlightLeft}` },
+                            { className: `p-1 pl-2 ${selectedEntryHighlightLeft}` },
                             labelValue
                         );
                     }),
