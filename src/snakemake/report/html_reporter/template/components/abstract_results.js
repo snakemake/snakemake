@@ -293,9 +293,12 @@ class AbstractResults extends React.Component {
             let entryPath = data.entries.get(arrayKey(entryLabels)).get(arrayKey(toggleLabels));
 
             if (entryPath === app.state.resultPath) {
-              selectedEntryHighlightLeft = "text-white whitespace-nowrap align-middle pl-2 rounded-l-lg bg-slate-700 min-w-fit";
-              selectedEntryHighlightRight = "text-white whitespace-nowrap align-middle rounded-r-lg bg-slate-700 min-w-fit";
-              }
+                selectedEntryHighlightLeft = "text-white whitespace-nowrap align-middle pl-2 rounded-l-lg bg-slate-700 min-w-fit";
+                selectedEntryHighlightRight = "text-white whitespace-nowrap align-middle rounded-r-lg bg-slate-700 min-w-fit";
+            } else {
+                selectedEntryHighlightLeft = "";
+                selectedEntryHighlightRight = "";
+            }
 
             let actions = e(
                 "td",
