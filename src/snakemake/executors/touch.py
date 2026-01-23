@@ -14,7 +14,6 @@ from snakemake_interface_executor_plugins.jobs import (
 )
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.settings import CommonSettings
-from snakemake.common import async_run
 from snakemake.logging import logger
 from snakemake.exceptions import print_exception
 
@@ -38,7 +37,6 @@ class Executor(RealExecutor):
     ):
         job_info = SubmittedJobInfo(job=job)
         try:
-
             if job.output:
 
                 async def touch():
@@ -68,7 +66,7 @@ class Executor(RealExecutor):
                             f"Output files not touched because they don't exist: {', '.join(non_existing_files)}"
                         )
 
-                async_run(touch())
+                self.workflow.async_run(touch())
 
             self.report_job_submission(job_info)
             self.report_job_success(job_info)

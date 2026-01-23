@@ -1,6 +1,44 @@
 # Changelog
 
 
+## [9.15.0](https://github.com/snakemake/snakemake/compare/v9.14.8...v9.15.0) (2026-01-21)
+
+
+### Features
+
+* expose logger plugin handlers via get_log_handlers() method ([#3897](https://github.com/snakemake/snakemake/issues/3897)) ([4783371](https://github.com/snakemake/snakemake/commit/4783371b06c47d18d5609f5ebee8785e05f91a5b))
+
+
+### Bug Fixes
+
+* catch OSError raised during benchmarking (e.g. when too many proc files are opened in highly parallel environments ([#3931](https://github.com/snakemake/snakemake/issues/3931)) ([54dbefc](https://github.com/snakemake/snakemake/commit/54dbefc89092809ec956dce40bad96c64f806803))
+* ensure that fetching of remote git repo updates properly handles commit ids ([#3933](https://github.com/snakemake/snakemake/issues/3933)) ([7a0840b](https://github.com/snakemake/snakemake/commit/7a0840bbdbc7a1679f29e6e8b2e01d01b8284932))
+
+## [9.14.8](https://github.com/snakemake/snakemake/compare/v9.14.7...v9.14.8) (2026-01-16)
+
+
+### Bug Fixes
+
+* ensure that git repos backing source files are fetched only once per run ([#3928](https://github.com/snakemake/snakemake/issues/3928)) ([2ebcd85](https://github.com/snakemake/snakemake/commit/2ebcd851964566351edb34d5b855d6efaae8f623))
+
+
+### Reverts
+
+* Config validation skip for remote jobs ([#3924](https://github.com/snakemake/snakemake/issues/3924)) ([cc7c6f0](https://github.com/snakemake/snakemake/commit/cc7c6f008d94d9646af6368242e392000dd7aace))
+
+
+### Documentation
+
+* Use snakemake logo as favicon ([#3914](https://github.com/snakemake/snakemake/issues/3914)) ([24cdf1e](https://github.com/snakemake/snakemake/commit/24cdf1e20971ff25e0a9ae97475a15b5e3e36476))
+
+## [9.14.7](https://github.com/snakemake/snakemake/compare/v9.14.6...v9.14.7) (2026-01-15)
+
+
+### Bug Fixes
+
+* report psutil errors in case benchmark fails ([#3925](https://github.com/snakemake/snakemake/issues/3925)) ([293ec40](https://github.com/snakemake/snakemake/commit/293ec40d9968350c4982ec31ba867113b8c1e059))
+* reuse async runner to prevent port exhaustion ([#3911](https://github.com/snakemake/snakemake/issues/3911)) ([385e0ca](https://github.com/snakemake/snakemake/commit/385e0cac3f795bfe1aea97c8e87d953f0a6f3dfb))
+
 ## [9.14.6](https://github.com/snakemake/snakemake/compare/v9.14.5...v9.14.6) (2026-01-08)
 
 

@@ -11,7 +11,6 @@ import shlex
 import concurrent.futures
 import subprocess
 from functools import partial
-from snakemake.common import async_run
 from snakemake.executors import change_working_directory
 from snakemake.settings.types import DeploymentMethod
 
@@ -111,7 +110,7 @@ class Executor(RealExecutor):
         self.report_job_submission(job_info)
 
     def job_args_and_prepare(self, job: JobExecutorInterface):
-        async_run(job.prepare())
+        self.workflow.async_run(job.prepare())
 
         conda_env = (
             job.conda_env.address
@@ -235,19 +234,22 @@ class Executor(RealExecutor):
             raise SpawnedJobError()
 
     def cached_or_run(self, job: SingleJobExecutorInterface, run_func, *args):
+        self.workflow.async_run(self.acached_or_run(job, run_func, *args))
+
+    async def acached_or_run(self, job: SingleJobExecutorInterface, run_func, *args):
         """
         Either retrieve result from cache, or run job with given function.
         """
         cache_mode = self.workflow.get_cache_mode(job.rule)
         try:
             if cache_mode:
-                async_run(self.workflow.output_file_cache.fetch(job, cache_mode))
+                await self.workflow.output_file_cache.fetch(job, cache_mode)
                 return
         except CacheMissException:
             pass
         run_func(*args)
         if cache_mode:
-            async_run(self.workflow.output_file_cache.store(job, cache_mode))
+            await self.workflow.output_file_cache.store(job, cache_mode)
 
     def shutdown(self):
         self.pool.shutdown()
