@@ -54,6 +54,7 @@ def test_script_rs():
 def test_conda():
     run(dpath("test_conda"), deployment_method={DeploymentMethod.CONDA})
 
+
 @conda
 def test_conda_requirements_txt():
     run(
@@ -61,6 +62,16 @@ def test_conda_requirements_txt():
         deployment_method={DeploymentMethod.CONDA},
 
     )
+
+
+@conda
+def test_conda_requirements_txt_nested():
+    run(
+        dpath("test_conda_requirements_txt_nested"),
+        deployment_method={DeploymentMethod.CONDA},
+
+    )
+
 
 
 @conda

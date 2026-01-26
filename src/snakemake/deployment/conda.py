@@ -48,6 +48,97 @@ def get_env_setup_done_flag_file(env_path: Path) -> Path:
     return env_path.with_suffix(".env_setup_done")
 
 
+def _parse_requirements_tree(
+    file_path: str, content: bytes, visited: set, is_yaml: bool = False
+) -> list:
+    """Parse a requirements file or env yaml and build a tree of nested requirements.
+
+    Args:
+        file_path: Path to the file being parsed
+        content: Content of the file (as bytes)
+        visited: Set of already visited files to prevent circular references
+        is_yaml: True if parsing an environment.yaml, False if parsing requirements.txt
+
+    Returns:
+        List of dependencies where each -r reference is a dict with:
+        - 'path': absolute path to the requirements file
+        - 'relative_path': relative path from parent file
+        - 'content': file content as bytes
+        - 'nested': list of nested requirements (recursive structure)
+    """
+    tree = []
+
+    try:
+        if is_yaml:
+            env_yaml = yaml.safe_load(content)
+            dependencies = env_yaml.get("dependencies")
+            if dependencies is None:
+                return tree
+
+            pip_dependencies = []
+            for dep in dependencies:
+                if isinstance(dep, dict) and "pip" in dep:
+                    pip_dependencies += dep["pip"]
+
+            lines = pip_dependencies
+        else:
+            lines = content.decode("utf-8", errors="ignore").splitlines()
+
+        for line in lines:
+            if isinstance(line, str):
+                line = line.strip()
+                if line.startswith("-r "):
+                    req_file = line[3:].strip()
+                    req_file_path = os.path.join(os.path.dirname(file_path), req_file)
+                    req_file_path = os.path.abspath(req_file_path)
+
+                    if req_file_path in visited:
+                        continue
+
+                    visited.add(req_file_path)
+
+                    if os.path.exists(req_file_path):
+                        with open(req_file_path, "rb") as f:
+                            req_content = f.read()
+
+                        nested_tree = _parse_requirements_tree(
+                            req_file_path, req_content, visited, is_yaml=False
+                        )
+
+                        tree.append(
+                            {
+                                "path": req_file_path,
+                                "relative_path": req_file,
+                                "content": req_content,
+                                "nested": nested_tree,
+                            }
+                        )
+                    else:
+                        logger.warning(
+                            f"Could not find a requirements file {req_file_path} to copy"
+                        )
+    except Exception as e:
+        logger.warning(f"Could not parse requirements from {file_path}: {e}")
+
+    return tree
+
+
+def _flatten_requirements_tree(tree: list) -> bytes:
+    """Flatten a requirements tree into concatenated content.
+
+    Args:
+        tree: Tree structure from _parse_requirements_tree
+
+    Returns:
+        Concatenated content of all requirements files as bytes
+    """
+    all_content = b""
+    for node in tree:
+        all_content += node["content"]
+        all_content += _flatten_requirements_tree(node["nested"])
+    return all_content
+
+
 def get_pip_requirements_content(
     env_file_path: str, env_content: bytes, visited: set = None
 ) -> bytes:
@@ -64,128 +155,43 @@ def get_pip_requirements_content(
     if visited is None:
         visited = set()
 
-    all_content = b""
-
     try:
-        # Parse the YAML content
-        env_yaml = yaml.safe_load(env_content)
-
-        dependencies = env_yaml.get("dependencies")
-        if dependencies is None:
-            return all_content
-
-        # Extract pip dependencies
-        pip_dependencies = []
-        for dep in dependencies:
-            if isinstance(dep, dict) and "pip" in dep:
-                pip_dependencies += dep["pip"]
-
-        # Process each pip dependency looking for -r references
-        for pip_dep in pip_dependencies:
-            if isinstance(pip_dep, str) and pip_dep.strip().startswith("-r "):
-                req_file = pip_dep.strip()[3:].strip()
-                req_file_path = os.path.join(os.path.dirname(env_file_path), req_file)
-                req_file_path = os.path.abspath(req_file_path)
-
-                # Skip if already visited (circular reference)
-                if req_file_path in visited:
-                    continue
-
-                visited.add(req_file_path)
-
-                if os.path.exists(req_file_path):
-                    # Read the requirements file content
-                    with open(req_file_path, "rb") as f:
-                        req_content = f.read()
-                    all_content += req_content
-
-                    # Recursively process nested -r references in requirements.txt
-                    nested_content = _get_nested_requirements_content(
-                        req_file_path, req_content, visited
-                    )
-                    all_content += nested_content
+        tree = _parse_requirements_tree(
+            env_file_path, env_content, visited, is_yaml=True
+        )
+        return _flatten_requirements_tree(tree)
     except Exception as e:
         logger.warning(
             f"Could not parse environment file for pip requirements content: {e}"
         )
+        return b""
 
-    return all_content
 
-
-def _get_nested_requirements_content(
-    req_file_path: str, req_content: bytes, visited: set
-) -> bytes:
-    """Recursively extract content from -r references within a requirements.txt file.
+def _copy_requirements_tree(tree: list, target_base_dir: str):
+    """Copy all requirements files in a tree structure to target directory.
 
     Args:
-        req_file_path: Path to the requirements file
-        req_content: Content of the requirements file (as bytes)
-        visited: Set of already visited requirements files
-
-    Returns:
-        Concatenated content of all nested requirements files as bytes
+        tree: Tree structure from _parse_requirements_tree
+        target_base_dir: Base directory for target files
     """
-    all_content = b""
-
-    try:
-        # Parse the requirements file line by line
-        for line in req_content.decode("utf-8", errors="ignore").splitlines():
-            line = line.strip()
-            if line.startswith("-r "):
-                nested_req_file = line[3:].strip()
-                nested_req_path = os.path.join(
-                    os.path.dirname(req_file_path), nested_req_file
-                )
-                nested_req_path = os.path.abspath(nested_req_path)
-
-                # Skip if already visited
-                if nested_req_path in visited:
-                    continue
-
-                visited.add(nested_req_path)
-
-                if os.path.exists(nested_req_path):
-                    with open(nested_req_path, "rb") as f:
-                        nested_content = f.read()
-                    all_content += nested_content
-
-                    # Recursively process further nested references
-                    all_content += _get_nested_requirements_content(
-                        nested_req_path, nested_content, visited
-                    )
-    except Exception as e:
-        logger.warning(f"Could not parse requirements file for nested references: {e}")
-
-    return all_content
+    for node in tree:
+        target_file = os.path.join(target_base_dir, node["relative_path"])
+        os.makedirs(os.path.dirname(target_file), exist_ok=True)
+        copy_permission_safe(node["path"], target_file)
+        _copy_requirements_tree(node["nested"], target_base_dir)
 
 
 def copy_pip_requirements_files(env_file: str, target_env_file: str):
-    """Parse environment file and copy any pip requirements files referenced with -r flag."""
+    """Parse environment file and copy any pip requirements files referenced with -r flag, including nested references."""
     try:
-        with open(env_file, "r") as f:
-            env_content = yaml.safe_load(f)
+        with open(env_file, "rb") as f:
+            env_content = f.read()
 
-        dependencies = env_content.get("dependencies")
-        if dependencies is None:
-            return
-        pip_dependencies = []
-        for dep in dependencies:
-            if isinstance(dep, dict) and "pip" in dep:
-                pip_dependencies += dep["pip"]
-        for pip_dep in pip_dependencies:
-            if isinstance(pip_dep, str) and pip_dep.strip().startswith("-r "):
-                req_file = pip_dep.strip()[3:].strip()
-                req_file_path = os.path.join(os.path.dirname(env_file), req_file)
-                if os.path.exists(req_file_path):
-                    target_req_file = os.path.join(
-                        os.path.dirname(target_env_file), req_file
-                    )
-                    os.makedirs(os.path.dirname(target_req_file), exist_ok=True)
-                    copy_permission_safe(req_file_path, target_req_file)
-                else:
-                    logger.warning(
-                        f"Could not find a requirements file {req_file_path} to copy"
-                    )
+        visited = set()
+        tree = _parse_requirements_tree(env_file, env_content, visited, is_yaml=True)
+
+        if tree:
+            _copy_requirements_tree(tree, os.path.dirname(target_env_file))
     except Exception as e:
         logger.warning(f"Could not parse environment file for pip requirements: {e}")
 
@@ -392,7 +398,9 @@ class Env:
                     env_file_path = self.file.get_path_or_uri(secret_free=True)
                     # Only process if it's a local file path (not a URI)
                     if os.path.exists(env_file_path):
-                        pip_req_content = get_pip_requirements_content(env_file_path, self.content)
+                        pip_req_content = get_pip_requirements_content(
+                            env_file_path, self.content
+                        )
                         if pip_req_content:
                             md5hash.update(pip_req_content)
                 except Exception as e:
@@ -406,9 +414,9 @@ class Env:
         return self._container_img.is_containerized
 
     def check_is_file_based(self):
-        assert (
-            self.file is not None
-        ), "bug: trying to access conda env file based functionality for named environment"
+        assert self.file is not None, (
+            "bug: trying to access conda env file based functionality for named environment"
+        )
 
     @property
     def address(self):
