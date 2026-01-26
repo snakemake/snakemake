@@ -59,8 +59,6 @@ def test_conda_requirements_txt():
     run(
         dpath("test_conda_requirements_txt"),
         deployment_method={DeploymentMethod.CONDA},
-        conda_create_envs=True,
-        cleanup=True,
 
     )
 
