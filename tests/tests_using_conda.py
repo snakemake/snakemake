@@ -54,6 +54,16 @@ def test_script_rs():
 def test_conda():
     run(dpath("test_conda"), deployment_method={DeploymentMethod.CONDA})
 
+@conda
+def test_conda_requirements_txt():
+    run(
+        dpath("test_conda_requirements_txt"),
+        deployment_method={DeploymentMethod.CONDA},
+        conda_create_envs=True,
+        cleanup=True,
+
+    )
+
 
 @conda
 def test_conda_list_envs():
