@@ -1820,13 +1820,11 @@ def test_cache_multioutput():
 def test_github_issue1384():
     try:
         tmpdir = run(dpath("test_github_issue1384"), cleanup=False)
-        shell(
-            """
+        shell("""
             cd {tmpdir}
             python -m snakemake --generate-unit-tests
             pytest -v .tests/unit
-            """
-        )
+            """)
     finally:
         shutil.rmtree(tmpdir)
 

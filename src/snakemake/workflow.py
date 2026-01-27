@@ -146,7 +146,6 @@ import snakemake.ioutils
 import snakemake.ioflags
 from snakemake.jobs import jobs_to_rulenames
 
-
 SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
 
 

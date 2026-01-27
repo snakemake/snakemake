@@ -24,7 +24,6 @@ from typing import Union
 from snakemake import __version__
 from snakemake_interface_common.exceptions import WorkflowError
 
-
 MIN_PY_VERSION: Tuple[int, int] = (3, 7)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
