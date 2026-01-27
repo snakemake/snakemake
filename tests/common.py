@@ -30,7 +30,6 @@ from snakemake.resources import ResourceScopes
 from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
 
-
 #: File system path as string or pathlike object.
 StrPath: TypeAlias = str | os.PathLike
 

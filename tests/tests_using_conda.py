@@ -24,7 +24,6 @@ from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
 )
 
-
 xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
 )

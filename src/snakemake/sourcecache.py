@@ -33,7 +33,6 @@ from snakemake.common.git import split_git_path
 from snakemake.logging import logger
 from snakemake.io import check
 
-
 if TYPE_CHECKING:
     import git
 
