@@ -12,7 +12,6 @@ from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 
 from snakemake.logging import logger
 
-
 common_settings = CommonSettings(
     non_local_exec=False,
     dryrun_exec=True,

@@ -10,7 +10,6 @@ from snakemake.exceptions import WorkflowError
 from snakemake.script import script
 from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file
 
-
 EXTENSIONS = [".py", ".R", ".Rmd", ".jl"]
 
 

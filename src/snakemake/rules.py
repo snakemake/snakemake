@@ -71,7 +71,6 @@ from snakemake.resources import infer_resources
 from snakemake_interface_common.utils import not_iterable, lazy_property
 from snakemake_interface_common.rules import RuleInterface
 
-
 _NOT_CACHED = object()
 
 
