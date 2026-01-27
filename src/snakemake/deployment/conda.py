@@ -45,7 +45,6 @@ from snakemake.io import (
 )
 from snakemake_interface_common.utils import lazy_property
 
-
 MIN_CONDA_VER = "24.7.1"
 
 

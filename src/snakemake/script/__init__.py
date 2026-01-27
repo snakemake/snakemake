@@ -923,8 +923,7 @@ class RScript(ScriptBase):
         shadow_dir,
         preamble_addendum="",
     ):
-        return textwrap.dedent(
-            """
+        return textwrap.dedent("""
         ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
@@ -969,8 +968,7 @@ class RScript(ScriptBase):
         {preamble_addendum}
 
         ######## snakemake preamble end #########
-        """
-        ).format(
+        """).format(
             REncoder.encode_namedlist(input_),
             REncoder.encode_namedlist(output),
             REncoder.encode_namedlist(params),
@@ -1036,8 +1034,7 @@ class RScript(ScriptBase):
 
 class RMarkdown(ScriptBase):
     def get_preamble(self):
-        return textwrap.dedent(
-            """
+        return textwrap.dedent("""
         ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
@@ -1081,8 +1078,7 @@ class RMarkdown(ScriptBase):
         )
 
         ######## snakemake preamble end #########
-        """
-        ).format(
+        """).format(
             REncoder.encode_namedlist(self.input),
             REncoder.encode_namedlist(self.output),
             REncoder.encode_namedlist(self.params),
@@ -1109,14 +1105,11 @@ class RMarkdown(ScriptBase):
         code = self.source
         pos = next(itertools.islice(re.finditer(r"---\n", code), 1, 2)).start() + 3
         fd.write(str.encode(code[:pos]))
-        preamble = textwrap.dedent(
-            """
+        preamble = textwrap.dedent("""
             ```{r, echo=FALSE, message=FALSE, warning=FALSE}
             %s
             ```
-            """
-            % preamble
-        )
+            """ % preamble)
         fd.write(preamble.encode())
         fd.write(code[pos:].encode())
 
@@ -1260,8 +1253,7 @@ class RustScript(ScriptBase):
 
         json_string = json.dumps(dict(snakemake))
 
-        return textwrap.dedent(
-            """
+        return textwrap.dedent("""
             json_typegen::json_typegen!("Snakemake", r###"{json_string}"###, {{
                 "/bench_iteration": {{
                    "use_type": "Option<usize>"
@@ -1369,8 +1361,7 @@ class RustScript(ScriptBase):
                 }};
             }}
             // TODO include addendum, if any {{preamble_addendum}}
-            """
-        ).format(
+            """).format(
             json_string=json_string,
             preamble_addendum=preamble_addendum,
         )

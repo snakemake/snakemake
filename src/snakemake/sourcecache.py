@@ -33,7 +33,6 @@ from snakemake.common.git import split_git_path
 from snakemake.logging import logger
 from snakemake.io import check
 
-
 if TYPE_CHECKING:
     import git
 
@@ -313,6 +312,7 @@ class HostedGitRepo:
         self.repo_clone = cache_path / host / repo
 
         self._existed_before = self.repo_clone.exists()
+        self._fetched = False
 
         if self._existed_before:
             self._repo = Repo(self.repo_clone)
@@ -336,17 +336,27 @@ class HostedGitRepo:
             except FileExistsError:
                 # another process won the race
                 shutil.rmtree(tmpdir)
+            self._fetched = True
 
             self._repo = Repo(self.repo_clone)
 
-    def ref_exists(self, ref: str):
+    def ref_exists(self, commit: Optional[str], branch_or_tag: Optional[str]):
         import git
 
-        try:
-            self.repo.git.rev_parse("--verify", ref)
-            return True
-        except git.GitCommandError:
-            return False
+        if branch_or_tag:
+            try:
+                self.repo.git.rev_parse("--verify", branch_or_tag)
+                return True
+            except git.GitCommandError:
+                return False
+        else:
+            try:
+                self.repo.commit(commit)
+                return True
+            except git.BadName:
+                raise WorkflowError(f"Invalid commit id: {commit}")
+            except ValueError:
+                return False
 
     def file_exists(self, path: str, ref: str):
         try:
@@ -362,6 +372,10 @@ class HostedGitRepo:
         import git
         from reretry import retry_call
 
+        if self._fetched:
+            # up to date, nothing to do
+            return
+
         logger.info(
             f"Fetching latest changes of {self.host}/{self.repo_name} to {self.repo_clone}"
         )
@@ -376,6 +390,7 @@ class HostedGitRepo:
             )
         except git.GitCommandError as e:
             return str(e)
+        self._fetched = True
 
     @property
     def repo(self) -> "git.Repo":
@@ -511,23 +526,41 @@ class HostingProviderFile(SourceFile):
     def get_filename(self):
         return os.path.basename(self.path)
 
-    def mtime(self) -> float:
-        last_commit = next(
-            self.hosted_repo.repo.iter_commits(
-                rev=self.ref, paths=self.path, max_count=1
+    def fetch_if_required(self) -> Optional[str]:
+        # always fetch if this points to a branch
+        if (
+            self.branch is not None
+            or not self.hosted_repo.ref_exists(
+                commit=self.commit,
+                branch_or_tag=self.tag or self.branch,
             )
-        )
-        return last_commit.committed_date
+            or not self.hosted_repo.file_exists(path=self.path, ref=self.ref)
+        ):
+            return self.hosted_repo.fetch()
+
+    def mtime(self) -> float:
+        import git
+
+        fetch_error = self.fetch_if_required()
+        try:
+            last_commit = next(
+                self.hosted_repo.repo.iter_commits(
+                    rev=self.ref, paths=self.path, max_count=1
+                )
+            )
+            return last_commit.committed_date
+        except git.GitCommandError as e:
+            msg = (
+                f"Failed to get mtime of cached git source file {self.ref}:{self.path}"
+            )
+            if fetch_error:
+                msg += f" Unable to fetch from remote: {fetch_error}."
+            raise WorkflowError(msg) from e
 
     def open(self) -> io.BytesIO:
         import git
 
-        fetch_error = None
-
-        if not self.hosted_repo.ref_exists(
-            self.ref
-        ) or not self.hosted_repo.file_exists(path=self.path, ref=self.ref):
-            fetch_error = self.hosted_repo.fetch()
+        fetch_error = self.fetch_if_required()
 
         try:
             return io.BytesIO(
