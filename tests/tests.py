@@ -5,36 +5,35 @@ __license__ = "MIT"
 
 import os
 import shutil
-import sys
 import subprocess as sp
-from pathlib import Path
+import sys
 import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
+from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 from snakemake.persistence import Persistence
 from snakemake.resources import DefaultResources, GroupResources, is_ordinary_string
 from snakemake.settings.enums import RerunTrigger
-from snakemake.utils import min_version  # import so we can patch out if needed
-
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
-from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
-
-from .common import run, dpath, apptainer, connected
-from .conftest import (
-    skip_on_windows,
-    only_on_windows,
-    ON_WINDOWS,
-    needs_strace,
-    ON_MACOS,
-)
 
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
     SharedFSUsage,
+)
+
+from .common import apptainer, connected, dpath, run
+from .conftest import (
+    ON_MACOS,
+    ON_WINDOWS,
+    needs_strace,
+    only_on_windows,
+    skip_on_windows,
 )
 
 
@@ -1093,6 +1092,7 @@ def test_scopes_submitted_to_cluster(mocker):
 @skip_on_windows
 def test_group_job_resources_with_pipe(mocker):
     import copy
+
     from snakemake_interface_executor_plugins.executors.real import RealExecutor
 
     spy = mocker.spy(GroupResources, "basic_layered")
@@ -1514,6 +1514,10 @@ def test_jupyter_notebook_draft():
         targets=["results/result_intermediate.txt"],
         check_md5=False,
     )
+
+
+def test_marimo_notebook():
+    run(dpath("test_marimo_notebook"), deployment_method={DeploymentMethod.CONDA})
 
 
 def test_github_issue456():

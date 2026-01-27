@@ -1,16 +1,15 @@
-from abc import abstractmethod
 import os
-from pathlib import Path
-import subprocess as sp
-import shutil
-import tempfile
 import re
+import shutil
+import subprocess as sp
+import tempfile
+from abc import abstractmethod
+from pathlib import Path
 
+from snakemake.common import ON_WINDOWS, is_local_file
 from snakemake.exceptions import WorkflowError
-from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
-from snakemake.common import is_local_file
-from snakemake.common import ON_WINDOWS
+from snakemake.script import PythonScript, RScript, ScriptBase, get_source
 from snakemake.sourcecache import SourceCache, infer_source_file
 from snakemake.utils import format
 
@@ -88,8 +87,9 @@ class JupyterNotebook(ScriptBase):
                 else:
                     output_parameter = "{fname_out}"
                 cmd = (
-                    "papermill --log-level ERROR {{fname:q}} "
-                    "{output_parameter}".format(output_parameter=output_parameter)
+                    "papermill --log-level ERROR {{fname:q}} {output_parameter}".format(
+                        output_parameter=output_parameter
+                    )
                 )
             else:
                 if fname_out is None:
@@ -240,13 +240,60 @@ class RJupyterNotebook(JupyterNotebook):
         return "RScript"
 
 
+class MarimoNotebook(PythonScript):
+    editable = True
+
+    def write_script(self, preamble, fd):
+        preamble = re.sub(
+            "__real_file__ = __file__", "__real_file__ = __name__", preamble
+        )
+        preamble_cell = "\n".join(
+            [
+                "@app.cell(hide_code=True)",
+                "def _():",
+                *[f"    {line}" for line in preamble.splitlines()],
+                "    return",
+            ]
+        ).replace("\\", r"\\")
+        source_with_preamble = re.sub(
+            '(if __name__ == "__main__":)', rf"{preamble_cell}\n\n\g<1>", self.source
+        )
+        if source_with_preamble == self.source:
+            raise ValueError(
+                "\n".join(
+                    [
+                        "Could not inject Snakemake preamble into marimo notebook.",
+                        "Are you sure it is a valid marimo notebook?",
+                        "Hint: Use `marimo check` to check the format of the file.",
+                    ]
+                )
+            )
+
+        fd.write(source_with_preamble.encode())
+
+    def execute_script(self, fname, edit=None):
+        if edit:
+            cmd = "marimo edit {fname:q} --port {edit.port}"
+        else:
+            cmd = "python {fname:q}"
+
+        if fname_out := self.log.get("notebook", None):
+            fname_out = os.path.abspath(fname_out)
+            cmd += " && marimo export script {fname:q} -o {fname_out:q}"
+
+        self._execute_cmd(cmd, fname=fname, fname_out=fname_out, edit=edit)
+
+
 def get_exec_class(language):
     exec_class = {
         "jupyter_python": PythonJupyterNotebook,
         "jupyter_r": RJupyterNotebook,
+        "marimo_py": MarimoNotebook,
     }.get(language, None)
     if exec_class is None:
-        raise ValueError("Unsupported notebook: Expecting Jupyter Notebook (.ipynb).")
+        raise ValueError(
+            "Unsupported notebook: Expecting Jupyter (.ipynb) or marimo (.py) notebook."
+        )
     return exec_class
 
 

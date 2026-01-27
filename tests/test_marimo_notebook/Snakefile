@@ -1,0 +1,7 @@
+rule test_marimo:
+    output:
+        "snakemake_plus_marimo.txt",
+    conda:
+        "env.yaml"
+    notebook:
+        "notebook.marimo.py"

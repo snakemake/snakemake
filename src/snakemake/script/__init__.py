@@ -1671,7 +1671,10 @@ def get_language(source_file, source):
 
     language = None
     if filename.endswith(".py"):
-        language = "python"
+        if filename.endswith(".marimo.py"):
+            language = "marimo_py"
+        else:
+            language = "python"
     elif filename.endswith(".ipynb"):
         language = "jupyter"
     elif filename.endswith(".R"):
@@ -1694,7 +1697,7 @@ def get_language(source_file, source):
         nb = nbformat.reads(source, as_version=nbformat.NO_CONVERT)
         try:
             kernel_language = nb["metadata"]["language_info"]["name"]
-        except KeyError as e:
+        except KeyError:
             raise WorkflowError(
                 "Notebook metadata is corrupt. Please delete notebook "
                 "and recreate it via --edit-notebook."
