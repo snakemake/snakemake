@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.16.0](https://github.com/snakemake/snakemake/compare/v9.15.0...v9.16.0) (2026-01-27)
+
+
+### Features
+
+* add highlighting of selected view to HTML reports ([#3935](https://github.com/snakemake/snakemake/issues/3935)) ([f53655e](https://github.com/snakemake/snakemake/commit/f53655ec4a080830374fa6e5636063afdb367b5c))
+
 ## [9.15.0](https://github.com/snakemake/snakemake/compare/v9.14.8...v9.15.0) (2026-01-21)
 
 
