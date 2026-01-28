@@ -138,8 +138,8 @@ class OutputFileCache(AbstractOutputFileCache):
         base_path = self.path / provenance_hash
 
         return (
-            (Path(outputfile), Path(f"{base_path}{ext}"))
-            for outputfile, ext in self.get_outputfiles(job)
+            (Path(outputfile), Path(f"{base_path}_{encoded_fn}"))
+            for outputfile, encoded_fn in self.get_outputfiles(job)
         )
 
     def symlink(self, path, outputfile, utime=True):

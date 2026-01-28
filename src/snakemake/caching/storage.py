@@ -56,7 +56,7 @@ class OutputFileCache(AbstractOutputFileCache):
     ):
         provenance_hash = self.provenance_hash_map.get_provenance_hash(job, cache_mode)
 
-        for outputfile, ext in self.get_outputfiles(job):
+        for outputfile, encoded_fn in self.get_outputfiles(job):
             if check_output_exists and not os.path.exists(outputfile):
                 raise WorkflowError(
                     "Cannot move output file {} to cache. It does not exist "
@@ -64,7 +64,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 )
 
             storage_object = self.storage_provider.object(
-                f"{self.cache_location}/{provenance_hash}{ext}"
+                f"{self.cache_location}/{provenance_hash}_{encoded_fn}"
             )
             storage_object.set_local_path(Path(outputfile))
             yield storage_object
