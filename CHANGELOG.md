@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.16.1](https://github.com/snakemake/snakemake/compare/v9.16.0...v9.16.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* do not decompress source files during caching, keep them unchanged instead ([#3944](https://github.com/snakemake/snakemake/issues/3944)) ([ca72878](https://github.com/snakemake/snakemake/commit/ca72878de2a8bb8c50e557aa20598942aa713ffa))
+
 ## [9.16.0](https://github.com/snakemake/snakemake/compare/v9.15.0...v9.16.0) (2026-01-27)
 
 
