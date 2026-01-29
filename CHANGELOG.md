@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.16.2](https://github.com/snakemake/snakemake/compare/v9.16.1...v9.16.2) (2026-01-29)
+
+
+### Bug Fixes
+
+* handle str input in fmt_iofile ([#3946](https://github.com/snakemake/snakemake/issues/3946)) ([5df0c0b](https://github.com/snakemake/snakemake/commit/5df0c0bdc052b2c20b9b33fa52daabad96095e66))
+
 ## [9.16.1](https://github.com/snakemake/snakemake/compare/v9.16.0...v9.16.1) (2026-01-29)
 
 
