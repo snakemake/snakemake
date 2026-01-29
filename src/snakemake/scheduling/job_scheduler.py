@@ -277,20 +277,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         return False
                     return not errors
 
-                # For each cached job, the provenance hash is marked as in use and in the case
-                # of another job having the same hash it is removed from needrun.
-                if self.workflow.output_file_cache:
-                    for job in list(needrun):
-                        if (
-                            cache_mode := self.workflow.get_cache_mode(job.rule)
-                        ) and not self.workflow.output_file_cache.mark_if_schedulable(
-                            job, cache_mode
-                        ):
-                            logger.debug(
-                                f"Cached job {job} not schedulable, due to a provenance hash collision with another job"
-                            )
-                            needrun.discard(job)
-
                 # continue if no new job needs to be executed
                 if not needrun:
                     if self.workflow.dag.has_unfinished_queue_input_jobs():
@@ -325,10 +311,33 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     else:
                         logger.debug(f"Ready jobs: {n_total_needrun}")
 
+                    # For each cached job, the provenance hash is marked as in use and in the case
+                    # of another job having the same hash it is removed from needrun.
+                    if self.workflow.output_file_cache:
+                        for job in list(needrun):
+                            if (
+                                (cache_mode := self.workflow.get_cache_mode(job.rule))
+                                and not self.workflow.output_file_cache.mark_if_schedulable(
+                                    job, cache_mode
+                                )
+                            ):
+                                logger.debug(
+                                    f"Cached job {job} not schedulable, due to a provenance hash collision with another job"
+                                )
+                                needrun.discard(job)
+
                     if not self._last_job_selection_empty:
                         logger.info("Select jobs to execute...")
                     run = self.job_selector(needrun)
                     self._last_job_selection_empty = not run
+
+                    # Release marks for jobs not selected
+                    if self.workflow.output_file_cache:
+                        for job in needrun.difference(run):
+                            if cache_mode := self.workflow.get_cache_mode(job.rule):
+                                self.workflow.output_file_cache.discard_mark(
+                                    job, cache_mode
+                                )
 
                     logger.debug(f"Selected jobs: {len(run)}")
                     logger.debug(f"Resources after job selection: {self.resources}")
@@ -338,14 +347,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     self.running.update(run)
                     # remove from ready_jobs
                     self.workflow.dag.register_running(set(run))
-
-                # Release marks for jobs not selected
-                if self.workflow.output_file_cache:
-                    for job in needrun.difference(run):
-                        if cache_mode := self.workflow.get_cache_mode(job.rule):
-                            self.workflow.output_file_cache.discard_mark(
-                                job, cache_mode
-                            )
 
                 if run:
                     if not self.dryrun:
@@ -631,9 +632,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # get number of free jobs to submit
         if self.job_rate_limiter is None:
             # ensure that the job count is not restricted
-            assert (
-                self.resources["_job_count"] == sys.maxsize
-            ), f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
+            assert self.resources["_job_count"] == sys.maxsize, (
+                f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
+            )
             return run_selector(self._job_selector)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:
