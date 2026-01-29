@@ -26,7 +26,4 @@ rule generate:
         "output_{i}.txt"
     cache: True
     shell:
-        # Note: Shell command does NOT reference wildcards
-        # This ensures all jobs have the same provenance hash
-        # Sleep to ensure concurrent execution attempts
-        "sleep 0.5 && echo 'test' > {output}"
+        "echo 'test' > {output}"
