@@ -1433,17 +1433,26 @@ def test_output_file_cache():
 def test_cache_provenance_hash_collisions():
     """Test that jobs with identical provenance hashes don't execute concurrently."""
     test_path = dpath("test_cache_provenance_hash_collisions")
-    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+    cache_dir = test_path / "cache"
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = cache_dir.name
+
+    # Clear the cache
+    for fn in cache_dir.glob("*"):
+        fn.unlink()
 
     # First run: populate cache
-    run(test_path, cores=3)
+    run(test_path, cores=3, cache=[])
 
     # Second run: all jobs should hit cache
     # This verifies marks are properly released on cache hits
-    run(test_path, cores=3)
+    run(test_path, cores=3, cache=[])
+
+    # Clear the cache again
+    for fn in cache_dir.glob("*"):
+        fn.unlink()
 
     # Third run with higher parallelism to stress test marking
-    run(test_path, cores=10, forceall=True)
+    run(test_path, cores=10, forceall=True, cache=[])
 
 
 @skip_on_windows
