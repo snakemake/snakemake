@@ -311,10 +311,33 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     else:
                         logger.debug(f"Ready jobs: {n_total_needrun}")
 
+                    # For each cached job, the provenance hash is marked as in use and in the case
+                    # of another job having the same hash it is removed from needrun.
+                    if self.workflow.output_file_cache:
+                        for job in list(needrun):
+                            if (
+                                (cache_mode := self.workflow.get_cache_mode(job.rule))
+                                and not self.workflow.output_file_cache.mark_if_schedulable(
+                                    job, cache_mode
+                                )
+                            ):
+                                logger.debug(
+                                    f"Cached job {job} not schedulable, due to a provenance hash collision with another job"
+                                )
+                                needrun.discard(job)
+
                     if not self._last_job_selection_empty:
                         logger.info("Select jobs to execute...")
                     run = self.job_selector(needrun)
                     self._last_job_selection_empty = not run
+
+                    # Release marks for jobs not selected by job_selector
+                    if self.workflow.output_file_cache:
+                        for job in needrun.difference(run):
+                            if cache_mode := self.workflow.get_cache_mode(job.rule):
+                                self.workflow.output_file_cache.discard_mark(
+                                    job, cache_mode
+                                )
 
                     logger.debug(f"Selected jobs: {len(run)}")
                     logger.debug(f"Resources after job selection: {self.resources}")
@@ -483,6 +506,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     update_checkpoint_dependencies=self.update_checkpoint_dependencies,
                 )
 
+                # Release cache mark for finished job
+                if self.workflow.output_file_cache:
+                    cache_mode = self.workflow.get_cache_mode(job.rule)
+                    if cache_mode:
+                        self.workflow.output_file_cache.discard_mark(job, cache_mode)
+
         self.workflow.async_run(postprocess())
         self._tofinish.clear()
 
@@ -553,6 +582,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.get_executor(job).handle_job_error(job)
         self.running.remove(job)
         self._free_resources(job)
+
+        # Release cache mark for failed job
+        if self.workflow.output_file_cache:
+            cache_mode = self.workflow.get_cache_mode(job.rule)
+            if cache_mode:
+                self.workflow.output_file_cache.discard_mark(job, cache_mode)
+
         # attempt starts counting from 1, but the first attempt is not
         # a restart, hence we subtract 1.
         if job.restart_times > job.attempt - 1:

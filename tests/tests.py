@@ -1430,6 +1430,22 @@ def test_output_file_cache():
     run(test_path, cache=["a", "b"])
 
 
+def test_cache_provenance_hash_collisions():
+    """Test that jobs with identical provenance hashes don't execute concurrently."""
+    test_path = dpath("test_cache_provenance_hash_collisions")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+
+    # First run: populate cache
+    run(test_path, cores=3)
+
+    # Second run: all jobs should hit cache
+    # This verifies marks are properly released on cache hits
+    run(test_path, cores=3)
+
+    # Third run with higher parallelism to stress test marking
+    run(test_path, cores=10, forceall=True)
+
+
 @skip_on_windows
 @pytest.mark.needs_s3
 def test_output_file_cache_storage(s3_storage):

@@ -1,0 +1,1 @@
+/home/coroa/work/snakemake/cache/a479746dbd17f4089193762007ecd7247a274d8419d9c183eecd8291224a7357_output_{i}.txt
