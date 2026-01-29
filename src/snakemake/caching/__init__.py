@@ -49,14 +49,14 @@ class AbstractOutputFileCache:
         pass
 
     def mark_if_schedulable(self, job: Job, cache_mode) -> bool:
-        """Try to mark a job as scheduled if its cache is available.
+        """Make a job as scheduled unless its provenance hash is already active
 
         Args:
             job (Job): Job to try scheduling
             cache_mode (str): Cache mode for this job
 
         Returns:
-            bool: True if the job can be scheduled (hash was available and now marked).
+            bool: True if the job can be scheduled (hash was not marked yet).
                   False if the hash is already being computed by another job.
         """
         provenance_hash = self.provenance_hash_map.get_provenance_hash(job, cache_mode)
