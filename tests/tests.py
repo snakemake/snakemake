@@ -1812,7 +1812,8 @@ def test_default_target():
 
 
 def test_cache_multioutput():
-    run(dpath("test_cache_multioutput"))
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+    run(dpath("test_cache_multioutput"), cache=[])
 
 
 @skip_on_windows
