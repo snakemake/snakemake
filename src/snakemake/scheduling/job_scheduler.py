@@ -316,10 +316,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     if self.workflow.output_file_cache:
                         for job in list(needrun):
                             if (
-                                (cache_mode := self.workflow.get_cache_mode(job.rule))
-                                and not self.workflow.output_file_cache.mark_if_schedulable(
-                                    job, cache_mode
-                                )
+                                cache_mode := self.workflow.get_cache_mode(job.rule)
+                            ) and not self.workflow.output_file_cache.mark_if_schedulable(
+                                job, cache_mode
                             ):
                                 logger.debug(
                                     f"Cached job {job} not schedulable, due to a provenance hash collision with another job"
@@ -632,9 +631,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # get number of free jobs to submit
         if self.job_rate_limiter is None:
             # ensure that the job count is not restricted
-            assert self.resources["_job_count"] == sys.maxsize, (
-                f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
-            )
+            assert (
+                self.resources["_job_count"] == sys.maxsize
+            ), f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
             return run_selector(self._job_selector)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:
