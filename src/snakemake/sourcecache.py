@@ -811,7 +811,12 @@ class SourceCache:
         path_or_uri = source_file.get_path_or_uri(secret_free=False)
 
         try:
-            return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
+            return open(
+                path_or_uri,
+                mode,
+                encoding=None if "b" in mode else encoding,
+                compression="disable",
+            )
         except Exception as e:
             raise WorkflowError(
                 f"Failed to open source file {log_path}",
