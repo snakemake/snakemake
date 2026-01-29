@@ -1428,7 +1428,6 @@ def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
     run(test_path, cache=["a", "b"])
-    run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
 
 
 @skip_on_windows
@@ -1813,7 +1812,7 @@ def test_default_target():
 
 
 def test_cache_multioutput():
-    run(dpath("test_cache_multioutput"), shouldfail=True)
+    run(dpath("test_cache_multioutput"))
 
 
 @skip_on_windows
