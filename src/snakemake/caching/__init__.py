@@ -50,7 +50,7 @@ class AbstractOutputFileCache:
             "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not writeable.".format(
                 entry, self.cache_location
             ),
-            *[exception],
+            exception,
         )
 
     def raise_read_error(self, entry, exception=None):
@@ -58,7 +58,7 @@ class AbstractOutputFileCache:
             "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not readable.".format(
                 entry, self.cache_location
             ),
-            *[exception],
+            exception,
         )
 
     def raise_cache_miss_exception(self, job):
