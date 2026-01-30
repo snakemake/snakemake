@@ -3,13 +3,17 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import os
 from pathlib import Path
+import sys
 import types
 import re
+from importlib.machinery import ModuleSpec
 from typing import List, Optional, Set, Dict, Callable
 from snakemake.common import Rules
 
 from snakemake.exceptions import CreateRuleException, WorkflowError
+from snakemake.sourcecache import LocalSourceFile
 from snakemake.io.flags import DefaultFlags
 from snakemake.path_modifier import PathModifier
 from snakemake import wrapper
@@ -207,17 +211,44 @@ class WorkflowModifier:
                 globals = dict(workflow.vanilla_globals)
                 self.parent_modifier = workflow.modifier
                 allow_rule_overwrite |= self.parent_modifier.allow_rule_overwrite
+
+                name = f"{self.parent_modifier.module_type.__name__}.{namespace}"
             else:
                 # the first module modifier of workflow
                 self.parent_modifier = None
-            self.globals = globals
-            self.globals["__name__"] = namespace
-            self.globals["rules"] = self.rule_proxies = rule_proxies or Rules()
-            self.globals["checkpoints"] = self.globals[
-                "checkpoints"
-            ].spawn_new_namespace()
+                name = f"__workflow_{id(workflow)}__"
 
-            self.globals["config"] = config if config is not None else {}
+            module_type = types.ModuleType(name)
+            module_type.__dict__.update(globals)
+            self.module_type = module_type
+            self.globals = module_type.__dict__
+
+            spec = ModuleSpec(name, None, is_package=True)
+            module_type.__spec__ = spec
+
+            # Set __path__
+            if isinstance(base_snakefile, str):
+                basedir = os.path.dirname(base_snakefile)
+            elif isinstance(base_snakefile, LocalSourceFile):
+                basedir = base_snakefile.get_basedir().get_path_or_uri(
+                    secret_free=False
+                )
+            else:
+                basedir = None
+            if basedir:
+                module_type.__path__ = [basedir]
+                spec.submodule_search_locations = [basedir]
+
+            # register package
+            sys.modules[name] = module_type
+            if self.parent_modifier:
+                setattr(self.parent_modifier.module_type, namespace, module_type)
+
+            module_type.__name__ = name
+            module_type.__package__ = name
+            module_type.rules = self.rule_proxies = rule_proxies or Rules()
+            module_type.checkpoints = globals["checkpoints"].spawn_new_namespace()
+            module_type.config = config if config is not None else {}
             self.wildcard_constraints: dict = dict()
 
             assert (
@@ -230,6 +261,7 @@ class WorkflowModifier:
         else:
             # use rule (from same include) as ... with: init with values from parent modifier
             self.parent_modifier = parent_modifier = workflow.modifier
+            self.module_type = parent_modifier.module_type
             self.globals = parent_modifier.globals
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.pathvars = parent_modifier.pathvars
@@ -302,7 +334,3 @@ class WorkflowModifier:
     def __exit__(self, type, value, traceback):
         # remove this modifier from the stack
         self.workflow.modifier_stack.pop()
-        if self.namespace:
-            namespace = types.ModuleType(self.namespace)
-            namespace.__dict__.update(self.globals)
-            self.workflow.globals[self.namespace] = namespace

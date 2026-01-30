@@ -1644,6 +1644,11 @@ class Workflow(WorkflowExecutorInterface):
 
         snakefile = infer_source_file(snakefile, basedir)
 
+        if basedir is None:
+            path = snakefile.get_basedir().get_path_or_uri(secret_free=False)
+            self.modifier.module_type.__path__ = [path]
+            self.modifier.module_type.__spec__.submodule_search_locations = [path]
+
         if not self.modifier.is_module and snakefile in self.included:
             logger.info(f"Multiple includes of {snakefile} ignored")
             return
@@ -1665,6 +1670,7 @@ class Workflow(WorkflowExecutorInterface):
             print(code)
             return
 
+        # TODO remove at next major release to ban absolute local imports in Snakefile
         snakefile_path_or_uri = snakefile.get_basedir().get_path_or_uri(
             secret_free=False
         )
