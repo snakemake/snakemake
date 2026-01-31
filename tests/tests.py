@@ -1436,20 +1436,12 @@ def test_cache_provenance_hash_collisions():
     cache_dir = test_path / "cache"
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = cache_dir.name
 
-    # Clear the cache
-    for fn in cache_dir.glob("*"):
-        fn.unlink()
-
     # First run: populate cache
-    run(test_path, cores=3, cache=[])
+    tmpdir = run(test_path, cleanup=False, cores=3, cache=[])
 
     # Second run: all jobs should hit cache
     # This verifies marks are properly released on cache hits
-    run(test_path, cores=3, cache=[])
-
-    # Clear the cache again
-    for fn in cache_dir.glob("*"):
-        fn.unlink()
+    run(test_path, tmpdir=tmpdir, cores=3, cache=[])
 
     # Third run with higher parallelism to stress test marking
     run(test_path, cores=10, forceall=True, cache=[])
