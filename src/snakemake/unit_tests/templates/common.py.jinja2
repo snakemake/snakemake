@@ -49,7 +49,7 @@ class OutputChecker:
 
         # Compare output and expected files
         for f in expected_files:
-            self.compare_files(self.expected_path / f, self.workdir / f)
+            self.compare_files(self.expected_path / f, self.workdir / f, cmp_cmds)
 
     def compare_files(self, expected_file, generated_file, cmp_cmds):
         check_output(
