@@ -33,8 +33,6 @@ def test_{{ ruletest.name }}(conda_prefix):
                 "python",
                 "-m",
                 "snakemake",
-                "--allowed-rules",
-                "{{ ruletest.name }}",
                 {% for target in ruletest.target %}
                 "{{ target }}",
                 {% endfor %}
@@ -47,6 +45,8 @@ def test_{{ ruletest.name }}(conda_prefix):
                 "--show-failed-logs",
                 "-j1",
                 "--target-files-omit-workdir-adjustment",
+                "--allowed-rules",
+                "{{ ruletest.name }}",
                 {% if configfiles %}
                 "--configfile",
                 {% for configfile in configfiles %}
