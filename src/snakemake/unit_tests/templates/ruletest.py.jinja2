@@ -33,6 +33,8 @@ def test_{{ ruletest.name }}(conda_prefix):
                 "python",
                 "-m",
                 "snakemake",
+                "--allowed-rules",
+                "{{ ruletest.name }}",
                 {% for target in ruletest.target %}
                 "{{ target }}",
                 {% endfor %}
