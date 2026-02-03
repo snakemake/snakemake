@@ -8,6 +8,8 @@ import tempfile
 import math
 from typing import Any
 
+from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
+
 from snakemake.exceptions import (
     ResourceScopesException,
     WorkflowError,
@@ -253,14 +255,14 @@ class GroupResources:
                     # specify their resources
                     res = {
                         k: res
-                        for k, res, in job.resources.items()
+                        for k, res in job.resources.items()
                         if not isinstance(res, TBDString)
                     }
                     if job.pipe_group:
                         pipe_resources[job.pipe_group].append(res)
                     else:
                         job_resources.append(res)
-                except FileNotFoundError:
+                except (FileNotFoundError, FileOrDirectoryNotFoundError):
                     # Skip job if resource evaluation leads to a file not found error.
                     # This will be caused by an inner job, which needs files created by
                     # the same group. All we can do is to ignore such jobs for now.
@@ -523,14 +525,20 @@ class GroupResources:
 
 def eval_resource_expression(val, threads_arg=True):
     def generic_callable(val, threads_arg, **kwargs):
+        import os
+
         args = {
             "input": kwargs["input"],
             "attempt": kwargs["attempt"],
             "system_tmpdir": tempfile.gettempdir(),
             "shutil": shutil,
+            "async_run": kwargs["async_run"],
         }
         if threads_arg:
             args["threads"] = kwargs["threads"]
+        # Expand env variables
+        val = os.path.expanduser(os.path.expandvars(val))
+        # Eval expression
         try:
             value = eval(
                 val,
@@ -564,7 +572,7 @@ def eval_resource_expression(val, threads_arg=True):
 
     if threads_arg:
 
-        def callable(wildcards, input, attempt, threads, rulename):
+        def callable(wildcards, input, attempt, threads, rulename, async_run):
             return generic_callable(
                 val,
                 threads_arg=threads_arg,
@@ -573,11 +581,12 @@ def eval_resource_expression(val, threads_arg=True):
                 attempt=attempt,
                 threads=threads,
                 rulename=rulename,
+                async_run=async_run,
             )
 
     else:
 
-        def callable(wildcards, input, attempt, rulename):
+        def callable(wildcards, input, attempt, rulename, async_run):
             return generic_callable(
                 val,
                 threads_arg=threads_arg,
@@ -585,6 +594,7 @@ def eval_resource_expression(val, threads_arg=True):
                 input=input,
                 attempt=attempt,
                 rulename=rulename,
+                async_run=async_run,
             )
 
     return callable

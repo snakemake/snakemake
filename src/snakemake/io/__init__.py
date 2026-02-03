@@ -45,16 +45,18 @@ from snakemake_interface_storage_plugins.io import (
     Mtime,
     get_constant_prefix,
 )
+from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 
 from snakemake.common import (
     ON_WINDOWS,
-    async_run,
+    async_run as async_run_fallback,
     get_input_function_aux_params,
     is_namedtuple_instance,
 )
 from snakemake.exceptions import (
     InputOpenException,
     MissingOutputException,
+    UndefinedPathvarException,
     WildcardError,
     WorkflowError,
 )
@@ -289,8 +291,8 @@ class _IOFile(str, AnnotatedStringInterface):
             if rule is not None:
                 try:
                     modified = rule.pathvars.apply(modified)
-                except KeyError as e:
-                    raise WorkflowError(f"Undefined pathvar {str(e)}.", rule=rule)
+                except UndefinedPathvarException as e:
+                    raise WorkflowError(e, rule=rule) from e
             if is_annotated:
                 modified = AnnotatedString(modified)
                 modified.flags = file.flags
@@ -459,53 +461,13 @@ class _IOFile(str, AnnotatedStringInterface):
             return self._file
         else:
             raise ValueError(
-                "This IOFile is specified as a function and "
-                "may not be used directly."
+                "This IOFile is specified as a function and may not be used directly."
             )
 
     def check(self):
         if callable(self._file):
             return
-        if self._file == "":
-            raise WorkflowError(
-                "Empty file path encountered. This is likely unintended.",
-                rule=self.rule,
-            )
-        hint = (
-            "It can also lead to inconsistent results of the file-matching "
-            "approach used by Snakemake."
-        )
-        if self._file.startswith("./"):
-            logger.warning(
-                f"Relative file path '{self._file}' starts with './'. This is redundant "
-                f"and strongly discouraged. {hint} You can simply omit the './' "
-                "for relative file paths."
-            )
-        if self._file.startswith(" "):
-            logger.warning(
-                f"File path '{self._file}' starts with whitespace. "
-                f"This is likely unintended. {hint}"
-            )
-        if self._file.endswith(" "):
-            logger.warning(
-                f"File path '{self._file}' ends with whitespace. "
-                f"This is likely unintended. {hint}"
-            )
-        if "\n" in self._file:
-            logger.warning(
-                f"File path '{self._file}' contains line break. "
-                f"This is likely unintended. {hint}"
-            )
-        if _double_slash_regex.search(self._file) is not None and not self.is_storage:
-            logger.warning(
-                f"File path {self._file} contains double '{os.path.sep}'. "
-                f"This is likely unintended. {hint}"
-            )
-        if _illegal_wildcard_name_regex.search(self._file) is not None:
-            logger.warning(
-                f"File path '{self._file}' contains illegal characters in a wildcard "
-                f"name (only alphanumerics and underscores are allowed)."
-            )
+        check(self._file, rule=self.rule, is_storage=self.is_storage)
 
     async def exists(self):
         if self.is_storage:
@@ -639,22 +601,19 @@ class _IOFile(str, AnnotatedStringInterface):
         return stat.S_ISFIFO(os.stat(self).st_mode)
 
     @iocache
-    async def size(self):
+    async def size(self) -> int:
         if self.is_storage:
-            try:
-                return await self.storage_object.managed_size()
-            except WorkflowError as e:
-                try:
-                    return await self.size_local()
-                except IOError:
-                    raise e
+            return await self.storage_object.managed_size()
         else:
             return await self.size_local()
 
     async def size_local(self):
         # follow symlinks but throw error if invalid
         await self.check_broken_symlink()
-        return os.path.getsize(self.file)
+        try:
+            return os.path.getsize(self.file)
+        except FileNotFoundError:
+            raise FileOrDirectoryNotFoundError(Path(self.file))
 
     async def is_checksum_eligible(self, threshold):
         return (
@@ -988,6 +947,56 @@ def flag(value, flag_type, flag_value=True):
         value.flags[flag_type] = flag_value
         return value
     return [flag(v, flag_type, flag_value=flag_value) for v in value]
+
+
+def check(
+    iofile: str, rule: Optional["snakemake.rules.Rule"] = None, is_storage: bool = False
+) -> None:
+    if rule is not None:
+        spec = f"rule {rule.name}, line {rule.lineno}, {rule.snakefile}: "
+    else:
+        spec = ""
+
+    if iofile == "":
+        logger.warning(
+            f"{spec}Empty file path encountered. Snakemake cannot understand this. "
+            "If you want to indicate 'no file', please use an empty list ([]) instead of an empty string ('')."
+        )
+    hint = (
+        "It can also lead to inconsistent results of the file-matching "
+        "approach used by Snakemake."
+    )
+    if iofile.startswith("./"):
+        logger.warning(
+            f"{spec}Relative file path '{iofile}' starts with './'. This is redundant "
+            f"and strongly discouraged. {hint} You can simply omit the './' "
+            "for relative file paths."
+        )
+    if iofile.startswith(" "):
+        logger.warning(
+            f"File path '{iofile}' starts with whitespace. "
+            f"This is likely unintended. {hint}"
+        )
+    if iofile.endswith(" "):
+        logger.warning(
+            f"File path '{iofile}' ends with whitespace. "
+            f"This is likely unintended. {hint}"
+        )
+    if "\n" in iofile:
+        logger.warning(
+            f"File path '{iofile}' contains line break. "
+            f"This is likely unintended. {hint}"
+        )
+    if _double_slash_regex.search(iofile) is not None and not is_storage:
+        logger.warning(
+            f"File path {iofile} contains double '{os.path.sep}'. "
+            f"This is likely unintended. {hint}"
+        )
+    if _illegal_wildcard_name_regex.search(iofile) is not None:
+        logger.warning(
+            f"File path '{iofile}' contains illegal characters in a wildcard "
+            f"name (only alphanumerics and underscores are allowed)."
+        )
 
 
 def get_flag_store_keys(flag_func: Callable) -> Set[str]:
@@ -1921,19 +1930,32 @@ class Namedlist(list):
 
 
 class InputFiles(Namedlist):
+    def _predicated_size_files(self, predicate: Callable) -> List[int]:
+        async def sizes() -> List[int]:
+            async def get_size(f: _IOFile) -> Optional[int]:
+                if await predicate(f):
+                    return await f.size()
+                return None
+
+            sizes = await asyncio.gather(*map(get_size, self))
+            return [res for res in sizes if res is not None]
+
+        # the async_run method is expected to be provided through the eval context
+        return globals().get("async_run", async_run_fallback)(sizes())
+
     @property
     def size_files(self):
-        async def sizes():
-            return [await f.size() for f in self]
+        async def func_true(_) -> bool:
+            return True
 
-        return async_run(sizes())
+        return self._predicated_size_files(func_true)
 
     @property
     def size_tempfiles(self):
-        async def sizes():
-            return [await f.size() for f in self if is_flagged(f, "temp")]
+        async def is_temp(iofile):
+            return is_flagged(iofile, "temp")
 
-        return async_run(sizes())
+        return self._predicated_size_files(is_temp)
 
     @property
     def size_files_kb(self):

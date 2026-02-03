@@ -19,7 +19,7 @@ from snakemake.utils import min_version  # import so we can patch out if needed
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
-from snakemake.exceptions import AmbiguousRuleException
+from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -1707,6 +1707,7 @@ def test_modules_prefix_local():
 
 
 @connected
+@skip_on_windows  # filenames too long on windows
 def test_module_with_script():
     # min_version() checks can fail in a test sandbox, so patch them out
     with patch("snakemake.utils.min_version", return_value=True):
@@ -1819,13 +1820,11 @@ def test_cache_multioutput():
 def test_github_issue1384():
     try:
         tmpdir = run(dpath("test_github_issue1384"), cleanup=False)
-        shell(
-            """
+        shell("""
             cd {tmpdir}
             python -m snakemake --generate-unit-tests
             pytest -v .tests/unit
-            """
-        )
+            """)
     finally:
         shutil.rmtree(tmpdir)
 
@@ -2301,6 +2300,17 @@ def test_default_flags():
     run(dpath("test_default_flags"), executor="dryrun", check_results=False)
 
 
+def test_update_flag_fail():
+    run(dpath("test_update_flag_fail"), shouldfail=True, check_results=True)
+
+
+def test_update_flag_fail_cleanup():
+    workdir = dpath("test_update_flag_fail_cleanup")
+    tmpdir = run(workdir, shouldfail=True, cleanup=False, check_results=False)
+
+    assert not os.path.exists(os.path.join(tmpdir, "test.txt"))
+
+
 @skip_on_windows
 @apptainer
 def test_shell_exec_singularity():
@@ -2480,6 +2490,17 @@ def test_temp_and_all_input():
     run(dpath("test_temp_and_all_input"))
 
 
+@pytest.mark.skip(
+    reason="Unsupported for now, we would have to maintain the entire github repo on the local disk. "
+    "This can cause race conditions and is quite inefficient on network filesystems. "
+    "Currently, we do a bare checkout of the repo only. "
+    "One way would be a non-bare checkout that could be enabled optionally upon "
+    "snakefile module import."
+)
+def test_python_import_from_github_module():
+    run(dpath("test_python_import_from_github_module"))
+
+
 def test_keep_local():
     with tempfile.TemporaryDirectory() as tmpdir:
         snakefile = os.path.join(dpath("test_local_and_retrieve"), "keep_local.smk")
@@ -2642,3 +2663,22 @@ def test_checkpoint_omit_from():
         dpath("test_checkpoint_omit_from"),
         shellcmd="snakemake --omit-from B1 --cores 1",
     )
+
+
+def test_wildcard_annotatedstrings():
+    with pytest.raises(WorkflowError, match=r"unpack\(\) is not allowed with params"):
+        run(dpath("test_wildcard_annotatedstrings"), targets=["test.out"])
+
+
+@skip_on_windows  # platform will have no effect
+def test_cyclic_dependency_split():
+    run(dpath("test_cyclic_dependency_split"))
+
+
+@skip_on_windows  # platform will have no effect
+def test_cyclic_dependency_single():
+    # We force a rerun because the (to be updated) output file is already there
+    # and there is no input file with a newer date.
+    # It is expected behavior that Snakemake would not rerun in such a case without
+    # forcing it.
+    run(dpath("test_cyclic_dependency_single"), forceall=True)

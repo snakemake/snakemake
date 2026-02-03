@@ -71,7 +71,6 @@ from snakemake.resources import infer_resources
 from snakemake_interface_common.utils import not_iterable, lazy_property
 from snakemake_interface_common.rules import RuleInterface
 
-
 _NOT_CACHED = object()
 
 
@@ -578,6 +577,9 @@ class Rule(RuleInterface):
 
             item = default_flags.apply(item)
 
+            if mark_ancient:
+                item = flag(item, "ancient")
+
             inoutput.append(item)
             if name:
                 inoutput._add_name(name)
@@ -677,6 +679,7 @@ class Rule(RuleInterface):
         incomplete_checkpoint_func=lambda e: None,
         raw_exceptions=False,
         groupid=None,
+        async_run=None,
         **aux_params,
     ):
         if isinstance(func, _IOFile):
@@ -700,6 +703,11 @@ class Rule(RuleInterface):
         for name, value in list(_aux_params.items()):
             if callable(value):
                 _aux_params[name] = value()
+
+        # async_run needs to be passed as a method and therefore is only added after
+        # evaluating the others
+        if async_run is not None and "async_run" in get_function_params(func):
+            _aux_params["async_run"] = async_run
 
         wildcards_arg = Wildcards(fromdict=wildcards)
 
@@ -759,8 +767,6 @@ class Rule(RuleInterface):
         mapping=None,
         no_flattening=False,
         aux_params=None,
-        path_modifier=None,
-        property=None,
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
         groupid=None,
@@ -780,7 +786,15 @@ class Rule(RuleInterface):
                 if omit_callable:
                     continue
                 if non_derived_items is not None:
-                    is_derived = self._is_deriving_function(item)
+                    if (
+                        is_unpack
+                        and isinstance(item, AnnotatedString)
+                        and item.callable
+                    ):
+                        callable_item = item.callable
+                    else:
+                        callable_item = item
+                    is_derived = self._is_deriving_function(callable_item)
                 item, incomplete = self.apply_input_function(
                     item,
                     wildcards,
@@ -845,16 +859,7 @@ class Rule(RuleInterface):
                             wildcards=wildcards,
                         )
 
-                    if (
-                        from_callable is not None
-                        and not incomplete
-                        and path_modifier is not None
-                    ):
-                        item_ = self.apply_path_modifier(
-                            item_, path_modifier, property=property
-                        )
-
-                    concrete = concretize(item_, wildcards, from_callable)
+                    concrete = concretize(item_, wildcards, from_callable, incomplete)
                     newitems.append(concrete)
                     if not is_derived and non_derived_items is not None:
                         non_derived_items.append(concrete)
@@ -869,10 +874,10 @@ class Rule(RuleInterface):
         return incomplete
 
     def expand_input(self, wildcards, groupid=None):
-        def concretize_iofile(f, wildcards, from_callable):
+        def concretize_iofile(f, wildcards, from_callable, incomplete):
             if from_callable is not None:
                 if isinstance(f, Path):
-                    f = str(f)
+                    f = str(f.as_posix())
                 iofile = IOFile(f, rule=self).apply_wildcards(wildcards)
 
                 # inherit flags from callable
@@ -881,6 +886,14 @@ class Rule(RuleInterface):
                         if key in iofile.flags:
                             continue
                         iofile.flags[key] = value
+
+                if not incomplete and self.input_modifier is not None:
+                    iofile = IOFile(
+                        self.apply_path_modifier(
+                            iofile, self.input_modifier, property="input"
+                        ),
+                        rule=self,
+                    )
 
                 return self.workflow.modifier.default_input_flags.apply(iofile)
             else:
@@ -901,8 +914,6 @@ class Rule(RuleInterface):
                 concretize=concretize_iofile,
                 mapping=mapping,
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
-                path_modifier=self.input_modifier,
-                property="input",
                 groupid=groupid,
             )
         except WildcardError as e:
@@ -944,7 +955,7 @@ class Rule(RuleInterface):
         return False
 
     def expand_params(self, wildcards, input, output, job, omit_callable=False):
-        def concretize_param(p, wildcards, is_from_callable):
+        def concretize_param(p, wildcards, is_from_callable, incomplete):
             if not is_from_callable:
                 if isinstance(p, str):
                     return apply_wildcards(p, wildcards)
@@ -991,7 +1002,6 @@ class Rule(RuleInterface):
                 omit_callable=omit_callable,
                 allow_unpack=False,
                 no_flattening=True,
-                property="params",
                 aux_params={
                     "input": input._plainstrings(),
                     "resources": resources,
@@ -1028,8 +1038,10 @@ class Rule(RuleInterface):
         return output, mapping
 
     def expand_log(self, wildcards):
-        def concretize_logfile(f, wildcards, is_from_callable):
-            if is_from_callable:
+        def concretize_logfile(f, wildcards, from_callable, incomplete):
+            if from_callable is not None:
+                if not incomplete and self.log_modifier is not None:
+                    f = self.apply_path_modifier(f, self.log_modifier, property="log")
                 return IOFile(f, rule=self)
             else:
                 return f.apply_wildcards(wildcards)
@@ -1042,8 +1054,6 @@ class Rule(RuleInterface):
                 self.log,
                 wildcards,
                 concretize=concretize_logfile,
-                path_modifier=self.log_modifier,
-                property="log",
             )
         except WildcardError as e:
             raise WildcardError(
@@ -1064,8 +1074,7 @@ class Rule(RuleInterface):
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in benchmark file cannot be "
-                "determined from output files:",
+                "Wildcards in benchmark file cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -1087,7 +1096,7 @@ class Rule(RuleInterface):
                 if isinstance(res, AnnotatedString) and res.callable:
                     res = res.callable
                 if callable(res):
-                    aux = dict(rulename=self.name)
+                    aux = dict(rulename=self.name, async_run=self.workflow.async_run)
                     if threads is not None:
                         aux["threads"] = threads
                     try:
@@ -1211,6 +1220,7 @@ class Rule(RuleInterface):
             self._expanded_conda_env = None
             return None
 
+        assert isinstance(conda_env, (str, Path, SourceFile))
         spec_type = CondaEnvSpecType.from_spec(conda_env)
 
         if spec_type is CondaEnvSpecType.FILE:
@@ -1224,13 +1234,16 @@ class Rule(RuleInterface):
                     # infer source file from unmodified uri or path
                     conda_env = infer_source_file(conda_env)
 
-            conda_env = CondaEnvFileSpec(conda_env, rule=self)
+            conda_env = CondaEnvFileSpec(conda_env)
         elif spec_type is CondaEnvSpecType.NAME:
+            assert isinstance(conda_env, str)
             conda_env = CondaEnvNameSpec(conda_env)
         elif spec_type is CondaEnvSpecType.DIR:
-            conda_env = CondaEnvDirSpec(conda_env, rule=self)
+            conda_env = CondaEnvDirSpec(conda_env)
+        else:
+            raise RuntimeError(f"bug: unsupported conda spec type {spec_type}")
 
-        conda_env = conda_env.apply_wildcards(wildcards, self)
+        conda_env = conda_env.apply_wildcards(wildcards)
         conda_env.check()
 
         if cacheable:

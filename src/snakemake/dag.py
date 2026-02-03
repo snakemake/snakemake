@@ -38,6 +38,7 @@ from snakemake.settings.enums import Quietness
 from snakemake import workflow as _workflow
 from snakemake.common import (
     ON_WINDOWS,
+    func_true,
     group_into_chunks,
     is_local_file,
 )
@@ -403,34 +404,34 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 )
                 self.conda_envs[key] = env
 
-    async def retrieve_storage_inputs(self, jobs=None, also_missing_internal=False):
-        shared_local_copies = (
-            SharedFSUsage.STORAGE_LOCAL_COPIES
-            in self.workflow.storage_settings.shared_fs_usage
-        )
-        if jobs is None:
-            if (self.workflow.is_main_process and shared_local_copies) or (
-                self.workflow.remote_exec and not shared_local_copies
-            ):
-                jobs = self.needrun_jobs()
-            else:
-                jobs = []
+    async def retrieve_storage_inputs(
+        self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
+    ):
 
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
         to_retrieve = defaultdict(list)
         for job in jobs:
-            for f in job.input:
-                if (
-                    f.is_storage
-                    and not job.is_norun
-                    and (
-                        (also_missing_internal and not shared_local_copies)
-                        or self.is_external_input(f, job, not_needrun_is_external=True)
-                    )
-                ):
-                    to_retrieve[f].append(access_pattern(f))
+            if isinstance(job, GroupJob):
+                inner_jobs = job.jobs
+            else:
+                inner_jobs = [job]
+            for inner_job in inner_jobs:
+                for f in inner_job.input:
+                    if (
+                        f.is_storage
+                        and not inner_job.is_norun
+                        and (
+                            # if f exists in storage, retrieve below will check if it is
+                            # newer than an eventual local copy
+                            (also_missing_internal and await f.exists_in_storage())
+                            or self.is_external_input(
+                                f, inner_job, not_needrun_is_external=True
+                            )
+                        )
+                    ):
+                        to_retrieve[f].append(access_pattern(f))
 
         if to_retrieve:
             try:
@@ -1082,11 +1083,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     for f in files:
                         if await putative(f) and not needed(job_, f):
                             yield f
-                for f, f_ in zip(job.output, job.rule.output):
+                for f in job.output:
                     if (
                         await putative(f)
                         and not needed(job, f)
-                        and not f in self.targetfiles
+                        and f not in self.targetfiles
                     ):
                         yield f
                 for f in job.input:
@@ -1147,7 +1148,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             logger.debug(
                 None, extra=dict(event=LogEvent.DEBUG_DAG, status="candidate", job=job)
             )
-            if file in job.input:
+            if file in job.input and not any(
+                is_flagged(f, "before_update") for f in job.input if f == file
+            ):
                 cycles.append(job)
                 continue
             if job in visited:
@@ -1938,7 +1941,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         await self.check_jobs()
 
         if check_initial:
-            assert not (not self.ready_jobs and any(self.needrun_jobs())), (
+            assert self.has_unfinished_queue_input_jobs() or (
+                not any(self.needrun_jobs()) or any(self.ready_jobs)
+            ), (
                 "bug: DAG contains jobs that have to be executed but no such job is "
                 "ready for execution."
             )
@@ -2229,14 +2234,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     async def postprocess_after_update(self):
         await self.postprocess()
-        shared_input_output = (
-            SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
-        )
-        if not self.workflow.dryrun and (
-            (self.workflow.is_main_process and shared_input_output)
-            or self.workflow.remote_exec
-        ):
-            await self.retrieve_storage_inputs()
         self._derived_targetfiles = None
 
     def register_running(self, jobs: AnySet[AbstractJob]):
@@ -2435,12 +2432,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         before_update_jobs = dict()
         update_jobs = dict()
         for job in self.needrun_jobs():
-            for f in job.input:
-                if is_flagged(f, "before_update"):
-                    before_update_jobs[f] = job
             for f in job.output:
                 if is_flagged(f, "update"):
                     update_jobs[f] = job
+            for f in job.input:
+                if is_flagged(f, "before_update") and job is not update_jobs.get(f):
+                    before_update_jobs[f] = job
 
         for f, job in before_update_jobs.items():
             update_job = update_jobs.get(f)
@@ -2740,14 +2737,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
         return (
-            textwrap.dedent(
-                """\
+            textwrap.dedent("""\
             ---
             title: DAG
             ---
             flowchart TB
-            """
-            )
+            """)
             + "{}\n{}\n{}".format(
                 "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
             )
@@ -2792,8 +2787,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
 
-        return textwrap.dedent(
-            """\
+        return textwrap.dedent("""\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -2801,8 +2795,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """
-        ).format(items="\n".join(nodes + edges))
+            """).format(items="\n".join(nodes + edges))
 
     def filegraph_dot(
         self,
@@ -2931,8 +2924,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
 
-        return textwrap.dedent(
-            """\
+        return textwrap.dedent("""\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -2940,8 +2932,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """
-        ).format(items="\n".join(nodes + edges))
+            """).format(items="\n".join(nodes + edges))
 
     async def summary(self, detailed=False):
         def fmt_output(f):
@@ -3085,10 +3076,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             raise e
 
     def is_external_input(self, file, job, not_needrun_is_external=False):
-        """Return True if the given file is an external input for the given job."""
-        consider = lambda job: True
+        """Return True if the given file is an external input for the given job.
+
+        If not_needrun_is_external=True, then the file is considered external
+        if the creating job is not 'needrun'. Otherwise, the file may not be
+        created by any other job to be considered external.
+        """
+        consider = func_true
         if not_needrun_is_external:
-            consider = lambda job: self.needrun(job)
+            consider = self.needrun
         return not any(
             file in files
             for dep, files in self._dependencies[job].items()
@@ -3302,7 +3298,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             if not isinstance(f, SourceFile) and is_local_file(f):
                 return f
             if isinstance(f, LocalSourceFile):
-                return f.get_path_or_uri()
+                return f.get_path_or_uri(secret_free=True)
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):

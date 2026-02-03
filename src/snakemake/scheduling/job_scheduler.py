@@ -24,14 +24,13 @@ from snakemake.io import _IOFile
 from snakemake.jobs import AbstractJob
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
-from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.logging import logger
 from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
 
 from snakemake.settings.enums import Quietness
-from snakemake.settings.types import MaxJobsPerTimespan
+from snakemake.settings.types import MaxJobsPerTimespan, SharedFSUsage
 
 registry = ExecutorPluginRegistry()
 
@@ -346,14 +345,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 f"{', '.join(j.name for j in local_runjobs)}."
                             )
                         else:
-                            if (
-                                not self.workflow.remote_exec
-                                and not self.workflow.local_exec
-                            ):
-                                # Workflow uses a remote plugin and this scheduling run
-                                # is on the main process. Hence, we have to download
-                                # non-shared remote files for the local jobs.
-                                async_run(
+                            if not self.dryrun and not self.workflow.subprocess_exec:
+                                # retrieve storage inputs for local jobs
+                                self.workflow.async_run(
                                     self.workflow.dag.retrieve_storage_inputs(
                                         jobs=local_runjobs, also_missing_internal=True
                                     )
@@ -364,6 +358,24 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 executor=self._local_executor or self._executor,
                             )
                     if runjobs:
+                        is_shared_fs = (
+                            SharedFSUsage.STORAGE_LOCAL_COPIES
+                            in self.workflow.storage_settings.shared_fs_usage
+                        )
+                        # TODO: there are plans to chain remote executors. In that case, we should
+                        # reconsider this logic and decide where to download the storage inputs.
+                        if not self.workflow.dryrun and (
+                            (self.workflow.is_main_process and is_shared_fs)
+                            or (not is_shared_fs and self.workflow.remote_exec)
+                        ):
+                            # Retrieve storage inputs for remote jobs, as storage local copies are handled
+                            # via a shared filesystem.
+                            # If local copies are not shared, they will be downloaded in the remote job.
+                            self.workflow.async_run(
+                                self.workflow.dag.retrieve_storage_inputs(
+                                    jobs=runjobs, also_missing_internal=True
+                                )
+                            )
                         self.run(runjobs)
 
                 if not self.dryrun:
@@ -471,7 +483,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     update_checkpoint_dependencies=self.update_checkpoint_dependencies,
                 )
 
-        async_run(postprocess())
+        self.workflow.async_run(postprocess())
         self._tofinish.clear()
 
     def update_queue_input_jobs(self):
@@ -481,7 +493,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             >= self.workflow.execution_settings.queue_input_wait_time
         ):
             self._last_update_queue_input_jobs = currtime
-            async_run(self.workflow.dag.update_queue_input_jobs())
+            self.workflow.async_run(self.workflow.dag.update_queue_input_jobs())
 
     def _error_jobs(self):
         # must be called from within lock
@@ -537,12 +549,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """
         # must be called from within lock
         if postprocess_job and not self.workflow.dryrun:
-
-            async_run(
-                job.postprocess(
-                    error=True,
-                )
-            )
+            self.workflow.async_run(job.postprocess(error=True))
         self.get_executor(job).handle_job_error(job)
         self.running.remove(job)
         self._free_resources(job)
@@ -566,7 +573,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         for job in jobs:
             self.validate_job(job)
 
-        async_run(self.update_input_sizes(jobs))
+        self.workflow.async_run(self.update_input_sizes(jobs))
 
         def run_selector(job_selector) -> Sequence[AbstractJob]:
             with self._lock:

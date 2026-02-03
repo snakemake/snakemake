@@ -670,7 +670,9 @@ def get_argument_parser(profiles=None):
             "Set or overwrite values in the workflow config object. "
             "The workflow config object is accessible as variable config inside "
             "the workflow. Default values can be set by providing a YAML JSON file "
-            "(see `--configfile` and Documentation)."
+            "(see `--configfile` and Documentation). "
+            "Nested values must be defined in Python dict format, e.g., "
+            "`--config \"foo={'bar': 42}\"`."
         ),
     )
     group_exec.add_argument(
@@ -1344,7 +1346,12 @@ def get_argument_parser(profiles=None):
         help="Same behaviour as `--wait-for-files`, but file list is "
         "stored in file instead of being passed on the commandline. "
         "This is useful when the list of files is too long to be "
-        "passed on the commandline.",
+        "passed on the commandline. Meant for internal use.",
+    )
+    group_behavior.add_argument(
+        "--runtime-source-cache-path",
+        metavar="PATH",
+        help="Path to the runtime source cache directory. Meant for internal use.",
     )
     group_behavior.add_argument(
         "--queue-input-wait-time",
@@ -1915,7 +1922,6 @@ def create_output_settings(args, log_handler_settings) -> OutputSettings:
         verbose=args.verbose,
         show_failed_logs=args.show_failed_logs,
         log_handler_settings=log_handler_settings,
-        keep_logger=False,
         stdout=args.dryrun,
         benchmark_extended=args.benchmark_extended,
     )
@@ -2062,6 +2068,7 @@ def args_to_api(args, parser):
                         exec_mode=args.mode,
                         cache=args.cache,
                         consider_ancient=args.consider_ancient,
+                        runtime_source_cache_path=args.runtime_source_cache_path,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
