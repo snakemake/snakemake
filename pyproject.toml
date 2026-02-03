@@ -130,6 +130,7 @@ markers = [
   "needs_envmodules: marks tests that require environment modules",
   "needs_s3: marks tests that require S3 credentials",
 ]
+
 [tool.pixi.feature.test]
 channels = ["conda-forge", "bioconda", "nodefaults"]
 
@@ -277,6 +278,9 @@ cmd = 'make html SPHINXOPTS="--keep-going -n"'
 [tool.pixi.feature.style.dependencies]
 black = "*"
 packaging = ">=24.0,<26"
+ty = "*"
+pyrefly = "*"
+ruff = "*"
 
 [tool.pixi.feature.style.tasks]
 format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format the code" }
