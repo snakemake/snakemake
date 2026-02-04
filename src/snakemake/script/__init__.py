@@ -733,7 +733,7 @@ class PythonScript(ScriptBase):
         )
         # python 3.14 uses protocol 5 by default, which is not supported in python 3.7 and younger
         # to ensure compatibility, we use protocol 4 here
-        snakemake = pickle.dumps(snakemake,protocol=4)
+        snakemake = pickle.dumps(snakemake, protocol=4)
         # Obtain search path for current snakemake module.
         # The module is needed for unpickling in the script.
         # We append it at the end (as a fallback).
