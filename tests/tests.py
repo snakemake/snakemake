@@ -2686,6 +2686,7 @@ def test_cyclic_dependency_single():
 
 @skip_on_windows
 @apptainer
+@connected
 def test_issue3958():
     run(
         dpath("test_issue3958"),
