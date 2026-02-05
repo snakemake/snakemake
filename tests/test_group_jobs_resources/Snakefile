@@ -15,7 +15,7 @@ rule a:
     group: 0
     threads: 4
     resources:
-        mem_mb=20000,
+        mem="20 GB",
         fake_res=400,
         global_res=1000,
         runtime=80,
@@ -46,7 +46,7 @@ rule b:
     threads: 1
     resources:
         runtime=20,
-        mem_mb=10000
+        mem_mib=10000
     shell:
         "touch {output}"
 

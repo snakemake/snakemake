@@ -15,7 +15,7 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Iterable, List, Mapping, Optional, Set, Union, Dict
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union, Dict
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
@@ -3182,7 +3182,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 msg += f"\n    {reason}:\n        {rules}"
             logger.info(msg)
 
-    def stats(self) -> tuple[str, dict[str, int]]:
+    def stats(self) -> Tuple[str, Dict[str, int]]:
         from tabulate import tabulate
 
         # Count the jobs

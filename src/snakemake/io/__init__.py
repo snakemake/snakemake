@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -27,9 +29,12 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    Generic,
+    Iterator,
     List,
     Optional,
     Set,
+    Tuple,
     TypeVar,
     Union,
     TYPE_CHECKING,
@@ -1489,7 +1494,7 @@ def expand(*args, **wildcard_values):
 
     def do_expand(
         wildcard_values: Dict[
-            str, dict[str, Union[str, collections.abc.Iterable[str]]]
+            str, Dict[str, Union[str, collections.abc.Iterable[str]]]
         ],
     ):
         def flatten(
@@ -1649,7 +1654,7 @@ def glob_wildcards(pattern, files=None, followlinks=False):
         dirname = "."
 
     _names = [match.group("name") for match in WILDCARD_REGEX.finditer(pattern)]
-    names: list[str] = sorted(set(_names), key=_names.index)
+    names: List[str] = sorted(set(_names), key=_names.index)
     Wildcards = collections.namedtuple("Wildcards", names)  # type: ignore[misc]
     wildcards = Wildcards(*[list() for name in names])
 
@@ -1747,11 +1752,14 @@ class AttributeGuard:
 
 # TODO: replace this with Self when Python 3.11 is the minimum supported version for
 #   executing scripts
-_TNamedList = TypeVar("_TNamedList", bound="Namedlist")
+_TNamedList = TypeVar("_TNamedList")
+"Type variable for self returning methods on Namedlist deriving classes"
+
+_TNamedKeys = TypeVar("_TNamedKeys")
 "Type variable for self returning methods on Namedlist deriving classes"
 
 
-class Namedlist(list):
+class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
     """
     A list that additionally provides functions to name items. Further,
     it is hashable, however, the hash does not consider the item names.
@@ -1760,7 +1768,7 @@ class Namedlist(list):
     def __init__(
         self,
         toclone=None,
-        fromdict=None,
+        fromdict: Optional[Dict[_TNamedKeys, _TNamedList]] = None,
         plainstr=False,
         strip_constraints=False,
         custom_map=None,
@@ -1864,7 +1872,7 @@ class Namedlist(list):
         for name, (i, j) in names:
             self._set_name(name, i, end=j)
 
-    def items(self):
+    def items(self) -> Iterator[Tuple[_TNamedKeys, _TNamedList]]:
         for name in self._names:
             yield name, getattr(self, name)
 
@@ -2002,7 +2010,7 @@ class Params(Namedlist):
     pass
 
 
-class Resources(Namedlist):
+class ResourceList(Namedlist):
     pass
 
 
