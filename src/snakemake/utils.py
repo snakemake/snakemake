@@ -116,7 +116,6 @@ def validate(data, schema, set_default=True):
         uri=schemafile.get_path_or_uri(secret_free=False), resource=resource
     )
     Validator = validator_for(schema, default=Draft202012Validator)
-    ValidatorInstance = Validator(schema, registry=registry)
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -155,7 +154,7 @@ def validate(data, schema, set_default=True):
             Defaultvalidator(schema, registry=registry).validate(record)
             return record
         else:
-            ValidatorInstance.validate(record)
+            Validator(schema, registry=registry).validate(record)
 
     def _validate_pandas(data):
         try:
