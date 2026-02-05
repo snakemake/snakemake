@@ -15,8 +15,6 @@ import string
 import shlex
 import sys
 
-from jsonschema.validators import validator_for
-
 from snakemake.io import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
 from snakemake.logging import logger
@@ -49,6 +47,7 @@ def validate(data, schema, set_default=True):
     from snakemake.sourcecache import LocalSourceFile, infer_source_file
     import jsonschema
     from jsonschema import Draft202012Validator, validators
+    from jsonschema.validators import validator_for
     from referencing import Registry, Resource
     from pathlib import Path
     from urllib.parse import urlparse
