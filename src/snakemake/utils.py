@@ -15,6 +15,8 @@ import string
 import shlex
 import sys
 
+from jsonschema.validators import validator_for
+
 from snakemake.io import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
 from snakemake.logging import logger
@@ -113,7 +115,7 @@ def validate(data, schema, set_default=True):
     registry = Registry(retrieve=retrieve_uri).with_resource(
         uri=schemafile.get_path_or_uri(secret_free=False), resource=resource
     )
-    Validator = Draft202012Validator(schema, registry=registry)
+    Validator = validator_for(schema, default=Draft202012Validator)
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
