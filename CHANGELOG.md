@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.16.3](https://github.com/snakemake/snakemake/compare/v9.16.2...v9.16.3) (2026-02-05)
+
+
+### Bug Fixes
+
+* standardize handling of resources ([#3421](https://github.com/snakemake/snakemake/issues/3421)) ([4cada18](https://github.com/snakemake/snakemake/commit/4cada18536933f97e50848f0816c64dc89784040))
+
 ## [9.16.2](https://github.com/snakemake/snakemake/compare/v9.16.1...v9.16.2) (2026-01-29)
 
 
