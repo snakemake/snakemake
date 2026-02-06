@@ -41,6 +41,8 @@ def test_b(conda_prefix):
                 "--show-failed-logs",
                 "-j1",
                 "--target-files-omit-workdir-adjustment",
+                "--allowed-rules",
+                "b",
                 "--configfile",
                 ".tests/integration/config/config.json",
                 "--directory",
