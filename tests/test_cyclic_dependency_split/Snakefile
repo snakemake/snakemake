@@ -1,0 +1,20 @@
+rule all:
+    input:
+        "test.txt",
+        "test1.txt",
+
+rule b:
+    input:
+        before_update("test.txt")
+    output:
+        "test1.txt"
+    shell:
+        "cp {input} {output}"
+
+rule c:
+    input:
+        "test1.txt"
+    output:
+        update("test.txt")
+    shell:
+        "echo 'test' > {output}"
