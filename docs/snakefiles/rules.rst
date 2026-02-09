@@ -1012,7 +1012,7 @@ Because of these special meanings, the above names should always be used instead
 .. _default-resources:
 
 Default Resources
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 Since it could be cumbersome to define these standard resources for every rule, you can set default values via the command line flag ``--default-resources`` or in a :ref:`profile <profiles>`.
 As with ``--set-resources``, this can be done dynamically, using the variables specified for the callables in the section on :ref:`snakefiles-dynamic-resources`.
