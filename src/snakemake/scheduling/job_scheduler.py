@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -5,15 +7,16 @@ __license__ = "MIT"
 
 import asyncio
 from bisect import bisect
-from collections import deque
-import signal
-import sys
+from collections import defaultdict, deque
+import copy
+import math
+import os, signal, sys
 import threading
 
 from itertools import chain, accumulate, filterfalse, repeat
 from contextlib import ContextDecorator
 import time
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, TYPE_CHECKING
 
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -24,7 +27,6 @@ from snakemake.io import _IOFile
 from snakemake.jobs import AbstractJob
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
-from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.logging import logger
@@ -32,6 +34,9 @@ from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSett
 
 from snakemake.settings.enums import Quietness
 from snakemake.settings.types import MaxJobsPerTimespan, SharedFSUsage
+
+if TYPE_CHECKING:
+    from snakemake.workflow import Workflow
 
 registry = ExecutorPluginRegistry()
 
@@ -61,7 +66,7 @@ class DummyRateLimiter(ContextDecorator):
 class JobScheduler(JobSchedulerExecutorInterface):
     def __init__(
         self,
-        workflow,
+        workflow: Workflow,
         executor_plugin: ExecutorPlugin,
         scheduler: SchedulerBase,
         greedy_scheduler_settings: GreedySchedulerSettings,
@@ -94,20 +99,23 @@ class JobScheduler(JobSchedulerExecutorInterface):
             else None
         )
 
-        nodes_unset = workflow.global_resources["_nodes"] is None
-
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
-            for name, res in workflow.global_resources.items()
+            for name, res in workflow.global_resources.expand_items(
+                constraints={},
+                evaluate=None,
+                expand_sized=False,
+            )
+            if not isinstance(res, str)
         }
 
-        if not nodes_unset:
+        if workflow.global_resources["_nodes"].value is not None:
             # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
             self.global_resources["_cores"] = sys.maxsize
         # register job count resource (always initially unrestricted)
         self.global_resources["_job_count"] = sys.maxsize
 
-        self.resources = dict(self.global_resources)
+        self.resources = copy.copy(self.global_resources)
 
         self._open_jobs = threading.Semaphore(0)
         self._lock = threading.Lock()
@@ -348,7 +356,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         else:
                             if not self.dryrun and not self.workflow.subprocess_exec:
                                 # retrieve storage inputs for local jobs
-                                async_run(
+                                self.workflow.async_run(
                                     self.workflow.dag.retrieve_storage_inputs(
                                         jobs=local_runjobs, also_missing_internal=True
                                     )
@@ -372,7 +380,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             # Retrieve storage inputs for remote jobs, as storage local copies are handled
                             # via a shared filesystem.
                             # If local copies are not shared, they will be downloaded in the remote job.
-                            async_run(
+                            self.workflow.async_run(
                                 self.workflow.dag.retrieve_storage_inputs(
                                     jobs=runjobs, also_missing_internal=True
                                 )
@@ -484,7 +492,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     update_checkpoint_dependencies=self.update_checkpoint_dependencies,
                 )
 
-        async_run(postprocess())
+        self.workflow.async_run(postprocess())
         self._tofinish.clear()
 
     def update_queue_input_jobs(self):
@@ -494,7 +502,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             >= self.workflow.execution_settings.queue_input_wait_time
         ):
             self._last_update_queue_input_jobs = currtime
-            async_run(self.workflow.dag.update_queue_input_jobs())
+            self.workflow.async_run(self.workflow.dag.update_queue_input_jobs())
 
     def _error_jobs(self):
         # must be called from within lock
@@ -550,12 +558,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """
         # must be called from within lock
         if postprocess_job and not self.workflow.dryrun:
-
-            async_run(
-                job.postprocess(
-                    error=True,
-                )
-            )
+            self.workflow.async_run(job.postprocess(error=True))
         self.get_executor(job).handle_job_error(job)
         self.running.remove(job)
         self._free_resources(job)
@@ -579,7 +582,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         for job in jobs:
             self.validate_job(job)
 
-        async_run(self.update_input_sizes(jobs))
+        self.workflow.async_run(self.update_input_sizes(jobs))
 
         def run_selector(job_selector) -> Sequence[AbstractJob]:
             with self._lock:

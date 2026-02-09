@@ -16,7 +16,6 @@ import sys
 from snakemake_interface_logger_plugins.settings import LogHandlerSettingsBase
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 
-
 DEFAULT_FORMATTER = logging.Formatter()
 
 

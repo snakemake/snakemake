@@ -22,7 +22,6 @@ from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
 
-
 __author__ = "Johannes Köster"
 
 STDOUT = sys.stdout
@@ -243,6 +242,7 @@ class shell:
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:
+            os.makedirs(".snakemake", exist_ok=True)
             tmpdir = tempfile.mkdtemp(dir=".snakemake", prefix="shell_tmp.")
             script = os.path.join(os.path.abspath(tmpdir), "script.sh")
             with open(script, "w") as script_fd:

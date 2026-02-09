@@ -40,10 +40,8 @@ def validate(data, schema, set_default=True):
     frame = inspect.currentframe().f_back
     workflow = frame.f_globals.get("workflow")
 
-    if workflow and (workflow.modifier.skip_validation or workflow.remote_exec):
-        # skip if a corresponding modifier has been defined or if this is a
-        # remote job. In the latter case, the schema has been already  validated by the
-        # main process.
+    if workflow and workflow.modifier.skip_validation:
+        # skip if a corresponding modifier has been defined
         return
 
     from snakemake.sourcecache import LocalSourceFile, infer_source_file

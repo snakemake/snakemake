@@ -13,7 +13,7 @@ import inspect
 import shutil
 import sys
 from tempfile import NamedTemporaryFile
-from typing import Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Mapping, Optional, Tuple
 import uuid
 import os
 import asyncio
@@ -22,8 +22,7 @@ from pathlib import Path
 from typing import Union
 
 from snakemake import __version__
-from snakemake_interface_common.exceptions import WorkflowError
-
+from snakemake.exceptions import NestedCoroutineError
 
 MIN_PY_VERSION: Tuple[int, int] = (3, 7)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
@@ -66,8 +65,12 @@ def get_report_id(path: Union[str, Path]) -> str:
     return h.hexdigest()
 
 
-def mb_to_mib(mb):
+def mb_to_mib(mb: int):
     return int(math.ceil(mb * 0.95367431640625))
+
+
+def mib_to_mb(mib: int):
+    return int(math.floor(mib / 0.95367431640625))
 
 
 def parse_key_value_arg(arg, errmsg, strip_quotes=True):
@@ -93,24 +96,86 @@ def dict_to_key_value_args(
     return items
 
 
-def async_run(coroutine):
-    """Attaches to running event loop or creates a new one to execute a
-    coroutine.
-    .. seealso::
-         https://github.com/snakemake/snakemake/issues/1105
-         https://stackoverflow.com/a/65696398
+def async_runner(loop_factory=None, executor=None):
     """
-    try:
-        return asyncio.run(coroutine)
-    except RuntimeError as e:
-        coroutine.close()
-        raise WorkflowError(
+    Creates a new async Runner after checking we are outside of a running event loop.
+
+    Parameters
+    ----------
+    loop_factory : callable, optional
+        Optional callable that creates and returns a new event loop.
+        If provided, executor must be None.
+    executor : Executor, optional
+        Optional executor to use as the default executor for the event loop.
+        If provided, loop_factory must be None.
+
+    Returns
+    -------
+    asyncio.Runner
+        A runner object that can execute coroutines.
+
+    Raises
+    ------
+    WorkflowError
+        If called from within an already running event loop.
+    ValueError
+        If both executor and loop_factory are provided.
+
+    See Also
+    --------
+    https://github.com/snakemake/snakemake/issues/1105
+    https://stackoverflow.com/a/65696398
+    """
+
+    # asyncio.run fast-path to detect a running event loop, which we do not support yet
+    if asyncio.events._get_running_loop() is not None:
+        raise NestedCoroutineError(
             "Error running coroutine in event loop. Snakemake currently does not "
             "support being executed from an already running event loop. "
             "If you run Snakemake e.g. from a Jupyter notebook, make sure to spawn a "
             "separate process for Snakemake.",
-            e,
         )
+
+    if executor is not None:
+        if loop_factory is not None:
+            raise ValueError(
+                "only executor or loop_factory can be given as an argument"
+            )
+
+        def loop_factory():
+            loop = asyncio.new_event_loop()
+            loop.set_default_executor(executor)
+            asyncio.set_event_loop(loop)
+            return loop
+
+    return asyncio.Runner(loop_factory=loop_factory)
+
+
+def async_run(coroutine):
+    """
+    Creates a new event loop to execute a coroutine.
+
+    This is a convenience wrapper around async_runner() that creates a new runner,
+    executes the given coroutine, and returns its result. The event loop is properly
+    cleaned up after execution.
+
+    Parameters
+    ----------
+    coroutine : coroutine
+        An async coroutine to execute.
+
+    Returns
+    -------
+    any
+        The return value of the coroutine.
+
+    Raises
+    ------
+    WorkflowError
+        If called from within an already running event loop.
+    """
+    with async_runner() as runner:
+        return runner.run(coroutine)
 
 
 APPDIRS = None
@@ -150,7 +215,7 @@ def parse_uri(path_or_uri):
             raise e
 
 
-def smart_join(base, path, abspath=False):
+def smart_join(base, path, abspath=False) -> str:
     if is_local_file(base):
         full = os.path.join(base, path)
         if abspath:
@@ -308,7 +373,9 @@ def overwrite_function_params(func: Callable, params: List[str]):
     setattr(func, FUNC_OVERWRITE_PARAMS_ATTR, params)
 
 
-def get_input_function_aux_params(func, candidate_params):
+def get_input_function_aux_params(
+    func: Callable[..., Any], candidate_params: Mapping[str, Any]
+) -> Mapping[str, Any]:
     func_params = get_function_params(func)
     has_var_keyword = any(
         param.kind == param.VAR_KEYWORD for param in func_params.values()
