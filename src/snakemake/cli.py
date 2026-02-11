@@ -10,7 +10,7 @@ import sys
 import logging
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import List, Mapping, Optional, Set, Tuple, Union
+from typing import List, Mapping, Optional, Set, Tuple, Union, Dict
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -40,11 +40,9 @@ from snakemake.exceptions import (
     print_exception,
 )
 from snakemake.resources import (
-    DefaultResources,
-    ParsedResource,
+    Resource,
+    Resources,
     ResourceScopes,
-    eval_resource_expression,
-    parse_resources,
 )
 from snakemake.settings.types import (
     Batch,
@@ -110,15 +108,18 @@ def optional_str(arg):
 
 
 def parse_set_threads(args):
-    def fallback(orig_value):
-        value = eval_resource_expression(orig_value, threads_arg=False)
-        return ParsedResource(value=value, orig_arg=orig_value)
+    def wrapper(orig_value):
+        if isinstance(orig_value, int):
+            return Resource("_cores", orig_value)
+        return Resource.from_cli_expression(
+            "_cores", str(orig_value), with_threads_arg=False
+        )
 
     return parse_set_ints(
         args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
-        fallback=fallback,
+        wrapper=wrapper,
     )
 
 
@@ -164,38 +165,32 @@ def parse_consider_ancient(
     return consider_ancient
 
 
-def parse_set_resources(args):
+def parse_set_resources(args: List[str] | None) -> Dict[str, Resources]:
     errmsg = (
-        "Invalid resource definition: entries have to be defined as RULE:RESOURCE=VALUE, with "
-        "VALUE being a positive integer a quoted string, or a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
+        "Invalid resource definition: entries have to be defined as "
+        "RULE:RESOURCE=VALUE, with VALUE being a positive integer a quoted string, or "
+        "a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
     )
 
     from collections import defaultdict
 
-    assignments = defaultdict(dict)
-    if args is not None:
-        for entry in args:
-            key, orig_value = parse_key_value_arg(
-                entry, errmsg=errmsg, strip_quotes=False
-            )
-            key = key.split(":")
-            if len(key) != 2:
-                raise ValueError(errmsg)
-            rule, resource = key
-            if is_quoted(orig_value):
-                # value is a string, just keep it but remove surrounding quotes
-                value = orig_value[1:-1]
-            else:
-                try:
-                    value = int(orig_value)
-                except ValueError:
-                    value = eval_resource_expression(orig_value)
-            if isinstance(value, int) and value < 0:
-                raise ValueError(errmsg)
-            assignments[rule][resource] = ParsedResource(
-                value=value, orig_arg=orig_value
-            )
-    return assignments
+    if args is None:
+        return {}
+
+    assignments: Dict[str, List[str]] = defaultdict(list)
+
+    for entry in args:
+        rule, assign = entry.split(":", maxsplit=1)
+        assignments[rule].append(assign)
+
+    try:
+        return {
+            rule: Resources.parse(assigns, allow_expressions=True)
+            for rule, assigns in assignments.items()
+        }
+
+    except ValueError as err:
+        raise ValueError(errmsg) from err
 
 
 def parse_set_scatter(args):
@@ -225,7 +220,7 @@ def parse_set_resource_scope(args):
     return ResourceScopes()
 
 
-def parse_set_ints(arg, errmsg, fallback=None):
+def parse_set_ints(arg, errmsg, wrapper=None):
     assignments = dict()
     if arg is not None:
         for entry in arg:
@@ -233,16 +228,20 @@ def parse_set_ints(arg, errmsg, fallback=None):
             try:
                 value = int(value)
             except ValueError:
-                if fallback is not None:
-                    try:
-                        value = fallback(value)
-                    except Exception as e:
-                        raise ValueError(f"{errmsg} Cause: {e}")
-                else:
+                if wrapper is None:
                     raise ValueError(errmsg)
-            if isinstance(value, int) and value < 0:
-                raise ValueError(errmsg)
-            assignments[key] = value
+            else:
+                if value < 0:
+                    raise ValueError(errmsg)
+
+            if wrapper is None:
+                assignments[key] = value
+                continue
+
+            try:
+                assignments[key] = wrapper(value)
+            except Exception as e:
+                raise ValueError(f"{errmsg} Cause: {e}") from e
     return assignments
 
 
@@ -531,8 +530,8 @@ def get_argument_parser(profiles=None):
         "--res",
         nargs="+",
         metavar="NAME=INT",
-        default=dict(),
-        parse_func=parse_resources,
+        default=Resources(),
+        parse_func=Resources.parser_factory(allow_expressions=False),
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to `--cores` (see above). A resource is defined as "
@@ -610,7 +609,9 @@ def get_argument_parser(profiles=None):
         "--default-res",
         nargs="*",
         metavar="NAME=INT",
-        parse_func=maybe_base64(DefaultResources),
+        parse_func=maybe_base64(
+            Resources.parser_factory(defaults="full", allow_expressions=True)
+        ),
         help=(
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. `2*input.size_mb`). "
@@ -670,7 +671,9 @@ def get_argument_parser(profiles=None):
             "Set or overwrite values in the workflow config object. "
             "The workflow config object is accessible as variable config inside "
             "the workflow. Default values can be set by providing a YAML JSON file "
-            "(see `--configfile` and Documentation)."
+            "(see `--configfile` and Documentation). "
+            "Nested values must be defined in Python dict format, e.g., "
+            "`--config \"foo={'bar': 42}\"`."
         ),
     )
     group_exec.add_argument(
@@ -1344,7 +1347,12 @@ def get_argument_parser(profiles=None):
         help="Same behaviour as `--wait-for-files`, but file list is "
         "stored in file instead of being passed on the commandline. "
         "This is useful when the list of files is too long to be "
-        "passed on the commandline.",
+        "passed on the commandline. Meant for internal use.",
+    )
+    group_behavior.add_argument(
+        "--runtime-source-cache-path",
+        metavar="PATH",
+        help="Path to the runtime source cache directory. Meant for internal use.",
     )
     group_behavior.add_argument(
         "--queue-input-wait-time",
@@ -1915,7 +1923,6 @@ def create_output_settings(args, log_handler_settings) -> OutputSettings:
         verbose=args.verbose,
         show_failed_logs=args.show_failed_logs,
         log_handler_settings=log_handler_settings,
-        keep_logger=False,
         stdout=args.dryrun,
         benchmark_extended=args.benchmark_extended,
     )
@@ -2062,6 +2069,7 @@ def args_to_api(args, parser):
                         exec_mode=args.mode,
                         cache=args.cache,
                         consider_ancient=args.consider_ancient,
+                        runtime_source_cache_path=args.runtime_source_cache_path,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
@@ -2089,7 +2097,6 @@ def args_to_api(args, parser):
                 elif args.print_compilation:
                     workflow_api.print_compilation()
                 else:
-
                     print_dag_as = None
                     if args.dag:
                         print_dag_as = args.dag

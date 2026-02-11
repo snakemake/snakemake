@@ -19,10 +19,15 @@ rule a:
         "touch {output}"
 
 
+def infunc(wildcards):
+    return "<resources>/<resname>.2.txt"
+
+
 rule b:
     input:
         "<results>/a/<per>.txt",
         "<resources>/<resname>.txt",
+        infunc,
     output:
         "<results>/b/<nested>.txt"
     pathvars:

@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from functools import partial
 import os
 import shutil
 import sys
@@ -12,6 +13,7 @@ import tempfile
 
 import pytest
 from snakemake.deployment.conda import get_env_setup_done_flag_file
+from snakemake.sourcecache import HostingProviderFile
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -21,7 +23,6 @@ from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
 )
-
 
 xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
@@ -72,6 +73,7 @@ def test_conda_create_envs_only():
         cleanup=False,
         cleanup_scripts=False,
     )
+    assert tmpdir is not None
     env_dir = next(
         (p for p in Path(tmpdir, ".snakemake", "conda").iterdir() if p.is_dir()), None
     )
@@ -103,6 +105,7 @@ def test_deploy_hashing():
         deployment_method={DeploymentMethod.CONDA},
         cleanup=False,
     )
+    assert tmpdir is not None
     assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
 
 
@@ -131,6 +134,17 @@ def test_wrapper():
         dpath("test_wrapper"),
         deployment_method={DeploymentMethod.CONDA},
         check_md5=False,
+    )
+
+
+@skip_on_windows  # wrappers are for linux and macos only
+@conda
+def test_wrapper_qsub():
+    run(
+        dpath("test_wrapper"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+        cluster="./qsub",
     )
 
 
@@ -366,3 +380,44 @@ def test_get_log_stdout():
 
 def test_get_log_complex():
     run(dpath("test_get_log_complex"))
+
+
+@skip_on_windows
+@conda
+def test_containerize_checkpoint():
+    """Test that containerize considers rules not in the initial DAG (e.g. after checkpoints)."""
+    tmpdir = None
+    try:
+        tmpdir = run(
+            dpath("test_containerize_checkpoint"),
+            shellcmd="snakemake --containerize > Dockerfile",
+            check_results=False,
+            cleanup=False,
+            deployment_method={DeploymentMethod.CONDA},
+        )
+        tmpdir = Path(tmpdir)
+
+        dockerfile_path = tmpdir / "Dockerfile"
+        assert dockerfile_path.exists(), "Dockerfile was not generated."
+
+        with open(dockerfile_path) as f:
+            dockerfile_content = f.read()
+
+        assert "#   source: envs/a.yaml" in dockerfile_content
+        assert "#   source: envs/b.yaml" in dockerfile_content
+        module_env_path = os.path.join("workflow", "envs", "c.yaml")
+        assert f"#   source: {module_env_path}" in dockerfile_content
+
+        # check that COPY/ADD instructions use correct relative paths
+        assert "COPY envs/a.yaml" in dockerfile_content
+        assert "COPY envs/b.yaml" in dockerfile_content
+        assert f"COPY {module_env_path}" in dockerfile_content
+
+        # check three unique environments are being created
+        assert (
+            dockerfile_content.count("conda env create") == 3
+        ), "Expected 3 conda environments to be created."
+
+    finally:
+        if tmpdir and os.path.exists(tmpdir):
+            shutil.rmtree(tmpdir)
