@@ -1123,6 +1123,12 @@ class Resources(Mapping[str, Resource]):
             return Resource("", None)
         return result
 
+    def setdefault(self, ix: str, val: ValidResource | Resource | None):
+        if ix in self._data:
+            return self._data[ix]
+        self[ix] = val
+        return self._data[ix]
+
     def expand_items(
         self,
         *,
