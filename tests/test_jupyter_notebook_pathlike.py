@@ -4,7 +4,6 @@ from pathlib import Path
 from .common import run
 from snakemake_interface_executor_plugins.settings import DeploymentMethod
 
-
 # See https://github.com/snakemake/snakemake/pull/3636.
 SNAKEFILE = """\
 from pathlib import Path

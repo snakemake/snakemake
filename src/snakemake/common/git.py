@@ -6,7 +6,7 @@ from snakemake.exceptions import WorkflowError
 
 def split_git_path(path):
     file_sub = re.sub(r"^git\+file:/+", "/", path)
-    (file_path, version) = file_sub.split("@")
+    file_path, version = file_sub.split("@")
     file_path = os.path.realpath(file_path)
     root_path = get_git_root(file_path)
     if file_path.startswith(root_path):
@@ -75,7 +75,7 @@ def git_content(git_file):
     import git
 
     if git_file.startswith("git+file:"):
-        (root_path, file_path, version) = split_git_path(git_file)
+        root_path, file_path, version = split_git_path(git_file)
         return git.Repo(root_path).git.show(f"{version}:{file_path}")
     else:
         raise WorkflowError(

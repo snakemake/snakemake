@@ -7,7 +7,6 @@ from snakemake.logging import logger
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
 from snakemake.io import is_callable, contains_wildcard
 
-
 CONDA_ENV_PATH = "/conda-envs"
 
 
