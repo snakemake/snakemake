@@ -2533,6 +2533,16 @@ def test_pathvars_cycle():
     run(dpath("test_pathvars_cycle"), shouldfail=True)
 
 
+@skip_on_windows
+def test_pathvars_storage():
+    run(
+        dpath("test_pathvars_storage"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+        cores=1,
+    )
+
+
 @skip_on_windows  # OS agnostic
 def test_handle_storage_multi_consumers():
     run(
