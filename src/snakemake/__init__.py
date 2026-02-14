@@ -15,7 +15,6 @@ sys.path.append(PIP_DEPLOYMENTS_PATH)
 # Reexports that are part of the public API:
 from snakemake.shell import shell
 
-
 if __name__ == "__main__":
     from snakemake.cli import main
     import sys

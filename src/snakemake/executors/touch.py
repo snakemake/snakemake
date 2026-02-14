@@ -17,7 +17,6 @@ from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake.logging import logger
 from snakemake.exceptions import print_exception
 
-
 common_settings = CommonSettings(
     non_local_exec=False,
     implies_no_shared_fs=False,

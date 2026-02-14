@@ -1,6 +1,34 @@
 # Changelog
 
 
+## [9.16.3](https://github.com/snakemake/snakemake/compare/v9.16.2...v9.16.3) (2026-02-05)
+
+
+### Bug Fixes
+
+* standardize handling of resources ([#3421](https://github.com/snakemake/snakemake/issues/3421)) ([4cada18](https://github.com/snakemake/snakemake/commit/4cada18536933f97e50848f0816c64dc89784040))
+
+## [9.16.2](https://github.com/snakemake/snakemake/compare/v9.16.1...v9.16.2) (2026-01-29)
+
+
+### Bug Fixes
+
+* handle str input in fmt_iofile ([#3946](https://github.com/snakemake/snakemake/issues/3946)) ([5df0c0b](https://github.com/snakemake/snakemake/commit/5df0c0bdc052b2c20b9b33fa52daabad96095e66))
+
+## [9.16.1](https://github.com/snakemake/snakemake/compare/v9.16.0...v9.16.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* do not decompress source files during caching, keep them unchanged instead ([#3944](https://github.com/snakemake/snakemake/issues/3944)) ([ca72878](https://github.com/snakemake/snakemake/commit/ca72878de2a8bb8c50e557aa20598942aa713ffa))
+
+## [9.16.0](https://github.com/snakemake/snakemake/compare/v9.15.0...v9.16.0) (2026-01-27)
+
+
+### Features
+
+* add highlighting of selected view to HTML reports ([#3935](https://github.com/snakemake/snakemake/issues/3935)) ([f53655e](https://github.com/snakemake/snakemake/commit/f53655ec4a080830374fa6e5636063afdb367b5c))
+
 ## [9.15.0](https://github.com/snakemake/snakemake/compare/v9.14.8...v9.15.0) (2026-01-21)
 
 

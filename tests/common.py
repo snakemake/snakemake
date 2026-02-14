@@ -6,14 +6,17 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 import signal
-import sys
 import shlex
 import shutil
+import sys
 import time
 from os.path import join
 import tempfile
 import hashlib
+from typing import Any, List, Mapping
+import urllib
 import urllib.request
+import urllib.error
 import pytest
 import glob
 import subprocess
@@ -26,10 +29,9 @@ from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake import api
 from snakemake.common import ON_WINDOWS
 from snakemake.report.html_reporter import ReportSettings
-from snakemake.resources import ResourceScopes
+from snakemake.resources import ResourceScopes, Resources
 from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
-
 
 #: File system path as string or pathlike object.
 StrPath: TypeAlias = str | os.PathLike
@@ -58,7 +60,7 @@ def is_connected() -> bool:
     try:
         urllib.request.urlopen("https://www.google.com", timeout=1)
         return True
-    except (urllib.request.URLError, TimeoutError):
+    except (urllib.error.URLError, TimeoutError):
         return False
 
 
@@ -159,7 +161,7 @@ def print_tree(path: str, exclude: StrPath | None = None):
 
 def run(
     path: StrPath,
-    shouldfail: bool = False,
+    shouldfail: bool | type[Exception] = False,
     snakefile: StrPath = "Snakefile",
     no_tmpdir: bool = False,
     check_md5: bool = True,
@@ -202,8 +204,8 @@ def run(
     cluster=None,
     cluster_status=None,
     retries=0,
-    resources=dict(),
-    default_resources=None,
+    resources: Mapping[str, Any] | None = None,
+    default_resources: Resources | List[str] | None = None,
     group_components=dict(),
     max_threads=None,
     overwrite_groups=dict(),
@@ -377,8 +379,20 @@ def run(
                             else dict()
                         ),
                         overwrite_resources=overwrite_resources,
-                        resources=resources,
-                        default_resources=default_resources,
+                        resources=(
+                            Resources.from_mapping(resources)
+                            if resources is not None
+                            else Resources()
+                        ),
+                        default_resources=(
+                            Resources.parse(
+                                default_resources,
+                                defaults="full",
+                                allow_expressions=True,
+                            )
+                            if isinstance(default_resources, list)
+                            else default_resources
+                        ),
                         max_threads=max_threads,
                         overwrite_scatter=overwrite_scatter,
                     ),
@@ -489,8 +503,11 @@ def run(
                 success = False
                 exception = e
 
-    if shouldfail:
+    if shouldfail is not False:
         assert not success, "expected error on execution"
+        if shouldfail is not True:
+            with pytest.raises(shouldfail):
+                raise exception
     else:
         if not success:
             if snakemake_api is not None and exception is not None:
