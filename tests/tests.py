@@ -39,6 +39,14 @@ from snakemake_interface_executor_plugins.settings import (
 )
 
 
+def test_maturin():
+    """
+    Tests whether the `sum_as_string` function defined in `rust/src/lib.rs`
+    gets called and runs properly.
+    """
+    assert str(1 + 2) == sum_as_string(1, 2)
+
+
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
@@ -2685,11 +2693,3 @@ def test_cyclic_dependency_single():
     # It is expected behavior that Snakemake would not rerun in such a case without
     # forcing it.
     run(dpath("test_cyclic_dependency_single"), forceall=True)
-
-
-def test_maturin():
-    """
-    Tests whether the `sum_as_string` function defined in `rust/src/lib.rs`
-    gets called and runs properly.
-    """
-    assert str(1 + 2) == sum_as_string(1, 2)

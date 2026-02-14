@@ -1,11 +1,10 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools-scm>=8", "maturin>=1.11,<2.0"]
-# build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.11,<2.0"]
 build-backend = "maturin"
 
 [project]
 name = "snakemake"
-dynamic = ["version"]
+version = "9.16.3" # update this for new releases
 description = "Workflow management system to create reproducible and scalable data analyses"
 readme = { content-type = "text/markdown", text = """
   Snakemake is a workflow management system that aims to reduce the
@@ -83,11 +82,6 @@ all = ["eido", "peppy", "pygments"]
 
 [project.scripts]
 snakemake = "snakemake.cli:main"
-
-[tool.setuptools_scm]
-version_file = "src/snakemake/_version.py"
-# Ignore Git hash
-local_scheme = "no-local-version"
 
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
