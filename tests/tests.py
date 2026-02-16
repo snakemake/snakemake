@@ -1080,7 +1080,9 @@ def test_valid_resource_names_are_accepted(valid_resource, value, expected_mb):
     """Test that valid resource names work correctly."""
     resources = Resources.from_mapping({valid_resource: value})
     # Check the resource was created
-    assert valid_resource in resources or f"{valid_resource.split('_')[0]}_mb" in resources
+    assert (
+        valid_resource in resources or f"{valid_resource.split('_')[0]}_mb" in resources
+    )
     # For human-friendly resources, check the _mb variant exists
     if not valid_resource.endswith("_mb"):
         assert f"{valid_resource}_mb" in resources
@@ -2102,11 +2104,13 @@ def test_cache_multioutput():
 def test_github_issue1384():
     try:
         tmpdir = run(dpath("test_github_issue1384"), cleanup=False)
-        shell("""
+        shell(
+            """
             cd {tmpdir}
             python -m snakemake --generate-unit-tests
             pytest -v .tests/unit
-            """)
+            """
+        )
     finally:
         shutil.rmtree(tmpdir)
 
