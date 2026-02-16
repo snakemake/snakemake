@@ -1054,6 +1054,39 @@ def test_suffixed_resources_cannot_be_human_readable():
         Resources.from_mapping({"mem_mb": "40 Gb"})
 
 
+@pytest.mark.parametrize(
+    "invalid_resource",
+    ["mem_gib", "mem_gb", "disk_gib", "disk_gb"],
+)
+def test_invalid_resource_names_are_rejected(invalid_resource):
+    """Test that common invalid resource names are rejected with helpful error messages."""
+    with pytest.raises(
+        WorkflowError,
+        match=f"Resource '{invalid_resource}' is not a recognized resource name",
+    ):
+        Resources.from_mapping({invalid_resource: 10})
+
+
+@pytest.mark.parametrize(
+    "valid_resource,value,expected_mb",
+    [
+        ("mem", "10GiB", 10737),  # human-friendly
+        ("mem_mb", 10240, 10240),  # direct MB
+        ("disk", "5GB", 5000),  # human-friendly
+        ("disk_mb", 5000, 5000),  # direct MB
+    ],
+)
+def test_valid_resource_names_are_accepted(valid_resource, value, expected_mb):
+    """Test that valid resource names work correctly."""
+    resources = Resources.from_mapping({valid_resource: value})
+    # Check the resource was created
+    assert valid_resource in resources or f"{valid_resource.split('_')[0]}_mb" in resources
+    # For human-friendly resources, check the _mb variant exists
+    if not valid_resource.endswith("_mb"):
+        assert f"{valid_resource}_mb" in resources
+        assert resources[f"{valid_resource}_mb"].value == expected_mb
+
+
 @skip_on_windows
 def test_group_jobs_resources_with_max_threads(mocker):
     spy = mocker.spy(GroupResources, "basic_layered")
