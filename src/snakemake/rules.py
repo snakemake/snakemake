@@ -1171,6 +1171,31 @@ class Rule(RuleInterface):
 
         return ResourceList(fromdict=resources)
 
+    def expand_priority(self, wildcards, input, attempt):
+        """Expand the priority given wildcards and input."""
+        if callable(self.priority):
+            try:
+                value, _ = self.apply_input_function(
+                    self.priority,
+                    wildcards,
+                    input=input,
+                    attempt=attempt,
+                    rulename=self.name,
+                    async_run=self.workflow.async_run,
+                )
+            except (InputFunctionException, WorkflowError):
+                raise
+            except Exception as e:
+                raise InputFunctionException(e, rule=self, wildcards=wildcards)
+            if not isinstance(value, (int, float)):
+                raise RuleException(
+                    "Priority function must return a numeric value (int or float), "
+                    f"got {type(value).__name__}.",
+                    rule=self,
+                )
+            return value
+        return self.priority
+
     def expand_group(self, wildcards):
         """Expand the group given wildcards."""
         if callable(self.group):
