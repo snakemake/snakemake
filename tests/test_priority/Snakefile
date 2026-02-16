@@ -4,14 +4,55 @@ for i in word:
     print(word.index(i) + 1)
 
 rule all:
-    input: expand('{i}.out', i=target)
+    input:
+        expand('{i}.out', i=target),
+        'input_priority.out',
+        'attempt_priority.out',
+        'rulename_priority.out',
+        'float_priority.out',
+        'all_params_priority.out',
 
 rule echo:
     output: '{i}.out'
-    priority: lambda wc:  word.index(wc.i) + 1  if wc.i in word else 0
+    priority: lambda wc: word.index(wc.i) + 1 if wc.i in word else 0
     shell: 'echo {wildcards.i} > {output} && echo {wildcards.i} >> order.out'
 
 rule a:
     output: 'a.out'
     priority: 50
     shell: 'echo a > a.out && echo a >> order.out'
+
+# lambda with input
+rule input_priority:
+    input: 'a.out'
+    output: 'input_priority.out'
+    priority: lambda wildcards, input: len(input)
+    shell: 'cp {input} {output}'
+
+# lambda with attempt
+rule attempt_priority:
+    input: 'a.out'
+    output: 'attempt_priority.out'
+    priority: lambda wildcards, attempt: attempt + 5
+    shell: 'cp {input} {output}'
+
+# lambda with rulename
+rule rulename_priority:
+    input: 'a.out'
+    output: 'rulename_priority.out'
+    priority: lambda wildcards, rulename: len(rulename)
+    shell: 'cp {input} {output}'
+
+# lambda returning a float
+rule float_priority:
+    input: 'a.out'
+    output: 'float_priority.out'
+    priority: lambda wildcards: 3.14
+    shell: 'cp {input} {output}'
+
+# lambda using all available params
+rule all_params_priority:
+    input: 'a.out'
+    output: 'all_params_priority.out'
+    priority: lambda wildcards, input, attempt, rulename: len(input) + attempt + len(rulename)
+    shell: 'cp {input} {output}'
