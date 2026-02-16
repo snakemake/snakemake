@@ -491,22 +491,20 @@ class Resource:
     _evaluator: Final[Callable[..., ValidResource] | None]
 
     def __init__(self, name: str, value: ValidResource, raw: int | str | None = None):
-        # Validate against common resource naming mistakes
-        invalid_resource_suggestions = {
+        # Validate against invalid resource names that would cause confusion
+        invalid_resource_names = {
             "mem_gib": "mem (e.g., mem='10GiB') or mem_mb (for megabytes)",
-            "mem_gb": "mem (e.g., mem='10GB') or mem_mb (for megabytes)",
             "disk_gib": "disk (e.g., disk='10GiB') or disk_mb (for megabytes)",
-            "disk_gb": "disk (e.g., disk='10GB') or disk_mb (for megabytes)",
+            "mem_mib": "mem_mb (mem_mib is auto-generated from mem_mb)",
+            "disk_mib": "disk_mb (disk_mib is auto-generated from disk_mb)",
         }
-
-        if name in invalid_resource_suggestions:
+        
+        if name in invalid_resource_names:
             raise WorkflowError(
                 f"Resource '{name}' is not a recognized resource name. "
-                f"Did you mean '{invalid_resource_suggestions[name]}'? "
-                "Use 'mem' or 'disk' with units (like '10GiB'), "
-                "or use 'mem_mb'/'disk_mb' for values in megabytes. "
-                "Note: mem_mib and disk_mib are automatically "
-                "generated and should not be set directly."
+                f"Use '{invalid_resource_names[name]}' instead. "
+                "Snakemake only recognizes 'mem', 'mem_mb', 'disk', and 'disk_mb' "
+                "for memory/disk resources."
             )
 
         if not (
