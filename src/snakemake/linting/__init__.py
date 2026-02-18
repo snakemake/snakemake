@@ -15,7 +15,7 @@ NAME_PATTERN = "[a-zA-Z_][a-zA-Z_0-9]*(?!\\+)"
 
 class Linter(ABC):
     def __init__(self, workflow, items):
-        self.items = items
+        self.items = list(items)
         self.workflow = workflow
 
     def read_item(self, item):

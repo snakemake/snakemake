@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -16,7 +18,6 @@ import shutil
 import stat
 import string
 import time
-from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from inspect import isfunction, ismethod
@@ -28,9 +29,12 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    Generic,
+    Iterator,
     List,
     Optional,
     Set,
+    Tuple,
     TypeVar,
     Union,
     TYPE_CHECKING,
@@ -46,16 +50,18 @@ from snakemake_interface_storage_plugins.io import (
     Mtime,
     get_constant_prefix,
 )
+from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 
 from snakemake.common import (
     ON_WINDOWS,
-    async_run,
+    async_run as async_run_fallback,
     get_input_function_aux_params,
     is_namedtuple_instance,
 )
 from snakemake.exceptions import (
     InputOpenException,
     MissingOutputException,
+    UndefinedPathvarException,
     WildcardError,
     WorkflowError,
 )
@@ -234,8 +240,7 @@ class IOCache(IOCacheStorageInterface):
 
 
 def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
-    f = _IOFile(file)
-    f.rule = rule
+    f = _IOFile(file, rule=rule)
     return f
 
 
@@ -265,31 +270,42 @@ class _IOFile(str, AnnotatedStringInterface):
 
     if TYPE_CHECKING:
 
-        def __init__(self, file):
+        def __init__(self, file, rule: Optional["snakemake.rules.Rule"]):
             self._is_callable: bool
             self._file: str | AnnotatedString | Callable[[Namedlist], str]
             self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
             self._wildcard_constraints: Dict[str, re.Pattern] | None
 
-    def __new__(cls, file):
+    def __new__(
+        cls,
+        file: Union[str, Path, "AnnotatedString", Callable],
+        rule: Optional["snakemake.rules.Rule"],
+    ):
         is_annotated = isinstance(file, AnnotatedString)
         is_callable = (
             isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
         )
         if isinstance(file, Path):
             file = str(file.as_posix())
-        if not is_callable and file.endswith("/"):
-            # remove trailing slashes
-            stripped = file.rstrip("/")
+        if not is_callable and isinstance(file, str):
+            modified = file
+            if file.endswith("/"):
+                # remove trailing slashes
+                modified = file.rstrip("/")
+            if rule is not None:
+                try:
+                    modified = rule.pathvars.apply(modified)
+                except UndefinedPathvarException as e:
+                    raise WorkflowError(e, rule=rule) from e
             if is_annotated:
-                stripped = AnnotatedString(stripped)
-                stripped.flags = file.flags
-            file = stripped
+                modified = AnnotatedString(modified)
+                modified.flags = file.flags
+            file = modified
         obj = str.__new__(cls, file)
         obj._is_callable = is_callable
         obj._file = file
-        obj.rule = None
+        obj.rule = rule
         obj._regex = None
         obj._wildcard_constraints = None
 
@@ -450,48 +466,13 @@ class _IOFile(str, AnnotatedStringInterface):
             return self._file
         else:
             raise ValueError(
-                "This IOFile is specified as a function and "
-                "may not be used directly."
+                "This IOFile is specified as a function and may not be used directly."
             )
 
     def check(self):
         if callable(self._file):
             return
-        hint = (
-            "It can also lead to inconsistent results of the file-matching "
-            "approach used by Snakemake."
-        )
-        if self._file.startswith("./"):
-            logger.warning(
-                f"Relative file path '{self._file}' starts with './'. This is redundant "
-                f"and strongly discouraged. {hint} You can simply omit the './' "
-                "for relative file paths."
-            )
-        if self._file.startswith(" "):
-            logger.warning(
-                f"File path '{self._file}' starts with whitespace. "
-                f"This is likely unintended. {hint}"
-            )
-        if self._file.endswith(" "):
-            logger.warning(
-                f"File path '{self._file}' ends with whitespace. "
-                f"This is likely unintended. {hint}"
-            )
-        if "\n" in self._file:
-            logger.warning(
-                f"File path '{self._file}' contains line break. "
-                f"This is likely unintended. {hint}"
-            )
-        if _double_slash_regex.search(self._file) is not None and not self.is_storage:
-            logger.warning(
-                f"File path {self._file} contains double '{os.path.sep}'. "
-                f"This is likely unintended. {hint}"
-            )
-        if _illegal_wildcard_name_regex.search(self._file) is not None:
-            logger.warning(
-                f"File path '{self._file}' contains illegal characters in a wildcard "
-                f"name (only alphanumerics and underscores are allowed)."
-            )
+        check(self._file, rule=self.rule, is_storage=self.is_storage)
 
     async def exists(self):
         if self.is_storage:
@@ -625,22 +606,19 @@ class _IOFile(str, AnnotatedStringInterface):
         return stat.S_ISFIFO(os.stat(self).st_mode)
 
     @iocache
-    async def size(self):
+    async def size(self) -> int:
         if self.is_storage:
-            try:
-                return await self.storage_object.managed_size()
-            except WorkflowError as e:
-                try:
-                    return await self.size_local()
-                except IOError:
-                    raise e
+            return await self.storage_object.managed_size()
         else:
             return await self.size_local()
 
     async def size_local(self):
         # follow symlinks but throw error if invalid
         await self.check_broken_symlink()
-        return os.path.getsize(self.file)
+        try:
+            return os.path.getsize(self.file)
+        except FileNotFoundError:
+            raise FileOrDirectoryNotFoundError(Path(self.file))
 
     async def is_checksum_eligible(self, threshold):
         return (
@@ -974,6 +952,56 @@ def flag(value, flag_type, flag_value=True):
         value.flags[flag_type] = flag_value
         return value
     return [flag(v, flag_type, flag_value=flag_value) for v in value]
+
+
+def check(
+    iofile: str, rule: Optional["snakemake.rules.Rule"] = None, is_storage: bool = False
+) -> None:
+    if rule is not None:
+        spec = f"rule {rule.name}, line {rule.lineno}, {rule.snakefile}: "
+    else:
+        spec = ""
+
+    if iofile == "":
+        logger.warning(
+            f"{spec}Empty file path encountered. Snakemake cannot understand this. "
+            "If you want to indicate 'no file', please use an empty list ([]) instead of an empty string ('')."
+        )
+    hint = (
+        "It can also lead to inconsistent results of the file-matching "
+        "approach used by Snakemake."
+    )
+    if iofile.startswith("./"):
+        logger.warning(
+            f"{spec}Relative file path '{iofile}' starts with './'. This is redundant "
+            f"and strongly discouraged. {hint} You can simply omit the './' "
+            "for relative file paths."
+        )
+    if iofile.startswith(" "):
+        logger.warning(
+            f"File path '{iofile}' starts with whitespace. "
+            f"This is likely unintended. {hint}"
+        )
+    if iofile.endswith(" "):
+        logger.warning(
+            f"File path '{iofile}' ends with whitespace. "
+            f"This is likely unintended. {hint}"
+        )
+    if "\n" in iofile:
+        logger.warning(
+            f"File path '{iofile}' contains line break. "
+            f"This is likely unintended. {hint}"
+        )
+    if _double_slash_regex.search(iofile) is not None and not is_storage:
+        logger.warning(
+            f"File path {iofile} contains double '{os.path.sep}'. "
+            f"This is likely unintended. {hint}"
+        )
+    if _illegal_wildcard_name_regex.search(iofile) is not None:
+        logger.warning(
+            f"File path '{iofile}' contains illegal characters in a wildcard "
+            f"name (only alphanumerics and underscores are allowed)."
+        )
 
 
 def get_flag_store_keys(flag_func: Callable) -> Set[str]:
@@ -1466,7 +1494,7 @@ def expand(*args, **wildcard_values):
 
     def do_expand(
         wildcard_values: Dict[
-            str, dict[str, Union[str, collections.abc.Iterable[str]]]
+            str, Dict[str, Union[str, collections.abc.Iterable[str]]]
         ],
     ):
         def flatten(
@@ -1626,7 +1654,7 @@ def glob_wildcards(pattern, files=None, followlinks=False):
         dirname = "."
 
     _names = [match.group("name") for match in WILDCARD_REGEX.finditer(pattern)]
-    names: list[str] = sorted(set(_names), key=_names.index)
+    names: List[str] = sorted(set(_names), key=_names.index)
     Wildcards = collections.namedtuple("Wildcards", names)  # type: ignore[misc]
     wildcards = Wildcards(*[list() for name in names])
 
@@ -1724,11 +1752,14 @@ class AttributeGuard:
 
 # TODO: replace this with Self when Python 3.11 is the minimum supported version for
 #   executing scripts
-_TNamedList = TypeVar("_TNamedList", bound="Namedlist")
+_TNamedList = TypeVar("_TNamedList")
+"Type variable for self returning methods on Namedlist deriving classes"
+
+_TNamedKeys = TypeVar("_TNamedKeys")
 "Type variable for self returning methods on Namedlist deriving classes"
 
 
-class Namedlist(list):
+class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
     """
     A list that additionally provides functions to name items. Further,
     it is hashable, however, the hash does not consider the item names.
@@ -1737,7 +1768,7 @@ class Namedlist(list):
     def __init__(
         self,
         toclone=None,
-        fromdict=None,
+        fromdict: Optional[Dict[_TNamedKeys, _TNamedList]] = None,
         plainstr=False,
         strip_constraints=False,
         custom_map=None,
@@ -1841,7 +1872,7 @@ class Namedlist(list):
         for name, (i, j) in names:
             self._set_name(name, i, end=j)
 
-    def items(self):
+    def items(self) -> Iterator[Tuple[_TNamedKeys, _TNamedList]]:
         for name in self._names:
             yield name, getattr(self, name)
 
@@ -1907,19 +1938,32 @@ class Namedlist(list):
 
 
 class InputFiles(Namedlist):
+    def _predicated_size_files(self, predicate: Callable) -> List[int]:
+        async def sizes() -> List[int]:
+            async def get_size(f: _IOFile) -> Optional[int]:
+                if await predicate(f):
+                    return await f.size()
+                return None
+
+            sizes = await asyncio.gather(*map(get_size, self))
+            return [res for res in sizes if res is not None]
+
+        # the async_run method is expected to be provided through the eval context
+        return globals().get("async_run", async_run_fallback)(sizes())
+
     @property
     def size_files(self):
-        async def sizes():
-            return [await f.size() for f in self]
+        async def func_true(_) -> bool:
+            return True
 
-        return async_run(sizes())
+        return self._predicated_size_files(func_true)
 
     @property
     def size_tempfiles(self):
-        async def sizes():
-            return [await f.size() for f in self if is_flagged(f, "temp")]
+        async def is_temp(iofile):
+            return is_flagged(iofile, "temp")
 
-        return async_run(sizes())
+        return self._predicated_size_files(is_temp)
 
     @property
     def size_files_kb(self):
@@ -1966,7 +2010,7 @@ class Params(Namedlist):
     pass
 
 
-class Resources(Namedlist):
+class ResourceList(Namedlist):
     pass
 
 

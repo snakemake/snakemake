@@ -42,6 +42,7 @@ def test_{{ ruletest.name }}(conda_prefix):
                 {% endif %}
                 "-f",
                 "--notemp",
+                "--show-failed-logs",
                 "-j1",
                 "--target-files-omit-workdir-adjustment",
                 {% if configfiles %}

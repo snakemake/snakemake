@@ -330,6 +330,95 @@ It's also possible to get named input/output files in the following way:
 Do note that all the multiext extensions should be named, or all of them should be unnamed (not both).
 Additionally, if additional input/output statements are given, multiext should be treated as positional arguments (before other named input/output files).
 
+.. _snakefiles-pathvars:
+
+Path variables
+~~~~~~~~~~~~~~
+
+Certain components in input and output file paths tend to reoccur across many rules.
+Via so-called **pathvars**, Snakemake allows to define such components globally, make them configurable via the config file, and change them per module or even per rule.
+Apart from saving boilerplate code, pathvars can be used to make modules intended for reuse in multiple contexts more flexible.
+Pathvars can be used as generic placeholders for their actual values inside of input, output, log, and benchmark paths, using angle brackets, e.g. ``<results>``.
+They behave similarly to `Python string interpolation <https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals>`__ but only allow predefined placeholders, with precedence and configuration handled by Snakemake.
+
+Pathvar usage
+"""""""""""""
+
+An example rule using pathvars is the following:
+
+.. code-block:: python
+
+    rule somerule:
+        input:
+            "<results>/something/{sample}.txt"
+        output:
+            "<results>/processed/{sample}.txt"
+        shell:
+            "somecommand {input} {output}"
+
+Pathvars are resolved when the rule is parsed (before wildcard resolution and DAG construction).
+The values of pathvars can thereby even contain wildcards themselves.
+
+Pathvar defaults
+""""""""""""""""
+
+By default, Snakemake offers the pathvars ``results``, ``resources``, ``logs``, ``benchmarks``.
+Each of them is set to its respective name (i.e. the output file ``"<results>/processed/{sample}.txt"`` will be interpreted as ``"results/processed/{sample}.txt"``).
+
+Pathvar definition
+""""""""""""""""""
+
+Beyond the defaults, it is possible to define additional pathvars or customize the default definitions.
+This can happen in multiple ways, with the following precedence (from highest to lowest):
+
+1. For individual rules, via the ``pathvars`` keyword.
+2. For :ref:`module <snakefiles-modules>` config via the ``pathvars`` key in a config dict explicitly passed to the module (this applies recursively to nested modules).
+3. For :ref:`modules <snakefiles-modules>`, via the ``pathvars`` keyword to the ``module`` directive (this applies recursively to nested modules).
+4. Globally, via the ``pathvars`` key in the config file or passed to the ``--config`` command line arguments.
+5. Globally, via the ``pathvars`` keyword at the top level of the Snakefile.
+
+Thereby, if two definitions share the same precedence, the last one wins.
+
+Apart from :ref:`module pathvars <snakefiles-modules-pathvars>`, the most common way is to define them globally via the ``pathvars`` keyword:
+
+.. code-block:: python
+
+    pathvars:
+        per="{sample}"
+
+Above, we define a pathvar ``per`` and set it to the value ``{sample}``, thus defining a wildcard.
+Such a pattern can be helpful if you write a workflow that shall be reused as a module in various different ways within other workflows (e.g. thereby processing different items, samples, or something else).
+
+In order to overwrite pathvars for individual rules, they can be specified via the ``pathvars`` keyword inside a rule:
+
+.. code-block:: python
+
+    rule somerule:
+        input:
+            "<results>/something/<per>.txt"
+        output:
+            "<results>/processed/<per>.txt"
+        pathvars:
+            results="custom-folder"
+        shell:
+            "somecommand {input} {output}"
+
+This way, the pathvar ``<results>`` in the input and output path would be replaced with ``custom-folder`` just for this rule.
+Per rule pathvar definition can also happen in combination with :ref:`rule inheritance <snakefiles-rule-inheritance>`.
+This allows to quickly write and reuse rules with generic input or output files.
+
+Finally, it is possible overwrite pathvars via the workflow configuration (configfile or ``--config``).
+For this purpose, it is possible to define a key ``pathvars`` in the config, with a mapping between pathvars and their values below, e.g.
+
+.. code-block:: yaml
+
+    pathvars:
+        results: example-folder
+
+Note that defining pathvars in the config should be considered a rare, discouraged, and advanced use case, since the user must know the workflow's internal pathvar expectations.
+Workflow authors can explicitly forbid the modification of particular pathvars via :ref:`config file schemas and validation <snakefiles_config_validation>`.
+
+
 .. _snakefiles-semantic-helpers:
 
 Semantic helpers
@@ -1311,6 +1400,88 @@ or using the explicit import:
 
 You can use the Python debugger from within the script if you invoke Snakemake with ``--debug``.
 
+Xonsh_
+""""""
+
+.. _Xonsh: https://xon.sh
+
+Because Xonsh is a superset of Python, you can use a Xonsh script as you would a Python script, but with all the additional shell primitives that Xonsh provides.
+
+For example, with this rule:
+
+.. code-block:: python
+
+    rule get_variants_in_genes:
+        input:
+            vcf="input.vcf",
+            gene_locations="genes.bed",
+        output:
+            "output.tsv"
+        conda:
+            "envs/variant_calling.yaml"
+        log:
+            "logs/get_variants_in_genes.log"
+        script:
+            "scripts/get_variants_in_genes.xsh"
+
+the Xonsh script might look like this:
+
+.. code-block::
+
+    $XONSH_TRACEBACK_LOGFILE = snakemake.log[0]
+
+    annotations = ", ".join(
+        f'ANN["{field}"]' for field in ["Consequence", "SYMBOL", "Feature", "BIOTYPE"]
+    )
+
+    bcftools view -R @(snakemake.input.gene_locations) @(snakemake.input.vcf) \
+    | vembrane table --output @(snakemake.output[0]) @(f'CHROM, POS, ID, {annotations}')
+
+
+Hy_
+"""
+
+.. _Hy: https://hylang.org/
+
+Hy allows you to interact with Python using a Lisp-like syntax.
+
+For example, with this rule:
+
+.. code-block:: python
+
+    rule get_sum_of_odd_numbers:
+        input:
+            "list_of_numbers.txt"
+        output:
+            results_file="sum_of_odd_numbers.txt"
+        conda:
+            "envs/hy.yaml"
+        script:
+            "scripts/sum_odd_numbers.hy"
+
+the Hy script might look like this:
+
+.. code-block:: hy
+
+    (require hyrule [-> ->>])
+
+    (defn is-odd? [n] (!= (% n 2) 0))
+
+    (setv result
+          (->> (get snakemake.input 0)
+               open
+               .readlines
+               (map int)
+               (filter is-odd?)
+               sum))
+
+    (with [f
+           (-> (get snakemake.output "results_file")
+               (open "w"))]
+      (print result :file f))
+
+
+
 R and R Markdown
 ~~~~~~~~~~~~~~~~
 
@@ -1565,7 +1736,7 @@ remaining directives can be found in the variable ``snakemake``.
     As arrays cannot be nested in Bash, use of python's ``dict`` in directives is not supported. So, adding a ``params`` key of ``data={"foo": "bar"}`` will not be reflected - ``${snakemake_params[data]}`` actually only returns ``"foo"``.
 
 Bash Example 1
-~~~~~~~~~~~~~~
+""""""""""""""
 
 .. code-block:: python
 
@@ -1608,7 +1779,7 @@ double-quote any variable that could contain a file name. However, `in some case
 such as ``${snakemake_params[opts]}`` in the above example.
 
 Bash Example 2
-~~~~~~~~~~~~~~
+""""""""""""""
 
 .. code-block:: python
 
@@ -1661,26 +1832,6 @@ as ``"${snakemake_input[0]}"`` and ``"${snakemake_input[1]}"``.
 ----
 
 For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object.
-
-
-Xonsh_
-~~~~~~
-
-.. _Xonsh: https://xon.sh
-
-.. code-block:: python
-
-    rule NAME:
-        input:
-            "path/to/inputfile",
-            "path/to/other/inputfile"
-        output:
-            "path/to/outputfile",
-            "path/to/another/outputfile"
-        script:
-            "path/to/script.xsh"
-
-Because Xonsh is a superset of Python, you can use a Xonsh script as you would a Python script (see above), but with all the additional shell primitives that Xonsh provides.
 
 
 .. _snakefiles_notebook-integration:
@@ -2941,8 +3092,35 @@ Consider the following example:
 
 As can be seen, we first declare a rule a, and then we reuse the rule a as rule b, while changing only the output file and keeping everything else the same.
 In reality, one will often change more.
-Analogously to the ``use rule`` from external modules, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be modified, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
+Analogously to the ``use rule`` from external modules, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, ``pathvars``, etc.) can be modified, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
 All unmodified properties are inherited from the parent rule.
+
+:ref:`Pathvars <snakefiles-pathvars>` become particularly powerful in combination with such rule inheritance, as they allow to introduce generic items in the parent rule that can be specified out in the child rule:
+
+.. code-block:: python
+
+    rule transform_something:
+        input:
+            "<results>/<instep>/<per>.txt"
+        output:
+            "<results>/<outstep>/<per>.txt"
+        shell:
+            "somecommand {input} > {output}"
+
+    use rule transform_something as something1_to_something2 with:
+        pathvars:
+            instep="something1",
+            outstep="something2",
+            per="{sample}"
+
+    use rule transform_something_else as something5_to_something6 with:
+        pathvars:
+            instep="something5",
+            outstep="something6",
+            per="{sample}.{replicate}"
+
+In other words, here we define a potentially complex rule only once, and explicitly use it in two different parts of the workflow, even with different kinds of wildcards, all by just configuring the pathvars.
+
 
 .. important::
     A rule cannot be redefined without renaming it using the ``as`` clause.
@@ -3255,7 +3433,8 @@ Consider the following example:
 
 Here, the statement ``test`` is appended to the output file ``test.txt``.
 Hence, we declare it as being updated via the ``update`` flag.
-This way, Snakemake will not delete the file before the job is executed.
+This way, Snakemake will not delete the file or directory before the job is executed.
+Furthermore, Snakemake will restore the previous version of the file/directory if the job fails.
 
 If such a file/directory has to be considered as input **before the update** for another rule
 it can be marked as ``before_update``.
