@@ -253,7 +253,7 @@ Pixi supports importing environments from a ``conda`` or ``mamba`` ``environment
 
 
 Step 3b: Miniforge/Conda environment
-""""""""""""""""""""""""""""""
+""""""""""""""""""""""""""""""""""""
 
 .. _tutorial-creating_environment_miniforge:
 
