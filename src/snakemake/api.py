@@ -510,6 +510,15 @@ class DAGApi(ApiBase):
                 "immediate_submit has to be combined with notemp (it does not support temp file handling)"
             )
 
+        # Resolve execution_executor: when not explicitly overridden it equals
+        # the validation executor.  This ensures that direct API calls using
+        # executor="dryrun" or executor="touch" (without setting
+        # execution_executor) still trigger the greedy-scheduler optimisation
+        # below, matching the documented behaviour "If None, takes the value of
+        # 'executor'".
+        if execution_executor is None:
+            execution_executor = executor
+
         executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.get_plugin(executor)
 
@@ -650,11 +659,12 @@ class DAGApi(ApiBase):
                 snakefile=self.workflow_api.snakefile,
             ),
         )
-        # If an execution executor override is specified (e.g. "dryrun" or
-        # "touch"), swap to that plugin for actual execution. All validation
+        # If the execution executor differs from the validation executor (e.g.
+        # the caller passed executor="htcondor" + execution_executor="dryrun"),
+        # swap to the execution plugin for actual execution. All validation
         # above was performed against the intended executor so that dry-run
         # and touch accurately reflect the real execution environment.
-        if execution_executor is not None:
+        if execution_executor != executor:
             run_executor_plugin = executor_plugin_registry.get_plugin(
                 execution_executor
             )
