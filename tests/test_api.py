@@ -162,12 +162,18 @@ class TestDryrunExecutorValidation:
                 snakefile=self._snakefile(),
             )
             dag_api = workflow_api.dag()
-            # Should NOT raise: validation uses fake_remote's CommonSettings
-            # (can_transfer_local_files=True), not the dryrun stand-in's.
-            dag_api.execute_workflow(
-                executor="fake_remote",
-                execution_executor="dryrun",
-            )
+            # Mock workflow.execute to avoid downstream dryrun-execution side
+            # effects; we only care that execute_workflow() validation passes
+            # (i.e. does NOT raise) using fake_remote's CommonSettings
+            # (can_transfer_local_files=True) instead of the dryrun stand-in's.
+            with patch.object(
+                dag_api.workflow_api._workflow, "execute"
+            ) as mock_execute:
+                dag_api.execute_workflow(
+                    executor="fake_remote",
+                    execution_executor="dryrun",
+                )
+                mock_execute.assert_called_once()
 
     def test_touch_with_remote_executor_no_shared_fs(
         self, patch_registry_with_fake_remote

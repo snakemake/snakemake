@@ -610,6 +610,14 @@ class DAGApi(ApiBase):
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
 
+        # Note: use_threads is derived from the validation executor's
+        # CommonSettings (executor_plugin), not from the execution executor
+        # (run_executor_plugin, resolved later below). When executor is a
+        # remote plugin (local_exec=False) but execution_executor is "dryrun"
+        # or "touch" (local_exec=True), use_threads will be forced True even
+        # though no real work is done. This is semantically imprecise but
+        # harmless in practice: threading overhead is irrelevant when
+        # dryrun/touch jobs complete near-instantly.
         execution_settings.use_threads = (
             execution_settings.use_threads
             or (os.name not in ["posix"])
