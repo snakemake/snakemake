@@ -22,7 +22,6 @@ from snakemake.utils import min_version  # import so we can patch out if needed
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
 from snakemake.exceptions import AmbiguousRuleException, WorkflowError
-from snakemake.snakemake import sum_as_string
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -46,6 +45,8 @@ def test_maturin():
     Tests whether the `sum_as_string` function defined in `rust/src/lib.rs`
     gets called and runs properly.
     """
+    from snakemake.core import sum_as_string
+
     assert str(1 + 2) == sum_as_string(1, 2)
 
 
