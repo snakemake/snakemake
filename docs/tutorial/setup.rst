@@ -163,24 +163,21 @@ your operating system and architecture:
 
 .. tab-set::
 
-    .. tab-item::
-        :name: Linux
+    .. tab-item:: Linux
 
         .. code:: console
 
             $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -o Miniforge3-Linux-x86_64.sh
             $ bash Miniforge3-Linux-x86_64.sh
 
-    .. tab-item::
-        :name: MacOS (x86_64)
+    .. tab-item:: MacOS (x86_64)
 
         .. code:: console
 
             $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-x86_64.sh -o Miniforge3-MacOSX-x86_64.sh
             $ bash Miniforge3-MacOSX-x86_64.sh
 
-    .. tab-item::
-        :name: MacOS (arm64)
+    .. tab-item:: MacOS (arm64)
 
         .. code:: console
 
@@ -221,15 +218,13 @@ Next we extract the data:
 
 .. tab-set::
 
-    .. tab-item::
-        :name: Linux
+    .. tab-item:: Linux
 
         .. code:: console
 
             $ tar --wildcards -xf snakemake-tutorial-data.tar.gz --strip 1 "*/data" "*/environment.yaml"
 
-    .. tab-item::
-        :name: MacOS (x86_64)
+    .. tab-item:: MacOS (x86_64)
 
         .. code:: console
 
@@ -257,7 +252,7 @@ Pixi supports importing environments from a ``conda`` or ``mamba`` ``environment
     $ pixi init --import environment.yaml
 
 
-Step 3b: Miniforge environment
+Step 3b: Miniforge/Conda environment
 """"""""""""""""""""""""""""""
 
 .. _tutorial-creating_environment_miniforge:
@@ -294,15 +289,15 @@ To activate the ``snakemake-tutorial`` environment, execute
 .. tab-set::
     :sync-group: package-manager
 
-    .. tab-item::
-        :name: Pixi
+    .. tab-item:: Pixi
+        :sync: pixi
 
         .. code:: console
 
             $ pixi shell
 
-    .. tab-item::
-        :name: Miniforge
+    .. tab-item:: Conda
+        :sync: conda
 
         .. code:: console
 
@@ -321,15 +316,15 @@ To exit the environment, you can execute
 .. tab-set::
     :sync-group: package-manager
 
-    .. tab-item::
-        :name: Pixi
+    .. tab-item:: Pixi
+        :sync: pixi
 
         .. code:: console
 
             $ exit
 
-    .. tab-item::
-        :name: Miniforge
+    .. tab-item:: Conda
+        :sync: conda
 
         .. code:: console
 
