@@ -1,6 +1,126 @@
 # Changelog
 
 
+## [9.16.3](https://github.com/snakemake/snakemake/compare/v9.16.2...v9.16.3) (2026-02-05)
+
+
+### Bug Fixes
+
+* standardize handling of resources ([#3421](https://github.com/snakemake/snakemake/issues/3421)) ([4cada18](https://github.com/snakemake/snakemake/commit/4cada18536933f97e50848f0816c64dc89784040))
+
+## [9.16.2](https://github.com/snakemake/snakemake/compare/v9.16.1...v9.16.2) (2026-01-29)
+
+
+### Bug Fixes
+
+* handle str input in fmt_iofile ([#3946](https://github.com/snakemake/snakemake/issues/3946)) ([5df0c0b](https://github.com/snakemake/snakemake/commit/5df0c0bdc052b2c20b9b33fa52daabad96095e66))
+
+## [9.16.1](https://github.com/snakemake/snakemake/compare/v9.16.0...v9.16.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* do not decompress source files during caching, keep them unchanged instead ([#3944](https://github.com/snakemake/snakemake/issues/3944)) ([ca72878](https://github.com/snakemake/snakemake/commit/ca72878de2a8bb8c50e557aa20598942aa713ffa))
+
+## [9.16.0](https://github.com/snakemake/snakemake/compare/v9.15.0...v9.16.0) (2026-01-27)
+
+
+### Features
+
+* add highlighting of selected view to HTML reports ([#3935](https://github.com/snakemake/snakemake/issues/3935)) ([f53655e](https://github.com/snakemake/snakemake/commit/f53655ec4a080830374fa6e5636063afdb367b5c))
+
+## [9.15.0](https://github.com/snakemake/snakemake/compare/v9.14.8...v9.15.0) (2026-01-21)
+
+
+### Features
+
+* expose logger plugin handlers via get_log_handlers() method ([#3897](https://github.com/snakemake/snakemake/issues/3897)) ([4783371](https://github.com/snakemake/snakemake/commit/4783371b06c47d18d5609f5ebee8785e05f91a5b))
+
+
+### Bug Fixes
+
+* catch OSError raised during benchmarking (e.g. when too many proc files are opened in highly parallel environments ([#3931](https://github.com/snakemake/snakemake/issues/3931)) ([54dbefc](https://github.com/snakemake/snakemake/commit/54dbefc89092809ec956dce40bad96c64f806803))
+* ensure that fetching of remote git repo updates properly handles commit ids ([#3933](https://github.com/snakemake/snakemake/issues/3933)) ([7a0840b](https://github.com/snakemake/snakemake/commit/7a0840bbdbc7a1679f29e6e8b2e01d01b8284932))
+
+## [9.14.8](https://github.com/snakemake/snakemake/compare/v9.14.7...v9.14.8) (2026-01-16)
+
+
+### Bug Fixes
+
+* ensure that git repos backing source files are fetched only once per run ([#3928](https://github.com/snakemake/snakemake/issues/3928)) ([2ebcd85](https://github.com/snakemake/snakemake/commit/2ebcd851964566351edb34d5b855d6efaae8f623))
+
+
+### Reverts
+
+* Config validation skip for remote jobs ([#3924](https://github.com/snakemake/snakemake/issues/3924)) ([cc7c6f0](https://github.com/snakemake/snakemake/commit/cc7c6f008d94d9646af6368242e392000dd7aace))
+
+
+### Documentation
+
+* Use snakemake logo as favicon ([#3914](https://github.com/snakemake/snakemake/issues/3914)) ([24cdf1e](https://github.com/snakemake/snakemake/commit/24cdf1e20971ff25e0a9ae97475a15b5e3e36476))
+
+## [9.14.7](https://github.com/snakemake/snakemake/compare/v9.14.6...v9.14.7) (2026-01-15)
+
+
+### Bug Fixes
+
+* report psutil errors in case benchmark fails ([#3925](https://github.com/snakemake/snakemake/issues/3925)) ([293ec40](https://github.com/snakemake/snakemake/commit/293ec40d9968350c4982ec31ba867113b8c1e059))
+* reuse async runner to prevent port exhaustion ([#3911](https://github.com/snakemake/snakemake/issues/3911)) ([385e0ca](https://github.com/snakemake/snakemake/commit/385e0cac3f795bfe1aea97c8e87d953f0a6f3dfb))
+
+## [9.14.6](https://github.com/snakemake/snakemake/compare/v9.14.5...v9.14.6) (2026-01-08)
+
+
+### Bug Fixes
+
+* create local clone of git repos for source files from hosting providers ([#3643](https://github.com/snakemake/snakemake/issues/3643)) ([d2f8aba](https://github.com/snakemake/snakemake/commit/d2f8aba8b7a05f0e71534b5603f3f3ded7ada28d))
+* create potentially missing .snakemake folder in case of very long command lines for spawned jobs ([#3894](https://github.com/snakemake/snakemake/issues/3894)) ([4b431dd](https://github.com/snakemake/snakemake/commit/4b431dd540ef5341cf7c684e47e9ea1fe57a21e1))
+* make ilp solver enumeration lazy ([#3900](https://github.com/snakemake/snakemake/issues/3900)) ([30e1509](https://github.com/snakemake/snakemake/commit/30e1509800915c6dcccd49d4eb998b93180f03ef))
+* Prevent broken report_href links by using deterministic report IDs with fixed prefix length ([#3889](https://github.com/snakemake/snakemake/issues/3889)) ([6d8f4d8](https://github.com/snakemake/snakemake/commit/6d8f4d88fd54f0c7cae7cab9398ab64798ec36db))
+* refactor LoggerManager setup and scope ([#3851](https://github.com/snakemake/snakemake/issues/3851)) ([f46d904](https://github.com/snakemake/snakemake/commit/f46d90417700484149b3ba40ef89abd2f32f9eba))
+* yield proper error message in case a local git source file is not retrievable ([#3892](https://github.com/snakemake/snakemake/issues/3892)) ([ed79cae](https://github.com/snakemake/snakemake/commit/ed79cae0f171eda52b6a710b855253966d5fa8e5))
+
+
+### Documentation
+
+* explain how to pass nested config via CLI ([#3885](https://github.com/snakemake/snakemake/issues/3885)) ([9d8c539](https://github.com/snakemake/snakemake/commit/9d8c539ec305315034e38146e9cb2d37c9afe718))
+
+## [9.14.5](https://github.com/snakemake/snakemake/compare/v9.14.4...v9.14.5) (2025-12-15)
+
+
+### Bug Fixes
+
+* remove erroneous assert in the scheduler (is_main_process) ([#3881](https://github.com/snakemake/snakemake/issues/3881)) ([d5acdd1](https://github.com/snakemake/snakemake/commit/d5acdd121955364a1cb55dc771235aff5081f1cb))
+
+## [9.14.4](https://github.com/snakemake/snakemake/compare/v9.14.3...v9.14.4) (2025-12-09)
+
+
+### Bug Fixes
+
+* fix follow-up issue with group job handling when retrieving storage ([#3871](https://github.com/snakemake/snakemake/issues/3871)) ([20b99ac](https://github.com/snakemake/snakemake/commit/20b99ac43ecaa1d6d1454321ed701e9cf14bb8fb))
+
+## [9.14.3](https://github.com/snakemake/snakemake/compare/v9.14.2...v9.14.3) (2025-12-08)
+
+
+### Bug Fixes
+
+* ensure that queue input jobs wait if the queue is still empty upon job creation ([#3866](https://github.com/snakemake/snakemake/issues/3866)) ([555ab6a](https://github.com/snakemake/snakemake/commit/555ab6a31def48feec9ce584d70022f9f683bf29))
+* fix issues with cyclic dependencies when using the update and before_update flag ([#3857](https://github.com/snakemake/snakemake/issues/3857)) ([21cc94e](https://github.com/snakemake/snakemake/commit/21cc94effa272683a73aed30b8c3a62eb1bc45fc))
+
+## [9.14.2](https://github.com/snakemake/snakemake/compare/v9.14.1...v9.14.2) (2025-12-05)
+
+
+### Bug Fixes
+
+* correctly handle groups when retrieving storage input ([#3861](https://github.com/snakemake/snakemake/issues/3861)) ([8c818f4](https://github.com/snakemake/snakemake/commit/8c818f47175b236e1699fe42404ca03d7b68aa71))
+
+## [9.14.1](https://github.com/snakemake/snakemake/compare/v9.14.0...v9.14.1) (2025-12-02)
+
+
+### Bug Fixes
+
+* always raise FileNotFoundError in case of missing files in resource expressions that do size evaluations ([#3854](https://github.com/snakemake/snakemake/issues/3854)) ([0f1991a](https://github.com/snakemake/snakemake/commit/0f1991af02b25ef7911734f131e4af34501ed84f))
+* ensure that spawned jobs do not handle retries themselves. The main process does that. ([#3855](https://github.com/snakemake/snakemake/issues/3855)) ([396271b](https://github.com/snakemake/snakemake/commit/396271b45fe49cb52ad8b548fed91ee235adb1f9))
+
 ## [9.14.0](https://github.com/snakemake/snakemake/compare/v9.13.7...v9.14.0) (2025-11-27)
 
 

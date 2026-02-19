@@ -1,160 +1,76 @@
-from collections import UserDict, defaultdict
-from dataclasses import dataclass
+from __future__ import annotations
+from collections import defaultdict
+import copy
+import functools as ft
 import itertools as it
 import operator as op
+import os
 import re
 import shutil
 import tempfile
 import math
-from typing import Any
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Collection,
+    Dict,
+    Final,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Self,
+    Sequence,
+    Tuple,
+    TypeAlias,
+    TypeVar,
+    cast,
+)
 
+import humanfriendly
+from humanfriendly import InvalidTimespan, InvalidSize, parse_size, parse_timespan
+from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
+
+from snakemake.common import (
+    get_input_function_aux_params,
+    mb_to_mib,
+    mib_to_mb,
+)
 from snakemake.exceptions import (
+    NestedCoroutineError,
+    ResourceConstraintError,
+    ResourceDuplicationError,
+    ResourceError,
+    ResourceInsufficiencyError,
     ResourceScopesException,
+    ResourceConversionError,
+    ResourceValidationError,
     WorkflowError,
     is_file_not_found_error,
 )
 from snakemake.common.tbdstring import TBDString
+from snakemake.io import AnnotatedString
 
-
-@dataclass
-class ParsedResource:
-    orig_arg: str
-    value: Any
-
-
-class DefaultResources:
-    defaults = {
-        "mem_mb": "min(max(2*input.size_mb, 1000), 8000)",
-        "disk_mb": "max(2*input.size_mb, 1000) if input else 50000",
-        "tmpdir": "system_tmpdir",
-    }
-
-    bare_defaults = {"tmpdir": "system_tmpdir"}
-
-    @classmethod
-    def decode_arg(cls, arg):
-        try:
-            return arg.split("=", maxsplit=1)
-        except ValueError:
-            raise ValueError("Resources have to be defined as name=value pairs.")
-
-    @classmethod
-    def encode_arg(cls, name, value):
-        return f"{name}={value}"
-
-    def __init__(self, args=None, from_other=None, mode="full"):
-        if mode == "full":
-            self._args = dict(DefaultResources.defaults)
-        elif mode == "bare":
-            self._args = dict(DefaultResources.bare_defaults)
-        else:
-            raise ValueError(f"Unexpected mode for DefaultResources: {mode}")
-
-        if from_other is not None:
-            self._args = dict(from_other._args)
-            self.parsed = dict(from_other.parsed)
-        else:
-            if args is None:
-                args = []
-
-            self._args.update(
-                {name: value for name, value in map(self.decode_arg, args)}
-            )
-
-            self.parsed = dict(_cores=1, _nodes=1)
-            self.parsed.update(
-                parse_resources(self._args, fallback=eval_resource_expression)
-            )
-
-    def set_resource(self, name, value):
-        self._args[name] = f"{value}"
-        self.parsed[name] = value
-
-    @property
-    def args(self):
-        return [self.encode_arg(name, value) for name, value in self._args.items()]
-
-    def __bool__(self):
-        return bool(self.parsed)
-
-
-class ResourceScopes(UserDict):
-    """Index of resource scopes, where each entry is 'RESOURCE': 'SCOPE'
-
-    Each resource may be scoped as local, global, or excluded. Any resources not
-    specified are considered global.
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.data = dict(*args, **kwargs)
-        valid_scopes = {"local", "global", "excluded"}
-        if set(self.data.values()) - valid_scopes:
-            invalid_res = [
-                res for res, scope in self.data.items() if scope not in valid_scopes
-            ]
-            invalid_pairs = {res: self.data[res] for res in invalid_res}
-
-            # For now, we don't want excluded in the documentation
-            raise ResourceScopesException(
-                "Invalid resource scopes: entries must be defined as RESOURCE=SCOPE "
-                "pairs, where SCOPE is either 'local' or 'global'",
-                invalid_pairs,
-            )
-
-    @classmethod
-    def defaults(cls):
-        return cls(mem_mb="local", disk_mb="local", runtime="excluded")
-
-    @property
-    def locals(self):
-        """Resources are not tallied by the global scheduler when submitting jobs
-
-        Each submitted job or group gets its own pool of the resource, as
-        specified under --resources.
-
-
-        Returns
-        -------
-        set
-        """
-        return set(res for res, scope in self.data.items() if scope == "local")
-
-    @property
-    def globals(self):
-        """Resources tallied across all job and group submissions.
-
-        Returns
-        -------
-        set
-        """
-        return set(res for res, scope in self.data.items() if scope == "global")
-
-    @property
-    def excluded(self):
-        """Resources not submitted to cluster jobs
-
-        These resources are used exclusively by the global scheduler. The primary case
-        is for additive resources in GroupJobs such as runtime, which would not be
-        properly handled by the scheduler in the sub-snakemake instance. This scope is
-        not currently intended for use by end-users and is thus not documented
-
-        Returns
-        -------
-        set
-        """
-        return set(res for res, scope in self.data.items() if scope == "excluded")
+if TYPE_CHECKING:
+    from snakemake.jobs import Job
+    from snakemake.io import Wildcards
+    from snakemake.settings.types import ValidResource
 
 
 class GroupResources:
     @classmethod
     def basic_layered(
         cls,
-        toposorted_jobs,
-        constraints,
-        run_local,
-        additive_resources=None,
-        sortby=None,
-    ):
+        toposorted_jobs: List[List[Job]],
+        constraints: Resources,
+        run_local: bool,
+        additive_resources: Optional[List[str]] = None,
+        sortby: Optional[List[str]] = None,
+    ) -> Mapping[str, str | int]:
         """Basic implementation of group job resources calculation
 
         Each toposort level is individually sorted into a series of layers, where each
@@ -226,16 +142,14 @@ class GroupResources:
         )
         sortby = sortby if sortby is not None else ["runtime"]
 
-        total_resources = defaultdict(int)
-        total_resources["_nodes"] = 1
-        blocks = []
+        blocks: List[Dict[str, str | int]] = []
         # iterate over siblings that can be executed in parallel
         for siblings in toposorted_jobs:
             # Total resource requirements for this toposort layer
-            block_resources = {}
+            block_resources: Dict[str, str | int] = {}
 
-            job_resources = []
-            pipe_resources = defaultdict(list)
+            job_resources: List[Dict[str, str | int]] = []
+            pipe_resources: Dict[str, List[Dict[str, str | int]]] = defaultdict(list)
             for job in siblings:
                 # Get resources, filtering out FileNotFoundErrors. List items will
                 # be job resources objects with (resource: value)
@@ -253,14 +167,14 @@ class GroupResources:
                     # specify their resources
                     res = {
                         k: res
-                        for k, res, in job.resources.items()
-                        if not isinstance(res, TBDString)
+                        for k, res in job.resources.items()
+                        if not isinstance(res, TBDString) and k not in SizedResources
                     }
                     if job.pipe_group:
                         pipe_resources[job.pipe_group].append(res)
                     else:
                         job_resources.append(res)
-                except FileNotFoundError:
+                except (FileNotFoundError, FileOrDirectoryNotFoundError):
                     # Skip job if resource evaluation leads to a file not found error.
                     # This will be caused by an inner job, which needs files created by
                     # the same group. All we can do is to ignore such jobs for now.
@@ -281,7 +195,7 @@ class GroupResources:
 
             # Set of resource types requested in at least one job
             resource_types = list(set(it.chain(*job_resources)))
-            int_resources = {}
+            int_resources: Dict[str, List[int]] = {}
             # Sort all integer resources in job_resources into int_resources. Resources
             # defined as a string are placed immediately into block_resources.
             for res in resource_types:
@@ -291,13 +205,13 @@ class GroupResources:
                 values = [resources.get(res, 0) for resources in job_resources]
 
                 if cls._is_string_resource(res, values):
-                    block_resources[res] = values[0]
+                    block_resources[res] = cast(str, values[0])
                 else:
-                    int_resources[res] = values
+                    int_resources[res] = cast(List[int], values)
 
             # Collect values from global_resources to use as constraints.
             sorted_constraints = {
-                name: constraints.get(name, None) for name in int_resources
+                name: constraints.get(name).value for name in int_resources
             }
 
             # For now, we are unable to handle a constraint on runtime, so ignore.
@@ -310,10 +224,12 @@ class GroupResources:
             # Get layers
             try:
                 layers = cls._get_layers(
-                    int_resources, sorted_constraints.values(), sortby
+                    int_resources, list(sorted_constraints.values()), sortby
                 )
-            except WorkflowError as err:
-                raise cls._get_saturated_resource_error(additive_resources, err.args[0])
+            except ResourceError as err:
+                raise ResourceInsufficiencyError(
+                    additive_resources, err.args[0]
+                ) from err
 
             # Merge jobs within layers
             intralayer_merge_methods = [
@@ -336,35 +252,26 @@ class GroupResources:
             blocks.append(block_resources)
 
         if run_local:
-            return {**cls._merge_resource_dict(blocks, default_method=sum), "_nodes": 1}
-
-        return {
-            **cls._merge_resource_dict(
+            final = cls._merge_resource_dict(blocks, default_method=sum)
+        else:
+            final = cls._merge_resource_dict(
                 blocks,
                 default_method=max,
                 methods={res: sum for res in additive_resources},
-            ),
-            "_nodes": 1,
-        }
+            )
+
+        final["_nodes"] = 1
+
+        for resource in SizedResources:
+            if f"{resource}_mb" in final:
+                final[resource] = Resource(
+                    resource, final[f"{resource}_mb"]
+                ).format_human_friendly()
+
+        return final
 
     @classmethod
-    def _get_saturated_resource_error(cls, additive_resources, excess_resources):
-        isare = "is" if len(additive_resources) == 1 else "are"
-        additive_clause = (
-            (f", except for {additive_resources}, which {isare} calculated via max(). ")
-            if additive_resources
-            else ". "
-        )
-        return WorkflowError(
-            "Not enough resources were provided. This error is typically "
-            "caused by a Pipe group requiring too many resources. Note "
-            "that resources are summed across every member of the pipe "
-            f"group{additive_clause}"
-            f"Excess Resources:\n{excess_resources}"
-        )
-
-    @classmethod
-    def _is_string_resource(cls, name, values):
+    def _is_string_resource(cls, name: str, values: List[str | int]):
         # If any one of the values provided for a resource is not an int, we
         # can't process it in any way. So we constrain all such resource to be
         # the same
@@ -374,7 +281,7 @@ class GroupResources:
             unique = set(values)
             if len(unique) > 1:
                 raise WorkflowError(
-                    "Resource {name} is a string but not all group jobs require the "
+                    "Resource {name} is a string but not all jobs in group require the "
                     "same value. Observed values: {values}.".format(
                         name=name, values=unique
                     )
@@ -382,8 +289,16 @@ class GroupResources:
             return True
 
     @classmethod
-    def _merge_resource_dict(cls, resources, skip=[], methods={}, default_method=max):
-        grouped = {}
+    def _merge_resource_dict(
+        cls,
+        resources: List[Dict[str, str | int]],
+        skip: Optional[List[str]] = None,
+        methods: Optional[Dict[str, Callable[[List[int]], int]]] = None,
+        default_method: Callable[[List[int]], int] = max,
+    ):
+        skip = skip or []
+        methods = methods or {}
+        grouped: Dict[str, List[str | int]] = {}
         for job in resources:
             # Wrap every value in job with a list so that lists can be merged later
             job_l = {k: [v] for k, v in job.items()}
@@ -397,21 +312,25 @@ class GroupResources:
                 **{k: grouped[k] + job_l[k] for k in grouped.keys() & job_l},
             }
 
-        ret = {}
+        ret: Dict[str, int | str] = {}
         for res, values in grouped.items():
             if res in skip:
                 continue
 
             if cls._is_string_resource(res, values):
-                ret[res] = values[0]
+                ret[res] = cast(str, values[0])
             elif res in methods:
-                ret[res] = methods[res](values)
+                ret[res] = methods[res](cast(List[int], values))
             else:
-                ret[res] = default_method(values)
+                ret[res] = default_method(cast(List[int], values))
         return ret
 
     @classmethod
-    def _merge_resource_layer(cls, resources, methods):
+    def _merge_resource_layer(
+        cls,
+        resources: Sequence[Tuple[int, ...]],
+        methods: Sequence[Callable[[Sequence[int]], int]],
+    ):
         """
         Sum or max across all resource types within a layer, similar to
         summing along axis 0 in numpy:
@@ -426,7 +345,9 @@ class GroupResources:
         return [method(r) for method, r in zip(methods, zip(*resources))]
 
     @staticmethod
-    def _check_constraint(resources, constraints):
+    def _check_constraint(
+        resources: List[Tuple[int, ...]], constraints: List[int | None]
+    ):
         sums = [sum(res) for res in zip(*resources)]
         for s, constraint in zip(sums, constraints):
             if constraint:
@@ -445,7 +366,12 @@ class GroupResources:
         return True
 
     @classmethod
-    def _get_layers(cls, resources, constraints, sortby=None):
+    def _get_layers(
+        cls,
+        resources: Dict[str, List[int]],
+        constraints: List[int | None],
+        sortby: Optional[List[str]] = None,
+    ):
         """Calculate required consecutive job layers.
 
         Layers are used to keep resource requirements within given
@@ -458,20 +384,21 @@ class GroupResources:
         # Calculates the ratio of resource to constraint. E.g, if the resource is 12
         #  cores, and the constraint is 16, it will return 0.75. This is done for
         # every resource type in the group, returning the result in a list
-        def _proportion(group):
+        def _proportion(group: Tuple[int, ...]):
             return [r / c if c else 0 for r, c in zip(group, constraints)]
 
         # Return the highest _proportion item in the list
-        def _highest_proportion(group):
+        def _highest_proportion(group: Tuple[int, ...]):
             return max(_proportion(group))
 
-        rows = [[]]
+        # Rows should always have at least one empty row to ensure space for insertion.
+        rows: List[List[Tuple[int, ...]]] = [[]]
 
         # By zipping, we combine the vals into tuples based on job, 1 tuple per
         # job: [ (val1, 1_val1, 2_val1), ...]. In each tuple, the resources
         # will remain in the same order as the original dict, so their identity
         # can be extracted later.
-        resource_groups = zip(*resources.values())
+        resource_groups: zip[Tuple[int, ...]] = zip(*resources.values())
 
         # Sort by _proportion highest to lowest
         pre_sorted = sorted(resource_groups, key=_highest_proportion, reverse=True)
@@ -502,18 +429,16 @@ class GroupResources:
             # than allowed by the constraint. This should only be possible for pipe
             # jobs, which must be run simultaneously.
             if not appended:
-                too_high = []
+                too_high: List[Tuple[str, int, int | None]] = []
                 for i, val in enumerate(_proportion(group)):
                     if val > 1:
-                        too_high.append(
-                            (list(resources)[i], group[i], list(constraints)[i])
-                        )
+                        too_high.append((list(resources)[i], group[i], constraints[i]))
 
                 error_text = [
                     f"\t{res}: {amount}/{constraint}"
                     for res, amount, constraint in too_high
                 ]
-                raise WorkflowError("\n".join(error_text))
+                raise ResourceError("\n".join(error_text))
 
         # Remove final empty row. (The above loop ends each cycle by ensuring
         # there's an empty row)
@@ -521,154 +446,880 @@ class GroupResources:
         return rows
 
 
-def eval_resource_expression(val, threads_arg=True):
-    def generic_callable(val, threads_arg, **kwargs):
-        import os
+def mb_to_str(size: int) -> str:
+    return humanfriendly.format_size(size * (10**6))
 
-        args = {
-            "input": kwargs["input"],
-            "attempt": kwargs["attempt"],
-            "system_tmpdir": tempfile.gettempdir(),
-            "shutil": shutil,
-        }
-        if threads_arg:
-            args["threads"] = kwargs["threads"]
+
+SizedResources = {"mem", "disk"}
+TimeResources = {"runtime"}
+HumanFriendlyResources = TimeResources | SizedResources
+
+
+_T = TypeVar("_T")
+
+
+class Resource:
+    """Standardized representation of a resource name and value.
+
+    In addition to ``int`` and ``str``, the standard resource types, ``Resource`` can
+    store ``None``, signifying an unset resource, and a callable, signifying a resource
+    to be calculated in the context of a rule. Via the ``.value`` property, ``Resource``
+    ensures a resource has been computed before its value is retrieved.
+
+    The class additionally handles input validation and standardization.
+    ``float``s get rounded into ``int``. If the resource name corresponds to a size
+    resource ("disk" and "mem") or a timespan resource ("runtime"), strings values
+    will be interpreted as a human readable resource and converted to an integer of
+    appropriate denomination (Mb for size, hr for timespan).
+
+    Arguments
+    =========
+    name: str
+        Name of the resource (note that "disk", "mem", and "runtime" has special
+        behaviour, as described above).
+    value: int, str, Callable, None
+        The concrete or unevaluated value
+
+    Raises
+    ======
+    ResourceValidationError:
+        if the resource is not a ``str``, ``int``, ``float``, ``None``, or a callable.
+    WorkflowError
+        if the resource is of the human-readable group but cannot be parsed
+    """
+
+    _evaluator: Final[Callable[..., ValidResource] | None]
+
+    def __init__(self, name: str, value: ValidResource, raw: int | str | None = None):
+        if not (
+            isinstance(value, (str, int, float)) or callable(value) or value is None
+        ):
+            msg = (
+                f"Resource '{name}' assigned invalid value {value!r}. Must be str, "
+                "int, float, or callable (function)."
+            )
+            raise ResourceValidationError(msg)
+        if isinstance(value, float):
+            value = round(value)
+        self.name = name
+        self._value = self.parse_human_friendly(name, value)
+
+        if raw is None and isinstance(self._value, (int, str)):
+            self.raw = self._value
+        else:
+            self.raw = raw
+
+        if callable(self._value):
+            self._evaluator = self._value
+        elif isinstance(self._value, AnnotatedString) and self._value.is_callable():
+            self._evaluator = cast(Callable[..., ValidResource], self._value.callable)
+        else:
+            self._evaluator = None
+
+    def __repr__(self):
+        if self.is_evaluable():
+            value = "function(...)"
+        elif isinstance(self._value, str):
+            value = f'"{self._value}"'
+        else:
+            value = self._value
+        return f'Resource("{self.name}", {value})'
+
+    def __eq__(self, other: object):
+        val = self._value
+        if isinstance(other, Resource):
+            return val == other._value
+        else:
+            return val == other
+
+    @property
+    def value(self) -> str | int | None:
+        """Safely return concrete resource values.
+
+        Errors if the resource has not yet been evaluated.
+        """
+        if self.is_evaluable():
+            raise ValueError(
+                "Resource must be evaluated within the context of a rule to "
+                "compute its value"
+            )
+        return cast(str | int | None, self._value)
+
+    def is_evaluable(self) -> bool:
+        """Indicates if a resource has yet to be evaluated."""
+        return self._evaluator is not None
+
+    def evaluate(self, *args: Any, **kwargs: Any):
+        """Evaluate the resource with given args.
+
+        This method ensures the returned resource is correctly returned in a
+        new ``Resource`` class, validated, and standardized. Resources should thus
+        only be evaluated via this method.
+        """
+        if self._evaluator is None:
+            return self
+        kept_args = get_input_function_aux_params(self._evaluator, kwargs)
+        try:
+            return self.__class__(
+                self.name, self._evaluator(*args, **kept_args), raw=self.raw
+            )
+        except Exception as err:
+            if is_file_not_found_error(err, kwargs.get("input", tuple())):
+                return self.__class__(self.name, TBDString(), raw=self.raw)
+            raise err
+
+    def constrain(self, other: Resource | int | None):
+        """Use ``other`` as the maximum value for ``Self``, but only if both are integers.
+
+        Returns self unaltered if either resource is ``None`` or if both are the same
+        non-integer type.
+
+        Raises
+        ======
+        ResourceConstraintError:
+            if ``other`` has a different type from ``Self``, or if either are evaluable
+            resources.
+        """
+        if isinstance(self._value, TBDString):
+            return self
+
+        other_val = other.value if isinstance(other, Resource) else other
+
+        if self._value is None or other_val is None:
+            return self
+
+        self_val = self.value
+        if not isinstance(self_val, type(other_val)):
+            msg = (
+                f"{self} of type '{type(self_val).__name__}' was "
+                f"constrained by mismatched type '{type(other_val).__name__}' with "
+                f"value '{other_val}'."
+            )
+            raise ResourceConstraintError(msg)
+        if isinstance(self_val, int):
+            assert isinstance(other_val, int)
+            return Resource(self.name, min(other_val, self_val))
+        return self
+
+    def from_mb_to_mib(self):
+        """Convert the resource to mebibytes.
+
+        The name of the resource is updated to have a _mib suffix.
+
+        The method does not track the current units of the resource, so will not prevent
+        mebibytes from being "converted" into mebibytes multiple times.
+
+        Un-evaluated resources can be converted. This is to support resource
+        normalization within ``Resources`` class: units can be converted before
+        the resource is evaluated in the context of a rule.
+
+        Raises
+        ======
+        ResourceTypeError:
+            if conversion is attempted on a str resource (or a callable that returns a
+            str/None).
+        """
+        return self.__class__(
+            f"{self.name.removesuffix('_mb')}_mib",
+            self._convert_units(mb_to_mib),
+        )
+
+    def format_human_friendly(self) -> str | TBDString:
+        """Convert the resource into a human friendly string.
+
+        The units are ASSUMED to be in MB. Resource does not internally track units, and
+        this method will work (incorrectly) if called an a unit suffixed with _mib.
+
+        An _mb suffix will be stripped, if found (_mib suffixes are left untouched to
+        avoid hiding the effects of an uninintended conversion.)
+
+        Un-evaluated resources can be converted. This is to support resource
+        normalization within ``Resources`` class: units can be converted before
+        the resource is evaluated in the context of a rule.
+
+        Raises
+        ======
+        ResourceTypeError:
+            if conversion is attempted on a str resource (or a callable that returns a
+            str/None).
+        """
+        if self.is_evaluable():
+            # Use builtin error type as this should not happen
+            raise TypeError(
+                f"{self.name} formatted as human-friendly before evaluation"
+            )
+        return self._convert_units(mb_to_str)  # type: ignore (already checked not evaluable)
+
+    def _convert_units(self, converter: Callable[[int], _T]):
+        """Perform a unit conversion on an integer or callable."""
+        if isinstance(self._value, TBDString):
+            return self._value
+        elif self.is_evaluable():
+            return self._wrap_evaluator(converter)
+        elif not isinstance(self._value, int):
+            raise ResourceConversionError.format(self.name, self._value)
+        return converter(self._value)
+
+    def _wrap_evaluator(
+        self,
+        converter: Callable[[int], _T],
+    ):
+        assert self._evaluator is not None, "self._evaluator is None"
+
+        @ft.wraps(self._evaluator)
+        def inner(*args: Any, **kwargs: Any):
+            result = self._evaluator(*args, **kwargs)  # type: ignore (self._evaluator should never change)
+            if not isinstance(result, (int, float)):
+                raise ResourceConversionError.format_evaluated(self.name, result)
+
+            return converter(round(result))
+
+        return inner
+
+    def standardize_size(self):
+        """Standardize the representation of sized resources.
+
+        If the resource is evaluable and ends in _mib or _mb, the evaluable will be
+        wrapped to ensure it returns an int or float, and mib will be converted to mb as
+        appropriate.
+
+        Byte resources are always stored with a _mb suffix.
+
+        Raises
+        ======
+        ResourceTypeError:
+            if conversion is attempted on a str resource (or a callable that returns a
+            str/None).
+        """
+        if self.name.endswith("_mb"):
+            # using _convert_units with the identity lets us validate that the resource
+            # was set with an int/float or an evaluable returning an int/float
+            return self.__class__(
+                self.name, self._convert_units(lambda x: x), raw=self.raw
+            )
+        if self.name.endswith("_mib"):
+            return self.__class__(
+                self.name[:-4] + "_mb", self._convert_units(mib_to_mb), raw=self.raw
+            )
+        if self._evaluator is not None:
+            # Wrap the evaluable so that it can be interpreted in the context of the
+            # original unprefixed resource and potentially return a humanreadable value
+            @ft.wraps(self._evaluator)
+            def wrapper(*args: Any, **kwargs: Any):
+                return self.evaluate(*args, **kwargs).value
+
+            value = wrapper
+        else:
+            value = self._value
+
+        return self.__class__(self.name + "_mb", value)
+
+    def with_name(self, name: str):
+        """Update the name of the resource without changing the value."""
+        cp = copy.copy(self)
+        cp.name = name
+        return cp
+
+    @classmethod
+    def from_cli_expression(
+        cls, name: str, value: str, *, with_threads_arg: bool = True
+    ):
+        """Create a new evaluable resource based on a python expression.
+
+        Threads can optionally be included in the expression environment
+
+        Arguments
+        =========
+        name:
+            name of the resource
+        value:
+            python expression to be evaluated
+        with_threads_arg: boolean
+            If True, include ``threads`` as an argument in the returned function
+        """
+
+        def threads_evaluator(
+            wildcards: Wildcards,
+            input: Any,
+            attempt: int,
+            threads: int,
+            rulename: str,
+            async_run: Callable[[Awaitable[_T]], _T],
+        ):
+            return cls.cli_evaluator(
+                name,
+                value,
+                input=input,
+                attempt=attempt,
+                async_run=async_run,
+                threads=threads,
+            )
+
+        def nonthreads_evaluator(
+            wildcards: Wildcards,
+            input: Any,
+            attempt: int,
+            rulename: str,
+            async_run: Callable[[Awaitable[_T]], _T],
+        ):
+            return cls.cli_evaluator(
+                name, value, input=input, attempt=attempt, async_run=async_run
+            )
+
+        if with_threads_arg:
+            return Resource(name, threads_evaluator, raw=value)
+
+        return Resource(name, nonthreads_evaluator, raw=value)
+
+    @staticmethod
+    def cli_evaluator(
+        name: str,
+        val: str,
+        *,
+        input: Any,
+        attempt: int,
+        threads: int | None = None,
+        async_run: Callable[[Awaitable[_T]], _T],
+    ):
+        """Evaluate a python expression to determine resource value.
+
+        Intended to be used from ``from_cli_expression``.
+        """
         # Expand env variables
         val = os.path.expanduser(os.path.expandvars(val))
-        # Eval expression
         try:
             value = eval(
                 val,
-                args,
+                {
+                    "input": input,
+                    "attempt": attempt,
+                    "system_tmpdir": tempfile.gettempdir(),
+                    "shutil": shutil,
+                    "async_run": async_run,
+                    **({"threads": threads} if threads is not None else {}),
+                },
             )
         # Triggers for string arguments like n1-standard-4
         except (NameError, SyntaxError):
             return val
+        except NestedCoroutineError:
+            raise
         except Exception as e:
-            if is_humanfriendly_resource(val) or is_ordinary_string(val):
-                # case 1: resource can be parsed by humanfriendly package, just return
-                # it
-                # case 2: resource is an ordinary string, just return it
+            # We need to repeat this logic from self.evaluate in order to support the
+            # custom error message below.
+            if is_file_not_found_error(e, input):
+                return TBDString()
+
+            if is_ordinary_string(val):
                 return val
-            if not is_file_not_found_error(e, kwargs["input"]):
-                # Missing input files are handled by the caller
-                raise WorkflowError(
-                    "Failed to evaluate resources value "
-                    f"'{val}'.\n"
-                    "    String arguments may need additional "
-                    "quoting. E.g.: --default-resources "
-                    "\"tmpdir='/home/user/tmp'\" or "
-                    "--set-resources \"somerule:someresource='--nice=100'\". "
-                    "This also holds for setting resources inside of a profile, where "
-                    "you might have to enclose them in single and double quotes, "
-                    "i.e. someresource: \"'--nice=100'\".",
-                    e,
-                )
-            raise e
+
+            raise WorkflowError(
+                f"Failed to evaluate resources value '{val}'.",
+                "When interpreted as a python expression, the following error was "
+                "given:",
+                "",
+                e,
+                "",
+                "Additional quoting may be needed to force interpretation as a "
+                "string. E.g.: --default-resources "
+                "\"tmpdir='/home/user/tmp'\" or "
+                "--set-resources \"somerule:someresource='--nice=100'\". "
+                "This also holds for setting resources inside of a profile, where "
+                "you might have to enclose them in single and double quotes, "
+                "i.e. someresource: \"'--nice=100'\".",
+            )
         return value
 
-    if threads_arg:
+    @staticmethod
+    def parse_human_friendly(name: str, value: ValidResource) -> ValidResource:
+        """Parse a resource as human friendly if allowable for the resource name.
 
-        def callable(wildcards, input, attempt, threads, rulename):
-            return generic_callable(
-                val,
-                threads_arg=threads_arg,
-                wildcards=wildcards,
-                input=input,
-                attempt=attempt,
-                threads=threads,
-                rulename=rulename,
+        If a non-string value is given, it is returned without modification.
+
+        Only human-friendly resources (e.g. "mem", "disk", "runtime") are parsed, others
+        are returned without modification.
+
+        Raises
+        ======
+        WorkflowError:
+            if a valid human-friendly resource is given but it cannot be parsed.
+        """
+        if isinstance(value, str) and not isinstance(value, TBDString):
+            stripped = value.strip("'\"")
+            err_msg = (
+                f"Resource '{name}' with value {value!r} could not be parsed as "
+                "{unit}"
             )
-
-    else:
-
-        def callable(wildcards, input, attempt, rulename):
-            return generic_callable(
-                val,
-                threads_arg=threads_arg,
-                wildcards=wildcards,
-                input=input,
-                attempt=attempt,
-                rulename=rulename,
-            )
-
-    return callable
+            if name in SizedResources:
+                try:
+                    return max(int(math.ceil(parse_size(stripped) / 1e6)), 1)
+                except InvalidSize as err:
+                    raise WorkflowError(err_msg.format(unit="size in MB")) from err
+            elif name in TimeResources:
+                try:
+                    return max(int(round(parse_timespan(stripped) / 60)), 1)
+                except InvalidTimespan as err:
+                    raise WorkflowError(err_msg.format(unit="minutes")) from err
+        return value
 
 
-def parse_resources(resources_args, fallback=None):
-    """Parse resources from args."""
-    resources = dict()
+class Resources(Mapping[str, Resource]):
+    """Standardized container of resources.
 
-    if resources_args is not None:
+    Implements and enforces standardization of size resources (e.g. disk, disk_mb,
+    mem_mib, etc). ``Resources`` cannot be initialized with both suffixed and
+    unsuffixed versions of the same size resource (e.g. disk and disk_mb). If a suffixed
+    resource is provided, it will be converted into the unsuffixed version with
+    appropriate unit conversion (e.g. disk_mib will be saved within ``Resources`` as
+    disk and its value will be unit-converted).
+
+    Additionally implements the default resource feature of snakemake
+
+    Initialization should be performed either with ``parse`` for CLI-style string
+    assignments, or ``from_mapping``.
+
+    Raises
+    ======
+    ResourceDuplicationError
+        if multiple variants of the same sized resource are provided (e.g. mem, mem_mb)
+    ResourceTypeError:
+        if a human readable resource with an incorrect type is given (e.g. a string to a
+        suffixed resource)
+    """
+
+    DEFAULTS = {
+        "full": {
+            "mem": "min(max(2*input.size_mb, 1000), 8000)",
+            "disk": "max(2*input.size_mb, 1000) if input else 50000",
+            "tmpdir": "system_tmpdir",
+        },
+        "bare": {"tmpdir": "system_tmpdir"},
+    }
+
+    def __init__(self, mapping: Dict[str, Resource] | None = None):
+        if mapping is None:
+            self._data: Dict[str, Resource] = {}
+            return
+        self._data = mapping
+        for res in SizedResources:
+            self._normalize_sizes(res)
+
+    def _normalize_sizes(self, resource: str):
+        found: set[str] = set()
+        for suffix in {"", "_mb", "_mib"}:
+            if resource + suffix in self._data:
+                found.add(resource + suffix)
+        if not found:
+            return
+        if len(found) > 1:
+            raise ResourceDuplicationError(list(found))
+        name = found.pop()
+        standardized = self._data.pop(name).standardize_size()
+        self._data[standardized.name] = standardized
+
+    def __repr__(self):
+        return str(self._data)
+
+    def __iter__(self):
+        return iter(self._data.keys())
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, ix: str, /):
+        if not isinstance(ix, str):
+            raise TypeError(f"{ix} must be a str")
+        return self._data[ix]
+
+    def __setitem__(self, ix: str, val: ValidResource | Resource | None, /):
+        if isinstance(val, Resource):
+            self._data[ix] = val
+            return
+        self._data[ix] = Resource(ix, val)
+
+    @property
+    def args(self):
+        return [
+            f"{name}={value.raw}"
+            for name, value in self._data.items()
+            if value.raw is not None
+        ]
+
+    @classmethod
+    def decode_arg(cls, arg: str) -> Tuple[str, str]:
+        try:
+            return cast(Tuple[str, str], tuple(arg.split("=", maxsplit=1)))
+        except ValueError:
+            raise ValueError("Resources have to be defined as name=value pairs.")
+
+    @classmethod
+    def default(cls, mode: Literal["bare"] | Literal["full"] | None = None):
+        """Return an object loaded with a standard default resource set.
+
+        Arguments
+        ========
+        mode: "bare" or "full"
+            full presets "tmpdir", "mem_mb", and "disk_mb". bare sets only "tmpdir"
+        """
+        try:
+            default_resources = cls.DEFAULTS[mode or "full"]
+        except KeyError:
+            raise ValueError(f"Unexpected mode for DefaultResources: {mode}")
+
+        result = {
+            res: Resource.from_cli_expression(res, val, with_threads_arg=True)
+            for res, val in default_resources.items()
+        }
+
+        return cls(result)
+
+    @classmethod
+    def parser_factory(
+        cls,
+        *,
+        allow_expressions: bool = False,
+        defaults: None | Literal["bare"] | Literal["full"] = None,
+    ) -> Callable[[List[str]], Self]:
+        """Return a parsing function with preset keyword arguments.
+
+        Intended for use with argparse.
+        """
+        return lambda exprs: cls.parse(
+            exprs,
+            allow_expressions=allow_expressions,
+            defaults=defaults,
+        )
+
+    @classmethod
+    def parse(
+        cls,
+        exprs: List[str],
+        *,
+        allow_expressions: bool,
+        defaults: None | Literal["bare"] | Literal["full"] = None,
+    ):
+        """Parse a series of CLI-style string resource assignments.
+
+        Arguments
+        =========
+        exprs: list of str
+            Each expr is in the form RESOURCE=VALUE, where RESOURCE is a valid python
+            identifier, and VALUE is a number, a quoted string, or a valid python
+            expression.
+        allow_expressions:
+            Allows use of quoted strings and python expressions in the list of exprs.
+            Otherwise, an error is raised if these are found.
+        defaults: "bare" or "full"
+            Initializes the returned resource object with the given default set, if
+            provided. Provided exprs will override default resources.
+        """
         valid = re.compile(r"[a-zA-Z_]\w*$")
+        unparsed = dict([cls.decode_arg(expr) for expr in exprs])
 
-        if isinstance(resources_args, list):
-            resources_args = map(DefaultResources.decode_arg, resources_args)
-        else:
-            resources_args = resources_args.items()
-
-        for res, val in resources_args:
+        result: Dict[str, Resource] = {}
+        for res, val in unparsed.items():
+            if res == "_cores":
+                raise WorkflowError(
+                    "Resource _cores is already defined internally. Use a different "
+                    "name."
+                )
             if not valid.match(res):
-                raise ValueError(
+                raise WorkflowError(
                     "Resource definition must start with a valid identifier, but found "
                     "{}.".format(res)
                 )
 
+            # check if resource is parsable as human friendly (given the correct
+            # name and formatted value). If it is, we return the parsed value to
+            # save a step later.
+            try:
+                val = Resource.parse_human_friendly(res, val)
+            except WorkflowError:
+                pass
+
             try:
                 val = int(val)
             except ValueError:
-                if fallback is not None:
-                    val = fallback(val)
-                else:
-                    raise ValueError(
-                        "Resource definition must contain an integer, string or python expression after the identifier."
+                pass
+            else:
+                if val < 0:
+                    msg = (
+                        f"Resource '{res}' was given value '{val}', which is not a "
+                        f"positive integer"
                     )
-            if res == "_cores":
-                raise ValueError(
-                    "Resource _cores is already defined internally. Use a different "
-                    "name."
+                    raise WorkflowError(msg)
+                result[res] = Resource(res, val)
+                continue
+
+            if allow_expressions:
+                result[res] = Resource.from_cli_expression(
+                    res, val, with_threads_arg=True
                 )
-            resources[res] = val
-    return resources
+                continue
 
-
-def infer_resources(name, value, resources: dict):
-    """Infer resources from a given one, if possible."""
-    from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
-
-    if isinstance(value, str):
-        value = value.strip("'\"")
-
-    if (
-        (name == "mem" or name == "disk")
-        and isinstance(value, str)
-        and not isinstance(value, TBDString)
-    ):
-        inferred_name = f"{name}_mb"
-        try:
-            in_bytes = parse_size(value)
-        except InvalidSize:
             raise WorkflowError(
-                f"Cannot parse mem or disk value into size in MB for setting {inferred_name} resource: {value}"
+                f"Resource '{res}' was given value '{val}', which is not an integer"
             )
-        resources[inferred_name] = max(int(math.ceil(in_bytes / 1e6)), 1)
-    elif (
-        name == "runtime"
-        and isinstance(value, str)
-        and not isinstance(value, TBDString)
+
+        if defaults is not None:
+            default_resources = cls.default(defaults)
+            default_resources.update(cls(result))
+            return default_resources
+
+        return cls(result)
+
+    @classmethod
+    def from_mapping(cls, mapping: Mapping[str, ValidResource] | Self) -> Self:
+        """Initialize from a mapping of resource to values.
+
+        No validation is done on the keys. Values are converted into ``Resource``s and
+        will be validated by that class.
+
+        Raises
+        ======
+        ResourceDuplicationError
+            if multiple variants of the same sized resource are provided (e.g. mem,
+            mem_mb)
+        ResourceTypeError:
+            if a human readable resource with an incorrect type is given (e.g. a string
+            to a suffixed resource)
+        ResourceValidationError:
+            if a given resource is not a ``str``, ``int``, ``float``, ``None``, or a
+            callable.
+        WorkflowError
+            if a given resource is of the human-readable group but cannot be parsed
+        """
+        if isinstance(mapping, cls):
+            return mapping
+
+        return cls({key: Resource(key, val) for key, val in mapping.items()})
+
+    def update(self, other: Resources | Mapping[str, ValidResource]):
+        if isinstance(other, Resources):
+            self._data.update(other._data)
+        else:
+            self._data.update(Resources.from_mapping(other))
+
+    def keys(self):
+        return self._data.keys()
+
+    def values(self):
+        return self._data.values()
+
+    def items(self):
+        return self._data.items()
+
+    def unwrapped_items(self) -> Iterator[Tuple[str, str | int | None]]:
+        for key, val in self._data.items():
+            yield key, val.value
+
+    def copy(self):
+        """Return deepcopy of the resource object."""
+        return copy.deepcopy(self)
+
+    def get(self, item: str):
+        result = self._data.get(item)
+        if result is None:
+            return Resource("", None)
+        return result
+
+    def expand_items(
+        self,
+        *,
+        constraints: Mapping[str, Resource | int | None],
+        evaluate: Callable[[Resource], Resource] | None,
+        skip: Optional[Collection[str]] = None,
+        expand_sized: bool = True,
+    ) -> Iterable[Tuple[str, str | int | TBDString | None]]:
+        """Evaluate and constrain resources then convert into a simple resource mapping.
+
+        SizedResources, including mem_mb and disk_mb, are optionally expanded into their
+        human-readable and mebibyte versions for direct consumption in executors.
+
+        Arguments
+        =========
+        constraints
+            Mapping of resources to use as constraints.
+        evaluate
+            Callable that takes a single resource as argument. It should call that
+            resource's ``evaluate()`` method with appropriate kwargs.
+        skip
+            Optional set of resource names that should not be expanded.
+        expand_sized
+            Enable/disable the expansion of sized resources (e.g. ``mem_mb``) into their
+            unsuffixed (``mem``) and mebibyte (``mem_mib``) versions. Defaults to
+            ``True``.
+        """
+        skip = set() if skip is None else skip
+        for resource in self.values():
+            if resource.name in skip:
+                continue
+
+            if evaluate is not None and resource.is_evaluable():
+                resource = evaluate(resource)
+
+            resource = resource.constrain(constraints.get(resource.name))
+
+            yield resource.name, resource.value
+
+            if (
+                expand_sized
+                and resource.name.endswith("_mb")
+                and resource.name[:-3] in SizedResources
+                and resource.value is not None
+            ):
+                yield resource.name[:-3], resource.format_human_friendly()
+                mib = resource.from_mb_to_mib()
+                yield mib.name, mib.value
+
+
+ValidScope: TypeAlias = Literal["local"] | Literal["global"] | Literal["excluded"]
+
+
+class ResourceScopes(Dict[str, ValidScope]):
+    """Index of resource scopes, where each entry is 'RESOURCE': 'SCOPE'
+
+    Each resource may be scoped as local, global, or excluded. Any resources not
+    specified are considered global.
+    """
+
+    def __init__(
+        self,
+        *args: Mapping[str, ValidScope] | Tuple[str, ValidScope],
+        **kwargs: ValidScope,
     ):
-        try:
-            parsed = max(int(round(parse_timespan(value) / 60)), 1)
-        except InvalidTimespan:
-            raise WorkflowError(
-                f"Cannot parse runtime value into minutes for setting runtime resource: {value}"
+        super().__init__(*args, **kwargs)
+        valid_scopes: set[ValidScope] = {"local", "global", "excluded"}
+        for res in SizedResources:
+            self._normalize_sizes(res)
+        if set(self.values()) - valid_scopes:
+            invalid_res = [
+                res for res, scope in self.items() if scope not in valid_scopes
+            ]
+            invalid_pairs = {res: self[res] for res in invalid_res}
+
+            # For now, we don't want excluded in the documentation
+            raise ResourceScopesException(
+                "Invalid resource scopes: entries must be defined as RESOURCE=SCOPE "
+                "pairs, where SCOPE is either 'local' or 'global'",
+                invalid_pairs,
             )
-        resources["runtime"] = parsed
+
+    def _normalize_sizes(self, resource: str):
+        found: set[str] = set()
+        for suffix in ["", "_mb", "_mib"]:
+            if resource + suffix in self:
+                found.add(resource + suffix)
+        if not found or resource in found:
+            return
+        if len(found) > 1:
+            raise ResourceDuplicationError(list(found))
+        self[resource] = self.pop(found.pop())
+
+    @classmethod
+    def defaults(cls):
+        return cls(mem_mb="local", disk_mb="local", runtime="excluded")
+
+    def _test(self, resource: str, scope: ValidScope):
+        for suffix in {"_mb", "_mib"}:
+            stripped = resource.removesuffix(suffix)
+            if stripped in SizedResources:
+                resource = stripped
+                break
+        return self.get(resource) == scope
+
+    def is_local(self, resource: str):
+        """Resources are not tallied by the global scheduler when submitting jobs
+
+        Each submitted job or group gets its own pool of the resource, as
+        specified under --resources.
 
 
-def is_ordinary_string(val):
-    r"""
-    Check if a string is an ordinary string.
+        Returns
+        -------
+        set
+        """
+        return self._test(resource, "local")
+
+    def is_global(self, resource: str):
+        """Resources tallied across all job and group submissions.
+
+        Returns
+        -------
+        set
+        """
+        return self._test(resource, "global")
+
+    def is_excluded(self, resource: str):
+        """Resources not submitted to cluster jobs
+
+        These resources are used exclusively by the global scheduler. The primary case
+        is for additive resources in GroupJobs such as runtime, which would not be
+        properly handled by the scheduler in the sub-snakemake instance. This scope is
+        not currently intended for use by end-users and is thus not documented
+
+        Returns
+        -------
+        set
+        """
+        return self._test(resource, "excluded")
+
+    @property
+    def locals(self):
+        """Resources are not tallied by the global scheduler when submitting jobs
+
+        Each submitted job or group gets its own pool of the resource, as
+        specified under --resources.
+
+
+        Returns
+        -------
+        set
+        """
+        return set(res for res, scope in self.items() if scope == "local")
+
+    @property
+    def globals(self):
+        """Resources tallied across all job and group submissions.
+
+        Returns
+        -------
+        set
+        """
+        return set(res for res, scope in self.items() if scope == "global")
+
+    @property
+    def excluded(self):
+        """Resources not submitted to cluster jobs
+
+        These resources are used exclusively by the global scheduler. The primary case
+        is for additive resources in GroupJobs such as runtime, which would not be
+        properly handled by the scheduler in the sub-snakemake instance. This scope is
+        not currently intended for use by end-users and is thus not documented
+
+        Returns
+        -------
+        set
+        """
+        suffixed_resources: set[str] = set()
+        for resource in SizedResources:
+            if resource in self:
+                for suffix in {"_mb", "_mib"}:
+                    suffixed_resources.add(resource + suffix)
+        return (
+            set(res for res, scope in self.items() if scope == "excluded")
+            | suffixed_resources
+        )
+
+    def update(self, other: ResourceScopes | Mapping[str, ValidScope]):
+        if not isinstance(other, ResourceScopes):
+            other = ResourceScopes(other)
+        super().update(other)
+
+
+def is_ordinary_string(val: str):
+    r"""Check if a string is an ordinary string.
+
     Ordinary strings are not evaluated and are not
     expected to be python expressions and be returned as is.
 
@@ -700,21 +1351,3 @@ def is_ordinary_string(val):
     return isinstance(val, str) and not re.match(
         r"^[a-zA-Z_]\w*\(.*\)$|^\{.*\}$|^lambda\s.*:.*$|.*[\+\-\*/\%].*|.*\.\w+.*", val
     )
-
-
-def is_humanfriendly_resource(value):
-    from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
-
-    try:
-        parse_size(value)
-        return True
-    except InvalidSize:
-        pass
-
-    try:
-        parse_timespan(value)
-        return True
-    except InvalidTimespan:
-        pass
-
-    return False

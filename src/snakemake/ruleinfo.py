@@ -7,7 +7,6 @@ from collections import namedtuple
 from copy import copy
 from snakemake.logging import logger
 
-
 InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
 
 

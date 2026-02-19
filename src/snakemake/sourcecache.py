@@ -3,31 +3,42 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from functools import partial
 from pathlib import Path
 import posixpath
 import re
 import os
 import shutil
 import stat
-from typing import Optional
-from snakemake import utils
+import threading
+import typing
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
+
 import tempfile
 import io
 from abc import ABC, abstractmethod
 from urllib.parse import unquote
 
-from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake import utils
+from snakemake.utils import format
 from snakemake.common import (
     ON_WINDOWS,
     LockFreeWritableFile,
     is_local_file,
-    get_appdirs,
     parse_uri,
     smart_join,
 )
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.common.git import split_git_path
 from snakemake.logging import logger
+from snakemake.io import check
+
+if TYPE_CHECKING:
+    import git
+
+
+def _format_or_none(pattern: Optional[str], **kwargs: Any):
+    return format(pattern, **kwargs) if pattern is not None else None
 
 
 def _check_git_args(
@@ -42,7 +53,17 @@ def _check_git_args(
         )
 
 
+def _replace_suffix(path: str, suffix: List[str], replacement: str) -> Optional[str]:
+    for suff in suffix:
+        if path.endswith(suff):
+            return path[: -len(suff)] + replacement
+    return None
+
+
 class SourceFile(ABC):
+    @abstractmethod
+    def check(self) -> None: ...
+
     @abstractmethod
     def get_path_or_uri(self, secret_free: bool) -> str: ...
 
@@ -58,12 +79,25 @@ class SourceFile(ABC):
         return self.__class__(path)
 
     @abstractmethod
+    def format(self, **kwargs: Any) -> "typing.Self": ...
+
+    @abstractmethod
     def get_filename(self) -> str: ...
+
+    @abstractmethod
+    def endswith(self, suffix: str) -> bool: ...
+
+    @abstractmethod
+    def replace_suffix(
+        self, suffix: List[str], replacement: str
+    ) -> Optional["typing.Self"]: ...
 
     def join(self, path):
         if isinstance(path, SourceFile):
             path = path.get_path_or_uri(secret_free=False)
-        return self.__class__(smart_join(self.get_path_or_uri(secret_free=False), path))
+        return self.__class__(
+            smart_join(base=self.get_path_or_uri(secret_free=False), path=path)
+        )
 
     def mtime(self) -> Optional[float]:
         """If possible, return mtime of the file. Otherwise, return None."""
@@ -87,12 +121,30 @@ class SourceFile(ABC):
         return self.get_path_or_uri(secret_free=True)
 
     def simplify_path(self):
-        return self
+        return self.get_path_or_uri(secret_free=True)
 
 
 class GenericSourceFile(SourceFile):
     def __init__(self, path_or_uri):
         self.path_or_uri = path_or_uri
+
+    def endswith(self, suffix: str) -> bool:
+        return self.path_or_uri.endswith(suffix)
+
+    def replace_suffix(
+        self, suffix: List[str], replacement: str
+    ) -> Optional["typing.Self"]:
+        repl = _replace_suffix(self.path_or_uri, suffix, replacement)
+        if repl is None:
+            return None
+        else:
+            return self.__class__(repl)
+
+    def check(self) -> None:
+        pass
+
+    def format(self, **kwargs: Any) -> "typing.Self":
+        return self.__class__(format(self.path_or_uri, **kwargs))
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path_or_uri
@@ -111,6 +163,24 @@ class GenericSourceFile(SourceFile):
 class LocalSourceFile(SourceFile):
     def __init__(self, path):
         self.path = path
+
+    def endswith(self, suffix: str) -> bool:
+        return self.path.endswith(suffix)
+
+    def replace_suffix(
+        self, suffix: List[str], replacement: str
+    ) -> Optional["typing.Self"]:
+        repl = _replace_suffix(self.path, suffix, replacement)
+        if repl is None:
+            return None
+        else:
+            return self.__class__(repl)
+
+    def check(self) -> None:
+        check(self.path)
+
+    def format(self, **kwargs: Any) -> "typing.Self":
+        return self.__class__(format(self.path, **kwargs))
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path
@@ -143,7 +213,12 @@ class LocalSourceFile(SourceFile):
 
 class LocalGitFile(SourceFile):
     def __init__(
-        self, repo_path, path: str, tag: str = None, ref: str = None, commit: str = None
+        self,
+        repo_path,
+        path: str,
+        tag: Optional[str] = None,
+        ref: Optional[str] = None,
+        commit: Optional[str] = None,
     ):
         _check_git_args(tag, ref, commit)
         self.tag = tag
@@ -151,6 +226,36 @@ class LocalGitFile(SourceFile):
         self._ref = ref
         self.repo_path = repo_path
         self.path = path
+
+    def endswith(self, suffix: str) -> bool:
+        return self.path.endswith(suffix)
+
+    def replace_suffix(
+        self, suffix: List[str], replacement: str
+    ) -> Optional["typing.Self"]:
+        repl = _replace_suffix(self.path, suffix, replacement)
+        if repl is None:
+            return None
+        else:
+            return self.__class__(
+                self.repo_path,
+                path=repl,
+                tag=self.tag,
+                ref=self._ref,
+                commit=self.commit,
+            )
+
+    def check(self) -> None:
+        check(self.path)
+
+    def format(self, **kwargs: Any) -> "typing.Self":
+        return self.__class__(
+            repo_path=format(self.repo_path, **kwargs),
+            path=format(self.path, **kwargs),
+            tag=_format_or_none(self.tag, **kwargs),
+            ref=_format_or_none(self._ref, **kwargs),
+            commit=_format_or_none(self.commit, **kwargs),
+        )
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         return f"git+file://{os.path.abspath(self.repo_path)}/{self.path}@{self.ref}"
@@ -189,19 +294,125 @@ class LocalGitFile(SourceFile):
         return True
 
 
-class HostingProviderFile(SourceFile):
-    """Marker for denoting github source files from releases."""
-
-    valid_repo = re.compile("^.+/.+$")
-
+class HostedGitRepo:
     def __init__(
         self,
         repo: str,
-        path: str,
+        cache_path: Path,
+        auth: str,
+        host: str,
+    ):
+        from git import Repo
+
+        repo_url = f"https://{auth}{host}/{repo}"
+
+        self.host: str = host
+        self.repo_name: str = repo
+
+        self.repo_clone = cache_path / host / repo
+
+        self._existed_before = self.repo_clone.exists()
+        self._fetched = False
+
+        if self._existed_before:
+            self._repo = Repo(self.repo_clone)
+        else:
+            # lock-free cloning of the repository
+            logger.info(f"Cloning {host}/{repo} to {self.repo_clone}")
+            self.repo_clone.parent.mkdir(parents=True, exist_ok=True)
+            tmpdir = tempfile.mkdtemp(prefix=f"{self.repo_clone}.")
+            # the clone is not atomic, hence we do that in a temporary directory
+            # We only want the database, thus we create a bare clone
+            try:
+                Repo.clone_from(repo_url, to_path=tmpdir, bare=True)
+            except Exception:
+                # clean up on any exception
+                shutil.rmtree(tmpdir)
+                raise
+            try:
+                # move is atomic if repo_clone does not exist, so we can safely move
+                # the directory to the final location
+                os.rename(tmpdir, self.repo_clone)
+            except FileExistsError:
+                # another process won the race
+                shutil.rmtree(tmpdir)
+            self._fetched = True
+
+            self._repo = Repo(self.repo_clone)
+
+    def ref_exists(self, commit: Optional[str], branch_or_tag: Optional[str]):
+        import git
+
+        if branch_or_tag:
+            try:
+                self.repo.git.rev_parse("--verify", branch_or_tag)
+                return True
+            except git.GitCommandError:
+                return False
+        else:
+            try:
+                self.repo.commit(commit)
+                return True
+            except git.BadName:
+                raise WorkflowError(f"Invalid commit id: {commit}")
+            except ValueError:
+                return False
+
+    def file_exists(self, path: str, ref: str):
+        try:
+            # Get the tree for the specific revision
+            tree = self.repo.commit(ref).tree
+            # Attempt to access the file by path
+            tree[path]
+            return True
+        except KeyError:
+            return False
+
+    def fetch(self) -> Optional[str]:
+        import git
+        from reretry import retry_call
+
+        if self._fetched:
+            # up to date, nothing to do
+            return
+
+        logger.info(
+            f"Fetching latest changes of {self.host}/{self.repo_name} to {self.repo_clone}"
+        )
+        try:
+            retry_call(
+                # arg is needed in order to have a refspec, associated issue with
+                # workaround is here: https://github.com/gitpython-developers/GitPython/issues/296
+                partial(self.repo.remotes.origin.fetch, "+refs/heads/*:refs/heads/*"),
+                delay=3,
+                backoff=2,
+                tries=3,
+            )
+        except git.GitCommandError as e:
+            return str(e)
+        self._fetched = True
+
+    @property
+    def repo(self) -> "git.Repo":
+        return self._repo
+
+
+class HostingProviderFile(SourceFile):
+    """Marker for denoting github source files from releases."""
+
+    valid_repo: ClassVar[re.Pattern] = re.compile("^.+/.+$")
+    _hosted_repos: ClassVar[Dict[str, HostedGitRepo]] = {}
+    _lock: ClassVar[threading.Lock] = threading.Lock()
+
+    def __init__(
+        self,
+        repo: Optional[str] = None,
+        path: Optional[str] = None,
         tag: Optional[str] = None,
         branch: Optional[str] = None,
         commit: Optional[str] = None,
         host: Optional[str] = None,
+        cache_path: Optional[Path] = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -227,8 +438,9 @@ class HostingProviderFile(SourceFile):
         self.commit = commit
         self.branch = branch
         self.path = path.strip("/")
-        self.token = ""
         self.host = host
+
+        self._cache_path: Optional[Path] = cache_path
 
         # Via __post_init__ implementing subclasses can do additional things without
         # replicating the constructor args.
@@ -237,11 +449,76 @@ class HostingProviderFile(SourceFile):
     def __post_init__(self):
         pass
 
-    def mtime(self) -> Optional[float]:
-        # Intentionally None, hence causing any caching to generate an updated mtime.
-        # Switching commits/branches/refs in the same repo should cause rerun triggers
-        # if those files are used as input files for jobs and have changed checksums.
-        return None
+    def endswith(self, suffix: str) -> bool:
+        return self.path.endswith(suffix)
+
+    def replace_suffix(
+        self, suffix: List[str], replacement: str
+    ) -> Optional["typing.Self"]:
+        repl = _replace_suffix(self.path, suffix, replacement)
+        if repl is None:
+            return None
+        else:
+            return self.__class__(
+                repo=self.repo,
+                path=repl,
+                tag=self.tag,
+                branch=self.branch,
+                commit=self.commit,
+                host=self.host,
+                cache_path=self._cache_path,
+            )
+
+    def check(self) -> None:
+        check(self.path)
+
+    def format(self, **kwargs: Any) -> "typing.Self":
+        return self.__class__(
+            repo=_format_or_none(self.repo, **kwargs),
+            path=_format_or_none(self.path, **kwargs),
+            tag=_format_or_none(self.tag, **kwargs),
+            branch=_format_or_none(self.branch, **kwargs),
+            commit=_format_or_none(self.commit, **kwargs),
+            host=_format_or_none(self.host, **kwargs),
+            cache_path=self._cache_path,
+        )
+
+    @property
+    def auth(self) -> str:
+        return ""
+
+    @property
+    def cache_path(self) -> Path:
+        assert (
+            self._cache_path
+        ), "bug: cache_path not set, should be done by SourceCache"
+
+        return self._cache_path
+
+    @cache_path.setter
+    def cache_path(self, cache_path: Path):
+        self._cache_path = cache_path / "snakemake-git-cache"
+
+    @property
+    def hosted_repo(self) -> HostedGitRepo:
+        try:
+            return self._hosted_repos[self.repo]
+        except KeyError:
+            assert self.host is not None
+            if self.host.startswith("https://") or self.host.startswith("http://"):
+                raise WorkflowError(
+                    "host must be given as domain name without protocol prefix "
+                    f"(e.g. github.com, but found {self.host})  for git-hosted source "
+                    f"file {self.path} in repo {self.repo}."
+                )
+
+            # Ensure that multiple threads don't concurrently create the same instance
+            with self._lock:
+                hosted_repo = HostedGitRepo(
+                    self.repo, self.cache_path, self.auth, self.host
+                )
+                self._hosted_repos[self.repo] = hosted_repo
+            return hosted_repo
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
@@ -249,9 +526,57 @@ class HostingProviderFile(SourceFile):
     def get_filename(self):
         return os.path.basename(self.path)
 
+    def fetch_if_required(self) -> Optional[str]:
+        # always fetch if this points to a branch
+        if (
+            self.branch is not None
+            or not self.hosted_repo.ref_exists(
+                commit=self.commit,
+                branch_or_tag=self.tag or self.branch,
+            )
+            or not self.hosted_repo.file_exists(path=self.path, ref=self.ref)
+        ):
+            return self.hosted_repo.fetch()
+
+    def mtime(self) -> float:
+        import git
+
+        fetch_error = self.fetch_if_required()
+        try:
+            last_commit = next(
+                self.hosted_repo.repo.iter_commits(
+                    rev=self.ref, paths=self.path, max_count=1
+                )
+            )
+            return last_commit.committed_date
+        except git.GitCommandError as e:
+            msg = (
+                f"Failed to get mtime of cached git source file {self.ref}:{self.path}"
+            )
+            if fetch_error:
+                msg += f" Unable to fetch from remote: {fetch_error}."
+            raise WorkflowError(msg) from e
+
+    def open(self) -> io.BytesIO:
+        import git
+
+        fetch_error = self.fetch_if_required()
+
+        try:
+            return io.BytesIO(
+                self.hosted_repo.repo.git.show(f"{self.ref}:{self.path}").encode()
+            )
+        except git.GitCommandError as e:
+            msg = f"Failed to get cached git source file {self.repo}:{self.path}: {e}. "
+            if fetch_error:
+                msg += f" Unable to fetch from remote: {fetch_error}."
+            raise WorkflowError(msg) from e
+
     @property
-    def ref(self):
-        return self.tag or self.commit or self.branch
+    def ref(self) -> str:
+        ref = self.tag or self.commit or self.branch
+        assert ref is not None
+        return ref
 
     def get_basedir(self):
         return self.__class__(
@@ -261,6 +586,7 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
             host=self.host,
+            cache_path=self._cache_path,
         )
 
     def join(self, path):
@@ -276,20 +602,28 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
             host=self.host,
+            cache_path=self._cache_path,
         )
 
     @property
     def is_local(self):
         return False
 
+    def __str__(self) -> str:
+        return f"{self.host}/{self.repo}/{self.path}@{self.ref}"
+
 
 class GithubFile(HostingProviderFile):
     def __post_init__(self):
-        if self.host is not None:
-            raise WorkflowError(
-                "host keyword argument is not yet supported by GithubFile."
-            )
+        if self.host is None:
+            self.host = "github.com"
         self.token = os.environ.get("GITHUB_TOKEN", "")
+
+    @property
+    def auth(self) -> str:
+        if self.token:
+            return f"{self.token}@"
+        return ""
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         auth = f":{self.token}@" if self.token and not secret_free else ""
@@ -303,6 +637,12 @@ class GitlabFile(HostingProviderFile):
         if self.host is None:
             self.host = "gitlab.com"
         self.token = os.environ.get("GITLAB_TOKEN", "")
+
+    @property
+    def auth(self) -> str:
+        if self.token:
+            return f"{self.token}@"
+        return ""
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         from urllib.parse import quote
@@ -360,7 +700,7 @@ class SourceCache:
         self.cache_path: Path = cache_path
         os.makedirs(self.cache_path, exist_ok=True)
         if runtime_cache_path is None:
-            runtime_cache_parent = self.cache_path / "runtime-cache"
+            runtime_cache_parent = self.cache_path / "snakemake-runtime-cache"
             os.makedirs(runtime_cache_parent, exist_ok=True)
             self.runtime_cache = tempfile.TemporaryDirectory(
                 dir=runtime_cache_parent, ignore_cleanup_errors=True
@@ -393,6 +733,9 @@ class SourceCache:
         return str(cache_entry)
 
     def cache_entry(self, source_file: SourceFile) -> Path:
+        if isinstance(source_file, HostingProviderFile):
+            source_file.cache_path = self.cache_path
+
         file_cache_path = source_file.get_cache_path()
         assert file_cache_path
 
@@ -446,21 +789,36 @@ class SourceCache:
     def _open(self, source_file: SourceFile, mode, encoding=None):
         from smart_open import open
 
+        log_path = source_file.get_path_or_uri(secret_free=True)
+
         if isinstance(source_file, LocalGitFile):
             import git
 
-            return io.BytesIO(
-                git.Repo(source_file.repo_path)
-                .git.show(f"{source_file.ref}:{source_file.path}")
-                .encode()
-            )
+            try:
+                return io.BytesIO(
+                    git.Repo(source_file.repo_path)
+                    .git.show(f"{source_file.ref}:{source_file.path}")
+                    .encode()
+                )
+            except git.GitCommandError as e:
+                raise WorkflowError(
+                    f"Failed to get local git source file {log_path}: {e}. "
+                    "Is the local git clone up to date?"
+                )
+        elif isinstance(source_file, HostingProviderFile):
+            return source_file.open()
 
         path_or_uri = source_file.get_path_or_uri(secret_free=False)
 
         try:
-            return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
+            return open(
+                path_or_uri,
+                mode,
+                encoding=None if "b" in mode else encoding,
+                compression="disable",
+            )
         except Exception as e:
             raise WorkflowError(
-                f"Failed to open source file {source_file.get_path_or_uri(secret_free=True)}",
+                f"Failed to open source file {log_path}",
                 e,
             )
