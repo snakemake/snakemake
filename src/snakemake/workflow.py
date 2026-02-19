@@ -1389,7 +1389,9 @@ class Workflow(WorkflowExecutorInterface):
                         else:
                             logger.info(
                                 f"Provided remote nodes: {self.nodes}",
-                                extra=dict(event=LogEvent.RESOURCES_INFO, nodes=self.nodes),
+                                extra=dict(
+                                    event=LogEvent.RESOURCES_INFO, nodes=self.nodes
+                                ),
                             )
                     else:
                         if self._cores is not None:
