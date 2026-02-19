@@ -2185,6 +2185,11 @@ def test_ensure_checksum_fail():
 def test_fstring():
     run(dpath("test_fstring"), targets=["SID23454678.txt"])
 
+def test_priority():
+    run(dpath("test_priority"), cores=1)
+
+def test_priority_invalid():
+    run(dpath("test_priority_invalid"), shouldfail=True)
 
 @skip_on_windows
 def test_github_issue1261():

@@ -15,7 +15,7 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union, Dict
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
@@ -1674,7 +1674,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             or not self.priorityfiles.isdisjoint(job.output)
         )
         for job in self.needrun_jobs():
-            self._priority[job] = job.rule.priority
+            self._priority[job] = job.rule.expand_priority(
+                job.wildcards_dict, job.input, job.attempt
+            )
         for job in self.bfs(
             self._dependencies,
             *filter(prioritized, self.needrun_jobs()),

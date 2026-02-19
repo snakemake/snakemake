@@ -1208,7 +1208,7 @@ Note that access to wildcards is also possible via the variable ``wildcards`` (e
 Priorities
 ----------
 
-Snakemake allows for rules that specify numeric priorities:
+Snakemake allows for rules that specify numeric and/or callable priorities:
 
 
 .. code-block:: python
@@ -1219,7 +1219,22 @@ Snakemake allows for rules that specify numeric priorities:
       priority: 50
       shell: ...
 
-Per default, each rule has a priority of 0. Any rule that specifies a higher priority, will be preferred by the scheduler over all rules that are ready to execute at the same time without having at least the same priority.
+Per default, each rule has a priority of 0. Any rule that specifies a higher priority, will be preferred by the scheduler over all rules that are ready to execute at the same time without having at least the same priority. Priority may also be specified with a callable that returns an integer. The signature of the callable must be `callable(wildcards)`.
+
+Priority may also be specified with a callable. The callable receives ``wildcards``
+as its first positional argument, and may optionally accept ``input``, ``attempt``,
+and ``rulename`` keyword arguments (similar to param functions):
+
+.. code-block:: python
+
+    rule sort:
+        input: "{dataset}.txt"
+        output: "{dataset}.sorted"
+        priority: lambda wildcards, input: input.size_mb
+        shell: "sort {input} > {output}"
+
+This allows the scheduler to dynamically prioritise jobs based on, e.g., input
+file size so that larger jobs start first.
 
 Furthermore, the ``--prioritize`` or ``-P`` command line flag allows to specify files (or rules) that shall be created with highest priority during the workflow execution. This means that the scheduler will assign the specified target and all its dependencies highest priority, such that the target is finished as soon as possible.
 The ``--dry-run`` (equivalently ``--dryrun``) or ``-n`` option allows you to see the scheduling plan including the assigned priorities.
