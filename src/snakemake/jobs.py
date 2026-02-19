@@ -596,7 +596,7 @@ class Job(
     def container_img(self):
         if (
             DeploymentMethod.APPTAINER
-            in self.dag.workflow.legacy_deployment_settings.deployment_method
+            in self.dag.workflow.deployment_settings.deployment_method
             and self.container_img_url
         ):
             return self.dag.container_imgs[self.container_img_url]
@@ -1189,7 +1189,7 @@ class Job(
             wait_for_files.append(self.shadow_dir)
         if (
             DeploymentMethod.CONDA
-            in self.dag.workflow.legacy_deployment_settings.deployment_method
+            in self.dag.workflow.deployment_settings.deployment_method
             and self.conda_env
             and not self.conda_env.is_externally_managed
             and not self.conda_env.is_containerized
