@@ -1965,7 +1965,6 @@ will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally pri
 
   * You cannot define variables with the same name as the following in any of your cells, as they will be imported in the cell that Snakemake needs to inject into your notebook: ``sys``, ``pickle``, ``logger``, ``snakemake``.
   * If you specify ``--edit-notebook``, the notebook will be opened in the marimo editor in the browser. Otherwise, it will be run as a Python script.
-  * Notebook logs will be stored as flat Python scripts, which you can always convert back to a marimo notebook if needed.
 
   
 .. _snakefiles_protected_temp:

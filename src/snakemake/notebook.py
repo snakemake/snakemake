@@ -279,7 +279,7 @@ class MarimoNotebook(PythonScript):
 
         if fname_out := self.log.get("notebook", None):
             fname_out = os.path.abspath(fname_out)
-            cmd += " && marimo export script {fname:q} -o {fname_out:q}"
+            cmd = "cat {fname:q} > {fname_out:q}; " + cmd
 
         self._execute_cmd(cmd, fname=fname, fname_out=fname_out, edit=edit)
 
