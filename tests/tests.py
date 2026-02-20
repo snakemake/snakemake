@@ -12,8 +12,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from snakemake.exceptions import ResourceConversionError
-from snakemake.exceptions import ResourceDuplicationError
+from snakemake.exceptions import AmbiguousRuleException, ResourceConversionError, ResourceDuplicationError, WorkflowError
 from snakemake.persistence import Persistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
 from snakemake.settings.enums import RerunTrigger
