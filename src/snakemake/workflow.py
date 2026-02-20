@@ -1381,18 +1381,15 @@ class Workflow(WorkflowExecutorInterface):
                     if shell_exec is not None:
                         logger.info(f"Using shell: {shell_exec}")
                     if not self.local_exec:
-                        if self.nodes == sys.maxsize:
-                            logger.info(
-                                "The number of remote nodes is set to be unlimited.",
-                                extra=dict(event=LogEvent.RESOURCES_INFO),
-                            )
-                        else:
-                            logger.info(
-                                f"Provided remote nodes: {self.nodes}",
-                                extra=dict(
-                                    event=LogEvent.RESOURCES_INFO, nodes=self.nodes
-                                ),
-                            )
+                        nodes_str = (
+                            "unlimited"
+                            if self.nodes == sys.maxsize
+                            else str(self.nodes)
+                        )
+                        logger.info(
+                            f"Provided remote nodes: {nodes_str}",
+                            extra=dict(event=LogEvent.RESOURCES_INFO, nodes=self.nodes),
+                        )
                     else:
                         if self._cores is not None:
                             info = (
