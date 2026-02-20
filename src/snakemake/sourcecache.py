@@ -33,7 +33,6 @@ from snakemake.common.git import split_git_path
 from snakemake.logging import logger
 from snakemake.io import check
 
-
 if TYPE_CHECKING:
     import git
 
@@ -341,14 +340,23 @@ class HostedGitRepo:
 
             self._repo = Repo(self.repo_clone)
 
-    def ref_exists(self, ref: str):
+    def ref_exists(self, commit: Optional[str], branch_or_tag: Optional[str]):
         import git
 
-        try:
-            self.repo.git.rev_parse("--verify", ref)
-            return True
-        except git.GitCommandError:
-            return False
+        if branch_or_tag:
+            try:
+                self.repo.git.rev_parse("--verify", branch_or_tag)
+                return True
+            except git.GitCommandError:
+                return False
+        else:
+            try:
+                self.repo.commit(commit)
+                return True
+            except git.BadName:
+                raise WorkflowError(f"Invalid commit id: {commit}")
+            except ValueError:
+                return False
 
     def file_exists(self, path: str, ref: str):
         try:
@@ -519,9 +527,15 @@ class HostingProviderFile(SourceFile):
         return os.path.basename(self.path)
 
     def fetch_if_required(self) -> Optional[str]:
-        if not self.hosted_repo.ref_exists(
-            self.ref
-        ) or not self.hosted_repo.file_exists(path=self.path, ref=self.ref):
+        # always fetch if this points to a branch
+        if (
+            self.branch is not None
+            or not self.hosted_repo.ref_exists(
+                commit=self.commit,
+                branch_or_tag=self.tag or self.branch,
+            )
+            or not self.hosted_repo.file_exists(path=self.path, ref=self.ref)
+        ):
             return self.hosted_repo.fetch()
 
     def mtime(self) -> float:
@@ -797,7 +811,12 @@ class SourceCache:
         path_or_uri = source_file.get_path_or_uri(secret_free=False)
 
         try:
-            return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
+            return open(
+                path_or_uri,
+                mode,
+                encoding=None if "b" in mode else encoding,
+                compression="disable",
+            )
         except Exception as e:
             raise WorkflowError(
                 f"Failed to open source file {log_path}",

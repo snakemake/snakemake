@@ -22,7 +22,6 @@ from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
 
-
 __author__ = "Johannes Köster"
 
 STDOUT = sys.stdout

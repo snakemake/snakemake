@@ -7,7 +7,6 @@ from snakemake_interface_common.exceptions import WorkflowError
 
 from snakemake.exceptions import UndefinedPathvarException
 
-
 PATHVAR_NAME_REGEX = re.compile(r"^[a-z][a-z0-9_]*$")
 PATHVAR_REGEX = re.compile(r"<(?P<name>[a-z][a-z0-9_]*)>")
 
