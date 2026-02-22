@@ -1105,11 +1105,14 @@ class RMarkdown(ScriptBase):
         code = self.source
         pos = next(itertools.islice(re.finditer(r"---\n", code), 1, 2)).start() + 3
         fd.write(str.encode(code[:pos]))
-        preamble = textwrap.dedent("""
+        preamble = textwrap.dedent(
+            """
             ```{r, echo=FALSE, message=FALSE, warning=FALSE}
             %s
             ```
-            """ % preamble)
+            """
+            % preamble
+        )
         fd.write(preamble.encode())
         fd.write(code[pos:].encode())
 
@@ -1671,10 +1674,7 @@ def get_language(source_file, source):
 
     language = None
     if filename.endswith(".py"):
-        if filename.endswith(".marimo.py"):
-            language = "marimo_py"
-        else:
-            language = "python"
+        language = "python"
     elif filename.endswith(".ipynb"):
         language = "jupyter"
     elif filename.endswith(".R"):
@@ -1704,6 +1704,10 @@ def get_language(source_file, source):
             )
 
         language += "_" + kernel_language.lower()
+
+    # detect marimo notebooks
+    if filename.endswith(".marimo.py"):
+        language = "marimo_python"
 
     return language
 
