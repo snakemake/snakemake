@@ -1105,14 +1105,11 @@ class RMarkdown(ScriptBase):
         code = self.source
         pos = next(itertools.islice(re.finditer(r"---\n", code), 1, 2)).start() + 3
         fd.write(str.encode(code[:pos]))
-        preamble = textwrap.dedent(
-            """
+        preamble = textwrap.dedent("""
             ```{r, echo=FALSE, message=FALSE, warning=FALSE}
             %s
             ```
-            """
-            % preamble
-        )
+            """ % preamble)
         fd.write(preamble.encode())
         fd.write(code[pos:].encode())
 
