@@ -1,3 +1,5 @@
+from snakemake.deployment import EnvSpecs
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -950,10 +952,7 @@ class Workflow(WorkflowExecutorInterface):
         assert self.deployment_settings is not None
         if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
             deploy.append("conda")
-        if (
-            DeploymentMethod.APPTAINER
-            in self.deployment_settings.deployment_method
-        ):
+        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
             deploy.append("singularity")
 
         # TODO use or fix the deploy code above
@@ -1186,10 +1185,7 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         assert self.deployment_settings is not None
-        if (
-            DeploymentMethod.APPTAINER
-            in self.deployment_settings.deployment_method
-        ):
+        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs()
 
@@ -1366,10 +1362,7 @@ class Workflow(WorkflowExecutorInterface):
                     in self.deployment_settings.deployment_method
                 ):
                     self.dag.pull_container_imgs()
-                if (
-                    DeploymentMethod.CONDA
-                    in self.deployment_settings.deployment_method
-                ):
+                if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                     self.dag.create_conda_envs()
 
             shared_storage_local_copies = (
@@ -2012,34 +2005,6 @@ class Workflow(WorkflowExecutorInterface):
                 # TODO retrieve suitable singularity image
 
             def check_may_use_software_deployment(method):
-                if ruleinfo.template_engine:
-                    raise RuleException(
-                        f"{method} directive is only allowed with "
-                        "run, shell, script, notebook, or wrapper "
-                        "directives (not with template_engine)",
-                        rule=rule,
-                    )
-
-            if ruleinfo.env_modules:
-                # If using environment modules and they are defined for the rule,
-                # ignore conda and singularity directive below.
-                # The reason is that this is likely intended in order to use
-                # a software stack specifically compiled for a particular
-                # HPC cluster.
-                check_may_use_software_deployment("envmodules")
-                from snakemake.deployment.env_modules import EnvModules
-
-                rule.env_modules = EnvModules(*ruleinfo.env_modules)
-
-            if ruleinfo.conda_env:
-                check_may_use_software_deployment("conda")
-
-                if isinstance(ruleinfo.conda_env, Path):
-                    ruleinfo.conda_env = str(ruleinfo.conda_env)
-
-                rule.conda_env = ruleinfo.conda_env
-
-            if ruleinfo.software_env_spec:
                 if not (
                     ruleinfo.script
                     or ruleinfo.wrapper
@@ -2047,22 +2012,36 @@ class Workflow(WorkflowExecutorInterface):
                     or ruleinfo.notebook
                 ):
                     raise RuleException(
-                        "Software directive is only allowed "
-                        "with shell, script, notebook or wrapper directives "
-                        "(not with run or template_engine).",
+                        f"{method} directive is only allowed with "
+                        "shell, script, notebook, or wrapper "
+                        "directives (not with template_engine or run)",
                         rule=rule,
                     )
-                rule.software_env_spec = ruleinfo.software_env_spec
+
+            env_specs = EnvSpecs()
+
+            if ruleinfo.env_modules:
+                check_may_use_software_deployment("envmodules")
+                env_specs.legacy_env_modules = ruleinfo.env_modules
 
             if ruleinfo.container_img:
                 check_may_use_software_deployment("container/singularity")
-                rule.container_img = ruleinfo.container_img
+                env_specs.legacy_container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
                 if not ruleinfo.template_engine and ruleinfo.container_img != False:
                     # skip rules with template_engine directive or empty image
-                    rule.container_img = self.global_container_img
+                    env_specs.legacy_container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
+
+            if ruleinfo.conda_env:
+                check_may_use_software_deployment("conda")
+                env_specs.legacy_conda_env = ruleinfo.conda_env
+
+            if ruleinfo.software_env_spec:
+                check_may_use_software_deployment("software")
+                env_specs.software_spec = ruleinfo.software_env_spec
+            rule.software_env_specs = env_specs
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring

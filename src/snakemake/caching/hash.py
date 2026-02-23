@@ -116,8 +116,7 @@ class ProvenanceHashMap:
         # Hash used containers or conda environments.
         if cache_mode != "omit-software":
             if (
-                DeploymentMethod.CONDA
-                in workflow.deployment_settings.deployment_method
+                DeploymentMethod.CONDA in workflow.deployment_settings.deployment_method
                 and job.conda_env
             ):
                 if (

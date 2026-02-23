@@ -1640,6 +1640,7 @@ def get_argument_parser(profiles=None):
     )
     group_deployment.add_argument(
         "--software-deployment-prefix",
+        "--sdm-prefix",
         metavar="DIR",
         type=maybe_base64(expandvars(Path)),
         help="Specify a directory under which Snakemake shall deploy software "
@@ -1652,6 +1653,7 @@ def get_argument_parser(profiles=None):
     )
     group_deployment.add_argument(
         "--software-deployment-cache-prefix",
+        "--sdm-cache-prefix",
         metavar="DIR",
         type=maybe_base64(expandvars(Path)),
         help="Specify a directory under which Snakemake shall cache assets of software "
@@ -1664,21 +1666,25 @@ def get_argument_parser(profiles=None):
     )
     group_deployment.add_argument(
         "--software-deployment-cleanup-envs",
+        "--sdm-cleanup-envs",
         action="store_true",
         help="Cleanup unused software environments.",
     )
     group_deployment.add_argument(
         "--software-deployment-cleanup-cache",
+        "--sdm-cleanup-cache",
         action="store_true",
         help="Cleanup any cache assets after creating software environments. "
         "In case of `tarballs` mode, will clean up all downloaded package tarballs. "
         "In case of `cache` mode, will additionally clean up unused package caches.",
     )
     group_deployment.add_argument(
-        "--software-deployment-create-envs-only",
+        "--software-deployment-deploy-or-cache-only",
+        "--sdm-deploy",
         action="store_true",
         help="If specified, only creates the job-specific "
-        "software environments, then exits.",
+        "software environments or caches the assets required by the environments, "
+        "then exits.",
     )
 
     def help_internal(text):
@@ -2002,13 +2008,12 @@ def args_to_api(args, parser):
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
-                        conda_prefix=args.conda_prefix,
-                        conda_cleanup_pkgs=args.conda_cleanup_pkgs,
-                        conda_base_path=args.conda_base_path,
-                        conda_frontend=args.conda_frontend,
-                        conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
-                        apptainer_args=args.apptainer_args,
-                        apptainer_prefix=args.apptainer_prefix,
+                        cache_prefix=args.software_deployment_cache_prefix,
+                        deployment_prefix=args.software_deployment_prefix,
+                        cleanup_envs=args.software_deployment_cleanup_envs,
+                        cleanup_cache=args.software_deployment_cleanup_cache,
+                        not_block_search_path_envvars=args.not_block_search_path_envvars,
+                        deploy_or_cache_only=args.software_deployment_deploy_or_cache_only,
                     ),
                     snakefile=args.snakefile,
                     workdir=args.directory,
@@ -2091,12 +2096,14 @@ def args_to_api(args, parser):
                         dag_api.unlock()
                     elif args.cleanup_metadata:
                         dag_api.cleanup_metadata(args.cleanup_metadata)
-                    elif args.conda_cleanup_envs:
-                        dag_api.conda_cleanup_envs()
-                    elif args.conda_create_envs_only:
-                        dag_api.conda_create_envs()
-                    elif args.list_conda_envs:
-                        dag_api.conda_list_envs()
+                    elif args.software_deployment_cleanup_envs:
+                        dag_api.software_deployment_cleanup_envs()
+                    elif args.software_deployment_cleanup_cache:
+                        dag_api.software_deployment_cleanup_cache()
+                    elif args.software_deployment_deploy_or_cache_only:
+                        dag_api.software_deployment_deploy_or_cache_only()
+                    elif args.software_deployment_list_envs:
+                        dag_api.software_deployment_list_envs()
                     elif args.cleanup_shadow:
                         dag_api.cleanup_shadow()
                     elif args.container_cleanup_images:

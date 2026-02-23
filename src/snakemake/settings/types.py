@@ -36,7 +36,6 @@ from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
     RerunTrigger,
-    CondaCleanupPkgs,
     Quietness,
     StrictDagEvaluation,
     PrintDag,
@@ -258,7 +257,6 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     deployment_method: AnySet[str] = frozenset()  # type: ignore (the interface expects a frozen set, but for initialization we can also take a mutable set)
     cache_prefix: Optional[Path] = None
     deployment_prefix: Optional[Path] = None
-    cleanup_cache: bool = False
     not_block_search_path_envvars: bool = False
 
 

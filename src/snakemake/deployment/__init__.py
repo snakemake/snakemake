@@ -10,8 +10,10 @@ from snakemake_interface_software_deployment_plugins import (
     EnvBase,
     EnvSpecSourceFile,
 )
-
 from snakemake.common import get_function_params, overwrite_function_params
+from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
+from snakemake_software_deployment_plugin_container import EnvSpec as ContainerEnvSpec
+from snakemake_software_deployment_plugin_envmodules import EnvSpec as EnvModuleEnvSpec
 
 
 class SoftwareDeploymentManager:
@@ -107,3 +109,85 @@ class SoftwareDeploymentManager:
             args.append("within")
             overwrite_function_params(factory, args)
             global_variables[kind] = factory
+
+
+@dataclass
+class EnvSpecs:
+    software_spec: Optional[Union[EnvSpecBase, Callable]]
+    legacy_conda_env: Optional[Union[str, Path, Callable]]
+    legacy_container_img: Optional[Union[str, Callable]]
+    legacy_env_modules: Optional[Union[List[str], Callable]]
+
+    def is_callable(self) -> bool:
+        return any(
+            isinstance(spec, Callable)
+            for spec in (
+                self.software_spec,
+                self.legacy_conda_env,
+                self.legacy_container_img,
+                self.legacy_env_modules,
+            )
+        )
+
+    def resolve_callables(self, resolver: Callable) -> Self:
+        resolved = copy.copy(self)
+        for spec in ["software_spec", "legacy_conda_env", "legacy_container_img", "legacy_env_modules"]:
+            if isinstance(getattr(self, spec), Callable):
+                setattr(resolved, spec, resolver(getattr(self, spec)))
+
+        return resolved
+
+    def interpret(self) -> EnvSpecBase:
+        assert not self.is_callable()
+
+        if self.software_spec:
+            # If a generic software spec is provided, always prefer that.
+            return self.software_spec
+
+        # Otherwise, use the old specs as fallback, converting to a generic spec.
+
+        container_spec = (
+            ContainerEnvSpec(self.legacy_container_img)
+            if self.legacy_container_img is not None
+            else None
+        )
+        conda_spec = None
+        env_module_spec = None
+        if self.legacy_conda_env is not None:
+            if isinstance(spec, Path):
+                spec = str(spec)
+
+            if spec.endswith(".yaml") or spec.endswith(".yml"):
+                conda_spec = CondaEnvSpec(envfile=EnvSpecSourceFile(spec))
+            elif is_local_file(spec) and os.path.isdir(spec):
+                conda_spec = CondaEnvSpec(directory=Path(spec))
+            else:
+                conda_spec = CondaEnvSpec(name=spec)
+
+            # So far, if both container and conda were specified,
+            # we assumed that the conda env is meant to be deployed
+            # within the container, thus setting within below.
+            conda_spec.within = container_spec
+
+        if container_spec is not None:
+            # If the container already contains the required software,
+            # conda is just a fallback.
+            container_spec.fallback = conda_spec
+
+        if self.legacy_env_modules is not None:
+
+            env_module_spec = EnvModuleEnvSpec(*self.legacy_env_modules)
+
+            # If env modules shall be used, they are preferred (since they are infrastructure specific)
+            # and the others are fallback.
+            if conda_spec is not None:
+                env_module_spec.fallback = conda_spec
+            else:
+                env_module_spec.fallback = container_spec
+
+        if env_module_spec is not None:
+            return env_module_spec
+        if conda_spec is not None:
+            return conda_spec
+        if container_spec is not None:
+            return container_spec

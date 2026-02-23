@@ -202,10 +202,7 @@ class Job(
         "_log",
         "_benchmark",
         "_resources",
-        "_conda_env_file",
-        "_conda_env",
-        "_container_img_url",
-        "_software_env_spec",
+        "_software_env_specs",
         "_software_env",
         "_shadow_dir",
         "temp_output",
@@ -261,12 +258,9 @@ class Job(
         self._log = None
         self._benchmark = None
         self._resources = None
-        self._conda_env_spec = None
-        self._container_img_url = None
-        self._software_env_spec = None
+        self._software_env_specs = None
         self._software_env = None
         self._scheduler_resources = None
-        self._conda_env = None
         self._group = None
 
         # pipe_group will only be set if the job generates or consumes a pipe
@@ -562,39 +556,8 @@ class Job(
         return None
 
     @property
-    def needs_singularity(self):
-        return self.container_img is not None
-
-    @property
-    def container_img_url(self):
-        if self._container_img_url is None:
-            self._container_img_url = self.rule.expand_container_img(
-                self.wildcards_dict
-            )
-
-        return self._container_img_url
-
-    @property
     def is_containerized(self):
         return self.rule.is_containerized
-
-    @property
-    def container_img(self):
-        if (
-            DeploymentMethod.APPTAINER
-            in self.dag.workflow.deployment_settings.deployment_method
-            and self.container_img_url
-        ):
-            return self.dag.container_imgs[self.container_img_url]
-        return None
-
-    @property
-    def env_modules(self):
-        return self.rule.env_modules
-
-    @property
-    def container_img_path(self):
-        return self.container_img.path if self.container_img else None
 
     @property
     def is_shadow(self):
