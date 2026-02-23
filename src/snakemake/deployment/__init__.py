@@ -131,7 +131,12 @@ class EnvSpecs:
 
     def resolve_callables(self, resolver: Callable) -> Self:
         resolved = copy.copy(self)
-        for spec in ["software_spec", "legacy_conda_env", "legacy_container_img", "legacy_env_modules"]:
+        for spec in [
+            "software_spec",
+            "legacy_conda_env",
+            "legacy_container_img",
+            "legacy_env_modules",
+        ]:
             if isinstance(getattr(self, spec), Callable):
                 setattr(resolved, spec, resolver(getattr(self, spec)))
 

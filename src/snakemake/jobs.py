@@ -258,7 +258,7 @@ class Job(
         self._log = None
         self._benchmark = None
         self._resources = None
-        self._software_env_specs = None
+        self._software_env_spec: Optional[SoftwareEnvSpecBase] = None
         self._software_env = None
         self._scheduler_resources = None
         self._group = None
@@ -504,24 +504,6 @@ class Job(
             self._resources = None
             self._params = None
             self._params_and_resources_resetted = True
-
-    @property
-    def conda_env_spec(self):
-        if self._conda_env_spec is None:
-            self._conda_env_spec = self.rule.expand_conda_env(
-                self.wildcards_dict, self.params, self.input
-            )
-        return self._conda_env_spec
-
-    @property
-    def conda_env(self):
-        if self.conda_env_spec:
-            if self._conda_env is None:
-                self._conda_env = self.dag.conda_envs.get(
-                    (self.conda_env_spec, self.container_img_url)
-                )
-            return self._conda_env
-        return None
 
     @property
     def software_env_spec(self):
@@ -1136,16 +1118,19 @@ class Job(
 
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
-        if (
-            DeploymentMethod.CONDA
-            in self.dag.workflow.deployment_settings.deployment_method
-            and self.conda_env
-            and not self.conda_env.is_externally_managed
-            and not self.conda_env.is_containerized
-        ):
-            # Managed or containerized envs are not present on the host FS,
-            # hence we don't need to wait for them.
-            wait_for_files.append(self.conda_env.address)
+        if self.software_env:
+            if (
+                SharedFSUsage.SOFTWARE_DEPLOYMENT
+                in self.dag.workflow.storage_settings.shared_fs_usage
+                and self.software_env.is_deployable
+            ):
+                wait_for_files.append(self.software_env.deployment_path)
+            elif (
+                SharedFSUsage.SOFTWARE_DEPLOYMENT_CACHE
+                in self.dag.workflow.storage_settings.shared_fs_usage
+                and self.software_env.is_cacheable
+            ):
+                wait_for_files.append(self.software_env.cache_path)
 
         if self.is_wrapper:
             script = wrapper.get_script(
@@ -1156,13 +1141,6 @@ class Job(
             if script is not None:
                 wait_for_files.append(
                     IOFile(self.dag.workflow.sourcecache.get_path(script))
-                )
-            env = wrapper.get_conda_env(
-                self.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
-            )
-            if env is not None:
-                wait_for_files.append(
-                    IOFile(self.dag.workflow.sourcecache.get_path(env))
                 )
 
         return wait_for_files

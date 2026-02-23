@@ -112,7 +112,7 @@ class Rule(RuleInterface):
         self._log = Log()
         self._benchmark = None
         self._software_env_specs: Optional[SoftwareEnvSpecs] = None
-        self._expanded_software_env_specs = _NOT_CACHED
+        self._expanded_software_env_spec = _NOT_CACHED
         self.is_containerized = False
         self._group = None
         self._wildcard_names = None
@@ -1191,9 +1191,11 @@ class Rule(RuleInterface):
         else:
             return self.group
 
-    def expand_software_env_specs(self, wildcards, params=None, input=None):
-        if self._expanded_software_env_specs is not _NOT_CACHED:
-            return self._expanded_software_env_specs
+    def expand_software_env_specs(
+        self, wildcards, params=None, input=None
+    ) -> Optional[SoftwareEnvSpecBase]:
+        if self._expanded_software_env_spec is not _NOT_CACHED:
+            return self._expanded_software_env_spec
 
         from snakemake.common import is_local_file
         from snakemake.sourcecache import SourceFile, infer_source_file
@@ -1202,7 +1204,9 @@ class Rule(RuleInterface):
         if software_env_specs is not None:
             if software_env_specs.is_callable():
                 software_env_specs = software_env_specs.resolve_callables(
-                    lambda spec: self.apply_input_function(spec, wildcards=wildcards, params=params, input=input)[0]
+                    lambda spec: self.apply_input_function(
+                        spec, wildcards=wildcards, params=params, input=input
+                    )[0]
                 )
                 cacheable = False
                 if software_env_spec is None:
@@ -1210,7 +1214,7 @@ class Rule(RuleInterface):
             else:
                 cacheable = True
         else:
-            self._expanded_software_env_specs = None
+            self._expanded_software_env_spec = None
             return None
 
         def modify_source_paths(env_spec_source_file: EnvSpecSourceFile):
@@ -1241,7 +1245,7 @@ class Rule(RuleInterface):
                 value = str(value)
 
             # apply wildcards
-            if isinstance(value, str)
+            if isinstance(value, str):
                 if contains_wildcard(value):
                     cacheable &= False
                     value = apply_wildcards(value, wildcards)
@@ -1257,10 +1261,12 @@ class Rule(RuleInterface):
             apply_wildcards_on_attributes
         ).modify_source_paths(modify_source_paths)
 
-        if cacheable:
-            self._expanded_software_env_specs = software_env_specs
+        software_env_spec = software_env_specs.interpret()
 
-        return software_env_specs
+        if cacheable:
+            self._expanded_software_env_spec = software_env_spec
+
+        return software_env_spec
 
     def is_producer(self, requested_output):
         """
