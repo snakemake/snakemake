@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [9.17.0](https://github.com/snakemake/snakemake/compare/v9.16.3...v9.17.0) (2026-02-24)
+
+
+### Features
+
+* Allow to specify comparison command per-unit test ([#3956](https://github.com/snakemake/snakemake/issues/3956)) ([b88171c](https://github.com/snakemake/snakemake/commit/b88171cea0752b65cb6687906f7778c7f229c93d))
+
+
+### Documentation
+
+* switch to sphinx_design for tabs ([#3976](https://github.com/snakemake/snakemake/issues/3976)) ([9674614](https://github.com/snakemake/snakemake/commit/9674614897985086e4ba0f4668ff2469e1baa353))
+
 ## [9.16.3](https://github.com/snakemake/snakemake/compare/v9.16.2...v9.16.3) (2026-02-05)
 
 
