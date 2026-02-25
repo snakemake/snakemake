@@ -254,9 +254,10 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         deployment method to use (e.g. "conda", "container", "envmodules")
     """
 
-    deployment_method: AnySet[str] = frozenset()  # type: ignore (the interface expects a frozen set, but for initialization we can also take a mutable set)
-    cache_prefix: Optional[Path] = None
-    deployment_prefix: Optional[Path] = None
+    deployment_method: AnySet[str] = frozenset()
+    deployment_prefix: Path = field(default=Path(".snakemake/software/deployments"))
+    cache_prefix: Path = field(default=Path(".snakemake/software/cache"))
+    pinfile_prefix: Path = field(default=Path(".snakemake/software/pins"))
     not_block_search_path_envvars: bool = False
 
 

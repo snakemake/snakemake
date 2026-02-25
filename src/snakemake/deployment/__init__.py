@@ -1,6 +1,8 @@
+import tempfile
 from typing import Any, Dict, Iterable
-import snakemake
 
+import snakemake
+from snakemake.shell import shell
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_software_deployment_plugins.registry import (
     SoftwareDeploymentPluginRegistry,
@@ -9,6 +11,7 @@ from snakemake_interface_software_deployment_plugins import (
     EnvSpecBase,
     EnvBase,
     EnvSpecSourceFile,
+    ShellExecutable,
 )
 from snakemake.common import get_function_params, overwrite_function_params
 from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
@@ -23,6 +26,10 @@ class SoftwareDeploymentManager:
         self.workflow: Workflow = workflow
         self.specs_to_envs = {}
         self.env_instances = {}
+        self.shell_executable = ShellExecutable(
+            executable=shell.get_executable() or "/bin/sh",
+            command_arg="-c",
+        )
         self.registry = SoftwareDeploymentPluginRegistry()
         self.plugins = {}
         for plugin_name, plugin in self.registry.plugins.items():
@@ -64,6 +71,12 @@ class SoftwareDeploymentManager:
             settings=self.workflow.software_deployment_settings.get(
                 self.plugins[env_spec.kind].name
             ),
+            shell_executable=self.shell_executable,
+            tempdir=Path(tempfile.gettempdir()),
+            source_cache=self.workflow.source_cache_path,
+            cache_prefix=self.workflow.deployment_settings.cache_prefix / env_spec.kind,
+            deployment_prefix=self.workflow.deployment_settings.deployment_prefix / env_spec.kind,
+            pinfile_prefix=self.workflow.deployment_settings.pinfile_prefix / env_spec.kind,
         )
         if env in self.env_instances:
             # env with same content already instantiated, use that instead
