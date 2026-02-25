@@ -1955,6 +1955,10 @@ def test_modules_prefix_local():
     )
 
 
+def test_modules_local_import():
+    run(dpath("test_modules_local_import"), targets=["all"])
+
+
 @connected
 @skip_on_windows  # filenames too long on windows
 def test_module_with_script():
