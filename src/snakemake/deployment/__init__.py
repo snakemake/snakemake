@@ -28,7 +28,7 @@ class SoftwareDeploymentManager:
         for plugin_name, plugin in self.registry.plugins.items():
             if (
                 plugin_name
-                not in self.workflow.workflow_settings.experimental_sofware_deployment_methods
+                not in self.workflow.deployment_settings.deployment_methods
             ):
                 continue
             kind = plugin.common_settings.kind

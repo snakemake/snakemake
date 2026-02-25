@@ -251,7 +251,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     ----------
 
     deployment_method
-        deployment method to use (CONDA, APPTAINER, ENV_MODULES)
+        deployment method to use (e.g. "conda", "container", "envmodules")
     """
 
     deployment_method: AnySet[str] = frozenset()  # type: ignore (the interface expects a frozen set, but for initialization we can also take a mutable set)
