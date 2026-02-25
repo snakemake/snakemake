@@ -1,0 +1,2 @@
+default-resources:
+  tmpdir: choose_tmp(["/non_existent", "foo"])

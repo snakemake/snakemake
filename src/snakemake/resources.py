@@ -787,9 +787,19 @@ class Resource:
         """
         # Expand env variables
         val = os.path.expanduser(os.path.expandvars(val))
+        # Add ioutils functions
+        import snakemake.ioutils
+
+        ioutils = {}
+        snakemake.ioutils.register_in_globals(ioutils)
+        # Try to evaluate resource expression.
+        # Note that `args` take precedence, i.e. if a name is present on
+        # both (e.g. `input`), the one in `args` is used.
+        # Eval expression
         try:
             value = eval(
                 val,
+                ioutils,
                 {
                     "input": input,
                     "attempt": attempt,

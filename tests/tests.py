@@ -1568,14 +1568,13 @@ def test_default_resources_mebibytes():
 
 @skip_on_windows  # TODO fix the windows case: it somehow does not consistently modify all temp env vars as desired
 def test_tmpdir():
-    # artificially set the tmpdir to an expected value
-    run(dpath("test_tmpdir"), overwrite_resources={"a": {"tmpdir": "/tmp"}})
-
-
-def test_tmpdir_default():
-    # Do not check the content (OS and setup dependent),
-    # just check whether everything runs smoothly with the default.
-    run(dpath("test_tmpdir"), check_md5=False)
+    test_path = dpath("test_tmpdir")
+    general_profile = os.path.join(test_path, "profile")
+    # workflow profile is loaded by default
+    run(
+        test_path,
+        shellcmd=f"snakemake -c1 --profile {general_profile} --set-resources 'a:tmpdir=/tmp'",
+    )
 
 
 def test_issue1284():
