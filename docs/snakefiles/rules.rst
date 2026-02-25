@@ -1836,14 +1836,15 @@ For technical reasons, scripts are executed in ``.snakemake/scripts``. The origi
 
 .. _snakefiles_notebook-integration:
 
-Jupyter notebook integration
+Notebook integration
 ----------------------------
 
-Instead of plain scripts (see above), one can integrate Jupyter_ Notebooks.
+Instead of plain scripts (see above), one can integrate Jupyter_ or Marimo_ Notebooks.
 This enables the interactive development of data analysis components (e.g. for plotting).
 Integration works as follows (note the use of `notebook:` instead of `script:`):
 
 .. _Jupyter: https://jupyter.org/
+.. _Marimo: https://marimo.io/
 
 .. code-block:: python
 
@@ -1863,6 +1864,7 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
     The benefit will be maximal when integrating many small notebooks that each do a particular job, hence allowing to get away from large monolithic, and therefore unreadable notebooks.
 
 It is recommended to prefix the ``.ipynb`` suffix with either ``.py`` or ``.r`` to indicate the notebook language.
+For Marimo notebooks, the file must end with ``.marimo.py``.
 In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles-external_scripts>`.
 In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
 Optionally it is possible to automatically store the processed notebook.
@@ -1940,7 +1942,7 @@ with
 The last dependency is advisable in order to enable autoformatting of notebook cells when editing.
 When using other languages than Python in the notebook, one needs to additionally add the respective kernel, e.g. ``r-irkernel`` for R support.
 
-When using an IDE with built-in Jupyter support, an alternative to ``--edit-notebook`` is ``--draft-notebook``.
+When using an IDE with built-in notebook support, an alternative to ``--edit-notebook`` is ``--draft-notebook``.
 Instead of firing up a notebook server, ``--draft-notebook`` just creates a skeleton notebook for editing within the IDE.
 In addition, it prints instructions for configuring the IDE's notebook environment to use the interpreter from the
 Conda environment defined in the corresponding rule.
@@ -1958,7 +1960,13 @@ or the short form
 
 will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
 
+.. note::
+  Some things to note regarding marimo integration:
 
+  * You cannot define variables with the same name as the following in any of your cells, as they will be imported in the cell that Snakemake needs to inject into your notebook: ``sys``, ``pickle``, ``logger``, ``snakemake``.
+  * If you specify ``--edit-notebook``, the notebook will be opened in the marimo editor in the browser. Otherwise, it will be run as a Python script.
+
+  
 .. _snakefiles_protected_temp:
 
 Protected and Temporary Files
