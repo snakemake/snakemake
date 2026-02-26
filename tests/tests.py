@@ -2601,6 +2601,26 @@ def test_failed_intermediate():
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
 
 
+def test_printshellcmd():
+    path = dpath("test_printshellcmd")
+    targets = ["mock.shell.txt", "mock.script.txt", "mock.sorted.bam"]
+    for target in targets:
+        # test once without flag (=expected no cmd match) and once with
+        for param, expected in [("", False), ("-p", True)]:
+            with tempfile.NamedTemporaryFile() as tmpfile:
+                cmd = f"snakemake -j 1 {param} {target} --use-conda 2> {tmpfile.name}"
+                run(path, shellcmd=cmd, check_results=False, shouldfail=False)
+                # scan stdout of snakemake call for either echo or samtools
+                found = False
+                with open(tmpfile.name, "r") as o:
+                    for line in o:
+                        if line.find("echo Hello World") >= 0:
+                            found = True
+                        if line.find("samtools sort ") >= 0:
+                            found = True
+                assert found == expected
+
+
 def test_github_issue2848():
     # Should fail on parsing with ChildIOException, on Windows previously failed during execution
     run(

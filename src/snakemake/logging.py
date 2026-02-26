@@ -216,6 +216,25 @@ class DefaultFormatter(logging.Formatter):
 
     def format_shellcmd(self, msg: dict[str, Any]):
         """Format for shellcmd log."""
+        if msg.get("cmd"):
+            cmd = msg.get("cmd")
+            jobid = msg.get("jobid")
+            script = msg.get("script")
+
+            prefix = "Shell command"
+
+            # Add jobid if available
+            if jobid is not None:
+                prefix += f" (jobid: {jobid}"
+                # Add script if available
+                if script is not None:
+                    prefix += f", script: {script}"
+                prefix += ")"
+            elif script is not None:
+                # Only script is available
+                prefix += f" (script: {script})"
+
+            return f"{prefix}:\n{textwrap.indent(cmd, '    ')}"
         return msg["msg"]
 
     def format_dag_debug(self, msg: dict[str, Any]):
@@ -498,6 +517,7 @@ class ColorizingTextHandler(logging.StreamHandler):
                 formatted_message = self.format(record)
                 if formatted_message == "None" or formatted_message == "":
                     return
+
                 # Apply color to the formatted message
                 self.stream.write(self.decorate(record, formatted_message))
                 self.stream.write(getattr(self, "terminator", "\n"))
