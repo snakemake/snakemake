@@ -738,28 +738,24 @@ class DAGApi(ApiBase):
         self.workflow_api._workflow.cleanup_metadata(paths)
 
     @_no_exec
-    def conda_cleanup_envs(self):
-        """Cleanup the conda environments of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.CONDA
-        )
-        self.workflow_api._workflow.conda_cleanup_envs()
+    def software_deployment_cleanup_envs(self):
+        """Cleanup the software environments of the workflow."""
+        self.workflow_api._workflow.software_deployment_cleanup_envs()
 
     @_no_exec
-    def conda_create_envs(self):
-        """Only create the conda environments of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.CONDA
-        )
-        self.workflow_api._workflow.conda_create_envs()
+    def software_deployment_cleanup_cache(self):
+        """Cleanup the software environment caches of the workflow."""
+        self.workflow_api._workflow.software_deployment_cleanup_envs()
 
     @_no_exec
-    def conda_list_envs(self):
+    def software_deployment_deploy_or_cache(self):
+        """Only deploy or cache the software environments of the workflow."""
+        self.workflow_api._workflow.software_deployment_deploy_or_cache()
+
+    @_no_exec
+    def software_deployment_list_envs(self):
         """List the conda environments of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.CONDA
-        )
-        self.workflow_api._workflow.conda_list_envs()
+        self.workflow_api._workflow.software_deployment_list_envs()
 
     @_no_exec
     def cleanup_shadow(self):

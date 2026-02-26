@@ -19,6 +19,9 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from snakemake_interface_software_deployment_plugins.registry import (
+    SoftwareDeploymentPluginRegistry,
+)
 
 
 import snakemake.common.argparse
@@ -1622,129 +1625,66 @@ def get_argument_parser(profiles=None):
         "--deployment",
         "--sdm",
         nargs="+",
-        choices=DeploymentMethod.choices(),
-        parse_func=DeploymentMethod.parse_choices_set,
+        # manually add legacy options and map to plugin names in API
+        choices=SoftwareDeploymentPluginRegistry().plugins.keys(),
         default=set(),
-        help="Specify software environment deployment method.",
+        help="Specify software environment deployment method. "
+        "Refer to Snakemake plugin catalog for choices.",
     )
     group_deployment.add_argument(
-        "--container-cleanup-images",
+        "--not-block-search-path-envvars",
         action="store_true",
-        help="Remove unused containers",
+        help="Do not block global environment variables that modify the search path "
+        "(R_LIBS, PYTHONPATH, PERL5LIB, PERLLIB) when using software environments "
+        "(e.g. conda, container, envmodules).",
     )
-
-    group_conda = parser.add_argument_group("CONDA")
-
-    group_conda.add_argument(
-        "--use-conda",
-        action="store_true",
-        help="If defined in the rule, run job in a conda environment. "
-        "If this flag is not set, the conda directive is ignored.",
-    )
-    group_conda.add_argument(
-        "--conda-not-block-search-path-envvars",
-        action="store_true",
-        help="Do not block environment variables that modify the search path "
-        "(R_LIBS, PYTHONPATH, PERL5LIB, PERLLIB) when using conda environments.",
-    )
-    group_conda.add_argument(
-        "--list-conda-envs",
-        action="store_true",
-        help="List all conda environments and their location on disk.",
-    )
-    group_conda.add_argument(
-        "--conda-prefix",
+    group_deployment.add_argument(
+        "--software-deployment-prefix",
+        "--sdm-prefix",
         metavar="DIR",
-        default=os.environ.get("SNAKEMAKE_CONDA_PREFIX", None),
-        help="Specify a directory in which the `conda` and `conda-archive` "
-        "directories are created. These are used to store conda environments "
-        "and their archives, respectively. If not supplied, the value is set "
-        "to the `.snakemake` directory relative to the invocation directory. "
-        "If supplied, the `--use-conda` flag must also be set. The value may "
-        "be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path. The value can also be "
-        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX. "
-        "In any case, the prefix may contain environment "
-        "variables which will be properly expanded. "
+        type=maybe_base64(expandvars(Path)),
+        help="Specify a directory under which Snakemake shall deploy software "
+        "environments. "
+        "The prefix may contain environment "
+        "variables and the user home (~), which will be properly expanded. "
         "Note that if you use remote execution "
         "e.g. on a cluster and you have node specific values for this, you should "
         "disable assuming shared fs for software-deployment (see `--shared-fs-usage`).",
     )
-    group_conda.add_argument(
-        "--conda-cleanup-envs",
-        action="store_true",
-        help="Cleanup unused conda environments.",
-    )
-
-    from snakemake.deployment.conda import CondaCleanupMode
-
-    group_conda.add_argument(
-        "--conda-cleanup-pkgs",
-        type=CondaCleanupMode,
-        const=CondaCleanupMode.tarballs,
-        choices=list(CondaCleanupMode),
-        default="tarballs",
-        nargs="?",
-        help="Cleanup conda packages after creating environments. "
-        "In case of `tarballs` mode, will clean up all downloaded package tarballs. "
-        "In case of `cache` mode, will additionally clean up unused package caches.",
-    )
-    group_conda.add_argument(
-        "--conda-create-envs-only",
-        action="store_true",
-        help="If specified, only creates the job-specific "
-        "conda environments then exits. The `--use-conda` "
-        "flag must also be set.",
-    )
-    group_conda.add_argument(
-        "--conda-frontend",
-        default="conda",
-        choices=["conda", "mamba"],
-        help="Choose the conda frontend for installing environments.",
-    )
-
-    group_singularity = parser.add_argument_group("APPTAINER/SINGULARITY")
-
-    group_singularity.add_argument(
-        "--use-apptainer",
-        "--use-singularity",
-        action="store_true",
-        help="If defined in the rule, run job within a apptainer/singularity container. "
-        "If this flag is not set, the singularity directive is ignored.",
-    )
-    group_singularity.add_argument(
-        "--apptainer-prefix",
-        "--singularity-prefix",
+    group_deployment.add_argument(
+        "--software-deployment-cache-prefix",
+        "--sdm-cache-prefix",
         metavar="DIR",
-        help="Specify a directory in which apptainer/singularity images will be stored."
-        "If not supplied, the value is set "
-        "to the `.snakemake` directory relative to the invocation directory. "
-        "If supplied, the `--use-apptainer` flag must also be set. The value "
-        "may be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path. If not supplied, "
-        "APPTAINER_CACHEDIR is used. In any case, the prefix may contain environment "
-        "variables which will be properly expanded. Note that if you use remote execution "
+        type=maybe_base64(expandvars(Path)),
+        help="Specify a directory under which Snakemake shall cache assets of software "
+        "environments. "
+        "The prefix may contain environment "
+        "variables and the user home (~), which will be properly expanded. "
+        "Note that if you use remote execution "
         "e.g. on a cluster and you have node specific values for this, you should "
         "disable assuming shared fs for software-deployment (see `--shared-fs-usage`).",
     )
-    group_singularity.add_argument(
-        "--apptainer-args",
-        "--singularity-args",
-        default="",
-        metavar="ARGS",
-        parse_func=maybe_base64(str),
-        help="Pass additional args to apptainer/singularity.",
-    )
-
-    group_env_modules = parser.add_argument_group("ENVIRONMENT MODULES")
-
-    group_env_modules.add_argument(
-        "--use-envmodules",
+    group_deployment.add_argument(
+        "--software-deployment-cleanup-envs",
+        "--sdm-cleanup-envs",
         action="store_true",
-        help="If defined in the rule, run job within the given environment "
-        "modules, loaded in the given order. This can be combined with "
-        "`--use-conda` and `--use-singularity`, which will then be only used as a "
-        "fallback for rules which don't define environment modules.",
+        help="Cleanup unused software environments.",
+    )
+    group_deployment.add_argument(
+        "--software-deployment-cleanup-cache",
+        "--sdm-cleanup-cache",
+        action="store_true",
+        help="Cleanup any cache assets after creating software environments. "
+        "In case of `tarballs` mode, will clean up all downloaded package tarballs. "
+        "In case of `cache` mode, will additionally clean up unused package caches.",
+    )
+    group_deployment.add_argument(
+        "--software-deployment-deploy-or-cache-only",
+        "--sdm-deploy",
+        action="store_true",
+        help="If specified, only creates the job-specific "
+        "software environments or caches the assets required by the environments, "
+        "then exits.",
     )
 
     def help_internal(text):
@@ -1797,6 +1737,7 @@ def get_argument_parser(profiles=None):
     ReportPluginRegistry().register_cli_args(parser)
     LoggerPluginRegistry().register_cli_args(parser)
     SchedulerPluginRegistry().register_cli_args(parser)
+    SoftwareDeploymentPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -2011,12 +1952,6 @@ def args_to_api(args, parser):
     output_settings = create_output_settings(args, log_handler_settings)
     with SnakemakeApi(output_settings) as snakemake_api:
         deployment_method = args.software_deployment_method
-        if args.use_conda:
-            deployment_method.add(DeploymentMethod.CONDA)
-        if args.use_apptainer:
-            deployment_method.add(DeploymentMethod.APPTAINER)
-        if args.use_envmodules:
-            deployment_method.add(DeploymentMethod.ENV_MODULES)
 
         try:
             storage_settings = StorageSettings(
@@ -2073,13 +2008,12 @@ def args_to_api(args, parser):
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
-                        conda_prefix=args.conda_prefix,
-                        conda_cleanup_pkgs=args.conda_cleanup_pkgs,
-                        conda_base_path=args.conda_base_path,
-                        conda_frontend=args.conda_frontend,
-                        conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
-                        apptainer_args=args.apptainer_args,
-                        apptainer_prefix=args.apptainer_prefix,
+                        cache_prefix=args.software_deployment_cache_prefix,
+                        deployment_prefix=args.software_deployment_prefix,
+                        cleanup_envs=args.software_deployment_cleanup_envs,
+                        cleanup_cache=args.software_deployment_cleanup_cache,
+                        not_block_search_path_envvars=args.not_block_search_path_envvars,
+                        deploy_or_cache_only=args.software_deployment_deploy_or_cache_only,
                     ),
                     snakefile=args.snakefile,
                     workdir=args.directory,
@@ -2162,12 +2096,14 @@ def args_to_api(args, parser):
                         dag_api.unlock()
                     elif args.cleanup_metadata:
                         dag_api.cleanup_metadata(args.cleanup_metadata)
-                    elif args.conda_cleanup_envs:
-                        dag_api.conda_cleanup_envs()
-                    elif args.conda_create_envs_only:
-                        dag_api.conda_create_envs()
-                    elif args.list_conda_envs:
-                        dag_api.conda_list_envs()
+                    elif args.software_deployment_cleanup_envs:
+                        dag_api.software_deployment_cleanup_envs()
+                    elif args.software_deployment_cleanup_cache:
+                        dag_api.software_deployment_cleanup_cache()
+                    elif args.software_deployment_deploy_or_cache_only:
+                        dag_api.software_deployment_deploy_or_cache_only()
+                    elif args.software_deployment_list_envs:
+                        dag_api.software_deployment_list_envs()
                     elif args.cleanup_shadow:
                         dag_api.cleanup_shadow()
                     elif args.container_cleanup_images:

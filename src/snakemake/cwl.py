@@ -15,6 +15,9 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import get_container_image
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_software_deployment_plugins import EnvBase
+from snakemake_software_deployment_plugin_container import Settings as ContainerSettings
+from snakemake_software_deployment_plugin_container import Runtime
 
 
 def cwl(
@@ -29,7 +32,7 @@ def cwl(
     log,
     config,
     rulename,
-    use_singularity,
+    container_settings: ContainerSettings,
     bench_record,
     jobid,
     sourcecache_path,
@@ -69,12 +72,20 @@ def cwl(
     inputs.update({name: f for name, f in output.items()})
     inputs.update({name: f for name, f in log.items()})
 
-    args = "--singularity" if use_singularity else ""
+    args = []
+    if container_settings is not None:
+        container_runtime = container_settings.runtime
+        if container_runtime == ContainerRuntime.UDOCKER:
+            args.append("--udocker")
+        elif container_runtime == ContainerRuntime.PODMAN:
+            args.append("--podman")
+        elif container_runtime == ContainerRuntime.APPTAINER:
+            args.append("--singularity")
 
     with tempfile.NamedTemporaryFile(mode="w") as input_file:
         json.dump(inputs, input_file)
         input_file.flush()
-        cmd = f"cwltool {args} {sourceurl} {input_file.name}"
+        cmd = f"cwltool {' '.join(args)} {sourceurl} {input_file.name}"
         shell(cmd, bench_record=bench_record)
 
 

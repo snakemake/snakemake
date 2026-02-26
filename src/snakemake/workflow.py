@@ -1,3 +1,5 @@
+from snakemake.deployment import EnvSpecs
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -25,6 +27,7 @@ import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
+from snakemake.deployment import SoftwareDeploymentManager
 from snakemake.pathvars import Pathvars
 from snakemake.settings.types import (
     ConfigSettings,
@@ -58,6 +61,9 @@ from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_software_deployment_plugins.settings import (
+    SoftwareDeploymentSettings,
+)
 from snakemake_interface_scheduler_plugins.settings import (
     SchedulerSettingsBase,
 )
@@ -168,6 +174,7 @@ class Workflow(WorkflowExecutorInterface):
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
+    software_deployment_settings: Optional[Mapping[str, SoftwareDeploymentSettings]]
     global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
     cache_rules: Dict[str, str] = field(default_factory=dict)
@@ -224,6 +231,7 @@ class Workflow(WorkflowExecutorInterface):
         self._storage_registry = StorageRegistry(self)
         self._source_archive = None
         self._checkpoints = Checkpoints()
+        self.software_deployment_manager = SoftwareDeploymentManager(self)
 
         self._async_runners = dict()
         self._async_executor = ThreadPoolExecutor()
@@ -245,6 +253,9 @@ class Workflow(WorkflowExecutorInterface):
         snakemake.ioflags.register_in_globals(_globals)
         _globals["from_queue"] = from_queue
         _globals["access"] = AccessPatternFactory
+        # The following has to happen last, after all globals are set
+        # such that the deployment manager can detect name conflicts.
+        self.software_deployment_manager.register_in_global_variables(_globals)
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [
@@ -937,6 +948,14 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
+        deploy = []
+        assert self.deployment_settings is not None
+        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+            deploy.append("conda")
+        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
+            deploy.append("singularity")
+
+        # TODO use or fix the deploy code above
         unit_tests.generate(
             self.dag,
             path,
@@ -1986,42 +2005,43 @@ class Workflow(WorkflowExecutorInterface):
                 # TODO retrieve suitable singularity image
 
             def check_may_use_software_deployment(method):
-                if ruleinfo.template_engine:
+                if not (
+                    ruleinfo.script
+                    or ruleinfo.wrapper
+                    or ruleinfo.shellcmd
+                    or ruleinfo.notebook
+                ):
                     raise RuleException(
                         f"{method} directive is only allowed with "
-                        "run, shell, script, notebook, or wrapper "
-                        "directives (not with template_engine)",
+                        "shell, script, notebook, or wrapper "
+                        "directives (not with template_engine or run)",
                         rule=rule,
                     )
 
+            env_specs = EnvSpecs()
+
             if ruleinfo.env_modules:
-                # If using environment modules and they are defined for the rule,
-                # ignore conda and singularity directive below.
-                # The reason is that this is likely intended in order to use
-                # a software stack specifically compiled for a particular
-                # HPC cluster.
                 check_may_use_software_deployment("envmodules")
-                from snakemake.deployment.env_modules import EnvModules
-
-                rule.env_modules = EnvModules(*ruleinfo.env_modules)
-
-            if ruleinfo.conda_env:
-                check_may_use_software_deployment("conda")
-
-                if isinstance(ruleinfo.conda_env, Path):
-                    ruleinfo.conda_env = str(ruleinfo.conda_env)
-
-                rule.conda_env = ruleinfo.conda_env
+                env_specs.legacy_env_modules = ruleinfo.env_modules
 
             if ruleinfo.container_img:
                 check_may_use_software_deployment("container/singularity")
-                rule.container_img = ruleinfo.container_img
+                env_specs.legacy_container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
                 if not ruleinfo.template_engine and ruleinfo.container_img != False:
                     # skip rules with template_engine directive or empty image
-                    rule.container_img = self.global_container_img
+                    env_specs.legacy_container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
+
+            if ruleinfo.conda_env:
+                check_may_use_software_deployment("conda")
+                env_specs.legacy_conda_env = ruleinfo.conda_env
+
+            if ruleinfo.software_env_spec:
+                check_may_use_software_deployment("software")
+                env_specs.software_spec = ruleinfo.software_env_spec
+            rule.software_env_specs = env_specs
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
@@ -2163,6 +2183,13 @@ class Workflow(WorkflowExecutorInterface):
     def conda(self, conda_env):
         def decorate(ruleinfo):
             ruleinfo.conda_env = conda_env
+            return ruleinfo
+
+        return decorate
+
+    def software(self, env_spec):
+        def decorate(ruleinfo):
+            ruleinfo.software_env_spec = env_spec
             return ruleinfo
 
         return decorate

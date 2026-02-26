@@ -131,7 +131,7 @@ class DefaultFormatter(logging.Formatter):
         self.show_failed_logs = show_failed_logs
         self.last_msg_was_job_info = False
 
-    def format(self, record: logging.LogRecord) -> str:
+    def format(self, record: LogRecord) -> str:
         """
         Override format method to format Snakemake-specific log messages.
         """
