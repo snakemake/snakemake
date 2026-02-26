@@ -408,14 +408,6 @@ class Workflow(WorkflowExecutorInterface):
         for rule in self.rules:
             cache_mode = self.cache_rules.get(rule.name)
             if cache_mode:
-                if len(rule.output) > 1:
-                    if not all(out.is_multiext for out in rule.output):
-                        raise WorkflowError(
-                            "Rule is marked for between workflow caching but has multiple output files. "
-                            "This is only allowed if multiext() is used to declare them (see docs on between "
-                            "workflow caching).",
-                            rule=rule,
-                        )
                 if not self.enable_cache:
                     logger.warning(
                         f"Workflow defines that rule {rule.name} is eligible for caching between workflows "

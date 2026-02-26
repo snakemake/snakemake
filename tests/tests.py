@@ -1683,7 +1683,23 @@ def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
     run(test_path, cache=["a", "b"])
-    run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
+
+
+def test_cache_provenance_hash_collisions():
+    """Test that jobs with identical provenance hashes don't execute concurrently."""
+    test_path = dpath("test_cache_provenance_hash_collisions")
+    cache_dir = test_path / "cache"
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = cache_dir.name
+
+    # First run: populate cache
+    tmpdir = run(test_path, cleanup=False, cores=3, cache=[])
+
+    # Second run: all jobs should hit cache
+    # This verifies marks are properly released on cache hits
+    run(test_path, tmpdir=tmpdir, cores=3, cache=[])
+
+    # Third run with higher parallelism to stress test marking
+    run(test_path, cores=10, forceall=True, cache=[])
 
 
 @skip_on_windows
@@ -2062,7 +2078,8 @@ def test_default_target():
 
 
 def test_cache_multioutput():
-    run(dpath("test_cache_multioutput"), shouldfail=True)
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+    run(dpath("test_cache_multioutput"), cache=[])
 
 
 @skip_on_windows
