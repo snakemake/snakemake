@@ -549,13 +549,15 @@ class HostingProviderFile(SourceFile):
                 )
             )
             return last_commit.committed_date
-        except git.GitCommandError as e:
+        except (StopIteration, git.GitCommandError) as e:
             msg = (
-                f"Failed to get mtime of cached git source file {self.ref}:{self.path}"
+                f"Failed to get mtime of cached git source file {self.ref}:{self.path}. "
+                f"Maybe it does not exist for {self.ref}?"
             )
             if fetch_error:
                 msg += f" Unable to fetch from remote: {fetch_error}."
             raise WorkflowError(msg) from e
+
 
     def open(self) -> io.BytesIO:
         import git
