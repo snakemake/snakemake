@@ -2934,3 +2934,14 @@ def test_cyclic_dependency_single():
     # It is expected behavior that Snakemake would not rerun in such a case without
     # forcing it.
     run(dpath("test_cyclic_dependency_single"), forceall=True)
+
+
+@skip_on_windows
+@apptainer
+@connected
+def test_issue3958():
+    run(
+        dpath("test_issue3958"),
+        shellcmd="snakemake --sdm apptainer --cores 1",
+        targets=["all"],
+    )

@@ -2088,7 +2088,7 @@ class Workflow(WorkflowExecutorInterface):
     def runtime_paths(self) -> List[Path]:
         assert self.storage_settings is not None
         return [
-            self.storage_settings.local_storage_prefix,
+            self.storage_settings.local_storage_prefix.absolute(),
             self.sourcecache.cache_path,
         ]
 
