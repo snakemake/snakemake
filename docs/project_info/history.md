@@ -1,6 +1,6 @@
 (project_info-history)=
 
-(_changelog)=
+(changelog)=
 
 ```{include} ../../CHANGELOG.md
 ```

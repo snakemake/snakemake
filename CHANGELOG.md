@@ -2659,7 +2659,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * add workflows.community metadata ([#1736](https://github.com/snakemake/snakemake/issues/1736)) ([8a42afc](https://github.com/snakemake/snakemake/commit/8a42afc053e3f398f1a299fb3234ca0ee847faae))
 
-### [7.8.3](https://www.github.com/snakemake/snakemake/compare/v7.8.2...v7.8.3) (2022-06-20)
+## [7.8.3](https://www.github.com/snakemake/snakemake/compare/v7.8.2...v7.8.3) (2022-06-20)
 
 
 ### Bug Fixes
@@ -2668,14 +2668,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * improved provenance trigger info ([#1720](https://www.github.com/snakemake/snakemake/issues/1720)) ([29d959d](https://www.github.com/snakemake/snakemake/commit/29d959d86341aee66e945f216cae41e9c531a4d1))
 * small changes to make docs checkpoint example functional ([#1714](https://www.github.com/snakemake/snakemake/issues/1714)) ([1d4909e](https://www.github.com/snakemake/snakemake/commit/1d4909ef838ac79f8e7be9f29d76b969d358ef1b))
 
-### [7.8.2](https://www.github.com/snakemake/snakemake/compare/v7.8.1...v7.8.2) (2022-06-08)
+## [7.8.2](https://www.github.com/snakemake/snakemake/compare/v7.8.1...v7.8.2) (2022-06-08)
 
 
 ### Bug Fixes
 
 * fixed bug in needrun computation of jobs downstream of checkpoints ([#1704](https://www.github.com/snakemake/snakemake/issues/1704)) ([c634b78](https://www.github.com/snakemake/snakemake/commit/c634b78b4d7c4f6ef59e46c94162893e42de6f73))
 
-### [7.8.1](https://www.github.com/snakemake/snakemake/compare/v7.8.0...v7.8.1) (2022-05-31)
+## [7.8.1](https://www.github.com/snakemake/snakemake/compare/v7.8.0...v7.8.1) (2022-05-31)
 
 
 ### Bug Fixes
@@ -2720,14 +2720,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * singularity sometimes uses system /tmp explanation ([#1588](https://www.github.com/snakemake/snakemake/issues/1588)) ([170c1d9](https://www.github.com/snakemake/snakemake/commit/170c1d9d92de4cafc0da9567a6970b173161c7da))
 
-### [7.6.2](https://www.github.com/snakemake/snakemake/compare/v7.6.1...v7.6.2) (2022-05-06)
+## [7.6.2](https://www.github.com/snakemake/snakemake/compare/v7.6.1...v7.6.2) (2022-05-06)
 
 
 ### Bug Fixes
 
 * fixed permission issues when using zenodo remote provider to access restricted depositions ([#1634](https://www.github.com/snakemake/snakemake/issues/1634)) ([510f534](https://www.github.com/snakemake/snakemake/commit/510f534ff55635e5c3ca677e0ccd8c5b5dd7ca0f))
 
-### [7.6.1](https://www.github.com/snakemake/snakemake/compare/v7.6.0...v7.6.1) (2022-05-04)
+## [7.6.1](https://www.github.com/snakemake/snakemake/compare/v7.6.0...v7.6.1) (2022-05-04)
 
 
 ### Bug Fixes
@@ -2780,14 +2780,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * preserve dtypes across paramspace ([#1578](https://www.github.com/snakemake/snakemake/issues/1578)) ([70ce6a0](https://www.github.com/snakemake/snakemake/commit/70ce6a0feb8572ddcf888c3d377d631ea4a24370))
 * use mambaforge for snakemake container image ([#1595](https://www.github.com/snakemake/snakemake/issues/1595)) ([b7e6906](https://www.github.com/snakemake/snakemake/commit/b7e6906926cae5fef6987adcf7b0294266d5faec))
 
-### [7.3.8](https://www.github.com/snakemake/snakemake/compare/v7.3.7...v7.3.8) (2022-04-06)
+## [7.3.8](https://www.github.com/snakemake/snakemake/compare/v7.3.7...v7.3.8) (2022-04-06)
 
 
 ### Bug Fixes
 
 * support multiple input files for template_engine rules ([#1571](https://www.github.com/snakemake/snakemake/issues/1571)) ([aee7cf2](https://www.github.com/snakemake/snakemake/commit/aee7cf236611e5201feda152f5b7357b49b9f15b))
 
-### [7.3.7](https://www.github.com/snakemake/snakemake/compare/v7.3.6...v7.3.7) (2022-04-05)
+## [7.3.7](https://www.github.com/snakemake/snakemake/compare/v7.3.6...v7.3.7) (2022-04-05)
 
 
 ### Bug Fixes
@@ -2797,7 +2797,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * fixed detection of norun rules inside of modules ([#1566](https://www.github.com/snakemake/snakemake/issues/1566)) ([d2223d4](https://www.github.com/snakemake/snakemake/commit/d2223d41dfba057ab735395eac8339c27866c2ae))
 * properly use retry mechanism in source cache ([#1564](https://www.github.com/snakemake/snakemake/issues/1564)) ([624a83d](https://www.github.com/snakemake/snakemake/commit/624a83d1bfc592a2a1878d5191e09f6c3d7ee7c2))
 
-### [7.3.6](https://www.github.com/snakemake/snakemake/compare/v7.3.5...v7.3.6) (2022-04-02)
+## [7.3.6](https://www.github.com/snakemake/snakemake/compare/v7.3.5...v7.3.6) (2022-04-02)
 
 
 ### Bug Fixes
@@ -2810,7 +2810,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * quote workdir in job exec prefix to allow to spaces in the workdir ([#1547](https://www.github.com/snakemake/snakemake/issues/1547)) ([c3a593e](https://www.github.com/snakemake/snakemake/commit/c3a593e8f7fc8e0dccec4e025f4cd9743bd80bc3))
 * report error and possible cause if metadata cleanup fails ([#1554](https://www.github.com/snakemake/snakemake/issues/1554)) ([6866134](https://www.github.com/snakemake/snakemake/commit/68661341efa0a3de4e03de3fb1b8f3117de66efe))
 
-### [7.3.5](https://www.github.com/snakemake/snakemake/compare/v7.3.4...v7.3.5) (2022-03-31)
+## [7.3.5](https://www.github.com/snakemake/snakemake/compare/v7.3.4...v7.3.5) (2022-03-31)
 
 
 ### Bug Fixes
@@ -2823,7 +2823,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * explain automatic decompression strategy for http remote provider ([e6826b6](https://www.github.com/snakemake/snakemake/commit/e6826b6a740ba5b8877f12732c4ad95194833e07))
 
-### [7.3.4](https://www.github.com/snakemake/snakemake/compare/v7.3.3...v7.3.4) (2022-03-30)
+## [7.3.4](https://www.github.com/snakemake/snakemake/compare/v7.3.3...v7.3.4) (2022-03-30)
 
 
 ### Bug Fixes
@@ -2840,7 +2840,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * display rust-script env. ([950d8ba](https://www.github.com/snakemake/snakemake/commit/950d8ba785a384fa47fcda3d6fb948799a259e0e))
 * zenodo example ([76159ae](https://www.github.com/snakemake/snakemake/commit/76159ae22539e38923712e487371a5f32d7cb3cf))
 
-### [7.3.3](https://www.github.com/snakemake/snakemake/compare/v7.3.2...v7.3.3) (2022-03-28)
+## [7.3.3](https://www.github.com/snakemake/snakemake/compare/v7.3.2...v7.3.3) (2022-03-28)
 
 
 ### Bug Fixes
@@ -2854,7 +2854,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * details on benchmarked results ([64fea09](https://www.github.com/snakemake/snakemake/commit/64fea0921f6a35dbea96435debb114012603ffc2))
 
-### [7.3.2](https://www.github.com/snakemake/snakemake/compare/v7.3.1...v7.3.2) (2022-03-25)
+## [7.3.2](https://www.github.com/snakemake/snakemake/compare/v7.3.1...v7.3.2) (2022-03-25)
 
 
 ### Bug Fixes
@@ -2867,7 +2867,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * Clarify the use of conda with notebook directive ([#1515](https://www.github.com/snakemake/snakemake/issues/1515)) ([aefb1eb](https://www.github.com/snakemake/snakemake/commit/aefb1eb0a2d62faa6108670f3a11d58a1d797c41))
 
-### [7.3.1](https://www.github.com/snakemake/snakemake/compare/v7.3.0...v7.3.1) (2022-03-23)
+## [7.3.1](https://www.github.com/snakemake/snakemake/compare/v7.3.0...v7.3.1) (2022-03-23)
 
 
 ### Bug Fixes
@@ -2903,7 +2903,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * separate api docs ([ded7da9](https://www.github.com/snakemake/snakemake/commit/ded7da90258284f06d4e9263e667cd632cdc12ae))
 * separate api docs ([#1499](https://www.github.com/snakemake/snakemake/issues/1499)) ([5cf275a](https://www.github.com/snakemake/snakemake/commit/5cf275ab9c556dd1828a0618799bcdba0c561e70))
 
-### [7.2.1](https://www.github.com/snakemake/snakemake/compare/v7.2.0...v7.2.1) (2022-03-14)
+## [7.2.1](https://www.github.com/snakemake/snakemake/compare/v7.2.0...v7.2.1) (2022-03-14)
 
 
 ### Bug Fixes
@@ -2929,7 +2929,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * do not wait for named or containerized conda envs ([#1473](https://www.github.com/snakemake/snakemake/issues/1473)) ([6b1d09c](https://www.github.com/snakemake/snakemake/commit/6b1d09c1e270348e8ef77d6ad8c24e1ca540215c))
 * implement lock-free source file caching. This avoids hangs on network file systems like NFS. ([#1464](https://www.github.com/snakemake/snakemake/issues/1464)) ([9520e98](https://www.github.com/snakemake/snakemake/commit/9520e988a32f0c5369b4f2c68fdb741f21daa1a4))
 
-### [7.1.1](https://www.github.com/snakemake/snakemake/compare/v7.1.0...v7.1.1) (2022-03-07)
+## [7.1.1](https://www.github.com/snakemake/snakemake/compare/v7.1.0...v7.1.1) (2022-03-07)
 
 
 ### Bug Fixes
@@ -2950,14 +2950,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * display change warnings only for jobs that won't be executed otherwise ([086f60f](https://www.github.com/snakemake/snakemake/commit/086f60f142721a6085b105bc4bbe12cccc9cee02))
 * work around segfault with >100 jobs in google life sciences backend ([#1451](https://www.github.com/snakemake/snakemake/issues/1451)) ([2c0fee2](https://www.github.com/snakemake/snakemake/commit/2c0fee2faec33185ca7fcd2276901977857e2c64))
 
-### [7.0.4](https://www.github.com/snakemake/snakemake/compare/v7.0.3...v7.0.4) (2022-03-03)
+## [7.0.4](https://www.github.com/snakemake/snakemake/compare/v7.0.3...v7.0.4) (2022-03-03)
 
 
 ### Bug Fixes
 
 * more details on input and output exceptions (missing input, protected output, etc.) ([#1453](https://www.github.com/snakemake/snakemake/issues/1453)) ([8d64af2](https://www.github.com/snakemake/snakemake/commit/8d64af2cb905fef95585055c7b69fd1c45d44108))
 
-### [7.0.3](https://www.github.com/snakemake/snakemake/compare/v7.0.2...v7.0.3) (2022-03-02)
+## [7.0.3](https://www.github.com/snakemake/snakemake/compare/v7.0.2...v7.0.3) (2022-03-02)
 
 
 ### Bug Fixes
@@ -2967,7 +2967,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * remove accidental pdb statement ([9c935f1](https://www.github.com/snakemake/snakemake/commit/9c935f1566b976392393aeb00acf0e39eb159e19))
 * remove deprecated and add missing arguments to internal functions ([93a7e39](https://www.github.com/snakemake/snakemake/commit/93a7e39d9f225fac5ff5cb8cbe14500a09986ab3))
 
-### [7.0.2](https://www.github.com/snakemake/snakemake/compare/v7.0.1...v7.0.2) (2022-03-01)
+## [7.0.2](https://www.github.com/snakemake/snakemake/compare/v7.0.1...v7.0.2) (2022-03-01)
 
 
 ### Bug Fixes
@@ -2984,7 +2984,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * fix list display in docs ([2dd0e91](https://www.github.com/snakemake/snakemake/commit/2dd0e91f8b7e13d0ffcebe4ed11024a39357ebc7))
 * Fix typo and grammar mistake in scatter-gather section. ([#1441](https://www.github.com/snakemake/snakemake/issues/1441)) ([f218aaa](https://www.github.com/snakemake/snakemake/commit/f218aaad1b9b80074ea602cde0352c34c18e70b5))
 
-### [7.0.1](https://www.github.com/snakemake/snakemake/compare/v7.0.0...v7.0.1) (2022-02-26)
+## [7.0.1](https://www.github.com/snakemake/snakemake/compare/v7.0.0...v7.0.1) (2022-02-26)
 
 
 ### Bug Fixes
@@ -3031,7 +3031,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * Repair MREs from [#823](https://www.github.com/snakemake/snakemake/issues/823) ([#1203](https://www.github.com/snakemake/snakemake/issues/1203)) ([b007979](https://www.github.com/snakemake/snakemake/commit/b0079791718a390d1f920df15a405cf633314312))
 * warn on non-file-modification-date changes like params, code, or input files ([#1419](https://www.github.com/snakemake/snakemake/issues/1419)) ([b5f53f0](https://www.github.com/snakemake/snakemake/commit/b5f53f09ae8c01e1223d2279c3a7f59819a8b44f))
 
-### [6.15.5](https://www.github.com/snakemake/snakemake/compare/v6.15.4...v6.15.5) (2022-02-09)
+## [6.15.5](https://www.github.com/snakemake/snakemake/compare/v6.15.4...v6.15.5) (2022-02-09)
 
 
 ### Bug Fixes
@@ -3039,7 +3039,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * convert conda env to string before checks ([#1382](https://www.github.com/snakemake/snakemake/issues/1382)) ([7a8da9f](https://www.github.com/snakemake/snakemake/commit/7a8da9fbf01a037a99ebaa3732fe25e87a96fcd2))
 * fix pepfile handling in case of module usage ([#1387](https://www.github.com/snakemake/snakemake/issues/1387)) ([f097a76](https://www.github.com/snakemake/snakemake/commit/f097a761472248d779113cdb22b5274395828bcb))
 
-### [6.15.4](https://www.github.com/snakemake/snakemake/compare/v6.15.3...v6.15.4) (2022-02-09)
+## [6.15.4](https://www.github.com/snakemake/snakemake/compare/v6.15.3...v6.15.4) (2022-02-09)
 
 
 ### Bug Fixes
@@ -3051,14 +3051,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * fix tutorial setup instructions for MacOS. ([#1383](https://www.github.com/snakemake/snakemake/issues/1383)) ([b57b749](https://www.github.com/snakemake/snakemake/commit/b57b7493d372605323204122af859ede38864e4d))
 
-### [6.15.3](https://www.github.com/snakemake/snakemake/compare/v6.15.2...v6.15.3) (2022-02-07)
+## [6.15.3](https://www.github.com/snakemake/snakemake/compare/v6.15.2...v6.15.3) (2022-02-07)
 
 
 ### Bug Fixes
 
 * skip global report caption when using a module ([#1379](https://www.github.com/snakemake/snakemake/issues/1379)) ([a755cee](https://www.github.com/snakemake/snakemake/commit/a755ceefa478d51070f926beed9090067771edf1))
 
-### [6.15.2](https://www.github.com/snakemake/snakemake/compare/v6.15.1...v6.15.2) (2022-02-05)
+## [6.15.2](https://www.github.com/snakemake/snakemake/compare/v6.15.1...v6.15.2) (2022-02-05)
 
 
 ### Bug Fixes
@@ -3075,7 +3075,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * add sentence about workflow template to docs ([#1369](https://www.github.com/snakemake/snakemake/issues/1369)) ([5fabffb](https://www.github.com/snakemake/snakemake/commit/5fabffbb4af8e9e122677e5adeaebf2d6bd0eeb3))
 * fix typo in installation.rst ([#1344](https://www.github.com/snakemake/snakemake/issues/1344)) ([c45d47a](https://www.github.com/snakemake/snakemake/commit/c45d47a79b78a1afed3b1319e6cafd1b2525fe43))
 
-### [6.15.1](https://www.github.com/snakemake/snakemake/compare/v6.15.0...v6.15.1) (2022-01-31)
+## [6.15.1](https://www.github.com/snakemake/snakemake/compare/v6.15.0...v6.15.1) (2022-01-31)
 
 
 ### Bug Fixes
@@ -3117,7 +3117,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * link to list of dependencies from installation ([#1336](https://www.github.com/snakemake/snakemake/issues/1336)) ([99d7bfe](https://www.github.com/snakemake/snakemake/commit/99d7bfef1285f131d0e60331511bc4833e7e414a))
 * update URL to emacs snakemake-mode ([#1339](https://www.github.com/snakemake/snakemake/issues/1339)) ([dae7b8f](https://www.github.com/snakemake/snakemake/commit/dae7b8fb0e580a1878d36881cfb5ffc8adeaeb9f))
 
-### [6.13.1](https://www.github.com/snakemake/snakemake/compare/v6.13.0...v6.13.1) (2022-01-11)
+## [6.13.1](https://www.github.com/snakemake/snakemake/compare/v6.13.0...v6.13.1) (2022-01-11)
 
 
 ### Bug Fixes
@@ -3134,14 +3134,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * allow prefix definition in module statements ([#1310](https://www.github.com/snakemake/snakemake/issues/1310)) ([29e6540](https://www.github.com/snakemake/snakemake/commit/29e6540aac95b08b5e386a8478bd2013334e5954))
 
-### [6.12.3](https://www.github.com/snakemake/snakemake/compare/v6.12.2...v6.12.3) (2021-12-09)
+## [6.12.3](https://www.github.com/snakemake/snakemake/compare/v6.12.2...v6.12.3) (2021-12-09)
 
 
 ### Bug Fixes
 
 * fixed display of any exceptions and errors from within a workflow definition ([23d40d9](https://www.github.com/snakemake/snakemake/commit/23d40d99614a88fd3c596d05e6915509ae43d4ce))
 
-### [6.12.2](https://www.github.com/snakemake/snakemake/compare/v6.12.1...v6.12.2) (2021-12-07)
+## [6.12.2](https://www.github.com/snakemake/snakemake/compare/v6.12.1...v6.12.2) (2021-12-07)
 
 
 ### Bug Fixes
@@ -3153,7 +3153,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * Fix typo in rules.rst (—draft-notebook) ([#1290](https://www.github.com/snakemake/snakemake/issues/1290)) ([f5c42cf](https://www.github.com/snakemake/snakemake/commit/f5c42cfdc68f1516cec71b8ead8d78225ae915e5))
 
-### [6.12.1](https://www.github.com/snakemake/snakemake/compare/v6.12.0...v6.12.1) (2021-11-29)
+## [6.12.1](https://www.github.com/snakemake/snakemake/compare/v6.12.0...v6.12.1) (2021-11-29)
 
 
 ### Bug Fixes
@@ -3180,7 +3180,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * short tutorial updates ([#1286](https://www.github.com/snakemake/snakemake/issues/1286)) ([b653a44](https://www.github.com/snakemake/snakemake/commit/b653a44d105e4b3799425a695d75a08239dc0d6b))
 
-### [6.11.1](https://www.github.com/snakemake/snakemake/compare/v6.11.0...v6.11.1) (2021-11-26)
+## [6.11.1](https://www.github.com/snakemake/snakemake/compare/v6.11.0...v6.11.1) (2021-11-26)
 
 
 ### Bug Fixes
@@ -3241,7 +3241,7 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 * Mention required openssl dep for rust-script ([#1216](https://www.github.com/snakemake/snakemake/issues/1216)) ([fc8c5f6](https://www.github.com/snakemake/snakemake/commit/fc8c5f62c397a0239ef213ab45a26a1def50f9eb))
 * Unpin docutils version ([#1230](https://www.github.com/snakemake/snakemake/issues/1230)) ([15a82bf](https://www.github.com/snakemake/snakemake/commit/15a82bfe402b3577bf19e6d2eca3b2fb86109628))
 
-### [6.9.1](https://www.github.com/snakemake/snakemake/compare/v6.9.0...v6.9.1) (2021-09-30)
+## [6.9.1](https://www.github.com/snakemake/snakemake/compare/v6.9.0...v6.9.1) (2021-09-30)
 
 
 ### Bug Fixes
@@ -3260,14 +3260,14 @@ As always, any pull requests with test cases and pointers to bugs are more than 
 
 * fix source retrieval during between workflow caching and report generation ([2394ca4](https://www.github.com/snakemake/snakemake/commit/2394ca4a23a6b2792397bc9efc09945f01d1963b))
 
-### [6.8.2](https://www.github.com/snakemake/snakemake/compare/v6.8.1...v6.8.2) (2021-09-29)
+## [6.8.2](https://www.github.com/snakemake/snakemake/compare/v6.8.1...v6.8.2) (2021-09-29)
 
 
 ### Bug Fixes
 
 * fix path returned by get_source() ([ee05315](https://www.github.com/snakemake/snakemake/commit/ee053153d2f44156171c127307cb110791b7624a))
 
-### [6.8.1](https://www.github.com/snakemake/snakemake/compare/v6.8.0...v6.8.1) (2021-09-24)
+## [6.8.1](https://www.github.com/snakemake/snakemake/compare/v6.8.0...v6.8.1) (2021-09-24)
 
 
 ### Bug Fixes
