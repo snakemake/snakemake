@@ -584,12 +584,7 @@ class Run(RuleKeywordState):
         yield "@workflow.run"
         yield "\n"
         yield (
-            "def __rule_{rulename}(input, output, params, wildcards, threads, "
-            "resources, log, rule, conda_env, container_img, "
-            "singularity_args, use_singularity, env_modules, bench_record, jobid, "
-            "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
-            "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, "
-            "runtime_paths, {rule_func_marker}=True):".format(
+            "def __rule_{rulename}(run_args, {rule_func_marker}=True)".format(
                 rulename=(
                     self.rulename
                     if self.rulename is not None
@@ -598,6 +593,8 @@ class Run(RuleKeywordState):
                 rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
             )
         )
+        yield INDENT
+        yield "run_args.register_locals(locals())"
 
     def end(self):
         yield ""
@@ -648,6 +645,7 @@ class AbstractCmd(Run):
         yield self.end_func
         yield "("
         yield from self.cmd
+        yield "run_args=run_args, "
         yield from self.args()
         yield "\n"
         yield ")"
@@ -679,68 +677,34 @@ class Shell(AbstractCmd):
     start_func = "@workflow.shellcmd"
     end_func = "shell"
 
-    def args(self):
-        yield ", bench_record=bench_record, bench_iteration=bench_iteration"
-
 
 class Script(AbstractCmd):
     start_func = "@workflow.script"
     end_func = "script"
 
     def args(self):
-        yield (
-            ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, sourcecache_path, "
-            "runtime_sourcecache_path, runtime_paths"
-        )
+        # pass the global config variable
+        yield ", config=config"
 
 
 class Notebook(Script):
     start_func = "@workflow.notebook"
     end_func = "notebook"
 
-    def args(self):
-        yield (
-            ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook, sourcecache_path, runtime_sourcecache_path, runtime_paths"
-        )
-
 
 class Wrapper(Script):
     start_func = "@workflow.wrapper"
     end_func = "wrapper"
-
-    def args(self):
-        yield (
-            ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, workflow.workflow_settings.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir, sourcecache_path, runtime_sourcecache_path, "
-            "runtime_paths"
-        )
 
 
 class TemplateEngine(Script):
     start_func = "@workflow.template_engine"
     end_func = "render_template"
 
-    def args(self):
-        yield (", input, output, params, wildcards, config, rule")
-
 
 class CWL(Script):
     start_func = "@workflow.cwl"
     end_func = "cwl"
-
-    def args(self):
-        yield (
-            ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, use_singularity, bench_record, jobid, sourcecache_path, "
-            "runtime_sourcecache_path, runtime_paths"
-        )
 
 
 rule_property_subautomata = dict(

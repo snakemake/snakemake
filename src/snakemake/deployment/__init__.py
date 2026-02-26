@@ -1,5 +1,6 @@
 import tempfile
 from typing import Any, Dict, Iterable
+import os
 
 import snakemake
 from snakemake.shell import shell
@@ -73,7 +74,7 @@ class SoftwareDeploymentManager:
             ),
             shell_executable=self.shell_executable,
             tempdir=Path(tempfile.gettempdir()),
-            source_cache=self.workflow.source_cache_path,
+            mountpoints=[self.workflow.source_cache_path, Path(os.getcwd())] + get_snakemake_searchpaths(),
             cache_prefix=self.workflow.deployment_settings.cache_prefix / env_spec.kind,
             deployment_prefix=self.workflow.deployment_settings.deployment_prefix / env_spec.kind,
             pinfile_prefix=self.workflow.deployment_settings.pinfile_prefix / env_spec.kind,
