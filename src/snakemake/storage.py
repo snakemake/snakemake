@@ -173,7 +173,7 @@ class StorageRegistry:
 
     def _storage_object(
         self,
-        query: Union[str, List[str]],
+        query: Union[str, List[str], dict],
         provider: Optional[str] = None,
         retrieve: Optional[bool] = None,
         keep_local: Optional[bool] = None,
@@ -189,6 +189,34 @@ class StorageRegistry:
                     **kwargs,
                 )
                 for q in query
+            ]
+
+        if isinstance(query, dict):
+            provider_name = provider
+
+            if provider_name is None:
+                provider_name = self.infer_provider(query)
+
+            provider = self._storages.get(provider_name)
+
+            if not hasattr(provider, "base_provider") or not hasattr(
+                provider, "get_files"
+            ):
+                raise WorkflowError(
+                    f"Storage provider {provider_name} does not support dict queries.\n"
+                    f"It must specify a `base_provider` and a `get_files` method.\n"
+                    "See https://github.com/snakemake/snakemake-storage-plugin-apd e.g."
+                )
+
+            queries = provider.get_files(query)
+            return [
+                self._storage_object(
+                    q,
+                    provider=provider.base_provider,
+                    retrieve=retrieve,
+                    keep_local=keep_local,
+                )
+                for q in queries
             ]
 
         provider_name = provider
