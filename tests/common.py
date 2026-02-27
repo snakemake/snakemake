@@ -134,11 +134,11 @@ def copy(src: StrPath, dst: StrPath):
 def get_expected_files(results_dir: StrPath) -> list[str]:
     """Recursively walk through the expected-results directory to enumerate
     all expected files."""
-    return [
+    return {
         os.path.relpath(f, results_dir)
         for f in glob.iglob(os.path.join(results_dir, "**/**"), recursive=True)
         if not os.path.isdir(f)
-    ]
+    }
 
 
 def untar_folder(tar_file: StrPath, output_path: StrPath):
