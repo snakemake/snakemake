@@ -2,7 +2,6 @@ from enum import Enum
 from snakemake.io import flag
 from snakemake.io.flags import FlaggableItemOrIterable
 
-
 STORE_KEY = "access_pattern"
 
 

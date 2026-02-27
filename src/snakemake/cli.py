@@ -7,21 +7,21 @@ from collections import defaultdict
 import os
 import re
 import sys
+import logging
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import List, Mapping, Optional, Set, Union
+from typing import List, Mapping, Optional, Set, Tuple, Union, Dict
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
-
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
+from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
 
 
 import snakemake.common.argparse
-from snakemake import logging
 from snakemake.api import (
     SnakemakeApi,
     resolve_snakefile,
@@ -40,11 +40,9 @@ from snakemake.exceptions import (
     print_exception,
 )
 from snakemake.resources import (
-    DefaultResources,
-    ParsedResource,
+    Resource,
+    Resources,
     ResourceScopes,
-    eval_resource_expression,
-    parse_resources,
 )
 from snakemake.settings.types import (
     Batch,
@@ -69,9 +67,11 @@ from snakemake.settings.types import (
     WorkflowSettings,
     StrictDagEvaluation,
     PrintDag,
+    GlobalReportSettings,
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
+from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings
 
 
 def parse_size_in_bytes(value):
@@ -108,15 +108,18 @@ def optional_str(arg):
 
 
 def parse_set_threads(args):
-    def fallback(orig_value):
-        value = eval_resource_expression(orig_value, threads_arg=False)
-        return ParsedResource(value=value, orig_arg=orig_value)
+    def wrapper(orig_value):
+        if isinstance(orig_value, int):
+            return Resource("_cores", orig_value)
+        return Resource.from_cli_expression(
+            "_cores", str(orig_value), with_threads_arg=False
+        )
 
     return parse_set_ints(
         args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
-        fallback=fallback,
+        wrapper=wrapper,
     )
 
 
@@ -162,38 +165,32 @@ def parse_consider_ancient(
     return consider_ancient
 
 
-def parse_set_resources(args):
+def parse_set_resources(args: List[str] | None) -> Dict[str, Resources]:
     errmsg = (
-        "Invalid resource definition: entries have to be defined as RULE:RESOURCE=VALUE, with "
-        "VALUE being a positive integer a quoted string, or a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
+        "Invalid resource definition: entries have to be defined as "
+        "RULE:RESOURCE=VALUE, with VALUE being a positive integer a quoted string, or "
+        "a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
     )
 
     from collections import defaultdict
 
-    assignments = defaultdict(dict)
-    if args is not None:
-        for entry in args:
-            key, orig_value = parse_key_value_arg(
-                entry, errmsg=errmsg, strip_quotes=False
-            )
-            key = key.split(":")
-            if len(key) != 2:
-                raise ValueError(errmsg)
-            rule, resource = key
-            if is_quoted(orig_value):
-                # value is a string, just keep it but remove surrounding quotes
-                value = orig_value[1:-1]
-            else:
-                try:
-                    value = int(orig_value)
-                except ValueError:
-                    value = eval_resource_expression(orig_value)
-            if isinstance(value, int) and value < 0:
-                raise ValueError(errmsg)
-            assignments[rule][resource] = ParsedResource(
-                value=value, orig_arg=orig_value
-            )
-    return assignments
+    if args is None:
+        return {}
+
+    assignments: Dict[str, List[str]] = defaultdict(list)
+
+    for entry in args:
+        rule, assign = entry.split(":", maxsplit=1)
+        assignments[rule].append(assign)
+
+    try:
+        return {
+            rule: Resources.parse(assigns, allow_expressions=True)
+            for rule, assigns in assignments.items()
+        }
+
+    except ValueError as err:
+        raise ValueError(errmsg) from err
 
 
 def parse_set_scatter(args):
@@ -223,7 +220,7 @@ def parse_set_resource_scope(args):
     return ResourceScopes()
 
 
-def parse_set_ints(arg, errmsg, fallback=None):
+def parse_set_ints(arg, errmsg, wrapper=None):
     assignments = dict()
     if arg is not None:
         for entry in arg:
@@ -231,16 +228,20 @@ def parse_set_ints(arg, errmsg, fallback=None):
             try:
                 value = int(value)
             except ValueError:
-                if fallback is not None:
-                    try:
-                        value = fallback(value)
-                    except Exception as e:
-                        raise ValueError(f"{errmsg} Cause: {e}")
-                else:
+                if wrapper is None:
                     raise ValueError(errmsg)
-            if isinstance(value, int) and value < 0:
-                raise ValueError(errmsg)
-            assignments[key] = value
+            else:
+                if value < 0:
+                    raise ValueError(errmsg)
+
+            if wrapper is None:
+                assignments[key] = value
+                continue
+
+            try:
+                assignments[key] = wrapper(value)
+            except Exception as e:
+                raise ValueError(f"{errmsg} Cause: {e}") from e
     return assignments
 
 
@@ -351,7 +352,7 @@ def parse_jobs(jobs):
         )
 
 
-def get_profile_dir(profile: str) -> (Path, Path):
+def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
     config_pattern = re.compile(r"config(.v(?P<min_major>\d+)\+)?.yaml")
 
     def get_config_min_major(filename):
@@ -529,8 +530,8 @@ def get_argument_parser(profiles=None):
         "--res",
         nargs="+",
         metavar="NAME=INT",
-        default=dict(),
-        parse_func=parse_resources,
+        default=Resources(),
+        parse_func=Resources.parser_factory(allow_expressions=False),
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to `--cores` (see above). A resource is defined as "
@@ -608,7 +609,9 @@ def get_argument_parser(profiles=None):
         "--default-res",
         nargs="*",
         metavar="NAME=INT",
-        parse_func=maybe_base64(DefaultResources),
+        parse_func=maybe_base64(
+            Resources.parser_factory(defaults="full", allow_expressions=True)
+        ),
         help=(
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. `2*input.size_mb`). "
@@ -668,7 +671,9 @@ def get_argument_parser(profiles=None):
             "Set or overwrite values in the workflow config object. "
             "The workflow config object is accessible as variable config inside "
             "the workflow. Default values can be set by providing a YAML JSON file "
-            "(see `--configfile` and Documentation)."
+            "(see `--configfile` and Documentation). "
+            "Nested values must be defined in Python dict format, e.g., "
+            "`--config \"foo={'bar': 42}\"`."
         ),
     )
     group_exec.add_argument(
@@ -720,7 +725,9 @@ def get_argument_parser(profiles=None):
         "--keep-going",
         "-k",
         action="store_true",
-        help="Go on with independent jobs if a job fails.",
+        help="Go on with independent jobs if a job fails during execution. "
+        "This only applies to runtime failures in job execution, "
+        "not to errors during workflow parsing or DAG construction.",
     )
     group_exec.add_argument(
         "--rerun-triggers",
@@ -865,32 +872,16 @@ def get_argument_parser(profiles=None):
         help="Strict evaluation of rules' correctness even when not required to produce the output files. ",
     )
 
-    try:
-        import pulp
-
-        lp_solvers = pulp.listSolvers(onlyAvailable=True)
-    except ImportError:
-        # Dummy list for the case that pulp is not available
-        # This only happened when building docs.
-        lp_solvers = ["COIN_CMD"]
-    recommended_lp_solver = "COIN_CMD"
-
     group_exec.add_argument(
         "--scheduler",
-        default="greedy" if recommended_lp_solver not in lp_solvers else "ilp",
+        default="ilp",
         nargs="?",
-        choices=["ilp", "greedy"],
+        choices=list(SchedulerPluginRegistry().plugins.keys()),
         help=(
-            "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
-            "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
+            "Specifies the scheduling plugin to use. "
+            "Builtin plugins are greedy (fast) and ilp, while the latter scheduler "
+            "aims to reduce runtime and hdd usage by best possible use of resources."
         ),
-    )
-
-    group_exec.add_argument(
-        "--scheduler-ilp-solver",
-        default=recommended_lp_solver,
-        choices=lp_solvers,
-        help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 
     group_exec.add_argument(
@@ -961,6 +952,13 @@ def get_argument_parser(profiles=None):
         type=Path,
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
+    )
+    group_report.add_argument(
+        "--report-metadata",
+        metavar="FILE",
+        type=Path,
+        help="Custom metadata to use for the landing page of the report. In particular, "
+        "this can be used to provide metadata in the report e.g. the work directory, see docs.",
     )
     group_report.add_argument(
         "--reporter",
@@ -1349,7 +1347,12 @@ def get_argument_parser(profiles=None):
         help="Same behaviour as `--wait-for-files`, but file list is "
         "stored in file instead of being passed on the commandline. "
         "This is useful when the list of files is too long to be "
-        "passed on the commandline.",
+        "passed on the commandline. Meant for internal use.",
+    )
+    group_behavior.add_argument(
+        "--runtime-source-cache-path",
+        metavar="PATH",
+        help="Path to the runtime source cache directory. Meant for internal use.",
     )
     group_behavior.add_argument(
         "--queue-input-wait-time",
@@ -1417,12 +1420,6 @@ def get_argument_parser(profiles=None):
         default="100/1s",
         type=MaxJobsPerTimespan.parse_choice,
         help="Maximal number of job submissions/executions per timespan. Format: <number><timespan>, e.g. 50/1m or 0.5/1s.",
-    )
-    group_behavior.add_argument(
-        "--max-jobs-per-second",
-        type=int,
-        help="Maximal number of job submissions/executions per second. "
-        "Deprecated in favor of `--max-jobs-per-timespan`.",
     )
     group_behavior.add_argument(
         "--max-status-checks-per-second",
@@ -1505,7 +1502,7 @@ def get_argument_parser(profiles=None):
         help="Set the greediness of scheduling. This value between 0 and 1 "
         "determines how careful jobs are selected for execution. The default "
         "value (1.0) provides the best speed and still acceptable scheduling "
-        "quality.",
+        "quality. Deprecated in favor of `--scheduler-greedy-greediness`.",
     )
     group_behavior.add_argument(
         "--scheduler-subsample",
@@ -1597,7 +1594,11 @@ def get_argument_parser(profiles=None):
         "Assuming that your submit script (here sbatch) outputs the "
         "generated job id to the first stdout line, {dependencies} will "
         "be filled with space separated job ids this job depends on. "
-        "Does not work for workflows that contain checkpoint rules.",
+        "Does not work for workflows that contain checkpoint rules, "
+        "and localrules will be skipped. The additional argument `--notemp` "
+        "should be specified. Most often, `--not-retrieve-storage` is "
+        "also recommended to avoid Snakemake trying to download output files "
+        "before the jobs producing them are executed. ",
     )
     group_cluster.add_argument(
         "--jobscript",
@@ -1612,16 +1613,6 @@ def get_argument_parser(profiles=None):
         default="snakejob.{name}.{jobid}.sh",
         metavar="NAME",
         help="Provide a custom name for the jobscript that is submitted to the cluster (see `--cluster`). The wildcard `{jobid}` has to be present in the name.",
-    )
-
-    group_flux = parser.add_argument_group("FLUX")
-
-    group_flux.add_argument(
-        "--flux",
-        action="store_true",
-        help="Execute your workflow on a flux cluster. "
-        "Flux can work with both a shared network filesystem (like NFS) or without. "
-        "If you don't have a shared filesystem, additionally specify `--no-shared-fs`.",
     )
 
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
@@ -1761,10 +1752,6 @@ def get_argument_parser(profiles=None):
 
     group_internal = parser.add_argument_group("INTERNAL")
     group_internal.add_argument(
-        "--scheduler-solver-path",
-        help=help_internal("Set the PATH to search for scheduler solver binaries."),
-    )
-    group_internal.add_argument(
         "--deploy-sources",
         nargs=2,
         metavar=("QUERY", "CHECKSUM"),
@@ -1789,12 +1776,27 @@ def get_argument_parser(profiles=None):
         type=ExecMode.parse_choice,
         help=help_internal("Set execution mode of Snakemake."),
     )
+    group_internal.add_argument(
+        "--scheduler-solver-path",
+        help=help_internal(
+            "Set the PATH to search for scheduler solver binaries. Deprecated, use --scheduler-ilp-solver-path instead."
+        ),
+    )
+
+    group_deprecated = parser.add_argument_group("DEPRECATED")
+    group_deprecated.add_argument(
+        "--max-jobs-per-second",
+        type=int,
+        help="Maximal number of job submissions/executions per second. "
+        "Deprecated in favor of `--max-jobs-per-timespan`.",
+    )
 
     # Add namespaced arguments to parser for each plugin
     ExecutorPluginRegistry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
     ReportPluginRegistry().register_cli_args(parser)
     LoggerPluginRegistry().register_cli_args(parser)
+    SchedulerPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1909,6 +1911,38 @@ def parse_rerun_triggers(values):
     return {RerunTrigger[x] for x in values}
 
 
+def create_output_settings(args, log_handler_settings) -> OutputSettings:
+    """Create OutputSettings with appropriate logger behavior based on exec mode."""
+
+    settings = OutputSettings(
+        dryrun=args.dryrun,
+        printshellcmds=args.printshellcmds,
+        nocolor=args.nocolor,
+        quiet=args.quiet,
+        debug_dag=args.debug_dag,
+        verbose=args.verbose,
+        show_failed_logs=args.show_failed_logs,
+        log_handler_settings=log_handler_settings,
+        stdout=args.dryrun,
+        benchmark_extended=args.benchmark_extended,
+    )
+
+    # Set logging behavior based on execution mode
+    if args.mode == ExecMode.SUBPROCESS:
+        settings.log_level_override = logging.ERROR
+        settings.enable_file_logging = False
+        settings.skip_plugin_handlers = True
+    elif args.mode == ExecMode.REMOTE:
+        settings.skip_plugin_handlers = True
+        settings.enable_file_logging = False
+
+    elif args.mode == ExecMode.DEFAULT:
+        # Use defaults from OutputSettings
+        pass
+
+    return settings
+
+
 def args_to_api(args, parser):
     """Convert argparse args to API calls."""
 
@@ -1943,6 +1977,12 @@ def args_to_api(args, parser):
         for name in args.logger
     }
 
+    scheduler_plugin = SchedulerPluginRegistry().get_plugin(args.scheduler)
+    scheduler_settings = scheduler_plugin.get_settings(args)
+    if args.scheduler == "ilp":
+        assert isinstance(scheduler_settings, MILPSchedulerSettings)
+        scheduler_settings.solver_path = args.scheduler_solver_path
+
     if args.reporter:
         report_plugin = ReportPluginRegistry().get_plugin(args.reporter)
         report_settings = report_plugin.get_settings(args)
@@ -1968,22 +2008,8 @@ def args_to_api(args, parser):
     edit_notebook = parse_edit_notebook(args)
 
     wait_for_files = parse_wait_for_files(args)
-
-    with SnakemakeApi(
-        OutputSettings(
-            dryrun=args.dryrun,
-            printshellcmds=args.printshellcmds,
-            nocolor=args.nocolor,
-            quiet=args.quiet,
-            debug_dag=args.debug_dag,
-            verbose=args.verbose,
-            show_failed_logs=args.show_failed_logs,
-            log_handler_settings=log_handler_settings,
-            keep_logger=False,
-            stdout=args.dryrun,
-            benchmark_extended=args.benchmark_extended,
-        )
-    ) as snakemake_api:
+    output_settings = create_output_settings(args, log_handler_settings)
+    with SnakemakeApi(output_settings) as snakemake_api:
         deployment_method = args.software_deployment_method
         if args.use_conda:
             deployment_method.add(DeploymentMethod.CONDA)
@@ -2043,6 +2069,7 @@ def args_to_api(args, parser):
                         exec_mode=args.mode,
                         cache=args.cache,
                         consider_ancient=args.consider_ancient,
+                        runtime_source_cache_path=args.runtime_source_cache_path,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
@@ -2070,7 +2097,6 @@ def args_to_api(args, parser):
                 elif args.print_compilation:
                     workflow_api.print_compilation()
                 else:
-
                     print_dag_as = None
                     if args.dag:
                         print_dag_as = args.dag
@@ -2118,6 +2144,9 @@ def args_to_api(args, parser):
                         dag_api.create_report(
                             reporter=args.reporter,
                             report_settings=report_settings,
+                            global_report_settings=GlobalReportSettings(
+                                metadata_template=args.report_metadata
+                            ),
                         )
                     elif args.generate_unit_tests:
                         dag_api.generate_unit_tests(args.generate_unit_tests)
@@ -2200,9 +2229,6 @@ def args_to_api(args, parser):
                             scheduling_settings=SchedulingSettings(
                                 prioritytargets=args.prioritize,
                                 scheduler=args.scheduler,
-                                ilp_solver=args.scheduler_ilp_solver,
-                                solver_path=args.scheduler_solver_path,
-                                greediness=args.scheduler_greediness,
                                 subsample=args.scheduler_subsample,
                                 max_jobs_per_second=args.max_jobs_per_second,
                                 max_jobs_per_timespan=args.max_jobs_per_timespan,
@@ -2213,6 +2239,7 @@ def args_to_api(args, parser):
                                 local_groupid=args.local_groupid,
                             ),
                             executor_settings=executor_settings,
+                            scheduler_settings=scheduler_settings,
                         )
 
                         if report_plugin is not None and args.report_after_run:

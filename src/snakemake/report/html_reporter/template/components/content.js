@@ -25,6 +25,20 @@ class ContentDisplay extends React.Component {
         };
 
         switch (this.props.app.state.content) {
+            case "metadata":
+                return e(
+                    "div",
+                    { className: "grow flex gap-3 p-3 items-start" },
+                    e(
+                        "div",
+                        { className: "py-2" },
+                        e(
+                            "div",
+                            { id: "brand" }
+                        )
+                    ),
+                    e(MetaData, { setView: setView })
+                );
             case "rulegraph":
                 return e(
                     "div",

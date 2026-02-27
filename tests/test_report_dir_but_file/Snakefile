@@ -1,0 +1,8 @@
+rule a:
+    output:
+        report(
+            directory("foo"),
+            htmlindex="index.html"
+        )
+    shell:
+        "mkdir -p {output} && echo '<html><body>Report</body></html>' > {output}/index.html && touch {output}/aux.js"

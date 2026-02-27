@@ -15,7 +15,7 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union, Dict
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
@@ -31,12 +31,14 @@ from snakemake.settings.types import DeploymentMethod
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
+from snakemake_interface_scheduler_plugins.interfaces.dag import DAGSchedulerInterface
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.settings.enums import Quietness
 
 from snakemake import workflow as _workflow
 from snakemake.common import (
     ON_WINDOWS,
+    func_true,
     group_into_chunks,
     is_local_file,
 )
@@ -101,7 +103,7 @@ def toposort(graph):
     return sorted
 
 
-class DAG(DAGExecutorInterface, DAGReportInterface):
+class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     """Directed acyclic graph of jobs."""
 
     def __init__(
@@ -122,8 +124,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         ignore_incomplete=False,
         rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
+        self._deferred_temp_jobs = []
         self._queue_input_jobs = None
-        self._dependencies = defaultdict(partial(defaultdict, set))
+        self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
+            partial(defaultdict, set)
+        )
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
         self._checkpoint_jobs = set()
@@ -143,7 +148,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
-        self.derived_targetfiles = None
+        self._derived_targetfiles = None
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
         self._jobid = dict()
@@ -158,6 +163,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self._storage_input_jobs = defaultdict(list)
         self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
         self._checked_jobs = set()
+        self._checked_needrun_jobs = set()
+        self._seen_outputs: Dict[str, Union[Job, GroupJob]] = dict()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -198,8 +205,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         self.update_output_index()
 
     @property
-    def dependencies(self):
+    def derived_targetfiles(self):
+        if self._derived_targetfiles is None:
+            self._derived_targetfiles = {
+                f for job in self.targetjobs if not job.output for f in job.input
+            } | self.targetfiles
+        return self._derived_targetfiles
+
+    @property
+    def dependencies(self) -> Mapping[Job, Mapping[Job, Set[str]]]:
         return self._dependencies
+
+    def job_dependencies(self, job: Job) -> Iterable[Job]:
+        # keys() returns an iterable, but somehow the type checker does not recognize it
+        return self._dependencies.get(job, {}).keys()  # type: ignore[return-value]
 
     @property
     def batch(self):
@@ -245,10 +264,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             self.targetjobs.add(job)
             self.forcefiles.update(job.output)
 
-        self.derived_targetfiles = {
-            f for job in self.targetjobs if not job.output for f in job.input
-        } | self.targetfiles
-
         self.cleanup()
 
         await self.check_incomplete()
@@ -272,23 +287,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         self.check_directory_outputs()
 
-        # check if remaining jobs are valid
-        for i, job in enumerate(self.jobs):
-            job.is_valid()
+    def get_unneeded_temp_files(self, job: Union[Job, GroupJob]) -> Iterable[str]:
+        def get_files(job, group_job=None):
+            for f in job.output:
+                if is_flagged(f, "temp") and not self.is_needed_tempfile(
+                    job, f, outside_of_group_job=group_job
+                ):
+                    yield f
 
-    def get_unneeded_temp_files(self, job: AbstractJob) -> Iterable[str]:
         if isinstance(job, GroupJob):
             for j in job:
-                yield from self.get_unneeded_temp_files(j)
+                yield from get_files(j, group_job=job)
         else:
-            for f in job.output:
-                if is_flagged(f, "temp") and not self.is_needed_tempfile(job, f):
-                    yield f
+            yield from get_files(job)
 
     def check_directory_outputs(self):
         """Check that no output file is contained in a directory output of the same or another rule."""
         outputs = sorted(
-            {(os.path.abspath(f), job) for job in self.jobs for f in job.output}
+            {(Path(f).absolute(), job) for job in self.jobs for f in job.output}
         )
         for i in range(len(outputs) - 1):
             (a, job_a), (b, job_b) = outputs[i : i + 2]
@@ -388,34 +404,34 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 )
                 self.conda_envs[key] = env
 
-    async def retrieve_storage_inputs(self, jobs=None, also_missing_internal=False):
-        shared_local_copies = (
-            SharedFSUsage.STORAGE_LOCAL_COPIES
-            in self.workflow.storage_settings.shared_fs_usage
-        )
-        if jobs is None:
-            if (self.workflow.is_main_process and shared_local_copies) or (
-                self.workflow.remote_exec and not shared_local_copies
-            ):
-                jobs = self.needrun_jobs()
-            else:
-                jobs = []
+    async def retrieve_storage_inputs(
+        self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
+    ):
 
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
         to_retrieve = defaultdict(list)
         for job in jobs:
-            for f in job.input:
-                if (
-                    f.is_storage
-                    and not job.is_norun
-                    and (
-                        (also_missing_internal and not shared_local_copies)
-                        or self.is_external_input(f, job, not_needrun_is_external=True)
-                    )
-                ):
-                    to_retrieve[f].append(access_pattern(f))
+            if isinstance(job, GroupJob):
+                inner_jobs = job.jobs
+            else:
+                inner_jobs = [job]
+            for inner_job in inner_jobs:
+                for f in inner_job.input:
+                    if (
+                        f.is_storage
+                        and not inner_job.is_norun
+                        and (
+                            # if f exists in storage, retrieve below will check if it is
+                            # newer than an eventual local copy
+                            (also_missing_internal and await f.exists_in_storage())
+                            or self.is_external_input(
+                                f, inner_job, not_needrun_is_external=True
+                            )
+                        )
+                    ):
+                        to_retrieve[f].append(access_pattern(f))
 
         if to_retrieve:
             try:
@@ -601,7 +617,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """All jobs in the DAG."""
         return self._dependencies.keys()
 
-    def needrun_jobs(self, exclude_finished=True):
+    def needrun_jobs(self, exclude_finished=True) -> Iterable[Job]:
         """Jobs that need to be executed."""
         if exclude_finished:
             return filterfalse(self.finished, self._needrun)
@@ -642,7 +658,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         """Return the reason of the job execution."""
         return self._reason[job]
 
-    def finished(self, job):
+    def finished(self, job) -> bool:
         """Return whether a job is finished."""
         return job in self._finished
 
@@ -918,26 +934,49 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     if f in job_.temp_output and f not in skip:
                         yield f
 
-    async def temp_size(self, job):
-        """Return the total size of temporary input files of the job.
-        If none, return 0.
+    def is_needed_tempfile(self, job, tempfile, outside_of_group_job=None):
+        """Return whether a temp file is still needed by jobs other than the
+        given and not part of the eventually given group.
         """
-        return sum([await f.size() for f in self.temp_input(job)])
+        if self.workflow.subprocess_exec:
+            return True
 
-    def is_needed_tempfile(self, job, tempfile):
-        return (
-            any(
-                tempfile in files
-                for j, files in self.depending[job].items()
-                if not self.finished(j) and self.needrun(j) and j != job
+        def is_other_group_or_no_group(j):
+            return outside_of_group_job is None or j not in outside_of_group_job.jobs
+
+        assert self.workflow.storage_settings is not None
+
+        if self.workflow.remote_exec:
+            is_unneeded_outside = (
+                tempfile in self.workflow.storage_settings.unneeded_temp_files
             )
-            or tempfile in self.derived_targetfiles
+        else:
+            is_unneeded_outside = True
+
+        is_derived_target = tempfile in self.derived_targetfiles
+        is_needed_by_subsequent_job = any(
+            tempfile in files
+            for j, files in self.depending[job].items()
+            if not self.finished(j)
+            and self.needrun(j)
+            and j != job
+            and is_other_group_or_no_group(j)
         )
+        logger.debug(
+            f"Temp file {tempfile}: {is_unneeded_outside=}, {is_derived_target=}, "
+            f"{is_needed_by_subsequent_job=}"
+        )
+        if is_unneeded_outside:
+            return is_derived_target or is_needed_by_subsequent_job
+        else:
+            return True
 
     async def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
         if self.workflow.storage_settings.notemp:
+            logger.debug("Not handling temp files since --notemp is set.")
             return
+        logger.debug(f"Handle temp files for job {job}")
 
         if job.is_group():
             for j in job:
@@ -1044,11 +1083,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                     for f in files:
                         if await putative(f) and not needed(job_, f):
                             yield f
-                for f, f_ in zip(job.output, job.rule.output):
+                for f in job.output:
                     if (
                         await putative(f)
                         and not needed(job, f)
-                        and not f in self.targetfiles
+                        and f not in self.targetfiles
                     ):
                         yield f
                 for f in job.input:
@@ -1109,7 +1148,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             logger.debug(
                 None, extra=dict(event=LogEvent.DEBUG_DAG, status="candidate", job=job)
             )
-            if file in job.input:
+            if file in job.input and not any(
+                is_flagged(f, "before_update") for f in job.input if f == file
+            ):
                 cycles.append(job)
                 continue
             if job in visited:
@@ -1450,15 +1491,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                             # for determining any other changes than file modification dates, as it will
                             # change after evaluating the input function of the job in the second pass.
 
-                            # The list comprehension is needed below in order to
-                            # collect all the async generator items before
-                            # applying any().
-                            reason.code_changed = any(
-                                [
-                                    f
-                                    async for f in job.outputs_older_than_script_or_notebook()
-                                ]
-                            )
+                            if RerunTrigger.CODE in self.workflow.rerun_triggers:
+                                # Always check script/notebook mtime unless CODE trigger is disabled.
+                                # Short-circuit on first older output to avoid building a list.
+                                reason.code_changed = False
+                                async for (
+                                    _
+                                ) in job.outputs_older_than_script_or_notebook():
+                                    reason.code_changed = True
+                                    break
                             if not self.workflow.persistence.has_metadata(job):
                                 reason.no_metadata = True
                             elif self.workflow.persistence.has_outdated_metadata(job):
@@ -1899,17 +1940,42 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
 
         self.update_ready()
 
-        await self.check_needrun_jobs()
+        await self.check_jobs()
 
         if check_initial:
-            assert not (not self.ready_jobs and any(self.needrun_jobs())), (
+            assert self.has_unfinished_queue_input_jobs() or (
+                not any(self.needrun_jobs()) or any(self.ready_jobs)
+            ), (
                 "bug: DAG contains jobs that have to be executed but no such job is "
                 "ready for execution."
             )
 
-    async def check_needrun_jobs(self):
-        for job in filterfalse(self._checked_jobs.__contains__, self.needrun_jobs()):
+    async def check_jobs(self):
+        # first we check all **needrun** jobs whether its output can be made
+        for job in filterfalse(
+            self._checked_needrun_jobs.__contains__, self.needrun_jobs()
+        ):
             await job.check_protected_output()
+            self._checked_needrun_jobs.add(job)
+
+        # now we check **all* jobs for validity
+        for job in filterfalse(self._checked_jobs.__contains__, self.jobs):
+            job.is_valid()
+
+            # here we check if no two rules make the same output
+            # this can happen in edge cases where the output of jobs
+            # are not part of the targetfiles
+            for output_file in job.output:
+                if output_file in self._seen_outputs:
+                    other_job = self._seen_outputs[output_file]
+                    if other_job.jobid == job.jobid:
+                        continue
+
+                    if not self.workflow.execution_settings.ignore_ambiguity:
+                        raise AmbiguousRuleException(output_file, other_job, job)
+                else:
+                    self._seen_outputs[output_file] = job
+
             self._checked_jobs.add(job)
 
     def handle_pipes_and_services(self):
@@ -2162,22 +2228,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             i += 1
 
         if updated:
+            self.set_until_jobs()
+            self.delete_omitfrom_jobs()
             await self.postprocess_after_update()
 
         return updated
 
     async def postprocess_after_update(self):
         await self.postprocess()
-        shared_input_output = (
-            SharedFSUsage.INPUT_OUTPUT in self.workflow.storage_settings.shared_fs_usage
-        )
-        if not self.workflow.dryrun and (
-            (self.workflow.is_main_process and shared_input_output)
-            or self.workflow.remote_exec
-        ):
-            await self.retrieve_storage_inputs()
+        self._derived_targetfiles = None
 
-    def register_running(self, jobs):
+    def register_running(self, jobs: AnySet[AbstractJob]):
         self._running.update(jobs)
         self._ready_jobs -= jobs
         for job in jobs:
@@ -2248,13 +2309,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        if not self.checkpoint_jobs:
+        if self.checkpoint_jobs:
             # While there are still checkpoint jobs, we cannot safely delete
             # temp files.
             # TODO: we maybe could be more accurate and determine whether there is a
             # checkpoint that depends on the temp file.
-            for job in jobs:
+            self._deferred_temp_jobs.extend(jobs)
+        else:
+            for job in chain(jobs, self._deferred_temp_jobs):
                 await self.handle_temp(job)
+            self._deferred_temp_jobs.clear()
 
         return potential_new_ready_jobs
 
@@ -2370,12 +2434,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
         before_update_jobs = dict()
         update_jobs = dict()
         for job in self.needrun_jobs():
-            for f in job.input:
-                if is_flagged(f, "before_update"):
-                    before_update_jobs[f] = job
             for f in job.output:
                 if is_flagged(f, "update"):
                     update_jobs[f] = job
+            for f in job.input:
+                if is_flagged(f, "before_update") and job is not update_jobs.get(f):
+                    before_update_jobs[f] = job
 
         for f, job in before_update_jobs.items():
             update_job = update_jobs.get(f)
@@ -2675,14 +2739,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for dep in deps
         ]
         return (
-            textwrap.dedent(
-                """\
+            textwrap.dedent("""\
             ---
             title: DAG
             ---
             flowchart TB
-            """
-            )
+            """)
             + "{}\n{}\n{}".format(
                 "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
             )
@@ -2727,8 +2789,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for dep in deps
         ]
 
-        return textwrap.dedent(
-            """\
+        return textwrap.dedent("""\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -2736,8 +2797,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """
-        ).format(items="\n".join(nodes + edges))
+            """).format(items="\n".join(nodes + edges))
 
     def filegraph_dot(
         self,
@@ -2866,8 +2926,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             for dep in deps
         ]
 
-        return textwrap.dedent(
-            """\
+        return textwrap.dedent("""\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -2875,8 +2934,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """
-        ).format(items="\n".join(nodes + edges))
+            """).format(items="\n".join(nodes + edges))
 
     async def summary(self, detailed=False):
         def fmt_output(f):
@@ -3020,10 +3078,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             raise e
 
     def is_external_input(self, file, job, not_needrun_is_external=False):
-        """Return True if the given file is an external input for the given job."""
-        consider = lambda job: True
+        """Return True if the given file is an external input for the given job.
+
+        If not_needrun_is_external=True, then the file is considered external
+        if the creating job is not 'needrun'. Otherwise, the file may not be
+        created by any other job to be considered external.
+        """
+        consider = func_true
         if not_needrun_is_external:
-            consider = lambda job: self.needrun(job)
+            consider = self.needrun
         return not any(
             file in files
             for dep, files in self._dependencies[job].items()
@@ -3121,7 +3184,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
                 msg += f"\n    {reason}:\n        {rules}"
             logger.info(msg)
 
-    def stats(self) -> tuple[str, dict[str, int]]:
+    def stats(self) -> Tuple[str, Dict[str, int]]:
         from tabulate import tabulate
 
         # Count the jobs
@@ -3237,7 +3300,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface):
             if not isinstance(f, SourceFile) and is_local_file(f):
                 return f
             if isinstance(f, LocalSourceFile):
-                return f.get_path_or_uri()
+                return f.get_path_or_uri(secret_free=True)
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):

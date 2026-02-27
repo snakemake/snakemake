@@ -16,9 +16,11 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Union
 from collections.abc import AsyncGenerator
 from abc import abstractmethod
+from snakemake import wrapper
+from snakemake.rules import Rule
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
@@ -28,26 +30,32 @@ from snakemake_interface_executor_plugins.jobs import (
     GroupJobExecutorInterface,
     SingleJobExecutorInterface,
 )
+from snakemake_interface_scheduler_plugins.interfaces.jobs import (
+    JobSchedulerInterface,
+    SingleJobSchedulerInterface,
+    GroupJobSchedulerInterface,
+)
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_logger_plugins.common import LogEvent
 
 from snakemake.io import (
     _IOFile,
     IOFile,
+    ResourceList,
     is_callable,
     Wildcards,
-    Resources,
     is_flagged,
     get_flag_value,
     wait_for_files,
 )
 from snakemake.settings.types import SharedFSUsage
-from snakemake.resources import GroupResources
+from snakemake.resources import GroupResources, Resources
 from snakemake.target_jobs import TargetSpec
 from snakemake.sourcecache import LocalSourceFile, SourceFile, infer_source_file
 from snakemake.utils import format
 from snakemake.exceptions import (
     InputOpenException,
+    ResourceInsufficiencyError,
     RuleException,
     ProtectedOutputException,
     WorkflowError,
@@ -64,8 +72,8 @@ from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
 
 
-def format_files(io, is_input: bool):
-    return [fmt_iofile(f, as_input=is_input, as_output=not is_input) for f in io]
+def format_files(io, as_input: bool = False, as_output: bool = False):
+    return [fmt_iofile(f, as_input=as_input, as_output=as_output) for f in io]
 
 
 def jobfiles(jobs, type):
@@ -77,7 +85,7 @@ def get_script_mtime(path: str) -> float:
     return os.lstat(path).st_mtime
 
 
-class AbstractJob(JobExecutorInterface):
+class AbstractJob(JobExecutorInterface, JobSchedulerInterface):
     @abstractmethod
     def reset_params_and_resources(self): ...
 
@@ -92,25 +100,23 @@ class AbstractJob(JobExecutorInterface):
             return True
         return False
 
-    def _get_scheduler_resources(self):
+    def _get_scheduler_resources(self) -> Dict[str, Union[int, str]]:
         if self._scheduler_resources is None:
             if self.dag.workflow.local_exec or self.is_local:
                 res_dict = {
                     k: v
                     for k, v in self.resources.items()
-                    if not isinstance(self.resources[k], TBDString)
+                    if not isinstance(v, TBDString)
                 }
             else:
                 res_dict = {
-                    k: self.resources[k]
-                    for k in (
-                        set(self.resources.keys())
-                        - self.dag.workflow.resource_scopes.locals
-                    )
-                    if not isinstance(self.resources[k], TBDString)
+                    k: v
+                    for k, v in self.resources.items()
+                    if not self.dag.workflow.resource_scopes.is_local(k)
+                    and not isinstance(v, TBDString)
                 }
             res_dict["_job_count"] = 1
-            self._scheduler_resources = Resources(fromdict=res_dict)
+            self._scheduler_resources = res_dict
         return self._scheduler_resources
 
 
@@ -175,7 +181,12 @@ class JobFactory:
         return obj
 
 
-class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
+class Job(
+    AbstractJob,
+    SingleJobExecutorInterface,
+    SingleJobSchedulerInterface,
+    JobReportInterface,
+):
     obj_cache = dict()
 
     __slots__ = [
@@ -195,7 +206,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         "_conda_env",
         "_container_img_url",
         "_shadow_dir",
-        "_inputsize",
         "temp_output",
         "protected_output",
         "touch_output",
@@ -219,7 +229,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         targetfile=None,
         groupid=None,
     ):
-        self.rule = rule
+        self.rule: Rule = rule
         self.dag = dag
 
         # the targetfile that led to the job
@@ -259,7 +269,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self.pipe_group = None
 
         self.shadow_dir = None
-        self._inputsize = None
         self._is_updated = False
         self._params_and_resources_resetted = False
         self._non_derived_params = None
@@ -271,7 +280,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
         self.pipe_or_service_output = set()
-        self._queue_input = defaultdict(list)
+        self._queue_input = set()
         for f in self.output:
             f_ = output_mapping[f]
             if f_ in self.rule.temp_output:
@@ -282,18 +291,23 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 self.touch_output.add(f)
             if is_flagged(f_, "pipe") or is_flagged(f_, "service"):
                 self.pipe_or_service_output.add(f)
-        for f in self.input:
-            f_ = input_mapping[f]
-            queue_info = get_flag_value(f_, "from_queue")
+        for f in self.rule.input:
+            queue_info = get_flag_value(f, "from_queue")
             if queue_info:
-                self._queue_input[queue_info].append(f)
+                self._queue_input.add(queue_info)
 
-    def add_aux_resource(self, name, value):
+    def add_aux_resource(self, name: str, value: Union[str, int]) -> None:
         if name in self._aux_resources:
             raise ValueError(
                 f"Resource {name} already exists in aux_resources of job {self}."
             )
+        if name in self.resources.keys():
+            return  # do not add aux_resources that are already in resources
         self._aux_resources[name] = value
+        self._resources = None  # reset resources to include aux_resources
+        self._scheduler_resources = (
+            None  # reset scheduler resources to include aux_resources
+        )
 
     @property
     def is_updated(self):
@@ -394,7 +408,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         path: SourceFile = self._path_to_source_file(path)
 
         if isinstance(path, LocalSourceFile):
-            path = path.get_path_or_uri()
+            path = path.get_path_or_uri(secret_free=True)
             if os.path.exists(path):
                 script_mtime = get_script_mtime(path)
                 for f in self.output:
@@ -463,26 +477,14 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         self._resources = None
         self._attempt = attempt
 
-    def _get_resources_to_skip(self):
-        """Return a set of resource names that are callable and depend on input files."""
-        return {
-            name
-            for name, val in self.rule.resources.items()
-            if is_callable(val) and "input" in get_function_params(val)
-        }
-
     @property
-    def resources(self):
+    def resources(self) -> ResourceList:
         if self._resources is None:
             if self.dag.workflow.local_exec or self.is_local:
                 skip_evaluation = set()
             else:
                 # tmpdir should be evaluated in the context of the actual execution
                 skip_evaluation = {"tmpdir"}
-            if not self._params_and_resources_resetted:
-                # initial evaluation, input files of job are probably not yet present.
-                # Therefore skip all functions that depend on input files.
-                skip_evaluation.update(self._get_resources_to_skip())
             self._resources = self.rule.expand_resources(
                 self.wildcards_dict,
                 self.input,
@@ -496,7 +498,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         return self._resources
 
     @property
-    def scheduler_resources(self):
+    def scheduler_resources(self) -> Dict[str, Union[int, str]]:
         return self._get_scheduler_resources()
 
     def reset_params_and_resources(self):
@@ -583,15 +585,6 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
         return base64.b64encode(
             (self.rule.name + "".join(self.output)).encode("utf-8")
         ).decode("utf-8")
-
-    async def inputsize(self):
-        """
-        Return the size of the input files.
-        Input files need to be present.
-        """
-        if self._inputsize is None:
-            self._inputsize = sum([await f.size() for f in self.input])
-        return self._inputsize
 
     @property
     def message(self):
@@ -831,7 +824,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             if self.resources.get("tmpdir"):
                 os.makedirs(self.resources.tmpdir, exist_ok=True)
 
-            for f, f_ in zip(self.output, self.rule.output):
+            for f in self.output:
+                if is_flagged(f, "update") and await f.exists():
+                    self.rule.workflow.persistence.backup_output(Path(f))
                 f.prepare()
 
             for f in self.log:
@@ -942,9 +937,11 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 return path in dep.pipe_or_service_output
         return False
 
-    async def cleanup(self):
+    async def cleanup(self, skip_outputs: Sequence[_IOFile]):
         """Cleanup output files."""
-        to_remove = [f for f in self.output if await f.exists()]
+        to_remove = [
+            f for f in self.output if await f.exists() and f not in skip_outputs
+        ]
         to_remove.extend(
             [
                 f
@@ -1067,9 +1064,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                     not self.dag.workflow.dryrun
                     and self.dag.workflow.is_local(self.rule)
                 ),
-                input=format_files(self.input, is_input=True),
-                output=format_files(self.output, is_input=False),
-                log=format_files(self.log, is_input=False),
+                input=format_files(self.input, as_input=True),
+                output=format_files(self.output, as_output=True),
+                log=format_files(self.log, as_output=True),
                 benchmark=benchmark,
                 wildcards=self.wildcards_dict,
                 reason=str(self.dag.reason(self)),
@@ -1118,9 +1115,9 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             rule_name=self.rule.name,
             rule_msg=msg,
             jobid=self.dag.jobid(self),
-            input=format_files(self.input, is_input=True),
-            output=format_files(self.output, is_input=False),
-            log=format_files(self.log, is_input=False) + aux_logs,
+            input=format_files(self.input, as_input=True),
+            output=format_files(self.output, as_output=True),
+            log=format_files(self.log, as_output=True) + aux_logs,
             conda_env=conda_env_adress,
             container_img=self.container_img,
             aux=kwargs,
@@ -1140,12 +1137,15 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
     def register(self, external_jobid: Optional[str] = None):
         self.dag.workflow.persistence.started(self, external_jobid)
 
-    def get_wait_for_files(self):
+    def get_wait_for_files(self, skip_input_files: bool = False):
         wait_for_files = []
-        wait_for_files.extend(self.local_input)
-        wait_for_files.extend(
-            f for f in self.storage_input if not f.should_not_be_retrieved_from_storage
-        )
+        if not skip_input_files:
+            wait_for_files.extend(self.local_input)
+            wait_for_files.extend(
+                f
+                for f in self.storage_input
+                if not f.should_not_be_retrieved_from_storage
+            )
 
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
@@ -1159,6 +1159,25 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             # Managed or containerized envs are not present on the host FS,
             # hence we don't need to wait for them.
             wait_for_files.append(self.conda_env.address)
+
+        if self.is_wrapper:
+            script = wrapper.get_script(
+                self.rule.wrapper,
+                self.dag.workflow.sourcecache,
+                self.dag.workflow.workflow_settings.wrapper_prefix,
+            )
+            if script is not None:
+                wait_for_files.append(
+                    IOFile(self.dag.workflow.sourcecache.get_path(script))
+                )
+            env = wrapper.get_conda_env(
+                self.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
+            )
+            if env is not None:
+                wait_for_files.append(
+                    IOFile(self.dag.workflow.sourcecache.get_path(env))
+                )
+
         return wait_for_files
 
     @property
@@ -1186,6 +1205,8 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             self.dag.workflow.persistence.cleanup(self)
             return
 
+        skip_cleanup_outputs = set()
+
         shared_input_output = (
             SharedFSUsage.INPUT_OUTPUT
             in self.dag.workflow.storage_settings.shared_fs_usage
@@ -1201,6 +1222,19 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 or (self.dag.workflow.remote_exec and not shared_input_output)
                 or self.is_local
             ):
+                for f in self.output:
+                    if is_flagged(f, "update"):
+                        if error:
+                            if self.dag.workflow.persistence.restore_output(Path(f)):
+                                logger.warning(
+                                    f"Restored previous version of {fmt_iofile(f)} "
+                                    "(updating job failed)."
+                                )
+                                # The output was successfully restored from the backup.
+                                # Thus, we should not clean it up, it is not corrupted.
+                                skip_cleanup_outputs.add(f)
+                        else:
+                            self.dag.workflow.persistence.cleanup_backup(Path(f))
                 if not error and handle_touch:
                     self.dag.handle_touch(self)
                 if handle_log:
@@ -1240,7 +1274,12 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
                 )
                 if not error:
                     self.dag.handle_protected(self)
-            elif not shared_input_output and not wait_for_local and not error:
+            elif (
+                not shared_input_output
+                and not wait_for_local
+                and not error
+                and not ignore_missing_output
+            ):
                 expanded_output = list(self.output)
                 if self.benchmark:
                     expanded_output.append(self.benchmark)
@@ -1266,7 +1305,7 @@ class Job(AbstractJob, SingleJobExecutorInterface, JobReportInterface):
             )
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
-            await self.cleanup()
+            await self.cleanup(skip_cleanup_outputs)
 
     @property
     def name(self):
@@ -1315,7 +1354,7 @@ class GroupJobFactory:
         return obj
 
 
-class GroupJob(AbstractJob, GroupJobExecutorInterface):
+class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterface):
     obj_cache = dict()
 
     __slots__ = [
@@ -1325,14 +1364,13 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         "_input",
         "_output",
         "_log",
-        "_inputsize",
         "_all_products",
         "_attempt",
         "_toposorted",
         "_jobid",
     ]
 
-    def __init__(self, id, jobs, global_resources):
+    def __init__(self, id, jobs, global_resources: Resources):
         self.groupid = id
         self._jobs = jobs
         self.global_resources = global_resources
@@ -1342,21 +1380,20 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         self._input = None
         self._output = None
         self._log = None
-        self._inputsize = None
         self._all_products = None
         self._attempt = self.dag.workflow.execution_settings.attempt
         self._jobid = None
 
     @property
-    def groupid(self):
+    def groupid(self) -> str:
         return self._groupid
 
     @groupid.setter
-    def groupid(self, new_groupid):
+    def groupid(self, new_groupid: str):
         self._groupid = new_groupid
 
     @property
-    def jobs(self):
+    def jobs(self) -> Iterable[Job]:
         return self._jobs
 
     @jobs.setter
@@ -1368,7 +1405,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         return any(job.is_containerized for job in self.jobs)
 
     @property
-    def toposorted(self):
+    def toposorted(self) -> Sequence[Sequence[Job]]:
+        assert self._toposorted is not None
         return self._toposorted
 
     @toposorted.setter
@@ -1392,13 +1430,17 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         self.jobs = self.jobs | other.jobs
 
     def finalize(self):
-        if self.toposorted is None:
-            self.toposorted = [
+        if not self.is_toposorted:
+            self._toposorted = [
                 *self.dag.toposorted(self.jobs, inherit_pipe_dependencies=True)
             ]
 
+    @property
+    def is_toposorted(self) -> bool:
+        return self._toposorted is not None
+
     def __iter__(self):
-        if self.toposorted is None:
+        if not self.is_toposorted:
             yield from self.jobs
             return
 
@@ -1489,15 +1531,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         )
 
         for job in self.jobs:
-            if job.shadow_dir:
-                wait_for_files.append(job.shadow_dir)
-            if (
-                DeploymentMethod.CONDA
-                in self.dag.workflow.deployment_settings.deployment_method
-                and job.conda_env
-                and not job.conda_env.is_externally_managed
-            ):
-                wait_for_files.append(job.conda_env.address)
+            wait_for_files.extend(job.get_wait_for_files(skip_input_files=True))
         return wait_for_files
 
     @property
@@ -1511,14 +1545,14 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                     additive_resources=["runtime"],
                     sortby=["runtime"],
                 )
-            except WorkflowError as err:
+            except (WorkflowError, ResourceInsufficiencyError) as err:
                 raise WorkflowError(
                     f"Error grouping resources in group '{self.groupid}': {err.args[0]}"
-                )
-        return Resources(fromdict=self._resources)
+                ) from err
+        return ResourceList(fromdict=self._resources)
 
     @property
-    def scheduler_resources(self):
+    def scheduler_resources(self) -> Dict[str, Union[int, str]]:
         return self._get_scheduler_resources()
 
     @property
@@ -1584,10 +1618,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             last_job = sorted(self.toposorted[-1])[-1]
             self._jobid = last_job.uuid()
         return self._jobid
-
-    async def cleanup(self):
-        for job in self.jobs:
-            await job.cleanup()
 
     async def postprocess(self, error=False, **kwargs):
         def needed(job_, f):
@@ -1657,15 +1687,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         if len(rules) > 5:
             rules = rules[:5] + ["..."]
         return f"{self.groupid}_{'_'.join(rules)}"
-
-    def check_protected_output(self):
-        for job in self.jobs:
-            job.check_protected_output()
-
-    async def inputsize(self):
-        if self._inputsize is None:
-            self._inputsize = sum([await f.size() for f in self.input])
-        return self._inputsize
 
     @property
     def priority(self):
@@ -1883,8 +1904,8 @@ class Reason:
             yield "software environment definition has changed since last execution"
 
     def __str__(self):
-        def concat_files(files, is_input: bool):
-            return ", ".join(format_files(files, is_input=is_input))
+        def concat_files(files):
+            return ", ".join(format_files(files))
 
         s = list()
         if self.forced:
@@ -1902,20 +1923,18 @@ class Reason:
             else:
                 if self._missing_output:
                     s.append(
-                        f"Missing output files: {concat_files(self.missing_output, is_input=False)}"
+                        f"Missing output files: {concat_files(self.missing_output)}"
                     )
                 if self._incomplete_output:
                     s.append(
-                        f"Incomplete output files: {concat_files(self.incomplete_output, is_input=False)}"
+                        f"Incomplete output files: {concat_files(self.incomplete_output)}"
                     )
                 if self._updated_input:
                     updated_input = self.updated_input - self.updated_input_run
-                    s.append(
-                        f"Updated input files: {concat_files(updated_input, is_input=True)}"
-                    )
+                    s.append(f"Updated input files: {concat_files(updated_input)}")
                 if self._updated_input_run:
                     s.append(
-                        f"Input files updated by another job: {concat_files(self.updated_input_run, is_input=True)}"
+                        f"Input files updated by another job: {concat_files(self.updated_input_run)}"
                     )
                 if self.pipe:
                     s.append(

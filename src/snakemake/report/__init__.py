@@ -12,13 +12,14 @@ import base64
 import textwrap
 import datetime
 import io
-from typing import List, Optional
+from typing import Any, Dict, List, Mapping, Optional, Type, Union
 import uuid
 import itertools
 from collections import defaultdict
 import hashlib
 from pathlib import Path
 import numbers
+from yte import process_yaml
 
 
 from docutils.parsers.rst.directives.images import Image, Figure
@@ -26,6 +27,7 @@ from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 from humanfriendly import format_size
 
+import snakemake
 from snakemake import script, wrapper, notebook
 from snakemake.io.fmt import fmt_iofile
 from snakemake.jobs import Job
@@ -43,13 +45,14 @@ from snakemake.io import (
     contains_wildcard,
 )
 from snakemake.exceptions import InputFunctionException, WorkflowError
-from snakemake.script import Snakemake
+from snakemake.script import Snakemake, FILE_HASH_PREFIX_LEN
 from snakemake.common import (
     get_input_function_aux_params,
 )
 from snakemake import logging
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake.settings.types import GlobalReportSettings
 from snakemake_interface_report_plugins.interfaces import (
     CategoryInterface,
     RuleRecordInterface,
@@ -111,24 +114,20 @@ def report(
     outmime, _ = mimetypes.guess_type(path)
     if outmime != "text/html":
         raise ValueError("Path to report output has to be an HTML file.")
-    definitions = textwrap.dedent(
-        """[]
+    definitions = textwrap.dedent("""[]
     .. role:: raw-html(raw)
        :format: html
 
-    """
-    )
+    """)
 
-    metadata = textwrap.dedent(
-        """
+    metadata = textwrap.dedent("""
 
     .. container::
        :name: metadata
 
        {metadata}{date}
 
-    """
-    ).format(
+    """).format(
         metadata=metadata + " | " if metadata else "",
         date=datetime.date.today().isoformat(),
     )
@@ -137,15 +136,11 @@ def report(
 
     attachments = []
     if files:
-        attachments = [
-            textwrap.dedent(
-                """
+        attachments = [textwrap.dedent("""
             .. container::
                :name: attachments
 
-            """
-            )
-        ]
+            """)]
         for name, _files in sorted(files.items()):
             if not isinstance(_files, list):
                 _files = [_files]
@@ -158,17 +153,13 @@ def report(
                     )
                 )
             links = "\n\n              ".join(links)
-            attachments.append(
-                """
+            attachments.append("""
        .. container::
           :name: {name}
 
           {name}:
               {links}
-                """.format(
-                    name=name, links=links
-                )
-            )
+                """.format(name=name, links=links))
 
     text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
 
@@ -427,7 +418,7 @@ class FileRecord(FileRecordInterface):
             except Exception as e:
                 raise WorkflowError(
                     "Error loading caption file {} of output marked for report.".format(
-                        self.raw_caption.get_path_or_uri()
+                        self.raw_caption.get_path_or_uri(secret_free=True)
                     ),
                     e,
                 )
@@ -450,6 +441,26 @@ class FileRecord(FileRecordInterface):
     @property
     def workflow(self):
         return self.job.rule.workflow
+
+
+def shorten_ids(results: Mapping[Category, Mapping[Category, List[FileRecord]]]):
+    file_records = [
+        res
+        for cat, subcats in results.items()
+        for subcat, catresults in subcats.items()
+        for res in catresults
+    ]
+    full_ids = [rec.id for rec in file_records]
+    shortened_ids = [rec.id[:FILE_HASH_PREFIX_LEN] for rec in file_records]
+    # We only need to check for collisions that appear because of the shortening
+    if len(set(shortened_ids)) != len(set(full_ids)):
+        raise WorkflowError(
+            "Collision detected when shortening report file hashes to 16 characters. "
+            "Please open an issue at https://github.com/snakemake/snakemake/issues/new to request a greater hash length."
+        )
+
+    for rec, short_id in zip(file_records, shortened_ids):
+        rec.id = short_id
 
 
 async def expand_labels(labels, wildcards, job):
@@ -483,6 +494,7 @@ async def auto_report(
     dag,
     report_plugin: ReportPlugin,
     report_settings: ReportSettingsBase,
+    global_report_settings: GlobalReportSettings,
 ):
     try:
         from jinja2 import Environment, PackageLoader, UndefinedError
@@ -653,6 +665,7 @@ async def auto_report(
                             "See report documentation.",
                             rule=job.rule,
                         )
+    shorten_ids(results)
 
     for subcats in results.values():
         for catresults in subcats.values():
@@ -691,8 +704,7 @@ async def auto_report(
         if res.target not in seen
     ]
 
-    rst_links = textwrap.dedent(
-        """
+    rst_links = textwrap.dedent("""
 
     .. _Workflow: javascript:show_panel('workflow')
     .. _Statistics: javascript:show_panel('statistics')
@@ -702,8 +714,7 @@ async def auto_report(
     {% for res in files %}
     .. _{{ res.target }}: javascript:app.showResultInfo('{{ res.path|urlencode }}')
     {% endfor %}
-    """
-    )
+    """)
     for cat, subcats in results.items():
         for subcat, catresults in subcats.items():
             for res in catresults:
@@ -725,24 +736,81 @@ async def auto_report(
                         snakemake=Snakemake, categories=results, files=files
                     ),
                     writer_name="html",
-                )["body"]
+                )[
+                    "html_body"
+                ]  # html_body is required to extract also the title, if given
             except UndefinedError as e:
                 raise WorkflowError(
                     "Error rendering global report caption {}:".format(
-                        dag.workflow.report_text.get_path_or_uri()
+                        dag.workflow.report_text.get_path_or_uri(secret_free=True)
                     ),
                     e,
                 )
+
+    metadata = {}
+    if global_report_settings.metadata_template:
+        # parse metadata from yte template
+        with open(global_report_settings.metadata_template, "r") as template:
+            metadata = process_yaml(template)
+
+            # ensure that metadata is a key value dictionary
+            # allowed values: str, int, float, list[str|int|float]
+            if not _validate_flat_dict(metadata):
+                raise WorkflowError(
+                    (
+                        "Metadata must be single level "
+                        "dict[str, str | int | float | "
+                        "list[str] | list[int] | list[float]]]"
+                    )
+                )
+            render_metadata(metadata)
 
     reporter = report_plugin.reporter(
         rules,
         results,
         configfiles,
-        sorted(records.values(), key=lambda rec: rec.rule),
+        sorted(records.values(), key=lambda rec: rec.rule),  # this contains the jobs
         report_settings,
         workflow_description,
         dag=dag,
+        metadata=metadata,
     )
 
     reporter.render()
     logger.info("Report created.")
+
+
+def _is_valid_flat_value(value) -> bool:
+    if isinstance(value, (str, int, float)):
+        return True
+    elif isinstance(value, list):
+        return all(isinstance(item, (str, int, float)) for item in value)
+    else:
+        return False
+
+
+def _validate_flat_dict(metadata: dict) -> bool:
+    if not isinstance(metadata, dict):
+        return False
+    for k, v in metadata.items():
+        if not isinstance(k, str):
+            return False
+        if not _is_valid_flat_value(v):
+            return False
+    return True
+
+
+def render_metadata(
+    metadata: Dict[str, Union[str, int, float, List[str], List[int], List[float]]],
+) -> None:
+    """Render string values in metadata with restructured text"""
+
+    # we modify the dict while iterating over it, so we need to copy the keys
+    for key in list(metadata):
+        value = metadata[key]
+        if isinstance(value, str):
+            metadata[key] = publish_parts(value)
+        elif isinstance(value, list):
+            for i in range(len(value)):
+                if isinstance(value[i], str):
+                    value[i] = publish_parts(value[i])

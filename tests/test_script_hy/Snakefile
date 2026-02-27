@@ -1,0 +1,14 @@
+rule all:
+  input:
+    "test.out"
+
+
+rule test_hy:
+  input:
+    "test.in"
+  output:
+    "test.out"
+  conda:
+    "envs/hy.yaml"
+  script:
+    "scripts/test.hy"
