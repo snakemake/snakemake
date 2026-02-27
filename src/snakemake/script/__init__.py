@@ -113,7 +113,7 @@ class Snakemake:
         params: io_.Params,
         wildcards: io_.Wildcards,
         threads: int,
-        resources: io_.Resources,
+        resources: io_.ResourceList,
         log: io_.Log,
         config: typing.Dict[str, typing.Any],
         rulename: str,
