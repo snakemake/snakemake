@@ -7,7 +7,6 @@ from snakemake.logging import logger
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
 from snakemake.io import is_callable, contains_wildcard
 
-
 CONDA_ENV_PATH = "/conda-envs"
 
 
@@ -38,8 +37,7 @@ def containerize(workflow, dag):
                 f"Found in rule {rule.name}."
             )
 
-        env_def = infer_source_file(rule.conda_env, rule.basedir)
-        spec_type = CondaEnvSpecType.from_spec(env_def)
+        spec_type = CondaEnvSpecType.from_spec(rule.conda_env)
         if spec_type is not CondaEnvSpecType.FILE:
             raise WorkflowError(
                 "Only file-based conda environments are supported for containerization for rules that are not part "
@@ -47,7 +45,8 @@ def containerize(workflow, dag):
                 f"Rule {rule.name} uses a conda environment by name or directory."
             )
 
-        spec = CondaEnvFileSpec(env_def, rule=rule)
+        env_def = infer_source_file(rule.conda_env, rule.basedir)
+        spec = CondaEnvFileSpec(env_def)
         conda_env = spec.get_conda_env(workflow, envs_dir=CONDA_ENV_PATH)
         if conda_env.is_externally_managed:
             logger.warning(
