@@ -40,7 +40,6 @@ from snakemake.deployment import singularity, containerize
 from snakemake.io import apply_wildcards, contains_wildcard
 from snakemake_interface_common.utils import lazy_property
 
-
 MIN_CONDA_VER = "24.7.1"
 
 

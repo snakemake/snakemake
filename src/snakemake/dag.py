@@ -15,7 +15,7 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Iterable, List, Mapping, Optional, Set, Union, Dict
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union, Dict
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
@@ -2737,14 +2737,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
         return (
-            textwrap.dedent(
-                """\
+            textwrap.dedent("""\
             ---
             title: DAG
             ---
             flowchart TB
-            """
-            )
+            """)
             + "{}\n{}\n{}".format(
                 "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
             )
@@ -2789,8 +2787,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
 
-        return textwrap.dedent(
-            """\
+        return textwrap.dedent("""\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -2798,8 +2795,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """
-        ).format(items="\n".join(nodes + edges))
+            """).format(items="\n".join(nodes + edges))
 
     def filegraph_dot(
         self,
@@ -2928,8 +2924,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
 
-        return textwrap.dedent(
-            """\
+        return textwrap.dedent("""\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -2937,8 +2932,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """
-        ).format(items="\n".join(nodes + edges))
+            """).format(items="\n".join(nodes + edges))
 
     async def summary(self, detailed=False):
         def fmt_output(f):
@@ -3188,7 +3182,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 msg += f"\n    {reason}:\n        {rules}"
             logger.info(msg)
 
-    def stats(self) -> tuple[str, dict[str, int]]:
+    def stats(self) -> Tuple[str, Dict[str, int]]:
         from tabulate import tabulate
 
         # Count the jobs

@@ -24,7 +24,6 @@ from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
 )
 
-
 xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
 )
@@ -93,6 +92,7 @@ def test_conda_create_envs_only():
         cleanup=False,
         cleanup_scripts=False,
     )
+    assert tmpdir is not None
     env_dir = next(
         (p for p in Path(tmpdir, ".snakemake", "conda").iterdir() if p.is_dir()), None
     )
@@ -124,6 +124,7 @@ def test_deploy_hashing():
         deployment_method={DeploymentMethod.CONDA},
         cleanup=False,
     )
+    assert tmpdir is not None
     assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
 
 

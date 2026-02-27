@@ -11,7 +11,6 @@ import pytest
 
 from snakemake_interface_logger_plugins.common import LogEvent
 
-
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import run, dpath, apptainer, connected

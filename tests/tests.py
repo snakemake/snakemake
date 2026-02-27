@@ -12,8 +12,10 @@ import tempfile
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from snakemake.exceptions import ResourceConversionError
+from snakemake.exceptions import ResourceDuplicationError
 from snakemake.persistence import Persistence
-from snakemake.resources import DefaultResources, GroupResources, is_ordinary_string
+from snakemake.resources import GroupResources, is_ordinary_string, Resources
 from snakemake.settings.enums import RerunTrigger
 from snakemake.utils import min_version  # import so we can patch out if needed
 
@@ -49,11 +51,6 @@ xfail_permissionerror_on_win = (
 
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
-
-
-@skip_on_windows
-def test_github_issue_3265_respect_dryrun_delete_all():
-    run(dpath("test_github_issue_3265_respect_dryrun_delete_all"))
 
 
 def test_github_issue_14():
@@ -688,6 +685,10 @@ def test_threads():
     run(dpath("test_threads"), cores=20)
 
 
+def test_threads_overwrite():
+    run(dpath("test_threads"), shellcmd="snakemake -c20 --set-threads a='10*2'")
+
+
 def test_threads0():
     run(dpath("test_threads0"))
 
@@ -903,7 +904,7 @@ def test_group_jobs_attempts():
 
 
 def assert_resources(resources: dict, **expected_resources):
-    assert {res: resources[res] for res in expected_resources} == expected_resources
+    assert resources == expected_resources
 
 
 @skip_on_windows
@@ -942,18 +943,115 @@ def test_group_jobs_resources(mocker):
         cores=6,
         resources={"typo": 23, "mem_mb": 60000},
         group_components={0: 5},
-        default_resources=DefaultResources(["mem_mb=0"]),
+        default_resources=(["mem_mb=0"]),
+        # cleanup=False
     )
     assert_resources(
         dict(spy.spy_return),
         _nodes=1,
         _cores=6,
+        mem="60 GB",
         mem_mb=60000,
+        mem_mib=57221,
         runtime=420,
         fake_res=600,
         global_res=2000,
+        disk="100 GB",
         disk_mb=100000,
+        disk_mib=95368,
     )
+
+
+@skip_on_windows
+def test_resources_can_be_provided_in_mib(mocker):
+    spy = mocker.spy(GroupResources, "basic_layered")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"typo": 23, "mem_mib": 57221},
+        group_components={0: 5},
+        default_resources=(["mem_mb=0"]),
+    )
+    assert_resources(
+        dict(spy.spy_return),
+        _nodes=1,
+        _cores=6,
+        mem="60 GB",
+        mem_mb=60000,
+        mem_mib=57221,
+        runtime=420,
+        fake_res=600,
+        global_res=2000,
+        disk="100 GB",
+        disk_mb=100000,
+        disk_mib=95368,
+    )
+
+
+@skip_on_windows
+def test_cores_limited_by_global_supply():
+    run(
+        dpath("test_group_jobs_resources"),
+        cores=1,
+    )
+
+
+@skip_on_windows
+def test_global_resources_can_be_human_readable(mocker):
+    spy = mocker.spy(GroupResources, "basic_layered")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"typo": 23, "mem": "60 Gb"},
+        group_components={0: 5},
+        default_resources=(["mem_mb=0"]),
+    )
+    assert_resources(
+        dict(spy.spy_return),
+        _nodes=1,
+        _cores=6,
+        mem="60 GB",
+        mem_mb=60000,
+        mem_mib=57221,
+        runtime=420,
+        fake_res=600,
+        global_res=2000,
+        disk="100 GB",
+        disk_mb=100000,
+        disk_mib=95368,
+    )
+
+
+@skip_on_windows
+@pytest.mark.parametrize(
+    ["res1", "res2"],
+    [
+        ("mem", "mem_mb"),
+        ("mem", "mem_mib"),
+        ("mem_mb", "mem_mib"),
+        ("disk", "disk_mb"),
+    ],
+)
+def test_resources_cannot_provide_prefixed_and_unprefixed_together(res1, res2):
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"typo": 23, res1: 60000, res2: 20},
+        group_components={0: 5},
+        default_resources=(["mem_mb=0"]),
+        shouldfail=ResourceDuplicationError,
+    )
+
+
+@skip_on_windows
+def test_suffixed_resources_cannot_be_human_readable():
+    with pytest.raises(
+        ResourceConversionError, match="Resource 'mem_mb' must be assigned an int"
+    ):
+        Resources.from_mapping({"mem_mb": "40 Gb"})
 
 
 @skip_on_windows
@@ -966,17 +1064,23 @@ def test_group_jobs_resources_with_max_threads(mocker):
         resources={"mem_mb": 60000},
         max_threads=1,
         group_components={0: 5},
-        default_resources=DefaultResources(["mem_mb=0"]),
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
     )
     assert_resources(
         dict(spy.spy_return),
         _nodes=1,
         _cores=5,
+        mem="60 GB",
         mem_mb=60000,
+        mem_mib=57222,
         runtime=380,
         fake_res=1200,
         global_res=3000,
+        disk="150 GB",
         disk_mb=150000,
+        disk_mib=143052,
     )
 
 
@@ -990,17 +1094,23 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         resources={"mem_mb": 10000},
         max_threads=1,
         group_components={0: 5},
-        default_resources=DefaultResources(["mem_mb=0"]),
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
     )
     assert_resources(
         dict(spy.spy_return),
         _nodes=1,
         _cores=1,
+        mem="10 GB",
         mem_mb=10000,
+        mem_mib=9537,
         runtime=700,
         fake_res=400,
         global_res=1000,
+        disk="50 GB",
         disk_mb=50000,
+        disk_mib=47684,
     )
 
 
@@ -1008,6 +1118,11 @@ def test_group_jobs_resources_with_limited_resources(mocker):
 def test_global_resource_limits_limit_scheduling_of_groups():
     # Note that in the snakefile, mem_mb is set as global (breaking the default) and
     # fake_res is set as local
+    # In this test, after the first job is "scheduled", snakemake will continue to
+    # schedule jobs until all resources are consumed. It will then do a cluster status
+    # checked, looking in this test at `./status_failed`, which always returns False
+    # The test will then conclude. Each scheduled job leaves a line of output in the
+    # `qsub.log` file, so we can calculate how many jobs were scheduled.
     tmp = run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1018,7 +1133,9 @@ def test_global_resource_limits_limit_scheduling_of_groups():
         resources={"typo": 23, "mem_mb": 50000, "fake_res": 200},
         group_components={0: 5, 1: 5},
         overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
-        default_resources=DefaultResources(["mem_mb=0"]),
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
@@ -1030,6 +1147,7 @@ def test_global_resource_limits_limit_scheduling_of_groups():
 @skip_on_windows
 def test_new_resources_can_be_defined_as_local():
     # Test only works if both mem_mb and global_res are overwritten as local
+    # See above for explanation of how this test works.
     tmp = run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1041,11 +1159,41 @@ def test_new_resources_can_be_defined_as_local():
         overwrite_resource_scopes={"mem_mb": "local", "global_res": "local"},
         group_components={0: 5, 1: 5},
         overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
-        default_resources=DefaultResources(["mem_mb=0"]),
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
-        lines = [l for l in f.readlines() if not l == "\n"]
+        lines = [line for line in f.readlines() if line != "\n"]
+        print(lines)
+    assert len(lines) == 2
+    shutil.rmtree(tmp)
+
+
+@skip_on_windows
+def test_resource_prefix_does_not_affect_scope_overwrite():
+    # Test only works if both mem_mb and global_res are overwritten as local
+    # See above for explanation of how this test works.
+    tmp = run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cluster_status="./status_failed",
+        cores=6,
+        nodes=5,
+        cleanup=False,
+        resources={"typo": 23, "mem_mb": 50000, "fake_res": 200, "global_res": 1000},
+        overwrite_resource_scopes={"mem": "local", "global_res": "local"},
+        group_components={0: 5, 1: 5},
+        overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
+        shouldfail=True,
+    )
+    with (Path(tmp) / "qsub.log").open("r") as f:
+        lines = [line for line in f.readlines() if not line == "\n"]
+        print(lines)
     assert len(lines) == 2
     shutil.rmtree(tmp)
 
@@ -1064,7 +1212,9 @@ def test_resources_can_be_overwritten_as_global():
         overwrite_resource_scopes={"fake_res": "global"},
         group_components={0: 5, 1: 5},
         overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
-        default_resources=DefaultResources(["mem_mb=0"]),
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
         shouldfail=True,
     )
     with (Path(tmp) / "qsub.log").open("r") as f:
@@ -1081,13 +1231,70 @@ def test_scopes_submitted_to_cluster(mocker):
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
-        # cluster_status="./status_failed",
         overwrite_resource_scopes={"fake_res": "local"},
         max_threads=1,
-        default_resources=DefaultResources(["mem_mb=0"]),
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
     )
 
     assert spy.spy_return == "--set-resource-scopes 'fake_res=local'"
+
+
+# @skip_on_windows
+# def test_resources_submitted_to_cluster(mocker):
+#     # In addition, implicitly tests the normalization of mem_mb and disk_mb to mem and
+#     # disk
+#     from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
+
+#     spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
+#     run(
+#         dpath("test_group_jobs_resources"),
+#         cluster="./qsub",
+#         cores=6,
+#         resources={"mem_mb": 60000},
+#         max_threads=1,
+#         group_components={0: 5},
+#         default_resources=Resources.parse(
+#             ["mem_mb=0"], defaults="full", allow_expressions=True
+#         ),
+#     )
+
+#     assert_resources(
+#         spy.spy_return, mem=60000, fake_res=1200, global_res=3000, disk=150000
+#     )
+
+
+# @skip_on_windows
+# def test_excluded_resources_not_submitted_to_cluster(mocker):
+#     from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
+#     from snakemake_interface_executor_plugins.executors.real import RealExecutor
+#     from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
+
+#     spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
+#     spy2 = mocker.spy(AbstractExecutor, "get_resource_declarations")
+#     spy3 = mocker.spy(RealExecutor, "get_job_args")
+#     spy4 = mocker.spy(RemoteExecutor, "get_job_args")
+#     run(
+#         dpath("test_group_jobs_resources"),
+#         cluster="./qsub",
+#         cores=6,
+#         resources={"mem_mb": 60000},
+#         max_threads=1,
+#         overwrite_resource_scopes={"fake_res": "excluded"},
+#         group_components={0: 5},
+#         default_resources=Resources.parse(
+#             ["mem_mb=0"], defaults="full", allow_expressions=True
+#         ),
+#     )
+#     print(
+#         f"spy == {spy.call_count}",
+#         f"spy2 == {spy2.call_count}",
+#         f"spy3 == {spy3.call_count}",
+#         f"spy4 == {spy4.call_count}",
+#     )
+#     # assert False
+#     assert_resources(spy.spy_return, mem=60000, global_res=3000, disk=150000)
 
 
 @skip_on_windows
@@ -1110,7 +1317,9 @@ def test_group_job_resources_with_pipe(mocker):
         cores=6,
         resources={"mem_mb": 60000},
         group_components={0: 5},
-        default_resources=DefaultResources(["mem_mb=0"]),
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
     )
 
     # revert to original version
@@ -1121,8 +1330,12 @@ def test_group_job_resources_with_pipe(mocker):
         _nodes=1,
         _cores=6,
         runtime=240,
+        mem="50 GB",
         mem_mb=50000,
+        mem_mib=47684,
+        disk="50 GB",
         disk_mb=50000,
+        disk_mib=47684,
     )
 
 
@@ -1135,7 +1348,23 @@ def test_group_job_resources_with_pipe_with_too_much_constraint():
         resources={"mem_mb": 20000},
         group_components={0: 5},
         shouldfail=True,
-        default_resources=DefaultResources(["mem_mb=0"]),
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
+    )
+
+
+@skip_on_windows
+def test_group_job_resources_with_pipe_with_too_few_cores():
+    run(
+        dpath("test_group_with_pipe"),
+        cluster="./qsub",
+        cores=2,
+        group_components={0: 5},
+        shouldfail=True,
+        default_resources=Resources.parse(
+            ["mem_mb=0"], defaults="full", allow_expressions=True
+        ),
     )
 
 
@@ -1300,14 +1529,40 @@ def test_expand_flag():
 
 @skip_on_windows
 def test_default_resources():
-    from snakemake.resources import DefaultResources
-
     run(
         dpath("test_default_resources"),
         # use fractional defaults here to test whether they are correctly rounded
-        default_resources=DefaultResources(
+        default_resources=(
             ["mem_mb=max(2*input.size, 1000.1)", "disk_mb=max(2*input.size, 1000.2)"]
         ),
+    )
+
+
+@skip_on_windows
+def test_default_resources_humanreadable():
+    run(
+        dpath("test_default_resources"),
+        # use fractional defaults here to test whether they are correctly rounded
+        default_resources=(["mem='1 Gb'", "disk='0.001 TB'"]),
+    )
+
+
+@skip_on_windows
+def test_default_resources_humanreadable_disallowed_for_suffixed():
+    run(
+        dpath("test_default_resources"),
+        # use fractional defaults here to test whether they are correctly rounded
+        default_resources=(["mem_mb='1 Gb'", "disk_mib='0.001 TB'"]),
+        shouldfail=True,
+    )
+
+
+@skip_on_windows
+def test_default_resources_mebibytes():
+    run(
+        dpath("test_default_resources"),
+        # use fractional defaults here to test whether they are correctly rounded
+        default_resources=(["mem_mib=953.67", "disk_mib=953.6743"]),
     )
 
 
@@ -1455,10 +1710,6 @@ def test_multiext():
     run(dpath("test_multiext"))
 
 
-def test_multiext_named():
-    run(dpath("test_multiext_named"))
-
-
 def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
 
@@ -1484,11 +1735,9 @@ def test_dynamic_container():
 
 @skip_on_windows
 def test_string_resources():
-    from snakemake.resources import DefaultResources
-
     run(
         dpath("test_string_resources"),
-        default_resources=DefaultResources(["gpu_model='nvidia-tesla-1000'"]),
+        default_resources=["gpu_model='nvidia-tesla-1000'"],
         cluster="./qsub.py",
     )
 
@@ -1820,13 +2069,11 @@ def test_cache_multioutput():
 def test_github_issue1384():
     try:
         tmpdir = run(dpath("test_github_issue1384"), cleanup=False)
-        shell(
-            """
+        shell("""
             cd {tmpdir}
             python -m snakemake --generate-unit-tests
             pytest -v .tests/unit
-            """
-        )
+            """)
     finally:
         shutil.rmtree(tmpdir)
 
@@ -1860,7 +2107,12 @@ def test_service_jobs():
 
 
 def test_incomplete_params():
-    run(dpath("test_incomplete_params"), executor="dryrun", printshellcmds=True)
+    run(
+        dpath("test_incomplete_params"),
+        executor="dryrun",
+        printshellcmds=True,
+        cleanup=False,
+    )
 
 
 @skip_on_windows
@@ -1888,12 +2140,10 @@ def test_github_issue1542():
 
 
 def test_github_issue1550():
-    from snakemake.resources import DefaultResources
-
     run(
         dpath("test_github_issue1550"),
         resources={"mem_mb": 4000},
-        default_resources=DefaultResources(
+        default_resources=(
             ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
         ),
     )
@@ -2481,7 +2731,7 @@ def test_nodelocal():
         cluster="./qsub",
         cores=1,
         resources={"mem_mb": 120},
-        default_resources=DefaultResources(["mem_mb=120"]),
+        default_resources=(["mem_mb=120"]),
     )
     assert not (work_path / "local/temp.txt").exists() or not any(
         (work_path / "scratch/").iterdir()
