@@ -2892,6 +2892,10 @@ def test_github_issue3556():
     run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
 
 
+def test_github_issue3687():
+    run(dpath("test_github_issue3687"))
+
+
 @skip_on_windows
 def test_temp_checkpoint():
     tmpdir = run(dpath("test_temp_checkpoint"), cleanup=False)
