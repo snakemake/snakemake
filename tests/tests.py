@@ -40,6 +40,16 @@ from snakemake_interface_executor_plugins.settings import (
 )
 
 
+def test_maturin():
+    """
+    Tests whether the `sum_as_string` function defined in `rust/src/lib.rs`
+    gets called and runs properly.
+    """
+    from snakemake.core import sum_as_string
+
+    assert str(1 + 2) == sum_as_string(1, 2)
+
+
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 

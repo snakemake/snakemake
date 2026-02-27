@@ -18,7 +18,7 @@ def get_packages():
     return Packages(
         {
             "snakemake": Package(
-                version=snakemake.__version__.split("+")[0],
+                version=snakemake.__version__,
                 license_path="snakemake/LICENSE.md",
             ),
             "pygments": Package(
