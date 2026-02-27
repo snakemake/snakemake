@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from functools import partial
 import os
 import shutil
 import sys
@@ -12,6 +13,7 @@ import tempfile
 
 import pytest
 from snakemake.deployment.conda import get_env_setup_done_flag_file
+from snakemake.sourcecache import HostingProviderFile
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -21,7 +23,6 @@ from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
 )
-
 
 xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
@@ -72,6 +73,7 @@ def test_conda_create_envs_only():
         cleanup=False,
         cleanup_scripts=False,
     )
+    assert tmpdir is not None
     env_dir = next(
         (p for p in Path(tmpdir, ".snakemake", "conda").iterdir() if p.is_dir()), None
     )
@@ -103,6 +105,7 @@ def test_deploy_hashing():
         deployment_method={DeploymentMethod.CONDA},
         cleanup=False,
     )
+    assert tmpdir is not None
     assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
 
 
