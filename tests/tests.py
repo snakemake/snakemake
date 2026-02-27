@@ -352,11 +352,15 @@ def test_wildcards_in_metadata():
                     metadata = json.load(f)
                 # Check if this is the job with wildcards (rule 2)
                 if metadata.get("rule") == "2":
-                    assert "wildcards" in metadata, "wildcards key missing from metadata"
-                    assert metadata["wildcards"] is not None, "wildcards should not be None"
-                    assert metadata["wildcards"] == {"name": "test"}, (
-                        f"Expected wildcards {{'name': 'test'}}, got {metadata['wildcards']}"
-                    )
+                    assert (
+                        "wildcards" in metadata
+                    ), "wildcards key missing from metadata"
+                    assert (
+                        metadata["wildcards"] is not None
+                    ), "wildcards should not be None"
+                    assert metadata["wildcards"] == {
+                        "name": "test"
+                    }, f"Expected wildcards {{'name': 'test'}}, got {metadata['wildcards']}"
                     found_wildcards = True
                     break
 
