@@ -1,5 +1,5 @@
 """
-Rule test code for unit testing of rules generated with Snakemake 9.8.2.dev50.
+Rule test code for unit testing of rules generated with Snakemake 9.16.2.
 """
 
 
@@ -17,9 +17,9 @@ def test_b(conda_prefix):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir) / "workdir"
-        config_path = Path(".tests/units/b/config")
-        data_path = Path(".tests/units/b/data")
-        expected_path = Path(".tests/units/b/expected")
+        config_path = Path(".tests/integration/../../.tests/unit/b/config")
+        data_path = Path(".tests/integration/../../.tests/unit/b/data")
+        expected_path = Path(".tests/integration/../../.tests/unit/b/expected")
 
         # Copy config to the temporary workdir.
         shutil.copytree(config_path, workdir)
@@ -38,8 +38,11 @@ def test_b(conda_prefix):
                 "Snakefile",
                 "-f",
                 "--notemp",
+                "--show-failed-logs",
                 "-j1",
                 "--target-files-omit-workdir-adjustment",
+                "--allowed-rules",
+                "b",
                 "--configfile",
                 ".tests/integration/config/config.json",
                 "--directory",
