@@ -30,4 +30,10 @@ tests/test*/*
 playground/*
 tutorial/*
 
-snakemake/assets/data
+src/snakemake/assets/data
+src/snakemake/_version.py
+
+# pixi environments
+.pixi
+*.egg-info
+pixi.lock

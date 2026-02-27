@@ -1,0 +1,11 @@
+rule a:
+    output:
+        "output.txt"
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1000,
+    params:
+        mem_gb = lambda wildcards, resources: int(resources.mem_mb) / 1000,
+    shell:
+        r"""
+        echo {params.mem_gb} > {output}
+        """

@@ -6,18 +6,22 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 import signal
-import sys
 import shlex
 import shutil
+import sys
 import time
 from os.path import join
 import tempfile
 import hashlib
+from typing import Any, List, Mapping
 import urllib
+import urllib.request
+import urllib.error
 import pytest
 import glob
 import subprocess
 import tarfile
+from typing import TypeAlias
 
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -25,57 +29,64 @@ from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake import api
 from snakemake.common import ON_WINDOWS
 from snakemake.report.html_reporter import ReportSettings
-from snakemake.resources import ResourceScopes
+from snakemake.resources import ResourceScopes, Resources
+from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
 
+#: File system path as string or pathlike object.
+StrPath: TypeAlias = str | os.PathLike
 
-def dpath(path):
+
+def dpath(path: StrPath) -> Path:
     """get the path to a data file (relative to the directory this
     test lives in)"""
-    return os.path.realpath(join(os.path.dirname(__file__), path))
+    return (Path(__file__).parent / path).resolve()
 
 
-def md5sum(filename, ignore_newlines=False):
+def md5sum(filename: StrPath, ignore_newlines: bool = False) -> str:
     if ignore_newlines:
         with open(filename, "r", encoding="utf-8", errors="surrogateescape") as f:
             data = f.read().strip().encode("utf8", errors="surrogateescape")
     else:
         data = open(filename, "rb").read().strip()
-    return hashlib.md5(data).hexdigest()
+    return hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
 # test skipping
-def is_connected():
-    try:
-        urllib.request.urlopen("http://www.google.com", timeout=1)
+def is_connected() -> bool:
+    if is_ci():
+        # always assume internet connection in CI
         return True
-    except urllib.request.URLError:
+    try:
+        urllib.request.urlopen("https://www.google.com", timeout=1)
+        return True
+    except (urllib.error.URLError, TimeoutError):
         return False
 
 
-def is_ci():
+def is_ci() -> bool:
     return "CI" in os.environ
 
 
-def has_gcloud_service_key():
+def has_gcloud_service_key() -> bool:
     return "GCP_AVAILABLE" in os.environ
 
 
-def has_azbatch_account_url():
+def has_azbatch_account_url() -> str | None:
     return os.environ.get("AZ_BATCH_ACCOUNT_URL")
 
 
-def has_zenodo_token():
+def has_zenodo_token() -> str | None:
     return os.environ.get("ZENODO_SANDBOX_PAT")
 
 
-def has_apptainer():
+def has_apptainer() -> bool:
     return (shutil.which("apptainer") is not None) or (
         shutil.which("singularity") is not None
     )
 
 
-def has_conda():
+def has_conda() -> bool:
     return shutil.which("conda") is not None
 
 
@@ -113,14 +124,14 @@ zenodo = pytest.mark.skipif(
 )
 
 
-def copy(src, dst):
+def copy(src: StrPath, dst: StrPath):
     if os.path.isdir(src):
         shutil.copytree(src, os.path.join(dst, os.path.basename(src)))
     else:
         shutil.copy(src, dst)
 
 
-def get_expected_files(results_dir):
+def get_expected_files(results_dir: StrPath) -> list[str]:
     """Recursively walk through the expected-results directory to enumerate
     all expected files."""
     return [
@@ -130,13 +141,13 @@ def get_expected_files(results_dir):
     ]
 
 
-def untar_folder(tar_file, output_path):
+def untar_folder(tar_file: StrPath, output_path: StrPath):
     if not os.path.isdir(output_path):
         with tarfile.open(tar_file) as tar:
             tar.extractall(path=output_path)
 
 
-def print_tree(path, exclude=None):
+def print_tree(path: str, exclude: StrPath | None = None):
     for root, _dirs, files in os.walk(path):
         if exclude and root.startswith(os.path.join(path, exclude)):
             continue
@@ -149,35 +160,37 @@ def print_tree(path, exclude=None):
 
 
 def run(
-    path,
-    shouldfail=False,
-    snakefile="Snakefile",
-    subpath=None,
-    no_tmpdir=False,
-    check_md5=True,
-    check_results=None,
-    cores=3,
-    nodes=None,
-    set_pythonpath=True,
-    cleanup=True,
+    path: StrPath,
+    shouldfail: bool | type[Exception] = False,
+    snakefile: StrPath = "Snakefile",
+    no_tmpdir: bool = False,
+    check_md5: bool = True,
+    check_results: bool | None = None,
+    cores: int = 3,
+    nodes: int | None = None,
+    set_pythonpath: bool = True,
+    cleanup: bool = True,
     conda_frontend="conda",
     config=dict(),
     targets=set(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
-    shellcmd=None,
-    sigint_after=None,
+    shellcmd: str | None = None,
+    sigint_after: float | None = None,
     overwrite_resource_scopes=None,
     executor="local",
     executor_settings=None,
     cleanup_scripts=True,
     scheduler_ilp_solver=None,
     report=None,
+    report_after_run=False,
     report_stylesheet=None,
+    report_metadata=None,
     deployment_method=frozenset(),
     shadow_prefix=None,
     until=frozenset(),
     omit_from=frozenset(),
     forcerun=frozenset(),
+    trust_io_cache=False,
     conda_list_envs=False,
     conda_create_envs=False,
     conda_prefix=None,
@@ -191,8 +204,8 @@ def run(
     cluster=None,
     cluster_status=None,
     retries=0,
-    resources=dict(),
-    default_resources=None,
+    resources: Mapping[str, Any] | None = None,
+    default_resources: Resources | List[str] | None = None,
     group_components=dict(),
     max_threads=None,
     overwrite_groups=dict(),
@@ -214,15 +227,45 @@ def run(
     shared_fs_usage=None,
     benchmark_extended=False,
     apptainer_args="",
-    tmpdir=None,
-):
+    tmpdir: StrPath | None = None,
+) -> Path | None:
     """
     Test the Snakefile in the path.
     There must be a Snakefile in the path and a subdirectory named
     expected-results. If cleanup is False, we return the temporary
     directory to the calling test for inspection, and the test should
     clean it up.
+
+    Parameters
+    ----------
+    path
+        Path containing workflow to run.
+    shouldfail
+        Whether the run is expected to fail.
+    snakefile
+        Path to Snakefile, relative to ``path``.
+    shellcmd
+        Shell command to run. Must start with "snakemake". If given, Snakemake will be run in a
+        subprocess.
+    sigint_after
+        If not None, send a SIGINT signal after this many seconds.
+    tmpdir
+        Temporary directory to run in. If None one will be created automatically.
+    no_tmpdir
+        If true run directly in ``path`` instead of a temporary directory.
+    cleanup
+        Whether to delete the temporary directory after running.
+    set_pythonpath
+        If true set the ``PYTHONPATH`` environment variable to current working directory. Otherwise
+        ensure it is not set.
+
+    Returns
+    -------
+    Path | None
+        Path to temporary directory if ``cleanup`` is false, otherwise None.
     """
+    path = Path(path)
+
     if check_results is None:
         if not shouldfail:
             check_results = True
@@ -236,14 +279,14 @@ def run(
     elif "PYTHONPATH" in os.environ:
         del os.environ["PYTHONPATH"]
 
-    results_dir = join(path, "expected-results")
-    original_snakefile = join(path, snakefile)
-    original_dirname = os.path.basename(os.path.dirname(original_snakefile))
-    assert os.path.exists(original_snakefile)
+    results_dir = path / "expected-results"
+    original_snakefile = path / snakefile
+    original_dirname = original_snakefile.parent.name
+    assert original_snakefile.exists()
     if check_results:
-        assert os.path.exists(results_dir) and os.path.isdir(
-            results_dir
-        ), "{} does not exist".format(results_dir)
+        assert (
+            results_dir.exists() and results_dir.is_dir()
+        ), f"{results_dir} does not exist"
 
     if tmpdir is None:
         # If we need to further check results, we won't cleanup tmpdir
@@ -256,6 +299,9 @@ def run(
         # copy files
         for f in os.listdir(path):
             copy(os.path.join(path, f), tmpdir)
+
+    else:
+        tmpdir = os.fsdecode(tmpdir)
 
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
@@ -298,6 +344,7 @@ def run(
         except subprocess.CalledProcessError as e:
             success = False
             print(e.stdout.decode(), file=sys.stderr)
+
     else:
         assert sigint_after is None, "Cannot sent SIGINT when calling directly"
 
@@ -332,8 +379,20 @@ def run(
                             else dict()
                         ),
                         overwrite_resources=overwrite_resources,
-                        resources=resources,
-                        default_resources=default_resources,
+                        resources=(
+                            Resources.from_mapping(resources)
+                            if resources is not None
+                            else Resources()
+                        ),
+                        default_resources=(
+                            Resources.parse(
+                                default_resources,
+                                defaults="full",
+                                allow_expressions=True,
+                            )
+                            if isinstance(default_resources, list)
+                            else default_resources
+                        ),
                         max_threads=max_threads,
                         overwrite_scatter=overwrite_scatter,
                     ),
@@ -374,18 +433,25 @@ def run(
                         force_incomplete=force_incomplete,
                         forceall=forceall,
                         rerun_triggers=rerun_triggers,
+                        trust_io_cache=trust_io_cache,
                     ),
                 )
 
-                if report is not None:
+                if report is not None and not report_after_run:
                     if report_stylesheet is not None:
                         report_stylesheet = Path(report_stylesheet)
+                    if report_metadata is not None:
+                        report_metadata = Path(report_metadata)
                     report_settings = ReportSettings(
                         path=Path(report), stylesheet_path=report_stylesheet
+                    )
+                    global_report_settings = settings.GlobalReportSettings(
+                        metadata_template=report_metadata
                     )
                     dag_api.create_report(
                         reporter="html",
                         report_settings=report_settings,
+                        global_report_settings=global_report_settings,
                     )
                 elif conda_create_envs:
                     dag_api.conda_create_envs()
@@ -413,27 +479,43 @@ def run(
                             seconds_between_status_checks=0,
                             envvars=envvars,
                         ),
-                        scheduling_settings=settings.SchedulingSettings(
-                            ilp_solver=scheduler_ilp_solver,
-                        ),
                         group_settings=settings.GroupSettings(
                             group_components=group_components,
                             overwrite_groups=overwrite_groups,
                         ),
                         executor_settings=executor_settings,
+                        scheduler_settings=SchedulerSettings(
+                            solver=scheduler_ilp_solver,
+                        ),
+                    )
+
+                if report_after_run and report:
+                    if report_stylesheet is not None:
+                        report_stylesheet = Path(report_stylesheet)
+                    report_settings = ReportSettings(
+                        path=Path(report), stylesheet_path=report_stylesheet
+                    )
+                    dag_api.create_report(
+                        reporter="html",
+                        report_settings=report_settings,
                     )
             except Exception as e:
                 success = False
                 exception = e
 
-    if shouldfail:
+    if shouldfail is not False:
         assert not success, "expected error on execution"
+        if shouldfail is not True:
+            with pytest.raises(shouldfail):
+                raise exception
     else:
         if not success:
             if snakemake_api is not None and exception is not None:
                 snakemake_api.print_exception(exception)
             print("Workdir:")
             print_tree(tmpdir, exclude=".snakemake/conda")
+            if exception is not None:
+                raise exception
         assert success, "expected successful execution"
 
     if check_results:
@@ -475,5 +557,7 @@ def run(
                     )
 
     if not cleanup:
-        return tmpdir
+        return Path(tmpdir)
+
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    return None

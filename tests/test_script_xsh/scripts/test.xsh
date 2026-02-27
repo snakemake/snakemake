@@ -1,1 +1,1 @@
-echo "Hello, world!" > @(snakemake.output[0])
+echo @($(bcftools --help).splitlines()[1]) > @(snakemake.output[0])

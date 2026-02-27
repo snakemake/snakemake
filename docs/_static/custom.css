@@ -19,3 +19,21 @@
 code {
     font-family: monospace !important;
 }
+
+/* Dark mode styles for Sphinx tabs */
+html.dark .sphinx-tabs .sphinx-tabs-tab {
+    background-color: #333 !important; 
+    color: #fff !important;
+    border-color: #555 !important;
+}
+
+html.dark .sphinx-tabs .sphinx-tabs-tab[aria-selected="true"] {
+    background-color: #444 !important;
+    border-bottom-color: #444 !important;
+}
+
+html.dark .sphinx-tabs-panel {
+    background-color: #333 !important;
+    color: #fff !important;
+    border-color: #555 !important;
+}
