@@ -14,7 +14,6 @@ import multiprocessing
 import string
 import shlex
 import sys
-from urllib.parse import urljoin
 
 from snakemake.io import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
@@ -38,8 +37,6 @@ def validate(data, schema, set_default=True):
             https://python-jsonschema.readthedocs.io/en/latest/faq/ for more
             information
     """
-    from snakemake.sourcecache import LocalSourceFile, infer_source_file
-
     frame = inspect.currentframe().f_back
     workflow = frame.f_globals.get("workflow")
 
@@ -47,37 +44,76 @@ def validate(data, schema, set_default=True):
         # skip if a corresponding modifier has been defined
         return
 
-    try:
-        import jsonschema
-        from jsonschema import validators, RefResolver
-    except ImportError:
-        raise WorkflowError(
-            "The Python 3 package jsonschema must be installed "
-            "in order to use the validate directive."
-        )
+    from snakemake.sourcecache import LocalSourceFile, infer_source_file
+    import jsonschema
+    from jsonschema import Draft202012Validator, validators
+    from referencing import Registry, Resource
+    from pathlib import Path
+    from urllib.parse import urlparse
+    from urllib.request import url2pathname
 
     schemafile = infer_source_file(schema)
 
     if isinstance(schemafile, LocalSourceFile) and not schemafile.isabs() and workflow:
         # if workflow object is not available this has not been started from a workflow
-        schemafile = workflow.current_basedir.join(schemafile.get_path_or_uri())
+        schemafile = workflow.current_basedir.join(
+            schemafile.get_path_or_uri(secret_free=True)
+        )
 
     source = (
         workflow.sourcecache.open(schemafile)
         if workflow
-        else schemafile.get_path_or_uri()
+        else schemafile.get_path_or_uri(secret_free=False)
     )
+
     schema = _load_configfile(source, filetype="Schema")
-    if isinstance(schemafile, LocalSourceFile):
-        resolver = RefResolver(
-            urljoin("file:", schemafile.get_path_or_uri()),
-            schema,
-            handlers={
-                "file": lambda uri: _load_configfile(re.sub("^file://", "", uri))
-            },
+
+    # Inject $id to enforce local reference resolution.
+    # Ensures all relative $ref's are resolved relative to this local file,
+    # even if it defines an explicit $id pointing to a remote location.
+    # This is required because the retrieve_uri function (see below) does not
+    # handle remote files.
+    # This allows to mostly restores pre-9.6.0 behavior fixing the regression
+    # caused by https://github.com/snakemake/snakemake/pull/3420 and reported
+    # in https://github.com/snakemake/snakemake/issues/3648.
+    # Note that the old (RefResolver based) implementation did handle remote
+    # URI fetching and could therefore respect remote URIs defined as ID
+    # within the config file schema.
+    # To fully restore that behaviour, retrieve_uri would have to be expanded
+    # to fetch remote resources and this injection would have to be condition
+    # on the schema not defining an ID.
+    # However, in the context of config file validation, resolving a reference
+    # defined in a local schema file through a remote request seems to solve no
+    # purpose: Either the schemas are identical, in which relying on the local,
+    # known-to-exist version is more efficient, or they differ for some reason
+    # in which case not using the ref text from the local schema file might
+    # cause very surprising and hard to track down behaviour.
+    # Therefore, the new (resolving based) implementation purposefully breaks
+    # backwards-compatibility with the former (RefResolver based) one.
+    # This is also made explicit through the
+    # test_config_ref_relative_with_remote_id test added to test_schema.py.
+    schema["$id"] = (
+        Path(schemafile.get_path_or_uri(secret_free=False)).resolve().as_uri()
+    )
+
+    def retrieve_uri(uri):
+        # Note:
+        # Relative $ref's are resolved against the (referencing) schema's $id
+        # by the referencing library before calling retrieve.
+        # Above, this was set to the local file's (absolute) file:// URI.
+        # Since _load_configfile expects a file handle/path, and not a URI,
+        # it must be parsed to strip off the (URI) schema.
+        return Resource.from_contents(
+            contents=_load_configfile(
+                url2pathname(urlparse(uri).path), filetype="Schema"
+            )
         )
-    else:
-        resolver = RefResolver(schemafile.get_path_or_uri(), schema)
+
+    resource = Resource.from_contents(contents=schema)
+    registry = Registry(retrieve=retrieve_uri).with_resource(
+        uri=schemafile.get_path_or_uri(secret_free=False), resource=resource
+    )
+    Validator = Draft202012Validator(schema, registry=registry)
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -88,32 +124,35 @@ def validate(data, schema, set_default=True):
                 if "default" in subschema:
                     instance.setdefault(property, subschema["default"])
 
-            for error in validate_properties(validator, properties, instance, schema):
+            for error in validate_properties(
+                validator,
+                properties,
+                instance,
+                schema,
+            ):
                 yield error
 
-        return validators.extend(validator_class, {"properties": set_defaults})
+        return validators.extend(
+            validator_class,
+            {"properties": set_defaults},
+        )
 
-    Validator = validators.validator_for(schema)
     if Validator.META_SCHEMA["$schema"] != schema["$schema"]:
         logger.warning(
-            "No validator found for JSON Schema version identifier '{}'".format(
-                schema["$schema"]
-            )
+            f"No validator found for JSON Schema version identifier '{schema['$schema']}'"
         )
         logger.warning(
-            "Defaulting to validator for JSON Schema version '{}'".format(
-                Validator.META_SCHEMA["$schema"]
-            )
+            f"Defaulting to validator for JSON Schema version '{Validator.META_SCHEMA['$schema']}'"
         )
         logger.warning("Note that schema file may not be validated correctly.")
-    DefaultValidator = extend_with_default(Validator)
+    Defaultvalidator = extend_with_default(Validator)
 
     def _validate_record(record):
         if set_default:
-            DefaultValidator(schema, resolver=resolver).validate(record)
+            Defaultvalidator(schema, registry=registry).validate(record)
             return record
         else:
-            jsonschema.validate(record, schema, resolver=resolver)
+            Validator.validate(record)
 
     def _validate_pandas(data):
         try:

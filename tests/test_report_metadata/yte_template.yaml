@@ -1,0 +1,9 @@
+__definitions__:
+- import os
+
+Workflow name: Test Workflow
+Workdir: /test/workdir
+Contributors:
+  - Test Contributor
+  - Another Contributor
+

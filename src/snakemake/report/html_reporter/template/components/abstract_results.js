@@ -67,13 +67,16 @@ class AbstractResults extends React.Component {
     getInitToggleState(toggleLabels) {
         let toggles = new Map();
         toggleLabels.forEach(function (value, key) {
-            toggles.set(key, value[0]);
+            // Prefer "yes" as initial value if present, otherwise use the first value.
+            let initialValue = value[1] === "yes" ? value[1] : value[0];
+            toggles.set(key, initialValue);
         })
         return toggles;
     }
 
     getToggleControls(toggleLabels) {
         let toggleCallback = this.toggleCallback;
+        let toggleState = this.state.toggles;
         return toggleLabels.entries().map(function (entry) {
             let [name, values] = entry;
             return e(
@@ -81,6 +84,7 @@ class AbstractResults extends React.Component {
                 {
                     label: name,
                     values: values,
+                    defaultValue: toggleState.get(name),
                     callback: function (selected) {
                         toggleCallback(name, selected);
                     }
@@ -169,8 +173,8 @@ class AbstractResults extends React.Component {
         // If there are at least two labels, consider all but the first label for
         // being shown as toggles. The latter is possible if a label
         // has exactly two values, each of which occur in half of the results.
-        // Example: a plot which is created twice for each sample, once with and 
-        // once without legend (for inclusion in larger panel figures where a 
+        // Example: a plot which is created twice for each sample, once with and
+        // once without legend (for inclusion in larger panel figures where a
         // repeating legend would be superfluous).
         if (labels !== undefined && labels.length > 1) {
             labels.slice(1).forEach(function (label) {
@@ -280,14 +284,25 @@ class AbstractResults extends React.Component {
 
         let app = this.props.app;
         let state = this.state;
+        let selectedEntryHighlightLeft = "";
+        let selectedEntryHighlightRight = "";
+
 
         return data.entryLabelValues.map(function (entryLabels) {
             let toggleLabels = Array.from(data.toggleLabels.keys()).map((label) => state.toggles.get(label));
             let entryPath = data.entries.get(arrayKey(entryLabels)).get(arrayKey(toggleLabels));
 
+            if (entryPath === app.state.resultPath) {
+                selectedEntryHighlightLeft = "text-white whitespace-nowrap align-middle pl-2 rounded-l-lg bg-slate-700 min-w-fit";
+                selectedEntryHighlightRight = "text-white whitespace-nowrap align-middle rounded-r-lg bg-slate-700 min-w-fit";
+            } else {
+                selectedEntryHighlightLeft = "";
+                selectedEntryHighlightRight = "";
+            }
+
             let actions = e(
                 "td",
-                { className: "p-1 text-right" },
+                { className: `p-1 text-right ${selectedEntryHighlightRight}` },
                 e(
                     "div",
                     { className: "inline-flex gap-1", role: "group" },
@@ -306,6 +321,7 @@ class AbstractResults extends React.Component {
                 )
             );
 
+
             return [
                 e(
                     "tr",
@@ -313,7 +329,7 @@ class AbstractResults extends React.Component {
                     entryLabels.map(function (labelValue) {
                         return e(
                             "td",
-                            { className: "p-1" },
+                            { className: `p-1 pl-2 ${selectedEntryHighlightLeft}` },
                             labelValue
                         );
                     }),

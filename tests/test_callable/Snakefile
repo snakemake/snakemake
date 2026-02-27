@@ -1,0 +1,17 @@
+from pathlib import Path
+from shutil import copy2
+
+rule all:
+	input: 'test.out'
+
+rule rule1:
+	input: lambda w: Path("inputs") / "test.inter"
+	output: 'test.out'
+	run:
+		copy2(input[0], output[0])
+
+rule rule2:
+	input: Path("inputs") / 'test.in'
+	output: Path("inputs") / 'test.inter'
+	run:
+		copy2(input[0], output[0])

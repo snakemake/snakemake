@@ -56,7 +56,6 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                         "set-resource-scopes",
                         "default-resources",
                         "config",
-                        "wms-monitor-arg",
                         "groups",
                         "group-components",
                         "consider-ancient",
@@ -65,7 +64,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                     elif key == "set-resources":
                         result[key] = format_two_level_dict(value, "set-resources")
                 else:
-                    value = os.path.expandvars(str(value))
+                    value = os.path.expanduser(os.path.expandvars(str(value)))
 
                     # Adjust path if it exists in the profile dir.
                     # Otherwise value is not a file or not existing in the profile dir.

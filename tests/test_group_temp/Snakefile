@@ -1,0 +1,44 @@
+rule all:
+    input:
+        "c.txt"
+    output:
+        "d.txt"
+    shell:
+        "echo d > {output}"
+
+
+rule a:
+    output:
+        temp("a.txt")
+    group:
+        "group1"
+    shell:
+        "echo a > {output}"
+
+
+rule b:
+    input:
+        "a.txt"
+    output:
+        "b.txt"
+    group:
+        "group1"
+    shell:
+        "echo b > {output}"
+
+
+rule c:
+    input:
+        "b.txt"
+    output:
+        "c.txt"
+    group:
+        "group1"
+    shell:
+        """
+        if [ -f a.txt ]; then
+            echo "temp a.txt still exists!"
+            exit 1
+        fi
+        echo c > {output}
+        """

@@ -1,11 +1,11 @@
 from dataclasses import dataclass, fields
 import hashlib
+from itertools import chain
 import os
 import sys
 from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.settings import CommonSettings
-from snakemake.resources import ParsedResource
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import PIP_DEPLOYMENTS_PATH
@@ -95,30 +95,25 @@ class SpawnedJobArgsFactory:
         }
 
     def get_set_resources_args(self):
-        def get_orig_arg(value):
-            if isinstance(value, ParsedResource):
-                return value.orig_arg
-            else:
-                return value
-
+        overwrite_resources = (
+            self.workflow.resource_settings._parsed_overwrite_resources
+        )
+        overwrite_threads = self.workflow.resource_settings._parsed_overwrite_threads
         return [
             format_cli_arg(
                 "--set-resources",
                 [
-                    f"{rule}:{name}={get_orig_arg(value)}"
-                    for rule, res in self.workflow.resource_settings.overwrite_resources.items()
+                    f"{rule}:{name}={value.raw}"
+                    for rule, res in overwrite_resources.items()
                     for name, value in res.items()
                 ],
-                skip=not self.workflow.resource_settings.overwrite_resources,
+                skip=not overwrite_resources,
                 base64_encode=True,
             ),
             format_cli_arg(
                 "--set-threads",
-                [
-                    f"{rule}={get_orig_arg(value)}"
-                    for rule, value in self.workflow.resource_settings.overwrite_threads.items()
-                ],
-                skip=not self.workflow.resource_settings.overwrite_threads,
+                [f"{rule}={value.raw}" for rule, value in overwrite_threads.items()],
+                skip=not overwrite_threads,
                 base64_encode=True,
             ),
         ]
@@ -197,9 +192,12 @@ class SpawnedJobArgsFactory:
         return format_cli_arg(flag, value, base64_encode=base64_encode)
 
     def envvars(self) -> Mapping[str, str]:
+        assert self.workflow.remote_execution_settings is not None
         envvars = {
             var: os.environ[var]
-            for var in self.workflow.remote_execution_settings.envvars
+            for var in chain(
+                self.workflow.remote_execution_settings.envvars, self.workflow.envvars
+            )
         }
         envvars.update(self.get_storage_provider_envvars())
         return envvars
@@ -270,6 +268,9 @@ class SpawnedJobArgsFactory:
             SharedFSUsage.SOFTWARE_DEPLOYMENT
             in self.workflow.storage_settings.shared_fs_usage
         )
+        shared_source_cache = (
+            SharedFSUsage.SOURCE_CACHE in self.workflow.storage_settings.shared_fs_usage
+        )
 
         # base64 encode the prefix to ensure that eventually unexpanded env vars
         # are not replaced with values (or become empty if missing) by the shell
@@ -295,8 +296,8 @@ class SpawnedJobArgsFactory:
                 flag="--keep-storage-local-copies",
             ),
             "--max-inventory-time 0",
+            "--retries 0",  # retries are handled by the main process
             "--nocolor",
-            "--notemp",
             "--no-hooks",
             "--nolock",
             "--ignore-incomplete",
@@ -342,6 +343,11 @@ class SpawnedJobArgsFactory:
                 os.path.dirname(sys.executable),
                 skip=not shared_deployment,
             ),
+            format_cli_arg(
+                "--runtime-source-cache-path",
+                self.workflow.sourcecache.runtime_cache_path,
+                skip=not shared_source_cache,
+            ),
             w2a(
                 "overwrite_workdir",
                 flag="--directory",
@@ -357,7 +363,8 @@ class SpawnedJobArgsFactory:
         if executor_common_settings.pass_default_resources_args:
             args.append(
                 w2a(
-                    "resource_settings.default_resources",
+                    "resource_settings._parsed_default_resources",
+                    flag="--default-resources",
                     attr="args",
                     base64_encode=True,
                 )

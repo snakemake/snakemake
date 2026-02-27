@@ -1,0 +1,3 @@
+pathvars:
+    foo="foo/<bar>",
+    bar="<foo>",

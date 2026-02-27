@@ -38,7 +38,8 @@ Setup
 Requirements
 ::::::::::::
 
-To go through this tutorial, you need the following software installed:
+**Please wait to install the tools listed below, as this tutorial will guide you through better and more reliable setup processes in the next sections.**
+For your reference, the following tools will be used:
 
 * Python_ ≥3.5
 * Snakemake_ ≥5.24.1
@@ -51,7 +52,6 @@ To go through this tutorial, you need the following software installed:
 * NetworkX_ 2.5
 * Matplotlib_ 3.3
 
-However, don't install any of these this manually now, we guide you through better ways below.
 
 .. _tutorial-free-on-gitpod:
 
@@ -149,7 +149,7 @@ extract it, and move the pixi binary to ``~/.pixi/bin``.
 If this directory does not already exist, the script will create it.
 
 The script will also update your ``~/.bashrc`` or ``~/.zshrc`` to include ``~/.pixi/bin`` in your PATH,
-allowing you to invoke the ``pixi`` command from anywhere.
+allowing you to invoke the ``pixi`` command from anywhere after opening a **new terminal** window.
 
 Please also see the official `Pixi installation`_ instructions for more information.
 
@@ -161,23 +161,23 @@ Step 1b: Installing Miniforge
 Download and install Miniconda 3 with the following commands depending on
 your operating system and architecture:
 
-.. tabs::
-    
-    .. tab:: Linux
+.. tab-set::
+
+    .. tab-item:: Linux
 
         .. code:: console
 
             $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -o Miniforge3-Linux-x86_64.sh
             $ bash Miniforge3-Linux-x86_64.sh
 
-    .. tab:: MacOS X (x86_64)
+    .. tab-item:: MacOS (x86_64)
 
         .. code:: console
 
             $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-x86_64.sh -o Miniforge3-MacOSX-x86_64.sh
             $ bash Miniforge3-MacOSX-x86_64.sh
 
-    .. tab:: MacOS X (arm64)
+    .. tab-item:: MacOS (arm64)
 
         .. code:: console
 
@@ -216,15 +216,15 @@ First, we download some example data on which the workflow shall be executed:
 
 Next we extract the data:
 
-.. tabs::
-    
-    .. tab:: Linux
+.. tab-set::
+
+    .. tab-item:: Linux
 
         .. code:: console
 
             $ tar --wildcards -xf snakemake-tutorial-data.tar.gz --strip 1 "*/data" "*/environment.yaml"
 
-    .. tab:: MacOS X
+    .. tab-item:: MacOS (x86_64)
 
         .. code:: console
 
@@ -252,8 +252,8 @@ Pixi supports importing environments from a ``conda`` or ``mamba`` ``environment
     $ pixi init --import environment.yaml
 
 
-Step 3b: Miniforge environment
-""""""""""""""""""""""""""""""
+Step 3b: Miniforge/Conda environment
+""""""""""""""""""""""""""""""""""""
 
 .. _tutorial-creating_environment_miniforge:
 
@@ -286,15 +286,18 @@ Step 4: Activating the environment
 
 To activate the ``snakemake-tutorial`` environment, execute
 
-.. tabs::
+.. tab-set::
+    :sync-group: package-manager
 
-    .. group-tab:: Pixi
+    .. tab-item:: Pixi
+        :sync: pixi
 
         .. code:: console
 
             $ pixi shell
 
-    .. group-tab:: Miniforge
+    .. tab-item:: Conda
+        :sync: conda
 
         .. code:: console
 
@@ -310,15 +313,18 @@ Execute
 to test this and get information about the command-line interface of Snakemake.
 To exit the environment, you can execute
 
-.. tabs::
+.. tab-set::
+    :sync-group: package-manager
 
-    .. group-tab:: Pixi
+    .. tab-item:: Pixi
+        :sync: pixi
 
         .. code:: console
 
             $ exit
 
-    .. group-tab:: Miniforge
+    .. tab-item:: Conda
+        :sync: conda
 
         .. code:: console
 

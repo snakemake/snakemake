@@ -1,0 +1,11 @@
+rule all:
+    input:
+        "test.txt"
+
+rule a:
+    input:
+        before_update("test.txt")
+    output:
+        update("test.txt")
+    shell:
+        "echo 'test' > {output}"

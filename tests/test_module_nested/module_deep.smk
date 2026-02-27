@@ -1,16 +1,34 @@
-# deep_module.smk
-rule all:
-    input:
-        "foo.txt",
+a = 1
 
 
-rule work:
+rule run:
     output:
-        "foo.txt",
+        txt=touch("A/foo.txt"),
     shell:
-        "echo 'I was here' > {output}"
+        f"echo 'I was here' > {output.txt}"
 
 
-# rules.work has to work even if the rule is renamed in a parent module
+# Reproduces #3751 (unwanted-rule filtering should not remove transitively referenced rules).
+rule ignored:
+    input:
+        rds=rules.run.output.txt,
+
+
+
+rule run2:
+    input:
+        rds=rules.ignored.input.rds,
+    output:
+        txt="output/run2.txt",
+    shell:
+        "cp {input.rds} {output.txt}"
+
+
+use rule run as run3 with:
+    output:
+        "0",
+
+
+# rules.run has to run even if the rule is renamed in a parent module
 # The rulename itself can be already modified.
-assert hasattr(rules, "work"), f"bug: rule cannot be accessed as work: {dir(rules)}"
+assert hasattr(rules, "run"), f"bug: rule cannot be accessed as run: {dir(rules)}"

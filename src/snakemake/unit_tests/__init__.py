@@ -1,7 +1,6 @@
 from itertools import groupby
 from pathlib import Path
 import shutil
-import os
 from snakemake.common import async_run
 
 from snakemake.logging import logger
@@ -20,6 +19,10 @@ class RuleTest:
         return self.output or self.name
 
     @property
+    def config_path(self):
+        return self.path / "config"
+
+    @property
     def data_path(self):
         return self.path / "data"
 
@@ -28,9 +31,30 @@ class RuleTest:
         return self.path / "expected"
 
 
-def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None):
+def generate(
+    dag, path: Path, deploy=None, snakefile=None, configfiles=None, rundir=None
+):
     """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
+
+    def copy_files(files, path):
+        for f in set(files):
+            f = Path(f)
+            parent = f.parent
+            if parent.is_absolute():
+                root = str(f.parents[len(f.parents) - 1])
+                parent = str(parent)[len(root) :]
+            target = path / parent
+            if f.is_dir():
+                shutil.copytree(f, target / f.name)
+            else:
+                target.mkdir(parents=True, exist_ok=True)
+                shutil.copy(f, target)
+                (target / f.name).chmod(0o444)
+        if not files:
+            path.mkdir(parents=True, exist_ok=True)
+            # touch gitempty file if there are no input files
+            open(path / ".gitempty", "w").close()
 
     try:
         from jinja2 import Environment, PackageLoader
@@ -45,7 +69,7 @@ def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None)
         lstrip_blocks=True,
     )
 
-    os.makedirs(path, exist_ok=True)
+    path.mkdir(parents=True, exist_ok=True)
 
     with open(path / "common.py", "w") as common:
         print(
@@ -53,13 +77,17 @@ def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None)
             file=common,
         )
 
+    with open(path / "conftest.py", "w") as conftest:
+        print(
+            env.get_template("conftest.py.jinja2").render(version=__version__),
+            file=conftest,
+        )
+
     for rulename, jobs in groupby(dag.jobs, key=lambda job: job.rule.name):
         jobs = list(jobs)
         if jobs[0].rule.norun:
             logger.info(
-                "Skipping rule {} because it does not execute anything.".format(
-                    rulename
-                )
+                f"Skipping rule {rulename} because it does not execute anything."
             )
             continue
 
@@ -67,9 +95,7 @@ def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None)
 
         if testpath.exists():
             logger.info(
-                "Skipping rule {} as a unit test already exists for it: {}.".format(
-                    rulename, testpath
-                )
+                f"Skipping rule {rulename} as a unit test already exists for it: {testpath}."
             )
             continue
 
@@ -77,35 +103,23 @@ def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None)
         for job in jobs:
             if all(async_run(f.exists()) for f in job.input):
                 logger.info(f"Generating unit test for rule {rulename}: {testpath}.")
-                os.makedirs(path / rulename, exist_ok=True)
+                (path / rulename).mkdir(parents=True, exist_ok=True)
 
-                def copy_files(files, content_type):
-                    for f in files:
-                        f = Path(f)
-                        parent = f.parent
-                        if parent.is_absolute():
-                            root = str(f.parents[len(f.parents) - 1])
-                            parent = str(parent)[len(root) :]
-                        target = path / rulename / content_type / parent
-                        if f.is_dir():
-                            shutil.copytree(f, target / f.name)
-                        else:
-                            os.makedirs(target, exist_ok=True)
-                            shutil.copy(f, target)
-                    if not files:
-                        os.makedirs(path / rulename / content_type, exist_ok=True)
-                        # touch gitempty file if there are no input files
-                        open(path / rulename / content_type / ".gitempty", "w").close()
-
-                copy_files(job.input, "data")
-                copy_files(job.output, "expected")
+                copy_files(list(Path().glob("config*")), path / rulename / "config")
+                copy_files(job.input, path / rulename / "data")
+                copy_files(job.output, path / rulename / "expected")
 
                 with open(testpath, "w") as test:
                     print(
                         env.get_template("ruletest.py.jinja2").render(
-                            ruletest=RuleTest(job, path),
+                            version=__version__,
+                            ruletest=RuleTest(job, path.absolute().relative_to(rundir)),
                             deploy=deploy,
-                            configfiles=configfiles,
+                            snakefile=Path(snakefile).absolute().relative_to(rundir),
+                            configfiles=[
+                                Path(config).absolute().relative_to(rundir)
+                                for config in configfiles
+                            ],
                         ),
                         file=test,
                     )

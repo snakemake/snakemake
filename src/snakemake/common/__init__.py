@@ -12,7 +12,8 @@ import hashlib
 import inspect
 import shutil
 import sys
-from typing import Callable, List
+from tempfile import NamedTemporaryFile
+from typing import Any, Callable, List, Mapping, Optional, Tuple
 import uuid
 import os
 import asyncio
@@ -21,10 +22,9 @@ from pathlib import Path
 from typing import Union
 
 from snakemake import __version__
-from snakemake_interface_common.exceptions import WorkflowError
+from snakemake.exceptions import NestedCoroutineError
 
-
-MIN_PY_VERSION = (3, 7)
+MIN_PY_VERSION: Tuple[int, int] = (3, 7)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
     "Nothing to be done (all requested files are present and up to date)."
@@ -47,6 +47,10 @@ SNAKEFILE_CHOICES = list(
 )
 
 
+def func_true(job):
+    return True
+
+
 def get_snakemake_searchpaths():
     paths = [str(Path(__file__).parent.parent.parent)] + [
         path for path in sys.path if os.path.isdir(path)
@@ -61,8 +65,12 @@ def get_report_id(path: Union[str, Path]) -> str:
     return h.hexdigest()
 
 
-def mb_to_mib(mb):
+def mb_to_mib(mb: int):
     return int(math.ceil(mb * 0.95367431640625))
+
+
+def mib_to_mb(mib: int):
+    return int(math.floor(mib / 0.95367431640625))
 
 
 def parse_key_value_arg(arg, errmsg, strip_quotes=True):
@@ -88,24 +96,86 @@ def dict_to_key_value_args(
     return items
 
 
-def async_run(coroutine):
-    """Attaches to running event loop or creates a new one to execute a
-    coroutine.
-    .. seealso::
-         https://github.com/snakemake/snakemake/issues/1105
-         https://stackoverflow.com/a/65696398
+def async_runner(loop_factory=None, executor=None):
     """
-    try:
-        return asyncio.run(coroutine)
-    except RuntimeError as e:
-        coroutine.close()
-        raise WorkflowError(
+    Creates a new async Runner after checking we are outside of a running event loop.
+
+    Parameters
+    ----------
+    loop_factory : callable, optional
+        Optional callable that creates and returns a new event loop.
+        If provided, executor must be None.
+    executor : Executor, optional
+        Optional executor to use as the default executor for the event loop.
+        If provided, loop_factory must be None.
+
+    Returns
+    -------
+    asyncio.Runner
+        A runner object that can execute coroutines.
+
+    Raises
+    ------
+    WorkflowError
+        If called from within an already running event loop.
+    ValueError
+        If both executor and loop_factory are provided.
+
+    See Also
+    --------
+    https://github.com/snakemake/snakemake/issues/1105
+    https://stackoverflow.com/a/65696398
+    """
+
+    # asyncio.run fast-path to detect a running event loop, which we do not support yet
+    if asyncio.events._get_running_loop() is not None:
+        raise NestedCoroutineError(
             "Error running coroutine in event loop. Snakemake currently does not "
             "support being executed from an already running event loop. "
             "If you run Snakemake e.g. from a Jupyter notebook, make sure to spawn a "
             "separate process for Snakemake.",
-            e,
         )
+
+    if executor is not None:
+        if loop_factory is not None:
+            raise ValueError(
+                "only executor or loop_factory can be given as an argument"
+            )
+
+        def loop_factory():
+            loop = asyncio.new_event_loop()
+            loop.set_default_executor(executor)
+            asyncio.set_event_loop(loop)
+            return loop
+
+    return asyncio.Runner(loop_factory=loop_factory)
+
+
+def async_run(coroutine):
+    """
+    Creates a new event loop to execute a coroutine.
+
+    This is a convenience wrapper around async_runner() that creates a new runner,
+    executes the given coroutine, and returns its result. The event loop is properly
+    cleaned up after execution.
+
+    Parameters
+    ----------
+    coroutine : coroutine
+        An async coroutine to execute.
+
+    Returns
+    -------
+    any
+        The return value of the coroutine.
+
+    Raises
+    ------
+    WorkflowError
+        If called from within an already running event loop.
+    """
+    with async_runner() as runner:
+        return runner.run(coroutine)
 
 
 APPDIRS = None
@@ -139,13 +209,13 @@ def parse_uri(path_or_uri):
         # Fall back to a simple split if we encounter something which isn't supported.
         scheme, _, uri_path = path_or_uri.partition("://")
         if scheme and uri_path:
-            uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
-            return uri(scheme, uri_path)
+            Uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
+            return Uri(scheme, uri_path)
         else:
             raise e
 
 
-def smart_join(base, path, abspath=False):
+def smart_join(base, path, abspath=False) -> str:
     if is_local_file(base):
         full = os.path.join(base, path)
         if abspath:
@@ -262,13 +332,15 @@ class Rules:
     def __getattr__(self, name):
         from snakemake.exceptions import WorkflowError
 
-        try:
+        if name in self._rules:
             return self._rules[name]
-        except KeyError:
-            raise WorkflowError(
-                f"Rule {name} is not defined in this workflow. "
-                f"Available rules: {', '.join(self._rules)}"
-            )
+        raise WorkflowError(
+            f"Rule {name} is not defined in this workflow. "
+            f"Available rules: {', '.join(self._rules)}"
+        )
+
+    def has(self, name):
+        return name in self._rules
 
 
 class Scatter:
@@ -301,7 +373,9 @@ def overwrite_function_params(func: Callable, params: List[str]):
     setattr(func, FUNC_OVERWRITE_PARAMS_ATTR, params)
 
 
-def get_input_function_aux_params(func, candidate_params):
+def get_input_function_aux_params(
+    func: Callable[..., Any], candidate_params: Mapping[str, Any]
+) -> Mapping[str, Any]:
     func_params = get_function_params(func)
     has_var_keyword = any(
         param.kind == param.VAR_KEYWORD for param in func_params.values()
@@ -379,3 +453,47 @@ def copy_permission_safe(src: str, dst: str):
     if os.path.exists(dst):
         os.unlink(dst)
     shutil.copy(src, dst)
+
+
+class LockFreeWritableFile:
+    def __init__(self, orig_path: Path, binary: bool = False):
+        self.orig_path = orig_path
+        self._permissions: Optional[int] = None
+        self._times: Optional[Tuple[float, float]] = None
+        # We aim to name the file like an rsync temp file.
+        # This way, we get maximum compatibility and performance with systems like
+        # glusterfs which apply specific optimizations for the write-then-move
+        # operations of rsync.
+        # rsync uses a suffix
+        self.temp_file = NamedTemporaryFile(
+            mode="wb" if binary else "w",
+            delete=False,
+            dir=orig_path.parent,
+            prefix=f".{orig_path.name}.",
+        )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.temp_file.close()
+        if not exc_type:
+            if self._permissions is not None:
+                os.chmod(self.temp_file.name, self._permissions)
+            if self._times is not None:
+                os.utime(self.temp_file.name, self._times)
+            # atomic move
+            os.replace(self.temp_file.name, self.orig_path)
+        Path(self.temp_file.name).unlink(missing_ok=True)
+
+    def chmod(self, mode: int) -> None:
+        self._permissions = mode
+
+    def write(self, data):
+        self.temp_file.write(data)
+
+    def write_from_fileobj(self, fp):
+        shutil.copyfileobj(fp, self.temp_file)
+
+    def utime(self, times: Tuple[float, float]) -> None:
+        self._times = times

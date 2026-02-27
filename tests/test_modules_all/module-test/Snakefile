@@ -1,4 +1,6 @@
-configfile: "config.yaml"  # does not exist, but this statement should be ignored on module import
+# does not exist, but this statement should be ignored on module import
+configfile: "config/config.yaml" # either exists
+configfile: "config.yaml" # or not
 
 
 def some_func():
@@ -6,6 +8,7 @@ def some_func():
 
 
 rule a:
+    input: "not exist"
     output:
         temp("results/a/{name}.out"),
     shell:
