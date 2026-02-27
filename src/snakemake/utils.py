@@ -47,6 +47,7 @@ def validate(data, schema, set_default=True):
     from snakemake.sourcecache import LocalSourceFile, infer_source_file
     import jsonschema
     from jsonschema import Draft202012Validator, validators
+    from jsonschema.validators import validator_for
     from referencing import Registry, Resource
     from pathlib import Path
     from urllib.parse import urlparse
@@ -113,7 +114,7 @@ def validate(data, schema, set_default=True):
     registry = Registry(retrieve=retrieve_uri).with_resource(
         uri=schemafile.get_path_or_uri(secret_free=False), resource=resource
     )
-    Validator = Draft202012Validator(schema, registry=registry)
+    Validator = validator_for(schema, default=Draft202012Validator)
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -152,7 +153,7 @@ def validate(data, schema, set_default=True):
             Defaultvalidator(schema, registry=registry).validate(record)
             return record
         else:
-            Validator.validate(record)
+            Validator(schema, registry=registry).validate(record)
 
     def _validate_pandas(data):
         try:
