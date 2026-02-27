@@ -16,7 +16,7 @@ import os
 import threading
 from queue import Queue
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 import textwrap
 from typing import List, Optional, Collection, TextIO
 from snakemake_interface_logger_plugins.base import LogHandlerBase
@@ -65,7 +65,7 @@ def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
     omit_keys = omit_keys or []
     omit_values = omit_values or []
 
-    if isinstance(dict_like, (Namedlist, dict)):
+    if isinstance(dict_like, (Namedlist, Mapping)):
         items = dict_like.items()
 
     else:
@@ -549,6 +549,8 @@ class LoggerManager:
     settings
         Global logging settings. This is used to configure the default stream/file handlers and is
         also passed to all plugins.
+    plugin_handlers
+        List of instantiated :class:`LogHandlerBase` objects. Accessible after :meth:`setup` is called.
     """
 
     logger: logging.Logger
@@ -557,6 +559,7 @@ class LoggerManager:
     needs_rulegraph: bool
     logfile_handlers: dict[logging.Handler, str]
     settings: "OutputSettings"
+    plugin_handlers: List[LogHandlerBase]
 
     def __init__(self, logger: logging.Logger, settings: "OutputSettings"):
         self.logger = logger
@@ -564,6 +567,7 @@ class LoggerManager:
         self.queue_listener = None
         self.needs_rulegraph = False
         self.logfile_handlers = {}
+        self.plugin_handlers = []
 
         # Clear any existing handlers to prevent duplicates
         for handler in list(self.logger.handlers):
@@ -618,6 +622,9 @@ class LoggerManager:
                 self.logfile_handlers[handler] = handler.baseFilename
 
             handlers.append(handler)
+
+        # Store plugin handlers for external access
+        self.plugin_handlers = handlers
 
         # Set up queue for thread-safe plugin handlers
         if handlers:
@@ -683,6 +690,17 @@ class LoggerManager:
 
     def get_logfile(self) -> List[str]:
         return list(self.logfile_handlers.values())
+
+    def get_log_handlers(self) -> List[LogHandlerBase]:
+        """Return the list of instantiated plugin log handlers.
+
+        Returns
+        -------
+        List[LogHandlerBase]
+            List of instantiated :class:`LogHandlerBase` objects from logger plugins.
+            Returns an empty list if no plugin handlers were set up.
+        """
+        return self.plugin_handlers
 
     def logfile_hint(self):
         """Log the logfile location if applicable."""

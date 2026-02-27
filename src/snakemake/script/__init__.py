@@ -54,6 +54,8 @@ snakemake: "Snakemake"
 # For compatibility with Python <3.11 where typing.Self is not available.
 ReportHrefType = TypeVar("ReportHrefType", bound="ReportHref")
 
+FILE_HASH_PREFIX_LEN = 16
+
 
 class ReportHref:
     def __init__(
@@ -100,7 +102,7 @@ class ReportHref:
             anchor = f"#{urllib.parse.quote(self._anchor)}"
         else:
             anchor = ""
-        return f"../{self._id}/{path}{args}{anchor}"
+        return f"../{self._id[:FILE_HASH_PREFIX_LEN]}/{path}{args}{anchor}"
 
 
 class Snakemake:
@@ -111,7 +113,7 @@ class Snakemake:
         params: io_.Params,
         wildcards: io_.Wildcards,
         threads: int,
-        resources: io_.Resources,
+        resources: io_.ResourceList,
         log: io_.Log,
         config: typing.Dict[str, typing.Any],
         rulename: str,
@@ -660,7 +662,7 @@ class ScriptBase(ABC):
     @property
     def local_path(self):
         assert self.is_local
-        return self.path.get_path_or_uri(secret_free=False)
+        return self.path.get_path_or_uri(secret_free=True)
 
     @abstractmethod
     def get_preamble(self) -> str: ...
@@ -921,8 +923,7 @@ class RScript(ScriptBase):
         shadow_dir,
         preamble_addendum="",
     ):
-        return textwrap.dedent(
-            """
+        return textwrap.dedent("""
         ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
@@ -957,7 +958,7 @@ class RScript(ScriptBase):
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
-            
+
                 is_url <- grepl("^https?://", snakemake@scriptdir)
                 file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
                 if (!is_url) setwd(snakemake@scriptdir)
@@ -967,8 +968,7 @@ class RScript(ScriptBase):
         {preamble_addendum}
 
         ######## snakemake preamble end #########
-        """
-        ).format(
+        """).format(
             REncoder.encode_namedlist(input_),
             REncoder.encode_namedlist(output),
             REncoder.encode_namedlist(params),
@@ -1034,8 +1034,7 @@ class RScript(ScriptBase):
 
 class RMarkdown(ScriptBase):
     def get_preamble(self):
-        return textwrap.dedent(
-            """
+        return textwrap.dedent("""
         ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
@@ -1070,7 +1069,7 @@ class RMarkdown(ScriptBase):
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
-            
+
                 is_url <- grepl("^https?://", snakemake@scriptdir)
                 file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
                 if (!is_url) setwd(snakemake@scriptdir)
@@ -1079,8 +1078,7 @@ class RMarkdown(ScriptBase):
         )
 
         ######## snakemake preamble end #########
-        """
-        ).format(
+        """).format(
             REncoder.encode_namedlist(self.input),
             REncoder.encode_namedlist(self.output),
             REncoder.encode_namedlist(self.params),
@@ -1107,14 +1105,11 @@ class RMarkdown(ScriptBase):
         code = self.source
         pos = next(itertools.islice(re.finditer(r"---\n", code), 1, 2)).start() + 3
         fd.write(str.encode(code[:pos]))
-        preamble = textwrap.dedent(
-            """
+        preamble = textwrap.dedent("""
             ```{r, echo=FALSE, message=FALSE, warning=FALSE}
             %s
             ```
-            """
-            % preamble
-        )
+            """ % preamble)
         fd.write(preamble.encode())
         fd.write(code[pos:].encode())
 
@@ -1258,8 +1253,7 @@ class RustScript(ScriptBase):
 
         json_string = json.dumps(dict(snakemake))
 
-        return textwrap.dedent(
-            """
+        return textwrap.dedent("""
             json_typegen::json_typegen!("Snakemake", r###"{json_string}"###, {{
                 "/bench_iteration": {{
                    "use_type": "Option<usize>"
@@ -1367,8 +1361,7 @@ class RustScript(ScriptBase):
                 }};
             }}
             // TODO include addendum, if any {{preamble_addendum}}
-            """
-        ).format(
+            """).format(
             json_string=json_string,
             preamble_addendum=preamble_addendum,
         )
@@ -1653,9 +1646,9 @@ def get_source(
 ):
     if wildcards is not None and params is not None:
         if isinstance(path, SourceFile):
-            path = path.get_path_or_uri(secret_free=False)
-        # Format path if wildcards are given.
-        path = infer_source_file(format(path, wildcards=wildcards, params=params))
+            path = path.format(wildcards=wildcards, params=params)
+        else:
+            path = infer_source_file(format(path, wildcards=wildcards, params=params))
 
     if basedir is not None:
         basedir = infer_source_file(basedir)

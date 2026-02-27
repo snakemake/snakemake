@@ -51,6 +51,7 @@ from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
 
@@ -62,7 +63,7 @@ from snakemake.common import (
     MIN_PY_VERSION,
     __version__,
 )
-from snakemake.resources import DefaultResources
+from snakemake.resources import Resources
 
 
 class ApiBase(ABC):
@@ -262,6 +263,21 @@ class SnakemakeApi(ApiBase):
         ):
             linemaps = self._workflow_api._workflow_store.linemaps
         print_exception(ex, linemaps)
+
+    def get_log_handlers(self) -> List[LogHandlerBase]:
+        """Return the list of instantiated plugin log handlers.
+
+        This method provides access to the :class:`LogHandlerBase` objects that were
+        instantiated during logger setup. This is useful for testing utilities
+        that need to inspect logger state after workflow execution.
+
+        Returns
+        -------
+        List[LogHandlerBase]
+            List of instantiated log handler objects from logger plugins.
+            Returns an empty list if no plugin handlers were set up.
+        """
+        return self.logger_manager.get_log_handlers()
 
     def _check_is_in_context(self):
         if not self._is_in_context:
@@ -568,7 +584,7 @@ class DAGApi(ApiBase):
             if self.workflow_api.resource_settings.default_resources is None:
                 # use full default resources if in cluster or cloud mode
                 self.workflow_api.resource_settings.default_resources = (
-                    DefaultResources(mode="full")
+                    Resources.default("full")
                 )
             if execution_settings.edit_notebook is not None:
                 raise ApiError(
@@ -602,13 +618,12 @@ class DAGApi(ApiBase):
         if scheduler == "ilp":
             if scheduler_settings is None:
                 scheduler_settings = IlpSchedulerSettings()
-            import pulp
 
-            if pulp.apis.LpSolverDefault is None:
+            if not scheduler_settings.lp_solver_available:
                 logger.warning(
-                    "Falling back to greedy scheduler because no default "
-                    "ILP solver is found (you have to install either "
-                    "coincbc or glpk)."
+                    "Falling back to greedy scheduler because no ILP solver "
+                    "is found (you have to install pulp and either coincbc "
+                    "or glpk)."
                 )
                 scheduler = "greedy"
                 scheduler_settings = greedy_scheduler_settings
