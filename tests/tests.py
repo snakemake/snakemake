@@ -1054,6 +1054,55 @@ def test_suffixed_resources_cannot_be_human_readable():
         Resources.from_mapping({"mem_mb": "40 Gb"})
 
 
+@pytest.mark.parametrize(
+    "invalid_resource",
+    ["mem_gib", "disk_gib", "mem_mib", "disk_mib"],
+)
+def test_binary_suffixed_resources_are_rejected(invalid_resource):
+    """Test that resources with binary unit suffixes (_gib, _mib) are rejected.
+    
+    These resource names are not recognized by Snakemake:
+    - mem_gib, disk_gib: Use mem='10GiB' or mem_mb instead
+    - mem_mib, disk_mib: Auto-generated from mem_mb/disk_mb, cannot be set directly
+    """
+    with pytest.raises(
+        WorkflowError,
+        match=f"Resource '{invalid_resource}' is not a recognized resource name",
+    ):
+        Resources.from_mapping({invalid_resource: 10})
+
+
+@pytest.mark.parametrize(
+    "valid_resource,value,expected_mb",
+    [
+        ("mem", "10GiB", 10737),  # human-friendly with GiB
+        ("mem", "10GB", 10000),   # human-friendly with GB
+        ("mem_mb", 10240, 10240), # direct MB
+        ("disk", "5GiB", 5369),   # human-friendly with GiB  
+        ("disk", "5GB", 5000),    # human-friendly with GB
+        ("disk_mb", 5000, 5000),  # direct MB
+    ],
+)
+def test_memory_and_disk_resources_with_units(valid_resource, value, expected_mb):
+    """Test the standard ways to specify memory and disk resources.
+    
+    Memory and disk can be specified as:
+    - 'mem' or 'disk' with human-friendly units (e.g., '10GiB', '5GB')
+    - 'mem_mb' or 'disk_mb' with integer megabytes
+    
+    Note: Resources like mem_gb are treated as custom resources without 
+    automatic conversion. Use mem='10GB' for automatic handling.
+    """
+    resources = Resources.from_mapping({valid_resource: value})
+    # For human-friendly resources, check they're converted to _mb
+    if not valid_resource.endswith("_mb"):
+        assert f"{valid_resource}_mb" in resources
+        assert resources[f"{valid_resource}_mb"].value == expected_mb
+    else:
+        assert valid_resource in resources
+        assert resources[valid_resource].value == expected_mb
+
+
 @skip_on_windows
 def test_group_jobs_resources_with_max_threads(mocker):
     spy = mocker.spy(GroupResources, "basic_layered")
@@ -2069,11 +2118,13 @@ def test_cache_multioutput():
 def test_github_issue1384():
     try:
         tmpdir = run(dpath("test_github_issue1384"), cleanup=False)
-        shell("""
+        shell(
+            """
             cd {tmpdir}
             python -m snakemake --generate-unit-tests
             pytest -v .tests/unit
-            """)
+            """
+        )
     finally:
         shutil.rmtree(tmpdir)
 
