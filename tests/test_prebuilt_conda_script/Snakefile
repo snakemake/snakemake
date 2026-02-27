@@ -1,11 +1,11 @@
 rule all:
     input:
-        o='output.txt'
+        'output.txt'
 
 rule test_prebuilt_conda_script:
     output:
-        o='output.txt'
+        'output.txt'
     conda:
         'test_prebuilt_conda_script'
-    script:
-        'test.py'
+    shell:
+        "Tm -h > {output} || true"

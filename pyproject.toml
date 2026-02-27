@@ -40,7 +40,7 @@ dependencies = [
   "jinja2>=3.0,<4.0",
   "jsonschema",
   "nbformat",
-  "packaging >=24.0",
+  "packaging >=24.0,<26",
   "psutil",
   "pulp>=2.3.1,<3.4",
   "pyyaml",
@@ -50,7 +50,7 @@ dependencies = [
   "smart-open>=4.0,<8.0",
   "snakemake-interface-executor-plugins>=9.3.2,<10.0",
   "snakemake-interface-common>=1.20.1,<2.0",
-  "snakemake-interface-storage-plugins>=4.1.0,<5.0",
+  "snakemake-interface-storage-plugins>=4.3.2,<5.0",
   "snakemake-interface-report-plugins>=1.2.0,<2.0.0",
   "snakemake-interface-logger-plugins>=1.1.0,<3.0.0",
   "snakemake-interface-scheduler-plugins>=2.0.0,<3.0.0",
@@ -90,7 +90,7 @@ ignore-words-list = 'testin'
 ####################################################################
 # Pixi Configuration
 ####################################################################
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "osx-arm64", "win-64", "osx-64", "linux-aarch64"]
 
@@ -112,13 +112,15 @@ publish = { features = ["publish"] }
 # Python Envs
 [tool.pixi.feature.py311.dependencies]
 python = ">=3.11.0,<3.12"
+packaging = ">=24.0,<26"
 
 [tool.pixi.feature.py312.dependencies]
 python = ">=3.12.0,<3.13"
-
+packaging = ">=24.0,<26"
 
 [tool.pixi.feature.py313.dependencies]
 python = ">=3.13.0,<3.14"
+packaging = ">=24.0,<26"
 
 # Test
 [tool.pytest.ini_options]
@@ -128,6 +130,7 @@ markers = [
   "needs_envmodules: marks tests that require environment modules",
   "needs_s3: marks tests that require S3 credentials",
 ]
+
 [tool.pixi.feature.test]
 channels = ["conda-forge", "bioconda", "nodefaults"]
 
@@ -171,14 +174,15 @@ cmd = [
   "tests/test_executor_test_suite.py",
   "tests/test_api.py",
   "tests/test_internals.py",
+  "tests/test_jupyter_notebook_pathlike.py",
+  "tests/test_logging.py",
+  "tests/test_sourcecache.py",
+  "tests/test_output_index.py",
+  "tests/test_prefix_lookup.py",
+  "tests/test_args.py",
   # the tests below were never tested in the old CI and currently fail
-  # "tests/test_args.py",
-  # "tests/test_output_index.py",
-  # "tests/test_path_modifier.py",
   # "tests/test_persistence.py"
-  # "tests/test_prefix_lookup.py",
   # "tests/test_script.py",
-  # "tests/test_sourcecache.py",
 ]
 
 [tool.pixi.feature.test.dependencies]
@@ -207,6 +211,7 @@ httpretty = ">=1.1.4,<2"
 polars = ">=1.24.0,<2"
 requests-mock = ">=1.12.1,<2"
 docutils = ">=0.20.1,<0.22"
+packaging = ">=24.0,<26"
 conda = "*"
 pip = "*"
 
@@ -250,8 +255,9 @@ commonmark = ">=0.9.1,<0.10"
 myst-parser = ">=3.0.1,<5"
 sphinxcontrib-napoleon = ">=0.7,<0.8"
 sphinx-autobuild = ">=2024.10.3,<2025"
-sphinx-tabs = ">=3.4.1,<4"
+sphinx-design = ">=0.7.0,<1.0"
 sphinx-autodoc-typehints = ">=2.0.1,<3"
+packaging = ">=24.0,<26"
 
 
 [tool.pixi.feature.docs.tasks.build-docs]
@@ -271,6 +277,10 @@ cmd = 'make html SPHINXOPTS="--keep-going -n"'
 # Style
 [tool.pixi.feature.style.dependencies]
 black = "*"
+packaging = ">=24.0,<26"
+ty = "*"
+pyrefly = "*"
+ruff = "*"
 
 [tool.pixi.feature.style.tasks]
 format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format the code" }
@@ -279,6 +289,7 @@ format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format t
 [tool.pixi.feature.publish.dependencies]
 twine = ">=6.1.0,<7"
 python-build = ">=1.2.2,<2"
+packaging = ">=24.0,<26"
 
 [tool.pixi.feature.publish.tasks]
 build = { cmd = "python -m build", description = "Build the package into the dist/ directory" }

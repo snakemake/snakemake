@@ -7,7 +7,6 @@ from collections import namedtuple
 from copy import copy
 from snakemake.logging import logger
 
-
 InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
 
 
@@ -47,6 +46,7 @@ class RuleInfo:
         self.handover = False
         self.default_target = False
         self.localrule = False
+        self.pathvars = None
 
     def __copy__(self):
         """Return a copy of this ruleinfo."""
@@ -105,7 +105,8 @@ class RuleInfo:
         self.path_modifier = path_modifier
 
         # modify wrapper if requested
-        self.wrapper = modifier.modify_wrapper_uri(self.wrapper)
+        if self.wrapper is not None:
+            self.wrapper = modifier.modify_wrapper_uri(self.wrapper)
 
         if modifier.parent_modifier is not None:
             self.apply_modifier(modifier.parent_modifier, rulename=rulename)
