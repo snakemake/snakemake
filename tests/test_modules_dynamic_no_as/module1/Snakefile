@@ -1,0 +1,40 @@
+configfile: "config.yaml"  # does not exist, but this statement should be ignored on module import
+
+
+def some_func():
+    return 15
+
+
+rule module1_a:
+    output:
+        temp("results/a1/{name}.out"),
+    shell:
+        "echo {config[test]} > {output}"
+
+
+rule module1_b:
+    input:
+        expand(rules.module1_a.output, name="test"),
+    output:
+        "results/b1/{name}.out",
+    shell:
+        "cat {input} > {output}"
+
+
+rule module1_c_tsv:
+    input:
+        expand(rules.module1_b.output, name="test"),
+    output:
+        "results/c1/{name}.tsv",
+    shell:
+        "cat {input} > {output}"
+
+
+use rule module1_c_tsv as module1_c_txt with:
+    output:
+        "results/c1/{name}.txt",
+
+
+rule module1_all:
+    input:
+        expand(rules.module1_c_tsv.output, name="test"),

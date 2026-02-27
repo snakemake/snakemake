@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import os
 from pathlib import Path
+import subprocess as sp
 import shutil
 import tempfile
 import re
@@ -15,6 +16,8 @@ from snakemake.utils import format
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
+
+NBFORMAT_VERSION = 4
 
 
 def get_cell_sources(source):
@@ -41,7 +44,7 @@ class JupyterNotebook(ScriptBase):
         os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
 
         with open(self.local_path, "wb") as out:
-            out.write(nbformat.writes(nb).encode())
+            out.write(nbformat.writes(nb, version=NBFORMAT_VERSION).encode())
 
     def draft_and_edit(self, listen):
         self.draft()
@@ -53,12 +56,12 @@ class JupyterNotebook(ScriptBase):
     def write_script(self, preamble, fd):
         import nbformat
 
-        nb = nbformat.reads(self.source, as_version=nbformat.NO_CONVERT)
+        nb = nbformat.reads(self.source, as_version=NBFORMAT_VERSION)
 
         self.remove_preamble_cell(nb)
         self.insert_preamble_cell(preamble, nb)
 
-        fd.write(nbformat.writes(nb).encode())
+        fd.write(nbformat.writes(nb, version=NBFORMAT_VERSION).encode())
 
     def execute_script(self, fname, edit=None):
         import nbformat
@@ -66,12 +69,27 @@ class JupyterNotebook(ScriptBase):
         fname_out = self.log.get("notebook", None)
 
         with tempfile.TemporaryDirectory() as tmp:
+            try:
+                self._execute_cmd("papermill --version", read=True)
+                has_papermill = True
+            except sp.CalledProcessError:
+                has_papermill = False
+
             if edit is not None:
                 assert not edit.draft_only
-                logger.info("Opening notebook for editing.")
+                logger.info(f"Opening notebook for editing at {edit.ip}:{edit.port}")
                 cmd = (
                     "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
-                    "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
+                    "--ServerApp.quit_button=True {{fname:q}}".format(edit=edit)
+                )
+            elif has_papermill:
+                if fname_out is None:
+                    output_parameter = fname
+                else:
+                    output_parameter = "{fname_out}"
+                cmd = (
+                    "papermill --log-level ERROR {{fname:q}} "
+                    "{output_parameter}".format(output_parameter=output_parameter)
                 )
             else:
                 if fname_out is None:
@@ -105,7 +123,7 @@ class JupyterNotebook(ScriptBase):
                     shutil.copyfile(fname, fname_out)
 
                 logger.info("Saving modified notebook.")
-                nb = nbformat.read(fname, as_version=4)
+                nb = nbformat.read(fname, as_version=NBFORMAT_VERSION)
 
                 self.remove_preamble_cell(nb)
 
@@ -116,7 +134,7 @@ class JupyterNotebook(ScriptBase):
                     if "execution_count" in cell:
                         cell["execution_count"] = None
 
-                nbformat.write(nb, self.local_path)
+                nbformat.write(nb, self.local_path, version=NBFORMAT_VERSION)
 
     def insert_preamble_cell(self, preamble, notebook):
         import nbformat
@@ -257,11 +275,14 @@ def notebook(
     edit,
     sourcecache_path,
     runtime_sourcecache_path,
+    local_storage_prefix,
 ):
     """
     Load a script from the given basedir + path and execute it.
     """
     draft = False
+    if isinstance(path, Path):
+        path = str(path)
     path = format(path, wildcards=wildcards, params=params)
     if edit is not None:
         if is_local_file(path):
@@ -330,6 +351,7 @@ def notebook(
         cleanup_scripts,
         shadow_dir,
         is_local,
+        local_storage_prefix,
     )
 
     if edit is None:

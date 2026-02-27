@@ -1,9 +1,10 @@
 from abc import ABC
 from dataclasses import dataclass, field
+from functools import cached_property
 import os
 from pathlib import Path
 import re
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, TypeAlias, Union
 from typing import Mapping, Sequence, Set
 
 import immutables
@@ -30,7 +31,7 @@ from snakemake.common import (
     get_container_image,
 )
 from snakemake.common.configfile import load_configfile
-from snakemake.resources import DefaultResources
+from snakemake.resources import Resource, Resources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
@@ -39,6 +40,7 @@ from snakemake.settings.enums import (
     CondaCleanupPkgs,
     Quietness,
     StrictDagEvaluation,
+    PrintDag,
 )
 
 
@@ -132,6 +134,7 @@ class WorkflowSettings(SettingsBase):
     consider_ancient: Mapping[str, AnySet[Union[str, int]]] = field(
         default_factory=dict
     )
+    runtime_source_cache_path: Optional[Path] = None
 
 
 class Batch:
@@ -207,8 +210,10 @@ class DAGSettings(SettingsBase):
     allowed_rules: AnySet[str] = frozenset()
     rerun_triggers: AnySet[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
+    trust_io_cache: bool = False
     max_checksum_file_size: int = 1000000
     strict_evaluation: AnySet[StrictDagEvaluation] = frozenset()
+    print_dag_as: PrintDag = PrintDag.DOT
     # strict_functions_evaluation: bool = False
     # strict_cycle_evaluation: bool = False
     # strict_wildcards_recursion_evaluation: bool = False
@@ -227,11 +232,14 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_storage_prefix: Optional[str] = None
     shared_fs_usage: AnySet[SharedFSUsage] = SharedFSUsage.all()
     keep_storage_local: bool = False
+    retrieve_storage: bool = True
     local_storage_prefix: Path = Path(".snakemake/storage")
     remote_job_local_storage_prefix: Optional[Path] = None
+    omit_flags: AnySet[str] = frozenset()
     notemp: bool = False
     all_temp: bool = False
     unneeded_temp_files: AnySet[str] = frozenset()
+    wait_for_free_local_storage: Optional[int] = None
 
     def __post_init__(self):
         if self.remote_job_local_storage_prefix is None:
@@ -298,20 +306,25 @@ class SchedulingSettings(SettingsBase):
     prioritytargets:
         list of targets that shall be run with maximum priority (default [])
     scheduler:
-        Select scheduling algorithm (default ilp, allowed: ilp, greedy)
+        Select scheduling algorithm (default ilp, allowed: ilp, greedy or any scheduler plugin name).
     ilp_solver:
-        Set solver for ilp scheduler.
+        Set solver for ilp scheduler. deprecated, use scheduler_settings instead
+    solver_path:
+        Set the PATH to search for scheduler solver binaries. deprecated, use scheduler_settings instead
     greediness:
         Set the greediness of scheduling. This value, between 0 and 1, determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
+        Deprecated, use snakemake.scheduling.greedy.Settings instead and pass it as greedy_scheduler_settings to DAGApi.execute_workflow().
     subsample:
         Set the number of jobs to be considered for scheduling. If number of ready jobs is greater than this value, this number of jobs is randomly chosen for scheduling; if number of ready jobs is lower, this option has no effect. This can be useful on very large DAGs, where the scheduler can take some time selecting which jobs to run."
     """
 
     prioritytargets: AnySet[str] = frozenset()
     scheduler: str = "ilp"
-    ilp_solver: Optional[str] = None
-    solver_path: Optional[Path] = None
-    greediness: Optional[float] = None
+    ilp_solver: Optional[str] = None  # deprecated, use scheduler_settings instead
+    solver_path: Optional[Path] = None  # deprecated, use scheduler_settings instead
+    greediness: Optional[float] = (
+        None  # deprecated, use greedy_scheduler_settings instead
+    )
     subsample: Optional[int] = None
     max_jobs_per_second: Optional[int] = None
     max_jobs_per_timespan: Optional[MaxJobsPerTimespan] = None
@@ -328,11 +341,12 @@ class SchedulingSettings(SettingsBase):
             return self.greediness
 
     def _check(self):
-        if not (0 <= self.greediness <= 1.0):
-            raise ApiError("greediness must be >=0 and <=1")
         if self.subsample:
             if not isinstance(self.subsample, int) or self.subsample < 1:
                 raise ApiError("subsample must be a positive integer")
+
+
+ValidResource: TypeAlias = int | str | float | None | Callable[..., "ValidResource"]
 
 
 @dataclass
@@ -341,16 +355,43 @@ class ResourceSettings(SettingsBase):
     nodes: Optional[int] = None
     local_cores: Optional[int] = None
     max_threads: Optional[int] = None
-    resources: Mapping[str, int] = immutables.Map()
-    overwrite_threads: Mapping[str, int] = immutables.Map()
+    resources: Mapping[str, int | str | float | None] | Resources = immutables.Map()
+    overwrite_threads: Mapping[str, int] | Mapping[str, Resource] = immutables.Map()
     overwrite_scatter: Mapping[str, int] = immutables.Map()
     overwrite_resource_scopes: Mapping[str, str] = immutables.Map()
-    overwrite_resources: Mapping[str, Mapping[str, Any]] = immutables.Map()
-    default_resources: Optional[DefaultResources] = None
+    overwrite_resources: (
+        Mapping[str, Mapping[str, ValidResource]] | Mapping[str, Resources]
+    ) = immutables.Map()
+    default_resources: Optional[Mapping[str, ValidResource]] | Resources = None
 
-    def __post_init__(self):
+    @cached_property
+    def _parsed_resources(self):
+        return Resources.from_mapping(self.resources)
+
+    @cached_property
+    def _parsed_overwrite_resources(self):
+        return {
+            rule: Resources.from_mapping(mapping)
+            for rule, mapping in self.overwrite_resources.items()
+        }
+
+    @cached_property
+    def _parsed_default_resources(self):
         if self.default_resources is None:
-            self.default_resources = DefaultResources(mode="bare")
+            return Resources.default("bare")
+
+        return Resources.from_mapping(self.default_resources)
+
+    @cached_property
+    def _parsed_overwrite_threads(self):
+        return {
+            rule: (
+                Resource("_cores", threads)
+                if not isinstance(threads, Resource)
+                else threads
+            )
+            for rule, threads in self.overwrite_threads.items()
+        }
 
 
 @dataclass
@@ -358,6 +399,7 @@ class ConfigSettings(SettingsBase):
     config: Mapping[str, str] = immutables.Map()
     configfiles: Sequence[Path] = tuple()
     config_args: Optional[str] = None
+    replace_workflow_config: bool = False
 
     def __post_init__(self):
         self.overwrite_config = self._get_overwrite_config()
@@ -385,6 +427,30 @@ class ConfigSettings(SettingsBase):
 
 @dataclass
 class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
+    """
+    Attributes
+    ----------
+    dryrun
+    printshellcmds
+    nocolor
+    quiet
+    debug_dag
+    verbose
+    show_failed_logs
+    log_handler_settings
+        Settings for all enabled logger plugins (dictionary keyed by plugin name).
+    stdout
+        Log to stdout instead of stderr.
+    benchmark_extended
+    log_level_override
+        Override global log level (e.g., ``ERROR`` for subprocess).
+    skip_plugin_handlers
+        Skip plugins/queue (remote mode).
+    enable_file_logging
+    keep_logger
+        Deprecated, no longer functional. Will be removed in v10.0.
+    """
+
     dryrun: bool = False
     printshellcmds: bool = False
     nocolor: bool = False
@@ -393,9 +459,12 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     verbose: bool = False
     show_failed_logs: bool = False
     log_handler_settings: Mapping[str, LogHandlerSettingsBase] = immutables.Map()
-    keep_logger: bool = False
     stdout: bool = False
     benchmark_extended: bool = False
+    log_level_override: Optional[int] = None
+    skip_plugin_handlers: bool = False
+    enable_file_logging: bool = True
+    keep_logger: bool = False
 
 
 @dataclass
@@ -427,3 +496,10 @@ class GroupSettings(SettingsBase):
     overwrite_groups: Mapping[str, str] = immutables.Map()
     group_components: Mapping[str, int] = immutables.Map()
     local_groupid: str = "local"
+
+
+@dataclass
+class GlobalReportSettings(SettingsBase):
+    """Global settings that apply to all report plugins."""
+
+    metadata_template: Optional[Path] = None

@@ -1,0 +1,76 @@
+
+report: "report/workflow.rst"
+
+
+shell.executable("bash")
+
+
+rule all:
+    input:
+        ["fig1.svg", "testmodel.fig2.png", "test.csv", "testdir"],
+
+
+rule c:
+    input:
+        report("lorem-ipsum.pdf", caption="report/fig1.rst"),
+    output:
+        "test.{i}.out",
+    singularity:
+        "docker://continuumio/miniconda3:4.4.10"
+    conda:
+        "envs/test.yaml"
+    shell:
+        "sleep `shuf -i 1-3 -n 1`; touch {output}"
+
+
+rule a:
+    input:
+        expand("test.{i}.out", i=range(10)),
+    output:
+        report(
+            "fig1.svg",
+            caption="report/fig1.rst",
+            category="Step 1",
+            labels=lambda w, params: {"type": "figure", "num": "1"},
+        ),
+    shell:
+        "sleep `shuf -i 1-3 -n 1`; cp data/fig1.svg {output}"
+
+
+rule b:
+    input:
+        expand("test.{i}.out", i=range(10)),
+    output:
+        report(
+            "{model}.fig2.png",
+            caption="report/fig2.rst",
+            category=lambda w: "Step 2",
+            subcategory="{model}",
+            labels={"type": "figure", "model": "{model}"},
+        ),
+    shell:
+        "sleep `shuf -i 1-3 -n 1`; cp data/fig2.png {output}"
+
+
+rule d:
+    output:
+        report("test.csv", caption="report/table.rst"),
+    run:
+        shell(
+            "curl http://samplecsvs.s3.amazonaws.com/Sacramentorealestatetransactions.csv > {output}"
+        )
+
+
+rule e:
+    output:
+        report(
+            directory("testdir"), caption="report/testdir.rst", patterns=["{name}.txt"]
+        ),
+    shell:
+        """
+        mkdir {output}
+        for x in 1 2 3
+        do 
+            echo $x > testdir/$x.txt
+        done
+        """

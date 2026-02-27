@@ -41,7 +41,7 @@ class RuleInfo extends React.Component {
             this.renderItems("Input", rule.input, {}, false),
             this.renderItems("Output", rule.output),
             this.renderSoftware(),
-            this.renderItems("Container", [rule.container]),
+            this.renderItems("Container", [rule.container_img_url]),
             this.renderCode(),
         )
     }

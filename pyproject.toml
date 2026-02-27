@@ -15,17 +15,17 @@ readme = { content-type = "text/markdown", text = """
   how to create output files from input files.
 """ }
 requires-python = ">= 3.11"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "Johannes Köster", email = "johannes.koester@uni-due.de" }]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: MIT License",
   "Natural Language :: English",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering",
 ]
 
@@ -40,18 +40,20 @@ dependencies = [
   "jinja2>=3.0,<4.0",
   "jsonschema",
   "nbformat",
-  "packaging",
+  "packaging >=24.0,<26",
   "psutil",
-  "pulp>=2.3.1,<2.10",
+  "pulp>=2.3.1,<3.4",
   "pyyaml",
+  "referencing",
   "requests>=2.8.1,<3.0",
   "reretry",
   "smart-open>=4.0,<8.0",
   "snakemake-interface-executor-plugins>=9.3.2,<10.0",
-  "snakemake-interface-common>=1.17.0,<2.0",
-  "snakemake-interface-storage-plugins>=3.2.3,<4.0",
-  "snakemake-interface-report-plugins>=1.1.0,<2.0.0",
-  "snakemake-interface-logger-plugins>=1.1.0,<2.0.0",
+  "snakemake-interface-common>=1.20.1,<2.0",
+  "snakemake-interface-storage-plugins>=4.3.2,<5.0",
+  "snakemake-interface-report-plugins>=1.2.0,<2.0.0",
+  "snakemake-interface-logger-plugins>=1.1.0,<3.0.0",
+  "snakemake-interface-scheduler-plugins>=2.0.0,<3.0.0",
   "tabulate",
   "throttler",
   "wrapt",
@@ -66,10 +68,9 @@ Documentation = "https://snakemake.readthedocs.io"
 Source = "https://github.com/snakemake/snakemake"
 
 [project.optional-dependencies]
-messaging = ["slack_sdk"]
 pep = ["eido", "peppy"]
 reports = ["pygments"]
-all = ["slack_sdk", "eido", "peppy", "pygments"]
+all = ["eido", "peppy", "pygments"]
 
 [project.scripts]
 snakemake = "snakemake.cli:main"
@@ -89,7 +90,7 @@ ignore-words-list = 'testin'
 ####################################################################
 # Pixi Configuration
 ####################################################################
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "osx-arm64", "win-64", "osx-64", "linux-aarch64"]
 
@@ -101,6 +102,8 @@ dev = { features = ["test", "docs", "style"] }
 
 py311 = { features = ["py311", "test"] }
 py312 = { features = ["py312", "test"] }
+py313 = { features = ["py313", "test"] }
+
 
 docs = { features = ["docs"] }
 quality = { features = ["style"] }
@@ -109,9 +112,15 @@ publish = { features = ["publish"] }
 # Python Envs
 [tool.pixi.feature.py311.dependencies]
 python = ">=3.11.0,<3.12"
+packaging = ">=24.0,<26"
 
 [tool.pixi.feature.py312.dependencies]
 python = ">=3.12.0,<3.13"
+packaging = ">=24.0,<26"
+
+[tool.pixi.feature.py313.dependencies]
+python = ">=3.13.0,<3.14"
+packaging = ">=24.0,<26"
 
 # Test
 [tool.pytest.ini_options]
@@ -119,7 +128,9 @@ addopts = "--verbose --show-capture=stderr" #  --exitfirst
 markers = [
   #  (use '-m "not needs_envmodules"' to skip these tests)
   "needs_envmodules: marks tests that require environment modules",
+  "needs_s3: marks tests that require S3 credentials",
 ]
+
 [tool.pixi.feature.test]
 channels = ["conda-forge", "bioconda", "nodefaults"]
 
@@ -133,6 +144,16 @@ cmd = [
   "tests/tests.py",
 ]
 description = "Run tests only for tests/tests.py"
+
+[tool.pixi.feature.test.target.osx-arm64.tasks.test-simple]
+cmd = [
+  "pytest",
+  "-m",
+  "not (needs_s3 or needs_envmodules)", # needs_s3 is not supported on osx-arm64
+  "-k",
+  "not (test_conda_global or queue)", # queue is buggy on osx-arm64
+  "tests/tests.py",
+]
 
 [tool.pixi.feature.test.tasks.test-all]
 description = "Run all tests in the tests directory"
@@ -153,14 +174,15 @@ cmd = [
   "tests/test_executor_test_suite.py",
   "tests/test_api.py",
   "tests/test_internals.py",
+  "tests/test_jupyter_notebook_pathlike.py",
+  "tests/test_logging.py",
+  "tests/test_sourcecache.py",
+  "tests/test_output_index.py",
+  "tests/test_prefix_lookup.py",
+  "tests/test_args.py",
   # the tests below were never tested in the old CI and currently fail
-  # "tests/test_args.py",
-  # "tests/test_output_index.py",
-  # "tests/test_path_modifier.py",
   # "tests/test_persistence.py"
-  # "tests/test_prefix_lookup.py",
   # "tests/test_script.py",
-  # "tests/test_sourcecache.py",
 ]
 
 [tool.pixi.feature.test.dependencies]
@@ -189,12 +211,18 @@ httpretty = ">=1.1.4,<2"
 polars = ">=1.24.0,<2"
 requests-mock = ">=1.12.1,<2"
 docutils = ">=0.20.1,<0.22"
+packaging = ">=24.0,<26"
+conda = "*"
+pip = "*"
+
+[tool.pixi.feature.test.pypi-dependencies]
+snakemake-executor-plugin-cluster-generic = "*"
 snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
-snakemake-executor-plugin-cluster-generic = "*"
-conda = "*"
-pip = "*"
+
+[tool.pixi.feature.test.target.linux-64.pypi-dependencies]
+snakemake-storage-plugin-xrootd = "*"
 
 [tool.pixi.feature.test.target.linux-64.dependencies]
 # environment-modules = "*"
@@ -214,6 +242,7 @@ git = "*"
 wget = "*"
 dash = "*"
 openmpi = "*"
+xrootd = ">=5.7.3,<6"
 
 # Docs
 [tool.pixi.feature.docs.dependencies]
@@ -226,8 +255,9 @@ commonmark = ">=0.9.1,<0.10"
 myst-parser = ">=3.0.1,<5"
 sphinxcontrib-napoleon = ">=0.7,<0.8"
 sphinx-autobuild = ">=2024.10.3,<2025"
-sphinx-tabs = ">=3.4.1,<4"
+sphinx-design = ">=0.7.0,<1.0"
 sphinx-autodoc-typehints = ">=2.0.1,<3"
+packaging = ">=24.0,<26"
 
 
 [tool.pixi.feature.docs.tasks.build-docs]
@@ -247,17 +277,22 @@ cmd = 'make html SPHINXOPTS="--keep-going -n"'
 # Style
 [tool.pixi.feature.style.dependencies]
 black = "*"
+packaging = ">=24.0,<26"
+ty = "*"
+pyrefly = "*"
+ruff = "*"
 
 [tool.pixi.feature.style.tasks]
-format = { cmd = "black src/ tests/*.py", description = "Format the code" }
+format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format the code" }
 
-# Publish
+# Build
 [tool.pixi.feature.publish.dependencies]
 twine = ">=6.1.0,<7"
 python-build = ">=1.2.2,<2"
+packaging = ">=24.0,<26"
 
 [tool.pixi.feature.publish.tasks]
 build = { cmd = "python -m build", description = "Build the package into the dist/ directory" }
-check-build = { cmd = "python -m twine check dist/*", depends-on = [
+build-check = { cmd = "python -m twine check --strict dist/*", depends-on = [
   "build",
 ], description = "Check that the package can be uploaded" }

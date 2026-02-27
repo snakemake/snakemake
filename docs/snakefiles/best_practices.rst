@@ -60,3 +60,9 @@ Follow the standards
 1. For publishing and distributing a Snakemake workflow, it is a good idea to stick to a :ref:`standardized folder structure <distribution_and_reproducibility>` that is expected by frequent users of Snakemake. This simplifies the navigation through the codebase and keeps the workflow repository and the working directory clean.
 2. The `Snakemake workflow catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_ automatically lists Snakemake workflows hosted on `Github <https://github.com>`_ if they follow certain `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_.
    By complying to these `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_ you can make your workflow more discoverable and even automate its usage documentation (see `"Standardized usage" <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_).
+
+
+Simplify maintenance
+--------------------
+
+Use `Snakedeploy <https://snakedeploy.readthedocs.io>`_ to simplify and automate the maintenance of your Snakemake workflows, or to deploy publicly available workflows for application on your own data.

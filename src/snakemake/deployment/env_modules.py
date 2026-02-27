@@ -13,7 +13,7 @@ class EnvModules:
 
     def shellcmd(self, cmd):
         """Return shell command with given modules loaded."""
-        return "module purge && module load {to_load}; {cmd}".format(
+        return "module purge && MODULES_VERBOSITY=concise module load {to_load}; {cmd}".format(
             to_load=" ".join(self.names), cmd=cmd
         )
 
@@ -22,7 +22,7 @@ class EnvModules:
 
     @property
     def hash(self) -> str:
-        md5hash = hashlib.md5()
+        md5hash = hashlib.md5(usedforsecurity=False)
         for name in self.names:
             md5hash.update(name.encode())
         return md5hash.hexdigest()

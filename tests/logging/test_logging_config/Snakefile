@@ -1,0 +1,38 @@
+import logging.config
+
+log_dict_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        'formatters': {
+            'standard': {
+                'format': '%(asctime)s [%(levelname)s][TESTLOGGINGCONFIG] %(name)s: %(message)s'
+            },
+        },
+        "handlers": {
+            "console": {
+                'level': 'INFO',
+                'formatter': 'standard',
+                'class': 'logging.StreamHandler',
+                'stream': 'ext://sys.stdout',  # Default is stderr
+            },
+        },
+        "loggers": {
+            "snakemake": {
+                "level": "DEBUG",
+                "handlers": ["console"],
+                "propagate": False,
+            },
+        },
+    }
+
+logging.config.dictConfig(log_dict_config)
+rule all:
+    input:
+        expand("results/{i}.txt", i=range(5)),
+
+
+rule a:
+    output:
+        "results/{i}.txt",
+    shell:
+        "echo {wildcards.i} > {output}"

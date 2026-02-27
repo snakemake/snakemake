@@ -8,6 +8,7 @@ import subprocess
 import shutil
 import os
 import hashlib
+from typing import List, Optional
 
 from snakemake.common import (
     get_snakemake_searchpaths,
@@ -17,7 +18,7 @@ from snakemake.common import (
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 from snakemake_interface_common.utils import lazy_property
-
+from snakemake.common import get_appdirs
 
 SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
 
@@ -45,7 +46,7 @@ class Image:
 
     @lazy_property
     def hash(self):
-        md5hash = hashlib.md5()
+        md5hash = hashlib.md5(usedforsecurity=False)
         md5hash.update(self.url.encode())
         return md5hash.hexdigest()
 
@@ -92,7 +93,8 @@ class Image:
 
 def shellcmd(
     img_path,
-    cmd,
+    cmd: str,
+    bind: Optional[List[Path]] = None,
     args="",
     quiet=False,
     envvars=None,
@@ -118,14 +120,24 @@ def shellcmd(
     if is_python_script:
         # mount host snakemake module into container
         args += " ".join(
-            f" --bind {repr(searchpath)}:{repr(mountpoint)}"
+            f" --bind {str(searchpath)!r}:{str(mountpoint)!r}"
             for searchpath, mountpoint in zip(
                 get_snakemake_searchpaths(), get_snakemake_searchpath_mountpoints()
             )
         )
 
     if container_workdir:
-        args += f" --pwd {repr(container_workdir)}"
+        args += f" --pwd {str(container_workdir)!r}"
+
+    if bind is not None:
+        for b in bind:
+            if b.exists():
+                args += f" --bind {str(b)!r}"
+            else:
+                logger.debug(
+                    "Skipping apptainer/singularity bind-mount for "
+                    f"non-existent path {str(b)!r}"
+                )
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,

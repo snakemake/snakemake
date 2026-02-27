@@ -1,0 +1,16 @@
+configfile: "workflow-config.yaml"
+
+name = config['name'] if 'name' in config else 'noname'
+id = config['id'] if 'id' in config else 'noid'
+value = config['value'] if 'value' in config else 'novalue'
+
+rule all:
+    input:
+        'result.txt'
+
+rule create:
+    output:
+        'result.txt'
+    shell:
+        'echo {name}-{id}-{value} > {output}'
+

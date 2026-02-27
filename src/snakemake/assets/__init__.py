@@ -60,7 +60,7 @@ class Assets:
         "tailwindcss/LICENSE": Asset(
             url="https://raw.githubusercontent.com/tailwindlabs/tailwindcss/refs/tags/v{version}/LICENSE",
             sha256="60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985",
-            version="3.0.23",
+            version="3.4.16",
         ),
         "tailwindcss/tailwind.css": Asset(
             url="https://cdn.tailwindcss.com/{version}?plugins=forms@0.5.9,typography@0.5.2",
@@ -541,7 +541,7 @@ class Assets:
             if target_path.exists():
                 with open(target_path, "rb") as fin:
                     # file is already present, check if it is up to date
-                    if (asset.sha256 is not None) and (
+                    if (asset.sha256 is None) or (
                         asset.sha256 == hashlib.sha256(fin.read()).hexdigest()
                     ):
                         continue

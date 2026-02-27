@@ -33,3 +33,8 @@ class StrictDagEvaluation(SettingsEnumBase):
     FUNCTIONS = 0
     CYCLIC_GRAPH = 1
     PERIODIC_WILDCARDS = 2
+
+
+class PrintDag(SettingsEnumBase):
+    DOT = 0
+    MERMAID_JS = 1

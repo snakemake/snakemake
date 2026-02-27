@@ -14,9 +14,17 @@ PATH_MODIFIER_FLAG = "path_modified"
 
 
 class PathModifier:
-    def __init__(self, replace_prefix: dict, prefix: str, workflow):
-        self.skip_properties = set()
+
+    def __init__(
+        self,
+        replace_prefix: dict | None,
+        prefix: str | None,
+        workflow,
+        inner_modifier: "PathModifier | None" = None,
+    ):
+        self.skip_properties: set = set()
         self.workflow = workflow
+        self.inner_modifier = inner_modifier
 
         self.prefix = None
         assert not (prefix and replace_prefix)
@@ -52,14 +60,21 @@ class PathModifier:
                 modified_path = AnnotatedString(modified_path)
             modified_path.flags.update(path.flags)
             if is_flagged(modified_path, "multiext"):
-                modified_path.flags["multiext"] = self.apply_default_storage(
-                    self.replace_prefix(modified_path.flags["multiext"], property)
+                multiext_value = modified_path.flags["multiext"]
+                multiext_value.prefix = self.apply_default_storage(
+                    self.replace_prefix(multiext_value.prefix, property)
                 )
         # Flag the path as modified and return.
         modified_path = flag(modified_path, PATH_MODIFIER_FLAG)
         return modified_path
 
     def replace_prefix(self, path, property=None):
+        path = self._replace_prefix(path, property)
+        if self.inner_modifier is not None:
+            return self.inner_modifier.replace_prefix(path, property)
+        return path
+
+    def _replace_prefix(self, path, property):
         if (self._prefix_replacements is None and self.prefix is None) or (
             property in self.skip_properties
             or os.path.isabs(path)

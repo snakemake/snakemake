@@ -1,0 +1,9 @@
+rule c:
+    input:
+        "b.txt"
+    output:
+        "c_{i}.txt"
+    conda:
+        "envs/c.yaml"
+    shell:
+        "echo {input} > {output}"

@@ -1,0 +1,2 @@
+scratch/temp.txt
+scratch/persist.txt

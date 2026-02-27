@@ -11,6 +11,16 @@ assert lookup(dpath="does/not/exist", within=config, default=5) == 5
 assert (
     extract_checksum("samples.md5", file="1.tsv") == "9695eb6f38992d796551f4cb20d7d138"
 )
+assert flatten([1, "a", [2, "b"], ["c", "d", ["e", 3]]]) == [
+    "1",
+    "a",
+    "2",
+    "b",
+    "c",
+    "d",
+    "e",
+    "3",
+]
 
 
 rule all:
@@ -20,15 +30,22 @@ rule all:
 
 rule a:
     input:
+        "dummy1.tsv",
         checksum="samples.md5",
     output:
         "a/{sample}.txt",
     params:
-        checksum=lambda w, input, output: parse_input(
+        checksum1=parse_input(
+            input[1], parser=extract_checksum, file="1.tsv"
+        ),
+        checksum2=parse_input(
+            input.checksum, parser=extract_checksum, file="1.tsv"
+        ),
+        checksum3=lambda w, input: parse_input(
             input.checksum, parser=extract_checksum, file=f"{w.sample}.tsv"
         ),
     shell:
-        "echo {params.checksum} > {output}"
+        "echo -e '{params.checksum1}\n{params.checksum2}\n{params.checksum3}' | sort -u > {output}"
 
 
 rule b:
@@ -69,7 +86,7 @@ rule item_access:
         assert params.output_item == "test.txt"
         assert params.output_item2 == "test.txt"
         assert params.input_item == "in.txt"
-        assert resources.mem == "1GB"
+        assert resources.mem == "1 GB"
 
         with open(output[0], "w") as outfile:
             print("d", file=outfile)

@@ -5,30 +5,32 @@ __license__ = "MIT"
 
 import collections
 import itertools
-import math
-import os
-from numbers import Integral, Real, Complex, Number
-from collections.abc import Iterable
 import json
+import math
 import os
 import pickle
 import re
+import shlex
 import sys
 import tempfile
 import textwrap
 import typing
-import shlex
+import urllib.parse
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
+from numbers import Complex, Integral, Number, Real
 from pathlib import Path
-from typing import List, Optional, Pattern, Tuple, Union, Dict
+from typing import Dict, List, Optional, Pattern, Tuple, TypeVar, Union
 from urllib.error import URLError
-import urllib.parse
-from typing import TypeVar
 
 from snakemake import io as io_
 from snakemake import sourcecache
-from snakemake.common import MIN_PY_VERSION, ON_WINDOWS, get_snakemake_searchpaths
+from snakemake.common import (
+    MIN_PY_VERSION,
+    ON_WINDOWS,
+    get_report_id,
+    get_snakemake_searchpaths,
+)
 from snakemake.deployment import singularity
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
@@ -40,7 +42,6 @@ from snakemake.sourcecache import (
     infer_source_file,
 )
 from snakemake.utils import format
-from snakemake.common import get_report_id
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
@@ -52,6 +53,8 @@ snakemake: "Snakemake"
 
 # For compatibility with Python <3.11 where typing.Self is not available.
 ReportHrefType = TypeVar("ReportHrefType", bound="ReportHref")
+
+FILE_HASH_PREFIX_LEN = 16
 
 
 class ReportHref:
@@ -99,7 +102,7 @@ class ReportHref:
             anchor = f"#{urllib.parse.quote(self._anchor)}"
         else:
             anchor = ""
-        return f"../{self._id}/{path}{args}{anchor}"
+        return f"../{self._id[:FILE_HASH_PREFIX_LEN]}/{path}{args}{anchor}"
 
 
 class Snakemake:
@@ -110,7 +113,7 @@ class Snakemake:
         params: io_.Params,
         wildcards: io_.Wildcards,
         threads: int,
-        resources: io_.Resources,
+        resources: io_.ResourceList,
         log: io_.Log,
         config: typing.Dict[str, typing.Any],
         rulename: str,
@@ -596,6 +599,7 @@ class ScriptBase(ABC):
         cleanup_scripts,
         shadow_dir,
         is_local,
+        runtime_paths,
     ):
         self.path = path
         self.cache_path = cache_path
@@ -622,6 +626,7 @@ class ScriptBase(ABC):
         self.cleanup_scripts = cleanup_scripts
         self.shadow_dir = shadow_dir
         self.is_local = is_local
+        self.runtime_paths = runtime_paths
 
     def evaluate(self, edit=False):
         assert not edit or self.editable
@@ -657,7 +662,7 @@ class ScriptBase(ABC):
     @property
     def local_path(self):
         assert self.is_local
-        return self.path.get_path_or_uri()
+        return self.path.get_path_or_uri(secret_free=True)
 
     @abstractmethod
     def get_preamble(self) -> str: ...
@@ -680,6 +685,7 @@ class ScriptBase(ABC):
             singularity_args=self.singularity_args,
             resources=self.resources,
             threads=self.threads,
+            runtime_paths=self.runtime_paths,
             **kwargs,
         )
 
@@ -723,7 +729,7 @@ class PythonScript(ScriptBase):
             config,
             rulename,
             bench_iteration,
-            path.get_basedir().get_path_or_uri(),
+            path.get_basedir().get_path_or_uri(secret_free=True),
         )
         snakemake = pickle.dumps(snakemake)
         # Obtain search path for current snakemake module.
@@ -742,7 +748,7 @@ class PythonScript(ScriptBase):
                 searchpaths.append(cache_searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if is_local:
-            searchpaths.append(path.get_basedir().get_path_or_uri())
+            searchpaths.append(path.get_basedir().get_path_or_uri(secret_free=True))
 
         shell_exec = resources.get("shell_exec")
         shell_exec_stmt = (
@@ -777,9 +783,11 @@ class PythonScript(ScriptBase):
 
     def get_preamble(self):
         if isinstance(self.path, LocalSourceFile):
-            file_override = os.path.realpath(self.path.get_path_or_uri())
+            file_override = os.path.realpath(
+                self.path.get_path_or_uri(secret_free=True)
+            )
         else:
-            file_override = self.path.get_path_or_uri()
+            file_override = self.path.get_path_or_uri(secret_free=True)
         preamble_addendum = (
             "__real_file__ = __file__; __file__ = {file_override};".format(
                 file_override=repr(file_override)
@@ -915,8 +923,7 @@ class RScript(ScriptBase):
         shadow_dir,
         preamble_addendum="",
     ):
-        return textwrap.dedent(
-            """
+        return textwrap.dedent("""
         ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
@@ -951,7 +958,7 @@ class RScript(ScriptBase):
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
-            
+
                 is_url <- grepl("^https?://", snakemake@scriptdir)
                 file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
                 if (!is_url) setwd(snakemake@scriptdir)
@@ -961,8 +968,7 @@ class RScript(ScriptBase):
         {preamble_addendum}
 
         ######## snakemake preamble end #########
-        """
-        ).format(
+        """).format(
             REncoder.encode_namedlist(input_),
             REncoder.encode_namedlist(output),
             REncoder.encode_namedlist(params),
@@ -979,7 +985,7 @@ class RScript(ScriptBase):
             REncoder.encode_dict(config),
             REncoder.encode_value(rulename),
             REncoder.encode_numeric(bench_iteration),
-            REncoder.encode_value(path.get_basedir().get_path_or_uri()),
+            REncoder.encode_value(path.get_basedir().get_path_or_uri(secret_free=True)),
             preamble_addendum=preamble_addendum,
         )
 
@@ -1028,8 +1034,7 @@ class RScript(ScriptBase):
 
 class RMarkdown(ScriptBase):
     def get_preamble(self):
-        return textwrap.dedent(
-            """
+        return textwrap.dedent("""
         ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
@@ -1064,7 +1069,7 @@ class RMarkdown(ScriptBase):
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
-            
+
                 is_url <- grepl("^https?://", snakemake@scriptdir)
                 file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
                 if (!is_url) setwd(snakemake@scriptdir)
@@ -1073,8 +1078,7 @@ class RMarkdown(ScriptBase):
         )
 
         ######## snakemake preamble end #########
-        """
-        ).format(
+        """).format(
             REncoder.encode_namedlist(self.input),
             REncoder.encode_namedlist(self.output),
             REncoder.encode_namedlist(self.params),
@@ -1091,7 +1095,9 @@ class RMarkdown(ScriptBase):
             REncoder.encode_dict(self.config),
             REncoder.encode_value(self.rulename),
             REncoder.encode_numeric(self.bench_iteration),
-            REncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
+            REncoder.encode_value(
+                self.path.get_basedir().get_path_or_uri(secret_free=True)
+            ),
         )
 
     def write_script(self, preamble, fd):
@@ -1099,14 +1105,11 @@ class RMarkdown(ScriptBase):
         code = self.source
         pos = next(itertools.islice(re.finditer(r"---\n", code), 1, 2)).start() + 3
         fd.write(str.encode(code[:pos]))
-        preamble = textwrap.dedent(
-            """
+        preamble = textwrap.dedent("""
             ```{r, echo=FALSE, message=FALSE, warning=FALSE}
             %s
             ```
-            """
-            % preamble
-        )
+            """ % preamble)
         fd.write(preamble.encode())
         fd.write(code[pos:].encode())
 
@@ -1175,7 +1178,9 @@ class JuliaScript(ScriptBase):
                 JuliaEncoder.encode_dict(self.config),
                 JuliaEncoder.encode_value(self.rulename),
                 JuliaEncoder.encode_value(self.bench_iteration),
-                JuliaEncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
+                JuliaEncoder.encode_value(
+                    self.path.get_basedir().get_path_or_uri(secret_free=True)
+                ),
             )
         )
 
@@ -1243,13 +1248,12 @@ class RustScript(ScriptBase):
             config=encode_namedlist(config.items()),
             rulename=rulename,
             bench_iteration=bench_iteration,
-            scriptdir=path.get_basedir().get_path_or_uri(),
+            scriptdir=path.get_basedir().get_path_or_uri(secret_free=True),
         )
 
         json_string = json.dumps(dict(snakemake))
 
-        return textwrap.dedent(
-            """
+        return textwrap.dedent("""
             json_typegen::json_typegen!("Snakemake", r###"{json_string}"###, {{
                 "/bench_iteration": {{
                    "use_type": "Option<usize>"
@@ -1357,8 +1361,7 @@ class RustScript(ScriptBase):
                 }};
             }}
             // TODO include addendum, if any {{preamble_addendum}}
-            """
-        ).format(
+            """).format(
             json_string=json_string,
             preamble_addendum=preamble_addendum,
         )
@@ -1543,7 +1546,7 @@ class BashScript(ScriptBase):
             config=config,
             rulename=rulename,
             bench_iteration=bench_iteration,
-            scriptdir=path.get_basedir().get_path_or_uri(),
+            scriptdir=path.get_basedir().get_path_or_uri(secret_free=True),
         )
 
         namedlists = [
@@ -1604,7 +1607,19 @@ class BashScript(ScriptBase):
 
 class XonshScript(PythonScript):
     def execute_script(self, fname, edit=False):
-        self._execute_cmd("xonsh {fname:q}", fname=fname)
+        self._execute_cmd(
+            "xonsh -DRAISE_SUBPROC_ERROR=true -DXONSH_SHOW_TRACEBACK=true {fname:q}",
+            fname=fname,
+        )
+
+
+class HyScript(PythonScript):
+    def write_script(self, preamble, fd):
+        fd.write(f"(pys #[[{preamble}]])".encode())
+        fd.write(self.source.encode())
+
+    def execute_script(self, fname, edit=False):
+        self._execute_cmd("hy {fname:q}", fname=fname)
 
 
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
@@ -1631,9 +1646,9 @@ def get_source(
 ):
     if wildcards is not None and params is not None:
         if isinstance(path, SourceFile):
-            path = path.get_path_or_uri()
-        # Format path if wildcards are given.
-        path = infer_source_file(format(path, wildcards=wildcards, params=params))
+            path = path.format(wildcards=wildcards, params=params)
+        else:
+            path = infer_source_file(format(path, wildcards=wildcards, params=params))
 
     if basedir is not None:
         basedir = infer_source_file(basedir)
@@ -1671,6 +1686,8 @@ def get_language(source_file, source):
         language = "bash"
     elif filename.endswith(".xsh"):
         language = "xonsh"
+    elif filename.endswith(".hy"):
+        language = "hy"
 
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
@@ -1712,6 +1729,7 @@ def script(
     shadow_dir,
     sourcecache_path,
     runtime_sourcecache_path,
+    runtime_paths,
 ):
     """
     Load a script from the given basedir + path and execute it.
@@ -1735,10 +1753,11 @@ def script(
         "rust": RustScript,
         "bash": BashScript,
         "xonsh": XonshScript,
+        "hy": HyScript,
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
-            "Unsupported script: Expecting either Python (.py), R (.R), RMarkdown (.Rmd), Julia (.jl), Rust (.rs), Bash (.sh), or Xonsh (.xsh) script."
+            "Script must be one of the following filetypes: [.py .R .Rmd .jl .rs .sh .xsh .hy]"
         )
 
     executor = exec_class(
@@ -1766,5 +1785,6 @@ def script(
         cleanup_scripts,
         shadow_dir,
         is_local,
+        runtime_paths,
     )
     executor.evaluate()
