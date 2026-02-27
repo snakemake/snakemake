@@ -2233,7 +2233,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         return updated
 
     async def postprocess_after_update(self):
-        await self.postprocess()
+        await self.postprocess(update_incomplete_input_expand_jobs=False)
         self._derived_targetfiles = None
 
     def register_running(self, jobs: AnySet[AbstractJob]):
