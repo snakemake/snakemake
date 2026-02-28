@@ -86,7 +86,7 @@ def _parse_requirements_tree(
         for line in lines:
             if isinstance(line, str):
                 line = line.strip()
-                if line.startswith("-r "):
+                if line.startswith(("-r ", "--requirement ", "--requirement=")):
                     req_file = line[3:].strip()
                     req_file_path = os.path.join(os.path.dirname(file_path), req_file)
                     req_file_path = os.path.abspath(req_file_path)
