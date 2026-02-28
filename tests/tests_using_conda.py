@@ -71,6 +71,13 @@ def test_conda_requirements_txt_nested():
 
     )
 
+@conda
+def test_conda_requirements_txt_full():
+    run(
+        dpath("test_conda_requirements_txt_full"),
+        deployment_method={DeploymentMethod.CONDA},
+
+    )
 
 
 @conda

@@ -84,38 +84,43 @@ def _parse_requirements_tree(
             lines = content.decode("utf-8", errors="ignore").splitlines()
 
         for line in lines:
-            if isinstance(line, str):
-                line = line.strip()
-                if line.startswith(("-r ", "--requirement ", "--requirement=")):
-                    req_file = line[3:].strip()
-                    req_file_path = os.path.join(os.path.dirname(file_path), req_file)
-                    req_file_path = os.path.abspath(req_file_path)
+            if not isinstance(line, str):
+                continue
+            line = line.strip()
+            if line.startswith("-r "):
+                req_file = line[3:].strip()
+            elif line.startswith(("--requirement ", "--requirement=")):
+                req_file = line[14:].strip()
+            else:
+                continue
+            req_file_path = os.path.join(os.path.dirname(file_path), req_file)
+            req_file_path = os.path.abspath(req_file_path)
 
-                    if req_file_path in visited:
-                        continue
+            if req_file_path in visited:
+                continue
 
-                    visited.add(req_file_path)
+            visited.add(req_file_path)
 
-                    if os.path.exists(req_file_path):
-                        with open(req_file_path, "rb") as f:
-                            req_content = f.read()
+            if os.path.exists(req_file_path):
+                with open(req_file_path, "rb") as f:
+                    req_content = f.read()
 
-                        nested_tree = _parse_requirements_tree(
-                            req_file_path, req_content, visited, is_yaml=False
-                        )
+                nested_tree = _parse_requirements_tree(
+                    req_file_path, req_content, visited, is_yaml=False
+                )
 
-                        tree.append(
-                            {
-                                "path": req_file_path,
-                                "relative_path": req_file,
-                                "content": req_content,
-                                "nested": nested_tree,
-                            }
-                        )
-                    else:
-                        logger.warning(
-                            f"Could not find a requirements file {req_file_path} to copy"
-                        )
+                tree.append(
+                    {
+                        "path": req_file_path,
+                        "relative_path": req_file,
+                        "content": req_content,
+                        "nested": nested_tree,
+                    }
+                )
+            else:
+                logger.warning(
+                    f"Could not find a requirements file {req_file_path} to copy"
+                )
     except Exception as e:
         logger.warning(f"Could not parse requirements from {file_path}: {e}")
 
