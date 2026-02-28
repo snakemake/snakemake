@@ -139,7 +139,7 @@ def _flatten_requirements_tree(tree: list) -> bytes:
 
 
 def get_pip_requirements_content(
-    env_file_path: str, env_content: bytes, visited: set = None
+    env_file_path: str, env_content: bytes, visited: set | None = None
 ) -> bytes:
     """Recursively extract and return content of all pip requirements files referenced in an environment file.
 
