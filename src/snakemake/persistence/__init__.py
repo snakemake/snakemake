@@ -1,7 +1,9 @@
 from snakemake.common.misc import is_serializable
+import ast
 import asyncio
 import os
 import shutil
+import textwrap
 import time
 from abc import abstractmethod
 from contextlib import contextmanager
@@ -27,6 +29,18 @@ import snakemake.exceptions
 
 RECORD_FORMAT_VERSION = 7
 UNREPRESENTABLE = object()
+
+
+def _normalize_python_code(source: str) -> str:
+    """Return a canonical AST string for Python source, ignoring comments/whitespace."""
+    try:
+        tree = ast.parse(textwrap.dedent(source))
+        for node in ast.walk(tree):
+            if hasattr(node, "type_comment"):
+                node.type_comment = None
+        return ast.dump(tree, annotate_fields=True, include_attributes=False)
+    except SyntaxError:
+        return source
 
 
 class MetadataRecord(SQLModel):
@@ -591,7 +605,10 @@ class PersistenceBase(
         if fmt_version is None or fmt_version < 3:
             return False
         recorded = self.code(file)
-        return recorded is not None and recorded != self._code(job.rule)
+        current = self._code(job.rule)
+        if recorded is not None and current is not None and job.rule.shellcmd is None:
+            return _normalize_python_code(recorded) != _normalize_python_code(current)
+        return recorded is not None and recorded != current
 
     def _input_changed(self, job, file=None) -> bool:
         fmt_version = self.record_format_version(file)

@@ -17,6 +17,10 @@ from snakemake.persistence import RECORD_FORMAT_VERSION, ParamsChange
 
 import pytest
 
+from snakemake.persistence import (
+    PersistenceBase,
+    _normalize_python_code,
+)
 from snakemake.persistence import MetadataRecord
 from snakemake.persistence.db import DbPersistence
 from snakemake.persistence.file import FilePersistence
@@ -433,3 +437,91 @@ class TestStarttimeRecording:
         rec = persistence._read_record("out.txt")
         assert rec is not None
         assert rec.starttime is not None
+
+
+class TestCodeChanged:
+    """Tests for Python code-change detection with mocked dependencies."""
+
+    def _make_persistence(self, recorded_code, fmt_version=7):
+        persistence = MagicMock()
+        persistence.record_format_version.return_value = fmt_version
+        persistence.code.return_value = recorded_code
+        persistence._code = lambda rule: PersistenceBase._code(persistence, rule)
+        return persistence
+
+    def _make_job(self, run_func_src):
+        job = MagicMock()
+        job.rule.shellcmd = None
+        job.rule.run_func_src = run_func_src
+        return job
+
+    def test_python_rule_cosmetic_change_not_detected(self):
+        recorded = "x = 1\n# old\n"
+        current = "x = 1\n# new\n"
+        persistence = self._make_persistence(recorded)
+        job = self._make_job(current)
+        assert PersistenceBase._code_changed(persistence, job, file="out.txt") is False
+
+    def test_python_rule_real_change_detected(self):
+        persistence = self._make_persistence("x = 1\n")
+        job = self._make_job("x = 2\n")
+        assert PersistenceBase._code_changed(persistence, job, file="out.txt") is True
+
+    def test_old_format_version_returns_false(self):
+        persistence = self._make_persistence("anything", fmt_version=2)
+        job = self._make_job("x = 1\n")
+        assert PersistenceBase._code_changed(persistence, job, file="out.txt") is False
+
+    def test_no_format_version_returns_false(self):
+        persistence = self._make_persistence("anything", fmt_version=None)
+        job = self._make_job("x = 1\n")
+        assert PersistenceBase._code_changed(persistence, job, file="out.txt") is False
+
+    def test_no_recorded_code_returns_false(self):
+        persistence = self._make_persistence(recorded_code=None)
+        job = self._make_job("x = 1\n")
+        assert PersistenceBase._code_changed(persistence, job, file="out.txt") is False
+
+    def test_indented_python_rule_cosmetic_change_not_detected(self):
+        recorded = "        x = 1\n        # old comment\n"
+        current = "        x = 1\n        # new comment\n"
+        persistence = self._make_persistence(recorded)
+        job = self._make_job(current)
+        assert PersistenceBase._code_changed(persistence, job, file="out.txt") is False
+
+
+class TestNormalizePythonCode:
+    def test_comment_change_ignored(self):
+        a = "x = 1\n# old comment\ny = 2\n"
+        b = "x = 1\n# new comment\ny = 2\n"
+        assert _normalize_python_code(a) == _normalize_python_code(b)
+
+    def test_whitespace_change_ignored(self):
+        a = "x = 1\ny = 2\n"
+        b = "x  =  1\n\n\ny  =  2\n"
+        assert _normalize_python_code(a) == _normalize_python_code(b)
+
+    def test_reformatting_ignored(self):
+        a = "result = foo(a,b,c)\n"
+        b = "result = foo(\n    a,\n    b,\n    c,\n)\n"
+        assert _normalize_python_code(a) == _normalize_python_code(b)
+
+    def test_variable_rename_detected(self):
+        assert _normalize_python_code("x = 1\n") != _normalize_python_code("y = 1\n")
+
+    def test_value_change_detected(self):
+        assert _normalize_python_code("x = 1\n") != _normalize_python_code("x = 2\n")
+
+    def test_logic_change_detected(self):
+        a = "if x > 0:\n    print(x)\n"
+        b = "if x < 0:\n    print(x)\n"
+        assert _normalize_python_code(a) != _normalize_python_code(b)
+
+    def test_indented_comment_change_ignored(self):
+        a = "        x = 1\n        # old comment\n        y = 2\n"
+        b = "        x = 1\n        # new comment\n        y = 2\n"
+        assert _normalize_python_code(a) == _normalize_python_code(b)
+
+    def test_syntax_error_falls_back_to_raw(self):
+        bad = "def foo(:\n"
+        assert _normalize_python_code(bad) == bad
