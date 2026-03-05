@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import ast
 import asyncio
 from dataclasses import dataclass, field
 import hashlib
@@ -10,6 +11,7 @@ import os
 import shutil
 import json
 import stat
+import textwrap
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
@@ -35,6 +37,28 @@ from snakemake.settings.types import DeploymentMethod
 
 UNREPRESENTABLE = object()
 RECORD_FORMAT_VERSION = 6
+
+
+def _normalize_python_code(source: str) -> str:
+    """Return a canonical AST string for Python source, ignoring comments/whitespace."""
+    try:
+        tree = ast.parse(textwrap.dedent(source))
+        for node in ast.walk(tree):
+            if hasattr(node, "type_comment"):
+                node.type_comment = None
+        return ast.dump(tree, annotate_fields=True, include_attributes=False)
+    except SyntaxError:
+        return source
+
+
+def _normalize_shell_code(source: str) -> str:
+    """Return normalized shell source, ignoring comments and blank lines."""
+    lines = []
+    for line in source.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            lines.append(stripped)
+    return "\n".join(lines)
 
 
 class Persistence(PersistenceExecutorInterface):
@@ -551,7 +575,13 @@ class Persistence(PersistenceExecutorInterface):
             # no reliable code stored
             return False
         recorded = self.code(file)
-        return recorded is not None and recorded != self._code(job.rule)
+        current = self._code(job.rule)
+        if recorded is None or current is None:
+            return recorded is not None
+        if job.rule.shellcmd is not None:
+            return _normalize_shell_code(recorded) != _normalize_shell_code(current)
+        else:
+            return _normalize_python_code(recorded) != _normalize_python_code(current)
 
     def _input_changed(self, job, file=None):
         assert file is not None
