@@ -43,7 +43,6 @@ from snakemake.common import (
     is_local_file,
 )
 from snakemake.settings.types import RerunTrigger, StrictDagEvaluation
-from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,
     ChildIOException,
@@ -153,8 +152,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._ready_jobs = set()
         self._jobid = dict()
         self.job_cache = dict()
-        self.conda_envs = dict()
-        self.container_imgs = dict()
+        self.software_envs = dict()
         self._progress = 0
         self._group = dict()
         self._n_until_ready = defaultdict(int)
@@ -268,8 +266,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         await self.check_incomplete()
 
-        self.update_container_imgs()
-        self.update_conda_envs()
+        self.update_software_envs()
 
         await self.update_needrun(create_inventory=True)
         if self.workflow.dryrun:
@@ -366,16 +363,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             except KeyError:
                 pass
 
-    def update_conda_envs(self):
-        # First deduplicate based on job.conda_env_spec
+    def update_software_envs(self):
+        shared_envs = (
+            SharedFSUsage.SOFTWARE_DEPLOYMENT
+            in self.workflow.storage_settings.shared_fs_usage or
+            SharedFSUsage.SOFTWARE_DEPLOYMENT_CACHE
+            in self.workflow.storage_settings.shared_fs_usage
+        )
+
         env_set = {
-            (job.conda_env_spec, job.container_img_url)
+            job.software_env_spec
             for job in self.jobs
-            if job.conda_env_spec
+            if job.software_env_spec
             and (
-                job.is_local
-                or SharedFSUsage.SOFTWARE_DEPLOYMENT
-                in self.workflow.storage_settings.shared_fs_usage
+                job.is_local or shared_envs
                 or (
                     self.workflow.remote_exec
                     and SharedFSUsage.SOFTWARE_DEPLOYMENT
@@ -384,25 +385,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             )
         }
 
-        # Then based on md5sum values
-        for env_spec, simg_url in env_set:
-            simg = None
-            if simg_url and (
-                DeploymentMethod.APPTAINER
-                in self.workflow.deployment_settings.deployment_method
-            ):
-                assert (
-                    simg_url in self.container_imgs
-                ), "bug: must first pull singularity images"
-                simg = self.container_imgs[simg_url]
-            key = (env_spec, simg_url)
-            if key not in self.conda_envs:
-                env = env_spec.get_conda_env(
-                    self.workflow,
-                    container_img=simg,
-                    cleanup=self.workflow.deployment_settings.conda_cleanup_pkgs,
-                )
-                self.conda_envs[key] = env
+        for env_spec in env_set:
+            if env_spec not in self.software_envs:
+                self.software_envs[env_spec] = self.workflow.software_deployment_manager.get_env(env_spec)
 
     async def retrieve_storage_inputs(
         self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
@@ -544,20 +529,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             ):
                 env.create(self.workflow.dryrun)
 
-    def update_container_imgs(self):
-        # First deduplicate based on job.conda_env_spec
-        img_set = {
-            (job.container_img_url, job.is_containerized)
-            for job in self.jobs
-            if job.container_img_url
+    def cache_software_envs(self, quiet=False):
+        # TODO go on here
+        assets = {
+            env: {
+                asset for asset in env.get_cache_assets()
+            }
         }
-
-        for img_url, is_containerized in img_set:
-            if img_url not in self.container_imgs:
-                img = singularity.Image(img_url, self, is_containerized)
-                self.container_imgs[img_url] = img
-
-    def pull_container_imgs(self, quiet=False):
+        for env in self.software_envs.values():
+            if not env.is_cacheable:
+                continue
+            
         for img in self.container_imgs.values():
             if not self.workflow.touch and (not self.workflow.dryrun or not quiet):
                 img.pull(self.workflow.dryrun)
@@ -1915,8 +1897,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             # this is important to ensure that there are no outdated local copies
             # that misguide e.g. params functions.
             await self.sanitize_local_storage_copies()
-            self.update_container_imgs()
-            self.update_conda_envs()
+            self.update_software_envs()
             await self.update_needrun()
         self.update_priority()
         self.handle_pipes_and_services()

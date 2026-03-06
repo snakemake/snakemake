@@ -51,11 +51,11 @@ def func_true(job):
     return True
 
 
-def get_snakemake_searchpaths():
+def get_snakemake_searchpaths() -> List[Path]:
     paths = [str(Path(__file__).parent.parent.parent)] + [
         path for path in sys.path if os.path.isdir(path)
     ]
-    return list(unique_justseen(paths))
+    return list(map(Path, unique_justseen(paths)))
 
 
 def get_report_id(path: Union[str, Path]) -> str:

@@ -9,6 +9,8 @@ from snakemake.io import is_callable, contains_wildcard
 
 CONDA_ENV_PATH = "/conda-envs"
 
+# TODO convert to rattler or pixi?
+
 
 def containerize(workflow, dag):
     """

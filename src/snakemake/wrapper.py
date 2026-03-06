@@ -9,6 +9,8 @@ from typing import Optional
 from snakemake.exceptions import WorkflowError
 from snakemake.script import script
 from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file
+from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
+from snakemake_interface_software_deployment_plugins import EnvSpecSourceFile
 
 EXTENSIONS = [".py", ".R", ".Rmd", ".jl"]
 
@@ -71,12 +73,12 @@ def get_script(path, sourcecache: SourceCache, prefix=None):
     return find_extension(path, sourcecache)
 
 
-def get_conda_env(path, prefix=None):
+def get_conda_env(path, prefix=None) -> CondaEnvSpec:
     path = get_path(path, prefix=prefix)
     if is_script(path):
         # URLs and posixpaths share the same separator. Hence use posixpath here.
         path = path.get_basedir()
-    return path.join("environment.yaml")
+    return CondaEnvSpec(envfile=EnvSpecSourceFile(path.join("environment.yaml")))
 
 
 def wrapper(

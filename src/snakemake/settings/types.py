@@ -36,8 +36,6 @@ from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
     RerunTrigger,
-    ChangeType,
-    CondaCleanupPkgs,
     Quietness,
     StrictDagEvaluation,
     PrintDag,
@@ -253,48 +251,14 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     ----------
 
     deployment_method
-        deployment method to use (CONDA, APPTAINER, ENV_MODULES)
-    conda_prefix:
-        the directory in which conda environments will be created (default None)
-    conda_cleanup_pkgs:
-        whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
-    conda_create_envs_only:
-        if specified, only builds the conda environments specified for each job, then exits.
-    list_conda_envs:
-        list conda environments and their location on disk.
-    conda_base_path:
-        Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
+        deployment method to use (e.g. "conda", "container", "envmodules")
     """
 
-    deployment_method: AnySet[DeploymentMethod] = frozenset()
-    conda_prefix: Optional[Path] = None
-    conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
-    conda_base_path: Optional[Path] = None
-    conda_frontend: str = "conda"
-    conda_not_block_search_path_envvars: bool = False
-    apptainer_args: str = ""
-    apptainer_prefix: Optional[Path] = None
-
-    def imply_deployment_method(self, method: DeploymentMethod):
-        self.deployment_method = set(self.deployment_method)
-        self.deployment_method.add(method)
-
-    def __post_init__(self):
-        from snakemake.logging import logger
-
-        if self.apptainer_prefix is None:
-            self.apptainer_prefix = os.environ.get("APPTAINER_CACHEDIR", None)
-        self.apptainer_prefix = expand_vars_and_user(self.apptainer_prefix)
-        self.conda_prefix = expand_vars_and_user(self.conda_prefix)
-        if self.conda_frontend != "conda":
-            logger.warning(
-                "Support for alternative conda frontends has been deprecated in "
-                "favor of simpler support and code base. "
-                "This should not cause issues since current conda releases rely on "
-                "fast solving via libmamba. "
-                f"Ignoring the alternative conda frontend setting ({self.conda_frontend})."
-            )
-            self.conda_frontend = "conda"
+    deployment_method: AnySet[str] = frozenset()
+    deployment_prefix: Path = field(default=Path(".snakemake/software/deployments"))
+    cache_prefix: Path = field(default=Path(".snakemake/software/cache"))
+    pinfile_prefix: Path = field(default=Path(".snakemake/software/pins"))
+    not_block_search_path_envvars: bool = False
 
 
 @dataclass
