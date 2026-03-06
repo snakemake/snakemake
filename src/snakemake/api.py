@@ -1,3 +1,4 @@
+from snakemake.settings.enums import ChangeType
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -15,7 +16,6 @@ import tarfile
 import uuid
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
 from snakemake.settings.types import (
-    ChangeType,
     GroupSettings,
     SchedulingSettings,
     WorkflowSettings,

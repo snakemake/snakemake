@@ -1,9 +1,17 @@
+from snakemake.common import is_local_file
+from copy import copy
+from typing import List
+from typing import Callable
+from typing import Union
+from typing import Optional
+from dataclasses import dataclass
+from snakemake.common import get_snakemake_searchpaths
+from pathlib import Path
 import tempfile
 from typing import Any, Dict, Iterable
 import os
 
 import snakemake
-from snakemake.shell import shell
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_software_deployment_plugins.registry import (
     SoftwareDeploymentPluginRegistry,
@@ -22,6 +30,7 @@ from snakemake_software_deployment_plugin_envmodules import EnvSpec as EnvModule
 
 class SoftwareDeploymentManager:
     def __init__(self, workflow: "snakemake.workflow.Workflow"):
+        from snakemake.shell import shell
         from snakemake.workflow import Workflow
 
         self.workflow: Workflow = workflow
@@ -34,10 +43,7 @@ class SoftwareDeploymentManager:
         self.registry = SoftwareDeploymentPluginRegistry()
         self.plugins = {}
         for plugin_name, plugin in self.registry.plugins.items():
-            if (
-                plugin_name
-                not in self.workflow.deployment_settings.deployment_methods
-            ):
+            if plugin_name not in self.workflow.deployment_settings.deployment_methods:
                 continue
             kind = plugin.common_settings.kind
             if kind not in self.plugins:
@@ -74,10 +80,13 @@ class SoftwareDeploymentManager:
             ),
             shell_executable=self.shell_executable,
             tempdir=Path(tempfile.gettempdir()),
-            mountpoints=[self.workflow.source_cache_path, Path(os.getcwd())] + get_snakemake_searchpaths(),
+            mountpoints=[self.workflow.source_cache_path, Path(os.getcwd())]
+            + get_snakemake_searchpaths(),
             cache_prefix=self.workflow.deployment_settings.cache_prefix / env_spec.kind,
-            deployment_prefix=self.workflow.deployment_settings.deployment_prefix / env_spec.kind,
-            pinfile_prefix=self.workflow.deployment_settings.pinfile_prefix / env_spec.kind,
+            deployment_prefix=self.workflow.deployment_settings.deployment_prefix
+            / env_spec.kind,
+            pinfile_prefix=self.workflow.deployment_settings.pinfile_prefix
+            / env_spec.kind,
         )
         if env in self.env_instances:
             # env with same content already instantiated, use that instead
@@ -143,8 +152,8 @@ class EnvSpecs:
             )
         )
 
-    def resolve_callables(self, resolver: Callable) -> Self:
-        resolved = copy.copy(self)
+    def resolve_callables(self, resolver: Callable) -> "EnvSpecs":
+        resolved = copy(self)
         for spec in [
             "software_spec",
             "legacy_conda_env",
@@ -173,6 +182,7 @@ class EnvSpecs:
         conda_spec = None
         env_module_spec = None
         if self.legacy_conda_env is not None:
+            spec = self.legacy_conda_env
             if isinstance(spec, Path):
                 spec = str(spec)
 

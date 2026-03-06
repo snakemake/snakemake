@@ -62,7 +62,7 @@ from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_software_deployment_plugins.settings import (
-    SoftwareDeploymentSettings,
+    SoftwareDeploymentSettingsBase,
 )
 from snakemake_interface_scheduler_plugins.settings import (
     SchedulerSettingsBase,
@@ -174,7 +174,7 @@ class Workflow(WorkflowExecutorInterface):
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
-    software_deployment_settings: Optional[Mapping[str, SoftwareDeploymentSettings]]
+    software_deployment_settings: Optional[Mapping[str, SoftwareDeploymentSettingsBase]]
     global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
     cache_rules: Dict[str, str] = field(default_factory=dict)

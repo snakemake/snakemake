@@ -49,7 +49,6 @@ from snakemake.resources import (
 )
 from snakemake.settings.types import (
     Batch,
-    ChangeType,
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
@@ -72,6 +71,7 @@ from snakemake.settings.types import (
     PrintDag,
     GlobalReportSettings,
 )
+from snakemake.settings.enums import ChangeType
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
 from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings

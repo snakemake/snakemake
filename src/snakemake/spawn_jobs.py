@@ -1,3 +1,9 @@
+from typing import List
+from typing import Dict
+from typing import Iterable
+from abc import abstractmethod
+from typing import Optional
+from abc import ABC
 from dataclasses import dataclass, fields
 import hashlib
 from itertools import chain
@@ -7,7 +13,9 @@ from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
-from snakemake_interface_software_deployment_plugins.registry import SoftwareDeploymentPluginRegistry
+from snakemake_interface_software_deployment_plugins.registry import (
+    SoftwareDeploymentPluginRegistry,
+)
 
 from snakemake import PIP_DEPLOYMENTS_PATH
 from snakemake.io import get_flag_value, is_flagged
@@ -28,7 +36,9 @@ class SpawnedJobArgsFactory:
 
     def __post_init__(self):
         self.storage_plugin_arg_collector = StoragePluginArgCollector(self.workflow)
-        self.software_deployment_plugin_arg_collector = SoftwareDeploymentPluginArgCollector(self.workflow)
+        self.software_deployment_plugin_arg_collector = (
+            SoftwareDeploymentPluginArgCollector(self.workflow)
+        )
 
     def get_default_storage_provider_args(self) -> str:
         has_default_storage_provider = (
@@ -275,12 +285,10 @@ class SpawnedJobArgsFactory:
                 flag="--skip-script-cleanup",
             ),
             w2a("execution_settings.shadow_prefix"),
-
             w2a("deployment_settings.deployment_method"),
             w2a("deployment_settings.deployment_prefix", base64_encode=True),
             w2a("deployment_settings.cache_prefix", base64_encode=True),
             w2a("deployment_settings.not_block_search_path_envvars"),
-
             w2a("resource_settings.max_threads"),
             self.get_shared_fs_usage_arg(executor_common_settings),
             w2a(
@@ -341,7 +349,9 @@ class PluginArgCollectorBase(ABC):
     def __init__(self, workflow: Workflow):
         self.workflow = workflow
 
-    def fmt_value(self, value: Any, unparse: Callable, tag: Optional[str] = None) -> str:
+    def fmt_value(
+        self, value: Any, unparse: Callable, plugin_name: str, tag: Optional[str] = None
+    ) -> str:
         if callable(value):
             raise WorkflowError(
                 f"Invalid setting for plugin {plugin_name}. Unable "
@@ -353,25 +363,24 @@ class PluginArgCollectorBase(ABC):
         else:
             return f"{value}"
 
-    @abstractmethod
-    def get_field_values(self, name: str, settings: Dict, plugin_name: str, unparse: Callable) -> List[str]:
+    def get_field_values(
+        self, name: str, settings: Dict, plugin_name: str, unparse: Callable
+    ) -> List[str]:
         values = settings.get(name)
         if values is not None:
             if isinstance(values, Iterable) and not isinstance(values, str):
-                return [self.fmt_value(value, unparse) for value in values]
+                return [self.fmt_value(value, unparse, plugin_name) for value in values]
             else:
-                return [self.fmt_value(value, unparse)]
+                return [self.fmt_value(values, unparse, plugin_name)]
         else:
             return []
 
     @abstractmethod
-    def get_settings(self):
-        ...
+    def get_settings(self): ...
 
     @abstractmethod
     @classmethod
-    def get_registry(cls, name: str):
-        ...
+    def get_registry(cls, name: str): ...
 
     def get_setting_items(self):
         for plugin_name, settings in self.get_settings():
@@ -380,7 +389,9 @@ class PluginArgCollectorBase(ABC):
                 for field in fields(plugin.settings_cls):
                     unparse = field.metadata.get("unparse", lambda value: value)
 
-                    values = self.get_field_value(field.name, settings)
+                    values = self.get_field_value(
+                        field.name, settings, plugin_name, unparse
+                    )
                     if values:
                         yield plugin, field, values
 
@@ -404,12 +415,12 @@ class PluginArgCollectorBase(ABC):
 
 
 class TaggedSettingsPluginArgCollector(PluginArgCollectorBase):
-    def get_field_values(self, name: str, settings: Dict, plugin_name: str, unparse: Callable) -> List[str]:
+    def get_field_values(
+        self, name: str, settings: Dict, plugin_name: str, unparse: Callable
+    ) -> List[str]:
         values = [
-            self.fmt_value(value, unparse, tag=tag)
-            for tag, value in settings.get_field_settings(
-                field.name
-            ).items()
+            self.fmt_value(value, unparse, plugin_name, tag=tag)
+            for tag, value in settings.get_field_settings(name).items()
             if value is not None
         ]
         return values

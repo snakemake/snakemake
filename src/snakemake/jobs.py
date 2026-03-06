@@ -202,7 +202,7 @@ class Job(
         "_log",
         "_benchmark",
         "_resources",
-        "_software_env_specs",
+        "_software_env_spec",
         "_software_env",
         "_shadow_dir",
         "temp_output",
@@ -508,7 +508,7 @@ class Job(
     @property
     def software_env_spec(self):
         if self._software_env_spec is None:
-            self._software_env_spec = self.rule.expand_software_env_spec(
+            self._software_env_spec = self.rule.expand_software_env_specs(
                 self.wildcards_dict, self.params, self.input
             )
         return self._software_env_spec
@@ -516,13 +516,7 @@ class Job(
     @property
     def software_env(self):
         if self.software_env_spec:
-            if self._software_env is None:
-                self._software_env = (
-                    self.dag.workflow.software_deployment_manager.get_env(
-                        self.software_env_spec
-                    )
-                )
-            return self._software_env
+            return self.dag.software_envs[self.software_env_spec]
         return None
 
     def archive_conda_env(self):

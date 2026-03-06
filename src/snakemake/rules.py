@@ -1,3 +1,4 @@
+from typing import Optional
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -21,6 +22,7 @@ except ImportError:  # python < 3.11
     import sre_constants
 
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_software_deployment_plugins import EnvSpecBase as SoftwareEnvSpecBase
 
 from snakemake.io import (
     IOFile,
@@ -1198,7 +1200,7 @@ class Rule(RuleInterface):
             return self._expanded_software_env_spec
 
         from snakemake.common import is_local_file
-        from snakemake.sourcecache import SourceFile, infer_source_file
+        from snakemake.sourcecache import infer_source_file
 
         software_env_specs = self._software_env_specs
         if software_env_specs is not None:
@@ -1209,7 +1211,7 @@ class Rule(RuleInterface):
                     )[0]
                 )
                 cacheable = False
-                if software_env_spec is None:
+                if software_env_specs is None:
                     return None
             else:
                 cacheable = True

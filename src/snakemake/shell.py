@@ -1,9 +1,10 @@
-from snakemake.executors.local import RunArgs
+from typing import TYPE_CHECKING
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from typing import Optional
 from pathlib import Path
 import _io
 import sys
@@ -19,11 +20,12 @@ from snakemake.utils import format, argvquote, cmd_exe_quote
 from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
 from snakemake_interface_logger_plugins.common import LogEvent
-from snakemake.deployment import singularity
-from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
 
-__author__ = "Johannes Köster"
+
+if TYPE_CHECKING:
+    from snakemake.executors.local import RunArgs
+
 
 STDOUT = sys.stdout
 if not isinstance(sys.stdout, _io.TextIOWrapper):
@@ -167,7 +169,13 @@ class shell:
             cls._processes.clear()
 
     def __new__(
-        cls, cmd, *args, iterable=False, read=False, run_args: Optional[RunArgs], **kwargs
+        cls,
+        cmd,
+        *args,
+        iterable=False,
+        read=False,
+        run_args: Optional["RunArgs"],
+        **kwargs,
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
