@@ -1186,13 +1186,6 @@ def get_argument_parser(profiles=None):
         "workflow. This can be used e.g. for identifying leftover files. Hidden files "
         "and directories are ignored.",
     )
-    group_utils.add_argument(
-        "--print-shell-completion",
-        nargs="?",
-        choices=snakemake.common.argparse.SUPPORTED_SHELLS,
-        action=snakemake.common.argparse.ShellCompletionAction,
-        help="Print completion script for a given shell.",
-    )
     group_delete_output = group_utils.add_mutually_exclusive_group()
     group_delete_output.add_argument(
         "--delete-all-output",
@@ -1220,6 +1213,13 @@ def get_argument_parser(profiles=None):
         help="Drop metadata file tracking information after job finishes. "
         "Provenance-information based reports (e.g. `--report` and the "
         "`--list_x_changes` functions) will be empty or incomplete.",
+    )
+    group_utils.add_argument(
+        "--print-shell-completion",
+        nargs="?",
+        choices=snakemake.common.argparse.SUPPORTED_SHELLS,
+        action=snakemake.common.argparse.ShellCompletionAction,
+        help="Print completion script for a given shell.",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
