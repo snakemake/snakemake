@@ -27,21 +27,22 @@ class OutputChecker:
             for path, subdirs, files in os.walk(self.data_path)
             for f in files
         )
-        print(f"input: {input_files}")  # DEBUG
-        # Workdir files
+        print(f"input_files: {input_files}")  # DEBUG
+        # Workdir files (ignoring '.snakemake/' and 'config/' folders)
         workdir_files = set(
             (Path(path) / f).relative_to(self.workdir)
             for path, subdirs, files in os.walk(self.workdir)
             for f in files
+            if "/.snakemake/" not in path and "/config/" not in path
         )
-        print(f"workdir: {workdir_files}")  # DEBUG
+        print(f"workdir_files: {workdir_files}")  # DEBUG
         # Expected files
         expected_files = set(
             (Path(path) / f).relative_to(self.expected_path)
             for path, subdirs, files in os.walk(self.expected_path)
             for f in files
         )
-        print(f"expected: {expected_files}")  # DEBUG
+        print(f"expected_files: {expected_files}")  # DEBUG
 
         assert expected_files.issubset(
             workdir_files
