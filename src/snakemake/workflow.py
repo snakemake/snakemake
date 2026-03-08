@@ -24,7 +24,9 @@ import tarfile
 import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from snakemake.io.flags.access_patterns import AccessPatternFactory
+
 from snakemake.common.workdir_handler import WorkdirHandler
+from pycomplete import Completer
 from snakemake.pathvars import Pathvars
 from snakemake.settings.types import (
     ConfigSettings,
@@ -728,6 +730,9 @@ class Workflow(WorkflowExecutorInterface):
         for rule in sorted(rules, key=lambda r: r.name):
             docstring = f" ({rule.docstring})" if rule.docstring else ""
             print(rule.name + docstring)
+
+    def print_shell_completion(self, parser, shell: str):
+        print(Completer(parser).render(shell))
 
     def list_resources(self):
         for resource in set(

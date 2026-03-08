@@ -400,6 +400,10 @@ class WorkflowApi(ApiBase):
         workflow = self._get_workflow()
         workflow.include(self.snakefile, print_compilation=True)
 
+    @_no_dag
+    def print_shell_completion(self, parser, shell: str):
+        self._workflow.print_shell_completion(parser, shell=shell)
+
     @property
     def _workflow(self):
         if self._workflow_store is None:

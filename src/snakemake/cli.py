@@ -1186,6 +1186,13 @@ def get_argument_parser(profiles=None):
         "workflow. This can be used e.g. for identifying leftover files. Hidden files "
         "and directories are ignored.",
     )
+    group_utils.add_argument(
+        "--print-shell-completion",
+        nargs="?",
+        const="text",
+        choices=["bash", "fish", "zsh", "powershell"],
+        help="Print completion script for a given shell.",
+    )
     group_delete_output = group_utils.add_mutually_exclusive_group()
     group_delete_output.add_argument(
         "--delete-all-output",
@@ -2096,6 +2103,8 @@ def args_to_api(args, parser):
                     workflow_api.list_rules(only_targets=False)
                 elif args.print_compilation:
                     workflow_api.print_compilation()
+                elif shell := args.print_shell_completion:
+                    workflow_api.print_shell_completion(parser, shell)
                 else:
                     print_dag_as = None
                     if args.dag:
