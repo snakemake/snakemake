@@ -172,9 +172,9 @@ class shell:
         cls,
         cmd,
         *args,
-        iterable=False,
-        read=False,
-        run_args: Optional["RunArgs"],
+        iterable: bool = False,
+        read: bool = False,
+        run_args: Optional["RunArgs"] = None,
         **kwargs,
     ):
         if "stepout" in kwargs:
@@ -205,18 +205,28 @@ class shell:
         if run_args is None:
             run_args = context.get("run_args")
 
-        jobid = run_args.jobid
-        if not run_args.is_shell and jobid is not None:
+        if run_args:
+            jobid = run_args.jobid
+            software_env = run_args.software_env
+            threads = run_args.threads
+            not_block_search_path_envvars = run_args.not_block_search_path_envvars
+            is_shell = run_args.is_shell
+            bench_record = run_args.bench_record
+            tmpdir_resource = run_args.resources.get("tmpdir", None)
+            shell_executable = run_args.resources.get("shell_exec")
+        else:
+            jobid = None
+            software_env = None
+            threads = None
+            not_block_search_path_envvars = False
+            is_shell = False
+            bench_record = None
+            tmpdir_resource = None
+            shell_executable = None
+
+        if not is_shell and jobid is not None:
             logger.info(None, extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
 
-        software_env = run_args.software_env
-        resources = run_args.resources
-        shadow_dir = run_args.shadow_dir
-        resources = run_args.resources
-        threads = run_args.threads
-        runtime_paths = run_args.runtime_paths
-
-        shell_executable = resources.get("shell_exec")
         if shell_executable is not None:
             process_args = dict(cls._process_args)
             process_args["executable"] = shell_executable
@@ -243,7 +253,6 @@ class shell:
             os.chmod(script, os.stat(script).st_mode | stat.S_IXUSR | stat.S_IRUSR)
             cmd = '"{}" "{}"'.format(cls.get_executable() or "/bin/sh", script)
 
-        tmpdir_resource = resources.get("tmpdir", None)
         # environment variable lists for linear algebra libraries taken from:
         # https://stackoverflow.com/a/53224849/2352071
         # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
@@ -273,7 +282,7 @@ class shell:
                 )
             envvars.update(env)
 
-        if software_env and not run_args.not_block_search_path_envvars:
+        if software_env and not not_block_search_path_envvars:
             # remove envvars that conflict with software environments
             for var in ["R_LIBS", "PYTHONPATH", "PERLLIB", "PERL5LIB"]:
                 try:
@@ -316,10 +325,10 @@ class shell:
             return cls.iter_stdout(proc, cmd, tmpdir)
         if read:
             ret = proc.stdout.read()
-        if run_args is not None and run_args.bench_record is not None:
+        if bench_record is not None:
             from snakemake.benchmark import benchmarked
 
-            with benchmarked(proc.pid, run_args.bench_record):
+            with benchmarked(proc.pid, bench_record):
                 retcode = proc.wait()
         else:
             retcode = proc.wait()

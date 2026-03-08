@@ -1946,7 +1946,7 @@ class Workflow(WorkflowExecutorInterface):
 
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
-                    ruleinfo.wrapper, prefix=self.workflow_settings.wrapper_prefix
+                    ruleinfo.wrapper, self.sourcecache, prefix=self.workflow_settings.wrapper_prefix
                 )
                 # TODO retrieve suitable singularity image
 

@@ -1,3 +1,4 @@
+from itertools import chain
 from snakemake.benchmark import BenchmarkRecord
 from snakemake.shell import shell
 from typing import Any
@@ -153,6 +154,7 @@ class Executor(RealExecutor):
             cache_path=self.workflow.sourcecache.cache_path,
             runtime_cache_path=self.workflow.sourcecache.runtime_cache_path,
             runtime_paths=self.workflow.runtime_paths,
+            wrapper_prefix=self.workflow.workflow_settings.wrapper_prefix,
             not_block_search_path_envvars=(
                 self.workflow.deployment_settings.not_block_search_path_envvars
             ),
@@ -294,13 +296,19 @@ class RunArgs:
     runtime_cache_path: Path
     runtime_paths: List[Path]
     not_block_search_path_envvars: bool
+    wrapper_prefix: Optional[str]
     software_env: Optional[SoftwareEnvBase]
     bench_iteration: int = 0
     bench_record: Optional[BenchmarkRecord] = None
 
-    def register_locals(self, _locals: Dict[str, Any]) -> None:
-        # input=args.input; output=args.output; params=args.params; wildcards=args.wildcards; threads=args.threads; resources=args.resources; log=args.log; rule=args.job_rule.name; jobid=args.jobid
-        for item in (
+    def rulefunc_args(self) -> Dict[str, Any]:
+        return {
+            item: getattr(self, item) for item in self.rulefunc_args_attributes()
+        } | {"rule": self.job_rule.name, "run_args": self}
+
+    @classmethod
+    def rulefunc_args_attributes(cls) -> List[str]:
+        return [
             "input",
             "output",
             "params",
@@ -310,9 +318,12 @@ class RunArgs:
             "log",
             "jobid",
             "bench_iteration",
-        ):
-            _locals[item] = getattr(self, item)
-        _locals["rule"] = self.job_rule.name
+        ]
+
+    @classmethod
+    def rulefunc_args_signature(cls) -> str:
+        return ", ".join(chain(cls.rulefunc_args_attributes(), ["rule", "run_args"]))
+
 
     @property
     def is_shell(self) -> bool:
@@ -373,18 +384,18 @@ def run_wrapper(run_args: RunArgs):
                         # in the execution of the shell fragment, script, wrapper
                         # etc, as the child PID is available there.
                         run_args.bench_record = BenchmarkRecord()
-                        run(run_args)
+                        run(**run_args.rulefunc_args())
                     else:
                         # The benchmarking is started here as we have a run section
                         # and the generated Python function is executed in this
                         # process' thread.
                         with benchmarked() as bench_record:
                             run_args.bench_record = bench_record
-                            run(run_args)
+                            run(**run_args.rulefunc_args())
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
             else:
-                run(run_args)
+                run(**run_args.rulefunc_args())
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it

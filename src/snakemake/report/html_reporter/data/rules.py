@@ -8,8 +8,7 @@ def render_rules(rules):
             rulename: {
                 "input": rule.input,
                 "output": rule.output,
-                "conda_env": rule.conda_env,
-                "container_img_url": rule.container_img_url,
+                "software": [f"{rec.name} {rec.version or ''}" for rec in rule.software],
                 "code": render_code(rule),
                 "n_jobs": rule.n_jobs,
             }

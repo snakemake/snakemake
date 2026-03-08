@@ -109,7 +109,7 @@ class ReportHref:
 class Snakemake:
     def __init__(
         self,
-        input_: io_.InputFiles,
+        input: io_.InputFiles,
         output: io_.OutputFiles,
         params: io_.Params,
         wildcards: io_.Wildcards,
@@ -123,7 +123,7 @@ class Snakemake:
     ):
         # convert input and output to plain strings as some remote objects cannot
         # be pickled
-        self.input = input_._plainstrings()
+        self.input = input._plainstrings()
         self.output = output._plainstrings()
         self._safely_store_params(params)
         self.wildcards = wildcards
@@ -673,7 +673,7 @@ class PythonScript(ScriptBase):
             log=self.run_args.log,
             config=self.config,
             rulename=self.run_args.job_rule.name,
-            basedir=self.path.get_basedir().get_path_or_uri(secret_free=True),
+            scriptdir=self.path.get_basedir().get_path_or_uri(secret_free=True),
             bench_iteration=self.run_args.bench_iteration,
         )
         snakemake_obj = pickle.dumps(snakemake)
@@ -686,12 +686,12 @@ class PythonScript(ScriptBase):
         # can be imported.
         if self.cache_path:
             # TODO handle this in case of container_img, analogously to above
-            cache_searchpath = os.path.dirname(cache_path)
+            cache_searchpath = os.path.dirname(self.cache_path)
             if cache_searchpath:
                 searchpaths.append(cache_searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
-        if is_local:
-            searchpaths.append(path.get_basedir().get_path_or_uri(secret_free=True))
+        if self.is_local:
+            searchpaths.append(self.path.get_basedir().get_path_or_uri(secret_free=True))
 
         shell_exec = self.run_args.resources.get("shell_exec")
         shell_exec_stmt = (
@@ -702,7 +702,7 @@ class PythonScript(ScriptBase):
 
         preamble = f"""
             import sys;
-            sys.path.extend({repr(searchpaths)});
+            sys.path.extend({repr(list(map(str, searchpaths)))});
             import pickle;
             from snakemake import script;
             script.snakemake = pickle.loads({snakemake_obj});
@@ -816,7 +816,7 @@ class RScript(ScriptBase):
             config = {REncoder.encode_dict(self.config)},
             rule = {REncoder.encode_value(self.run_args.job_rule.name)},
             bench_iteration = {REncoder.encode_numeric(self.run_args.bench_iteration)},
-            scriptdir = {REncoder.encode_value(path.get_basedir().get_path_or_uri(secret_free=True))},
+            scriptdir = {REncoder.encode_value(self.path.get_basedir().get_path_or_uri(secret_free=True))},
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
@@ -1327,7 +1327,7 @@ def script(
 
     path, source, language, is_local, cache_path = get_source(
         path,
-        SourceCache(run_args.sourcecache_path, run_args.runtime_sourcecache_path),
+        SourceCache(run_args.cache_path, run_args.runtime_cache_path),
         run_args.basedir,
         run_args.wildcards,
         run_args.params,

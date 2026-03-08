@@ -1,3 +1,4 @@
+from itsdangerous import NoneAlgorithm
 from typing import List
 from typing import Dict
 from typing import Iterable
@@ -283,9 +284,9 @@ class SpawnedJobArgsFactory:
                 flag="--skip-script-cleanup",
             ),
             w2a("execution_settings.shadow_prefix"),
-            w2a("deployment_settings.deployment_methods", flag="--deployment-method"),
-            w2a("deployment_settings.deployment_prefix", base64_encode=True),
-            w2a("deployment_settings.cache_prefix", base64_encode=True),
+            w2a("deployment_settings.deployment_methods", flag="--software-deployment-methods"),
+            w2a("deployment_settings.deployment_prefix", base64_encode=True, flag="--software-deployment-prefix"),
+            w2a("deployment_settings.cache_prefix", base64_encode=True, flag="--software-deployment-cache-prefix"),
             w2a("deployment_settings.not_block_search_path_envvars"),
             w2a("resource_settings.max_threads"),
             self.get_shared_fs_usage_arg(executor_common_settings),
@@ -319,8 +320,8 @@ class SpawnedJobArgsFactory:
             self.get_resource_scopes_arg(),
             self.get_configfiles_arg(),
         ]
-        args.extend(StoragePluginArgCollector.get_cli_args())
-        args.extend(SoftwareDeploymentPluginArgCollector.get_cli_args())
+        args.extend(StoragePluginArgCollector(self.workflow).get_cli_args())
+        args.extend(SoftwareDeploymentPluginArgCollector(self.workflow).get_cli_args())
         args.extend(self.get_set_resources_args())
         if executor_common_settings.pass_default_storage_provider_args:
             args.append(self.get_default_storage_provider_args())
@@ -374,20 +375,22 @@ class PluginArgCollectorBase(ABC):
             return []
 
     @abstractmethod
-    def get_settings(self): ...
+    def get_settings(self) -> Mapping[str, Any]: ...
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def get_registry(cls, name: str): ...
 
     def get_setting_items(self):
-        for plugin_name, settings in self.get_settings():
+        if self.get_settings() is None:
+            return
+        for plugin_name, settings in self.get_settings().items():
             plugin = self.get_registry().get_plugin(plugin_name)
             if plugin.settings_cls:
                 for field in fields(plugin.settings_cls):
                     unparse = field.metadata.get("unparse", lambda value: value)
 
-                    values = self.get_field_value(
+                    values = self.get_field_values(
                         field.name, settings, plugin_name, unparse
                     )
                     if values:
@@ -407,7 +410,7 @@ class PluginArgCollectorBase(ABC):
     def get_envvars(self) -> Dict[str, str]:
         return {
             plugin.get_envvar(field.name): " ".join(map(str, values))
-            for plugin, field, values in self.get_settings_items()
+            for plugin, field, values in self.get_setting_items()
             if field.metadata.get("env_var")
         }
 

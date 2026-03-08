@@ -1,3 +1,4 @@
+from snakemake.executors.local import RunArgs
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -584,18 +585,17 @@ class Run(RuleKeywordState):
         yield "@workflow.run"
         yield "\n"
         yield (
-            "def __rule_{rulename}(run_args, {rule_func_marker}=True):".format(
+            "def __rule_{rulename}({run_args}, {rule_func_marker}=True):".format(
                 rulename=(
                     self.rulename
                     if self.rulename is not None
                     else self.snakefile.rulecount
                 ),
+                run_args=RunArgs.rulefunc_args_signature(),
                 rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
             )
         )
         yield "\n"
-        yield INDENT
-        yield "run_args.register_locals(locals())"
 
     def end(self):
         yield ""
@@ -685,7 +685,7 @@ class Script(AbstractCmd):
 
     def args(self):
         # pass the global config variable
-        yield ", config=config"
+        yield "config=config, "
 
 
 class Notebook(Script):

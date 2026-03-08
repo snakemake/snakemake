@@ -60,8 +60,9 @@ from snakemake_interface_report_plugins.interfaces import (
     JobRecordInterface,
     FileRecordInterface,
 )
+from snakemake_interface_software_deployment_plugins import EnvBase as SoftwareEnvBase
+from snakemake_interface_software_deployment_plugins import SoftwareReport
 from snakemake.common import get_report_id
-from snakemake.exceptions import WorkflowError
 
 
 class EmbeddedMixin(object):
@@ -246,24 +247,17 @@ class RuleRecord(RuleRecordInterface):
     job: InitVar
     job_rec: InitVar
     name: str = field(init=False)
-    container_img_url: Optional[str] = field(init=False)
-    conda_env: Optional[str] = field(init=False)
+    software: List[SoftwareReport] = field(init=False)
     n_jobs: int = field(init=False)
     id: str = field(init=False)
     language: str = field(init=False)
     source: str = field(init=False)
 
     def __post_init__(self, job, job_rec):
-        import yaml
-
         self.name = job_rec.rule
         self._rule = job.rule
-        self.container_img_url = job_rec.container_img_url
-        self.conda_env = None
-        self._conda_env_raw = None
-        if job_rec.conda_env:
-            self._conda_env_raw = base64.b64decode(job_rec.conda_env).decode()
-            self.conda_env = yaml.load(self._conda_env_raw, Loader=yaml.Loader)
+
+        self.software = job_rec.software
         self.n_jobs = 1
         self.id = uuid.uuid4()
 
@@ -322,8 +316,7 @@ class RuleRecord(RuleRecordInterface):
     def __eq__(self, other):
         return (
             self.name == other.name
-            and self.conda_env == other.conda_env
-            and self.container_img_url == other.container_img_url
+            and self.software == other.software
         )
 
 
@@ -345,8 +338,7 @@ class JobRecord(JobRecordInterface):
     starttime: int = sys.maxsize
     endtime: int = 0
     output: list = field(default_factory=list)
-    conda_env_file: Optional[Path] = field(init=False)
-    container_img_url: Optional[Path] = field(init=False)
+    software: List[SoftwareReport] = field(init=False)
 
 
 @dataclass(slots=True)
@@ -540,9 +532,7 @@ async def auto_report(
                 job_rec.job = job
                 job_rec.starttime = get_time(job_rec.starttime, meta["starttime"], min)
                 job_rec.endtime = get_time(job_rec.endtime, meta["endtime"], max)
-                job_rec.conda_env_file = None
-                job_rec.conda_env = meta["conda_env"]
-                job_rec.container_img_url = meta["container_img_url"]
+                job_rec.software = [SoftwareReport(**rec) for rec in meta.get("software", [])]
                 job_rec.output.append(f)
             except KeyError as e:
                 logger.warning(

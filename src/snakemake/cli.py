@@ -1667,6 +1667,11 @@ def get_argument_parser(profiles=None):
         "disable assuming shared fs for software-deployment (see `--shared-fs-usage`).",
     )
     group_deployment.add_argument(
+        "--list-software-envs",
+        action="store_true",
+        help="List software environments.",
+    )
+    group_deployment.add_argument(
         "--cleanup-software-envs",
         "--sdm-cleanup",
         action="store_true",
@@ -1945,7 +1950,7 @@ def args_to_api(args, parser):
     wait_for_files = parse_wait_for_files(args)
     output_settings = create_output_settings(args, log_handler_settings)
     with SnakemakeApi(output_settings) as snakemake_api:
-        deployment_method = args.software_deployment_methods
+        deployment_methods = args.software_deployment_methods
 
         try:
             storage_settings = StorageSettings(
@@ -2001,11 +2006,10 @@ def args_to_api(args, parser):
                         runtime_source_cache_path=args.runtime_source_cache_path,
                     ),
                     deployment_settings=DeploymentSettings(
-                        deployment_method=deployment_method,
+                        deployment_methods=deployment_methods,
                         cache_prefix=args.software_deployment_cache_prefix,
                         deployment_prefix=args.software_deployment_prefix,
                         not_block_search_path_envvars=args.not_block_search_path_envvars,
-                        deploy_or_cache_only=args.software_deployment_deploy_or_cache_only,
                     ),
                     snakefile=args.snakefile,
                     workdir=args.directory,
@@ -2096,8 +2100,6 @@ def args_to_api(args, parser):
                         dag_api.list_software_envs()
                     elif args.cleanup_shadow:
                         dag_api.cleanup_shadow()
-                    elif args.container_cleanup_images:
-                        dag_api.container_cleanup_images()
                     elif args.list_changes:
                         dag_api.list_changes(args.list_changes)
                     elif args.list_input_changes:

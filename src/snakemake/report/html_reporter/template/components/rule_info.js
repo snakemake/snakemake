@@ -41,15 +41,14 @@ class RuleInfo extends React.Component {
             this.renderItems("Input", rule.input, {}, false),
             this.renderItems("Output", rule.output),
             this.renderSoftware(),
-            this.renderItems("Container", [rule.container_img_url]),
             this.renderCode(),
         )
     }
 
     renderSoftware() {
         let rule = rules[this.props.rule];
-        if (rule.conda_env) {
-            return this.renderItems("Software", flattenList(rule.conda_env.dependencies));
+        if (rule.software.length) {
+            return this.renderItems("Software", rule.software);
         } else {
             return [];
         }
