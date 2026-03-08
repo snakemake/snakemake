@@ -98,5 +98,5 @@ class ShellCompletionAction(argparse.Action):
         super().__init__(option_strings, dest, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
-        print(Completer(parser).render(namespace.print_shell_completion))
+        print(Completer(parser).render(values))
         sys.exit(0)
