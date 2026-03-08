@@ -1,8 +1,10 @@
 import argparse
 import collections
 import dataclasses
+import sys
 
 import configargparse
+from pycomplete import SUPPORTED_SHELLS, Completer
 
 
 class ArgumentParser(configargparse.ArgumentParser):
@@ -78,7 +80,6 @@ class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
             if isinstance(action.default, collections.abc.Iterable) and not isinstance(
                 action.default, str
             ):
-
                 if isinstance(action.default, (frozenset, set)):
                     default = sorted(map(str, action.default))
                 else:
@@ -88,3 +89,14 @@ class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
                 return action.help + " (default: %(default)s)"
         else:
             return action.help
+
+
+class ShellCompletionAction(argparse.Action):
+    supported_shells = SUPPORTED_SHELLS
+
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        print(Completer(parser).render(namespace.print_shell_completion))
+        sys.exit(0)
