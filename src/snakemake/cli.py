@@ -1189,7 +1189,6 @@ def get_argument_parser(profiles=None):
     group_utils.add_argument(
         "--print-shell-completion",
         nargs="?",
-        const="text",
         choices=snakemake.common.argparse.SUPPORTED_SHELLS,
         action=snakemake.common.argparse.ShellCompletionAction,
         help="Print completion script for a given shell.",
