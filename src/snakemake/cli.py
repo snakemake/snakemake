@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import List, Mapping, Optional, Set, Tuple, Union, Dict
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
+from pycomplete import SUPPORTED_SHELLS
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
@@ -1191,6 +1192,7 @@ def get_argument_parser(profiles=None):
         nargs="?",
         const="text",
         choices=["bash", "fish", "zsh", "powershell"],
+        choices=SUPPORTED_SHELLS,
         help="Print completion script for a given shell.",
     )
     group_delete_output = group_utils.add_mutually_exclusive_group()
