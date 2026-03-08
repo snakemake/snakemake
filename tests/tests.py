@@ -790,7 +790,6 @@ def test_singularity_cluster():
         dpath("test_singularity"),
         deployment_method={DeploymentMethod.APPTAINER},
         cluster="./qsub",
-        apptainer_args="--bind /tmp:/tmp",
     )
 
 
@@ -839,7 +838,6 @@ def test_singularity_source_cache():
     run(
         dpath("test_singularity_source_cache"),
         deployment_method={DeploymentMethod.APPTAINER},
-        apptainer_args="--bind /tmp:/tmp",
     )
 
 

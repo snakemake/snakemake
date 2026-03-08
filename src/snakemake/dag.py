@@ -33,6 +33,7 @@ from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
 from snakemake_interface_scheduler_plugins.interfaces.dag import DAGSchedulerInterface
 from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_software_deployment_plugins import EnvBase, EnvSpecBase
 from snakemake.settings.enums import Quietness
 
 from snakemake import workflow as _workflow
@@ -82,7 +83,7 @@ from snakemake.settings.types import SharedFSUsage
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
-from snakemake.settings.types import ChangeType
+from snakemake.settings.enums import ChangeType
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
@@ -152,7 +153,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._ready_jobs = set()
         self._jobid = dict()
         self.job_cache = dict()
-        self.software_envs = dict()
+        self.software_envs: Dict[EnvSpecBase, EnvBase] = dict()
         self._progress = 0
         self._group = dict()
         self._n_until_ready = defaultdict(int)
@@ -266,7 +267,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         await self.check_incomplete()
 
-        self.update_software_envs()
+        self.workflow.software_deployment_manager.collect_envs(self.jobs)
 
         await self.update_needrun(create_inventory=True)
         if self.workflow.dryrun:
@@ -362,32 +363,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 del self.depending[job]
             except KeyError:
                 pass
-
-    def update_software_envs(self):
-        shared_envs = (
-            SharedFSUsage.SOFTWARE_DEPLOYMENT
-            in self.workflow.storage_settings.shared_fs_usage or
-            SharedFSUsage.SOFTWARE_DEPLOYMENT_CACHE
-            in self.workflow.storage_settings.shared_fs_usage
-        )
-
-        env_set = {
-            job.software_env_spec
-            for job in self.jobs
-            if job.software_env_spec
-            and (
-                job.is_local or shared_envs
-                or (
-                    self.workflow.remote_exec
-                    and SharedFSUsage.SOFTWARE_DEPLOYMENT
-                    not in self.workflow.storage_settings.shared_fs_usage
-                )
-            )
-        }
-
-        for env_spec in env_set:
-            if env_spec not in self.software_envs:
-                self.software_envs[env_spec] = self.workflow.software_deployment_manager.get_env(env_spec)
 
     async def retrieve_storage_inputs(
         self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
@@ -528,21 +503,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 and not env.is_externally_managed
             ):
                 env.create(self.workflow.dryrun)
-
-    def cache_software_envs(self, quiet=False):
-        # TODO go on here
-        assets = {
-            env: {
-                asset for asset in env.get_cache_assets()
-            }
-        }
-        for env in self.software_envs.values():
-            if not env.is_cacheable:
-                continue
-            
-        for img in self.container_imgs.values():
-            if not self.workflow.touch and (not self.workflow.dryrun or not quiet):
-                img.pull(self.workflow.dryrun)
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -1897,7 +1857,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             # this is important to ensure that there are no outdated local copies
             # that misguide e.g. params functions.
             await self.sanitize_local_storage_copies()
-            self.update_software_envs()
+            self.workflow.software_deployment_manager.collect_envs(self.jobs)
             await self.update_needrun()
         self.update_priority()
         self.handle_pipes_and_services()
@@ -2274,18 +2234,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         potential_new_ready_jobs = self.update_ready(depending)
 
         if updated_dag:
-            # We might have new jobs, so we need to ensure that all conda envs
-            # and singularity images are set up.
-            if (
-                DeploymentMethod.APPTAINER
-                in self.workflow.deployment_settings.deployment_method
-            ):
-                self.pull_container_imgs()
-            if (
-                DeploymentMethod.CONDA
-                in self.workflow.deployment_settings.deployment_method
-            ):
-                self.create_conda_envs()
+            # We might have new jobs, so we need to ensure that all software envs
+            # are deployed.
+            await self.workflow.software_deployment_manager.cache_envs(
+                self.needrun_jobs()
+            )
+            await self.workflow.software_deployment_manager.deploy_envs(
+                self.needrun_jobs()
+            )
             potential_new_ready_jobs = True
 
         if self.checkpoint_jobs:
@@ -2986,7 +2942,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 else:
                     yield "\t".join((fmt_output(f), date, rule, log, status, pending))
 
-    def archive(self, path: Path):
+    async def archive(self, path: Path):
         """Archives workflow such that it can be re-run on a different system.
 
         Archiving includes git versioned files (i.e. Snakefiles, config files, ...),
@@ -3008,7 +2964,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if path.exists():
             raise WorkflowError(f"Archive already exists:\n{path}")
 
-        self.create_conda_envs()
+        await self.workflow.software_deployment_manager.cache_envs(self.jobs)
 
         try:
             workdir = Path(os.path.abspath(os.getcwd()))

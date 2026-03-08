@@ -149,8 +149,7 @@ from snakemake.sourcecache import (
     SourceFile,
     infer_source_file,
 )
-from snakemake.deployment.conda import Conda
-from snakemake import api, caching, sourcecache
+from snakemake import caching, sourcecache
 import snakemake.ioutils
 import snakemake.ioflags
 from snakemake.jobs import jobs_to_rulenames
@@ -174,7 +173,9 @@ class Workflow(WorkflowExecutorInterface):
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
-    software_deployment_settings: Optional[Mapping[str, SoftwareDeploymentSettingsBase]]
+    software_deployment_settings: Optional[
+        Mapping[str, SoftwareDeploymentSettingsBase]
+    ] = None
     global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
     cache_rules: Dict[str, str] = field(default_factory=dict)
@@ -584,7 +585,7 @@ class Workflow(WorkflowExecutorInterface):
         assert self.deployment_settings is not None
         if self.deployment_settings.conda_base_path:
             return self.deployment_settings.conda_base_path
-        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+        if DeploymentMethod.CONDA in self.deployment_settings.deployment_methods:
             try:
                 return Conda().prefix_path
             except CreateCondaEnvironmentException:
@@ -925,8 +926,6 @@ class Workflow(WorkflowExecutorInterface):
         self._persistence = Persistence(
             nolock=nolock,
             dag=self._dag,
-            conda_prefix=self.deployment_settings.conda_prefix,
-            singularity_prefix=self.deployment_settings.apptainer_prefix,
             shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
             path=persistence_path,
@@ -950,16 +949,16 @@ class Workflow(WorkflowExecutorInterface):
 
         deploy = []
         assert self.deployment_settings is not None
-        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+        if DeploymentMethod.CONDA in self.deployment_settings.deployment_methods:
             deploy.append("conda")
-        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
+        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_methods:
             deploy.append("singularity")
 
         # TODO use or fix the deploy code above
         unit_tests.generate(
             self.dag,
             path,
-            self.deployment_settings.deployment_method,
+            self.deployment_settings.deployment_methods,
             snakefile=self.main_snakefile,
             configfiles=self.configfiles,
             rundir=self.rundir,
@@ -1038,7 +1037,7 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
 
-        self.dag.archive(path)
+        self.async_run(self.dag.archive(path))
 
     def summary(self, detailed: bool = False):
         assert self.dag_settings is not None
@@ -1152,7 +1151,7 @@ class Workflow(WorkflowExecutorInterface):
             )
         )
 
-    def conda_list_envs(self):
+    def list_software_envs(self):
         assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
@@ -1160,22 +1159,10 @@ class Workflow(WorkflowExecutorInterface):
             lock_warn_only=False,
         )
         self._build_dag()
-        self.dag.create_conda_envs(
-            dryrun=True,
-            quiet=True,
-        )
-        print("environment", "container", "location", sep="\t")
-        for env in set(job.conda_env for job in self.dag.jobs):
-            if env and not env.is_externally_managed:
-                print(
-                    env.file.simplify_path(),
-                    env.container_img_url or "",
-                    simplify_path(env.address),
-                    sep="\t",
-                )
-        return True
+        for spec in self.software_deployment_manager.specs_to_envs.keys():
+            print(spec)
 
-    def conda_create_envs(self):
+    def cache_or_deploy_software_envs(self) -> None:
         assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
@@ -1184,12 +1171,10 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        assert self.deployment_settings is not None
-        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
-            self.dag.pull_container_imgs()
-        self.dag.create_conda_envs()
+        self.async_run(self.software_deployment_manager.cache_envs(self.dag))
+        self.async_run(self.software_deployment_manager.deploy_envs(self.dag))
 
-    def conda_cleanup_envs(self):
+    def cleanup_software_envs(self) -> None:
         assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
@@ -1197,23 +1182,14 @@ class Workflow(WorkflowExecutorInterface):
             lock_warn_only=False,
         )
         self._build_dag()
-        self.persistence.conda_cleanup_envs()
 
-    def container_cleanup_images(self):
-        assert self.dag_settings is not None
-        self._prepare_dag(
-            forceall=self.dag_settings.forceall,
-            ignore_incomplete=True,
-            lock_warn_only=False,
-        )
-        self._build_dag()
-        self.persistence.cleanup_containers()
+        self.software_deployment_manager.cleanup_envs(self.dag)
 
     def log_rulegraph(self):
         def simple_rulegraph():
             from snakemake.report.rulegraph_spec import get_representatives
 
-            representatives = dict()
+            representatives = {}
             toposorted = [
                 get_representatives(level, representatives)
                 for level in self.dag.toposorted()
@@ -1287,9 +1263,6 @@ class Workflow(WorkflowExecutorInterface):
         assert self.dag_settings is not None
         assert self.remote_execution_settings is not None
         assert self.output_settings is not None
-        shell.conda_block_conflicting_envvars = (
-            not self.deployment_settings.conda_not_block_search_path_envvars
-        )
 
         if self.remote_execution_settings.envvars:
             self.register_envvars(*self.remote_execution_settings.envvars)
@@ -1351,26 +1324,13 @@ class Workflow(WorkflowExecutorInterface):
                     f for job in self.dag.needrun_jobs() for f in job.output
                 )
 
-            shared_deployment = (
-                SharedFSUsage.SOFTWARE_DEPLOYMENT
-                in self.storage_settings.shared_fs_usage
+            self.async_run(
+                self.software_deployment_manager.cache_envs(self.dag.needrun_jobs())
+            )
+            self.async_run(
+                self.software_deployment_manager.deploy_envs(self.dag.needrun_jobs())
             )
 
-            if shared_deployment or (self.remote_exec and not shared_deployment):
-                if (
-                    DeploymentMethod.APPTAINER
-                    in self.deployment_settings.deployment_method
-                ):
-                    self.dag.pull_container_imgs()
-                if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
-                    self.dag.create_conda_envs()
-
-            shared_storage_local_copies = (
-                SharedFSUsage.STORAGE_LOCAL_COPIES
-                in self.storage_settings.shared_fs_usage
-            )
-            logger.debug(f"shared_storage_local_copies: {shared_storage_local_copies}")
-            logger.debug(f"remote_exec: {self.remote_exec}")
             dryrun_or_touch = self.dryrun or self.touch
 
             should_deploy_sources = (
@@ -1434,20 +1394,6 @@ class Workflow(WorkflowExecutorInterface):
 
                     if self.local_exec and any(rule.group for rule in self.rules):
                         logger.info("Group jobs: inactive (local execution)")
-
-                    if (
-                        DeploymentMethod.CONDA
-                        not in self.deployment_settings.deployment_method
-                        and any(rule.conda_env for rule in self.rules)
-                    ):
-                        logger.info("Conda environments: ignored")
-
-                    if (
-                        DeploymentMethod.APPTAINER
-                        not in self.deployment_settings.deployment_method
-                        and any(rule.container_img for rule in self.rules)
-                    ):
-                        logger.info("Singularity containers: ignored")
 
                     if self.exec_mode == ExecMode.DEFAULT:
                         stats_msg, stats_dict = self.dag.stats()
@@ -2196,7 +2142,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def global_conda(self, conda_env):
         assert self.deployment_settings is not None
-        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+        if DeploymentMethod.CONDA in self.deployment_settings.deployment_methods:
             from conda_inject import PackageManager, inject_env_file
 
             try:

@@ -5,7 +5,6 @@ from abc import abstractmethod
 from typing import Optional
 from abc import ABC
 from dataclasses import dataclass, fields
-import hashlib
 from itertools import chain
 import os
 import sys
@@ -16,9 +15,8 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_software_deployment_plugins.registry import (
     SoftwareDeploymentPluginRegistry,
 )
-
+import snakemake
 from snakemake import PIP_DEPLOYMENTS_PATH
-from snakemake.io import get_flag_value, is_flagged
 from snakemake.settings.types import SharedFSUsage
 from snakemake_interface_common.exceptions import WorkflowError
 
@@ -285,7 +283,7 @@ class SpawnedJobArgsFactory:
                 flag="--skip-script-cleanup",
             ),
             w2a("execution_settings.shadow_prefix"),
-            w2a("deployment_settings.deployment_method"),
+            w2a("deployment_settings.deployment_methods", flag="--deployment-method"),
             w2a("deployment_settings.deployment_prefix", base64_encode=True),
             w2a("deployment_settings.cache_prefix", base64_encode=True),
             w2a("deployment_settings.not_block_search_path_envvars"),
@@ -346,7 +344,7 @@ class SpawnedJobArgsFactory:
 
 
 class PluginArgCollectorBase(ABC):
-    def __init__(self, workflow: Workflow):
+    def __init__(self, workflow: "snakemake.workflow.Workflow"):
         self.workflow = workflow
 
     def fmt_value(

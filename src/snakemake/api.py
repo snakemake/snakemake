@@ -1,4 +1,5 @@
 from snakemake.settings.enums import ChangeType
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -738,24 +739,19 @@ class DAGApi(ApiBase):
         self.workflow_api._workflow.cleanup_metadata(paths)
 
     @_no_exec
-    def software_deployment_cleanup_envs(self):
+    def cleanup_software_envs(self):
         """Cleanup the software environments of the workflow."""
-        self.workflow_api._workflow.software_deployment_cleanup_envs()
+        self.workflow_api._workflow.cleanup_software_envs()
 
     @_no_exec
-    def software_deployment_cleanup_cache(self):
-        """Cleanup the software environment caches of the workflow."""
-        self.workflow_api._workflow.software_deployment_cleanup_envs()
-
-    @_no_exec
-    def software_deployment_deploy_or_cache(self):
+    def cache_or_deploy_software_envs(self):
         """Only deploy or cache the software environments of the workflow."""
-        self.workflow_api._workflow.software_deployment_deploy_or_cache()
+        self.workflow_api._workflow.cache_or_deploy_software_envs()
 
     @_no_exec
-    def software_deployment_list_envs(self):
+    def list_software_envs(self):
         """List the conda environments of the workflow."""
-        self.workflow_api._workflow.software_deployment_list_envs()
+        self.workflow_api._workflow.list_software_envs()
 
     @_no_exec
     def cleanup_shadow(self):

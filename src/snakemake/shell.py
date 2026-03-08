@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -21,7 +22,6 @@ from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.exceptions import WorkflowError
-
 
 if TYPE_CHECKING:
     from snakemake.executors.local import RunArgs
@@ -230,7 +230,8 @@ class shell:
             (cls._get_process_prefix(shell_executable), cmd, cls._process_suffix)
         ).strip()
 
-        cmd = software_env.decorate_shellcmd(cmd)
+        if software_env is not None:
+            cmd = software_env.decorate_shellcmd(cmd)
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:

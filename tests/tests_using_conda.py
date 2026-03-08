@@ -87,7 +87,6 @@ def test_upstream_conda():
     run(
         dpath("test_conda"),
         deployment_method={DeploymentMethod.CONDA},
-        conda_frontend="conda",
     )
 
 
@@ -110,11 +109,11 @@ def test_deploy_hashing():
 
 
 @conda
-def test_conda_custom_prefix():
+def test_custom_software_deployment_prefix():
     run(
         dpath("test_conda_custom_prefix"),
         deployment_method={DeploymentMethod.CONDA},
-        conda_prefix="custom",
+        software_deployment_prefix="custom",
         set_pythonpath=False,
     )
 
@@ -176,7 +175,6 @@ def test_singularity_conda():
     run(
         dpath("test_singularity_conda"),
         deployment_method={DeploymentMethod.CONDA, DeploymentMethod.APPTAINER},
-        conda_frontend="conda",
     )
 
 

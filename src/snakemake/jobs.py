@@ -42,7 +42,6 @@ from snakemake.io import (
     _IOFile,
     IOFile,
     ResourceList,
-    is_callable,
     Wildcards,
     is_flagged,
     get_flag_value,
@@ -63,13 +62,16 @@ from snakemake.exceptions import (
 
 from snakemake.logging import logger
 from snakemake.common import (
-    get_function_params,
     get_uuid,
     IO_PROP_LIMIT,
 )
 from snakemake.io.fmt import fmt_iofile
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
+from snakemake_interface_software_deployment_plugins import EnvBase as SoftwareEnvBase
+from snakemake_interface_software_deployment_plugins import (
+    EnvSpecBase as SoftwareEnvSpecBase,
+)
 
 
 def format_files(io, as_input: bool = False, as_output: bool = False):
@@ -506,7 +508,7 @@ class Job(
             self._params_and_resources_resetted = True
 
     @property
-    def software_env_spec(self):
+    def software_env_spec(self) -> Optional[SoftwareEnvSpecBase]:
         if self._software_env_spec is None:
             self._software_env_spec = self.rule.expand_software_env_specs(
                 self.wildcards_dict, self.params, self.input
@@ -514,7 +516,7 @@ class Job(
         return self._software_env_spec
 
     @property
-    def software_env(self):
+    def software_env(self) -> Optional[SoftwareEnvBase]:
         if self.software_env_spec:
             return self.dag.software_envs[self.software_env_spec]
         return None
@@ -1068,7 +1070,7 @@ class Job(
             self.conda_env.address
             if (
                 DeploymentMethod.CONDA
-                in self.dag.workflow.deployment_settings.deployment_method
+                in self.dag.workflow.deployment_settings.deployment_methods
                 and self.conda_env
             )
             else None
@@ -1081,8 +1083,7 @@ class Job(
             input=format_files(self.input, as_input=True),
             output=format_files(self.output, as_output=True),
             log=format_files(self.log, as_output=True) + aux_logs,
-            conda_env=conda_env_adress,
-            container_img=self.container_img,
+            software_env=self.software_env_spec,
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,

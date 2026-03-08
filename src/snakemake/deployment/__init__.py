@@ -1,3 +1,6 @@
+from snakemake.logging import logger
+from snakemake.settings.enums import Quietness
+from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake.common import is_local_file
 from copy import copy
 from typing import List
@@ -55,9 +58,79 @@ class SoftwareDeploymentManager:
                 )
 
     def collect_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
+        shared_envs = (
+            SharedFSUsage.SOFTWARE_DEPLOYMENT
+            in self.workflow.storage_settings.shared_fs_usage
+            or SharedFSUsage.SOFTWARE_DEPLOYMENT_CACHE
+            in self.workflow.storage_settings.shared_fs_usage
+        )
         for job in jobs:
-            if job.env_spec is not None and job.env_spec not in self.specs_to_envs:
+            if (
+                job.software_env_spec is not None
+                and job.software_env_spec not in self.specs_to_envs
+                and (
+                    job.is_local
+                    or shared_envs
+                    or (
+                        self.workflow.remote_exec
+                        and SharedFSUsage.SOFTWARE_DEPLOYMENT
+                        not in self.workflow.storage_settings.shared_fs_usage
+                    )
+                )
+            ):
                 self.get_env(job.env_spec)
+
+    async def cache_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
+        shared_cache = (
+            SharedFSUsage.SOFTWARE_DEPLOYMENT_CACHE
+            in self.workflow.storage_settings.shared_fs_usage
+        )
+        if not shared_cache and not self.workflow.remote_exec:
+            return
+
+        assets = {}
+        for job in jobs:
+            env = job.software_env
+            if env is not None and env.is_cacheable():
+                for asset in env.get_cache_assets():
+                    if (env.cache_path / asset).exists():
+                        continue
+                    # if multiple envs share the same asset, we can simply cache
+                    # it for one of them, so we do not check for duplicates here.
+                    assets[asset] = env
+
+        if self.workflow.dryrun:
+            logger.info(
+                f"Will cache {len(assets)} software environment assets.",
+                extra={"quietness": Quietness.RULES},
+            )
+        else:
+            for asset, env in assets.items():
+                await env.managed_cache_asset(asset)
+
+    async def deploy_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
+        shared_deploy = (
+            SharedFSUsage.SOFTWARE_DEPLOYMENT
+            in self.workflow.storage_settings.shared_fs_usage
+        )
+        if not shared_deploy and not self.workflow.remote_exec:
+            return
+
+        envs = set()
+        for job in jobs:
+            env = job.software_env
+            if env is not None and env.is_deployable():
+                envs.add(env)
+
+        for env in envs:
+            await env.managed_deploy()
+
+    async def cleanup_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
+        for job in jobs:
+            env = job.software_env
+            if env is not None:
+                await env.cleanup_cache()
+                env.managed_remove()
 
     def get_env(self, env_spec: EnvSpecBase) -> EnvBase:
         if env_spec in self.specs_to_envs:
@@ -136,10 +209,10 @@ class SoftwareDeploymentManager:
 
 @dataclass
 class EnvSpecs:
-    software_spec: Optional[Union[EnvSpecBase, Callable]]
-    legacy_conda_env: Optional[Union[str, Path, Callable]]
-    legacy_container_img: Optional[Union[str, Callable]]
-    legacy_env_modules: Optional[Union[List[str], Callable]]
+    software_spec: Optional[Union[EnvSpecBase, Callable]] = None
+    legacy_conda_env: Optional[Union[str, Path, Callable]] = None
+    legacy_container_img: Optional[Union[str, Callable]] = None
+    legacy_env_modules: Optional[Union[List[str], Callable]] = None
 
     def is_callable(self) -> bool:
         return any(

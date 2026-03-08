@@ -1,4 +1,5 @@
 from typing import Optional
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -22,7 +23,9 @@ except ImportError:  # python < 3.11
     import sre_constants
 
 from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_software_deployment_plugins import EnvSpecBase as SoftwareEnvSpecBase
+from snakemake_interface_software_deployment_plugins import (
+    EnvSpecBase as SoftwareEnvSpecBase,
+)
 
 from snakemake.io import (
     IOFile,
@@ -271,22 +274,6 @@ class Rule(RuleInterface):
         self._benchmark = IOFile(benchmark, rule=self)
         self._benchmark.check()
         self.register_wildcards(self._benchmark)
-
-    @property
-    def conda_env(self):
-        return self._conda_env
-
-    @conda_env.setter
-    def conda_env(self, conda_env):
-        self._conda_env = conda_env
-
-    @property
-    def container_img(self):
-        return self._container_img
-
-    @container_img.setter
-    def container_img(self, container_img):
-        self._container_img = container_img
 
     @property
     def software_env_spec(self):

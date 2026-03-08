@@ -170,7 +170,6 @@ def run(
     nodes: int | None = None,
     set_pythonpath: bool = True,
     cleanup: bool = True,
-    conda_frontend="conda",
     config=dict(),
     targets=set(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
@@ -193,7 +192,7 @@ def run(
     trust_io_cache=False,
     conda_list_envs=False,
     conda_create_envs=False,
-    conda_prefix=None,
+    deployment_prefix=None,
     wrapper_prefix=None,
     printshellcmds=False,
     default_storage_provider=None,
@@ -226,7 +225,6 @@ def run(
     storage_provider_settings=None,
     shared_fs_usage=None,
     benchmark_extended=False,
-    apptainer_args="",
     tmpdir: StrPath | None = None,
 ) -> Path | None:
     """
@@ -366,6 +364,7 @@ def run(
                 verbose=True,
                 printshellcmds=printshellcmds,
                 show_failed_logs=True,
+                benchmark_extended=benchmark_extended,
             ),
         ) as snakemake_api:
             try:
@@ -414,10 +413,8 @@ def run(
                         cache=cache,
                     ),
                     deployment_settings=settings.DeploymentSettings(
-                        conda_frontend=conda_frontend,
-                        conda_prefix=conda_prefix,
-                        deployment_method=deployment_method,
-                        apptainer_args=apptainer_args,
+                        deployment_prefix=deployment_prefix,
+                        deployment_methods=deployment_method,
                     ),
                     snakefile=Path(original_snakefile if no_tmpdir else snakefile),
                     workdir=Path(path if no_tmpdir else tmpdir),

@@ -1620,7 +1620,9 @@ def get_argument_parser(profiles=None):
 
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
     group_deployment.add_argument(
+        "--software-deployment-methods",
         "--software-deployment-method",
+        "--deployment-methods",
         "--deployment-method",
         "--deployment",
         "--sdm",
@@ -1665,21 +1667,13 @@ def get_argument_parser(profiles=None):
         "disable assuming shared fs for software-deployment (see `--shared-fs-usage`).",
     )
     group_deployment.add_argument(
-        "--software-deployment-cleanup-envs",
-        "--sdm-cleanup-envs",
+        "--cleanup-software-envs",
+        "--sdm-cleanup",
         action="store_true",
         help="Cleanup unused software environments.",
     )
     group_deployment.add_argument(
-        "--software-deployment-cleanup-cache",
-        "--sdm-cleanup-cache",
-        action="store_true",
-        help="Cleanup any cache assets after creating software environments. "
-        "In case of `tarballs` mode, will clean up all downloaded package tarballs. "
-        "In case of `cache` mode, will additionally clean up unused package caches.",
-    )
-    group_deployment.add_argument(
-        "--software-deployment-deploy-or-cache-only",
+        "--deploy-software-envs",
         "--sdm-deploy",
         action="store_true",
         help="If specified, only creates the job-specific "
@@ -1951,7 +1945,7 @@ def args_to_api(args, parser):
     wait_for_files = parse_wait_for_files(args)
     output_settings = create_output_settings(args, log_handler_settings)
     with SnakemakeApi(output_settings) as snakemake_api:
-        deployment_method = args.software_deployment_method
+        deployment_method = args.software_deployment_methods
 
         try:
             storage_settings = StorageSettings(
@@ -2010,8 +2004,6 @@ def args_to_api(args, parser):
                         deployment_method=deployment_method,
                         cache_prefix=args.software_deployment_cache_prefix,
                         deployment_prefix=args.software_deployment_prefix,
-                        cleanup_envs=args.software_deployment_cleanup_envs,
-                        cleanup_cache=args.software_deployment_cleanup_cache,
                         not_block_search_path_envvars=args.not_block_search_path_envvars,
                         deploy_or_cache_only=args.software_deployment_deploy_or_cache_only,
                     ),
@@ -2096,14 +2088,12 @@ def args_to_api(args, parser):
                         dag_api.unlock()
                     elif args.cleanup_metadata:
                         dag_api.cleanup_metadata(args.cleanup_metadata)
-                    elif args.software_deployment_cleanup_envs:
-                        dag_api.software_deployment_cleanup_envs()
-                    elif args.software_deployment_cleanup_cache:
-                        dag_api.software_deployment_cleanup_cache()
-                    elif args.software_deployment_deploy_or_cache_only:
-                        dag_api.software_deployment_deploy_or_cache_only()
-                    elif args.software_deployment_list_envs:
-                        dag_api.software_deployment_list_envs()
+                    elif args.cleanup_software_envs:
+                        dag_api.cleanup_software_envs()
+                    elif args.deploy_software_envs:
+                        dag_api.cache_or_deploy_software_envs()
+                    elif args.list_software_envs:
+                        dag_api.list_software_envs()
                     elif args.cleanup_shadow:
                         dag_api.cleanup_shadow()
                     elif args.container_cleanup_images:

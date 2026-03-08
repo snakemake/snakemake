@@ -1,9 +1,11 @@
+from snakemake.benchmark import BenchmarkRecord
 from snakemake.shell import shell
 from typing import Any
 from typing import List
 from typing import Union
 from typing import Dict
 from typing import Optional
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -33,6 +35,7 @@ from snakemake_interface_executor_plugins.jobs import (
     GroupJobExecutorInterface,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode, CommonSettings
+from snakemake_interface_software_deployment_plugins import EnvBase as SoftwareEnvBase
 
 from snakemake.rules import Rule
 from snakemake.logging import logger
@@ -116,7 +119,7 @@ class Executor(RealExecutor):
         future.add_done_callback(partial(self._callback, job_info))
         self.report_job_submission(job_info)
 
-    def job_args_and_prepare(self, job: JobExecutorInterface):
+    def job_args_and_prepare(self, job: JobExecutorInterface) -> "RunArgs":
         self.workflow.async_run(job.prepare())
 
         benchmark = None
@@ -124,32 +127,36 @@ class Executor(RealExecutor):
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
 
-        return (
-            job.rule,
-            job.input._plainstrings(),
-            job.output._plainstrings(),
-            job.params,
-            job.wildcards,
-            job.threads,
-            job.resources,
-            job.log._plainstrings(),
-            benchmark,
-            benchmark_repeats,
-            self.workflow.output_settings.benchmark_extended,
-            self.workflow.linemaps,
-            self.workflow.execution_settings.debug,
-            self.workflow.execution_settings.cleanup_scripts,
-            job.shadow_dir,
-            job.jobid,
-            (
+        return RunArgs(
+            job_rule=job.rule,
+            input=job.input._plainstrings(),
+            output=job.output._plainstrings(),
+            params=job.params,
+            wildcards=job.wildcards,
+            threads=job.threads,
+            resources=job.resources,
+            log=job.log._plainstrings(),
+            benchmark=benchmark,
+            benchmark_repeats=benchmark_repeats,
+            benchmark_extended=self.workflow.output_settings.benchmark_extended,
+            linemaps=self.workflow.linemaps,
+            debug=self.workflow.execution_settings.debug,
+            cleanup_scripts=self.workflow.execution_settings.cleanup_scripts,
+            shadow_dir=job.shadow_dir,
+            jobid=job.jobid,
+            edit_notebook=(
                 self.workflow.execution_settings.edit_notebook
                 if self.dag.is_edit_notebook_job(job)
                 else None
             ),
-            job.rule.basedir,
-            self.workflow.sourcecache.cache_path,
-            self.workflow.sourcecache.runtime_cache_path,
-            self.workflow.runtime_paths,
+            basedir=job.rule.basedir,
+            cache_path=self.workflow.sourcecache.cache_path,
+            runtime_cache_path=self.workflow.sourcecache.runtime_cache_path,
+            runtime_paths=self.workflow.runtime_paths,
+            not_block_search_path_envvars=(
+                self.workflow.deployment_settings.not_block_search_path_envvars
+            ),
+            software_env=job.software_env,
         )
 
     def run_single_job(self, job: SingleJobExecutorInterface):
@@ -159,7 +166,7 @@ class Executor(RealExecutor):
             or job.is_template_engine
         ):
             future = self.pool.submit(
-                self.cached_or_run, job, run_wrapper, *self.job_args_and_prepare(job)
+                self.cached_or_run, job, run_wrapper, self.job_args_and_prepare(job)
             )
         else:
             # run directive jobs are spawned into subprocesses
@@ -287,7 +294,9 @@ class RunArgs:
     runtime_cache_path: Path
     runtime_paths: List[Path]
     not_block_search_path_envvars: bool
+    software_env: Optional[SoftwareEnvBase]
     bench_iteration: int = 0
+    bench_record: Optional[BenchmarkRecord] = None
 
     def register_locals(self, _locals: Dict[str, Any]) -> None:
         # input=args.input; output=args.output; params=args.params; wildcards=args.wildcards; threads=args.threads; resources=args.resources; log=args.log; rule=args.job_rule.name; jobid=args.jobid
@@ -331,7 +340,6 @@ def run_wrapper(run_args: RunArgs):
 
     if run_args.benchmark is not None:
         from snakemake.benchmark import (
-            BenchmarkRecord,
             benchmarked,
             write_benchmark_records,
         )
@@ -339,13 +347,13 @@ def run_wrapper(run_args: RunArgs):
     # Change workdir if shadow defined and not using container.
     # Otherwise, we do the change from inside the container.
     immediate_shadow_dir = None
-    if run_args.software_env.spec.kind != "container":
+    if run_args.software_env is None or run_args.software_env.spec.kind != "container":
         immediate_shadow_dir = run_args.shadow_dir
         run_args.shadow_dir = None
 
     try:
         with change_working_directory(immediate_shadow_dir):
-            
+
             if run_args.benchmark:
                 bench_records = []
                 for bench_iteration in range(run_args.benchmark_repeats):
@@ -364,13 +372,14 @@ def run_wrapper(run_args: RunArgs):
                         # The benchmarking through ``benchmarked()`` is started
                         # in the execution of the shell fragment, script, wrapper
                         # etc, as the child PID is available there.
-                        bench_record = BenchmarkRecord()
+                        run_args.bench_record = BenchmarkRecord()
                         run(run_args)
                     else:
                         # The benchmarking is started here as we have a run section
                         # and the generated Python function is executed in this
                         # process' thread.
                         with benchmarked() as bench_record:
+                            run_args.bench_record = bench_record
                             run(run_args)
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -388,7 +397,11 @@ def run_wrapper(run_args: RunArgs):
             lineno, file = origin
             raise RuleException(
                 format_error(
-                    ex, lineno, linemaps=run_args.linemaps, snakefile=file, show_traceback=True
+                    ex,
+                    lineno,
+                    linemaps=run_args.linemaps,
+                    snakefile=file,
+                    show_traceback=True,
                 )
             ) from ex
         else:
@@ -406,6 +419,8 @@ def run_wrapper(run_args: RunArgs):
                 bench_record.resources = run_args.resources
                 bench_record.input = run_args.input
                 bench_record.threads = run_args.threads
-            write_benchmark_records(bench_records, run_args.benchmark, run_args.benchmark_extended)
+            write_benchmark_records(
+                bench_records, run_args.benchmark, run_args.benchmark_extended
+            )
         except Exception as ex:
             raise WorkflowError(ex) from ex

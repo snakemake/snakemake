@@ -287,8 +287,8 @@ class DefaultFormatter(logging.Formatter):
             output.append(
                 f"    log: {', '.join(msg['log'])} (check log file(s) for error details)"
             )
-        if msg["conda_env"]:
-            output.append(f"    conda-env: {msg['conda_env']}")
+        if msg["software_env"]:
+            output.append(f"    software-env: {msg['software_env']}")
         if msg["shellcmd"]:
             output.append(
                 f"    shell:\n        {msg['shellcmd']}\n        (command exited with non-zero exit code)"

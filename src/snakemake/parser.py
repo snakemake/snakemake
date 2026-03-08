@@ -584,7 +584,7 @@ class Run(RuleKeywordState):
         yield "@workflow.run"
         yield "\n"
         yield (
-            "def __rule_{rulename}(run_args, {rule_func_marker}=True)".format(
+            "def __rule_{rulename}(run_args, {rule_func_marker}=True):".format(
                 rulename=(
                     self.rulename
                     if self.rulename is not None
@@ -593,6 +593,7 @@ class Run(RuleKeywordState):
                 rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
             )
         )
+        yield "\n"
         yield INDENT
         yield "run_args.register_locals(locals())"
 
@@ -645,7 +646,7 @@ class AbstractCmd(Run):
         yield self.end_func
         yield "("
         yield from self.cmd
-        yield "run_args=run_args, "
+        yield ", run_args=run_args, "
         yield from self.args()
         yield "\n"
         yield ")"
