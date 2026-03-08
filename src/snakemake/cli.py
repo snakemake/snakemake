@@ -1191,7 +1191,6 @@ def get_argument_parser(profiles=None):
         "--print-shell-completion",
         nargs="?",
         const="text",
-        choices=["bash", "fish", "zsh", "powershell"],
         choices=SUPPORTED_SHELLS,
         help="Print completion script for a given shell.",
     )
