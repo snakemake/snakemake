@@ -33,7 +33,7 @@ class OutputChecker:
             (Path(path) / f).relative_to(self.workdir)
             for path, subdirs, files in os.walk(self.workdir)
             for f in files
-            if "/.snakemake/" not in path and "/config/" not in path
+            if "/.snakemake" not in path and "/config" not in path
         )
         print(f"workdir_files: {workdir_files}")  # DEBUG
         # Expected files
