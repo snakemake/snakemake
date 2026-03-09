@@ -7,6 +7,7 @@ import os
 import shutil
 import sys
 import subprocess as sp
+import re
 from pathlib import Path
 import tempfile
 from unittest.mock import AsyncMock, patch
@@ -2937,7 +2938,6 @@ def test_cyclic_dependency_single():
 
 
 def test_stats_table_order_and_counts():
-    import re
 
     # Run snakemake in the example dir and ask it to write stats.txt
     outdir = run(
