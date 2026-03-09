@@ -19,13 +19,13 @@ rule d:
 
 rule b:
     output:
-        "results/prepare.txt"
+        "results/p.txt"
     shell:
-        "mkdir -p results && echo PREP > {output}"
+        "mkdir -p results && echo P > {output}"
 
 rule c:
     input:
-        "results/prepare.txt"
+        "results/p.txt"
     output:
         "results/c_{i}.txt"
     shell:
@@ -39,3 +39,4 @@ rule e:
         "results/e.txt"
     shell:
         "mkdir -p results && cat {input} > {output} && echo E >> {output}"
+# ...existing code...
