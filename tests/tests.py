@@ -2934,3 +2934,10 @@ def test_cyclic_dependency_single():
     # It is expected behavior that Snakemake would not rerun in such a case without
     # forcing it.
     run(dpath("test_cyclic_dependency_single"), forceall=True)
+
+
+def test_github_issue1266():
+    run(
+        dpath("test_github_issue1266"),
+        shellcmd="snakemake --use-conda --cores 1 foo.txt",
+    )
