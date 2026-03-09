@@ -51,7 +51,6 @@ from snakemake.settings.types import (
     Batch,
     ConfigSettings,
     DAGSettings,
-    DeploymentMethod,
     DeploymentSettings,
     ExecutionSettings,
     GroupSettings,

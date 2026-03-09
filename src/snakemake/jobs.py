@@ -21,7 +21,6 @@ from collections.abc import AsyncGenerator
 from abc import abstractmethod
 from snakemake import wrapper
 from snakemake.rules import Rule
-from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
@@ -1062,19 +1061,6 @@ class Job(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
     ):
         aux_logs = aux_logs or []
-        # Retrieve conda env path only when conda is enabled with sdm
-        # Otherwise the class Conda will be created also when not explicitly
-        # requested with sdm, resulting in an error when conda is not available
-        # in the container.
-        conda_env_adress = (
-            self.conda_env.address
-            if (
-                DeploymentMethod.CONDA
-                in self.dag.workflow.deployment_settings.deployment_methods
-                and self.conda_env
-            )
-            else None
-        )
 
         return dict(
             rule_name=self.rule.name,

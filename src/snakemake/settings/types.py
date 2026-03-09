@@ -1,11 +1,10 @@
 from abc import ABC
 from dataclasses import dataclass, field
 from functools import cached_property
-import os
 from pathlib import Path
 import re
-from typing import Any, Callable, Optional, TypeAlias, Union
-from typing import Mapping, Sequence, Set
+from typing import Callable, Optional, TypeAlias, Union
+from typing import Mapping, Sequence
 
 import immutables
 
@@ -16,7 +15,6 @@ from snakemake_interface_executor_plugins.settings import (
     DeploymentSettingsExecutorInterface,
     ExecutionSettingsExecutorInterface,
     StorageSettingsExecutorInterface,
-    DeploymentMethod,
     ExecMode,
     SharedFSUsage,
 )
@@ -27,7 +25,6 @@ from snakemake_interface_logger_plugins.settings import (
 
 from snakemake.common import (
     dict_to_key_value_args,
-    expand_vars_and_user,
     get_container_image,
 )
 from snakemake.common.configfile import load_configfile

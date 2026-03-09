@@ -31,7 +31,6 @@ if sys.version_info < MIN_PY_VERSION:
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     DAGSettings,
-    DeploymentMethod,
     DeploymentSettings,
     ExecutionSettings,
     OutputSettings,
@@ -757,21 +756,13 @@ class DAGApi(ApiBase):
 
     @_no_exec
     def list_software_envs(self):
-        """List the conda environments of the workflow."""
+        """List the software environments of the workflow."""
         self.workflow_api._workflow.list_software_envs()
 
     @_no_exec
     def cleanup_shadow(self):
         """Cleanup the shadow directories of the workflow."""
         self.workflow_api._workflow.cleanup_shadow()
-
-    @_no_exec
-    def container_cleanup_images(self):
-        """Cleanup the container images of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.APPTAINER
-        )
-        self.workflow_api._workflow.container_cleanup_images()
 
     @_no_exec
     def list_changes(self, change_type: ChangeType):

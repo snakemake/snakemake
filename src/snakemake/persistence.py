@@ -26,14 +26,11 @@ from snakemake_interface_executor_plugins.persistence import (
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
 
-from snakemake.common.tbdstring import TBDString
 import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
 from snakemake.io import _IOFile, is_flagged, get_flag_value, IOCache
-from snakemake_interface_common.exceptions import WorkflowError
-from snakemake.settings.types import DeploymentMethod
 
 UNREPRESENTABLE = object()
 RECORD_FORMAT_VERSION = 6

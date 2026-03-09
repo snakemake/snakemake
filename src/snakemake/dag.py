@@ -15,7 +15,7 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union, Dict
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
@@ -26,14 +26,12 @@ from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
 from snakemake.rules import Rule
-from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
 from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
 from snakemake_interface_scheduler_plugins.interfaces.dag import DAGSchedulerInterface
 from snakemake_interface_logger_plugins.common import LogEvent
-from snakemake_interface_software_deployment_plugins import EnvBase, EnvSpecBase
 from snakemake.settings.enums import Quietness
 
 from snakemake import workflow as _workflow

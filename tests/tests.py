@@ -17,7 +17,6 @@ from snakemake.exceptions import ResourceDuplicationError
 from snakemake.persistence import Persistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
 from snakemake.settings.enums import RerunTrigger
-from snakemake.utils import min_version  # import so we can patch out if needed
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
@@ -35,7 +34,6 @@ from .conftest import (
 )
 
 from snakemake_interface_executor_plugins.settings import (
-    DeploymentMethod,
     SharedFSUsage,
 )
 
@@ -779,7 +777,7 @@ def test_profile():
 @apptainer
 @connected
 def test_singularity():
-    run(dpath("test_singularity"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_singularity"), deployment_method={"container"})
 
 
 @skip_on_windows
@@ -788,7 +786,7 @@ def test_singularity():
 def test_singularity_cluster():
     run(
         dpath("test_singularity"),
-        deployment_method={DeploymentMethod.APPTAINER},
+        deployment_method={"container"},
         cluster="./qsub",
     )
 
@@ -799,7 +797,7 @@ def test_singularity_invalid():
     run(
         dpath("test_singularity"),
         targets=["invalid.txt"],
-        deployment_method={DeploymentMethod.APPTAINER},
+        deployment_method={"container"},
         shouldfail=True,
     )
 
@@ -810,7 +808,7 @@ def test_singularity_module_invalid():
     run(
         dpath("test_singularity_module"),
         targets=["invalid.txt"],
-        deployment_method={DeploymentMethod.APPTAINER},
+        deployment_method={"container"},
         shouldfail=True,
     )
 
@@ -819,7 +817,7 @@ def test_singularity_module_invalid():
 @apptainer
 @connected
 def test_singularity_none():
-    run(dpath("test_singularity_none"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_singularity_none"), deployment_method={"container"})
 
 
 @skip_on_windows
@@ -827,7 +825,7 @@ def test_singularity_none():
 @connected
 def test_singularity_global():
     run(
-        dpath("test_singularity_global"), deployment_method={DeploymentMethod.APPTAINER}
+        dpath("test_singularity_global"), deployment_method={"container"}
     )
 
 
@@ -837,7 +835,7 @@ def test_singularity_global():
 def test_singularity_source_cache():
     run(
         dpath("test_singularity_source_cache"),
-        deployment_method={DeploymentMethod.APPTAINER},
+        deployment_method={"container"},
     )
 
 
@@ -861,7 +859,7 @@ def test_log_input():
 @apptainer
 @connected
 def test_cwl_singularity():
-    run(dpath("test_cwl"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_cwl"), deployment_method={"container"})
 
 
 def test_issue805():
@@ -1513,7 +1511,7 @@ def test_issue1085():
 @skip_on_windows
 @apptainer
 def test_issue1083():
-    run(dpath("test_issue1083"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_issue1083"), deployment_method={"container"})
 
 
 @skip_on_windows  # Fails with "The flag 'pipe' used in rule two is only valid for outputs
@@ -1628,7 +1626,7 @@ def test_github_issue52():
 @skip_on_windows
 @apptainer
 def test_github_issue78():
-    run(dpath("test_github_issue78"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_github_issue78"), deployment_method={"container"})
 
 
 def test_envvars():
@@ -1715,20 +1713,20 @@ def test_core_dependent_threads():
 @pytest.mark.needs_envmodules
 @skip_on_windows
 def test_env_modules():
-    run(dpath("test_env_modules"), deployment_method={DeploymentMethod.ENV_MODULES})
+    run(dpath("test_env_modules"), deployment_method={"envmodules"})
 
 
 @skip_on_windows
 @apptainer
 @connected
 def test_container():
-    run(dpath("test_container"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_container"), deployment_method={"container"})
 
 
 @skip_on_windows
 @apptainer
 def test_dynamic_container():
-    run(dpath("test_dynamic_container"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_dynamic_container"), deployment_method={"container"})
 
 
 @skip_on_windows
@@ -1741,13 +1739,13 @@ def test_string_resources():
 
 
 def test_jupyter_notebook():
-    run(dpath("test_jupyter_notebook"), deployment_method={DeploymentMethod.CONDA})
+    run(dpath("test_jupyter_notebook"), deployment_method={"conda"})
 
 
 def test_jupyter_notebook_nbconvert():
     run(
         dpath("test_jupyter_notebook_nbconvert"),
-        deployment_method={DeploymentMethod.CONDA},
+        deployment_method={"conda"},
     )
 
 
@@ -1756,7 +1754,7 @@ def test_jupyter_notebook_draft():
 
     run(
         dpath("test_jupyter_notebook_draft"),
-        deployment_method={DeploymentMethod.CONDA},
+        deployment_method={"conda"},
         edit_notebook=NotebookEditMode(draft_only=True),
         targets=["results/result_intermediate.txt"],
         check_md5=False,
@@ -2564,7 +2562,7 @@ def test_update_flag_fail_cleanup():
 @skip_on_windows
 @apptainer
 def test_shell_exec_singularity():
-    run(dpath("test_shell_exec"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_shell_exec"), deployment_method={"container"})
 
 
 def test_expand_list_of_functions():

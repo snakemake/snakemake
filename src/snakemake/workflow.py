@@ -32,7 +32,6 @@ from snakemake.pathvars import Pathvars
 from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
-    DeploymentMethod,
     DeploymentSettings,
     ExecutionSettings,
     GroupSettings,
@@ -581,20 +580,6 @@ class Workflow(WorkflowExecutorInterface):
         return self.dag_settings.rerun_triggers  # type: ignore[return-value]
 
     @property
-    def conda_base_path(self):
-        assert self.deployment_settings is not None
-        if self.deployment_settings.conda_base_path:
-            return self.deployment_settings.conda_base_path
-        if DeploymentMethod.CONDA in self.deployment_settings.deployment_methods:
-            try:
-                return Conda().prefix_path
-            except CreateCondaEnvironmentException:
-                # Return no preset conda base path now and report error later in jobs.
-                return None
-        else:
-            return None
-
-    @property
     def modifier(self):
         return self.modifier_stack[-1]
 
@@ -946,13 +931,6 @@ class Workflow(WorkflowExecutorInterface):
             lock_warn_only=False,
         )
         self._build_dag()
-
-        deploy = []
-        assert self.deployment_settings is not None
-        if DeploymentMethod.CONDA in self.deployment_settings.deployment_methods:
-            deploy.append("conda")
-        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_methods:
-            deploy.append("singularity")
 
         # TODO use or fix the deploy code above
         unit_tests.generate(
@@ -2142,8 +2120,11 @@ class Workflow(WorkflowExecutorInterface):
         return decorate
 
     def global_conda(self, conda_env):
+        # TODO: replace this with a uv based installation of pypi packages instead.
+        # We need to determine how one would define those.
+        # Alternatively an outside pixi.toml is a solution as well.
         assert self.deployment_settings is not None
-        if DeploymentMethod.CONDA in self.deployment_settings.deployment_methods:
+        if "conda" in self.deployment_settings.deployment_methods:
             from conda_inject import PackageManager, inject_env_file
 
             try:
