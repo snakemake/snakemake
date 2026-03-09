@@ -22,6 +22,7 @@ from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from tabulate import tabulate
 from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
@@ -3183,7 +3184,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             logger.info(msg)
 
     def stats(self) -> Tuple[str, Dict[str, int]]:
-        from tabulate import tabulate
 
         # Count the jobs
         rules = Counter()
