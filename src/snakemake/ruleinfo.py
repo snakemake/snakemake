@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 from collections import namedtuple
 from copy import copy
-from snakemake.utils import UseArgsWith
+from snakemake.utils import usewith
 
 InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
 
@@ -71,7 +71,7 @@ class RuleInfo:
         if modifier.ruleinfo_overwrite:
             for key, value in modifier.ruleinfo_overwrite.__dict__.items():
                 if key != "func" and value is not None:
-                    if UseArgsWith.updateable(value):
+                    if usewith.updateable(value):
                         last_value = self.__dict__.get(key)
                         if key in {"params", "resources", "wildcard_constraints"}:
                             updated = value.update_params(last_value)

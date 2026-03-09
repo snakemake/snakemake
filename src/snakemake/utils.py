@@ -650,7 +650,7 @@ class UseArgsWith:
         self._marks: Dict = {"auto_update": True}
 
     @classmethod
-    def updateable(cls, obj: object) -> 'TypeGuard["UseArgsWith"]':
+    def updateable(cls, obj: object) -> 'TypeGuard["usewith"]':
         return isinstance(obj, cls) and bool(obj._marks.get("auto_update", False))
 
     def mark(self, key: str, value):
@@ -718,6 +718,9 @@ class UseArgsWith:
             return InOutput(self.args, self.kwargs, modifier)
         paths, kwpaths = self.update_params((ioput.paths, ioput.kwpaths))
         return InOutput(paths, kwpaths, modifier)
+
+
+usewith = UseArgsWith
 
 
 def available_cpu_count():
