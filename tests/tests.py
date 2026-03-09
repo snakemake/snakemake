@@ -1496,6 +1496,10 @@ def test_checkpoint_missout():
     run(dpath("test_checkpoint_missout"))
 
 
+def test_uncreatable_checkpoint_input():
+    run(dpath("test_uncreatable_checkpoint_input"))
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
@@ -2069,11 +2073,13 @@ def test_cache_multioutput():
 def test_github_issue1384():
     try:
         tmpdir = run(dpath("test_github_issue1384"), cleanup=False)
-        shell("""
+        shell(
+            """
             cd {tmpdir}
             python -m snakemake --generate-unit-tests
             pytest -v .tests/unit
-            """)
+            """
+        )
     finally:
         shutil.rmtree(tmpdir)
 
