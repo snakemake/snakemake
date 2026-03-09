@@ -384,7 +384,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             )
         }
 
-        # Then, based on md5sum values
+        # Then based on md5sum values
         for env_spec, simg_url in env_set:
             simg = None
             if simg_url and (
@@ -3182,15 +3182,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 msg += f"\n    {reason}:\n        {rules}"
             logger.info(msg)
 
-
     def stats(self) -> Tuple[str, Dict[str, int]]:
         from tabulate import tabulate
 
         # Count the jobs
         rules = Counter()
         rules.update(job.rule for job in self.needrun_jobs())
-        rules.update(job.rule for job in self.finished_jobs)  
-        
+        rules.update(job.rule for job in self.finished_jobs)
+
         # Create rows for the table and a dictionary for job stats
         rows = []
         stats_dict = {}
@@ -3208,7 +3207,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             row = {"job": unique_job, "count": orderd_jobs.count(unique_job)}
             rows.append(row)
             stats_dict[unique_job] = orderd_jobs.count(unique_job)
-        
+
         # Add total row
         total_count = sum(rules.values())
         rows.append({"job": "total", "count": total_count})
