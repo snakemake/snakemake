@@ -194,9 +194,6 @@ def lookup(
                     # single column select, just return a list of values
                     res = res.to_list()
                     if len(res) == 1:
-                        if pd.isna(res[0]):
-                            # Return None instead of pd.NA or np.nan
-                            return None
                         # just return the value if it is only one
                         return res[0]
                     return res
