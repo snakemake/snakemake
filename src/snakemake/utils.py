@@ -14,7 +14,7 @@ import string
 import sys
 import textwrap
 from itertools import chain
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, TypeGuard
 
 from snakemake.io import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
@@ -421,7 +421,7 @@ def R(code):
         code (str): R code to be executed
     """
     try:
-        import rpy2.robjects as robjects
+        import rpy2.robjects as robjects  # type: ignore[import]
     except ImportError:
         raise ValueError(
             "Python 3 package rpy2 needs to be installed to use the R function."
@@ -637,70 +637,25 @@ def update_config(config, overwrite_config):
 
 
 class UseArgsWith:
-    "Update input, output, log, params, etc in rule definitions."
+    """Update input, output, log, params, etc in rule definitions."""
+
+    _MARK_PATH_MODIFIER = "path_modifier"
 
     def __init__(self, *args, **kwargs) -> None:
         self.args = args
         self.kwargs = kwargs
-        self.marks: Dict = {"auto_update": True}
-
-    def update(self, config=None, inplace=False):
-        """Update given dict.
-
-        If use this method: the object must contain:
-            .args is an item list and .kwargs is empty (marked with args_as_items=True)
-            .args is empty and .kwargs is a dict
-
-        This is different from update_config:
-            in update_config: all the dict items are updated.
-            in UseArgsWith.update: only the items declared as "updatable" are updated.
-
-        Usage:
-        ```
-        config = {"command_args": ["a", "b", "c"]}
-
-        module xxx:
-            config:
-                UseArgsWith(
-                    prefix="here",
-                    command_args=UseArgsWith((2, "c1")),
-                ).update(config)
-        ```
-        """
-        if config is None:
-            config = {}
-        elif not self.marks.get("inplace", inplace):
-            if hasattr(config, "_clone"):
-                config = config._clone()  # special for snakemake.io.Namedlist
-            else:
-                config = config.copy()
-        if self.kwargs:
-            assert (
-                not self.args
-            ), "Should not mix key=value and ('key', value) to update"
-            items = (i for i in self.kwargs.items())
-        else:
-            items = (i for i in self.args)
-        config_get = config.get if hasattr(config, "get") else config.__getitem__
-        for k, v in items:
-            if self.updateable(v):
-                v = v.update(config_get(k))
-            config[k] = v
-        return config
+        self._marks: Dict = {"auto_update": True}
 
     @classmethod
-    def updateable(cls, obj) -> bool:
-        return isinstance(obj, cls) and obj.marks.get("auto_update", False)
-
-    def mark_as_param(self):
-        return self.mark("auto_update", False)
+    def updateable(cls, obj: object) -> TypeGuard["UseArgsWith"]:
+        return isinstance(obj, cls) and bool(obj._marks.get("auto_update", False))
 
     def mark(self, key: str, value):
-        self.marks[key] = value
+        self._marks[key] = value
         return self
 
     @classmethod
-    def guard(cls, paths, kwpaths) -> "UseArgsWith | Tuple[Tuple, Dict]":
+    def guard(cls, paths, kwpaths):
         """
         If called with a single `UseArgsWith` positional argument, return it;
         otherwise return the original ``(paths, kwpaths)`` tuple unchanged.
@@ -709,18 +664,24 @@ class UseArgsWith:
             obj = paths[0]
             if cls.updateable(obj):
                 return obj
-        return paths, kwpaths
+        ret: "Tuple[Tuple, Dict]" = paths, kwpaths
+        return ret
 
     @classmethod
     def guard_ioput(cls, paths, kwpaths, path_modifier):
         obj = cls.guard(paths, kwpaths)
         if isinstance(obj, cls):
-            return obj.mark("path_modifier", path_modifier)
+            return obj.mark(cls._MARK_PATH_MODIFIER, path_modifier)
         from snakemake.ruleinfo import InOutput
 
         return InOutput(paths, kwpaths, path_modifier)
 
     def update_params(self, params: Optional[Tuple[List, Dict]]):
+        """
+        If old positional params is not None, it cannot only be overwritten but not cleaned up.
+
+        To fully clean up old positional params, one should not use this class.
+        """
         if params is None:
             return self.args, self.kwargs
         old_positional = list(params[0] or [])
@@ -728,8 +689,6 @@ class UseArgsWith:
         positional, keyword = self.args, self.kwargs
         if positional:
             if old_positional and (len(old_positional) != len(positional)):
-                from snakemake.logging import logger
-
                 logger.warning(
                     f"Overwriting positional arguments with different length. "
                     f"\nprevious: {old_positional}\ncurrent: {positional}"
@@ -751,13 +710,11 @@ class UseArgsWith:
         """
         from snakemake.ruleinfo import InOutput
 
+        modifier = self._marks[self._MARK_PATH_MODIFIER]
         if ioput is None:
-            return InOutput(self.args, self.kwargs, self.marks["path_modifier"])
+            return InOutput(self.args, self.kwargs, modifier)
         paths, kwpaths = self.update_params((ioput.paths, ioput.kwpaths))
-        return InOutput(paths, kwpaths, self.marks["path_modifier"])
-
-
-usewith = UseArgsWith
+        return InOutput(paths, kwpaths, modifier)
 
 
 def available_cpu_count():

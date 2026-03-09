@@ -13,21 +13,17 @@ use rule test from other_workflow as other_test with:
     input:
         b="test.out"
     # here we test if the positional parameters from other workflow are overwritten
-    params:
-        usewith(
-            "pos3",
-            b = 9,
-        )
+    params with:
+        "pos3",
+        b = 9,
 
 
 use rule other_test as other_test_no_pos with:
-    input:
-        usewith(
-            a = "test2.out",
-        )
+    input with:
+        a = "test2.out",
     # here we test, if the positional parameters from other workflow are imported
-    params:
-        usewith(b = 9)
+    params with:
+        b = 9
     output:
         file = "test_file_no_pos.tsv"
 
@@ -43,31 +39,20 @@ rule a:
 
 use rule a as b with:
     # here we test, if the positional parameters from inherited rule are imported
-    params:
-        usewith(a = 9)
+    params with:
+        a = 9
     output:
         "test2.out"
 
 
 use rule a as b_pos with:
     # here we test if the positional parameters from the inherited rule are overwritten
-    params:
-        usewith(
-            "pos1",
-            a = 9,
-        )
+    params with:
+        "pos1",
+        a = 9,
     output:
         "test.out"
 
 
-config1 = {"command_args": ["a", "b", "c"]}
-
-assert usewith(
-    prefix="here",
-    command_args=usewith(
-        (2, "c1")
-    ),
-).update(config1) == {
-    "prefix": "here",
-    "command_args": ["a", "b", "c1"],
-}
+def UseArgsWith():
+    raise KeyError

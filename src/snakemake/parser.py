@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from abc import abstractmethod
 import sys
 import textwrap
 import tokenize
@@ -147,8 +148,8 @@ class TokenAutomaton:
         # trim those around the f-string
         s = "".join(lines[i] for i in sorted(lines))
         t = s[token.start[1] : t1.end[1] - len(t1.line)]
-        if hasattr(self, "cmd") and self.cmd[-1][1] == token:
-            self.cmd[-1] = t, token
+        if hasattr(self, "cmd") and self.cmd[-1][1] == token:  # type: ignore[reportAttributeAccessIssue]
+            self.cmd[-1] = t, token  # type: ignore[reportAttributeAccessIssue]
         return t
 
     def consume(self):
@@ -198,7 +199,6 @@ class TokenAutomaton:
 
 class KeywordState(TokenAutomaton):
     prefix = ""
-    start: Callable[[], Generator[str, None, None]]
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -209,7 +209,10 @@ class KeywordState(TokenAutomaton):
     def keyword(self):
         return self.__class__.__name__.lower()[len(self.prefix) :]
 
-    def end(self):
+    @abstractmethod
+    def start(self) -> Generator[str, None, None]: ...
+
+    def end(self) -> Generator[str, Any, None]:
         # Add newline to prevent https://github.com/snakemake/snakemake/issues/1943
         yield "\n"
         yield ")"
@@ -275,14 +278,69 @@ class DecoratorKeywordState(KeywordState):
         yield ""
 
 
+# Sections that support `keyword with: ...` merge syntax.
+# Run-sections (shell, script, ...) are intentionally excluded — merging
+# executable blocks has no well-defined semantics.
+MERGE_SUPPORTED_SECTIONS = frozenset(
+    "input output log params resources wildcard_constraints".split()
+)
+
+
 class RuleKeywordState(KeywordState):
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True, rulename=None):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.rulename = rulename
+        self._merge = False  # True when `keyword with:` syntax is used
+
+    # ------------------------------------------------------------------
+    # `keyword with:` support
+    # Overrides KeywordState.colon so that after the keyword we can see
+    # either the normal colon  (`input:`)
+    # or the merge modifier    (`input with:`).
+    # ------------------------------------------------------------------
+
+    def colon(self, token):
+        if is_colon(token):
+            # normal path: `input:`
+            self.state = self.block
+            for t in self.start():
+                yield t, token
+        elif is_name(token) and token.string == "with":
+            if self.keyword not in MERGE_SUPPORTED_SECTIONS:
+                self.error(
+                    f"'with' modifier is not supported for '{self.keyword}'. "
+                    f"Supported sections: {sorted(MERGE_SUPPORTED_SECTIONS)}.",
+                    token,
+                )
+            self._merge = True
+            self.state = self.merge_colon
+        else:
+            self.error(f"Colon or 'with' expected after keyword {self.keyword}.", token)
+
+    def merge_colon(self, token):
+        """Consume the `:` that must follow `keyword with`."""
+        if is_colon(token):
+            self.state = self.block
+            for t in self.start():
+                yield t, token
+        else:
+            self.error(f"Colon expected after '{self.keyword} with'.", token)
 
     def start(self):
         yield "\n"
-        yield f"@workflow.{self.keyword}("
+        if self._merge:
+            # Wrap the whole argument list in UseArgsWith(...)
+            # so the runtime knows to merge rather than replace.
+            yield f"@workflow.{self.keyword}(workflow.usewith("
+        else:
+            yield f"@workflow.{self.keyword}("
+
+    def end(self) -> Generator[str, Any, None]:
+        yield "\n"
+        if self._merge:
+            yield "))"  # close UseArgsWith(...) then @workflow.keyword(...)
+        else:
+            yield ")"
 
 
 class SectionKeywordState(KeywordState):
@@ -291,7 +349,7 @@ class SectionKeywordState(KeywordState):
 
     def end(self):
         # no end needed
-        return list()
+        yield from []
 
 
 # Global keyword states
@@ -595,7 +653,7 @@ class Run(RuleKeywordState):
             )
         )
 
-    def end(self):
+    def end(self) -> Generator[str, Any, None]:
         yield ""
 
     def block_content(self, token):
@@ -631,7 +689,7 @@ class AbstractCmd(Run):
     def args(self):
         yield from []
 
-    def end(self):
+    def end(self):  # type: ignore[reportIncompatibleMethodOverride]
         # the end is detected. So we can safely reset the indent to zero here
         self.indent = 0
         yield "\n"
@@ -683,7 +741,7 @@ class Script(AbstractCmd):
     start_func = "@workflow.script"
     end_func = "script"
 
-    def args(self):
+    def args(self) -> Generator[str, Any, None]:
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
@@ -875,7 +933,7 @@ class Rule(GlobalKeywordState):
 
 
 class Checkpoint(Rule):
-    def start(self):
+    def start(self):  # type: ignore[override]
         yield from super().start(aux=", checkpoint=True")
 
 
@@ -903,7 +961,7 @@ class ModuleKeywordState(SectionKeywordState):
     def start(self):
         yield f"{self.keyword}="
 
-    def end(self):
+    def end(self) -> Generator[str, Any, None]:
         yield ","
 
 
@@ -1362,7 +1420,7 @@ class Snakefile:
     ):
         self.path = path.get_path_or_uri(secret_free=True)
         self.file = workflow.sourcecache.open(path)
-        self.tokens = tokenize.generate_tokens(self.file.readline)
+        self.tokens = tokenize.generate_tokens(self.file.readline)  # type: ignore
         self.rulecount = rulecount
         self.lines = 0
 
@@ -1376,7 +1434,7 @@ class Snakefile:
         return self
 
     def __exit__(self, *args):
-        self.file.close()
+        self.file.close()  # type: ignore[reportOptionalMemberAccess]
 
 
 def format_tokens(tokens) -> Generator[str, None, None]:

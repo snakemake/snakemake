@@ -129,7 +129,7 @@ from snakemake.common import (
     smart_join,
     NOTHING_TO_BE_DONE_MSG,
 )
-from snakemake.utils import simplify_path, usewith
+from snakemake.utils import simplify_path, UseArgsWith
 from snakemake.checkpoints import Checkpoints
 from snakemake.resources import ResourceScopes, Resources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
@@ -2092,9 +2092,16 @@ class Workflow(WorkflowExecutorInterface):
             self.sourcecache.cache_path,
         ]
 
+    def usewith(self, *args, **kwargs):
+        """
+        Namespace-safe accessor for UseArgsWith,
+        guarantees the built-in is always reached regardless of user-defined names.
+        """
+        return UseArgsWith(*args, **kwargs)
+
     def input(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.input = usewith.guard_ioput(
+            ruleinfo.input = UseArgsWith.guard_ioput(
                 paths, kwpaths, self.modifier.path_modifier
             )
             return ruleinfo
@@ -2103,7 +2110,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def output(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.output = usewith.guard_ioput(
+            ruleinfo.output = UseArgsWith.guard_ioput(
                 paths, kwpaths, self.modifier.path_modifier
             )
             return ruleinfo
@@ -2112,7 +2119,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def params(self, *params, **kwparams):
         def decorate(ruleinfo):
-            ruleinfo.params = usewith.guard(params, kwparams)
+            ruleinfo.params = UseArgsWith.guard(params, kwparams)
             return ruleinfo
 
         return decorate
@@ -2121,7 +2128,7 @@ class Workflow(WorkflowExecutorInterface):
         self, *wildcard_constraints, **kwwildcard_constraints
     ):
         def decorate(ruleinfo):
-            ruleinfo.wildcard_constraints = usewith.guard(
+            ruleinfo.wildcard_constraints = UseArgsWith.guard(
                 wildcard_constraints, kwwildcard_constraints
             )
             return ruleinfo
@@ -2275,7 +2282,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def resources(self, *args, **resources):
         def decorate(ruleinfo):
-            ruleinfo.resources = usewith.guard(args, resources)
+            ruleinfo.resources = UseArgsWith.guard(args, resources)
             return ruleinfo
 
         return decorate
@@ -2296,7 +2303,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
-            ruleinfo.log = usewith.guard_ioput(
+            ruleinfo.log = UseArgsWith.guard_ioput(
                 logs, kwlogs, self.modifier.path_modifier
             )
             return ruleinfo
