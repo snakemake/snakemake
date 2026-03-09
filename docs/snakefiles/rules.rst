@@ -457,6 +457,8 @@ If the query results in multiple rows, the result is returned as a list of
 named tuples with the column names as attributes.
 If the query results in a single row, the result is returned as a single
 named tuple with the column names as attributes.
+If the query results in a single row and the cols parameter is a string,
+the result is returned as a single item.
 If the query or dpath parameter is given a function, the function will be evaluated with wildcards passed as the first argument.
 In case of dpath, if the dpath is not found, a ``LookupError`` is raised, unless a
 default fallback value is provided via the ``default`` argument (this argument is ignored in case of ``query``).
@@ -500,6 +502,7 @@ or to a single column, e.g.
     lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")
 
 In the latter case, just a list of items in that column is returned (e.g. ``["a", "b", "c"]``).
+Also in the latter case, if there's only one item in that column, then the item is returned (e.g. ``"a"``).
 
 The argument ``is_nrows`` allows to test for a given number of rows in the queried dataframe.
 If it is used, lookup just returns a boolean value indicating whether the number of rows in the queried dataframe matches the given number:
