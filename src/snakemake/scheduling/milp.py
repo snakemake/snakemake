@@ -1,35 +1,70 @@
 from dataclasses import dataclass, field
 import math
 import os
+from functools import cached_property
 from pathlib import Path
-from typing import Dict, Mapping, Optional, Sequence, Union
+from typing import Collection, Dict, Iterator, List, Mapping, Optional, Sequence, Union
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
 from snakemake_interface_common.io import AnnotatedStringInterface
 
 
-def get_lp_solvers():
-    default = "PULP_CBC_CMD"
-    try:
-        import pulp
+class LpSolverCollection(Collection[str]):
+    """
+    A lazy collection that avoids calling pulp.listSolvers if the default solver is selected
+    """
 
-        return [default] + sorted(
-            solver
-            for solver in pulp.listSolvers(onlyAvailable=True)
-            if solver != default
-        )
-    except Exception:
-        return [default]
+    def __init__(self):
+        default = None
+        try:
+            import pulp
+
+            solver_default = pulp.apis.LpSolverDefault
+            if solver_default is not None:
+                default = solver_default.name
+        except ImportError:
+            pass
+
+        self.default = default
+
+    @cached_property
+    def nondefault_solvers(self) -> List[str]:
+        try:
+            import pulp
+
+            return sorted(
+                solver
+                for solver in pulp.listSolvers(onlyAvailable=True)
+                if solver != self.default
+            )
+        except ImportError:
+            return []
+
+    def __iter__(self) -> Iterator[str]:
+        if self.default is not None:
+            yield self.default
+        yield from self.nondefault_solvers
+
+    def __contains__(self, x: object) -> bool:
+        try:
+            import pulp
+
+            return pulp.getSolver(x).available()
+        except Exception:  # noqa: BLE001
+            return False
+
+    def __len__(self) -> int:
+        return (1 if self.default is not None else 0) + len(self.nondefault_solvers)
 
 
-lp_solvers = get_lp_solvers()
+lp_solvers = LpSolverCollection()
 
 
 @dataclass
 class SchedulerSettings(SchedulerSettingsBase):
     solver: Optional[str] = field(
-        default=lp_solvers[0],
+        default=lp_solvers.default,
         metadata={
             "help": "Set MILP solver to use",
             "choices": lp_solvers,
@@ -39,6 +74,11 @@ class SchedulerSettings(SchedulerSettingsBase):
         default=None,
         metadata={"help": "Set the PATH to search for scheduler solver binaries."},
     )
+
+    @property
+    def lp_solver_available(self) -> bool:
+        """Check if the configured solver is available via pulp.getSolver().available()."""
+        return self.solver in lp_solvers
 
 
 class Scheduler(SchedulerBase):
@@ -212,11 +252,7 @@ class Scheduler(SchedulerBase):
                 os.environ["PATH"],
             )
         try:
-            solver = (
-                pulp.getSolver(self.settings.solver)
-                if self.settings.solver
-                else pulp.apis.LpSolverDefault
-            )
+            solver = pulp.getSolver(self.settings.solver)
         finally:
             os.environ["PATH"] = old_path
         solver.optionsDict["threads"] = threads

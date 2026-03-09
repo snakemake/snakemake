@@ -1,9 +1,10 @@
 from abc import ABC
 from dataclasses import dataclass, field
+from functools import cached_property
 import os
 from pathlib import Path
 import re
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, TypeAlias, Union
 from typing import Mapping, Sequence, Set
 
 import immutables
@@ -30,7 +31,7 @@ from snakemake.common import (
     get_container_image,
 )
 from snakemake.common.configfile import load_configfile
-from snakemake.resources import DefaultResources
+from snakemake.resources import Resource, Resources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
@@ -345,22 +346,52 @@ class SchedulingSettings(SettingsBase):
                 raise ApiError("subsample must be a positive integer")
 
 
+ValidResource: TypeAlias = int | str | float | None | Callable[..., "ValidResource"]
+
+
 @dataclass
 class ResourceSettings(SettingsBase):
     cores: Optional[int] = None
     nodes: Optional[int] = None
     local_cores: Optional[int] = None
     max_threads: Optional[int] = None
-    resources: Mapping[str, int] = immutables.Map()
-    overwrite_threads: Mapping[str, int] = immutables.Map()
+    resources: Mapping[str, int | str | float | None] | Resources = immutables.Map()
+    overwrite_threads: Mapping[str, int] | Mapping[str, Resource] = immutables.Map()
     overwrite_scatter: Mapping[str, int] = immutables.Map()
     overwrite_resource_scopes: Mapping[str, str] = immutables.Map()
-    overwrite_resources: Mapping[str, Mapping[str, Any]] = immutables.Map()
-    default_resources: Optional[DefaultResources] = None
+    overwrite_resources: (
+        Mapping[str, Mapping[str, ValidResource]] | Mapping[str, Resources]
+    ) = immutables.Map()
+    default_resources: Optional[Mapping[str, ValidResource]] | Resources = None
 
-    def __post_init__(self):
+    @cached_property
+    def _parsed_resources(self):
+        return Resources.from_mapping(self.resources)
+
+    @cached_property
+    def _parsed_overwrite_resources(self):
+        return {
+            rule: Resources.from_mapping(mapping)
+            for rule, mapping in self.overwrite_resources.items()
+        }
+
+    @cached_property
+    def _parsed_default_resources(self):
         if self.default_resources is None:
-            self.default_resources = DefaultResources(mode="bare")
+            return Resources.default("bare")
+
+        return Resources.from_mapping(self.default_resources)
+
+    @cached_property
+    def _parsed_overwrite_threads(self):
+        return {
+            rule: (
+                Resource("_cores", threads)
+                if not isinstance(threads, Resource)
+                else threads
+            )
+            for rule, threads in self.overwrite_threads.items()
+        }
 
 
 @dataclass
@@ -408,7 +439,6 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     show_failed_logs
     log_handler_settings
         Settings for all enabled logger plugins (dictionary keyed by plugin name).
-    keep_logger
     stdout
         Log to stdout instead of stderr.
     benchmark_extended
@@ -417,6 +447,8 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     skip_plugin_handlers
         Skip plugins/queue (remote mode).
     enable_file_logging
+    keep_logger
+        Deprecated, no longer functional. Will be removed in v10.0.
     """
 
     dryrun: bool = False
@@ -427,12 +459,12 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     verbose: bool = False
     show_failed_logs: bool = False
     log_handler_settings: Mapping[str, LogHandlerSettingsBase] = immutables.Map()
-    keep_logger: bool = False
     stdout: bool = False
     benchmark_extended: bool = False
     log_level_override: Optional[int] = None
     skip_plugin_handlers: bool = False
     enable_file_logging: bool = True
+    keep_logger: bool = False
 
 
 @dataclass

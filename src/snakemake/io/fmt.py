@@ -1,9 +1,12 @@
 from snakemake.common.tbdstring import TBDString
-from snakemake.io import get_flag_value, is_flagged
+from snakemake.io import get_flag_value, is_flagged, _IOFile
 
 
-def fmt_iofile(f, as_input: bool = False, as_output: bool = False):
+def fmt_iofile(f, as_input: bool = False, as_output: bool = False) -> str:
     as_io = as_input or as_output
+    if not isinstance(f, _IOFile):
+        assert isinstance(f, str)
+        return f
 
     if f.is_storage:
         if as_input:

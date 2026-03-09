@@ -3,7 +3,6 @@ from typing import Callable, Iterable, Mapping, Set, Union
 
 from snakemake.io import get_flag_store_keys, is_flagged
 
-
 # TODO move all flag definitions to this module
 
 FlaggableItem = Union[str, Callable]

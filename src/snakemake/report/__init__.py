@@ -45,7 +45,7 @@ from snakemake.io import (
     contains_wildcard,
 )
 from snakemake.exceptions import InputFunctionException, WorkflowError
-from snakemake.script import Snakemake
+from snakemake.script import Snakemake, FILE_HASH_PREFIX_LEN
 from snakemake.common import (
     get_input_function_aux_params,
 )
@@ -114,24 +114,20 @@ def report(
     outmime, _ = mimetypes.guess_type(path)
     if outmime != "text/html":
         raise ValueError("Path to report output has to be an HTML file.")
-    definitions = textwrap.dedent(
-        """[]
+    definitions = textwrap.dedent("""[]
     .. role:: raw-html(raw)
        :format: html
 
-    """
-    )
+    """)
 
-    metadata = textwrap.dedent(
-        """
+    metadata = textwrap.dedent("""
 
     .. container::
        :name: metadata
 
        {metadata}{date}
 
-    """
-    ).format(
+    """).format(
         metadata=metadata + " | " if metadata else "",
         date=datetime.date.today().isoformat(),
     )
@@ -140,15 +136,11 @@ def report(
 
     attachments = []
     if files:
-        attachments = [
-            textwrap.dedent(
-                """
+        attachments = [textwrap.dedent("""
             .. container::
                :name: attachments
 
-            """
-            )
-        ]
+            """)]
         for name, _files in sorted(files.items()):
             if not isinstance(_files, list):
                 _files = [_files]
@@ -161,17 +153,13 @@ def report(
                     )
                 )
             links = "\n\n              ".join(links)
-            attachments.append(
-                """
+            attachments.append("""
        .. container::
           :name: {name}
 
           {name}:
               {links}
-                """.format(
-                    name=name, links=links
-                )
-            )
+                """.format(name=name, links=links))
 
     text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
 
@@ -462,14 +450,17 @@ def shorten_ids(results: Mapping[Category, Mapping[Category, List[FileRecord]]])
         for subcat, catresults in subcats.items()
         for res in catresults
     ]
-    for id_len in range(8, 65):
-        if len({rec.id[:id_len] for rec in file_records}) == len(file_records):
-            for rec in file_records:
-                rec.id = rec.id[:id_len]
-            return
-    logger.warning(
-        "Obtained result IDs are non-unique. Certain results will be not accessible."
-    )
+    full_ids = [rec.id for rec in file_records]
+    shortened_ids = [rec.id[:FILE_HASH_PREFIX_LEN] for rec in file_records]
+    # We only need to check for collisions that appear because of the shortening
+    if len(set(shortened_ids)) != len(set(full_ids)):
+        raise WorkflowError(
+            "Collision detected when shortening report file hashes to 16 characters. "
+            "Please open an issue at https://github.com/snakemake/snakemake/issues/new to request a greater hash length."
+        )
+
+    for rec, short_id in zip(file_records, shortened_ids):
+        rec.id = short_id
 
 
 async def expand_labels(labels, wildcards, job):
@@ -713,8 +704,7 @@ async def auto_report(
         if res.target not in seen
     ]
 
-    rst_links = textwrap.dedent(
-        """
+    rst_links = textwrap.dedent("""
 
     .. _Workflow: javascript:show_panel('workflow')
     .. _Statistics: javascript:show_panel('statistics')
@@ -724,8 +714,7 @@ async def auto_report(
     {% for res in files %}
     .. _{{ res.target }}: javascript:app.showResultInfo('{{ res.path|urlencode }}')
     {% endfor %}
-    """
-    )
+    """)
     for cat, subcats in results.items():
         for subcat, catresults in subcats.items():
             for res in catresults:

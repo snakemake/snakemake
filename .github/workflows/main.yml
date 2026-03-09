@@ -19,13 +19,13 @@ jobs:
       pull-requests: write # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.9.1
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           environments: "quality"
-          pixi-version: v0.42.1
+          pixi-version: v0.62.2
           cache: false # no pixi.lock
           locked: false
 
@@ -69,15 +69,15 @@ jobs:
       ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
       CI: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.9.1
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           environments: ${{ matrix.env }}
-          pixi-version: v0.42.1
+          pixi-version: v0.62.2
           cache: false # no pixi.lock
           locked: false
 
@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: tests
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Build container image
         run: docker build .

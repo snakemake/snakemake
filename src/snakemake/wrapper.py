@@ -10,7 +10,6 @@ from snakemake.exceptions import WorkflowError
 from snakemake.script import script
 from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file
 
-
 EXTENSIONS = [".py", ".R", ".Rmd", ".jl"]
 
 
@@ -104,6 +103,7 @@ def wrapper(
     shadow_dir,
     sourcecache_path,
     runtime_sourcecache_path,
+    local_storage_prefix,
 ):
     """
     Load a wrapper from https://github.com/snakemake/snakemake-wrappers under
@@ -144,4 +144,5 @@ def wrapper(
         shadow_dir,
         sourcecache_path,
         runtime_sourcecache_path,
+        local_storage_prefix,
     )

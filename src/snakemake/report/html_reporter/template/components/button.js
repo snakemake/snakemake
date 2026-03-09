@@ -1,7 +1,7 @@
 'use strict';
 
 class Button extends React.Component {
-    
+
     render() {
         return this.renderButton(this.props.iconName, this.props);
     }
