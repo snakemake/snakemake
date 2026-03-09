@@ -2935,15 +2935,17 @@ def test_cyclic_dependency_single():
     # forcing it.
     run(dpath("test_cyclic_dependency_single"), forceall=True)
 
+
 def test_stats_table_order_and_counts():
     import re
+
     # Run snakemake in the example dir and ask it to write stats.txt
     outdir = run(
         dpath("test_issue3922"),
         shellcmd="snakemake --dryrun > stats.txt 2>&1",
         check_results=False,
         cleanup=False,
-    )    
+    )
     stats_path = os.path.join(outdir, "stats.txt")
     assert os.path.exists(stats_path), "stats.txt was not created"
 
@@ -2981,4 +2983,6 @@ def test_stats_table_order_and_counts():
 
     # Check counts
     for name, exp_count in expected_counts.items():
-        assert counts.get(name) == exp_count, f"Count for {name} was {counts.get(name)} != {exp_count}"
+        assert (
+            counts.get(name) == exp_count
+        ), f"Count for {name} was {counts.get(name)} != {exp_count}"
