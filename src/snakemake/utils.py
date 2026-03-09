@@ -14,7 +14,10 @@ import string
 import sys
 import textwrap
 from itertools import chain
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, TypeGuard
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import TypeGuard
 
 from snakemake.io import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
@@ -647,7 +650,7 @@ class UseArgsWith:
         self._marks: Dict = {"auto_update": True}
 
     @classmethod
-    def updateable(cls, obj: object) -> TypeGuard["UseArgsWith"]:
+    def updateable(cls, obj: object) -> 'TypeGuard["UseArgsWith"]':
         return isinstance(obj, cls) and bool(obj._marks.get("auto_update", False))
 
     def mark(self, key: str, value):
@@ -655,7 +658,7 @@ class UseArgsWith:
         return self
 
     @classmethod
-    def guard(cls, paths, kwpaths):
+    def guard(cls, paths: Tuple, kwpaths: Dict):
         """
         If called with a single `UseArgsWith` positional argument, return it;
         otherwise return the original ``(paths, kwpaths)`` tuple unchanged.
@@ -664,7 +667,7 @@ class UseArgsWith:
             obj = paths[0]
             if cls.updateable(obj):
                 return obj
-        ret: "Tuple[Tuple, Dict]" = paths, kwpaths
+        ret = (paths, kwpaths)
         return ret
 
     @classmethod
