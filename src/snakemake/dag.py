@@ -165,6 +165,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._checked_jobs = set()
         self._checked_needrun_jobs = set()
         self._seen_outputs: Dict[str, Union[Job, GroupJob]] = dict()
+        self._evicted_checkpoint_outputs: Set = set()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -1353,6 +1354,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 )
 
         if missing_input:
+            if job.is_checkpoint:
+                for out in job.output:
+                    if await out.exists():
+                        self._evicted_checkpoint_outputs.add(out)
             self.delete_job(job, recursive=False)  # delete job from tree
             raise MissingInputException(job, missing_input)
 
@@ -2176,6 +2181,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for depending in self.depending[job]:
                 job_queue[depending].add(job)
             self.workflow.checkpoints.created_output.update(job.output)
+        self.workflow.checkpoints.created_output.update(
+            self._evicted_checkpoint_outputs
+        )
 
         updated = len(job_queue) > 0
         if updated:
@@ -2737,12 +2745,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
         return (
-            textwrap.dedent("""\
+            textwrap.dedent(
+                """\
             ---
             title: DAG
             ---
             flowchart TB
-            """)
+            """
+            )
             + "{}\n{}\n{}".format(
                 "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
             )
@@ -2787,7 +2797,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
 
-        return textwrap.dedent("""\
+        return textwrap.dedent(
+            """\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -2795,7 +2806,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """).format(items="\n".join(nodes + edges))
+            """
+        ).format(items="\n".join(nodes + edges))
 
     def filegraph_dot(
         self,
@@ -2924,7 +2936,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
 
-        return textwrap.dedent("""\
+        return textwrap.dedent(
+            """\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -2932,7 +2945,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """).format(items="\n".join(nodes + edges))
+            """
+        ).format(items="\n".join(nodes + edges))
 
     async def summary(self, detailed=False):
         def fmt_output(f):
