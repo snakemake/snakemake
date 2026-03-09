@@ -1,5 +1,6 @@
 from typing import Dict
 from snakemake.executors.local import RunArgs
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -82,7 +83,11 @@ def get_conda_env(path, sourcecache: SourceCache, prefix=None) -> CondaEnvSpec:
         path = path.get_basedir()
     path = path.join("environment.yaml")
     cached_path = sourcecache.cache(path)
-    return CondaEnvSpec(envfile=EnvSpecSourceFile(path_or_uri=path.get_path_or_uri(secret_free=True), cached=cached_path))
+    return CondaEnvSpec(
+        envfile=EnvSpecSourceFile(
+            path_or_uri=path.get_path_or_uri(secret_free=True), cached=cached_path
+        )
+    )
 
 
 def wrapper(
@@ -97,7 +102,9 @@ def wrapper(
     assert path is not None
     script_source = get_script(
         path,
-        SourceCache(run_args.cache_path, runtime_cache_path=run_args.runtime_cache_path),
+        SourceCache(
+            run_args.cache_path, runtime_cache_path=run_args.runtime_cache_path
+        ),
         prefix=run_args.wrapper_prefix,
     )
     if script_source is None:

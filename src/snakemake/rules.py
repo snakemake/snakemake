@@ -26,7 +26,7 @@ except ImportError:  # python < 3.11
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_software_deployment_plugins import (
     EnvSpecBase as SoftwareEnvSpecBase,
-    EnvSpecSourceFile
+    EnvSpecSourceFile,
 )
 
 from snakemake.io import (

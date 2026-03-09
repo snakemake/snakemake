@@ -8,7 +8,9 @@ def render_rules(rules):
             rulename: {
                 "input": rule.input,
                 "output": rule.output,
-                "software": [f"{rec.name} {rec.version or ''}" for rec in rule.software],
+                "software": [
+                    f"{rec.name} {rec.version or ''}" for rec in rule.software
+                ],
                 "code": render_code(rule),
                 "n_jobs": rule.n_jobs,
             }

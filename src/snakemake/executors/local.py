@@ -320,7 +320,6 @@ class RunArgs:
     def rulefunc_args_signature(cls) -> str:
         return ", ".join(chain(cls.rulefunc_args_attributes(), ["rule", "run_args"]))
 
-
     @property
     def is_shell(self) -> bool:
         return self.job_rule.shellcmd is not None

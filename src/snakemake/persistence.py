@@ -1,5 +1,6 @@
 from snakemake.common import is_serializable
 import dataclasses
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -338,7 +339,11 @@ class Persistence(PersistenceExecutorInterface):
                     for infile in job.input
                 )
 
-                software_report = job.software_env.report_software() if job.software_env is not None else []
+                software_report = (
+                    job.software_env.report_software()
+                    if job.software_env is not None
+                    else []
+                )
                 self._record(
                     self._metadata_path,
                     {
@@ -356,7 +361,11 @@ class Persistence(PersistenceExecutorInterface):
                         "software_stack_hash": (
                             job.software_env.hash() if job.software_env else None
                         ),
-                        "software": [dataclasses.asdict(rec) for rec in software_report if not rec.is_secondary],
+                        "software": [
+                            dataclasses.asdict(rec)
+                            for rec in software_report
+                            if not rec.is_secondary
+                        ],
                         "input_checksums": {
                             infile: checksum
                             async for infile, checksum in checksums

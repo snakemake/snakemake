@@ -283,9 +283,20 @@ class SpawnedJobArgsFactory:
                 flag="--skip-script-cleanup",
             ),
             w2a("execution_settings.shadow_prefix"),
-            w2a("deployment_settings.deployment_methods", flag="--software-deployment-methods"),
-            w2a("deployment_settings.deployment_prefix", base64_encode=True, flag="--software-deployment-prefix"),
-            w2a("deployment_settings.cache_prefix", base64_encode=True, flag="--software-deployment-cache-prefix"),
+            w2a(
+                "deployment_settings.deployment_methods",
+                flag="--software-deployment-methods",
+            ),
+            w2a(
+                "deployment_settings.deployment_prefix",
+                base64_encode=True,
+                flag="--software-deployment-prefix",
+            ),
+            w2a(
+                "deployment_settings.cache_prefix",
+                base64_encode=True,
+                flag="--software-deployment-cache-prefix",
+            ),
             w2a("deployment_settings.not_block_search_path_envvars"),
             w2a("resource_settings.max_threads"),
             self.get_shared_fs_usage_arg(executor_common_settings),

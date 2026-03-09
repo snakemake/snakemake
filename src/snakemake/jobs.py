@@ -517,7 +517,9 @@ class Job(
     @property
     def software_env(self) -> Optional[SoftwareEnvBase]:
         if self.software_env_spec:
-            return self.dag.workflow.software_deployment_manager.get_env(self.software_env_spec)
+            return self.dag.workflow.software_deployment_manager.get_env(
+                self.software_env_spec
+            )
         return None
 
     def archive_conda_env(self):

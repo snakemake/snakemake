@@ -824,9 +824,7 @@ def test_singularity_none():
 @apptainer
 @connected
 def test_singularity_global():
-    run(
-        dpath("test_singularity_global"), deployment_method={"container"}
-    )
+    run(dpath("test_singularity_global"), deployment_method={"container"})
 
 
 @skip_on_windows

@@ -54,7 +54,9 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
-from snakemake_interface_software_deployment_plugins.settings import SoftwareDeploymentSettingsBase
+from snakemake_interface_software_deployment_plugins.settings import (
+    SoftwareDeploymentSettingsBase,
+)
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -121,7 +123,9 @@ class SnakemakeApi(ApiBase):
         workflow_settings: Optional[WorkflowSettings] = None,
         deployment_settings: Optional[DeploymentSettings] = None,
         storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
-        software_deployment_provider_settings: Optional[Mapping[str, SoftwareDeploymentSettingsBase]] = None,
+        software_deployment_provider_settings: Optional[
+            Mapping[str, SoftwareDeploymentSettingsBase]
+        ] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
     ):

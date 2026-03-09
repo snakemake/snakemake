@@ -691,7 +691,9 @@ class PythonScript(ScriptBase):
                 searchpaths.append(cache_searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if self.is_local:
-            searchpaths.append(self.path.get_basedir().get_path_or_uri(secret_free=True))
+            searchpaths.append(
+                self.path.get_basedir().get_path_or_uri(secret_free=True)
+            )
 
         shell_exec = self.run_args.resources.get("shell_exec")
         shell_exec_stmt = (

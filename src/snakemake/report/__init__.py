@@ -314,10 +314,7 @@ class RuleRecord(RuleRecordInterface):
         return [render_iofile(f) for f in self._rule.input]
 
     def __eq__(self, other):
-        return (
-            self.name == other.name
-            and self.software == other.software
-        )
+        return self.name == other.name and self.software == other.software
 
 
 @dataclass(slots=True)
@@ -532,7 +529,9 @@ async def auto_report(
                 job_rec.job = job
                 job_rec.starttime = get_time(job_rec.starttime, meta["starttime"], min)
                 job_rec.endtime = get_time(job_rec.endtime, meta["endtime"], max)
-                job_rec.software = [SoftwareReport(**rec) for rec in meta.get("software", [])]
+                job_rec.software = [
+                    SoftwareReport(**rec) for rec in meta.get("software", [])
+                ]
                 job_rec.output.append(f)
             except KeyError as e:
                 logger.warning(

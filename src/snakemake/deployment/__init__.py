@@ -105,7 +105,10 @@ class SoftwareDeploymentManager:
                 extra={"quietness": Quietness.RULES},
             )
         elif assets:
-            logger.info(f"Caching {len(assets)} software environment assets.", extra={"quietness": Quietness.RULES})
+            logger.info(
+                f"Caching {len(assets)} software environment assets.",
+                extra={"quietness": Quietness.RULES},
+            )
             for asset, env in assets.items():
                 await env.managed_cache_asset(asset)
 
@@ -120,7 +123,11 @@ class SoftwareDeploymentManager:
         envs = set()
         for job in jobs:
             env = job.software_env
-            if env is not None and env.is_deployable() and not env.deployment_path.exists():
+            if (
+                env is not None
+                and env.is_deployable()
+                and not env.deployment_path.exists()
+            ):
                 envs.add(env)
 
         if self.workflow.dryrun and envs:
@@ -129,7 +136,10 @@ class SoftwareDeploymentManager:
                 extra={"quietness": Quietness.RULES},
             )
         elif envs:
-            logger.info(f"Deploying {len(envs)} software environments.", extra={"quietness": Quietness.RULES})
+            logger.info(
+                f"Deploying {len(envs)} software environments.",
+                extra={"quietness": Quietness.RULES},
+            )
             for env in envs:
                 await env.managed_deploy()
 
