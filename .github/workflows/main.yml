@@ -28,14 +28,17 @@ jobs:
           cache: false # no pixi.lock
           locked: false
 
-      - name: Run black
+      - name: Run ruff format
         run: pixi run -e quality format --check --diff .
+
+      - name: Run ruff lint
+        run: pixi run -e quality lint --no-fix
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          message: "Please format your code with `pixi run format`"
+          message: "Please format and lint your code with `pixi run format` and `pixi run lint`"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   ################################################################################################
