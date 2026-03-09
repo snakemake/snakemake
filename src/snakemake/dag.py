@@ -1357,7 +1357,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             if job.is_checkpoint:
                 for out in job.output:
                     if await out.exists():
-                        self._evicted_checkpoint_outputs.add(out)
+                        has_meta = self.workflow.persistence.has_metadata(job) # type: ignore[reportOptionalMemberAccess]
+                        is_incomplete = has_meta and self.workflow.persistence.incomplete(job) # type: ignore[reportOptionalMemberAccess]
+                        if not is_incomplete:
+                            self._evicted_checkpoint_outputs.add(out)
             self.delete_job(job, recursive=False)  # delete job from tree
             raise MissingInputException(job, missing_input)
 
