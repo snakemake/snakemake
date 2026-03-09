@@ -55,6 +55,7 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from snakemake_interface_software_deployment_plugins.settings import SoftwareDeploymentSettingsBase
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -121,6 +122,7 @@ class SnakemakeApi(ApiBase):
         workflow_settings: Optional[WorkflowSettings] = None,
         deployment_settings: Optional[DeploymentSettings] = None,
         storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
+        software_deployment_provider_settings: Optional[Mapping[str, SoftwareDeploymentSettingsBase]] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
     ):
@@ -146,8 +148,10 @@ class SnakemakeApi(ApiBase):
             workflow_settings = WorkflowSettings()
         if deployment_settings is None:
             deployment_settings = DeploymentSettings()
+        if software_deployment_provider_settings is None:
+            software_deployment_provider_settings = {}
         if storage_provider_settings is None:
-            storage_provider_settings = dict()
+            storage_provider_settings = {}
 
         self._check_is_in_context()
 
@@ -165,6 +169,7 @@ class SnakemakeApi(ApiBase):
             workflow_settings=workflow_settings,
             deployment_settings=deployment_settings,
             storage_provider_settings=storage_provider_settings,
+            software_deployment_provider_settings=software_deployment_provider_settings,
         )
 
         return self._workflow_api
@@ -337,6 +342,7 @@ class WorkflowApi(ApiBase):
     workflow_settings: WorkflowSettings
     deployment_settings: DeploymentSettings
     storage_provider_settings: Mapping[str, TaggedSettings]
+    software_deployment_provider_settings: Mapping[str, SoftwareDeploymentSettingsBase]
 
     _workflow_store: Optional[Workflow] = field(init=False, default=None)
     _workdir_handler: Optional[WorkdirHandler] = field(init=False)
@@ -429,6 +435,7 @@ class WorkflowApi(ApiBase):
             output_settings=self.snakemake_api.output_settings,
             overwrite_workdir=self.workdir,
             storage_provider_settings=self.storage_provider_settings,
+            software_deployment_provider_settings=self.software_deployment_provider_settings,
             **kwargs,
         )
 

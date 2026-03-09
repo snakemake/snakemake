@@ -1644,6 +1644,7 @@ def get_argument_parser(profiles=None):
         "--software-deployment-prefix",
         "--sdm-prefix",
         metavar="DIR",
+        default=DeploymentSettings().deployment_prefix,
         type=maybe_base64(expandvars(Path)),
         help="Specify a directory under which Snakemake shall deploy software "
         "environments. "
@@ -1657,6 +1658,7 @@ def get_argument_parser(profiles=None):
         "--software-deployment-cache-prefix",
         "--sdm-cache-prefix",
         metavar="DIR",
+        default=DeploymentSettings().cache_prefix,
         type=maybe_base64(expandvars(Path)),
         help="Specify a directory under which Snakemake shall cache assets of software "
         "environments. "
@@ -1917,6 +1919,11 @@ def args_to_api(args, parser):
         for name in args.logger
     }
 
+    software_deployment_provider_settings = {
+        name: SoftwareDeploymentPluginRegistry().get_plugin(name).get_settings(args)
+        for name in args.software_deployment_methods
+    }
+
     scheduler_plugin = SchedulerPluginRegistry().get_plugin(args.scheduler)
     scheduler_settings = scheduler_plugin.get_settings(args)
     if args.scheduler == "ilp":
@@ -2011,6 +2018,7 @@ def args_to_api(args, parser):
                         deployment_prefix=args.software_deployment_prefix,
                         not_block_search_path_envvars=args.not_block_search_path_envvars,
                     ),
+                    software_deployment_provider_settings=software_deployment_provider_settings,
                     snakefile=args.snakefile,
                     workdir=args.directory,
                 )

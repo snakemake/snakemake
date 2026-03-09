@@ -92,19 +92,20 @@ class SoftwareDeploymentManager:
         for job in jobs:
             env = job.software_env
             if env is not None and env.is_cacheable():
-                for asset in env.get_cache_assets():
+                for asset in await env.get_cache_assets():
                     if (env.cache_path / asset).exists():
                         continue
                     # if multiple envs share the same asset, we can simply cache
                     # it for one of them, so we do not check for duplicates here.
                     assets[asset] = env
 
-        if self.workflow.dryrun:
+        if self.workflow.dryrun and assets:
             logger.info(
                 f"Will cache {len(assets)} software environment assets.",
                 extra={"quietness": Quietness.RULES},
             )
-        else:
+        elif assets:
+            logger.info(f"Caching {len(assets)} software environment assets.", extra={"quietness": Quietness.RULES})
             for asset, env in assets.items():
                 await env.managed_cache_asset(asset)
 
@@ -119,11 +120,18 @@ class SoftwareDeploymentManager:
         envs = set()
         for job in jobs:
             env = job.software_env
-            if env is not None and env.is_deployable():
+            if env is not None and env.is_deployable() and not env.deployment_path.exists():
                 envs.add(env)
 
-        for env in envs:
-            await env.managed_deploy()
+        if self.workflow.dryrun and envs:
+            logger.info(
+                f"Will deploy {len(envs)} software environments.",
+                extra={"quietness": Quietness.RULES},
+            )
+        elif envs:
+            logger.info(f"Deploying {len(envs)} software environments.", extra={"quietness": Quietness.RULES})
+            for env in envs:
+                await env.managed_deploy()
 
     async def cleanup_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
         for job in jobs:
@@ -132,7 +140,7 @@ class SoftwareDeploymentManager:
                 await env.cleanup_cache()
                 env.managed_remove()
 
-    def get_env(self, env_spec: EnvSpecBase) -> EnvBase:
+    def get_env(self, env_spec: EnvSpecBase) -> Optional[EnvBase]:
         if env_spec in self.specs_to_envs:
             return self.specs_to_envs[env_spec]
 
@@ -143,12 +151,12 @@ class SoftwareDeploymentManager:
                 # no method activated that can yield an env here
                 return None
 
-        env = env_spec.env_cls(
+        env = env_spec.env_cls()(
             spec=env_spec,
             within=(
                 self.get_env(env_spec.within) if env_spec.within is not None else None
             ),
-            settings=self.workflow.software_deployment_settings.get(
+            settings=self.workflow.software_deployment_provider_settings.get(
                 self.plugins[env_spec.kind].name
             ),
             shell_executable=self.shell_executable,

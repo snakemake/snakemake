@@ -437,7 +437,7 @@ class StoragePluginArgCollector(TaggedSettingsPluginArgCollector):
 
 class SoftwareDeploymentPluginArgCollector(PluginArgCollectorBase):
     def get_settings(self):
-        return self.workflow.software_deployment_settings
+        return self.workflow.software_deployment_provider_settings
 
     @classmethod
     def get_registry(cls):

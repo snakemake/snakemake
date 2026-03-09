@@ -528,7 +528,8 @@ class Persistence(PersistenceExecutorInterface):
             return False
 
         recorded = self.software_stack_hash(file)
-        return recorded is not None and recorded != self._software_stack_hash(job)
+        current = job.software_env.hash() if job.software_env else None
+        return recorded is not None and recorded != current
 
     def software_stack_hash(self, path):
         return self.metadata(path).get("software_stack_hash")

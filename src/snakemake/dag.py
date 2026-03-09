@@ -153,7 +153,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._ready_jobs = set()
         self._jobid = dict()
         self.job_cache = dict()
-        self.software_envs: Dict[EnvSpecBase, EnvBase] = dict()
         self._progress = 0
         self._group = dict()
         self._n_until_ready = defaultdict(int)

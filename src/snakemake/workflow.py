@@ -173,7 +173,7 @@ class Workflow(WorkflowExecutorInterface):
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
-    software_deployment_settings: Optional[
+    software_deployment_provider_settings: Optional[
         Mapping[str, SoftwareDeploymentSettingsBase]
     ] = None
     global_report_settings: Optional[GlobalReportSettings] = None
