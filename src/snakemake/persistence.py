@@ -3,41 +3,39 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+__all__ = ["NO_PARAMS_CHANGE", "RECORD_FORMAT_VERSION"]
+
 import asyncio
-from dataclasses import dataclass, field
-import hashlib
+from dataclasses import fields
 import os
 import shutil
 import json
 import stat
-import tempfile
 import time
-from base64 import urlsafe_b64encode, b64encode
+from base64 import urlsafe_b64encode
 from functools import lru_cache
 from itertools import count
 from pathlib import Path
 from contextlib import contextmanager
-from typing import Any, Optional, Set
+from typing import Any, Optional
 
-from snakemake_interface_executor_plugins.persistence import (
-    PersistenceExecutorInterface,
+from snakemake.persistence_interface import (
+    AbstractPersistence,
+    MetadataRecord,
+    NO_PARAMS_CHANGE,
+    RECORD_FORMAT_VERSION,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
 
-from snakemake.common.tbdstring import TBDString
 import snakemake.exceptions
 from snakemake.logging import logger
-from snakemake.jobs import jobfiles, Job
 from snakemake.utils import listfiles
-from snakemake.io import _IOFile, is_flagged, get_flag_value, IOCache
-from snakemake_interface_common.exceptions import WorkflowError
-from snakemake.settings.types import DeploymentMethod
+from snakemake.io import _IOFile, IOCache
 
-UNREPRESENTABLE = object()
-RECORD_FORMAT_VERSION = 6
+VALID_METADATA_KEYS = frozenset(f.name for f in fields(MetadataRecord))
 
 
-class Persistence(PersistenceExecutorInterface):
+class FilePersistence(AbstractPersistence):
     def __init__(
         self,
         nolock=False,
@@ -48,14 +46,6 @@ class Persistence(PersistenceExecutorInterface):
         warn_only=False,
         path: Path | None = None,
     ):
-        import importlib.util
-
-        self._serialize_param = (
-            self._serialize_param_pandas
-            if importlib.util.find_spec("pandas") is not None
-            else self._serialize_param_builtin
-        )
-
         self._max_len = None
 
         if path is None:
@@ -69,8 +59,6 @@ class Persistence(PersistenceExecutorInterface):
 
         self.dag = dag
         self._lockfile = dict()
-
-        self._backup_path = self.path / "backups"
 
         self._metadata_path = os.path.join(self.path, "metadata")
         self._incomplete_path = os.path.join(self.path, "incomplete")
@@ -174,12 +162,6 @@ class Persistence(PersistenceExecutorInterface):
         logger.info("Migration complete")
 
     @property
-    def files(self):
-        if self._files is None:
-            self._files = set(self.dag.output_files)
-        return self._files
-
-    @property
     def locked(self):
         inputfiles = set(self.all_inputfiles())
         outputfiles = set(self.all_outputfiles())
@@ -237,107 +219,6 @@ class Persistence(PersistenceExecutorInterface):
         return self._delete_record(self._incomplete_path, path) or self._delete_record(
             self._metadata_path, path
         )
-
-    def cleanup_shadow(self):
-        if os.path.exists(self.shadow_path):
-            shutil.rmtree(self.shadow_path)
-            os.mkdir(self.shadow_path)
-
-    def cleanup_containers(self):
-        from humanfriendly import format_size
-
-        required_imgs = {Path(img.path) for img in self.dag.container_imgs.values()}
-        img_dir = Path(self.container_img_path)
-        total_size_cleaned_up = 0
-        num_containers_removed = 0
-        for pulled_img in img_dir.glob("*.simg"):
-            if pulled_img in required_imgs:
-                continue
-            size_bytes = pulled_img.stat().st_size
-            total_size_cleaned_up += size_bytes
-            filesize = format_size(size_bytes)
-            pulled_img.unlink()
-            logger.debug(f"Removed unrequired container {pulled_img} ({filesize})")
-            num_containers_removed += 1
-
-        if num_containers_removed == 0:
-            logger.info("No containers require cleaning up")
-        else:
-            logger.info(
-                f"Cleaned up {num_containers_removed} containers, saving {format_size(total_size_cleaned_up)}"
-            )
-
-    def conda_cleanup_envs(self):
-        # cleanup envs
-        for address in set(
-            env.address
-            for env in self.dag.conda_envs.values()
-            if not env.is_externally_managed
-        ):
-            removed = False
-            if os.path.exists(address):
-                try:
-                    shutil.rmtree(address)
-                except Exception as e:
-                    raise WorkflowError(f"Failed to remove conda env {address}: {e}")
-                removed = True
-            yaml_path = Path(address).with_suffix(".yaml")
-            if yaml_path.exists():
-                try:
-                    yaml_path.unlink()
-                except Exception as e:
-                    raise WorkflowError(
-                        f"Failed to remove conda env yaml {yaml_path}: {e}"
-                    )
-
-                removed = True
-            if removed:
-                logger.info(f"Removed conda env {address}")
-
-        # cleanup env archives
-        in_use = set(env.content_hash for env in self.dag.conda_envs.values())
-        for d in os.listdir(self.conda_env_archive_path):
-            if d not in in_use:
-                shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
-
-    def backup_output(self, path: Path) -> None:
-        backup_path = self._get_backup_path(path)
-        backup_path.parent.mkdir(parents=True, exist_ok=True)
-        if path.is_dir():
-            shutil.copytree(path, backup_path)
-        else:
-            shutil.copy(path, backup_path)
-
-    def restore_output(self, path: Path) -> bool:
-        """Restore output from backup. Returns true in case of success."""
-        backup_path = self._get_backup_path(path)
-        if not backup_path.exists():
-            logger.warning(f"Cannot restore {path}: no backup found.")
-            return False
-        elif backup_path.is_dir():
-            if path.exists():
-                shutil.rmtree(path)
-            shutil.copytree(backup_path, path)
-            shutil.rmtree(backup_path)
-            return True
-        else:
-            shutil.copy(backup_path, path)
-            backup_path.unlink()
-            return True
-
-    def cleanup_backup(self, path: Path) -> None:
-        backup_path = self._get_backup_path(path)
-        if backup_path.exists():
-            if backup_path.is_dir():
-                shutil.rmtree(backup_path)
-            else:
-                backup_path.unlink()
-
-    def _get_backup_path(self, path: Path) -> Path:
-        if path.is_absolute():
-            path = path.relative_to(path.parents[-1])
-        backup_path = self._backup_path / path
-        return backup_path
 
     def started(self, job, external_jobid: Optional[str] = None):
         for f in job.output:
@@ -415,10 +296,6 @@ class Persistence(PersistenceExecutorInterface):
         # otherwise the job starttime will be missing.
         self._remove_incomplete_marker(job)
 
-    def cleanup(self, job):
-        for f in job.output:
-            self.cleanup_metadata(f)
-
     async def incomplete(self, job):
         if self._incomplete_cache is None:
             self._cache_incomplete_folder()
@@ -459,142 +336,13 @@ class Persistence(PersistenceExecutorInterface):
             )
         )
 
-    def has_metadata(self, job: Job) -> bool:
-        return all(self.metadata(path) for path in job.output)
-
-    def has_outdated_metadata(self, job: Job) -> bool:
-        return any(
-            self.metadata(path).get("record_format_version", 0) < RECORD_FORMAT_VERSION
-            for path in job.output
+    def metadata(self, path: Any) -> Optional[MetadataRecord]:
+        rec = self._read_record(self._metadata_path, path)
+        if not rec:
+            return None
+        return MetadataRecord(
+            **{k: v for k, v in rec.items() if k in VALID_METADATA_KEYS}
         )
-
-    def metadata(self, path):
-        return self._read_record(self._metadata_path, path)
-
-    def rule(self, path):
-        return self.metadata(path).get("rule")
-
-    def input(self, path):
-        return self.metadata(path).get("input")
-
-    def log(self, path):
-        return self.metadata(path).get("log")
-
-    def shellcmd(self, path):
-        return self.metadata(path).get("shellcmd")
-
-    def params(self, path):
-        return self.metadata(path).get("params")
-
-    def code(self, path):
-        return self.metadata(path).get("code")
-
-    def record_format_version(self, path):
-        return self.metadata(path).get("record_format_version")
-
-    def conda_env(self, path):
-        return self.metadata(path).get("conda_env")
-
-    def container_img_url(self, path):
-        return self.metadata(path).get("container_img_url")
-
-    def input_checksums(self, job, input_path):
-        """Return all checksums of the given input file
-        recorded for the output of the given job.
-        """
-        return set(
-            self.metadata(output_path).get("input_checksums", {}).get(input_path)
-            for output_path in job.output
-        )
-
-    def code_changed(self, job, file=None):
-        """Yields output files with changed code or bool if file given."""
-        return _bool_or_gen(self._code_changed, job, file=file)
-
-    def input_changed(self, job, file=None):
-        """Yields output files with changed input or bool if file given."""
-        return _bool_or_gen(self._input_changed, job, file=file)
-
-    def params_changed(self, job, file=None):
-        """Yields output files with changed params or bool if file given."""
-        files = [file] if file is not None else job.output
-
-        changes = NO_PARAMS_CHANGE
-
-        new = set(self._params(job))
-
-        for outfile in files:
-            fmt_version = self.record_format_version(outfile)
-            if fmt_version is None or fmt_version < 6:
-                # no reliable params stored (version 4 refactored params storage
-                # and version 6 fixed a bug in determination of whether params are
-                # derived from e.g. input or output files). If they are,
-                # there is the risk to store storage paths here. Derived param
-                # changes will also be captured by input changes.
-                continue
-            recorded = self.params(outfile)
-            if recorded is not None:
-                old = set(recorded)
-                changes |= ParamsChange(
-                    only_old=old - new, only_new=new - old, files={outfile}
-                )
-        return changes
-
-    def software_stack_changed(self, job, file=None):
-        """Yields output files with changed software env or bool if file given."""
-        return _bool_or_gen(self._software_stack_changed, job, file=file)
-
-    def _code_changed(self, job, file=None):
-        assert file is not None
-        fmt_version = self.record_format_version(file)
-        if fmt_version is None or fmt_version < 3:
-            # no reliable code stored
-            return False
-        recorded = self.code(file)
-        return recorded is not None and recorded != self._code(job.rule)
-
-    def _input_changed(self, job, file=None):
-        assert file is not None
-        fmt_version = self.record_format_version(file)
-        if fmt_version is None or fmt_version < 4:
-            # no reliable input stored
-            return False
-        recorded = self.input(file)
-        return recorded is not None and recorded != self._input(job)
-
-    def _software_stack_changed(self, job, file=None):
-        assert file is not None
-        fmt_version = self.record_format_version(file)
-        if fmt_version is None or fmt_version < 5:
-            # no reliable software stack hash stored (previous storage ignored pin files
-            # and aux deploy files of conda envs as well as env modules)
-            return False
-
-        recorded = self.software_stack_hash(file)
-        return recorded is not None and recorded != self._software_stack_hash(job)
-
-    def software_stack_hash(self, path):
-        return self.metadata(path).get("software_stack_hash")
-
-    def _software_stack_hash(self, job):
-        # TODO move code for retrieval into software deployment plugin interface once
-        # available
-        md5hash = hashlib.md5(usedforsecurity=False)
-        if (
-            DeploymentMethod.CONDA
-            in self.dag.workflow.deployment_settings.deployment_method
-            and job.conda_env
-        ):
-            md5hash.update(job.conda_env.hash.encode())
-        if (
-            DeploymentMethod.APPTAINER
-            in self.dag.workflow.deployment_settings.deployment_method
-            and job.container_img_url
-        ):
-            md5hash.update(job.container_img_url.encode())
-        if job.env_modules:
-            md5hash.update(job.env_modules.hash.encode())
-        return md5hash.hexdigest()
 
     @contextmanager
     def noop(self, *args):
@@ -602,92 +350,6 @@ class Persistence(PersistenceExecutorInterface):
 
     def _b64id(self, s):
         return urlsafe_b64encode(str(s).encode()).decode()
-
-    @lru_cache()
-    def _code(self, rule):
-        # Scripts and notebooks are triggered by changes in the script mtime.
-        # Changes to python and shell rules are triggered by changes in the plain text.
-        if rule.shellcmd is not None:
-            return rule.shellcmd
-        if rule.run_func_src is not None:
-            return rule.run_func_src
-        return None
-
-    @lru_cache()
-    def _conda_env(self, job):
-        if job.conda_env:
-            return b64encode(job.conda_env.content).decode()
-
-    @lru_cache()
-    def _input(self, job):
-        def get_paths():
-            for f in job.input:
-                if f.is_storage:
-                    yield f.storage_object.query
-                elif is_flagged(f, "pipe"):
-                    yield "<pipe>"
-                elif is_flagged(f, "service"):
-                    yield "<service>"
-                else:
-                    yield (
-                        # get the true path instead of the cache path
-                        get_flag_value(f, "sourcecache_entry")
-                        if is_flagged(f, "sourcecache_entry")
-                        else f
-                    )
-
-        return sorted(get_paths())
-
-    @lru_cache()
-    def _log(self, job):
-        return sorted(job.log)
-
-    def _serialize_param_builtin(self, value: Any):
-        if (
-            value is None
-            or isinstance(
-                value,
-                (
-                    int,
-                    float,
-                    bool,
-                    str,
-                    complex,
-                    range,
-                    list,
-                    tuple,
-                    dict,
-                    set,
-                    frozenset,
-                    bytes,
-                    bytearray,
-                ),
-            )
-            and value is not TBDString
-        ):
-            return repr(value)
-        else:
-            return UNREPRESENTABLE
-
-    def _serialize_param_pandas(self, value: Any):
-        import pandas as pd
-
-        if isinstance(value, (pd.DataFrame, pd.Series, pd.Index)):
-            return repr(pd.util.hash_pandas_object(value).tolist())
-        return self._serialize_param_builtin(value)
-
-    @lru_cache()
-    def _params(self, job: Job):
-        return sorted(
-            filter(
-                lambda p: p is not UNREPRESENTABLE,
-                (self._serialize_param(value) for value in job.non_derived_params),
-            )
-        )
-
-    @lru_cache()
-    def _output(self, job):
-        return sorted(job.output)
 
     def _record(
         self,
@@ -799,14 +461,6 @@ class Persistence(PersistenceExecutorInterface):
         path = os.path.join(subject, *b64id)
         return path
 
-    def all_outputfiles(self):
-        # we only look at output files that will be updated
-        return jobfiles(self.dag.needrun_jobs(), "output")
-
-    def all_inputfiles(self):
-        # we consider all input files, also of not running jobs
-        return jobfiles(self.dag.jobs, "input")
-
     def deactivate_cache(self):
         self._read_record_cached.cache_clear()
         self._read_record = self._read_record_uncached
@@ -832,58 +486,3 @@ class Persistence(PersistenceExecutorInterface):
         filepath = self._iocache_filename
         if os.path.exists(filepath):
             os.remove(filepath)
-
-
-def _bool_or_gen(func, job, file=None):
-    if file is None:
-        return (f for f in job.output if func(job, file=f))
-    else:
-        return func(job, file=file)
-
-
-@dataclass
-class ParamsChange:
-    only_old: Set[Any] = field(default_factory=set)
-    only_new: Set[Any] = field(default_factory=set)
-    files: Set[str] = field(default_factory=set)
-
-    def __post_init__(self):
-        if not self:
-            self.files = set()
-
-    def __bool__(self):
-        return bool(self.only_old or self.only_new)
-
-    def __or__(self, other):
-        if not self:
-            return other
-        if not other:
-            return self
-        return ParamsChange(
-            only_old=self.only_old | other.only_old,
-            only_new=self.only_new | other.only_new,
-            files=self.files | other.files,
-        )
-
-    def __iter__(self):
-        return iter(self.files)
-
-    def __str__(self):
-        if not self:
-            return "No params change"
-        else:
-
-            def fmt_set(s, label):
-                if s:
-                    return f"{label}: {','.join(s)}"
-                else:
-                    return f"{label}: <nothing exclusive>"
-
-            return (
-                "Union of exclusive params before and now across all output: "
-                f"{fmt_set(self.only_old, 'before')} "
-                f"{fmt_set(self.only_new, 'now')} "
-            )
-
-
-NO_PARAMS_CHANGE = ParamsChange()
