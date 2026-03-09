@@ -2101,6 +2101,9 @@ class Workflow(WorkflowExecutorInterface):
 
     def input(self, *paths, **kwpaths):
         def decorate(ruleinfo):
+            import inspect
+
+            logger.warning(f"{type(UseArgsWith)=} {inspect.getsource(UseArgsWith)=}")
             ruleinfo.input = UseArgsWith.guard_ioput(
                 paths, kwpaths, self.modifier.path_modifier
             )
