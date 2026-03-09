@@ -14,7 +14,6 @@ PATH_MODIFIER_FLAG = "path_modified"
 
 
 class PathModifier:
-
     def __init__(
         self,
         replace_prefix: dict | None,

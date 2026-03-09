@@ -489,9 +489,9 @@ class HostingProviderFile(SourceFile):
 
     @property
     def cache_path(self) -> Path:
-        assert (
-            self._cache_path
-        ), "bug: cache_path not set, should be done by SourceCache"
+        assert self._cache_path, (
+            "bug: cache_path not set, should be done by SourceCache"
+        )
 
         return self._cache_path
 

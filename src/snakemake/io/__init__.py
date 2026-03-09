@@ -1250,9 +1250,9 @@ class QueueInfo:
     items: List[Any] = field(default_factory=list, init=False)
 
     def consume(self, wildcards):
-        assert (
-            self.finished is False
-        ), "bug: queue marked as finished but consume method called again"
+        assert self.finished is False, (
+            "bug: queue marked as finished but consume method called again"
+        )
 
         if wildcards:
             raise WorkflowError("from_queue() may not be used in rules with wildcards.")
@@ -1366,9 +1366,9 @@ def checkpoint_target(value):
 def sourcecache_entry(value, orig_path_or_uri):
     from snakemake.sourcecache import SourceFile
 
-    assert not isinstance(
-        orig_path_or_uri, SourceFile
-    ), "bug: sourcecache_entry should receive a path or uri, not a SourceFile"
+    assert not isinstance(orig_path_or_uri, SourceFile), (
+        "bug: sourcecache_entry should receive a path or uri, not a SourceFile"
+    )
     return flag(value, "sourcecache_entry", orig_path_or_uri)
 
 

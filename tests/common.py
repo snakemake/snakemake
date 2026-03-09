@@ -284,9 +284,9 @@ def run(
     original_dirname = original_snakefile.parent.name
     assert original_snakefile.exists()
     if check_results:
-        assert (
-            results_dir.exists() and results_dir.is_dir()
-        ), f"{results_dir} does not exist"
+        assert results_dir.exists() and results_dir.is_dir(), (
+            f"{results_dir} does not exist"
+        )
 
     if tmpdir is None:
         # If we need to further check results, we won't cleanup tmpdir
@@ -548,12 +548,12 @@ def run(
                         expected_content = expected.read().strip()
                     with open(targetfile) as target:
                         content = target.read().strip()
-                    assert (
-                        False
-                    ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
-                        resultfile=resultfile,
-                        content=content,
-                        expected_content=expected_content,
+                    assert False, (
+                        "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
+                            resultfile=resultfile,
+                            content=content,
+                            expected_content=expected_content,
+                        )
                     )
 
     if not cleanup:

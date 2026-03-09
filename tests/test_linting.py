@@ -36,9 +36,9 @@ def test_lint(lint, case):
             assert out == "Congratulations, your workflow is in a good condition!"
         else:
             print(out, file=sys.stderr)
-            assert (
-                False
-            ), "Negative lint example but linting command exited with status 0."
+            assert False, (
+                "Negative lint example but linting command exited with status 0."
+            )
 
     except sp.CalledProcessError as e:
         if case == "negative":

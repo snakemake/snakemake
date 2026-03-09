@@ -12,7 +12,6 @@ PATHVAR_REGEX = re.compile(r"<(?P<name>[a-z][a-z0-9_]*)>")
 
 
 class Pathvars:
-
     def __init__(self) -> None:
         self.items: Dict[str, str]
         self.level: Dict[str, int]
@@ -81,7 +80,9 @@ class Pathvars:
             config_pathvars = config.get("pathvars")
             if config_pathvars:
                 # ignore type here as checked above
-                return cls._from_raw(items=config_pathvars, level=1 if module_level else 2)  # type: ignore[arg-type]
+                return cls._from_raw(
+                    items=config_pathvars, level=1 if module_level else 2
+                )  # type: ignore[arg-type]
         return cls._from_raw(items={})
 
     @classmethod

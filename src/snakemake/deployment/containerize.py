@@ -61,7 +61,6 @@ class ContainerFormat(ABC):
 
 
 class DockerFormat(ContainerFormat):
-
     def header(self, image, env_hash):
         print(f"FROM {image}")
         print('LABEL io.github.snakemake.containerized="true"')
@@ -92,7 +91,6 @@ class DockerFormat(ContainerFormat):
 
 
 class ApptainerFormat(ContainerFormat):
-
     def __init__(self):
         # Apptainer groups things into sections, so we collect them first
         self._labels = []

@@ -414,9 +414,9 @@ def test_containerize_checkpoint():
         assert f"COPY {module_env_path}" in dockerfile_content
 
         # check three unique environments are being created
-        assert (
-            dockerfile_content.count("conda env create") == 3
-        ), "Expected 3 conda environments to be created."
+        assert dockerfile_content.count("conda env create") == 3, (
+            "Expected 3 conda environments to be created."
+        )
 
     finally:
         if tmpdir and os.path.exists(tmpdir):

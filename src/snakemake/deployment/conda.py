@@ -256,9 +256,9 @@ class Env:
         return self._container_img.is_containerized
 
     def check_is_file_based(self):
-        assert (
-            self.file is not None
-        ), "bug: trying to access conda env file based functionality for named environment"
+        assert self.file is not None, (
+            "bug: trying to access conda env file based functionality for named environment"
+        )
 
     @property
     def address(self):

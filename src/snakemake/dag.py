@@ -393,9 +393,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 DeploymentMethod.APPTAINER
                 in self.workflow.deployment_settings.deployment_method
             ):
-                assert (
-                    simg_url in self.container_imgs
-                ), "bug: must first pull singularity images"
+                assert simg_url in self.container_imgs, (
+                    "bug: must first pull singularity images"
+                )
                 simg = self.container_imgs[simg_url]
             key = (env_spec, simg_url)
             if key not in self.conda_envs:
@@ -409,7 +409,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     async def retrieve_storage_inputs(
         self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
     ):
-
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
@@ -2755,16 +2754,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for node, deps in graph.items()
             for dep in deps
         ]
-        return (
-            textwrap.dedent("""\
+        return textwrap.dedent("""\
             ---
             title: DAG
             ---
             flowchart TB
-            """)
-            + "{}\n{}\n{}".format(
-                "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
-            )
+            """) + "{}\n{}\n{}".format(
+            "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
         )
 
     def _dot(
@@ -3067,8 +3063,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             logger.info("archived " + f)
 
                 logger.info(
-                    "Archiving snakefiles, scripts and files under "
-                    "version control..."
+                    "Archiving snakefiles, scripts and files under version control..."
                 )
                 for f in self.get_sources():
                     add(f)
@@ -3202,7 +3197,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             logger.info(msg)
 
     def stats(self) -> Tuple[str, Dict[str, int]]:
-
         # Count the jobs
         rules = Counter()
         rules.update(job.rule for job in self.needrun_jobs())

@@ -74,8 +74,9 @@ class Image:
                 )
             except subprocess.CalledProcessError as e:
                 raise WorkflowError(
-                    "Failed to pull singularity image "
-                    "from {}:\n{}".format(self.url, e.stdout.decode())
+                    "Failed to pull singularity image from {}:\n{}".format(
+                        self.url, e.stdout.decode()
+                    )
                 )
 
     @property
@@ -174,9 +175,9 @@ class Singularity:
 
     @property
     def version(self):
-        assert (
-            self._version is not None
-        ), "bug: singularity version accessed before check() has been called"
+        assert self._version is not None, (
+            "bug: singularity version accessed before check() has been called"
+        )
         return self._version
 
     def parseversion(self, raw_version):

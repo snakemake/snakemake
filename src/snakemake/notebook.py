@@ -88,8 +88,9 @@ class JupyterNotebook(ScriptBase):
                 else:
                     output_parameter = "{fname_out}"
                 cmd = (
-                    "papermill --log-level ERROR {{fname:q}} "
-                    "{output_parameter}".format(output_parameter=output_parameter)
+                    "papermill --log-level ERROR {{fname:q}} {output_parameter}".format(
+                        output_parameter=output_parameter
+                    )
                 )
             else:
                 if fname_out is None:

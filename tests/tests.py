@@ -3060,9 +3060,9 @@ def test_stats_table_order_and_counts():
 
     # Check counts
     for name, exp_count in expected_counts.items():
-        assert (
-            counts.get(name) == exp_count
-        ), f"Count for {name} was {counts.get(name)} != {exp_count}"
+        assert counts.get(name) == exp_count, (
+            f"Count for {name} was {counts.get(name)} != {exp_count}"
+        )
 
 
 @skip_on_windows

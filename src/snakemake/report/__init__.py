@@ -136,11 +136,13 @@ def report(
 
     attachments = []
     if files:
-        attachments = [textwrap.dedent("""
+        attachments = [
+            textwrap.dedent("""
             .. container::
                :name: attachments
 
-            """)]
+            """)
+        ]
         for name, _files in sorted(files.items()):
             if not isinstance(_files, list):
                 _files = [_files]
@@ -153,13 +155,15 @@ def report(
                     )
                 )
             links = "\n\n              ".join(links)
-            attachments.append("""
+            attachments.append(
+                """
        .. container::
           :name: {name}
 
           {name}:
               {links}
-                """.format(name=name, links=links))
+                """.format(name=name, links=links)
+            )
 
     text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
 

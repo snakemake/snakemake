@@ -150,8 +150,7 @@ class BenchmarkRecord:
         )
         if self.skipped_procs:
             logger.debug(
-                "Benchmark: not collected for "
-                "; ".join(
+                "Benchmark: not collected for ; ".join(
                     [
                         f"{{'pid': {record[0]}, 'name': '{record[1]}''}}"
                         for record in self.skipped_procs
@@ -159,8 +158,7 @@ class BenchmarkRecord:
                 )
             )
             logger.debug(
-                "Benchmark: collected for "
-                "; ".join(
+                "Benchmark: collected for ; ".join(
                     [
                         f"{{'pid': {record[0]}, 'name': '{record[1]}'}}"
                         for record in self.processed_procs
