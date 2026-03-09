@@ -3194,18 +3194,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         rows = []
         stats_dict = {}
 
-        orderd_jobs = []
-        for level in self.toposorted():
-            level_sorted = sorted(level, key=str)
-            for job in level_sorted:
-                orderd_jobs.append(str(job))
+        relevant_jobs = set(chain(self.needrun_jobs(), self.finished_jobs))
+        ordered_jobs = [
+            str(job)
+            for level in self.toposorted(relevant_jobs)
+            for job in sorted(level, key=str)
+        ]
+        ordered_counts = Counter(ordered_jobs)
 
-        deduplicated_job_list = list(dict.fromkeys(orderd_jobs))
-
-        for unique_job in deduplicated_job_list:
-            row = {"job": unique_job, "count": orderd_jobs.count(unique_job)}
-            rows.append(row)
-            stats_dict[unique_job] = orderd_jobs.count(unique_job)
+        for unique_job in dict.fromkeys(ordered_jobs):
+            count = ordered_counts[unique_job]
+            rows.append({"job": unique_job, "count": count})
+            stats_dict[unique_job] = count
 
         # Add total row
         total_count = sum(rules.values())

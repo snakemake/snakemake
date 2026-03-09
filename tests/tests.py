@@ -2977,8 +2977,10 @@ def test_stats_table_order_and_counts():
     for expected in expected_order:
         try:
             idx = names.index(expected, idx)  # find expected at or after idx
-        except ValueError:
-            assert False, f"Expected rule '{expected}' not found in stats output"
+        except ValueError as e:
+            raise AssertionError(
+                f"Expected rule '{expected}' not found in stats output"
+            ) from e
         idx += 1
 
     # Check counts
