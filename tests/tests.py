@@ -2949,8 +2949,8 @@ def test_stats_table_order_and_counts():
     stats_path = os.path.join(outdir, "stats.txt")
     assert os.path.exists(stats_path), "stats.txt was not created"
 
-    txt = open(stats_path, "r", encoding="utf-8").read()
-
+    with open(stats_path, "r", encoding="utf-8") as f:
+        txt = f.read()
     # Extract lines that look like "name <whitespace> number"
     # Skip header/dashes; match lines with a word-like rule name and integer count
     pairs = []
