@@ -3196,8 +3196,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         orderd_jobs = []
         for level in self.toposorted():
-            level_unsorted = level
-            level_sorted = level_unsorted
+            level_sorted = sorted(level, key=str)
             for job in level_sorted:
                 orderd_jobs.append(str(job))
 

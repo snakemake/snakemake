@@ -1,0 +1,41 @@
+rule all:
+    input:
+        "results/e.txt",
+        expand("results/c_{i}.txt", i=range(1, 4))
+
+rule a:
+    output:
+        "results/a.txt"
+    shell:
+        "mkdir -p results && echo A > {output}"
+
+rule d:
+    input:
+        "results/a.txt"
+    output:
+        "results/b.txt"
+    shell:
+        "mkdir -p results && echo B > {output}"
+
+rule b:
+    output:
+        "results/prepare.txt"
+    shell:
+        "mkdir -p results && echo PREP > {output}"
+
+rule c:
+    input:
+        "results/prepare.txt"
+    output:
+        "results/c_{i}.txt"
+    shell:
+        "mkdir -p results && echo C {wildcards.i} > {output}"
+
+rule e:
+    input:
+        "results/b.txt",
+        expand("results/c_{i}.txt", i=range(1, 4))
+    output:
+        "results/e.txt"
+    shell:
+        "mkdir -p results && cat {input} > {output} && echo E >> {output}"
