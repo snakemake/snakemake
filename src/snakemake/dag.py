@@ -1355,12 +1355,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         if missing_input:
             if job.is_checkpoint:
+                incomplete_outputs = set(
+                    await self.workflow.persistence.incomplete(job)  # type: ignore[reportOptionalMemberAccess]
+                )
                 for out in job.output:
-                    if await out.exists():
-                        has_meta = self.workflow.persistence.has_metadata(job)  # type: ignore[reportOptionalMemberAccess]
-                        is_incomplete = has_meta and await self.workflow.persistence.incomplete(job)  # type: ignore[reportOptionalMemberAccess]
-                        if not is_incomplete:
-                            self._evicted_checkpoint_outputs.add(out)
+                    if await out.exists() and out not in incomplete_outputs:
+                        self._evicted_checkpoint_outputs.add(out)
             self.delete_job(job, recursive=False)  # delete job from tree
             raise MissingInputException(job, missing_input)
 
@@ -1469,7 +1469,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             if not reason:
                 output_mintime_ = output_mintime.get(job)
                 reason.updated_input.clear()
-                if output_mintime_:
+                # Skip this check if the job depends on a checkpoint target, as it will be
+                # reevaluated in a second pass after the checkpoint output has been determined.
+                # The checkpoint target file itself may have been updated,
+                # but the real input files are not yet known.
+                depends_on_checkpoint_target = any(
+                    f.flags.get("checkpoint_target") for f in job.input
+                )
+                if output_mintime_ and not depends_on_checkpoint_target:
                     # Input is updated if it is newer than the oldest output file
                     # and does not have the same checksum as the one previously recorded.
                     async def updated_input():
@@ -1486,10 +1493,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     reason.unfinished_queue_input = job.has_unfinished_queue_input()
                     if not reason.unfinished_queue_input:
                         # check for other changes like parameters, set of input files, or code
-                        depends_on_checkpoint_target = any(
-                            f.flags.get("checkpoint_target") for f in job.input
-                        )
-
                         if not depends_on_checkpoint_target:
                             # When the job depends on a checkpoint, it will be reevaluated in a second pass
                             # after the checkpoint output has been determined.
