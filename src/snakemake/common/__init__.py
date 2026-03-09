@@ -1,3 +1,4 @@
+from snakemake.common.tbdstring import TBDString
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
@@ -184,6 +185,31 @@ APPDIRS = None
 RULEFUNC_CONTEXT_MARKER = "__is_snakemake_rule_func"
 
 
+def is_serializable(value: Any) -> bool:
+    return (
+        value is None
+        or isinstance(
+            value,
+            (
+                int,
+                float,
+                bool,
+                str,
+                complex,
+                range,
+                list,
+                tuple,
+                dict,
+                set,
+                frozenset,
+                bytes,
+                bytearray,
+            ),
+        )
+        and value is not TBDString
+    )
+
+
 def get_appdirs():
     global APPDIRS
     if APPDIRS is None:
@@ -194,6 +220,8 @@ def get_appdirs():
 
 
 def is_local_file(path_or_uri):
+    if isinstance(path_or_uri, Path):
+        path_or_uri = str(path_or_uri)
     return parse_uri(path_or_uri).scheme == "file"
 
 

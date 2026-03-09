@@ -393,7 +393,7 @@ def run_wrapper(run_args: RunArgs):
                             run_args.bench_record = bench_record
                             run(**run_args.rulefunc_args())
                     # Store benchmark record for this iteration
-                    bench_records.append(bench_record)
+                    bench_records.append(run_args.bench_record)
             else:
                 run(**run_args.rulefunc_args())
     except (KeyboardInterrupt, SystemExit) as e:

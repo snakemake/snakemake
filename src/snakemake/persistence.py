@@ -1,3 +1,4 @@
+from snakemake.common import is_serializable
 import dataclasses
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
@@ -574,28 +575,7 @@ class Persistence(PersistenceExecutorInterface):
         return sorted(job.log)
 
     def _serialize_param_builtin(self, value: Any):
-        if (
-            value is None
-            or isinstance(
-                value,
-                (
-                    int,
-                    float,
-                    bool,
-                    str,
-                    complex,
-                    range,
-                    list,
-                    tuple,
-                    dict,
-                    set,
-                    frozenset,
-                    bytes,
-                    bytearray,
-                ),
-            )
-            and value is not TBDString
-        ):
+        if is_serializable(value):
             return repr(value)
         else:
             return UNREPRESENTABLE

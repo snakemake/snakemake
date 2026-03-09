@@ -1,3 +1,4 @@
+from snakemake.deployment import EnvSpecs
 from typing import Optional
 
 __author__ = "Johannes Köster"
@@ -25,6 +26,7 @@ except ImportError:  # python < 3.11
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_software_deployment_plugins import (
     EnvSpecBase as SoftwareEnvSpecBase,
+    EnvSpecSourceFile
 )
 
 from snakemake.io import (
@@ -143,6 +145,15 @@ class Rule(RuleInterface):
         self.ruleinfo = None
         self.module_globals: typing.Dict
         self._pathvars: typing.Optional[Pathvars] = None
+
+    @property
+    def software_env_specs(self) -> EnvSpecs:
+        return self._software_env_specs
+
+    @software_env_specs.setter
+    def software_env_specs(self, software_env_specs: SoftwareEnvSpecs) -> None:
+        self._software_env_specs = software_env_specs
+        self._expanded_software_env_spec = _NOT_CACHED
 
     @property
     def pathvars(self) -> Pathvars:
@@ -1222,7 +1233,7 @@ class Rule(RuleInterface):
             except Exception:
                 # ignore exception, we still want the path to be returned
                 pass
-            return EnvSpecSourceFile(path_or_uri=path, cached_path=cached_path)
+            return EnvSpecSourceFile(path_or_uri=path, cached=cached_path)
 
         def apply_wildcards_on_attributes(value):
             # normalize to path to str
@@ -1246,11 +1257,11 @@ class Rule(RuleInterface):
                 value = EnvSpecSourceFile(path_or_uri=value)
             return value
 
-        software_env_specs = software_env_spec.modify_identity_attributes(
+        software_env_spec = software_env_specs.interpret()
+
+        software_env_spec = software_env_spec.modify_identity_attributes(
             apply_wildcards_on_attributes
         ).modify_source_paths(modify_source_paths)
-
-        software_env_spec = software_env_specs.interpret()
 
         if cacheable:
             self._expanded_software_env_spec = software_env_spec

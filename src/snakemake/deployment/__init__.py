@@ -48,7 +48,7 @@ class SoftwareDeploymentManager:
         for plugin_name, plugin in self.registry.plugins.items():
             if plugin_name not in self.workflow.deployment_settings.deployment_methods:
                 continue
-            kind = plugin.common_settings.kind
+            kind = plugin.common_settings.provides
             if kind not in self.plugins:
                 self.plugins[kind] = plugin
             else:
@@ -78,7 +78,7 @@ class SoftwareDeploymentManager:
                     )
                 )
             ):
-                self.get_env(job.env_spec)
+                self.get_env(job.software_env_spec)
 
     async def cache_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
         shared_cache = (
@@ -201,7 +201,7 @@ class SoftwareDeploymentManager:
 
             factory = make_factory(plugin, kind)
 
-            args = get_function_params(plugin.env_spec_cls)
+            args = list(get_function_params(plugin.env_spec_cls))
             args.append("within")
             overwrite_function_params(factory, args)
             global_variables[kind] = factory
@@ -213,6 +213,14 @@ class EnvSpecs:
     legacy_conda_env: Optional[Union[str, Path, Callable]] = None
     legacy_container_img: Optional[Union[str, Callable]] = None
     legacy_env_modules: Optional[Union[List[str], Callable]] = None
+
+    def is_empty(self) -> bool:
+        return (
+            self.software_spec is None
+            and self.legacy_conda_env is None
+            and self.legacy_container_img is None
+            and self.legacy_env_modules is None
+        )
 
     def is_callable(self) -> bool:
         return any(
@@ -265,6 +273,7 @@ class EnvSpecs:
                 conda_spec = CondaEnvSpec(directory=Path(spec))
             else:
                 conda_spec = CondaEnvSpec(name=spec)
+            conda_spec.technical_init()
 
             # So far, if both container and conda were specified,
             # we assumed that the conda env is meant to be deployed
@@ -274,11 +283,13 @@ class EnvSpecs:
         if container_spec is not None:
             # If the container already contains the required software,
             # conda is just a fallback.
+            container_spec.technical_init()
             container_spec.fallback = conda_spec
 
         if self.legacy_env_modules is not None:
 
             env_module_spec = EnvModuleEnvSpec(*self.legacy_env_modules)
+            env_module_spec.technical_init()
 
             # If env modules shall be used, they are preferred (since they are infrastructure specific)
             # and the others are fallback.

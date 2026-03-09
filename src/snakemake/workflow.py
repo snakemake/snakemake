@@ -1987,7 +1987,8 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.software_env_spec:
                 check_may_use_software_deployment("software")
                 env_specs.software_spec = ruleinfo.software_env_spec
-            rule.software_env_specs = env_specs
+            if not env_specs.is_empty():
+                rule.software_env_specs = env_specs
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
