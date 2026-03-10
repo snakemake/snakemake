@@ -80,5 +80,12 @@ class CheckpointJob:
     __slots__ = ["rule", "output"]
 
     def __init__(self, rule: "Rule", output: OutputFiles):
+        # Convert _IOFile objects to their plain string (or TypedFile) equivalents,
+        # matching the format of `output` as seen inside `run`/`shell` blocks.
+        #
+        # Previously this held raw _IOFile objects, which leaked an internal async
+        # API into the synchronous input-function context where it cannot be used.
+        # Unifying the format means `checkpoints.somestep.get().output.meta` behaves
+        # identically whether accessed in an input function or a run block.
         self.output = output._plainstrings()
         self.rule = rule

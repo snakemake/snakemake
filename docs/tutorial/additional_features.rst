@@ -233,15 +233,12 @@ Using the ``typed`` function
 
 The ``typed`` function wraps an output file path with a specific type, enabling structured serialization and deserialization of Dataclass or NamedTuple objects directly within Snakemake rules.
 
-Basic usage
-...........
-
-Declare a typed output in a rule (or checkpoint rule)::
+Declare a output data structure and reference it in a rule (or checkpoint rule)::
 
     @dataclass
     class MyType:
         some_threshold: float
-        files: Mapping[str, Path]
+        files: Mapping[str, str]
 
     checkpoint a:
         output:
@@ -250,6 +247,11 @@ Declare a typed output in a rule (or checkpoint rule)::
             output.meta.dump(some_threshold=0.3, files={"a": "path/to/a"})
 
 The ``dump`` method constructs an instance of ``MyType`` from the given keyword arguments and serializes it to the declared file path as JSON.
+The type passed to ``typed`` can be a :py:func:`dataclass <dataclasses.dataclass>`, a :py:class:`NamedTuple <typing.NamedTuple>`, or any class that implements an ``.asdict() -> dict[str, Any]`` method.
+
+.. note::
+   The structured data is serialized as JSON, so field values should be JSON-native types (``str``, ``int``, ``float``, ``bool``, ``list``, ``dict``), or types with built-in coercion support such as ``Path``.
+   Runtime type checking is not enforced; use a validated type like ``pydantic.BaseModel`` if strict validation is required.
 
 Accessing typed output
 ......................
