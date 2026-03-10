@@ -762,8 +762,8 @@ def test_run_namedlist():
     run(dpath("test_run_namedlist"))
 
 
-def test_profile():
-    run(dpath("test_profile"))
+def test_profile_old():
+    run(dpath("test_profile_old"))
 
     from snakemake.profiles import ProfileConfigFileParser
 

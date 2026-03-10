@@ -353,7 +353,7 @@ def parse_jobs(jobs):
 
 
 def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
-    config_pattern = re.compile(r"config(.v(?P<min_major>\d+)\+)?.yaml")
+    config_pattern = re.compile(r"(?P<main_file_name>profile|config)(.v(?P<min_major>\d+)\+)?.yaml")
 
     def get_config_min_major(filename):
         m = config_pattern.match(filename)
@@ -450,6 +450,7 @@ def get_argument_parser(profiles=None):
         "--profile",
         help=f"Name of profile to use for configuring Snakemake. Snakemake will search for a corresponding folder in `{dirs.site_config_dir}` and `{dirs.user_config_dir}`. Alternatively, this can be an absolute or relative path. The profile folder has to contain a file `config.yaml`. This file can be used to set default values for command line options in YAML format. For example, `--cluster qsub` becomes `cluster: qsub` in the YAML file. Profiles can be obtained from https://github.com/snakemake-profiles. The profile can also be set via the environment variable `$SNAKEMAKE_PROFILE`. To override this variable and use no profile at all, provide the value `none` to this argument.",
         env_var="SNAKEMAKE_PROFILE",
+        nargs="*",
     )
 
     group_exec.add_argument(
@@ -1841,10 +1842,10 @@ def parse_args(argv):
         # But only do this if the user has invoked Snakemake (ExecMode.DEFAULT)
         profiles = []
         if args.profile:
-            profiles.append(args.profile)
+            profiles.extend(args.profile)
         if workflow_profile:
             workflow_profile_stmt = f" {'and ' if profiles else ''}workflow specific profile {workflow_profile}"
-            profiles.append(workflow_profile)
+            profiles.extend(workflow_profile)
         else:
             workflow_profile_stmt = ""
 
