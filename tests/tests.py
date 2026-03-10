@@ -2289,6 +2289,12 @@ def test_github_issue3213():
     finally:
         shutil.rmtree(tmpdir)
 
+def test_issue_3970():
+    run(
+        dpath("test_issue3970"),
+        default_resources={"mem_mb": "3*1024 + input.size_mb"},
+        check_results=False,
+    )
 
 @skip_on_windows  # not platform dependent
 def test_inferred_resources():
