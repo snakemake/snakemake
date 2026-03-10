@@ -1,0 +1,59 @@
+from dataclasses import dataclass
+
+@dataclass
+class MyType:
+    some_threshold: float
+    files: Mapping[str, Path]
+
+
+rule all:
+    input:
+        "direct1.txt",
+        "reduced2.txt"
+
+
+# generate typed output
+checkpoint a:
+    output:
+        files=directory("something/{dataset}"),
+        meta=typed("metadata/{dataset}.json", MyType)
+    params:
+        l="{dataset}"
+    run:
+        shell("mkdir -p {output.files}")
+        shell("cd {output.files} && touch a b c")
+        files = {i.name: str(i) for i in Path(output.files).iterdir()}
+        output.meta.dump(some_threshold=0.3, files=files)
+
+
+# access typed output directly
+rule b:
+    input:
+        rules.a.output.files,
+        meta=rules.a.output.meta,
+    output:
+        "direct{dataset}.txt"
+    run:
+        val = input.meta.load().some_threshold
+        shell("echo {val} {input.meta} > {output}")
+
+
+# process individual items
+rule c:
+    output:
+        touch("processed/{dataset}/{item}.txt")
+
+
+# scatter over items in the typed output
+def get_processed(wildcards):
+    meta = checkpoints.a.get(**wildcards).output.meta.value
+    yield from meta.files.values()
+
+
+rule d:
+    input:
+        get_processed
+    output:
+        "reduced{dataset}.txt"
+    shell:
+        "ls {input} > {output}"

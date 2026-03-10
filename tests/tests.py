@@ -1527,6 +1527,10 @@ def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
 
 
+def test_flag_typed():
+    run(dpath("test_flag_typed"))
+
+
 @skip_on_windows
 def test_default_resources():
     run(

@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
-from snakemake.io import checkpoint_target
+from snakemake.io import checkpoint_target, OutputFiles
 from snakemake.logging import logger
 
 if TYPE_CHECKING:
@@ -79,6 +79,6 @@ class Checkpoint:
 class CheckpointJob:
     __slots__ = ["rule", "output"]
 
-    def __init__(self, rule: "Rule", output):
-        self.output = output
+    def __init__(self, rule: "Rule", output: OutputFiles):
+        self.output = output._plainstrings()
         self.rule = rule

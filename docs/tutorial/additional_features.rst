@@ -224,3 +224,59 @@ This mechanism helps to solve two kinds of ambiguity.
 When dealing with ambiguous rules, it is best practice to first try to solve the ambiguity by using a proper file structure, for example, by separating the output files of different steps in different directories.
 
 As follow-up to this tutorial, we recommend to have a look at the :ref:`interaction, visualization and reporting tutorial <interaction_visualization_reporting_tutorial>`, which focuses on Snakemake's ability to cover the last mile of data analysis, i.e., the generation of publication ready reports and interactive visualizations.
+
+
+.. _tutorial-typed:
+
+Using the ``typed`` function
+::::::::::::::::::::::::::::
+
+The ``typed`` function wraps an output file path with a specific type, enabling structured serialization and deserialization of Dataclass or NamedTuple objects directly within Snakemake rules.
+
+Basic usage
+...........
+
+Declare a typed output in a rule (or checkpoint rule)::
+
+    @dataclass
+    class MyType:
+        some_threshold: float
+        files: Mapping[str, Path]
+
+    checkpoint a:
+        output:
+            meta=typed("metadata/{dataset}.json", MyType)
+        run:
+            output.meta.dump(some_threshold=0.3, files={"a": "path/to/a"})
+
+The ``dump`` method constructs an instance of ``MyType`` from the given keyword arguments and serializes it to the declared file path as JSON.
+
+Accessing typed output
+......................
+
+In downstream rules, typed files can be accessed directly via ``rules.<name>.output.<field>``.
+The ``load`` method (or the ``value`` property as a shorthand) reads the file back and returns a typed instance whose fields are accessible via attribute syntax.
+To retrieve the underlying file path as a string, use ``str()``.
+
+- Call ``.load()`` to deserialize on demand::
+
+      rule b:
+          input:
+              meta=rules.a.output.meta
+          run:
+              val = input.meta.load().some_threshold
+              shell("ls {input.meta}")
+
+Scattering over typed output
+.............................
+
+When combined with checkpoints, ``typed`` enables structured access to deserialized objects in input functions.
+This pattern avoids parsing raw text files and keeps the contract between the checkpoint and its consumers fully type-checked::
+
+    def get_processed(wildcards):
+        meta = checkpoints.a.get(**wildcards).output.meta.value
+        yield from meta.files.values()
+
+    rule d:
+        input:
+            get_processed

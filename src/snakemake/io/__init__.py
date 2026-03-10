@@ -66,6 +66,7 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 from snakemake.logging import logger
+from snakemake.io.typed import TypedFile
 
 if TYPE_CHECKING:
     import snakemake.rules
@@ -468,6 +469,21 @@ class _IOFile(str, AnnotatedStringInterface):
             raise ValueError(
                 "This IOFile is specified as a function and may not be used directly."
             )
+
+    @property
+    def plainstr(self):
+        """
+        Use original query if storage is not retrieved by snakemake
+        Decorated by typed if set
+        """
+        if self.storage_object is not None and not self.storage_object.retrieve:
+            x = self.storage_object.query
+        else:
+            x = str(self)
+        typed_factory = get_flag_value(self._file, "typed")
+        if typed_factory is not None:
+            return typed_factory(x)
+        return x
 
     def check(self):
         if callable(self._file):
@@ -941,7 +957,7 @@ def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
     return value.is_flagged(flag)
 
 
-def flag(value, flag_type, flag_value=True):
+def flag(value, flag_type: str, flag_value: Any = True):
     if isinstance(value, AnnotatedStringInterface):
         value.flags[flag_type] = flag_value
         return value
@@ -1022,7 +1038,7 @@ _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
 
-_CONSIDER_LOCAL_DEFAULT = frozenset()
+_CONSIDER_LOCAL_DEFAULT = frozenset()  # type: ignore[var-annotated]
 
 _illegal_wildcard_name_regex = re.compile(
     r"""
@@ -1041,7 +1057,7 @@ async def wait_for_files(
     latency_wait=3,
     wait_for_local=False,
     ignore_pipe_or_service=False,
-    consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
+    consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,  # type: ignore[assignment]
 ):
     """Wait for given files to be present in the filesystem."""
 
@@ -1609,6 +1625,17 @@ def is_multiext_items(
     )
 
 
+def typed(value, type_):
+    """
+    Flag the file(=value) as a specific format(=type_).
+    value must be a single file
+    """
+    v = flag(value, "typed", None)
+    if not isinstance(v, AnnotatedStringInterface):
+        raise ValueError("typed can only be used on single files")
+    return flag(v, "typed", TypedFile.factory(type_))
+
+
 def limit(pattern: Union[str, AnnotatedString], **wildcards):
     """
     Limit wildcards to the given values.
@@ -1782,7 +1809,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
             Namedlist (keys become names)
         """
         list.__init__(self)
-        self._names = dict()
+        self._names: dict[str, Tuple[int, str | None]] = dict()
 
         # white-list of attribute names that can be overridden in _set_name
         # default to throwing exception if called to prevent use as functions
@@ -1794,18 +1821,10 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
+                # After this, file will be converted to plain string.
+                # Exception: if the file is typed, should be converted to instance of assigned class
                 self.extend(
-                    # use original query if storage is not retrieved by snakemake
-                    (
-                        (
-                            str(x)
-                            if x.storage_object.retrieve
-                            else x.storage_object.query
-                        )
-                        if isinstance(x, _IOFile) and x.storage_object is not None
-                        else str(x)
-                    )
-                    for x in toclone
+                    (x.plainstr if isinstance(x, _IOFile) else str(x)) for x in toclone
                 )
             elif strip_constraints:
                 self.extend(map(strip_wildcard_constraints, toclone))
