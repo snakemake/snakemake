@@ -369,6 +369,8 @@ def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
     dirs = get_appdirs()
     if os.path.exists(profile):
         parent_dir = os.path.dirname(profile) or "."
+        if os.path.isfile(profile):
+            return Path(parent_dir), Path(profile)
         search_dirs = [parent_dir]
         profile = os.path.basename(profile)
     else:
