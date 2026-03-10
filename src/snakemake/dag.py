@@ -2157,9 +2157,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
 
-        async def is_output_present(job):
+        async def is_output_present(job: Job):
+            async def exists(out: _IOFile):
+                if out.is_storage and out.storage_object is not None:
+                    if out.storage_object.retrieve:
+                        # check local presence, which is the relevant condition for determining whether the checkpoint can be considered finished or not.
+                        return await out.exists_local()  # type: ignore[reportCallIssue]
+                    else:
+                        # retrieve=False，只检查 storage 侧
+                        return await out.exists_in_storage()  # type: ignore[reportCallIssue]
+                return await out.exists_local()  # type: ignore[reportCallIssue]
+
             return (self.finished(job) or not self.needrun(job)) and all(
-                await asyncio.gather(*(out.exists() for out in job.output))
+                await asyncio.gather(*(exists(out) for out in job.output))
             )
 
         job_queue = defaultdict(set)
@@ -2737,12 +2747,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
         return (
-            textwrap.dedent("""\
+            textwrap.dedent(
+                """\
             ---
             title: DAG
             ---
             flowchart TB
-            """)
+            """
+            )
             + "{}\n{}\n{}".format(
                 "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
             )
@@ -2787,7 +2799,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
 
-        return textwrap.dedent("""\
+        return textwrap.dedent(
+            """\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -2795,7 +2808,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """).format(items="\n".join(nodes + edges))
+            """
+        ).format(items="\n".join(nodes + edges))
 
     def filegraph_dot(
         self,
@@ -2924,7 +2938,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for dep in deps
         ]
 
-        return textwrap.dedent("""\
+        return textwrap.dedent(
+            """\
             digraph snakemake_dag {{
                 graph[bgcolor=white, margin=0];
                 node[shape=box, style=rounded, fontname=sans, \
@@ -2932,7 +2947,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 edge[penwidth=2, color=grey];
             {items}
             }}\
-            """).format(items="\n".join(nodes + edges))
+            """
+        ).format(items="\n".join(nodes + edges))
 
     async def summary(self, detailed=False):
         def fmt_output(f):
