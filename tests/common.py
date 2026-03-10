@@ -228,6 +228,8 @@ def run(
     benchmark_extended=False,
     apptainer_args="",
     tmpdir: StrPath | None = None,
+    persistence_backend: str = "file",
+    persistence_backend_db_url: str | None = None,
 ) -> Path | None:
     """
     Test the Snakefile in the path.
@@ -412,6 +414,8 @@ def run(
                     workflow_settings=settings.WorkflowSettings(
                         wrapper_prefix=wrapper_prefix,
                         cache=cache,
+                        persistence_backend=persistence_backend,
+                        persistence_backend_db_url=persistence_backend_db_url,
                     ),
                     deployment_settings=settings.DeploymentSettings(
                         conda_frontend=conda_frontend,

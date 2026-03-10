@@ -15,11 +15,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from snakemake.exceptions import ResourceConversionError
 from snakemake.exceptions import ResourceDuplicationError
-from snakemake.persistence import PersistenceBase
+from snakemake.persistence.db import DbPersistence
 from snakemake.persistence.file import FilePersistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
 from snakemake.settings.enums import RerunTrigger
-from snakemake.utils import min_version  # import so we can patch out if needed
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
@@ -321,10 +320,59 @@ def test_params():
     run(dpath("test_params"))
 
 
-def test_params_outdated_metadata(mocker):
-    spy = mocker.spy(PersistenceBase, "has_outdated_metadata")
+@pytest.mark.parametrize(
+    "backend, PersistenceClass", [("file", FilePersistence), ("db", DbPersistence)]
+)
+def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
+    spy = mocker.spy(PersistenceClass, "has_outdated_metadata")
 
-    run(dpath("test_params_outdated_code"), targets=["somedir/test.out"])
+    db_url = None
+    if backend == "db":
+        from sqlalchemy import create_engine
+        from snakemake.persistence.db import Base, MetadataRecordORM
+        from sqlalchemy.orm import Session
+        import json
+
+        # since we do not have a db in the test dir,
+        # we create one from the single _outdated_ .snakemake/metadata/c29tZWRpci90ZXN0Lm91dA== file,
+        # which is the metadata for the test.out file
+        db_file = tmp_path / "metadata.db"
+        db_url = f"sqlite:///{db_file}"
+        engine = create_engine(db_url)
+        Base.metadata.create_all(engine)
+
+        json_file = (
+            dpath("test_params_outdated_code")
+            / ".snakemake"
+            / "metadata"
+            / "c29tZWRpci90ZXN0Lm91dA=="
+        )
+        with open(json_file, "r") as f:
+            rec = json.load(f)
+
+        with Session(engine) as session:
+            session.add(
+                MetadataRecordORM(
+                    target="somedir/test.out",
+                    code=rec.get("code"),
+                    rule=rec.get("rule"),
+                    params=rec.get("params"),
+                    shellcmd=rec.get("shellcmd"),
+                    starttime=rec.get("starttime"),
+                    endtime=rec.get("endtime"),
+                    job_hash=rec.get("job_hash"),
+                )
+            )
+            session.commit()
+
+    run(
+        dpath("test_params_outdated_code"),
+        targets=["somedir/test.out"],
+        persistence_backend=backend,
+        persistence_backend_db_url=db_url,
+    )
+
+    assert spy.call_count > 0, f"has_outdated_metadata was not called for {backend}!"
     assert spy.spy_return == True
 
 
