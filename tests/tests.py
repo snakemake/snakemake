@@ -2962,6 +2962,8 @@ def test_github_issue3913():
         cleanup=False,
     )
 
+    started_job_count = 0
+    completed_job_count = 0
     active_job_thread_counts = {}
     with open(next((tmpdir / ".snakemake/log").glob("*.log"))) as logfile:
         for line in logfile:
@@ -2972,10 +2974,12 @@ def test_github_issue3913():
                 thread_count = int(line.split()[-1])
             elif line.startswith("    resources:"):
                 active_job_thread_counts[current_jobid] = thread_count
+                started_job_count += 1
             elif line.startswith("Finished jobid:"):
                 finished_jobid = line.split()[2]
                 assert finished_jobid in active_job_thread_counts
                 del active_job_thread_counts[finished_jobid]
+                completed_job_count += 1
 
             if not active_job_thread_counts:
                 # No active jobs trivially passes the test
@@ -2991,4 +2995,7 @@ def test_github_issue3913():
             )
             assert active_threads <= max_allowed_threads
 
+    # Ensure that we observed every job we expect;
+    # avoid test passing spuriously if log format changes
+    assert completed_job_count == 4 and started_job_count == 4
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
