@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Callable
+from collections.abc import Callable, Mapping
 from typing import Optional, Union
 
 
@@ -25,8 +25,12 @@ def branch(
     If any such function is given to any of those arguments, this function returns a derived
     input function that will be evaluated once the wildcards are known.
     """
+    from pandas import isna
 
     def convert_none(value):
+        if isna(value):
+            # Value can be None, numpy.nan, pandas.NA, pandas.NaT
+            return []
         return value or []
 
     def handle_callable(value, wildcards):
