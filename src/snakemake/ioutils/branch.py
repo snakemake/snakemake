@@ -26,9 +26,10 @@ def branch(
     input function that will be evaluated once the wildcards are known.
     """
     from pandas import isna
+    from pandas.api.types import is_scalar
 
     def convert_none(value):
-        if isna(value):
+        if is_scalar(value) and isna(value):
             # Value can be None, numpy.nan, pandas.NA, pandas.NaT
             return []
         return value or []
