@@ -1943,6 +1943,104 @@ def create_output_settings(args, log_handler_settings) -> OutputSettings:
     return settings
 
 
+def run_lint(workflow_api) -> bool:
+    """Run linting. Returns False if lint errors found (triggers exit code 1)."""
+    any_lint = workflow_api.lint()
+    if any_lint:
+        return False
+    return True
+
+
+def run_list_rules(workflow_api, only_targets: bool = False) -> None:
+    workflow_api.list_rules(only_targets=only_targets)
+
+
+def run_print_compilation(workflow_api) -> None:
+    workflow_api.print_compilation()
+
+
+def run_printdag(dag_api) -> None:
+    dag_api.printdag()
+
+
+def run_printrulegraph(dag_api) -> None:
+    dag_api.printrulegraph()
+
+
+def run_printfilegraph(dag_api) -> None:
+    dag_api.printfilegraph()
+
+
+def run_printd3dag(dag_api) -> None:
+    dag_api.printd3dag()
+
+
+def run_summary(dag_api, detailed: bool = False) -> None:
+    dag_api.summary(detailed=detailed)
+
+
+def run_list_changes(dag_api, change_type) -> None:
+    dag_api.list_changes(change_type)
+
+
+def run_list_untracked(dag_api) -> None:
+    dag_api.list_untracked()
+
+
+def run_unlock(dag_api) -> None:
+    dag_api.unlock()
+
+
+def run_delete_output(dag_api, only_temp: bool = False, dryrun: bool = False) -> None:
+    dag_api.delete_output(only_temp=only_temp, dryrun=dryrun)
+
+
+def run_cleanup_metadata(dag_api, files) -> None:
+    dag_api.cleanup_metadata(files)
+
+
+def run_cleanup_shadow(dag_api) -> None:
+    dag_api.cleanup_shadow()
+
+
+def run_containerize(dag_api) -> None:
+    dag_api.containerize()
+
+
+def run_generate_unit_tests(dag_api, path) -> None:
+    dag_api.generate_unit_tests(path)
+
+
+def run_archive(dag_api, path) -> None:
+    dag_api.archive(path)
+
+
+def run_report(dag_api, reporter, report_settings, metadata_template=None) -> None:
+    dag_api.create_report(
+        reporter=reporter,
+        report_settings=report_settings,
+        global_report_settings=GlobalReportSettings(
+            metadata_template=metadata_template,
+        ),
+    )
+
+
+def run_conda_list_envs(dag_api) -> None:
+    dag_api.conda_list_envs()
+
+
+def run_conda_cleanup_envs(dag_api) -> None:
+    dag_api.conda_cleanup_envs()
+
+
+def run_conda_create_envs(dag_api) -> None:
+    dag_api.conda_create_envs()
+
+
+def run_container_cleanup_images(dag_api) -> None:
+    dag_api.container_cleanup_images()
+
+
 def args_to_api(args, parser):
     """Convert argparse args to API calls."""
 
@@ -2086,16 +2184,13 @@ def args_to_api(args, parser):
                 )
 
                 if args.lint:
-                    any_lint = workflow_api.lint()
-                    if any_lint:
-                        # trigger exit code 1
-                        return False
+                    return run_lint(workflow_api)
                 elif args.list_target_rules:
-                    workflow_api.list_rules(only_targets=True)
+                    run_list_rules(workflow_api, only_targets=True)
                 elif args.list_rules:
-                    workflow_api.list_rules(only_targets=False)
+                    run_list_rules(workflow_api)
                 elif args.print_compilation:
-                    workflow_api.print_compilation()
+                    run_print_compilation(workflow_api)
                 else:
                     print_dag_as = None
                     if args.dag:
@@ -2139,57 +2234,56 @@ def args_to_api(args, parser):
                         preemptible_rules = PreemptibleRules()
 
                     if args.containerize:
-                        dag_api.containerize()
+                        run_containerize(dag_api)
                     elif report_plugin is not None and not args.report_after_run:
-                        dag_api.create_report(
-                            reporter=args.reporter,
-                            report_settings=report_settings,
-                            global_report_settings=GlobalReportSettings(
-                                metadata_template=args.report_metadata
-                            ),
+                        run_report(
+                            dag_api,
+                            args.reporter,
+                            report_settings,
+                            args.report_metadata,
                         )
                     elif args.generate_unit_tests:
-                        dag_api.generate_unit_tests(args.generate_unit_tests)
+                        run_generate_unit_tests(dag_api, args.generate_unit_tests)
                     elif args.dag:
-                        dag_api.printdag()
+                        run_printdag(dag_api)
                     elif args.rulegraph:
-                        dag_api.printrulegraph()
+                        run_printrulegraph(dag_api)
                     elif args.filegraph:
-                        dag_api.printfilegraph()
+                        run_printfilegraph(dag_api)
                     elif args.d3dag:
-                        dag_api.printd3dag()
+                        run_printd3dag(dag_api)
                     elif args.unlock:
-                        dag_api.unlock()
+                        run_unlock(dag_api)
                     elif args.cleanup_metadata:
-                        dag_api.cleanup_metadata(args.cleanup_metadata)
+                        run_cleanup_metadata(dag_api, args.cleanup_metadata)
                     elif args.conda_cleanup_envs:
-                        dag_api.conda_cleanup_envs()
+                        run_conda_cleanup_envs(dag_api)
                     elif args.conda_create_envs_only:
-                        dag_api.conda_create_envs()
+                        run_conda_create_envs(dag_api)
                     elif args.list_conda_envs:
-                        dag_api.conda_list_envs()
+                        run_conda_list_envs(dag_api)
                     elif args.cleanup_shadow:
-                        dag_api.cleanup_shadow()
+                        run_cleanup_shadow(dag_api)
                     elif args.container_cleanup_images:
-                        dag_api.container_cleanup_images()
+                        run_container_cleanup_images(dag_api)
                     elif args.list_changes:
-                        dag_api.list_changes(args.list_changes)
+                        run_list_changes(dag_api, args.list_changes)
                     elif args.list_input_changes:
-                        dag_api.list_changes(ChangeType.INPUT)
+                        run_list_changes(dag_api, ChangeType.INPUT)
                     elif args.list_params_changes:
-                        dag_api.list_changes(ChangeType.PARAMS)
+                        run_list_changes(dag_api, ChangeType.PARAMS)
                     elif args.list_untracked:
-                        dag_api.list_untracked()
+                        run_list_untracked(dag_api)
                     elif args.summary:
-                        dag_api.summary()
+                        run_summary(dag_api)
                     elif args.detailed_summary:
-                        dag_api.summary(detailed=True)
+                        run_summary(dag_api, detailed=True)
                     elif args.archive:
-                        dag_api.archive(args.archive)
+                        run_archive(dag_api, args.archive)
                     elif args.delete_all_output:
-                        dag_api.delete_output(dryrun=args.dryrun)
+                        run_delete_output(dag_api, dryrun=args.dryrun)
                     elif args.delete_temp_output:
-                        dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
+                        run_delete_output(dag_api, only_temp=True, dryrun=args.dryrun)
                     else:
                         dag_api.execute_workflow(
                             executor=args.executor,
@@ -2243,10 +2337,7 @@ def args_to_api(args, parser):
                         )
 
                         if report_plugin is not None and args.report_after_run:
-                            dag_api.create_report(
-                                reporter=args.reporter,
-                                report_settings=report_settings,
-                            )
+                            run_report(dag_api, args.reporter, report_settings)
 
         except Exception as e:
             snakemake_api.print_exception(e)

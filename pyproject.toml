@@ -31,6 +31,7 @@ classifiers = [
 
 dependencies = [
   "appdirs",
+  "click>=8.0",
   "immutables",
   "configargparse",
   "connection_pool>=0.0.3",
@@ -73,7 +74,7 @@ reports = ["pygments"]
 all = ["eido", "peppy", "pygments"]
 
 [project.scripts]
-snakemake = "snakemake.cli:main"
+snakemake = "snakemake.cli_click:cli"
 
 [tool.setuptools_scm]
 version_file = "src/snakemake/_version.py"
