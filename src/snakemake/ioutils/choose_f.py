@@ -40,7 +40,7 @@ def choose_f(
     def _check_f(path: Path, mode: List[bool] = [None, None, None]) -> bool:
         """
         Checks if path matches provided mode in the order: read, write, execute.
-        `True` specifies that specific mode is set, while `False` specifies the oposite; if `None`, that mode is ignored.
+        `True` specifies that specific mode is set, while `False` specifies the opposite; if `None`, that mode is ignored.
         As an example, `mode = [True, False, None]` would match files/folders that are readable, not writable and where execution mode is irrlelevant (they can be either executable or not).
         """
         import os
