@@ -2292,7 +2292,7 @@ def test_github_issue3213():
 def test_issue_3970():
     run(
         dpath("test_issue3970"),
-        default_resources={"mem_mb": "3*1024 + input.size_mb"},
+        shellcmd="snakemake --default-resources 'mem_mb=3*1024 + input.size_mb' -c1",
         check_results=False,
     )
 
