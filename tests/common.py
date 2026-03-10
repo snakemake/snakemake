@@ -288,23 +288,24 @@ def run(
             results_dir.exists() and results_dir.is_dir()
         ), f"{results_dir} does not exist"
 
-    if tmpdir is None:
-        # If we need to further check results, we won't cleanup tmpdir
-        tmpdir = next(tempfile._get_candidate_names())
-        tmpdir = os.path.join(
-            tempfile.gettempdir(), f"snakemake-{original_dirname}-{tmpdir}"
-        )
-        os.mkdir(tmpdir)
+    if not no_tmpdir:
+        if tmpdir is None:
+            # If we need to further check results, we won't cleanup tmpdir
+            tmpdir = next(tempfile._get_candidate_names())
+            tmpdir = os.path.join(
+                tempfile.gettempdir(), f"snakemake-{original_dirname}-{tmpdir}"
+            )
+            os.mkdir(tmpdir)
 
-        # copy files
-        for f in os.listdir(path):
-            copy(os.path.join(path, f), tmpdir)
+            # copy files
+            for f in os.listdir(path):
+                copy(os.path.join(path, f), tmpdir)
 
-    else:
-        tmpdir = os.fsdecode(tmpdir)
+        else:
+            tmpdir = os.fsdecode(tmpdir)
 
     # Snakefile is now in temporary directory
-    snakefile = join(tmpdir, snakefile)
+    snakefile = join(path if no_tmpdir else tmpdir, snakefile)
 
     snakemake_api = None
     exception = None
@@ -555,6 +556,9 @@ def run(
                         content=content,
                         expected_content=expected_content,
                     )
+
+    if no_tmpdir:
+        return None
 
     if not cleanup:
         return Path(tmpdir)
