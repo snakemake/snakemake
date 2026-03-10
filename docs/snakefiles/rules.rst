@@ -796,6 +796,35 @@ When selecting input files, sometimes you might end up with an irregular list of
 
     flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
 
+.. _snakefiles-choose-f:
+
+The choose_f(ile/older) functions
+"""""""""""""""""""""""""""""""""
+In some case you might need to choose a valid file/folder from a given list at execution time. For that you can use the ``choose_f`` family of functions for files:
+
+.. code-block:: python
+
+    choose_file(["file/with/no/access", "~/.bashrc"]) # returns "~/.bashrc"
+
+folders:
+
+.. code-block:: python
+
+    choose_folder(["non/existent/path", "/tmp"]) # returns "/tmp"
+
+:ref:`temp folders <snakefiles-dynamic-resources_tmpdir>`:
+
+.. code-block:: python
+
+    choose_tmp(["non/existent/path", "/tmp", "/tmp/job_id"]) # returns "/tmp"
+
+or a generic function for more flexibility:
+
+.. code-block:: python
+
+    choose_f(["non/existent/path", "/tmp"]) # returns "/tmp"
+
+
 .. _snakefiles-targets:
 
 Target rules
@@ -1108,6 +1137,8 @@ You could, for example, provide the following workflow profile in a file ``profi
             mem_mb: 1000
 
 to set the requirements for rule ``b`` to 3 threads and 1000 MB.
+
+.. _snakefiles-dynamic-resources_tmpdir:
 
 Another case of dynamic resources, is for the `tmpdir`. Depending on the architecture of our system, you might have different servers with different "ideal" temp folders. For example, some might have small but fast ``nvme`` disks, others might have a job-specific temp folder (e.g. ``/scratch/$SLURM_JOB_ID``, while in others the only option might be the slow NFS. The function ``choose_tmp`` allows the user to specify a list of temp folders that, on each job submission, are evaluated. The first valid path is selected; if no path is valid, Snakemake's internal ``system_tmpdir`` is used. For example, one can specify the function in a profile:
 
