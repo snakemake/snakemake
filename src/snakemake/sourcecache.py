@@ -763,6 +763,7 @@ class SourceCache:
                 entryfile.write_from_fileobj(source)
 
     import logging
+
     @retry(
         stop=stop_after_attempt(1),
         after=after_log(logger, logging.INFO),

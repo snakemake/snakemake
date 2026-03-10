@@ -15,7 +15,7 @@ rule b:
     output:
         "test.txt",
     singularity:
-        "docker://python:3.9"
+        "docker://python:latest"
     script:
         "script.py"
 
