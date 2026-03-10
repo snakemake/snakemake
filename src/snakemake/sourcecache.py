@@ -717,7 +717,7 @@ class SourceCache:
 
     def exists(self, source_file):
         try:
-            self._cache(source_file, retries=1)
+            self._cache(source_file)
         except Exception:
             return False
         return True
@@ -740,13 +740,13 @@ class SourceCache:
             # check runtime cache
             return Path(self.runtime_cache_path) / file_cache_path
 
-    def _cache(self, source_file: SourceFile, retries: int = 3):
+    def _cache(self, source_file: SourceFile):
         cache_entry = self._cache_entry(source_file)
         if not cache_entry.exists():
-            self._do_cache(source_file, cache_entry, retries=retries)
+            self._do_cache(source_file, cache_entry)
         return cache_entry
 
-    def _do_cache(self, source_file, cache_entry: Path, retries: int = 3):
+    def _do_cache(self, source_file, cache_entry: Path):
         mtime = source_file.mtime()
         # open from origin
         with self._open(source_file, "rb", encoding=None) as source:
@@ -765,7 +765,7 @@ class SourceCache:
 
     @retry(
         wait=wait_exponential(multiplier=2, min=3),
-        stop=stop_after_attempt(retries),
+        stop=stop_after_attempt(1),
         after=after_log(logger, logging.DEBUG),
     )
     def _open(self, source_file: SourceFile, mode, encoding=None):
