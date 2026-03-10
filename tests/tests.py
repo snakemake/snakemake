@@ -1500,6 +1500,7 @@ def test_uncreatable_checkpoint_input():
     run(dpath("test_uncreatable_checkpoint_input"))
 
 
+@skip_on_windows  # OS agnostic
 def test_checkpoint_rerun():
     d = dpath("test_checkpoint_rerun")
     run(d, no_tmpdir=True, cleanup=False, check_results=False)
