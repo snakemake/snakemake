@@ -135,6 +135,8 @@ class WorkflowSettings(SettingsBase):
         default_factory=dict
     )
     runtime_source_cache_path: Optional[Path] = None
+    persistence_backend: str = "file"
+    persistence_backend_db_url: Optional[str] = None
 
 
 class Batch:

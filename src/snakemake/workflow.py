@@ -913,16 +913,17 @@ class Workflow(WorkflowExecutorInterface):
         )
 
         assert self.deployment_settings is not None
-        # self._persistence = FilePersistence(
-        #     nolock=nolock,
-        #     dag=self._dag,
-        #     conda_prefix=self.deployment_settings.conda_prefix,
-        #     singularity_prefix=self.deployment_settings.apptainer_prefix,
-        #     shadow_prefix=shadow_prefix,
-        #     warn_only=lock_warn_only,
-        #     path=persistence_path,
-        # )
-        self._persistence = DbPersistence(
+
+        if self.workflow_settings.persistence_backend == "db":
+            persistence = DbPersistence
+            persistence_kwargs = {
+                "db_url": self.workflow_settings.persistence_backend_db_url
+            }
+        else:
+            persistence = FilePersistence
+            persistence_kwargs = {}
+
+        self._persistence = persistence(
             nolock=nolock,
             dag=self._dag,
             conda_prefix=self.deployment_settings.conda_prefix,
@@ -930,6 +931,7 @@ class Workflow(WorkflowExecutorInterface):
             shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
             path=persistence_path,
+            **persistence_kwargs,
         )
 
     def generate_unit_tests(self, path: Path):
