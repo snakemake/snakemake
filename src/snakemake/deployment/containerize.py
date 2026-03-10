@@ -118,7 +118,7 @@ class ApptainerFormat(ContainerFormat):
     def add_remote_file(self, url, dest):
         # Apptainer doesn't have ADD, so we download in %post
         self._post.append(f"mkdir -p $(dirname {dest})")
-        self._post.append(f"wget -O {dest} {url}")
+        self._post.append(f"curl -L '{url}' > '{dest}'")
 
     def run_command(self, cmd):
         self._post.append(cmd)
