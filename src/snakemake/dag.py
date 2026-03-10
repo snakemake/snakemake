@@ -490,17 +490,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                                 f.remove(remove_non_empty_dir=True, only_local=True)
                             )
 
-    def create_conda_envs(self, dryrun=False, quiet=False):
-        dryrun |= self.workflow.dryrun
-        touch = self.workflow.touch
-        for env in self.conda_envs.values():
-            if (
-                not touch
-                and (not dryrun or not quiet)
-                and not env.is_externally_managed
-            ):
-                env.create(self.workflow.dryrun)
-
     def update_output_index(self):
         """Update the OutputIndex."""
         self.output_index = OutputIndex(self.rules)
@@ -2996,14 +2985,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             # this is an input file that is not created by any job
                             add(f)
 
-                logger.info("Archiving conda environments...")
-                envs = set()
+                logger.info("Archiving software environments...")
+                env_cache_assets = set()
+
+                def collect_caches(env):
+                    for dirpath, _, filenames in env.cache_prefix.walk():
+                        env_cache_assets.add(str(dirpath / filename) for filename in filenames)
+                    if env.within is not None:
+                        collect_caches(env.within)
+
                 for job in self.jobs:
-                    if job.conda_env_spec:
-                        env_archive = job.archive_conda_env()
-                        envs.add(env_archive)
-                for env in envs:
-                    add(env)
+                    if job.software_env:
+                        collect_caches(job.software_env)
+                for asset in env_cache_assets:
+                    add(asset)
 
         except BaseException as e:
             os.remove(path)
@@ -3265,12 +3260,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         for job in self.jobs:
             assert not job.is_group(), "bug: groups should not be yielded by DAG.jobs"
-            if job.conda_env_spec and job.conda_env_spec.is_file:
-                f = local_path(job.conda_env_spec.file)
-                if f:
-                    # url points to a local env file
-                    env_path = norm_rule_relpath(f, job.rule)
-                    files.add(env_path)
+            if job.software_env_spec:
+                for attr in job.software_env_spec.source_path_attributes():
+                    f = local_path(getattr(job.software_env_spec, attr))
+                    if f:
+                        # url points to a local env file
+                        env_path = norm_rule_relpath(f, job.rule)
+                        files.add(env_path)
 
         for f in self.workflow.configfiles:
             files.add(os.path.relpath(f))

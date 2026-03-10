@@ -73,7 +73,6 @@ class Persistence(PersistenceExecutorInterface):
         self._metadata_path = os.path.join(self.path, "metadata")
         self._incomplete_path = os.path.join(self.path, "incomplete")
 
-        self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
         self.benchmark_path = os.path.join(self.path, "benchmarks")
 
         self.source_cache = os.path.join(self.path, "source_cache")

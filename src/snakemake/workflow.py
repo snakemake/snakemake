@@ -1926,7 +1926,7 @@ class Workflow(WorkflowExecutorInterface):
             rule.restart_times = ruleinfo.retries
 
             if ruleinfo.wrapper:
-                rule.conda_env = snakemake.wrapper.get_conda_env(
+                ruleinfo.conda_env = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper,
                     self.sourcecache,
                     prefix=self.workflow_settings.wrapper_prefix,

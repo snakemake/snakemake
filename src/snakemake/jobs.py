@@ -522,18 +522,6 @@ class Job(
             )
         return None
 
-    def archive_conda_env(self):
-        """Archive a conda environment into a custom local channel."""
-        if self.conda_env_spec:
-            if self.conda_env.is_externally_managed:
-                raise WorkflowError(
-                    "Workflow archives cannot be created for workflows using externally managed conda environments."
-                    "Please use paths to YAML files for all your conda directives.",
-                    rule=self.rule,
-                )
-            return self.conda_env.create_archive()
-        return None
-
     @property
     def is_containerized(self):
         return self.rule.is_containerized
