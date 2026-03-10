@@ -11,6 +11,7 @@ import os
 import shutil
 import stat
 import threading
+from tenacity import retry
 import typing
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 
@@ -368,9 +369,9 @@ class HostedGitRepo:
         except KeyError:
             return False
 
+    @retry(wait=wait_exponential(multiplier=2, min=3), stop=stop_after_attempt(3))
     def fetch(self) -> Optional[str]:
         import git
-        from reretry import retry_call
 
         if self._fetched:
             # up to date, nothing to do
@@ -380,14 +381,9 @@ class HostedGitRepo:
             f"Fetching latest changes of {self.host}/{self.repo_name} to {self.repo_clone}"
         )
         try:
-            retry_call(
-                # arg is needed in order to have a refspec, associated issue with
-                # workaround is here: https://github.com/gitpython-developers/GitPython/issues/296
-                partial(self.repo.remotes.origin.fetch, "+refs/heads/*:refs/heads/*"),
-                delay=3,
-                backoff=2,
-                tries=3,
-            )
+            # arg is needed in order to have a refspec, associated issue with
+            # workaround is here: https://github.com/gitpython-developers/GitPython/issues/296
+            partial(self.repo.remotes.origin.fetch, "+refs/heads/*:refs/heads/*")
         except git.GitCommandError as e:
             return str(e)
         self._fetched = True
@@ -717,9 +713,7 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return self._open_local_or_remote(
-            LocalSourceFile(cache_entry), mode, encoding="utf-8"
-        )
+        return self._open(LocalSourceFile(cache_entry), mode, encoding="utf-8")
 
     def exists(self, source_file):
         try:
@@ -755,7 +749,7 @@ class SourceCache:
     def _do_cache(self, source_file, cache_entry: Path, retries: int = 3):
         mtime = source_file.mtime()
         # open from origin
-        with self._open_local_or_remote(source_file, "rb", retries=retries) as source:
+        with self._open(source_file, "rb", encoding=None) as source:
             cache_entry.parent.mkdir(parents=True, exist_ok=True)
             with LockFreeWritableFile(cache_entry, binary=True) as entryfile:
                 entryfile.chmod(
@@ -769,23 +763,11 @@ class SourceCache:
                     entryfile.utime((mtime, mtime))
                 entryfile.write_from_fileobj(source)
 
-    def _open_local_or_remote(
-        self, source_file: SourceFile, mode, encoding=None, retries: int = 3
-    ):
-        from reretry.api import retry_call
-
-        if source_file.is_local:
-            return self._open(source_file, mode, encoding=encoding)
-        else:
-            return retry_call(
-                self._open,
-                [source_file, mode, encoding],
-                tries=retries,
-                delay=3,
-                backoff=2,
-                logger=logger,
-            )
-
+    @retry(
+        wait=wait_exponential(multiplier=2, min=3),
+        stop=stop_after_attempt(retries),
+        after=after_log(logger, logging.DEBUG),
+    )
     def _open(self, source_file: SourceFile, mode, encoding=None):
         from smart_open import open
 
