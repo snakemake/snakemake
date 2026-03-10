@@ -273,7 +273,7 @@ Scattering over typed output
 .............................
 
 When combined with checkpoints, ``typed`` enables structured access to deserialized objects in input functions.
-This pattern avoids parsing raw text files and keeps the contract between the checkpoint and its consumers fully type-checked::
+This pattern avoids parsing raw text files and maintains a typed interface between the checkpoint and its consumers::
 
     def get_processed(wildcards):
         meta = checkpoints.a.get(**wildcards).output.meta.value

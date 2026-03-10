@@ -2161,10 +2161,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             async def exists(out: _IOFile):
                 if out.is_storage and out.storage_object is not None:
                     if out.storage_object.retrieve:
-                        # check local presence, which is the relevant condition for determining whether the checkpoint can be considered finished or not.
+                        # check local presence, which is the relevant condition for determining
+                        # whether the checkpoint can be considered finished or not.
                         return await out.exists_local()  # type: ignore[reportCallIssue]
                     else:
-                        # retrieve=False，只检查 storage 侧
+                        # only check storage presence, as retrieve=False means that
+                        # the file is not automatically retrieved to local storage
+                        # and thus may not be present locally even if the checkpoint is finished.
                         return await out.exists_in_storage()  # type: ignore[reportCallIssue]
                 return await out.exists_local()  # type: ignore[reportCallIssue]
 
