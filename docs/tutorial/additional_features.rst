@@ -247,7 +247,7 @@ Declare a output data structure and reference it in a rule (or checkpoint rule):
             output.meta.dump(some_threshold=0.3, files={"a": "path/to/a"})
 
 The ``dump`` method constructs an instance of ``MyType`` from the given keyword arguments and serializes it to the declared file path as JSON.
-The type passed to ``typed`` can be a :py:func:`dataclass <dataclasses.dataclass>`, a :py:class:`NamedTuple <typing.NamedTuple>`, or any class that implements an ``.asdict() -> dict[str, Any]`` method.
+The type passed to ``typed`` can be a ``dataclass``, a ``NamedTuple``, or any class that implements an ``.asdict() -> dict[str, Any]`` method.
 
 .. note::
    The structured data is serialized as JSON, so field values should be JSON-native types (``str``, ``int``, ``float``, ``bool``, ``list``, ``dict``), or types with built-in coercion support such as ``Path``.
