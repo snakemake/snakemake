@@ -1,22 +1,38 @@
+import asyncio
 import hashlib
 import os
 import shutil
+import time
 from abc import abstractmethod
 from base64 import b64encode
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, ContextManager, Dict, List, Optional, Set, Union, Callable
+from typing import (
+    Any,
+    Callable,
+    ContextManager,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
 )
+from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_common.exceptions import WorkflowError
 
 from snakemake.common.tbdstring import TBDString
-from snakemake.io import get_flag_value, is_flagged
+from snakemake.io import get_flag_value, is_flagged, _IOFile, IOCache
 from snakemake.settings.types import DeploymentMethod
-from snakemake_interface_common.exceptions import WorkflowError
 from snakemake.logging import logger
+import snakemake.exceptions
 
 RECORD_FORMAT_VERSION = 6
 UNREPRESENTABLE = object()
@@ -171,7 +187,6 @@ class EnvironmentMaintenanceMixin:
             if removed:
                 logger.info(f"Removed conda env {address}")
 
-        # cleanup env archives
         in_use = set(env.content_hash for env in self.dag.conda_envs.values())
         for d in os.listdir(self.conda_env_archive_path):
             if d not in in_use:
@@ -229,52 +244,252 @@ class PersistenceBase(
     PersistenceExecutorInterface, EnvironmentMaintenanceMixin, FileBackupMixin
 ):
     dag: Any
+    max_checksum_file_size: int
 
-    @abstractmethod
-    def metadata(self, path: Any) -> Optional[MetadataRecord]: ...
+    def __init__(
+        self,
+        nolock=False,
+        dag=None,
+        conda_prefix=None,
+        singularity_prefix=None,
+        shadow_prefix=None,
+        warn_only=False,
+        path: Path | None = None,
+    ):
+        if path is None:
+            self._path = Path(os.path.abspath(".snakemake"))
+        else:
+            self._path = path
+        os.makedirs(self.path, exist_ok=True)
+
+        self.dag = dag
+
+        self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
+        self.benchmark_path = os.path.join(self.path, "benchmarks")
+        self.source_cache = os.path.join(self.path, "source_cache")
+        self.iocache_path = os.path.join(self.path, "iocache")
+        self._aux_path = os.path.join(self.path, "auxiliary")
+
+        if conda_prefix is None:
+            self.conda_env_path = os.path.join(self.path, "conda")
+        else:
+            self.conda_env_path = os.path.abspath(conda_prefix)
+
+        if singularity_prefix is None:
+            self.container_img_path = os.path.join(self.path, "singularity")
+        else:
+            self.container_img_path = os.path.abspath(singularity_prefix)
+
+        if shadow_prefix is None:
+            self.shadow_path = os.path.join(self.path, "shadow")
+        else:
+            self.shadow_path = os.path.join(shadow_prefix, "shadow")
+
+        for d in (
+            self.shadow_path,
+            self.conda_env_archive_path,
+            self.conda_env_path,
+            self.container_img_path,
+            self.aux_path,
+            self.iocache_path,
+        ):
+            os.makedirs(d, exist_ok=True)
+
+        if nolock:
+            self.lock = self.noop
+            self.unlock = self.noop
+        if warn_only:
+            self.lock = self.lock_warn_only
+            self.unlock = self.noop
+
+        if self.dag is not None:
+            self.max_checksum_file_size = (
+                self.dag.workflow.dag_settings.max_checksum_file_size
+            )
+        else:
+            self.max_checksum_file_size = 0
 
     @property
-    @abstractmethod
-    def locked(self) -> bool: ...
+    def path(self) -> Path:
+        return Path(self._path)
+
+    @property
+    def aux_path(self) -> Path:
+        return Path(self._aux_path)
 
     @abstractmethod
-    def lock_warn_only(self) -> ContextManager[None]: ...
+    def _read_record(self, key: str) -> Optional[MetadataRecord]: ...
 
     @abstractmethod
-    def lock(self) -> ContextManager[None]: ...
+    def _write_record(self, key: str, record: MetadataRecord) -> None: ...
 
     @abstractmethod
-    def unlock(self) -> None: ...
+    def _delete_record(self, key: str) -> bool: ...
 
     @abstractmethod
-    def cleanup_locks(self) -> None: ...
+    def _mark_incomplete(self, key: str, external_jobid: Optional[str]) -> None: ...
 
     @abstractmethod
-    def cleanup_metadata(self, path: Any) -> bool: ...
+    def _unmark_incomplete(self, key: str) -> None: ...
 
     @abstractmethod
-    def started(self, job: Any, external_jobid: Optional[str] = None) -> None: ...
+    def _read_locks(self) -> Iterable[Tuple[str, str]]: ...
 
     @abstractmethod
-    async def finished(self, job: Any) -> None: ...
+    def _write_locks(self, lock_type: str, keys: Iterable[str]) -> None: ...
 
     @abstractmethod
-    async def incomplete(self, job: Any) -> List[Any]: ...
+    def _delete_locks(self) -> None: ...
 
     @abstractmethod
-    def external_jobids(self, job: Any) -> List[str]: ...
+    def _clear_cache(self) -> None: ...
 
     @abstractmethod
-    def deactivate_cache(self) -> None: ...
+    def _filter_incomplete_keys(self, keys: Iterable[str]) -> Set[str]: ...
 
     @abstractmethod
-    def save_iocache(self) -> None: ...
+    def _get_external_jobids(self, keys: Iterable[str]) -> Set[str]: ...
 
-    @abstractmethod
-    def load_iocache(self) -> None: ...
+    def _get_key(self, f: _IOFile) -> str:
+        assert isinstance(f, _IOFile)
+        return str(f.storage_object.query if f.is_storage else f)
 
-    @abstractmethod
-    def drop_iocache(self) -> None: ...
+    def metadata(self, target: Any) -> Optional[MetadataRecord]:
+        return self._read_record(self._get_key(target))
+
+    def cleanup_metadata(self, target: Any) -> bool:
+        self._clear_cache()
+        key = self._get_key(target)
+        self._unmark_incomplete(key)
+        return self._delete_record(key)
+
+    def started(self, job: Any, external_jobid: Optional[str] = None) -> None:
+        self._clear_cache()
+        for f in job.output:
+            self._mark_incomplete(self._get_key(f), external_jobid)
+
+    async def finished(self, job: Any) -> None:
+        self._clear_cache()
+
+        if not self.dag.workflow.execution_settings.keep_metadata:
+            for f in job.output:
+                self._unmark_incomplete(self._get_key(f))
+            return
+
+        if (
+            self.dag.workflow.exec_mode == ExecMode.DEFAULT
+            or self.dag.workflow.remote_execution_settings.immediate_submit
+        ):
+            code = self._code(job.rule)
+            input_files = self._input(job)
+            log = self._log(job)
+            params = self._params(job)
+            shellcmd = job.shellcmd
+            conda_env = self._conda_env(job)
+            software_stack_hash = self._software_stack_hash(job)
+            fallback_time = time.time()
+            job_hash_val = hash(job)
+
+            for f in job.output:
+                key = self._get_key(f)
+                endtime = (
+                    (await f.mtime()).local_or_storage()
+                    if await f.exists()
+                    else fallback_time
+                )
+
+                checksums = {
+                    str(infile): await infile.checksum(self.max_checksum_file_size)
+                    for infile in job.input
+                }
+                checksums = {k: v for k, v in checksums.items() if v is not None}
+
+                record = self._read_record(key) or MetadataRecord()
+
+                if record.starttime is None:
+                    record.starttime = fallback_time
+
+                record.incomplete = False
+                record.record_format_version = RECORD_FORMAT_VERSION
+                record.rule = job.rule.name
+                record.code = code
+                record.input = input_files
+                record.log = log
+                record.params = params
+                record.shellcmd = shellcmd
+                record.endtime = endtime
+                record.job_hash = job_hash_val
+                record.conda_env = conda_env
+                record.software_stack_hash = software_stack_hash
+                record.container_img_url = job.container_img_url
+                record.input_checksums = checksums
+
+                self._write_record(key, record)
+
+        for f in job.output:
+            self._unmark_incomplete(self._get_key(f))
+
+    async def incomplete(self, job: Any) -> List[Any]:
+        keys = [self._get_key(f) for f in job.output]
+        marked_incomplete = self._filter_incomplete_keys(keys)
+
+        if not marked_incomplete:
+            return []
+
+        async def is_incomplete(f):
+            if self._get_key(f) in marked_incomplete and await f.exists():
+                return f
+            return None
+
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(is_incomplete(f)) for f in job.output]
+
+        return [t.result() for t in tasks if t.result() is not None]
+
+    def external_jobids(self, job: Any) -> List[str]:
+        keys = [self._get_key(f) for f in job.output]
+        return list(self._get_external_jobids(keys))
+
+    @property
+    def locked(self) -> bool:
+        inputfiles = set(str(f) for f in self.all_inputfiles())
+        outputfiles = set(str(f) for f in self.all_outputfiles())
+
+        for lock_type, key in self._read_locks():
+            if lock_type == "input" and key in outputfiles:
+                return True
+            if lock_type == "output" and (key in outputfiles or key in inputfiles):
+                return True
+        return False
+
+    @contextmanager
+    def lock_warn_only(self):
+        if self.locked:
+            logger.info(
+                "Error: Directory cannot be locked. Another Snakemake instance is running."
+            )
+        yield
+
+    @contextmanager
+    def lock(self):
+        if self.locked:
+            raise snakemake.exceptions.LockException()
+        try:
+            self._write_locks("input", (str(f) for f in self.all_inputfiles()))
+            self._write_locks("output", (str(f) for f in self.all_outputfiles()))
+            yield
+        finally:
+            self.unlock()
+
+    def unlock(self) -> None:
+        logger.debug("unlocking")
+        self._delete_locks()
+
+    def cleanup_locks(self) -> None:
+        self.unlock()
+
+    def deactivate_cache(self) -> None:
+        self._clear_cache()
 
     def cleanup(self, job: Any) -> None:
         for f in job.output:
@@ -493,3 +708,25 @@ class PersistenceBase(
         from snakemake.jobs import jobfiles
 
         return jobfiles(self.dag.jobs, "input")
+
+    @property
+    def _iocache_filename(self):
+        return os.path.join(self.iocache_path, "latest.pkl")
+
+    def save_iocache(self) -> None:
+        with open(self._iocache_filename, "wb") as handle:
+            self.dag.workflow.iocache.save(handle)
+
+    def load_iocache(self) -> None:
+        if os.path.exists(self._iocache_filename):
+            logger.info("Loading trusted IOCache from latest dry-run.")
+            with open(self._iocache_filename, "rb") as handle:
+                self.dag.workflow.iocache = IOCache.load(handle)
+
+    def drop_iocache(self) -> None:
+        if os.path.exists(self._iocache_filename):
+            os.remove(self._iocache_filename)
+
+    @contextmanager
+    def noop(self, *args):
+        yield

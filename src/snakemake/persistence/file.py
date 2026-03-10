@@ -3,31 +3,20 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import asyncio
 from dataclasses import fields
 import os
 import shutil
 import json
 import stat
-import time
 from base64 import urlsafe_b64encode
 from functools import lru_cache
 from itertools import count
 from pathlib import Path
-from contextlib import contextmanager
-from typing import Any, Optional
+from typing import Iterable, Optional, Set, Tuple
 
-from snakemake.persistence import (
-    PersistenceBase,
-    MetadataRecord,
-    RECORD_FORMAT_VERSION,
-)
-from snakemake_interface_executor_plugins.settings import ExecMode
-
-import snakemake.exceptions
-from snakemake.logging import logger
+from snakemake.persistence import PersistenceBase, MetadataRecord
 from snakemake.utils import listfiles
-from snakemake.io import _IOFile, IOCache
+from snakemake.logging import logger
 
 VALID_METADATA_KEYS = frozenset(f.name for f in fields(MetadataRecord))
 
@@ -43,47 +32,25 @@ class FilePersistence(PersistenceBase):
         warn_only=False,
         path: Path | None = None,
     ):
+        super().__init__(
+            nolock=nolock,
+            dag=dag,
+            conda_prefix=conda_prefix,
+            singularity_prefix=singularity_prefix,
+            shadow_prefix=shadow_prefix,
+            warn_only=warn_only,
+            path=path,
+        )
         self._max_len = None
-
-        if path is None:
-            self._path = Path(os.path.abspath(".snakemake"))
-        else:
-            self._path = path
-        os.makedirs(self.path, exist_ok=True)
+        self._incomplete_cache = None
 
         self._lockdir = os.path.join(self.path, "locks")
         os.makedirs(self._lockdir, exist_ok=True)
-
-        self.dag = dag
         self._lockfile = dict()
 
         self._metadata_path = os.path.join(self.path, "metadata")
         self._incomplete_path = os.path.join(self.path, "incomplete")
 
-        self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
-        self.benchmark_path = os.path.join(self.path, "benchmarks")
-
-        self.source_cache = os.path.join(self.path, "source_cache")
-
-        self.iocache_path = os.path.join(self.path, "iocache")
-
-        if conda_prefix is None:
-            self.conda_env_path = os.path.join(self.path, "conda")
-        else:
-            self.conda_env_path = os.path.abspath(conda_prefix)
-        if singularity_prefix is None:
-            self.container_img_path = os.path.join(self.path, "singularity")
-        else:
-            self.container_img_path = os.path.abspath(singularity_prefix)
-        if shadow_prefix is None:
-            self.shadow_path = os.path.join(self.path, "shadow")
-        else:
-            self.shadow_path = os.path.join(shadow_prefix, "shadow")
-
-        # place to store any auxiliary information needed during a run (e.g. source tarballs)
-        self._aux_path = os.path.join(self.path, "auxiliary")
-
-        # migration of .snakemake folder structure
         migration_indicator = Path(
             os.path.join(self._incomplete_path, "migration_underway")
         )
@@ -99,39 +66,8 @@ class FilePersistence(PersistenceBase):
 
             migration_indicator.unlink()
 
-        self._incomplete_cache = None
-
-        for d in (
-            self._metadata_path,
-            self._incomplete_path,
-            self.shadow_path,
-            self.conda_env_archive_path,
-            self.conda_env_path,
-            self.container_img_path,
-            self.aux_path,
-            self.iocache_path,
-        ):
+        for d in (self._metadata_path, self._incomplete_path):
             os.makedirs(d, exist_ok=True)
-
-        if nolock:
-            self.lock = self.noop
-            self.unlock = self.noop
-        if warn_only:
-            self.lock = self.lock_warn_only
-            self.unlock = self.noop
-
-        self._read_record = self._read_record_cached
-        self.max_checksum_file_size = (
-            self.dag.workflow.dag_settings.max_checksum_file_size
-        )
-
-    @property
-    def path(self) -> Path:
-        return Path(self._path)
-
-    @property
-    def aux_path(self) -> Path:
-        return Path(self._aux_path)
 
     def migrate_v1_to_v2(self):
         logger.info("Migrating .snakemake folder to new format...")
@@ -158,197 +94,21 @@ class FilePersistence(PersistenceBase):
 
         logger.info("Migration complete")
 
-    @property
-    def locked(self):
-        inputfiles = set(self.all_inputfiles())
-        outputfiles = set(self.all_outputfiles())
-        if os.path.exists(self._lockdir):
-            for lockfile in self._locks("input"):
-                with open(lockfile) as lock:
-                    for f in lock:
-                        f = f.strip()
-                        if f in outputfiles:
-                            return True
-            for lockfile in self._locks("output"):
-                with open(lockfile) as lock:
-                    for f in lock:
-                        f = f.strip()
-                        if f in outputfiles or f in inputfiles:
-                            return True
-        return False
+    def _fetch_max_len(self, subject):
+        if self._max_len is None:
+            self._max_len = os.pathconf(subject, "PC_NAME_MAX")
+        return self._max_len
 
-    @contextmanager
-    def lock_warn_only(self):
-        if self.locked:
-            logger.info(
-                "Error: Directory cannot be locked. This usually "
-                "means that another Snakemake instance is running on this directory. "
-                "Another possibility is that a previous run exited unexpectedly."
-            )
-        yield
+    def _record_path(self, subject, id: str):
+        max_len = self._fetch_max_len(subject) if os.name == "posix" else 255
+        if max_len == 0:
+            max_len = 255
+        b64id = urlsafe_b64encode(id.encode()).decode()
+        b64id = [b64id[i : i + max_len - 1] for i in range(0, len(b64id), max_len - 1)]
+        b64id = ["@" + s for s in b64id[:-1]] + [b64id[-1]]
+        return os.path.join(subject, *b64id)
 
-    @contextmanager
-    def lock(self):
-        if self.locked:
-            raise snakemake.exceptions.LockException()
-        try:
-            self._lock(self.all_inputfiles(), "input")
-            self._lock(self.all_outputfiles(), "output")
-            yield
-        finally:
-            self.unlock()
-
-    def unlock(self):
-        logger.debug("unlocking")
-        for lockfile in self._lockfile.values():
-            try:
-                logger.debug("removing lock")
-                os.remove(lockfile)
-            except OSError as e:
-                if e.errno != 2:  # missing file
-                    raise e
-        logger.debug("removed all locks")
-
-    def cleanup_locks(self):
-        shutil.rmtree(self._lockdir)
-
-    def cleanup_metadata(self, path):
-        return self._delete_record(self._incomplete_path, path) or self._delete_record(
-            self._metadata_path, path
-        )
-
-    def started(self, job, external_jobid: Optional[str] = None):
-        for f in job.output:
-            self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
-
-    def _remove_incomplete_marker(self, job):
-        for f in job.output:
-            self._delete_record(self._incomplete_path, f)
-
-    async def finished(self, job):
-        if not self.dag.workflow.execution_settings.keep_metadata:
-            self._remove_incomplete_marker(job)
-            # do not store metadata if not requested
-            return
-
-        if (
-            self.dag.workflow.exec_mode == ExecMode.DEFAULT
-            or self.dag.workflow.remote_execution_settings.immediate_submit
-        ):
-            code = self._code(job.rule)
-            input = self._input(job)
-            log = self._log(job)
-            params = self._params(job)
-            shellcmd = job.shellcmd
-            conda_env = self._conda_env(job)
-            software_stack_hash = self._software_stack_hash(job)
-            fallback_time = time.time()
-            for f in job.output:
-                rec_path = self._record_path(self._incomplete_path, f)
-                starttime = (
-                    os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
-                )
-                # Sometimes finished is called twice, if so, lookup the previous starttime
-                if not os.path.exists(rec_path):
-                    starttime = self._read_record(self._metadata_path, f).get(
-                        "starttime", None
-                    )
-
-                endtime = (
-                    (await f.mtime()).local_or_storage()
-                    if await f.exists()
-                    else fallback_time
-                )
-
-                checksums = (
-                    (infile, await infile.checksum(self.max_checksum_file_size))
-                    for infile in job.input
-                )
-                self._record(
-                    self._metadata_path,
-                    {
-                        "record_format_version": RECORD_FORMAT_VERSION,
-                        "code": code,
-                        "rule": job.rule.name,
-                        "input": input,
-                        "log": log,
-                        "params": params,
-                        "shellcmd": shellcmd,
-                        "incomplete": False,
-                        "starttime": starttime,
-                        "endtime": endtime,
-                        "job_hash": hash(job),
-                        "conda_env": conda_env,
-                        "software_stack_hash": software_stack_hash,
-                        "container_img_url": job.container_img_url,
-                        "input_checksums": {
-                            infile: checksum
-                            async for infile, checksum in checksums
-                            if checksum is not None
-                        },
-                    },
-                    f,
-                )
-        # remove incomplete marker only after creation of metadata record.
-        # otherwise the job starttime will be missing.
-        self._remove_incomplete_marker(job)
-
-    async def incomplete(self, job):
-        if self._incomplete_cache is None:
-            self._cache_incomplete_folder()
-
-        if self._incomplete_cache is False:  # cache deactivated
-
-            def marked_incomplete(f):
-                return self._exists_record(self._incomplete_path, f)
-
-        else:
-
-            def marked_incomplete(f):
-                rec_path = self._record_path(self._incomplete_path, f)
-                return rec_path in self._incomplete_cache
-
-        async def is_incomplete(f):
-            exists = await f.exists()
-            marked = marked_incomplete(f)
-            return f if exists and marked else None
-
-        async with asyncio.TaskGroup() as tg:
-            tasks = [tg.create_task(is_incomplete(f)) for f in job.output]
-
-        return [task.result() for task in tasks]
-
-    def _cache_incomplete_folder(self):
-        self._incomplete_cache = {
-            os.path.join(path, f)
-            for path, dirnames, filenames in os.walk(self._incomplete_path)
-            for f in filenames
-        }
-
-    def external_jobids(self, job):
-        return list(
-            set(
-                self._read_record(self._incomplete_path, f).get("external_jobid", None)
-                for f in job.output
-            )
-        )
-
-    def metadata(self, path: Any) -> Optional[MetadataRecord]:
-        rec = self._read_record(self._metadata_path, path)
-        if not rec:
-            return None
-        return MetadataRecord(
-            **{k: v for k, v in rec.items() if k in VALID_METADATA_KEYS}
-        )
-
-    @contextmanager
-    def noop(self, *args):
-        yield
-
-    def _b64id(self, s):
-        return urlsafe_b64encode(str(s).encode()).decode()
-
-    def _record(
+    def _io_write(
         self,
         subject,
         json_value,
@@ -375,7 +135,7 @@ class FilePersistence(PersistenceBase):
             if existing != new_mode:
                 os.chmod(recpath, new_mode)
 
-    def _delete_record(self, subject, id):
+    def _io_delete(self, subject, id):
         try:
             recpath = self._record_path(subject, id)
             os.remove(recpath)
@@ -391,12 +151,9 @@ class FilePersistence(PersistenceBase):
                 # file is missing, report failure
                 return False
 
-    @lru_cache()
-    def _read_record_cached(self, subject, id):
-        return self._read_record_uncached(subject, id)
-
-    def _read_record_uncached(self, subject, id):
-        if not self._exists_record(subject, id):
+    def _io_read(self, subject, id):
+        path = self._record_path(subject, id)
+        if not os.path.exists(path):
             return dict()
         path = self._record_path(subject, id)
         with open(path, "r") as f:
@@ -414,72 +171,91 @@ class FilePersistence(PersistenceBase):
                 )
                 return dict()
 
-    def _exists_record(self, subject, id):
-        return os.path.exists(self._record_path(subject, id))
+    def _clear_cache(self) -> None:
+        self._read_record_cached.cache_clear()
+        self._incomplete_cache = None
 
-    def _locks(self, type):
+    @lru_cache()
+    def _read_record_cached(self, key: str) -> Optional[MetadataRecord]:
+        rec = self._io_read(self._metadata_path, key)
         return (
-            f
-            for f, _ in listfiles(
-                os.path.join(self._lockdir, f"{{n,[0-9]+}}.{type}.lock")
-            )
-            if not os.path.isdir(f)
+            MetadataRecord(**{k: v for k, v in rec.items() if k in VALID_METADATA_KEYS})
+            if rec
+            else None
         )
 
-    def _lock(self, files, type):
+    def _read_record(self, key: str) -> Optional[MetadataRecord]:
+        return self._read_record_cached(key)
+
+    def _write_record(self, key: str, record: MetadataRecord) -> None:
+        self._io_write(self._metadata_path, dict(record.items()), key)
+
+    def _delete_record(self, key: str) -> bool:
+        return self._io_delete(self._metadata_path, key)
+
+    def _mark_incomplete(self, key: str, external_jobid: Optional[str]) -> None:
+        self._io_write(self._incomplete_path, {"external_jobid": external_jobid}, key)
+        if self._incomplete_cache is not None:
+            self._incomplete_cache.add(self._record_path(self._incomplete_path, key))
+
+    def _unmark_incomplete(self, key: str) -> None:
+        self._io_delete(self._incomplete_path, key)
+        if self._incomplete_cache is not None:
+            self._incomplete_cache.discard(
+                self._record_path(self._incomplete_path, key)
+            )
+
+    def _filter_incomplete_keys(self, keys: Iterable[str]) -> Set[str]:
+        if self._incomplete_cache is None:
+            self._incomplete_cache = {
+                os.path.join(path, f)
+                for path, _, filenames in os.walk(self._incomplete_path)
+                for f in filenames
+            }
+
+        return {
+            k
+            for k in keys
+            if self._record_path(self._incomplete_path, k) in self._incomplete_cache
+        }
+
+    def _get_external_jobids(self, keys: Iterable[str]) -> Set[str]:
+        jobids = set()
+        for k in keys:
+            rec = self._io_read(self._incomplete_path, k)
+            if "external_jobid" in rec and rec["external_jobid"] is not None:
+                jobids.add(rec["external_jobid"])
+        return jobids
+
+    def _read_locks(self) -> Iterable[Tuple[str, str]]:
+        for lock_type in ["input", "output"]:
+            for lockfile, _ in listfiles(
+                os.path.join(self._lockdir, f"{{n,[0-9]+}}.{lock_type}.lock")
+            ):
+                if not os.path.isdir(lockfile):
+                    with open(lockfile) as lock:
+                        for f in lock:
+                            yield lock_type, f.strip()
+
+    def _write_locks(self, lock_type: str, keys: Iterable[str]) -> None:
+        keys_list = list(keys)
+        if not keys_list:
+            return
         for i in count(0):
-            lockfile = os.path.join(self._lockdir, f"{i}.{type}.lock")
+            lockfile = os.path.join(self._lockdir, f"{i}.{lock_type}.lock")
             if not os.path.exists(lockfile):
-                self._lockfile[type] = lockfile
+                self._lockfile[lock_type] = lockfile
                 with open(lockfile, "w") as lock:
-                    print(*files, sep="\n", file=lock)
+                    print(*keys_list, sep="\n", file=lock)
                 return
 
-    def _fetch_max_len(self, subject):
-        if self._max_len is None:
-            self._max_len = os.pathconf(subject, "PC_NAME_MAX")
-        return self._max_len
-
-    def _record_path(self, subject, id: _IOFile):
-        assert isinstance(id, _IOFile)
-        id = id.storage_object.query if id.is_storage else id
-
-        max_len = (
-            self._fetch_max_len(subject) if os.name == "posix" else 255
-        )  # maximum NTFS and FAT32 filename length
-        if max_len == 0:
-            max_len = 255
-
-        b64id = self._b64id(id)
-        # split into chunks of proper length
-        b64id = [b64id[i : i + max_len - 1] for i in range(0, len(b64id), max_len - 1)]
-        # prepend dirs with @ (does not occur in b64) to avoid conflict with b64-named files in the same dir
-        b64id = ["@" + s for s in b64id[:-1]] + [b64id[-1]]
-        path = os.path.join(subject, *b64id)
-        return path
-
-    def deactivate_cache(self):
-        self._read_record_cached.cache_clear()
-        self._read_record = self._read_record_uncached
-        self._incomplete_cache = False
-
-    @property
-    def _iocache_filename(self):
-        return os.path.join(self.iocache_path, "latest.pkl")
-
-    def save_iocache(self):
-        filepath = self._iocache_filename
-        with open(filepath, "wb") as handle:
-            self.dag.workflow.iocache.save(handle)
-
-    def load_iocache(self):
-        filepath = self._iocache_filename
-        if os.path.exists(filepath):
-            logger.info("Loading trusted IOCache from latest dry-run.")
-            with open(filepath, "rb") as handle:
-                self.dag.workflow.iocache = IOCache.load(handle)
-
-    def drop_iocache(self):
-        filepath = self._iocache_filename
-        if os.path.exists(filepath):
-            os.remove(filepath)
+    def _delete_locks(self) -> None:
+        for lockfile in self._lockfile.values():
+            try:
+                os.remove(lockfile)
+            except OSError as e:
+                if e.errno != 2:
+                    raise e
+        self._lockfile.clear()
+        if os.path.exists(self._lockdir):
+            shutil.rmtree(self._lockdir)
