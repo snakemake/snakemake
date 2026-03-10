@@ -15,6 +15,7 @@ CONDA_ENV_PATH = "/conda-envs"
 # This is the "form" that every container format must fill in.
 # It defines WHAT information to output, but not HOW.
 
+
 class ContainerFormat(ABC):
     """Base class for container definition formats."""
 
@@ -58,11 +59,12 @@ class ContainerFormat(ABC):
 # Fills in the "form" with Dockerfile syntax.
 # This produces the SAME output as the original code.
 
+
 class DockerFormat(ContainerFormat):
 
     def header(self, image, env_hash):
         print(f"FROM {image}")
-        print(f'LABEL io.github.snakemake.containerized="true"')
+        print('LABEL io.github.snakemake.containerized="true"')
         print(f'LABEL io.github.snakemake.conda_env_hash="{env_hash}"')
 
     def label(self, key, value):
@@ -87,6 +89,7 @@ class DockerFormat(ContainerFormat):
 
 # ── Step 3: Apptainer format ──
 # Fills in the same "form" but with Apptainer definition syntax.
+
 
 class ApptainerFormat(ContainerFormat):
 
@@ -147,6 +150,7 @@ class ApptainerFormat(ContainerFormat):
 # ── Step 4: The main function (refactored) ──
 # Lines 13–72 from the original are UNCHANGED.
 # Lines 74–112 now use the format class instead of hardcoded print().
+
 
 def containerize(workflow, dag, fmt="dockerfile"):
     """
