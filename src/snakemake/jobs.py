@@ -1,3 +1,5 @@
+from snakemake.deployment.containerize import get_containerized_path
+from snakemake.deployment.containerize import containerize
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -5,7 +7,6 @@ __license__ = "MIT"
 
 import asyncio
 from builtins import ExceptionGroup
-from collections import defaultdict
 import os
 import base64
 from pathlib import Path
@@ -71,6 +72,7 @@ from snakemake_interface_software_deployment_plugins import EnvBase as SoftwareE
 from snakemake_interface_software_deployment_plugins import (
     EnvSpecBase as SoftwareEnvSpecBase,
 )
+from snakemake_software_deployment_plugin_conda import Env as CondaEnv
 
 
 def format_files(io, as_input: bool = False, as_output: bool = False):
@@ -517,9 +519,12 @@ class Job(
     @property
     def software_env(self) -> Optional[SoftwareEnvBase]:
         if self.software_env_spec:
-            return self.dag.workflow.software_deployment_manager.get_env(
+            env = self.dag.workflow.software_deployment_manager.get_env(
                 self.software_env_spec
             )
+            if self.rule.is_containerized and isinstance(env, CondaEnv):
+                env.containerized_path = get_containerized_path(env)
+            return env
         return None
 
     @property

@@ -1925,8 +1925,15 @@ class Workflow(WorkflowExecutorInterface):
 
             rule.restart_times = ruleinfo.retries
 
-            if ruleinfo.wrapper:
-                ruleinfo.conda_env = snakemake.wrapper.get_conda_env(
+            env_specs = EnvSpecs()
+
+            if ruleinfo.wrapper and not ruleinfo.conda_env:
+                # Only take env from wrapper if the rule does not define its own conda
+                # env. We need to decide this here because EnvSpecs would prefer
+                # the software env over the conda env from the rule.
+                # If the rule however defines its own software env, then it is fine
+                # because that overwrites the one from here.
+                env_specs.software_spec = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper,
                     self.sourcecache,
                     prefix=self.workflow_settings.wrapper_prefix,
@@ -1940,8 +1947,6 @@ class Workflow(WorkflowExecutorInterface):
                         "directives (not with template_engine)",
                         rule=rule,
                     )
-
-            env_specs = EnvSpecs()
 
             if ruleinfo.env_modules:
                 check_may_use_software_deployment("envmodules")
@@ -1964,6 +1969,7 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.software_env_spec:
                 check_may_use_software_deployment("software")
                 env_specs.software_spec = ruleinfo.software_env_spec
+
             if not env_specs.is_empty():
                 rule.software_env_specs = env_specs
 

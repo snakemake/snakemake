@@ -241,7 +241,7 @@ class shell:
         ).strip()
 
         if software_env is not None:
-            cmd = software_env.decorate_shellcmd(cmd)
+            cmd = software_env.managed_decorate_shellcmd(cmd)
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:

@@ -57,6 +57,7 @@ from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegist
 from snakemake_interface_software_deployment_plugins.settings import (
     SoftwareDeploymentSettingsBase,
 )
+from snakemake_software_deployment_plugin_container import Settings as ContainerSettings
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -152,7 +153,9 @@ class SnakemakeApi(ApiBase):
         if deployment_settings is None:
             deployment_settings = DeploymentSettings()
         if software_deployment_provider_settings is None:
-            software_deployment_provider_settings = {}
+            software_deployment_provider_settings = {
+                "container": ContainerSettings(),
+            }
         if storage_provider_settings is None:
             storage_provider_settings = {}
 

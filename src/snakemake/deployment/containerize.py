@@ -1,3 +1,4 @@
+from pathlib import Path
 import hashlib
 import os
 
@@ -6,9 +7,12 @@ from snakemake.logging import logger
 from snakemake.sourcecache import LocalSourceFile
 from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 
-CONDA_ENV_PATH = "/conda-envs"
 
 # TODO convert to rattler or pixi?
+
+def get_containerized_path(env: CondaEnvSpec) -> Path:
+    return Path("/conda-envs") / env.hash()
+
 
 
 def containerize(workflow, dag):
@@ -61,7 +65,7 @@ def containerize(workflow, dag):
         if env.hash() in generated:
             # another conda env with the same content was generated before
             continue
-        prefix = env.deployment_prefix / env.hash()
+        prefix = get_containerized_path(env)
         env_source_path = relfile(env.spec.envfile)
         env_target_path = prefix / "environment.yaml"
         with open(env_source_path, "r") as f:

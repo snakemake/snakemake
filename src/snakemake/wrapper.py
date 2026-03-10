@@ -83,11 +83,13 @@ def get_conda_env(path, sourcecache: SourceCache, prefix=None) -> CondaEnvSpec:
         path = path.get_basedir()
     path = path.join("environment.yaml")
     cached_path = sourcecache.cache(path)
-    return CondaEnvSpec(
+    spec = CondaEnvSpec(
         envfile=EnvSpecSourceFile(
             path_or_uri=path.get_path_or_uri(secret_free=True), cached=cached_path
         )
     )
+    spec.technical_init()
+    return spec
 
 
 def wrapper(

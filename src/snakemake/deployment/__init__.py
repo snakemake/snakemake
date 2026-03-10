@@ -191,7 +191,8 @@ class SoftwareDeploymentManager:
             shell_executable=self.shell_executable,
             tempdir=Path(tempfile.gettempdir()),
             mountpoints=[self.workflow.source_cache_path, Path(os.getcwd())]
-            + get_snakemake_searchpaths(),
+            + get_snakemake_searchpaths()
+            + mountpoints,
             cache_prefix=cache_prefix,
             deployment_prefix=deployment_prefix,
             pinfile_prefix=pinfile_prefix,
@@ -317,7 +318,6 @@ class EnvSpecs:
             spec = self.legacy_conda_env
             if isinstance(spec, Path):
                 spec = str(spec)
-
             if spec.endswith(".yaml") or spec.endswith(".yml"):
                 conda_spec = CondaEnvSpec(envfile=EnvSpecSourceFile(spec))
             elif is_local_file(spec) and os.path.isdir(spec):
@@ -332,10 +332,7 @@ class EnvSpecs:
             conda_spec.within = container_spec
 
         if container_spec is not None:
-            # If the container already contains the required software,
-            # conda is just a fallback.
             container_spec.technical_init()
-            container_spec.fallback = conda_spec
 
         if self.legacy_env_modules is not None:
 
