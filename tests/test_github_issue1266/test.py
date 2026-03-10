@@ -13,7 +13,7 @@ import sys
 # the packages associated with the Snakemake-managed conda environment,
 # so we are confident that the environment is available.
 assert any(
-    ".snakemake/conda" in path
+    ".snakemake/conda" in path.replace("\\", "/")
     for path in sys.path
-    if path.endswith("/lib/python3.14/site-packages")
+    if path.endswith("site-packages")
 )
