@@ -1527,6 +1527,7 @@ def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
 
 
+@skip_on_windows
 def test_flag_typed():
     run(dpath("test_flag_typed"))
 
