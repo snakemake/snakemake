@@ -765,8 +765,10 @@ class SourceCache:
     import logging
 
     @retry(
+        wait=wait_exponential(multiplier=2, min=3),
         stop=stop_after_attempt(1),
         after=after_log(logger, logging.INFO),
+        reraise=True,
     )
     def _open(self, source_file: SourceFile, mode, encoding=None):
         from smart_open import open
