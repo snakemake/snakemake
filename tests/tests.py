@@ -1496,6 +1496,23 @@ def test_checkpoint_missout():
     run(dpath("test_checkpoint_missout"))
 
 
+def test_uncreatable_checkpoint_input():
+    run(dpath("test_uncreatable_checkpoint_input"))
+
+
+@skip_on_windows  # OS agnostic
+@pytest.mark.skipif(ON_MACOS, reason="do not support `ln -s`")
+def test_checkpoint_rerun():
+    d = dpath("test_checkpoint_rerun")
+    run(d, no_tmpdir=True, cleanup=False, check_results=False)
+    shell("echo '1' > {d}/inputs/a/0.out")
+    shell("sleep 2")
+    shell("touch {d}/checkpoint/a1.ls")
+    run(d, no_tmpdir=True, cleanup=False, check_results=False)
+    with open(f"{d}/inputs/a/0.out", "r") as f:
+        assert f.read().strip() == "1"
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
