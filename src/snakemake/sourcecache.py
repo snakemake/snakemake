@@ -30,7 +30,7 @@ from snakemake.common import (
 )
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.common.git import split_git_path
-from snakemake.logging import logger, INFO
+from snakemake.logging import logger
 from snakemake.io import check
 
 if TYPE_CHECKING:
@@ -762,10 +762,11 @@ class SourceCache:
                     entryfile.utime((mtime, mtime))
                 entryfile.write_from_fileobj(source)
 
+    import logging
     @retry(
         wait=wait_exponential(multiplier=2, min=3),
         stop=stop_after_attempt(1),
-        after=after_log(logger, INFO),
+        after=after_log(logger, logging.INFO),
     )
     def _open(self, source_file: SourceFile, mode, encoding=None):
         from smart_open import open
