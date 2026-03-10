@@ -3148,16 +3148,16 @@ This can be achieved by accessing their path via the ``workflow.source_path``, w
 .. code-block:: python
 
     rule a:
+        input:
+            json=workflow.source_path("../resources/test.json")
         output:
             "test.out"
-        params:
-            json=workflow.source_path("../resources/test.json")
         shell:
-            "somecommand {params.json} > {output}"
+            "somecommand {input.json} > {output}"
 
-Note that if such source paths are specified as input files, they are automatically considered to be non-storage files.
-This means that Snakemake will not try to map them to an eventually specified default storage provider (see :ref:`storage-support`).
-
+.. note::
+    Note that if such source paths are specified as input files, they are automatically considered to be non-storage files.
+    This means that Snakemake will not try to map them to an eventually specified default storage provider (see :ref:`storage-support`).
 
 .. _snakefiles-template-integration:
 
