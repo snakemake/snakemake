@@ -27,6 +27,7 @@ from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.pathvars import Pathvars
 from snakemake.persistence.file import FilePersistence
+from snakemake.persistence.db import DbPersistence
 from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
@@ -912,7 +913,16 @@ class Workflow(WorkflowExecutorInterface):
         )
 
         assert self.deployment_settings is not None
-        self._persistence = FilePersistence(
+        # self._persistence = FilePersistence(
+        #     nolock=nolock,
+        #     dag=self._dag,
+        #     conda_prefix=self.deployment_settings.conda_prefix,
+        #     singularity_prefix=self.deployment_settings.apptainer_prefix,
+        #     shadow_prefix=shadow_prefix,
+        #     warn_only=lock_warn_only,
+        #     path=persistence_path,
+        # )
+        self._persistence = DbPersistence(
             nolock=nolock,
             dag=self._dag,
             conda_prefix=self.deployment_settings.conda_prefix,
