@@ -659,6 +659,8 @@ class PersistenceBase(
     def _software_stack_changed(self, job, file=None) -> bool:
         fmt_version = self.record_format_version(file)
         if fmt_version is None or fmt_version < 5:
+            # no reliable software stack hash stored (previous storage ignored pin files
+            # and aux deploy files of conda envs as well as env modules)
             return False
         recorded = self.software_stack_hash(file)
         return recorded is not None and recorded != self._software_stack_hash(job)
@@ -671,6 +673,11 @@ class PersistenceBase(
         for outfile in files:
             fmt_version = self.record_format_version(outfile)
             if fmt_version is None or fmt_version < 6:
+                # no reliable params stored (version 4 refactored params storage
+                # and version 6 fixed a bug in determination of whether params are
+                # derived from e.g. input or output files). If they are,
+                # there is the risk to store storage paths here. Derived param
+                # changes will also be captured by input changes.
                 continue
             recorded = self.params(outfile)
             if recorded is not None:
@@ -682,6 +689,8 @@ class PersistenceBase(
 
     @lru_cache()
     def _code(self, rule) -> Optional[str]:
+        # Scripts and notebooks are triggered by changes in the script mtime.
+        # Changes to python and shell rules are triggered by changes in the plain text.
         if rule.shellcmd is not None:
             return rule.shellcmd
         if rule.run_func_src is not None:
@@ -705,6 +714,7 @@ class PersistenceBase(
                     yield "<service>"
                 else:
                     yield (
+                        # get the true path instead of the cache path
                         get_flag_value(f, "sourcecache_entry")
                         if is_flagged(f, "sourcecache_entry")
                         else f
@@ -770,6 +780,8 @@ class PersistenceBase(
         )
 
     def _software_stack_hash(self, job) -> str:
+        # TODO move code for retrieval into software deployment plugin interface once
+        # available
         md5hash = hashlib.md5(usedforsecurity=False)
         if (
             DeploymentMethod.CONDA
