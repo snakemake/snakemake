@@ -1355,6 +1355,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         if missing_input:
             if job.is_checkpoint:
+            # If a checkpoint input was e.g. deleted but the output is still present,
+            # the checkpoint has to be removed here from the dag as with any other 
+            # job. However, we still have to record its output for updating downstream
+            # jobs. This is what happens in self._evicted_checkpoint_outputs
                 incomplete_outputs = set(
                     await self.workflow.persistence.incomplete(job)  # type: ignore[reportOptionalMemberAccess]
                 )
