@@ -1,3 +1,5 @@
+from snakemake.executors.local import RunArgs
+from typing import Dict
 from abc import abstractmethod
 import os
 from pathlib import Path
@@ -252,52 +254,31 @@ def get_exec_class(language):
 
 def notebook(
     path,
-    basedir,
-    input,
-    output,
-    params,
-    wildcards,
-    threads,
-    resources,
-    log,
-    config,
-    rulename,
-    conda_env,
-    conda_base_path,
-    container_img,
-    singularity_args,
-    env_modules,
-    bench_record,
-    jobid,
-    bench_iteration,
-    cleanup_scripts,
-    shadow_dir,
-    edit,
-    sourcecache_path,
-    runtime_sourcecache_path,
-    local_storage_prefix,
-):
+    run_args: RunArgs,
+    config: Dict,
+) -> None:
     """
-    Load a script from the given basedir + path and execute it.
+    Load a notebook from the given basedir + path and execute it.
     """
     draft = False
     if isinstance(path, Path):
         path = str(path)
-    path = format(path, wildcards=wildcards, params=params)
-    if edit is not None:
+    path = format(path, wildcards=run_args.wildcards, params=run_args.params)
+    if run_args.edit_notebook is not None:
         if is_local_file(path):
             if not os.path.isabs(path):
-                local_path = os.path.join(basedir, path)
+                local_path = run_args.basedir / path
             else:
-                local_path = path
-            if not os.path.exists(local_path):
+                local_path = Path(path)
+            if not local_path.exists():
                 # draft the notebook, it does not exist yet
                 language = None
                 draft = True
-                path = f"file://{os.path.abspath(local_path)}"
-                if path.endswith(".py.ipynb"):
+                path = f"file://{local_path.absolute()}"
+                suffixes = path.suffixes
+                if suffixes[-2:] == [".py", ".ipynb"]:
                     language = "jupyter_python"
-                elif path.endswith(".r.ipynb"):
+                elif suffixes[-2:] == [".r", ".ipynb"]:
                     language = "jupyter_r"
                 else:
                     raise WorkflowError(
@@ -313,10 +294,10 @@ def notebook(
     if not draft:
         path, source, language, is_local, cache_path = get_source(
             path,
-            SourceCache(sourcecache_path, runtime_sourcecache_path),
-            basedir,
-            wildcards,
-            params,
+            SourceCache(run_args.cache_path, run_args.runtime_cache_path),
+            run_args.basedir,
+            run_args.wildcards,
+            run_args.params,
         )
     else:
         source = None
@@ -325,53 +306,27 @@ def notebook(
         path = infer_source_file(path)
 
     exec_class = get_exec_class(language)
+    if exec_class is None:
+        raise ValueError(
+            "Unsupported notebook: Has to be either an R (.r.ipynb) or Python (.py.ipynb) notebook."
+        )
 
     executor = exec_class(
         path,
-        cache_path,
-        source,
-        basedir,
-        input,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
-        conda_env,
-        conda_base_path,
-        container_img,
-        singularity_args,
-        env_modules,
-        bench_record,
-        jobid,
-        bench_iteration,
-        cleanup_scripts,
-        shadow_dir,
-        is_local,
-        local_storage_prefix,
+        cache_path=cache_path,
+        source=source,
+        is_local=is_local,
+        run_args=run_args,
+        config=config,
     )
 
-    if edit is None:
-        executor.evaluate(edit=edit)
-    elif edit.draft_only:
+    if run_args.edit_notebook is None:
+        executor.evaluate(edit=run_args.edit_notebook)
+    elif run_args.edit_notebook.draft_only:
         executor.draft()
         msg = f"Generated skeleton notebook:\n{path} "
-        if conda_env and not container_img:
-            msg += (
-                "\n\nEditing with VSCode:\nOpen notebook, run command 'Select notebook kernel' (Ctrl+Shift+P or Cmd+Shift+P), and choose:"
-                "\n{}\n".format(
-                    str(Path(conda_env) / "bin" / executor.get_interpreter_exec())
-                )
-            )
-            msg += (
-                "\nEditing with Jupyter CLI:"
-                "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
-            )
         logger.info(msg)
     elif draft:
-        executor.draft_and_edit(listen=edit)
+        executor.draft_and_edit(listen=run_args.edit_notebook)
     else:
-        executor.evaluate(edit=edit)
+        executor.evaluate(edit=run_args.edit_notebook)

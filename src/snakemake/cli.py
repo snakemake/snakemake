@@ -1665,6 +1665,20 @@ def get_argument_parser(profiles=None):
         "variables and the user home (~), which will be properly expanded. "
         "Note that if you use remote execution "
         "e.g. on a cluster and you have node specific values for this, you should "
+        "disable assuming shared fs for software-deployment-cache (see `--shared-fs-usage`).",
+    )
+    group_deployment.add_argument(
+        "--software-deployment-pinfile-prefix",
+        "--sdm-pinfile-prefix",
+        metavar="DIR",
+        default=DeploymentSettings().pinfile_prefix,
+        type=maybe_base64(expandvars(Path)),
+        help="Specify a directory under which Snakemake shall store pinfiles of software "
+        "environments. "
+        "The prefix may contain environment "
+        "variables and the user home (~), which will be properly expanded. "
+        "Note that if you use remote execution "
+        "e.g. on a cluster and you have node specific values for this, you should "
         "disable assuming shared fs for software-deployment (see `--shared-fs-usage`).",
     )
     group_deployment.add_argument(
@@ -2015,6 +2029,7 @@ def args_to_api(args, parser):
                         deployment_methods=deployment_methods,
                         cache_prefix=args.software_deployment_cache_prefix,
                         deployment_prefix=args.software_deployment_prefix,
+                        pinfile_prefix=args.software_deployment_pinfile_prefix,
                         not_block_search_path_envvars=args.not_block_search_path_envvars,
                     ),
                     software_deployment_provider_settings=software_deployment_provider_settings,

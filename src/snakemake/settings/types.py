@@ -241,7 +241,6 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
             self.remote_job_local_storage_prefix = self.local_storage_prefix
 
 
-@dataclass
 class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     """
     Parameters
@@ -251,11 +250,22 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         deployment method to use (e.g. "conda", "container", "envmodules")
     """
 
-    deployment_methods: AnySet[str] = frozenset()
-    deployment_prefix: Path = field(default=Path(".snakemake/software/deployments"))
-    cache_prefix: Path = field(default=Path(".snakemake/software/cache"))
-    pinfile_prefix: Path = field(default=Path(".snakemake/software/pins"))
-    not_block_search_path_envvars: bool = False
+    def __init__(
+        self,
+        deployment_methods: AnySet[str] = frozenset(),
+        deployment_prefix: Optional[Path] = None,
+        cache_prefix: Optional[Path] = None,
+        pinfile_prefix: Optional[Path] = None,
+        not_block_search_path_envvars: bool = False,
+    ) -> None:
+        super().__init__()
+        self.deployment_methods = deployment_methods
+        self.deployment_prefix = deployment_prefix or Path(
+            ".snakemake/software/deployments"
+        )
+        self.cache_prefix = cache_prefix or Path(".snakemake/software/cache")
+        self.pinfile_prefix = pinfile_prefix or Path(".snakemake/software/pins")
+        self.not_block_search_path_envvars = not_block_search_path_envvars
 
     def deployment_method(self) -> AnySet[str]:
         return self.deployment_methods

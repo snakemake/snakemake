@@ -1,4 +1,4 @@
-from snakemake.executors.local import RunArgs
+from typing import TYPE_CHECKING
 
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
@@ -43,6 +43,9 @@ from snakemake.sourcecache import (
     infer_source_file,
 )
 from snakemake.utils import format
+
+if TYPE_CHECKING:
+    from snakemake.executors.local import RunArgs
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
@@ -580,7 +583,7 @@ class ScriptBase(ABC):
         cache_path: Path,
         source: str,
         is_local: bool,
-        run_args: RunArgs,
+        run_args: "RunArgs",
         config: Dict,
     ):
         self.path = path
@@ -1318,7 +1321,7 @@ def get_language(source_file, source):
 
 def script(
     path,
-    run_args: RunArgs,
+    run_args: "RunArgs",
     config: Dict,
 ):
     """

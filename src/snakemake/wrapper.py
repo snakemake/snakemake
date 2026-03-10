@@ -94,7 +94,7 @@ def wrapper(
     path,
     run_args: RunArgs,
     config: Dict,
-):
+) -> None:
     """
     Load a wrapper from https://github.com/snakemake/snakemake-wrappers under
     the given path + wrapper.(py|R|Rmd) and execute it.

@@ -190,8 +190,8 @@ def run(
     omit_from=frozenset(),
     forcerun=frozenset(),
     trust_io_cache=False,
-    conda_list_envs=False,
-    conda_create_envs=False,
+    list_software_envs=False,
+    cache_or_deploy_software_envs=False,
     deployment_prefix=None,
     wrapper_prefix=None,
     printshellcmds=False,
@@ -450,10 +450,10 @@ def run(
                         report_settings=report_settings,
                         global_report_settings=global_report_settings,
                     )
-                elif conda_create_envs:
-                    dag_api.conda_create_envs()
-                elif conda_list_envs:
-                    dag_api.conda_list_envs()
+                elif cache_or_deploy_software_envs:
+                    dag_api.cache_or_deploy_software_envs()
+                elif list_software_envs:
+                    dag_api.list_software_envs()
                 elif archive is not None:
                     dag_api.archive(Path(archive))
                 elif generate_unit_tests is not None:
@@ -510,7 +510,7 @@ def run(
             if snakemake_api is not None and exception is not None:
                 snakemake_api.print_exception(exception)
             print("Workdir:")
-            print_tree(tmpdir, exclude=".snakemake/conda")
+            print_tree(tmpdir, exclude=".snakemake")
             if exception is not None:
                 raise exception
         assert success, "expected successful execution"

@@ -1,3 +1,4 @@
+from typing import ClassVar
 from snakemake.deployment import EnvSpecs
 
 __author__ = "Johannes Köster"
@@ -24,7 +25,7 @@ import copy
 from pathlib import Path
 import tarfile
 import tempfile
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union, Any
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.deployment import SoftwareDeploymentManager
@@ -182,6 +183,7 @@ class Workflow(WorkflowExecutorInterface):
     _rundir = str(Path.cwd().absolute())
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
     injected_conda_envs: List = field(default_factory=list)
+    _globals_seed: ClassVar[Dict[str, Any]] = globals()
 
     def __post_init__(self):
         """
@@ -237,8 +239,9 @@ class Workflow(WorkflowExecutorInterface):
         self._async_executor = ThreadPoolExecutor()
         self._async_lock = threading.Lock()
 
-        _globals = globals()
         from snakemake.shell import shell
+
+        _globals = dict(self._globals_seed)
 
         _globals["shell"] = shell
         _globals["workflow"] = self
@@ -1928,19 +1931,13 @@ class Workflow(WorkflowExecutorInterface):
                     self.sourcecache,
                     prefix=self.workflow_settings.wrapper_prefix,
                 )
-                # TODO retrieve suitable singularity image
 
             def check_may_use_software_deployment(method):
-                if not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                ):
+                if ruleinfo.template_engine:
                     raise RuleException(
                         f"{method} directive is only allowed with "
-                        "shell, script, notebook, or wrapper "
-                        "directives (not with template_engine or run)",
+                        "shell, script, notebook, run, or wrapper "
+                        "directives (not with template_engine)",
                         rule=rule,
                     )
 
@@ -1955,7 +1952,7 @@ class Workflow(WorkflowExecutorInterface):
                 env_specs.legacy_container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not ruleinfo.template_engine and ruleinfo.container_img != False:
+                if not ruleinfo.template_engine and ruleinfo.container_img is not False:
                     # skip rules with template_engine directive or empty image
                     env_specs.legacy_container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
@@ -2129,15 +2126,6 @@ class Workflow(WorkflowExecutorInterface):
         if "conda" in self.deployment_settings.deployment_methods:
             from conda_inject import PackageManager, inject_env_file
 
-            try:
-                package_manager = PackageManager[
-                    self.deployment_settings.conda_frontend.upper()
-                ]
-            except KeyError:
-                raise WorkflowError(
-                    f"Chosen conda frontend {self.deployment_settings.conda_frontend} is not supported by conda-inject."
-                )
-
             # Handle relative path
             if not isinstance(conda_env, SourceFile):
                 if is_local_file(conda_env) and not os.path.isabs(conda_env):
@@ -2155,7 +2143,7 @@ class Workflow(WorkflowExecutorInterface):
             try:
                 env = inject_env_file(
                     conda_env.get_path_or_uri(secret_free=False),
-                    package_manager=package_manager,
+                    package_manager=PackageManager.CONDA,
                 )
             except subprocess.CalledProcessError as e:
                 raise WorkflowError(

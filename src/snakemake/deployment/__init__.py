@@ -109,6 +109,7 @@ class SoftwareDeploymentManager:
                 f"Caching {len(assets)} software environment assets.",
                 extra={"quietness": Quietness.RULES},
             )
+
             for asset, env in assets.items():
                 await env.managed_cache_asset(asset)
 
@@ -161,6 +162,17 @@ class SoftwareDeploymentManager:
                 # no method activated that can yield an env here
                 return None
 
+        deployment_prefix = (
+            self.workflow.deployment_settings.deployment_prefix / env_spec.kind
+        )
+        cache_prefix = self.workflow.deployment_settings.cache_prefix / env_spec.kind
+        pinfile_prefix = (
+            self.workflow.deployment_settings.pinfile_prefix / env_spec.kind
+        )
+        deployment_prefix.mkdir(parents=True, exist_ok=True)
+        cache_prefix.mkdir(parents=True, exist_ok=True)
+        pinfile_prefix.mkdir(parents=True, exist_ok=True)
+
         env = env_spec.env_cls()(
             spec=env_spec,
             within=(
@@ -173,11 +185,9 @@ class SoftwareDeploymentManager:
             tempdir=Path(tempfile.gettempdir()),
             mountpoints=[self.workflow.source_cache_path, Path(os.getcwd())]
             + get_snakemake_searchpaths(),
-            cache_prefix=self.workflow.deployment_settings.cache_prefix / env_spec.kind,
-            deployment_prefix=self.workflow.deployment_settings.deployment_prefix
-            / env_spec.kind,
-            pinfile_prefix=self.workflow.deployment_settings.pinfile_prefix
-            / env_spec.kind,
+            cache_prefix=cache_prefix,
+            deployment_prefix=deployment_prefix,
+            pinfile_prefix=pinfile_prefix,
         )
         if env in self.env_instances:
             # env with same content already instantiated, use that instead
