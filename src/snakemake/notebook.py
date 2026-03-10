@@ -325,6 +325,8 @@ def notebook(
     elif run_args.edit_notebook.draft_only:
         executor.draft()
         msg = f"Generated skeleton notebook:\n{path} "
+        # TODO provide hints how to start notebook, also within the annotated
+        # software envs.
         logger.info(msg)
     elif draft:
         executor.draft_and_edit(listen=run_args.edit_notebook)
