@@ -2990,7 +2990,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
                 def collect_caches(env):
                     for dirpath, _, filenames in env.cache_prefix.walk():
-                        env_cache_assets.add(str(dirpath / filename) for filename in filenames)
+                        env_cache_assets.add(
+                            str(dirpath / filename) for filename in filenames
+                        )
                     if env.within is not None:
                         collect_caches(env.within)
 

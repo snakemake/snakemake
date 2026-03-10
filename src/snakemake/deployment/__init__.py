@@ -151,7 +151,9 @@ class SoftwareDeploymentManager:
                 await env.cleanup_cache()
                 env.managed_remove()
 
-    def get_env(self, env_spec: EnvSpecBase, mountpoints: List[Path] = []) -> Optional[EnvBase]:
+    def get_env(
+        self, env_spec: EnvSpecBase, mountpoints: List[Path] = []
+    ) -> Optional[EnvBase]:
         if env_spec in self.specs_to_envs:
             return self.specs_to_envs[env_spec]
 
@@ -176,7 +178,12 @@ class SoftwareDeploymentManager:
         env = env_spec.env_cls()(
             spec=env_spec,
             within=(
-                self.get_env(env_spec.within, mountpoints=[deployment_prefix, cache_prefix, pinfile_prefix]) if env_spec.within is not None else None
+                self.get_env(
+                    env_spec.within,
+                    mountpoints=[deployment_prefix, cache_prefix, pinfile_prefix],
+                )
+                if env_spec.within is not None
+                else None
             ),
             settings=self.workflow.software_deployment_provider_settings.get(
                 self.plugins[env_spec.kind].name
@@ -241,6 +248,22 @@ class EnvSpecs:
     legacy_conda_env: Optional[Union[str, Path, Callable]] = None
     legacy_container_img: Optional[Union[str, Callable]] = None
     legacy_env_modules: Optional[Union[List[str], Callable]] = None
+
+    def contains_conda_or_container(self) -> bool:
+        def is_conda_or_container_spec(spec) -> bool:
+            if spec is None:
+                return False
+            return (
+                spec.kind in ("conda", "container")
+                or is_conda_or_container_spec(spec.fallback)
+                or is_conda_or_container_spec(spec.within)
+            )
+
+        return (
+            is_conda_or_container_spec(self.software_spec)
+            or self.legacy_conda_env is not None
+            or self.legacy_container_img is not None
+        )
 
     def is_empty(self) -> bool:
         return (

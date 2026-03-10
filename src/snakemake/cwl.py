@@ -21,6 +21,7 @@ from snakemake_software_deployment_plugin_container import Runtime as ContainerR
 from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 from snakemake.executors.local import RunArgs
 
+
 def cwl(
     path,
     run_args: RunArgs,
@@ -53,7 +54,10 @@ def cwl(
         return [file_spec(f_) for f_ in f]
 
     inputs = {name: file_spec(f) for name, f in input.items()} | {
-        name: value for name, value in chain(run_args.params.items(), run_args.output.items(), run_args.log.items())
+        name: value
+        for name, value in chain(
+            run_args.params.items(), run_args.output.items(), run_args.log.items()
+        )
     }
 
     container_settings = run_args.software_deployment_provider_settings.get("container")
@@ -92,7 +96,11 @@ def job_to_cwl(job, dag, outputs, inputs):
         if o in files
     }
     files = [f for f in job.input if f not in dep_ids]
-    if job.software_env_spec is not None and isinstance(job.software_env_spec, CondaEnvSpec) and job.job.software_env_spec.envfile is not None:
+    if (
+        job.software_env_spec is not None
+        and isinstance(job.software_env_spec, CondaEnvSpec)
+        and job.job.software_env_spec.envfile is not None
+    ):
         files.add(os.path.relpath(job.job.software_env_spec.envfile))
 
     out = [get_output_id(job, i) for i, _ in enumerate(job.output)]

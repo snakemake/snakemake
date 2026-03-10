@@ -81,16 +81,16 @@ class JupyterNotebook(ScriptBase):
                     "--ServerApp.quit_button=True {fname:q}"
                 )
             else:
-                has_papermill = (self.run_args.software_env and self.run_args.software_env.contains_executable("papermill")) or shutil.which("papermill") is not None
+                has_papermill = (
+                    self.run_args.software_env
+                    and self.run_args.software_env.contains_executable("papermill")
+                ) or shutil.which("papermill") is not None
                 if has_papermill:
                     if fname_out is None:
                         output_parameter = fname
                     else:
                         output_parameter = "{fname_out}"
-                    cmd = (
-                        "papermill --log-level ERROR {fname:q} "
-                        f"{output_parameter}"
-                    )
+                    cmd = "papermill --log-level ERROR {fname:q} " f"{output_parameter}"
                 else:
                     if fname_out is None:
                         output_parameter = f"--output '{tmp}/notebook.ipynb'"
@@ -212,7 +212,9 @@ def notebook(
     if run_args.edit_notebook is not None:
         if is_local_file(path):
             if not os.path.isabs(path):
-                local_path = Path(run_args.basedir.join(path).get_path_or_uri(secret_free=True))
+                local_path = Path(
+                    run_args.basedir.join(path).get_path_or_uri(secret_free=True)
+                )
             else:
                 local_path = Path(path)
             if not local_path.exists():

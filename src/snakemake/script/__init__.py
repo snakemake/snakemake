@@ -641,7 +641,9 @@ class ScriptBase(ABC):
         fd.write(self.source.encode())
 
     @abstractmethod
-    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False) -> None: ...
+    def execute_script(
+        self, fname, edit: Optional[NotebookEditMode] = False
+    ) -> None: ...
 
     def _execute_cmd(self, cmd, **kwargs):
         return shell(
@@ -665,10 +667,8 @@ class PythonScript(ScriptBase):
         else:
             file_override = self.path.get_path_or_uri(secret_free=True)
 
-        return (
-            "__real_file__ = __file__; __file__ = {file_override};".format(
-                file_override=repr(file_override)
-            )
+        return "__real_file__ = __file__; __file__ = {file_override};".format(
+            file_override=repr(file_override)
         )
 
     def get_preamble(self):
