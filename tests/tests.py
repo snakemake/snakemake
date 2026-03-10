@@ -1501,6 +1501,7 @@ def test_uncreatable_checkpoint_input():
 
 
 @skip_on_windows  # OS agnostic
+@pytest.mark.skipif(ON_MACOS, reason="do not support `ln -s`")
 def test_checkpoint_rerun():
     d = dpath("test_checkpoint_rerun")
     run(d, no_tmpdir=True, cleanup=False, check_results=False)
