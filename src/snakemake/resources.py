@@ -493,7 +493,9 @@ class Resource:
 
     def __init__(self, name: str, value: ValidResource, raw: int | str | None = None):
         if not (
-            isinstance(value, (str, int, float, Path)) or callable(value) or value is None
+            isinstance(value, (str, int, float, Path))
+            or callable(value)
+            or value is None
         ):
             msg = (
                 f"Resource '{name}' assigned invalid value {value!r}. Must be str, "
