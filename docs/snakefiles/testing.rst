@@ -27,7 +27,28 @@ or, optionally, if you want to use a local conda cache and disable pytest cachin
 
 Each auto-generated unit test is stored in a file ``.tests/unit/test_<rulename>.py``, and executes just the one representative job of the respective rule.
 After successful execution of the job, it will compare the obtained results with those that have been present when running ``snakemake --generate-unit-tests``.
-By default, the comparison happens byte by byte (using ``cmp/zcmp/bzcmp/xzcmp``). This behavior can be overwritten by modifying the test file.
+By default, the comparison happens byte by byte (using ``cmp/zcmp/bzcmp/xzcmp``), but this behavior can be overwritten by modifying the test file. The user can either add a new command to ``common.py`` (it will affect all tests):
+
+.. code-block:: python
+
+    cmp_cmds = {
+        ".gz": ["zcmp"],
+        ".bz2": ["bzcmp"],
+        ".xz": ["xzcmp"],
+        ".bam": ["gatk", "CompareSAMs", "--LENIENT_HEADER"],
+    }
+
+or, for a rule-specific behaviour, pass a similar ``dict`` to the ``check()`` method in the pytest script (will be used instead of the ``dict`` in ``common.py`` for this test only):
+
+.. code-block:: python
+
+    common.OutputChecker(data_path, expected_path, workdir).check(
+        {
+            ".txt": ["diff", "--ignore-matching-lines", "\\#"],
+            ".tsv": ["qsv", "diff"],
+            ".bam": ["gatk", "CompareSAMs", "--LENIENT_HEADER"],
+        }
+    )
 
 NOTE: Importantly, such unit tests shall not be generated from big data, as they should usually be finished in a few seconds.
 Furthermore, it makes sense to store the generated unit tests in version control (e.g. git), such that huge files are also not recommended.
