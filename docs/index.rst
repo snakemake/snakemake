@@ -183,6 +183,7 @@ Resources
     snakefiles/reporting
     snakefiles/testing
     snakefiles/foreign_wms
+    snakefiles/debugging_workflows
 
 .. toctree::
     :caption: Project Info
