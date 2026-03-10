@@ -2953,6 +2953,7 @@ def test_cyclic_dependency_single():
     run(dpath("test_cyclic_dependency_single"), forceall=True)
 
 
+@skip_on_windows
 def test_github_issue3913():
     core_count_limit = 8
     tmpdir = run(
