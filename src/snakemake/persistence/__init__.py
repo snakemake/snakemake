@@ -318,37 +318,125 @@ class PersistenceBase(
         return Path(self._aux_path)
 
     @abstractmethod
-    def _read_record(self, key: str) -> Optional[MetadataRecord]: ...
+    def _read_record(self, key: str) -> Optional[MetadataRecord]:
+        """
+        Fetch the metadata record for the given key.
+
+        Args:
+            key (str): The unique string identifier for the output file.
+
+        Returns:
+            Optional[MetadataRecord]: The deserialized record, or None if it does not exist.
+        """
+        ...
 
     @abstractmethod
-    def _write_record(self, key: str, record: MetadataRecord) -> None: ...
+    def _write_record(self, key: str, record: MetadataRecord) -> None:
+        """
+        Write or overwrite the metadata record for the given key.
+
+        Args:
+            key (str): The unique string identifier for the output file.
+            record (MetadataRecord): The complete metadata record to store.
+        """
+        ...
 
     @abstractmethod
-    def _delete_record(self, key: str) -> bool: ...
+    def _delete_record(self, key: str) -> bool:
+        """
+        Delete the metadata record associated with the given key.
+
+        Args:
+            key (str): The unique string identifier for the output file.
+
+        Returns:
+            bool: True if the record was found and deleted, False if it did not exist.
+        """
+        ...
 
     @abstractmethod
-    def _mark_incomplete(self, key: str, external_jobid: Optional[str]) -> None: ...
+    def _mark_incomplete(self, key: str, external_jobid: Optional[str]) -> None:
+        """
+        Mark a file key as currently incomplete (job has started but not finished).
+
+        Args:
+            key (str): The unique string identifier for the output file.
+            external_jobid (Optional[str]): The cluster/executor job ID associated with this run.
+        """
+        ...
 
     @abstractmethod
-    def _unmark_incomplete(self, key: str) -> None: ...
+    def _unmark_incomplete(self, key: str) -> None:
+        """
+        Remove the incomplete marker for a given file key.
+
+        Args:
+            key (str): The unique string identifier for the output file.
+        """
+        ...
 
     @abstractmethod
-    def _read_locks(self) -> Iterable[Tuple[str, str]]: ...
+    def _filter_incomplete_keys(self, keys: Iterable[str]) -> Set[str]:
+        """
+        Given a list of file keys, return a subset of those keys that are marked as incomplete.
+
+        Args:
+            keys (Iterable[str]): A collection of file keys to check.
+
+        Returns:
+            Set[str]: The keys from the input iterable that have an active incomplete marker.
+        """
+        ...
 
     @abstractmethod
-    def _write_locks(self, lock_type: str, keys: Iterable[str]) -> None: ...
+    def _get_external_jobids(self, keys: Iterable[str]) -> Set[str]:
+        """
+        Given a list of file keys, return all unique external job IDs associated with them.
+
+        Args:
+            keys (Iterable[str]): A collection of file keys to check.
+
+        Returns:
+            Set[str]: A set of all non-null external job IDs found for the provided keys.
+        """
+        ...
 
     @abstractmethod
-    def _delete_locks(self) -> None: ...
+    def _read_locks(self) -> Iterable[Tuple[str, str]]:
+        """
+        Retrieve all currently active locks.
+
+        Returns:
+            Iterable[Tuple[str, str]]: An iterable yielding (lock_type, key) pairs,
+                                       where lock_type is 'input' or 'output'.
+        """
+        ...
 
     @abstractmethod
-    def _clear_cache(self) -> None: ...
+    def _write_locks(self, lock_type: str, keys: Iterable[str]) -> None:
+        """
+        Create locks of a specific type for multiple keys.
+
+        Args:
+            lock_type (str): The type of lock ('input' or 'output').
+            keys (Iterable[str]): The file keys to lock.
+        """
+        ...
 
     @abstractmethod
-    def _filter_incomplete_keys(self, keys: Iterable[str]) -> Set[str]: ...
+    def _delete_locks(self) -> None:
+        """
+        Remove all active locks managed by this persistence instance.
+        """
+        ...
 
     @abstractmethod
-    def _get_external_jobids(self, keys: Iterable[str]) -> Set[str]: ...
+    def _clear_cache(self) -> None:
+        """
+        Clear any internal, memory-based caches used by the persistence backend.
+        This is called prior to state mutations to ensure data consistency.
+        """
+        ...
 
     def _get_key(self, f: _IOFile) -> str:
         assert isinstance(f, _IOFile)
