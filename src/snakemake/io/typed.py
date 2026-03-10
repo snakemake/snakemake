@@ -1,6 +1,6 @@
 import json
 import dataclasses
-from typing import Type, TypeVar
+from typing import Generic, Type, TypeVar
 
 T = TypeVar("T")
 
@@ -21,7 +21,7 @@ def typed_to_dict(obj):
     raise NotImplementedError(f"Cannot convert {type(obj)} to dict")
 
 
-class TypedFile[T]:
+class TypedFile(Generic[T]):
     """
     A wrapper to indicate that a file has a specific type.
     TODO: is it necessary to zip the file?
