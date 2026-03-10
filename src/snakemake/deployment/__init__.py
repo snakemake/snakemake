@@ -151,7 +151,7 @@ class SoftwareDeploymentManager:
                 await env.cleanup_cache()
                 env.managed_remove()
 
-    def get_env(self, env_spec: EnvSpecBase) -> Optional[EnvBase]:
+    def get_env(self, env_spec: EnvSpecBase, mountpoints: List[Path] = []) -> Optional[EnvBase]:
         if env_spec in self.specs_to_envs:
             return self.specs_to_envs[env_spec]
 
@@ -176,7 +176,7 @@ class SoftwareDeploymentManager:
         env = env_spec.env_cls()(
             spec=env_spec,
             within=(
-                self.get_env(env_spec.within) if env_spec.within is not None else None
+                self.get_env(env_spec.within, mountpoints=[deployment_prefix, cache_prefix, pinfile_prefix]) if env_spec.within is not None else None
             ),
             settings=self.workflow.software_deployment_provider_settings.get(
                 self.plugins[env_spec.kind].name

@@ -55,8 +55,8 @@ dependencies = [
   "snakemake-interface-software-deployment-plugins >=0.16.1,<1.0",
   "snakemake-interface-logger-plugins>=1.1.0,<3.0.0",
   "snakemake-interface-scheduler-plugins>=2.0.0,<3.0.0",
-  #"snakemake-software-deployment-plugin-conda >=0.4.0,<1.0.0",
-  "snakemake-software-deployment-plugin-container >=0.5.0,<1.0.0",
+  "snakemake-software-deployment-plugin-conda >=0.4.2,<1.0.0",
+  "snakemake-software-deployment-plugin-container >=0.5.2,<1.0.0",
   "snakemake-software-deployment-plugin-envmodules >=0.2.0,<1.0.0",
   "tabulate",
   "throttler",
@@ -100,7 +100,7 @@ platforms = ["linux-64", "osx-arm64", "win-64", "osx-64", "linux-aarch64"]
 
 [tool.pixi.pypi-dependencies]
 snakemake = { path = ".", editable = true, extras = ["all"] }
-snakemake-software-deployment-plugin-conda = { path = "../snakemake-software-deployment-plugin-conda", editable = true }
+#snakemake-software-deployment-plugin-conda = { path = "../snakemake-software-deployment-plugin-conda", editable = true }
 
 [tool.pixi.environments]
 dev = { features = ["test", "docs", "style"] }

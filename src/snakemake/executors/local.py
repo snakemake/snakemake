@@ -1,3 +1,4 @@
+from snakemake.sourcecache import SourceFile
 from snakemake.settings.types import NotebookEditMode
 from itertools import chain
 from snakemake.benchmark import BenchmarkRecord
@@ -288,7 +289,7 @@ class RunArgs:
     shadow_dir: Path
     jobid: Union[int, str]
     edit_notebook: Optional[NotebookEditMode]
-    basedir: Path
+    basedir: SourceFile
     cache_path: Path
     runtime_cache_path: Path
     runtime_paths: List[Path]

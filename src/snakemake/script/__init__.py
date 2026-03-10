@@ -1,3 +1,4 @@
+from snakemake.settings.types import NotebookEditMode
 from typing import TYPE_CHECKING
 
 __author__ = "Johannes Köster"
@@ -593,6 +594,9 @@ class ScriptBase(ABC):
         self.run_args = run_args
         self.config = config
 
+    def preamble_addendum(self) -> str:
+        return ""
+
     def evaluate(self, edit=False):
         assert not edit or self.editable
 
@@ -637,7 +641,7 @@ class ScriptBase(ABC):
         fd.write(self.source.encode())
 
     @abstractmethod
-    def execute_script(self, fname, edit=False) -> None: ...
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False) -> None: ...
 
     def _execute_cmd(self, cmd, **kwargs):
         return shell(
@@ -653,19 +657,21 @@ class PythonScript(ScriptBase):
     def _minify_preamble(preamble: str) -> str:
         return textwrap.dedent(preamble).replace("\n", "")
 
-    def get_preamble(self):
+    def preamble_addendum(self) -> str:
         if isinstance(self.path, LocalSourceFile):
             file_override = os.path.realpath(
                 self.path.get_path_or_uri(secret_free=True)
             )
         else:
             file_override = self.path.get_path_or_uri(secret_free=True)
-        preamble_addendum = (
+
+        return (
             "__real_file__ = __file__; __file__ = {file_override};".format(
                 file_override=repr(file_override)
             )
         )
 
+    def get_preamble(self):
         snakemake = Snakemake(
             input=self.run_args.input,
             output=self.run_args.output,
@@ -715,7 +721,7 @@ class PythonScript(ScriptBase):
             from snakemake.logging import logger;
             from snakemake.script import snakemake;
             {shell_exec_stmt}
-            {preamble_addendum}
+            {self.preamble_addendum()}
             """
         return "\n".join(
             [
@@ -749,7 +755,7 @@ class PythonScript(ScriptBase):
                 f"Unable to determine Python version from output '{out}': {e}"
             )
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         py_exec = sys.executable
         if self.run_args.software_env is not None:
             if self.run_args.software_env.spec.kind == "container":
@@ -833,10 +839,12 @@ class RScript(ScriptBase):
             }}
         )
 
+        {self.preamble_addendum()}
+
         ######## snakemake preamble end #########
         """)
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd("Rscript --vanilla {fname:q}", fname=fname)
 
 
@@ -855,7 +863,7 @@ class RMarkdown(RScript):
         fd.write(preamble.encode())
         fd.write(code[pos:].encode())
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         if len(self.output) != 1:
             raise WorkflowError(
                 "RMarkdown scripts (.Rmd) may only have a single output file."
@@ -906,10 +914,11 @@ class JuliaScript(ScriptBase):
                     {JuliaEncoder.encode_value(self.path.get_basedir().get_path_or_uri(secret_free=True))}, #scriptdir::String
                     #, #source::Any
                 )
+                {self.preamble_addendum()}
                 ######## snakemake preamble end #########
             """)
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd("julia {fname:q}", fname=fname)
 
 
@@ -949,7 +958,7 @@ class RustScript(ScriptBase):
 
         json_string = json.dumps(dict(snakemake))
 
-        return textwrap.dedent("""
+        return textwrap.dedent(f"""
             json_typegen::json_typegen!("Snakemake", r###"{json_string}"###, {{
                 "/bench_iteration": {{
                     "use_type": "Option<usize>"
@@ -1056,16 +1065,14 @@ class RustScript(ScriptBase):
                     s
                 }};
             }}
-            // TODO include addendum, if any {{preamble_addendum}}
-            """).format(
-            json_string=json_string,
-        )
+            {self.preamble_addendum()}
+            """)
 
     def write_script(self, preamble, fd):
         content = self.combine_preamble_and_source(preamble)
         fd.write(content.encode())
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         deps = self.default_dependencies()
         ftrs = self.default_features()
         self._execute_cmd(
@@ -1201,7 +1208,7 @@ class BashScript(ScriptBase):
         dicts = ["config"]
         encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
         preamble = encoder.encode_snakemake(snakemake)
-        return preamble
+        return f"{preamble}\n{self.preamble_addendum()}"
 
     def write_script(self, preamble, fd):
         content = self.combine_preamble_and_source(preamble)
@@ -1215,12 +1222,12 @@ class BashScript(ScriptBase):
 
         return "\n".join([shebang, preamble, source])
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd("bash {fname:q}", fname=fname)
 
 
 class XonshScript(PythonScript):
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd(
             "xonsh -DRAISE_SUBPROC_ERROR=true -DXONSH_SHOW_TRACEBACK=true {fname:q}",
             fname=fname,
@@ -1232,7 +1239,7 @@ class HyScript(PythonScript):
         fd.write(f"(pys #[[{preamble}]])".encode())
         fd.write(self.source.encode())
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd("hy {fname:q}", fname=fname)
 
 
