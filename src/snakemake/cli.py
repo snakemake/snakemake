@@ -408,12 +408,13 @@ def get_argument_parser(profiles=None):
                 config_files.append(config_file)
             else:
                 print(
-                    "Error: profile given but no config.yaml found. "
+                    "Error: profile directory given but no profile.yaml (or config.yaml) found. "
                     "Profile has to be given as either absolute path, relative "
                     "path or name of a directory available in either "
                     "{site} or {user}.".format(
                         site=dirs.site_config_dir, user=dirs.user_config_dir
-                    ),
+                    )
+                    "Alternatively, you can explicitly specify a path and file name.",
                     file=sys.stderr,
                 )
                 exit(1)
