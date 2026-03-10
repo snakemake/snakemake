@@ -2951,3 +2951,43 @@ def test_cyclic_dependency_single():
     # It is expected behavior that Snakemake would not rerun in such a case without
     # forcing it.
     run(dpath("test_cyclic_dependency_single"), forceall=True)
+
+
+def test_github_issue3913():
+    core_count_limit = 8
+    tmpdir = run(
+        dpath("test_github_issue3913"),
+        shellcmd=f"snakemake --cores {core_count_limit} --scheduler=greedy",
+        cleanup=False,
+    )
+
+    active_job_thread_counts = {}
+    with open(next((tmpdir / ".snakemake/log").glob("*.log"))) as logfile:
+        for line in logfile:
+            if line.startswith("    jobid:"):
+                current_jobid = line.split()[-1]
+                thread_count = 1
+            elif line.startswith("    threads"):
+                thread_count = int(line.split()[-1])
+            elif line.startswith("    resources:"):
+                active_job_thread_counts[current_jobid] = thread_count
+            elif line.startswith("Finished jobid:"):
+                finished_jobid = line.split()[2]
+                assert finished_jobid in active_job_thread_counts
+                del active_job_thread_counts[finished_jobid]
+
+            if not active_job_thread_counts:
+                # No active jobs trivially passes the test
+                continue
+
+            # At no point in workflow execution
+            # should there be more threads in active jobs than the set limit,
+            # except if a single job requests more threads than the limit
+            active_threads = sum(active_job_thread_counts.values())
+            max_allowed_threads = max(
+                max(active_job_thread_counts.values()),
+                core_count_limit,
+            )
+            assert active_threads <= max_allowed_threads
+
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
