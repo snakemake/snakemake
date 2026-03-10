@@ -804,25 +804,33 @@ In some case you might need to choose a valid file/folder from a given list at e
 
 .. code-block:: python
 
-    choose_file(["file/with/no/access", "~/.bashrc"]) # returns "~/.bashrc"
+    assert choose_file(["foo", "~/.bashrc"]) == Path("~/.bashrc").expanduser()
 
 folders:
 
 .. code-block:: python
 
-    choose_folder(["non/existent/path", "/tmp"]) # returns "/tmp"
+    assert choose_folder(["foo/bar", "/proc", "~"]) == Path("~").expanduser()
 
 :ref:`temp folders <snakefiles-dynamic-resources_tmpdir>`:
 
 .. code-block:: python
 
-    choose_tmp(["non/existent/path", "/tmp", "/tmp/job_id"]) # returns "/tmp"
+    assert choose_tmp(["/foo/bar", "/tmp", "/tmp/jobid"]) == Path("/tmp")
+    assert choose_tmp(["/foo/bar", "/tmp/$USER", "/tmp/"]) == Path("/tmp/$USER")
+    assert choose_tmp(["foo/bar", "/tmp"]) == Path("foo/bar")
 
 or a generic function for more flexibility:
 
 .. code-block:: python
 
-    choose_f(["non/existent/path", "/tmp"]) # returns "/tmp"
+    assert choose_f(
+        ["/non/existing/path", "/foo", "/bar"],
+        read=True,
+        write=True,
+        execute=True,
+        creatable=True,
+    ) is None
 
 
 .. _snakefiles-targets:

@@ -3,13 +3,14 @@ from pathlib import Path
 # File with rw access
 assert choose_file(["foo", "~/.bashrc"]) == Path("~/.bashrc").expanduser()
 # Folder with rwx access
-assert choose_folder(["/proc", "~"]) == Path("~").expanduser()
+assert choose_folder(["foo/bar", "/proc", "~"]) == Path("~").expanduser()
 # First is non-existing and not creatable
-assert choose_tmp(["/non/existing/path", "/tmp"]) == Path("/tmp")
+assert choose_tmp(["/foo/bar", "/tmp", "/tmp/jobid"]) == Path("/tmp")
+assert choose_tmp(["/foo/bar", "/tmp/$USER", "/tmp/"]) == Path("/tmp/$USER")
 # First is non-existing but creatable
-assert choose_tmp(["non/existing/path", "/tmp"]) == Path("non/existing/path")
+assert choose_tmp(["foo/bar", "/tmp"]) == Path("foo/bar")
 # None is valid
-assert choose_tmp(["/non/existing/path", "/foo"]) == "system_tmpdir"
+assert choose_tmp(["/foo", "/bar"]) == "system_tmpdir"
 # Folder with rwx or creatable
 assert (
     choose_f(
