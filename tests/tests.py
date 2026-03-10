@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from snakemake.exceptions import ResourceConversionError
 from snakemake.exceptions import ResourceDuplicationError
-from snakemake.persistence import FilePersistence
+from snakemake.persistence.file import FilePersistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
 from snakemake.settings.enums import RerunTrigger
 from snakemake.utils import min_version  # import so we can patch out if needed
@@ -321,7 +321,7 @@ def test_params():
 
 
 def test_params_outdated_metadata(mocker):
-    spy = mocker.spy(FilePersistence, "has_outdated_metadata")
+    spy = mocker.spy(PersistenceBase, "has_outdated_metadata")
 
     run(dpath("test_params_outdated_code"), targets=["somedir/test.out"])
     assert spy.spy_return == True

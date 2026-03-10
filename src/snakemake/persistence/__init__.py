@@ -225,7 +225,7 @@ class FileBackupMixin:
                 backup_path.unlink()
 
 
-class AbstractPersistence(
+class PersistenceBase(
     PersistenceExecutorInterface, EnvironmentMaintenanceMixin, FileBackupMixin
 ):
     dag: Any

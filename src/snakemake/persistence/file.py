@@ -3,8 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-__all__ = ["NO_PARAMS_CHANGE", "RECORD_FORMAT_VERSION"]
-
 import asyncio
 from dataclasses import fields
 import os
@@ -19,10 +17,9 @@ from pathlib import Path
 from contextlib import contextmanager
 from typing import Any, Optional
 
-from snakemake.persistence_interface import (
-    AbstractPersistence,
+from snakemake.persistence import (
+    PersistenceBase,
     MetadataRecord,
-    NO_PARAMS_CHANGE,
     RECORD_FORMAT_VERSION,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
@@ -35,7 +32,7 @@ from snakemake.io import _IOFile, IOCache
 VALID_METADATA_KEYS = frozenset(f.name for f in fields(MetadataRecord))
 
 
-class FilePersistence(AbstractPersistence):
+class FilePersistence(PersistenceBase):
     def __init__(
         self,
         nolock=False,

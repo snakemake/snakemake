@@ -2,7 +2,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from snakemake.persistence import FilePersistence
+from snakemake.persistence.file import FilePersistence
 
 
 class TestCleanupContainers:
