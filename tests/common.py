@@ -514,7 +514,7 @@ def run(
             if snakemake_api is not None and exception is not None:
                 snakemake_api.print_exception(exception)
             print("Workdir:")
-            print_tree(tmpdir, exclude=".snakemake/conda")
+            print_tree(tmpdir if tmpdir else str(path), exclude=".snakemake/conda")
             if exception is not None:
                 raise exception
         assert success, "expected successful execution"
@@ -526,14 +526,18 @@ def run(
             ):
                 # this means tests cannot use directories as output files
                 continue
-            targetfile = join(tmpdir, resultfile)
+            targetfile = join(tmpdir, resultfile) if tmpdir else str(path / resultfile)
             expectedfile = join(results_dir, resultfile)
 
             if ON_WINDOWS:
                 if os.path.exists(join(results_dir, resultfile + "_WIN")):
                     continue  # Skip test if a Windows specific file exists
                 if resultfile.endswith("_WIN"):
-                    targetfile = join(tmpdir, resultfile[:-4])
+                    targetfile = (
+                        join(tmpdir, resultfile[:-4])
+                        if tmpdir
+                        else str(path / resultfile)
+                    )
             elif resultfile.endswith("_WIN"):
                 # Skip win specific result files on Posix platforms
                 continue
