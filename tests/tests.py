@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from snakemake.exceptions import ResourceConversionError
 from snakemake.exceptions import ResourceDuplicationError
+from snakemake.persistence import PersistenceBase
 from snakemake.persistence.file import FilePersistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
 from snakemake.settings.enums import RerunTrigger
