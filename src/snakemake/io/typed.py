@@ -23,8 +23,7 @@ def typed_to_dict(obj):
 
 class TypedFile(Generic[T]):
     """
-    A wrapper to indicate that a file has a specific type.
-    TODO: is it necessary to zip the file?
+    A typed file wrapper that serializes/deserializes a typed object (Dataclass or NamedTuple) as JSON.
     """
 
     def __init__(self, file: str, type_: Type[T]):
@@ -37,22 +36,33 @@ class TypedFile(Generic[T]):
     @classmethod
     def factory(cls, type_: Type[T]):
         """
-        type_ should be Dataclass or NamedTuple, or any class that can be set as json and reloaded
+        Returns a constructor for TypedFile bound to the given type.
+        type_ should be a Dataclass, NamedTuple, or any class with asdict().
         """
         return lambda file: cls(file, type_)
 
     def dump(self, *args, **kwargs):
+        """Construct an instance of type_ and serialize it to the file as JSON."""
         obj = self.type_(*args, **kwargs)
         # obj1 = self.type_(**typed_to_dict(obj))  # is it needed to verify the type?
         with open(str(self.file), "w") as f:
             json.dump(typed_to_dict(obj), fp=f)
 
     def load(self) -> T:
-        """Guard that the value can only be read after it has been written."""
+        """Deserialize the file and return an instance of type_."""
         with open(str(self.file), "r") as f:
             data = json.load(f)
         return self.type_(**data)
 
     @property
     def value(self):
+        """Read the current value from disk."""
         return self.load()
+
+    def __getattr__(self, name: str):
+        """
+        Transparently proxy attribute access to the deserialized object.
+        Allows input.meta.some_threshold without an explicit .load() call.
+        Only triggered when the attribute is not found on TypedFile itself.
+        """
+        return getattr(self.load(), name)

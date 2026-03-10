@@ -231,7 +231,7 @@ As follow-up to this tutorial, we recommend to have a look at the :ref:`interact
 Using the ``typed`` function
 ::::::::::::::::::::::::::::
 
-The ``typed`` function wraps an output file path with a specific type, enabling structured serialization and deserialization of Dataclass or NamedTuple objects directly within Snakemake rules.
+The ``typed`` function wraps an output file path with a specific type, enabling structured serialization and deserialization of typed objects directly within Snakemake rules.
 
 Declare a output data structure and reference it in a rule (or checkpoint rule)::
 
