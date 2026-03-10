@@ -467,7 +467,7 @@ e.g.
 
 .. code-block:: python
 
-    collect("results/{item.sample}.txt", sample=lookup(query="someval > 2", within=samples))
+    collect("results/{item.sample}.txt", item=lookup(query="someval > 2", within=samples))
 
 Here, we take the file ``"results/{item.sample}.txt"`` with ``{item.sample}`` being replaced by the
 sample names that occur in all rows of the dataframe ``samples`` where the value of the ``someval`` column is greater than 2.
