@@ -764,7 +764,6 @@ class SourceCache:
 
     import logging
     @retry(
-        wait=wait_exponential(multiplier=2, min=3),
         stop=stop_after_attempt(1),
         after=after_log(logger, logging.INFO),
     )
