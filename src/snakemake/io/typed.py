@@ -56,3 +56,13 @@ class TypedFile(Generic[T]):
     @property
     def value(self):
         return self.load()
+
+    def open(self, *args, **kwargs):
+        """
+        In checkpoint functions, ancient behaiver is return an `_IOFile` instead of `TypedFile` with an `.open` method.
+        Let these pipelines happy.
+
+        But I think the _IOFile object should not be exposed to users,
+        and `checkpoints.somestep.get(sample=wildcards.sample).output` should be the same format as `output` accessed in `run`/`shell` section
+        """
+        return open(str(self.file), *args, **kwargs)
