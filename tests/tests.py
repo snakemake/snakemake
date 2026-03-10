@@ -2015,6 +2015,7 @@ def test_source_path_rerun():
     # rerun of the same workflow with source_path as input results in no rerun
     assert mtime_input_1 == mtime_input_2
 
+
 @only_on_windows
 def test_filesep_windows_targets():
     run(
