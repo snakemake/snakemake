@@ -914,14 +914,20 @@ class Workflow(WorkflowExecutorInterface):
 
         assert self.deployment_settings is not None
 
-        if self.workflow_settings.persistence_backend == "db":
+        persistence_backend = self.workflow_settings.persistence_backend
+        persistence_kwargs = {}
+        if persistence_backend == "db":
             persistence = DbPersistence
-            persistence_kwargs = {
-                "db_url": self.workflow_settings.persistence_backend_db_url
-            }
-        else:
+            if self.workflow_settings.persistence_backend_db_url:
+                persistence_kwargs["db_url"] = (
+                    self.workflow_settings.persistence_backend_db_url
+                )
+        elif persistence_backend == "file":
             persistence = FilePersistence
-            persistence_kwargs = {}
+        else:
+            raise WorkflowError(
+                "Unknown persistence backend: {}".format(persistence_backend)
+            )
 
         self._persistence = persistence(
             nolock=nolock,
