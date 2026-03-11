@@ -144,6 +144,8 @@ Plugin catalog
 Leveraging this standardized naming, Snakemake automatically collects all plugins from pypi and presents them in the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`__.
 The catalog automatically generates usage documentation for each plugin, gives credit to authors, and provides links to the respective github repositories.
 Plugin authors can extend the catalog documentation for their plugin by providing markdown files ``docs/intro.md`` and ``docs/further.md`` in the plugin repository in order to show an introductory paragraph as well as extensive non-standard documentation (like usage examples or other plugin specific information) in the catalog.
+See the `Slurm executor plugin <https://github.com/snakemake/snakemake-executor-plugin-slurm/tree/main/docs>`__ for an example on how that may be specified.
+You can see how its output is rendered in the catalog `here <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html>`__ .
 
 Scaffolding
 """""""""""
