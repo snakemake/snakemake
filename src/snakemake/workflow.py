@@ -1257,7 +1257,7 @@ class Workflow(WorkflowExecutorInterface):
         greedy_scheduler_settings: GreedySchedulerSettings,
         updated_files: Optional[List[str]] = None,
     ):
-        logger.info(f"host: {platform.node()}")
+        logger.info(f"host: {platform.node()}", extra={"quietness": Quietness.HOST})
 
         from snakemake.shell import shell
 
