@@ -769,7 +769,7 @@ class SourceCache:
     @retry(
         wait=wait_exponential(multiplier=2, min=3),
         stop=stop_after_attempt(1),
-        after=after_log(logger, logging.INFO, sec_format="%0.1f"),
+        after=after_log(logger, logging.DEBUG, sec_format="%0.1f"),
         reraise=True,
     )
     def _open(self, source_file: SourceFile, mode, encoding=None):
