@@ -48,7 +48,7 @@ For debugging such cases, Snakemake provides the command line flag ``--debug-dag
 
 In addition, it is advisable to check whether certain intermediate files would be created by targeting them individually via the command line.
 
-Finally, it is possible to constrain the rules that are considered for DAG creating via ``--allowed-rules``. 
+Finally, it is possible to constrain the rules that are considered for DAG creating via ``--allowed-rules``.
 This way, you can easily check rule by rule if it does what you expect.
 However, note that ``--allowed-rules`` is only meant for debugging.
 A workflow should always work fine without it.
@@ -285,9 +285,9 @@ This will cause Snakemake to re-run all jobs of that rule and everything downstr
 How should Snakefiles be formatted?
 --------------------------------------
 
-To ensure readability and consistency, you can format Snakefiles with our tool `snakefmt <https://github.com/snakemake/snakefmt>`_. 
+To ensure readability and consistency, you can format Snakefiles with our tool `snakefmt <https://github.com/snakemake/snakefmt>`_.
 
-Python code gets formatted with `black <https://github.com/psf/black>`_ and Snakemake-specific blocks are formatted using similar principles (such as `PEP8 <https://www.python.org/dev/peps/pep-0008/>`_).
+Python code gets formatted and linted with `ruff <https://docs.astral.sh/ruff/>`_ and Snakemake-specific blocks are formatted using similar principles (such as `PEP8 <https://www.python.org/dev/peps/pep-0008/>`_).
 
 How do I enable syntax highlighting in Vim for Snakefiles?
 ----------------------------------------------------------
@@ -673,7 +673,7 @@ How can I avoid system /tmp to be used when combining apptainer and conda?
 When using both apptainer and conda the idea is that inside the apptainer container the conda environment is being installed.
 Some apptainer instances are set to share the system /tmp with the containers.
 This can lead to unexpected behaviour where the system /tmp gets full.
-To stop this behaviour you'd have to run apptainer with the ``--contain`` option. 
+To stop this behaviour you'd have to run apptainer with the ``--contain`` option.
 
 
 .. _consider_ancient:
