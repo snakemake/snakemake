@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools-scm>=8"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.11,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "snakemake"
-dynamic = ["version"]
+version = "9.16.3" # update this for new releases
 description = "Workflow management system to create reproducible and scalable data analyses"
 readme = { content-type = "text/markdown", text = """
   Snakemake is a workflow management system that aims to reduce the
@@ -22,6 +22,8 @@ classifiers = [
   "Environment :: Console",
   "Intended Audience :: Science/Research",
   "Natural Language :: English",
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -74,11 +76,6 @@ all = ["eido", "peppy", "pygments"]
 
 [project.scripts]
 snakemake = "snakemake.cli:main"
-
-[tool.setuptools_scm]
-version_file = "src/snakemake/_version.py"
-# Ignore Git hash
-local_scheme = "no-local-version"
 
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
@@ -296,3 +293,9 @@ build = { cmd = "python -m build", description = "Build the package into the dis
 build-check = { cmd = "python -m twine check --strict dist/*", depends-on = [
   "build",
 ], description = "Check that the package can be uploaded" }
+
+[tool.pixi.dependencies]
+rust = ">=1.85,<2.0"
+
+[tool.maturin]
+module-name = "snakemake.core"
