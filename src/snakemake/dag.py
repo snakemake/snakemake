@@ -22,6 +22,7 @@ from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from tabulate import tabulate
 from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
@@ -165,6 +166,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._checked_jobs = set()
         self._checked_needrun_jobs = set()
         self._seen_outputs: Dict[str, Union[Job, GroupJob]] = dict()
+        self._evicted_checkpoint_outputs: Set = set()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -1353,6 +1355,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 )
 
         if missing_input:
+            if job.is_checkpoint:
+                # If a checkpoint input was e.g. deleted but the output is still present,
+                # the checkpoint has to be removed here from the dag as with any other
+                # job. However, we still have to record its output for updating downstream
+                # jobs. This is what happens in self._evicted_checkpoint_outputs
+                incomplete_outputs = set(
+                    await self.workflow.persistence.incomplete(job)  # type: ignore[reportOptionalMemberAccess]
+                )
+                for out in job.output:
+                    if await out.exists() and out not in incomplete_outputs:
+                        self._evicted_checkpoint_outputs.add(out)
             self.delete_job(job, recursive=False)  # delete job from tree
             raise MissingInputException(job, missing_input)
 
@@ -1461,7 +1474,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             if not reason:
                 output_mintime_ = output_mintime.get(job)
                 reason.updated_input.clear()
-                if output_mintime_:
+                # Skip this check if the job depends on a checkpoint target, as it will be
+                # reevaluated in a second pass after the checkpoint output has been determined.
+                # The checkpoint target file itself may have been updated,
+                # but the real input files are not yet known.
+                depends_on_checkpoint_target = any(
+                    f.flags.get("checkpoint_target") for f in job.input
+                )
+                if output_mintime_ and not depends_on_checkpoint_target:
                     # Input is updated if it is newer than the oldest output file
                     # and does not have the same checksum as the one previously recorded.
                     async def updated_input():
@@ -1478,10 +1498,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     reason.unfinished_queue_input = job.has_unfinished_queue_input()
                     if not reason.unfinished_queue_input:
                         # check for other changes like parameters, set of input files, or code
-                        depends_on_checkpoint_target = any(
-                            f.flags.get("checkpoint_target") for f in job.input
-                        )
-
                         if not depends_on_checkpoint_target:
                             # When the job depends on a checkpoint, it will be reevaluated in a second pass
                             # after the checkpoint output has been determined.
@@ -2178,6 +2194,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for depending in self.depending[job]:
                 job_queue[depending].add(job)
             self.workflow.checkpoints.created_output.update(job.output)
+        self.workflow.checkpoints.created_output.update(
+            self._evicted_checkpoint_outputs
+        )
 
         updated = len(job_queue) > 0
         if updated:
@@ -3185,7 +3204,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             logger.info(msg)
 
     def stats(self) -> Tuple[str, Dict[str, int]]:
-        from tabulate import tabulate
 
         # Count the jobs
         rules = Counter()
@@ -3195,10 +3213,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         # Create rows for the table and a dictionary for job stats
         rows = []
         stats_dict = {}
-        for rule, count in sorted(rules.most_common(), key=lambda item: item[0].name):
-            row = {"job": rule.name, "count": count}
-            rows.append(row)
-            stats_dict[rule.name] = count
+
+        relevant_jobs = set(chain(self.needrun_jobs(), self.finished_jobs))
+        ordered_jobs = [
+            str(job)
+            for level in self.toposorted(relevant_jobs)
+            for job in sorted(level, key=str)
+        ]
+        ordered_counts = Counter(ordered_jobs)
+
+        for unique_job in dict.fromkeys(ordered_jobs):
+            count = ordered_counts[unique_job]
+            rows.append({"job": unique_job, "count": count})
+            stats_dict[unique_job] = count
 
         # Add total row
         total_count = sum(rules.values())
@@ -3207,7 +3234,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         # Generate the formatted message
         message = "Job stats:\n" + tabulate(rows, headers="keys") + "\n"
-
         # Return both the message and dictionary
         return message, stats_dict
 
