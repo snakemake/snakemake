@@ -799,6 +799,15 @@ def test_profile():
 
 
 @skip_on_windows
+def test_profile_double_dash():
+    """Test that -- target separator works correctly with --profile (issue #3642)."""
+    run(
+        dpath("test_profile_double_dash"),
+        shellcmd="snakemake -c1 --profile profile -- done.txt",
+    )
+
+
+@skip_on_windows
 @apptainer
 @connected
 def test_singularity():
