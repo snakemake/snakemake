@@ -131,7 +131,7 @@ class DefaultFormatter(logging.Formatter):
         self.show_failed_logs = show_failed_logs
         self.last_msg_was_job_info = False
 
-    def format(self, record: logging.LogRecord) -> str:
+    def format(self, record: LogRecord) -> str:
         """
         Override format method to format Snakemake-specific log messages.
         """
@@ -287,8 +287,8 @@ class DefaultFormatter(logging.Formatter):
             output.append(
                 f"    log: {', '.join(msg['log'])} (check log file(s) for error details)"
             )
-        if msg["conda_env"]:
-            output.append(f"    conda-env: {msg['conda_env']}")
+        if msg["software_env"]:
+            output.append(f"    software-env: {msg['software_env']}")
         if msg["shellcmd"]:
             output.append(
                 f"    shell:\n        {msg['shellcmd']}\n        (command exited with non-zero exit code)"

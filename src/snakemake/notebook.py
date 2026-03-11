@@ -1,3 +1,7 @@
+from typing import Optional
+from snakemake.settings.types import NotebookEditMode
+from snakemake.executors.local import RunArgs
+from typing import Dict
 from abc import abstractmethod
 import os
 from pathlib import Path
@@ -63,47 +67,41 @@ class JupyterNotebook(ScriptBase):
 
         fd.write(nbformat.writes(nb, version=NBFORMAT_VERSION).encode())
 
-    def execute_script(self, fname, edit=None):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = None):
         import nbformat
 
-        fname_out = self.log.get("notebook", None)
+        fname_out = self.run_args.log.get("notebook", None)
 
         with tempfile.TemporaryDirectory() as tmp:
-            try:
-                self._execute_cmd("papermill --version", read=True)
-                has_papermill = True
-            except sp.CalledProcessError:
-                has_papermill = False
-
             if edit is not None:
                 assert not edit.draft_only
                 logger.info(f"Opening notebook for editing at {edit.ip}:{edit.port}")
                 cmd = (
-                    "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
-                    "--ServerApp.quit_button=True {{fname:q}}".format(edit=edit)
-                )
-            elif has_papermill:
-                if fname_out is None:
-                    output_parameter = fname
-                else:
-                    output_parameter = "{fname_out}"
-                cmd = (
-                    "papermill --log-level ERROR {{fname:q}} "
-                    "{output_parameter}".format(output_parameter=output_parameter)
+                    f"jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
+                    "--ServerApp.quit_button=True {fname:q}"
                 )
             else:
-                if fname_out is None:
-                    output_parameter = f"--output '{tmp}/notebook.ipynb'"
+                has_papermill = (
+                    self.run_args.software_env
+                    and self.run_args.software_env.contains_executable("papermill")
+                ) or shutil.which("papermill") is not None
+                if has_papermill:
+                    if fname_out is None:
+                        output_parameter = fname
+                    else:
+                        output_parameter = "{fname_out}"
+                    cmd = "papermill --log-level ERROR {fname:q} " f"{output_parameter}"
                 else:
-                    fname_out = os.path.abspath(fname_out)
-                    output_parameter = "--output {fname_out:q}"
+                    if fname_out is None:
+                        output_parameter = f"--output '{tmp}/notebook.ipynb'"
+                    else:
+                        fname_out = os.path.abspath(fname_out)
+                        output_parameter = "--output {fname_out:q}"
 
-                cmd = (
-                    "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
-                    "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
-                        output_parameter=output_parameter
+                    cmd = (
+                        f"jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
+                        "--to notebook --ExecutePreprocessor.timeout=-1 {fname:q}"
                     )
-                )
 
             if ON_WINDOWS:
                 fname = fname.replace("\\", "/")
@@ -166,36 +164,10 @@ class JupyterNotebook(ScriptBase):
     def get_interpreter_exec(self): ...
 
 
-class PythonJupyterNotebook(JupyterNotebook):
-    def get_preamble(self):
-        preamble_addendum = f"import os; os.chdir(r'{os.getcwd()}');"
+class PythonJupyterNotebook(JupyterNotebook, PythonScript):
 
-        return PythonScript.generate_preamble(
-            self.path,
-            self.cache_path,
-            self.source,
-            self.basedir,
-            self.input,
-            self.output,
-            self.params,
-            self.wildcards,
-            self.threads,
-            self.resources,
-            self.log,
-            self.config,
-            self.rulename,
-            self.conda_env,
-            self.container_img,
-            self.singularity_args,
-            self.env_modules,
-            self.bench_record,
-            self.jobid,
-            self.bench_iteration,
-            self.cleanup_scripts,
-            self.shadow_dir,
-            self.is_local,
-            preamble_addendum=preamble_addendum,
-        )
+    def preamble_addendum(self):
+        return f"import os; os.chdir(r'{os.getcwd()}');"
 
     def get_language_name(self):
         return "python"
@@ -204,34 +176,9 @@ class PythonJupyterNotebook(JupyterNotebook):
         return "python"
 
 
-class RJupyterNotebook(JupyterNotebook):
-    def get_preamble(self):
-        preamble_addendum = f"setwd('{os.getcwd()}');"
-
-        return RScript.generate_preamble(
-            self.path,
-            self.source,
-            self.basedir,
-            self.input,
-            self.output,
-            self.params,
-            self.wildcards,
-            self.threads,
-            self.resources,
-            self.log,
-            self.config,
-            self.rulename,
-            self.conda_env,
-            self.container_img,
-            self.singularity_args,
-            self.env_modules,
-            self.bench_record,
-            self.jobid,
-            self.bench_iteration,
-            self.cleanup_scripts,
-            self.shadow_dir,
-            preamble_addendum=preamble_addendum,
-        )
+class RJupyterNotebook(JupyterNotebook, RScript):
+    def preamble_addendum(self) -> str:
+        return f"setwd('{os.getcwd()}');"
 
     def get_language_name(self):
         return "r"
@@ -252,52 +199,33 @@ def get_exec_class(language):
 
 def notebook(
     path,
-    basedir,
-    input,
-    output,
-    params,
-    wildcards,
-    threads,
-    resources,
-    log,
-    config,
-    rulename,
-    conda_env,
-    conda_base_path,
-    container_img,
-    singularity_args,
-    env_modules,
-    bench_record,
-    jobid,
-    bench_iteration,
-    cleanup_scripts,
-    shadow_dir,
-    edit,
-    sourcecache_path,
-    runtime_sourcecache_path,
-    local_storage_prefix,
-):
+    run_args: RunArgs,
+    config: Dict,
+) -> None:
     """
-    Load a script from the given basedir + path and execute it.
+    Load a notebook from the given basedir + path and execute it.
     """
     draft = False
     if isinstance(path, Path):
         path = str(path)
-    path = format(path, wildcards=wildcards, params=params)
-    if edit is not None:
+    path = format(path, wildcards=run_args.wildcards, params=run_args.params)
+    if run_args.edit_notebook is not None:
         if is_local_file(path):
             if not os.path.isabs(path):
-                local_path = os.path.join(basedir, path)
+                local_path = Path(
+                    run_args.basedir.join(path).get_path_or_uri(secret_free=True)
+                )
             else:
-                local_path = path
-            if not os.path.exists(local_path):
+                local_path = Path(path)
+            if not local_path.exists():
                 # draft the notebook, it does not exist yet
                 language = None
                 draft = True
-                path = f"file://{os.path.abspath(local_path)}"
-                if path.endswith(".py.ipynb"):
+                path = f"file://{local_path.absolute()}"
+                suffixes = path.suffixes
+                if suffixes[-2:] == [".py", ".ipynb"]:
                     language = "jupyter_python"
-                elif path.endswith(".r.ipynb"):
+                elif suffixes[-2:] == [".r", ".ipynb"]:
                     language = "jupyter_r"
                 else:
                     raise WorkflowError(
@@ -313,10 +241,10 @@ def notebook(
     if not draft:
         path, source, language, is_local, cache_path = get_source(
             path,
-            SourceCache(sourcecache_path, runtime_sourcecache_path),
-            basedir,
-            wildcards,
-            params,
+            SourceCache(run_args.cache_path, run_args.runtime_cache_path),
+            run_args.basedir,
+            run_args.wildcards,
+            run_args.params,
         )
     else:
         source = None
@@ -325,53 +253,29 @@ def notebook(
         path = infer_source_file(path)
 
     exec_class = get_exec_class(language)
+    if exec_class is None:
+        raise ValueError(
+            "Unsupported notebook: Has to be either an R (.r.ipynb) or Python (.py.ipynb) notebook."
+        )
 
     executor = exec_class(
         path,
-        cache_path,
-        source,
-        basedir,
-        input,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
-        conda_env,
-        conda_base_path,
-        container_img,
-        singularity_args,
-        env_modules,
-        bench_record,
-        jobid,
-        bench_iteration,
-        cleanup_scripts,
-        shadow_dir,
-        is_local,
-        local_storage_prefix,
+        cache_path=cache_path,
+        source=source,
+        is_local=is_local,
+        run_args=run_args,
+        config=config,
     )
 
-    if edit is None:
-        executor.evaluate(edit=edit)
-    elif edit.draft_only:
+    if run_args.edit_notebook is None:
+        executor.evaluate(edit=run_args.edit_notebook)
+    elif run_args.edit_notebook.draft_only:
         executor.draft()
         msg = f"Generated skeleton notebook:\n{path} "
-        if conda_env and not container_img:
-            msg += (
-                "\n\nEditing with VSCode:\nOpen notebook, run command 'Select notebook kernel' (Ctrl+Shift+P or Cmd+Shift+P), and choose:"
-                "\n{}\n".format(
-                    str(Path(conda_env) / "bin" / executor.get_interpreter_exec())
-                )
-            )
-            msg += (
-                "\nEditing with Jupyter CLI:"
-                "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
-            )
+        # TODO provide hints how to start notebook, also within the annotated
+        # software envs.
         logger.info(msg)
     elif draft:
-        executor.draft_and_edit(listen=edit)
+        executor.draft_and_edit(listen=run_args.edit_notebook)
     else:
-        executor.evaluate(edit=edit)
+        executor.evaluate(edit=run_args.edit_notebook)

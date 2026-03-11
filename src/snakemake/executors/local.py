@@ -1,9 +1,22 @@
+from snakemake.sourcecache import SourceFile
+from snakemake.settings.types import NotebookEditMode
+from itertools import chain
+from snakemake.benchmark import BenchmarkRecord
+from snakemake.shell import shell
+from typing import Any
+from typing import List
+from typing import Union
+from typing import Dict
+from typing import Optional
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-
+from pathlib import Path
+from snakemake.io import Namedlist
+from attr import dataclass
 import os
 import sys
 import time
@@ -12,21 +25,18 @@ import concurrent.futures
 import subprocess
 from functools import partial
 from snakemake.executors import change_working_directory
-from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
-from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
-from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
-from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
     SingleJobExecutorInterface,
     GroupJobExecutorInterface,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode, CommonSettings
+from snakemake_interface_software_deployment_plugins import EnvBase as SoftwareEnvBase
 
-from snakemake.shell import shell
+from snakemake.rules import Rule
 from snakemake.logging import logger
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
@@ -108,67 +118,45 @@ class Executor(RealExecutor):
         future.add_done_callback(partial(self._callback, job_info))
         self.report_job_submission(job_info)
 
-    def job_args_and_prepare(self, job: JobExecutorInterface):
+    def job_args_and_prepare(self, job: JobExecutorInterface) -> "RunArgs":
         self.workflow.async_run(job.prepare())
-
-        conda_env = (
-            job.conda_env.address
-            if DeploymentMethod.CONDA
-            in self.workflow.deployment_settings.deployment_method
-            and job.conda_env
-            else None
-        )
-        container_img = (
-            job.container_img_path
-            if DeploymentMethod.APPTAINER
-            in self.workflow.deployment_settings.deployment_method
-            else None
-        )
-        env_modules = (
-            job.env_modules
-            if DeploymentMethod.ENV_MODULES
-            in self.workflow.deployment_settings.deployment_method
-            else None
-        )
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
 
-        return (
-            job.rule,
-            job.input._plainstrings(),
-            job.output._plainstrings(),
-            job.params,
-            job.wildcards,
-            job.threads,
-            job.resources,
-            job.log._plainstrings(),
-            benchmark,
-            benchmark_repeats,
-            self.workflow.output_settings.benchmark_extended,
-            conda_env,
-            container_img,
-            self.workflow.deployment_settings.apptainer_args,
-            env_modules,
-            DeploymentMethod.APPTAINER
-            in self.workflow.deployment_settings.deployment_method,
-            self.workflow.linemaps,
-            self.workflow.execution_settings.debug,
-            self.workflow.execution_settings.cleanup_scripts,
-            job.shadow_dir,
-            job.jobid,
-            (
+        return RunArgs(
+            job_rule=job.rule,
+            input=job.input._plainstrings(),
+            output=job.output._plainstrings(),
+            params=job.params,
+            wildcards=job.wildcards,
+            threads=job.threads,
+            resources=job.resources,
+            log=job.log._plainstrings(),
+            benchmark=benchmark,
+            benchmark_repeats=benchmark_repeats,
+            benchmark_extended=self.workflow.output_settings.benchmark_extended,
+            linemaps=self.workflow.linemaps,
+            debug=self.workflow.execution_settings.debug,
+            cleanup_scripts=self.workflow.execution_settings.cleanup_scripts,
+            shadow_dir=job.shadow_dir,
+            jobid=job.jobid,
+            edit_notebook=(
                 self.workflow.execution_settings.edit_notebook
                 if self.dag.is_edit_notebook_job(job)
                 else None
             ),
-            self.workflow.conda_base_path,
-            job.rule.basedir,
-            self.workflow.sourcecache.cache_path,
-            self.workflow.sourcecache.runtime_cache_path,
-            self.workflow.runtime_paths,
+            basedir=job.rule.basedir,
+            cache_path=self.workflow.sourcecache.cache_path,
+            runtime_cache_path=self.workflow.sourcecache.runtime_cache_path,
+            runtime_paths=self.workflow.runtime_paths,
+            wrapper_prefix=self.workflow.workflow_settings.wrapper_prefix,
+            not_block_search_path_envvars=(
+                self.workflow.deployment_settings.not_block_search_path_envvars
+            ),
+            software_env=job.software_env,
         )
 
     def run_single_job(self, job: SingleJobExecutorInterface):
@@ -178,7 +166,7 @@ class Executor(RealExecutor):
             or job.is_template_engine
         ):
             future = self.pool.submit(
-                self.cached_or_run, job, run_wrapper, *self.job_args_and_prepare(job)
+                self.cached_or_run, job, run_wrapper, self.job_args_and_prepare(job)
             )
         else:
             # run directive jobs are spawned into subprocesses
@@ -282,35 +270,64 @@ class Executor(RealExecutor):
         return self.workflow.resource_settings.cores
 
 
-def run_wrapper(
-    job_rule,
-    input,
-    output,
-    params,
-    wildcards,
-    threads,
-    resources,
-    log,
-    benchmark,
-    benchmark_repeats,
-    benchmark_extended,
-    conda_env,
-    container_img,
-    singularity_args,
-    env_modules,
-    use_singularity,
-    linemaps,
-    debug,
-    cleanup_scripts,
-    shadow_dir,
-    jobid,
-    edit_notebook,
-    conda_base_path,
-    basedir,
-    sourcecache_path,
-    runtime_sourcecache_path,
-    runtime_paths,
-):
+@dataclass
+class RunArgs:
+    job_rule: Rule
+    input: Namedlist
+    output: Namedlist
+    params: Namedlist
+    wildcards: Namedlist
+    threads: int
+    resources: Namedlist
+    log: Namedlist
+    benchmark: Optional[str]
+    benchmark_repeats: int
+    benchmark_extended: bool
+    linemaps: Dict[str, Dict[int, int]]
+    debug: bool
+    cleanup_scripts: bool
+    shadow_dir: Path
+    jobid: Union[int, str]
+    edit_notebook: Optional[NotebookEditMode]
+    basedir: SourceFile
+    cache_path: Path
+    runtime_cache_path: Path
+    runtime_paths: List[Path]
+    not_block_search_path_envvars: bool
+    wrapper_prefix: Optional[str]
+    software_env: Optional[SoftwareEnvBase]
+    bench_iteration: int = 0
+    bench_record: Optional[BenchmarkRecord] = None
+
+    def rulefunc_args(self) -> Dict[str, Any]:
+        return {
+            item: getattr(self, item) for item in self.rulefunc_args_attributes()
+        } | {"rule": self.job_rule.name, "run_args": self}
+
+    @classmethod
+    def rulefunc_args_attributes(cls) -> List[str]:
+        return [
+            "input",
+            "output",
+            "params",
+            "wildcards",
+            "threads",
+            "resources",
+            "log",
+            "jobid",
+            "bench_iteration",
+        ]
+
+    @classmethod
+    def rulefunc_args_signature(cls) -> str:
+        return ", ".join(chain(cls.rulefunc_args_attributes(), ["rule", "run_args"]))
+
+    @property
+    def is_shell(self) -> bool:
+        return self.job_rule.shellcmd is not None
+
+
+def run_wrapper(run_args: RunArgs):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
 
@@ -324,166 +341,94 @@ def run_wrapper(
     shadow_dir -- optional shadow directory root
     """
     # get shortcuts to job_rule members
-    run = job_rule.run_func
-    rule = job_rule.name
-    is_shell = job_rule.shellcmd is not None
+    run = run_args.job_rule.run_func
 
-    if os.name == "posix" and debug:
+    if os.name == "posix" and run_args.debug:
         sys.stdin = open("/dev/stdin")
 
-    if benchmark is not None:
+    if run_args.benchmark is not None:
         from snakemake.benchmark import (
-            BenchmarkRecord,
             benchmarked,
             write_benchmark_records,
         )
 
-    # Change workdir if shadow defined and not using singularity.
+    # Change workdir if shadow defined and not using container.
     # Otherwise, we do the change from inside the container.
-    passed_shadow_dir = None
-    if use_singularity and container_img:
-        passed_shadow_dir = shadow_dir
-        shadow_dir = None
+    immediate_shadow_dir = None
+    if run_args.software_env is None or run_args.software_env.spec.kind != "container":
+        immediate_shadow_dir = run_args.shadow_dir
+        run_args.shadow_dir = None
 
     try:
-        with change_working_directory(shadow_dir):
-            if benchmark:
+        with change_working_directory(immediate_shadow_dir):
+
+            if run_args.benchmark:
                 bench_records = []
-                for bench_iteration in range(benchmark_repeats):
+                for bench_iteration in range(run_args.benchmark_repeats):
+                    run_args.bench_iteration = bench_iteration
                     # Determine whether to benchmark this process or do not
                     # benchmarking at all.  We benchmark this process unless the
                     # execution is done through the ``shell:``, ``script:``, or
                     # ``wrapper:`` stanza.
                     is_sub = (
-                        job_rule.shellcmd
-                        or job_rule.script
-                        or job_rule.wrapper
-                        or job_rule.cwl
+                        run_args.job_rule.shellcmd
+                        or run_args.job_rule.script
+                        or run_args.job_rule.wrapper
+                        or run_args.job_rule.cwl
                     )
                     if is_sub:
                         # The benchmarking through ``benchmarked()`` is started
                         # in the execution of the shell fragment, script, wrapper
                         # etc, as the child PID is available there.
-                        bench_record = BenchmarkRecord()
-                        run(
-                            input,
-                            output,
-                            params,
-                            wildcards,
-                            threads,
-                            resources,
-                            log,
-                            rule,
-                            conda_env,
-                            container_img,
-                            singularity_args,
-                            use_singularity,
-                            env_modules,
-                            bench_record,
-                            jobid,
-                            is_shell,
-                            bench_iteration,
-                            cleanup_scripts,
-                            passed_shadow_dir,
-                            edit_notebook,
-                            conda_base_path,
-                            basedir,
-                            sourcecache_path,
-                            runtime_sourcecache_path,
-                            runtime_paths,
-                        )
+                        run_args.bench_record = BenchmarkRecord()
+                        run(**run_args.rulefunc_args())
                     else:
                         # The benchmarking is started here as we have a run section
                         # and the generated Python function is executed in this
                         # process' thread.
                         with benchmarked() as bench_record:
-                            run(
-                                input,
-                                output,
-                                params,
-                                wildcards,
-                                threads,
-                                resources,
-                                log,
-                                rule,
-                                conda_env,
-                                container_img,
-                                singularity_args,
-                                use_singularity,
-                                env_modules,
-                                bench_record,
-                                jobid,
-                                is_shell,
-                                bench_iteration,
-                                cleanup_scripts,
-                                passed_shadow_dir,
-                                edit_notebook,
-                                conda_base_path,
-                                basedir,
-                                sourcecache_path,
-                                runtime_sourcecache_path,
-                                runtime_paths,
-                            )
+                            run_args.bench_record = bench_record
+                            run(**run_args.rulefunc_args())
                     # Store benchmark record for this iteration
-                    bench_records.append(bench_record)
+                    bench_records.append(run_args.bench_record)
             else:
-                run(
-                    input,
-                    output,
-                    params,
-                    wildcards,
-                    threads,
-                    resources,
-                    log,
-                    rule,
-                    conda_env,
-                    container_img,
-                    singularity_args,
-                    use_singularity,
-                    env_modules,
-                    None,
-                    jobid,
-                    is_shell,
-                    None,
-                    cleanup_scripts,
-                    passed_shadow_dir,
-                    edit_notebook,
-                    conda_base_path,
-                    basedir,
-                    sourcecache_path,
-                    runtime_sourcecache_path,
-                    runtime_paths,
-                )
+                run(**run_args.rulefunc_args())
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it
         raise e
     except BaseException as ex:
         # this ensures that exception can be re-raised in the parent thread
-        origin = get_exception_origin(ex, linemaps)
+        origin = get_exception_origin(ex, run_args.linemaps)
         if origin is not None:
             log_verbose_traceback(ex)
             lineno, file = origin
             raise RuleException(
                 format_error(
-                    ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
+                    ex,
+                    lineno,
+                    linemaps=run_args.linemaps,
+                    snakefile=file,
+                    show_traceback=True,
                 )
-            )
+            ) from ex
         else:
             # some internal bug, just reraise
             raise ex
 
-    if benchmark is not None:
+    if run_args.benchmark is not None:
         try:
             # Add job info to (all repeats of) benchmark file
             for bench_record in bench_records:
-                bench_record.jobid = jobid
-                bench_record.rule_name = job_rule.name
-                bench_record.wildcards = wildcards
-                bench_record.params = params
-                bench_record.resources = resources
-                bench_record.input = input
-                bench_record.threads = threads
-            write_benchmark_records(bench_records, benchmark, benchmark_extended)
+                bench_record.jobid = run_args.jobid
+                bench_record.rule_name = run_args.job_rule.name
+                bench_record.wildcards = run_args.wildcards
+                bench_record.params = run_args.params
+                bench_record.resources = run_args.resources
+                bench_record.input = run_args.input
+                bench_record.threads = run_args.threads
+            write_benchmark_records(
+                bench_records, run_args.benchmark, run_args.benchmark_extended
+            )
         except Exception as ex:
-            raise WorkflowError(ex)
+            raise WorkflowError(ex) from ex

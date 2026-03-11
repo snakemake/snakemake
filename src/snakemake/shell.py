@@ -1,8 +1,11 @@
+from typing import TYPE_CHECKING
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from typing import Optional
 from pathlib import Path
 import _io
 import sys
@@ -18,11 +21,11 @@ from snakemake.utils import format, argvquote, cmd_exe_quote
 from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
 from snakemake_interface_logger_plugins.common import LogEvent
-from snakemake.deployment import singularity
-from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
 
-__author__ = "Johannes Köster"
+if TYPE_CHECKING:
+    from snakemake.executors.local import RunArgs
+
 
 STDOUT = sys.stdout
 if not isinstance(sys.stdout, _io.TextIOWrapper):
@@ -166,7 +169,13 @@ class shell:
             cls._processes.clear()
 
     def __new__(
-        cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs
+        cls,
+        cmd,
+        *args,
+        iterable: bool = False,
+        read: bool = False,
+        run_args: Optional["RunArgs"] = None,
+        **kwargs,
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
@@ -193,21 +202,31 @@ class shell:
         # add kwargs to context (overwriting the locals of the caller)
         context.update(kwargs)
 
-        jobid = context.get("jobid")
-        if not context.get("is_shell") and jobid is not None:
+        if run_args is None:
+            run_args = context.get("run_args")
+
+        if run_args:
+            jobid = run_args.jobid
+            software_env = run_args.software_env
+            threads = run_args.threads
+            not_block_search_path_envvars = run_args.not_block_search_path_envvars
+            is_shell = run_args.is_shell
+            bench_record = run_args.bench_record
+            tmpdir_resource = run_args.resources.get("tmpdir", None)
+            shell_executable = run_args.resources.get("shell_exec")
+        else:
+            jobid = None
+            software_env = None
+            threads = None
+            not_block_search_path_envvars = False
+            is_shell = False
+            bench_record = None
+            tmpdir_resource = None
+            shell_executable = None
+
+        if not is_shell and jobid is not None:
             logger.info(None, extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
 
-        conda_env = context.get("conda_env", None)
-        conda_base_path = context.get("conda_base_path", None)
-        container_img = context.get("container_img", None)
-        env_modules = context.get("env_modules", None)
-        shadow_dir = context.get("shadow_dir", None)
-        resources = context.get("resources", {})
-        singularity_args = context.get("singularity_args", "")
-        threads = context.get("threads", 1)
-        runtime_paths = context.get("runtime_paths", None)
-
-        shell_executable = resources.get("shell_exec")
         if shell_executable is not None:
             process_args = dict(cls._process_args)
             process_args["executable"] = shell_executable
@@ -221,24 +240,8 @@ class shell:
             (cls._get_process_prefix(shell_executable), cmd, cls._process_suffix)
         ).strip()
 
-        # If the executor is the submit executor or the jobstep executor for the SLURM
-        # backend, we do not want the environment modules to be activated:
-        # if the rule requires a Python module, snakemake's environment might be
-        # incompatible with the module's environment.
-        if env_modules and "slurm" not in (item.filename for item in inspect.stack()):
-            cmd = env_modules.shellcmd(cmd)
-            logger.info(f"Activating environment modules: {env_modules}")
-
-        if conda_env:
-            if ON_WINDOWS and not cls.get_executable():
-                # If we use cmd.exe directly on windows we need to prepend batch activation script.
-                cmd = Conda(
-                    container_img=container_img, prefix_path=conda_base_path
-                ).shellcmd_win(conda_env, cmd)
-            else:
-                cmd = Conda(
-                    container_img=container_img, prefix_path=conda_base_path
-                ).shellcmd(conda_env, cmd)
+        if software_env is not None:
+            cmd = software_env.managed_decorate_shellcmd(cmd)
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:
@@ -250,22 +253,6 @@ class shell:
             os.chmod(script, os.stat(script).st_mode | stat.S_IXUSR | stat.S_IRUSR)
             cmd = '"{}" "{}"'.format(cls.get_executable() or "/bin/sh", script)
 
-        if container_img:
-            cmd = singularity.shellcmd(
-                container_img,
-                cmd,
-                bind=runtime_paths,
-                args=singularity_args,
-                envvars=None,
-                shell_executable=shell_executable,
-                container_workdir=shadow_dir,
-                is_python_script=context.get("is_python_script", False),
-            )
-            logger.info(f"Activating singularity image {container_img}")
-        if conda_env:
-            logger.info(f"Activating conda environment: {os.path.relpath(conda_env)}")
-
-        tmpdir_resource = resources.get("tmpdir", None)
         # environment variable lists for linear algebra libraries taken from:
         # https://stackoverflow.com/a/53224849/2352071
         # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
@@ -295,8 +282,8 @@ class shell:
                 )
             envvars.update(env)
 
-        if conda_env and cls.conda_block_conflicting_envvars:
-            # remove envvars that conflict with conda
+        if software_env and not not_block_search_path_envvars:
+            # remove envvars that conflict with software environments
             for var in ["R_LIBS", "PYTHONPATH", "PERLLIB", "PERL5LIB"]:
                 try:
                     del envvars[var]

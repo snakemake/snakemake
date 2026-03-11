@@ -2,7 +2,6 @@ import json
 import pytest
 from pathlib import Path
 from .common import run
-from snakemake_interface_executor_plugins.settings import DeploymentMethod
 
 # See https://github.com/snakemake/snakemake/pull/3636.
 SNAKEFILE = """\
@@ -58,5 +57,5 @@ def test_jupyter_notebook_pathlike(testdir_notebook_pathlike):
     run(
         Path(testdir_notebook_pathlike),
         check_results=False,
-        deployment_method={DeploymentMethod.CONDA},
+        deployment_method={"conda"},
     )

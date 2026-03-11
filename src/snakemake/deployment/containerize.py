@@ -1,3 +1,5 @@
+from snakemake.sourcecache import infer_source_file
+from snakemake.common import is_local_file
 from pathlib import Path
 import hashlib
 import os
@@ -5,10 +7,14 @@ from abc import ABC, abstractmethod
 
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
-from snakemake.sourcecache import LocalSourceFile, infer_source_file
-from snakemake.io import is_callable, contains_wildcard
+from snakemake.sourcecache import LocalSourceFile
+from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 
-CONDA_ENV_PATH = "/conda-envs"
+# TODO convert to rattler or pixi?
+
+
+def get_containerized_path(env: CondaEnvSpec) -> Path:
+    return Path("/conda-envs") / env.hash()
 
 
 # ── Step 1: The ABC (Abstract Base Class) ──
@@ -161,7 +167,6 @@ def containerize(workflow, dag, fmt="dockerfile"):
         dag: The DAG object.
         fmt: The output format — "dockerfile" or "apptainer".
     """
-    from .conda import CondaEnvFileSpec, CondaEnvSpecType
 
     # ── Choose the format ──
     if fmt == "dockerfile":
@@ -174,55 +179,33 @@ def containerize(workflow, dag, fmt="dockerfile"):
     # ── Everything below is the SAME as the original (lines 22–72) ──
 
     # collect envs from jobs from the initial DAG.
-    conda_envs = {job.conda_env for job in dag.jobs if job.conda_env is not None}
-    dag_jobs = {job.name for job in dag.jobs if job.conda_env is not None}
+    def is_conda_job(job):
+        return job.software_env_spec is not None and isinstance(
+            job.software_env_spec, CondaEnvSpec
+        )
 
-    # collect envs from rules not in the initial DAG (e.g., for rules past checkpoints)
-    for rule in workflow.rules:
-        if not rule.conda_env or rule.name in dag_jobs:
-            continue
+    conda_envs = {job.software_env for job in dag.jobs if is_conda_job(job)}
 
-        env_def = rule.conda_env
-
-        if is_callable(env_def) or contains_wildcard(str(env_def)):
-            raise WorkflowError(
-                "Containerization of conda based workflows is not allowed if any conda env definition is dynamic "
-                "(e.g. contains a wildcard or is a function) and the corresponding rule is not part of the initial DAG. "
-                f"Found in rule {rule.name}."
-            )
-
-        spec_type = CondaEnvSpecType.from_spec(rule.conda_env)
-        if spec_type is not CondaEnvSpecType.FILE:
+    for env in conda_envs:
+        if env.spec.envfile is None:
             raise WorkflowError(
                 "Only file-based conda environments are supported for containerization for rules that are not part "
                 "of the initial DAG (e.g. because they are downstream of a checkpoint). "
-                f"Rule {rule.name} uses a conda environment by name or directory."
+                f"Invalid conda env spec: {env.spec}"
             )
 
-        env_def = infer_source_file(rule.conda_env, rule.basedir)
-        spec = CondaEnvFileSpec(env_def)
-        conda_env = spec.get_conda_env(workflow, envs_dir=CONDA_ENV_PATH)
-        if conda_env.is_externally_managed:
-            logger.warning(
-                "Skipping containerization of externally managed conda environment in rule %s.",
-                rule.name,
-            )
-            continue
-        conda_envs.add(conda_env)
-
-    def relfile(env):
-        if isinstance(env.file, LocalSourceFile):
-            return os.path.relpath(
-                env.file.get_path_or_uri(secret_free=True), os.getcwd()
-            )
+    def relfile(path_or_uri):
+        if is_local_file(path_or_uri):
+            return os.path.relpath(path_or_uri, os.getcwd())
         else:
-            return env.file.get_path_or_uri(secret_free=True)
+            return infer_source_file(path_or_uri).get_path_or_uri(secret_free=True)
 
-    envs = sorted(conda_envs, key=relfile)
+    sorted_envs = sorted(conda_envs, key=lambda env: env.spec.envfile)
     envhash = hashlib.sha256()
-    for env in envs:
-        logger.info(f"Hashing conda environment {relfile(env)}.")
-        envhash.update(env.content)
+    for env in sorted_envs:
+        logger.info(f"Hashing conda environment {env.spec}.")
+        # build a hash of the environment contents
+        envhash.update(env.hash())
 
     # ── From here, we use the formatter instead of hardcoded print() ──
 
@@ -232,32 +215,31 @@ def containerize(workflow, dag, fmt="dockerfile"):
     # Step 2: Retrieve conda environments (was lines 78-109)
     generate_env_cmds = []
     generated = set()
-    for env in envs:
-        if env.content_hash in generated:
+    for env in sorted_envs:
+        if env.hash() in generated:
+            # another conda env with the same content was generated before
             continue
-        prefix = Path(CONDA_ENV_PATH) / env.content_hash
-        env_source_path = relfile(env)
+        prefix = get_containerized_path(env)
+        env_source_path = relfile(env.spec.envfile.path_or_uri)
         env_target_path = prefix / "environment.yaml"
-
+        with open(env_source_path, "r") as f:
+            env_content = f.read()
         formatter.comment(f"Conda environment:")
         formatter.comment(f"  source: {env_source_path}")
         formatter.comment(f"  prefix: {prefix}")
-        for line in env.content.decode().strip().split("\n"):
+        for line in env_content.strip().split("\n"):
             formatter.comment(f"  {line}")
-
         formatter.run_command(f"mkdir -p {prefix}")
 
-        if isinstance(env.file, LocalSourceFile):
-            formatter.copy_file(env_source_path, env_target_path)
+        if is_local_file(env.spec.envfile.path_or_uri):
+            formatter.copy_file(env.spec.envfile.path_or_uri, env_target_path)
         else:
-            formatter.add_remote_file(
-                env.file.get_path_or_uri(secret_free=True), env_target_path
-            )
+            formatter.add_remote_file(env.spec.envfile.path_or_uri, env_target_path)
 
         generate_env_cmds.append(
             f"conda env create --prefix {prefix} --file {env_target_path} &&"
         )
-        generated.add(env.content_hash)
+        generated.add(env.hash())
 
     # Step 3: Generate conda environments (was lines 111-112)
     if generate_env_cmds:

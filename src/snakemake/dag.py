@@ -15,7 +15,7 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union, Dict
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
@@ -26,7 +26,6 @@ from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
 from snakemake.rules import Rule
-from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
@@ -43,7 +42,6 @@ from snakemake.common import (
     is_local_file,
 )
 from snakemake.settings.types import RerunTrigger, StrictDagEvaluation
-from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,
     ChildIOException,
@@ -83,7 +81,7 @@ from snakemake.settings.types import SharedFSUsage
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
-from snakemake.settings.types import ChangeType
+from snakemake.settings.enums import ChangeType
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
@@ -153,8 +151,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._ready_jobs = set()
         self._jobid = dict()
         self.job_cache = dict()
-        self.conda_envs = dict()
-        self.container_imgs = dict()
         self._progress = 0
         self._group = dict()
         self._n_until_ready = defaultdict(int)
@@ -269,8 +265,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         await self.check_incomplete()
 
-        self.update_container_imgs()
-        self.update_conda_envs()
+        self.workflow.software_deployment_manager.collect_envs(self.jobs)
 
         await self.update_needrun(create_inventory=True)
         if self.workflow.dryrun:
@@ -366,44 +361,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 del self.depending[job]
             except KeyError:
                 pass
-
-    def update_conda_envs(self):
-        # First deduplicate based on job.conda_env_spec
-        env_set = {
-            (job.conda_env_spec, job.container_img_url)
-            for job in self.jobs
-            if job.conda_env_spec
-            and (
-                job.is_local
-                or SharedFSUsage.SOFTWARE_DEPLOYMENT
-                in self.workflow.storage_settings.shared_fs_usage
-                or (
-                    self.workflow.remote_exec
-                    and SharedFSUsage.SOFTWARE_DEPLOYMENT
-                    not in self.workflow.storage_settings.shared_fs_usage
-                )
-            )
-        }
-
-        # Then based on md5sum values
-        for env_spec, simg_url in env_set:
-            simg = None
-            if simg_url and (
-                DeploymentMethod.APPTAINER
-                in self.workflow.deployment_settings.deployment_method
-            ):
-                assert (
-                    simg_url in self.container_imgs
-                ), "bug: must first pull singularity images"
-                simg = self.container_imgs[simg_url]
-            key = (env_spec, simg_url)
-            if key not in self.conda_envs:
-                env = env_spec.get_conda_env(
-                    self.workflow,
-                    container_img=simg,
-                    cleanup=self.workflow.deployment_settings.conda_cleanup_pkgs,
-                )
-                self.conda_envs[key] = env
 
     async def retrieve_storage_inputs(
         self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
@@ -533,35 +490,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             tg.create_task(
                                 f.remove(remove_non_empty_dir=True, only_local=True)
                             )
-
-    def create_conda_envs(self, dryrun=False, quiet=False):
-        dryrun |= self.workflow.dryrun
-        touch = self.workflow.touch
-        for env in self.conda_envs.values():
-            if (
-                not touch
-                and (not dryrun or not quiet)
-                and not env.is_externally_managed
-            ):
-                env.create(self.workflow.dryrun)
-
-    def update_container_imgs(self):
-        # First deduplicate based on job.conda_env_spec
-        img_set = {
-            (job.container_img_url, job.is_containerized)
-            for job in self.jobs
-            if job.container_img_url
-        }
-
-        for img_url, is_containerized in img_set:
-            if img_url not in self.container_imgs:
-                img = singularity.Image(img_url, self, is_containerized)
-                self.container_imgs[img_url] = img
-
-    def pull_container_imgs(self, quiet=False):
-        for img in self.container_imgs.values():
-            if not self.workflow.touch and (not self.workflow.dryrun or not quiet):
-                img.pull(self.workflow.dryrun)
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -1930,8 +1858,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             # this is important to ensure that there are no outdated local copies
             # that misguide e.g. params functions.
             await self.sanitize_local_storage_copies()
-            self.update_container_imgs()
-            self.update_conda_envs()
+            self.workflow.software_deployment_manager.collect_envs(self.jobs)
             await self.update_needrun()
         self.update_priority()
         self.handle_pipes_and_services()
@@ -2311,18 +2238,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         potential_new_ready_jobs = self.update_ready(depending)
 
         if updated_dag:
-            # We might have new jobs, so we need to ensure that all conda envs
-            # and singularity images are set up.
-            if (
-                DeploymentMethod.APPTAINER
-                in self.workflow.deployment_settings.deployment_method
-            ):
-                self.pull_container_imgs()
-            if (
-                DeploymentMethod.CONDA
-                in self.workflow.deployment_settings.deployment_method
-            ):
-                self.create_conda_envs()
+            # We might have new jobs, so we need to ensure that all software envs
+            # are deployed.
+            await self.workflow.software_deployment_manager.cache_envs(
+                self.needrun_jobs()
+            )
+            await self.workflow.software_deployment_manager.deploy_envs(
+                self.needrun_jobs()
+            )
             potential_new_ready_jobs = True
 
         if self.checkpoint_jobs:
@@ -3023,7 +2946,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 else:
                     yield "\t".join((fmt_output(f), date, rule, log, status, pending))
 
-    def archive(self, path: Path):
+    async def archive(self, path: Path):
         """Archives workflow such that it can be re-run on a different system.
 
         Archiving includes git versioned files (i.e. Snakefiles, config files, ...),
@@ -3045,7 +2968,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if path.exists():
             raise WorkflowError(f"Archive already exists:\n{path}")
 
-        self.create_conda_envs()
+        await self.workflow.software_deployment_manager.cache_envs(self.jobs)
 
         try:
             workdir = Path(os.path.abspath(os.getcwd()))
@@ -3080,14 +3003,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             # this is an input file that is not created by any job
                             add(f)
 
-                logger.info("Archiving conda environments...")
-                envs = set()
+                logger.info("Archiving software environments...")
+                env_cache_assets = set()
+
+                def collect_caches(env):
+                    for dirpath, _, filenames in env.cache_prefix.walk():
+                        env_cache_assets.add(
+                            str(dirpath / filename) for filename in filenames
+                        )
+                    if env.within is not None:
+                        collect_caches(env.within)
+
                 for job in self.jobs:
-                    if job.conda_env_spec:
-                        env_archive = job.archive_conda_env()
-                        envs.add(env_archive)
-                for env in envs:
-                    add(env)
+                    if job.software_env:
+                        collect_caches(job.software_env)
+                for asset in env_cache_assets:
+                    add(asset)
 
         except BaseException as e:
             os.remove(path)
@@ -3349,12 +3280,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         for job in self.jobs:
             assert not job.is_group(), "bug: groups should not be yielded by DAG.jobs"
-            if job.conda_env_spec and job.conda_env_spec.is_file:
-                f = local_path(job.conda_env_spec.file)
-                if f:
-                    # url points to a local env file
-                    env_path = norm_rule_relpath(f, job.rule)
-                    files.add(env_path)
+            if job.software_env_spec:
+                for attr in job.software_env_spec.source_path_attributes():
+                    f = local_path(getattr(job.software_env_spec, attr))
+                    if f:
+                        # url points to a local env file
+                        env_path = norm_rule_relpath(f, job.rule)
+                        files.add(env_path)
 
         for f in self.workflow.configfiles:
             files.add(os.path.relpath(f))

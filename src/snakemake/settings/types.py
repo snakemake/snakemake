@@ -1,11 +1,10 @@
 from abc import ABC
 from dataclasses import dataclass, field
 from functools import cached_property
-import os
 from pathlib import Path
 import re
-from typing import Any, Callable, Optional, TypeAlias, Union
-from typing import Mapping, Sequence, Set
+from typing import Callable, Optional, TypeAlias, Union
+from typing import Mapping, Sequence
 
 import immutables
 
@@ -16,7 +15,6 @@ from snakemake_interface_executor_plugins.settings import (
     DeploymentSettingsExecutorInterface,
     ExecutionSettingsExecutorInterface,
     StorageSettingsExecutorInterface,
-    DeploymentMethod,
     ExecMode,
     SharedFSUsage,
 )
@@ -27,7 +25,6 @@ from snakemake_interface_logger_plugins.settings import (
 
 from snakemake.common import (
     dict_to_key_value_args,
-    expand_vars_and_user,
     get_container_image,
 )
 from snakemake.common.configfile import load_configfile
@@ -36,8 +33,6 @@ from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
     RerunTrigger,
-    ChangeType,
-    CondaCleanupPkgs,
     Quietness,
     StrictDagEvaluation,
     PrintDag,
@@ -246,55 +241,34 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
             self.remote_job_local_storage_prefix = self.local_storage_prefix
 
 
-@dataclass
 class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     """
     Parameters
     ----------
 
     deployment_method
-        deployment method to use (CONDA, APPTAINER, ENV_MODULES)
-    conda_prefix:
-        the directory in which conda environments will be created (default None)
-    conda_cleanup_pkgs:
-        whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
-    conda_create_envs_only:
-        if specified, only builds the conda environments specified for each job, then exits.
-    list_conda_envs:
-        list conda environments and their location on disk.
-    conda_base_path:
-        Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
+        deployment method to use (e.g. "conda", "container", "envmodules")
     """
 
-    deployment_method: AnySet[DeploymentMethod] = frozenset()
-    conda_prefix: Optional[Path] = None
-    conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
-    conda_base_path: Optional[Path] = None
-    conda_frontend: str = "conda"
-    conda_not_block_search_path_envvars: bool = False
-    apptainer_args: str = ""
-    apptainer_prefix: Optional[Path] = None
+    def __init__(
+        self,
+        deployment_methods: AnySet[str] = frozenset(),
+        deployment_prefix: Optional[Path] = None,
+        cache_prefix: Optional[Path] = None,
+        pinfile_prefix: Optional[Path] = None,
+        not_block_search_path_envvars: bool = False,
+    ) -> None:
+        super().__init__()
+        self.deployment_methods = deployment_methods
+        self.deployment_prefix = deployment_prefix or Path(
+            ".snakemake/software/deployments"
+        )
+        self.cache_prefix = cache_prefix or Path(".snakemake/software/cache")
+        self.pinfile_prefix = pinfile_prefix or Path(".snakemake/software/pins")
+        self.not_block_search_path_envvars = not_block_search_path_envvars
 
-    def imply_deployment_method(self, method: DeploymentMethod):
-        self.deployment_method = set(self.deployment_method)
-        self.deployment_method.add(method)
-
-    def __post_init__(self):
-        from snakemake.logging import logger
-
-        if self.apptainer_prefix is None:
-            self.apptainer_prefix = os.environ.get("APPTAINER_CACHEDIR", None)
-        self.apptainer_prefix = expand_vars_and_user(self.apptainer_prefix)
-        self.conda_prefix = expand_vars_and_user(self.conda_prefix)
-        if self.conda_frontend != "conda":
-            logger.warning(
-                "Support for alternative conda frontends has been deprecated in "
-                "favor of simpler support and code base. "
-                "This should not cause issues since current conda releases rely on "
-                "fast solving via libmamba. "
-                f"Ignoring the alternative conda frontend setting ({self.conda_frontend})."
-            )
-            self.conda_frontend = "conda"
+    def deployment_method(self) -> AnySet[str]:
+        return self.deployment_methods
 
 
 @dataclass

@@ -117,7 +117,7 @@ jobs:
 
           cd tests/test_report
           pixi run -e ${{ matrix.env }} snakemake \
-            --use-conda \
+            --sdm conda \
             --cores 1 \
             --report report.zip
 

@@ -15,26 +15,16 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import get_container_image
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_software_deployment_plugins import EnvBase
+from snakemake_software_deployment_plugin_container import Settings as ContainerSettings
+from snakemake_software_deployment_plugin_container import Runtime as ContainerRuntime
+from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
+from snakemake.executors.local import RunArgs
 
 
 def cwl(
     path,
-    basedir,
-    input,
-    output,
-    params,
-    wildcards,
-    threads,
-    resources,
-    log,
-    config,
-    rulename,
-    use_singularity,
-    bench_record,
-    jobid,
-    sourcecache_path,
-    runtime_sourcecache_path,
-    local_storage_prefix,
+    run_args: RunArgs,
 ):
     """
     Load cwl from the given basedir + path and execute it.
@@ -50,9 +40,9 @@ def cwl(
         elif path.startswith("file:"):
             path = path[5:]
         if not os.path.isabs(path):
-            path = os.path.abspath(os.path.join(basedir, path))
+            path = os.path.abspath(os.path.join(run_args.basedir, path))
         path = "file://" + path
-    path = format(path, wildcards=wildcards)
+    path = format(path, wildcards=run_args.wildcards)
     if path.startswith("file://"):
         sourceurl = "file:" + pathname2url(path[7:])
     else:
@@ -63,19 +53,30 @@ def cwl(
             return {"path": os.path.abspath(f), "class": "File"}
         return [file_spec(f_) for f_ in f]
 
-    inputs = dict()
-    inputs.update({name: file_spec(f) for name, f in input.items()})
-    inputs.update({name: p for name, p in params.items()})
-    inputs.update({name: f for name, f in output.items()})
-    inputs.update({name: f for name, f in log.items()})
+    inputs = {name: file_spec(f) for name, f in input.items()} | {
+        name: value
+        for name, value in chain(
+            run_args.params.items(), run_args.output.items(), run_args.log.items()
+        )
+    }
 
-    args = "--singularity" if use_singularity else ""
+    container_settings = run_args.software_deployment_provider_settings.get("container")
+
+    args = []
+    if container_settings is not None:
+        container_runtime = container_settings.runtime
+        if container_runtime == ContainerRuntime.UDOCKER:
+            args.append("--udocker")
+        elif container_runtime == ContainerRuntime.PODMAN:
+            args.append("--podman")
+        elif container_runtime == ContainerRuntime.APPTAINER:
+            args.append("--singularity")
 
     with tempfile.NamedTemporaryFile(mode="w") as input_file:
         json.dump(inputs, input_file)
         input_file.flush()
-        cmd = f"cwltool {args} {sourceurl} {input_file.name}"
-        shell(cmd, bench_record=bench_record)
+        cmd = f"cwltool {' '.join(args)} {sourceurl} {input_file.name}"
+        shell(cmd, bench_record=run_args.bench_record)
 
 
 def job_to_cwl(job, dag, outputs, inputs):
@@ -95,8 +96,12 @@ def job_to_cwl(job, dag, outputs, inputs):
         if o in files
     }
     files = [f for f in job.input if f not in dep_ids]
-    if job.conda_env_file:
-        files.add(os.path.relpath(job.conda_env_file))
+    if (
+        job.software_env_spec is not None
+        and isinstance(job.software_env_spec, CondaEnvSpec)
+        and job.job.software_env_spec.envfile is not None
+    ):
+        files.add(os.path.relpath(job.job.software_env_spec.envfile))
 
     out = [get_output_id(job, i) for i, _ in enumerate(job.output)]
 
@@ -206,7 +211,7 @@ def dag_to_cwl(dag):
             dag.workflow.workflow_settings.wrapper_prefix,
             "--notemp",
             "--quiet",
-            "--use-conda",
+            "--sdm conda",
             "--no-hooks",
             "--nolock",
             "--mode",

@@ -1,3 +1,6 @@
+from snakemake.deployment.containerize import get_containerized_path
+from snakemake.deployment.containerize import containerize
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -5,7 +8,6 @@ __license__ = "MIT"
 
 import asyncio
 from builtins import ExceptionGroup
-from collections import defaultdict
 import os
 import base64
 from pathlib import Path
@@ -21,7 +23,6 @@ from collections.abc import AsyncGenerator
 from abc import abstractmethod
 from snakemake import wrapper
 from snakemake.rules import Rule
-from snakemake.settings.types import DeploymentMethod
 
 from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
@@ -42,7 +43,6 @@ from snakemake.io import (
     _IOFile,
     IOFile,
     ResourceList,
-    is_callable,
     Wildcards,
     is_flagged,
     get_flag_value,
@@ -63,13 +63,17 @@ from snakemake.exceptions import (
 
 from snakemake.logging import logger
 from snakemake.common import (
-    get_function_params,
     get_uuid,
     IO_PROP_LIMIT,
 )
 from snakemake.io.fmt import fmt_iofile
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
+from snakemake_interface_software_deployment_plugins import EnvBase as SoftwareEnvBase
+from snakemake_interface_software_deployment_plugins import (
+    EnvSpecBase as SoftwareEnvSpecBase,
+)
+from snakemake_software_deployment_plugin_conda import Env as CondaEnv
 
 
 def format_files(io, as_input: bool = False, as_output: bool = False):
@@ -202,9 +206,8 @@ class Job(
         "_log",
         "_benchmark",
         "_resources",
-        "_conda_env_file",
-        "_conda_env",
-        "_container_img_url",
+        "_software_env_spec",
+        "_software_env",
         "_shadow_dir",
         "temp_output",
         "protected_output",
@@ -259,10 +262,9 @@ class Job(
         self._log = None
         self._benchmark = None
         self._resources = None
-        self._conda_env_spec = None
-        self._container_img_url = None
+        self._software_env_spec: Optional[SoftwareEnvSpecBase] = None
+        self._software_env = None
         self._scheduler_resources = None
-        self._conda_env = None
         self._group = None
 
         # pipe_group will only be set if the job generates or consumes a pipe
@@ -508,69 +510,27 @@ class Job(
             self._params_and_resources_resetted = True
 
     @property
-    def conda_env_spec(self):
-        if self._conda_env_spec is None:
-            self._conda_env_spec = self.rule.expand_conda_env(
+    def software_env_spec(self) -> Optional[SoftwareEnvSpecBase]:
+        if self._software_env_spec is None:
+            self._software_env_spec = self.rule.expand_software_env_specs(
                 self.wildcards_dict, self.params, self.input
             )
-        return self._conda_env_spec
+        return self._software_env_spec
 
     @property
-    def conda_env(self):
-        if self.conda_env_spec:
-            if self._conda_env is None:
-                self._conda_env = self.dag.conda_envs.get(
-                    (self.conda_env_spec, self.container_img_url)
-                )
-            return self._conda_env
-        return None
-
-    def archive_conda_env(self):
-        """Archive a conda environment into a custom local channel."""
-        if self.conda_env_spec:
-            if self.conda_env.is_externally_managed:
-                raise WorkflowError(
-                    "Workflow archives cannot be created for workflows using externally managed conda environments."
-                    "Please use paths to YAML files for all your conda directives.",
-                    rule=self.rule,
-                )
-            return self.conda_env.create_archive()
-        return None
-
-    @property
-    def needs_singularity(self):
-        return self.container_img is not None
-
-    @property
-    def container_img_url(self):
-        if self._container_img_url is None:
-            self._container_img_url = self.rule.expand_container_img(
-                self.wildcards_dict
+    def software_env(self) -> Optional[SoftwareEnvBase]:
+        if self.software_env_spec:
+            env = self.dag.workflow.software_deployment_manager.get_env(
+                self.software_env_spec
             )
-
-        return self._container_img_url
+            if self.rule.is_containerized and isinstance(env, CondaEnv):
+                env.containerized_path = get_containerized_path(env)
+            return env
+        return None
 
     @property
     def is_containerized(self):
         return self.rule.is_containerized
-
-    @property
-    def container_img(self):
-        if (
-            DeploymentMethod.APPTAINER
-            in self.dag.workflow.deployment_settings.deployment_method
-            and self.container_img_url
-        ):
-            return self.dag.container_imgs[self.container_img_url]
-        return None
-
-    @property
-    def env_modules(self):
-        return self.rule.env_modules
-
-    @property
-    def container_img_path(self):
-        return self.container_img.path if self.container_img else None
 
     @property
     def is_shadow(self):
@@ -1097,19 +1057,6 @@ class Job(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
     ):
         aux_logs = aux_logs or []
-        # Retrieve conda env path only when conda is enabled with sdm
-        # Otherwise the class Conda will be created also when not explicitly
-        # requested with sdm, resulting in an error when conda is not available
-        # in the container.
-        conda_env_adress = (
-            self.conda_env.address
-            if (
-                DeploymentMethod.CONDA
-                in self.dag.workflow.deployment_settings.deployment_method
-                and self.conda_env
-            )
-            else None
-        )
 
         return dict(
             rule_name=self.rule.name,
@@ -1118,8 +1065,7 @@ class Job(
             input=format_files(self.input, as_input=True),
             output=format_files(self.output, as_output=True),
             log=format_files(self.log, as_output=True) + aux_logs,
-            conda_env=conda_env_adress,
-            container_img=self.container_img,
+            software_env=self.software_env_spec,
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,
@@ -1149,16 +1095,19 @@ class Job(
 
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
-        if (
-            DeploymentMethod.CONDA
-            in self.dag.workflow.deployment_settings.deployment_method
-            and self.conda_env
-            and not self.conda_env.is_externally_managed
-            and not self.conda_env.is_containerized
-        ):
-            # Managed or containerized envs are not present on the host FS,
-            # hence we don't need to wait for them.
-            wait_for_files.append(self.conda_env.address)
+        if self.software_env:
+            if (
+                SharedFSUsage.SOFTWARE_DEPLOYMENT
+                in self.dag.workflow.storage_settings.shared_fs_usage
+                and self.software_env.is_deployable
+            ):
+                wait_for_files.append(self.software_env.deployment_path)
+            elif (
+                SharedFSUsage.SOFTWARE_DEPLOYMENT_CACHE
+                in self.dag.workflow.storage_settings.shared_fs_usage
+                and self.software_env.is_cacheable
+            ):
+                wait_for_files.append(self.software_env.cache_path)
 
         if self.is_wrapper:
             script = wrapper.get_script(
@@ -1169,13 +1118,6 @@ class Job(
             if script is not None:
                 wait_for_files.append(
                     IOFile(self.dag.workflow.sourcecache.get_path(script))
-                )
-            env = wrapper.get_conda_env(
-                self.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
-            )
-            if env is not None:
-                wait_for_files.append(
-                    IOFile(self.dag.workflow.sourcecache.get_path(env))
                 )
 
         return wait_for_files

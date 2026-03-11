@@ -1,6 +1,7 @@
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
 dependencies:
   - melt ==1.0.3
   - python <3.10
+  - setuptools

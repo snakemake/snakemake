@@ -1,3 +1,5 @@
+from snakemake.settings.enums import ChangeType
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -15,7 +17,6 @@ import tarfile
 import uuid
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
 from snakemake.settings.types import (
-    ChangeType,
     GroupSettings,
     SchedulingSettings,
     WorkflowSettings,
@@ -30,7 +31,6 @@ if sys.version_info < MIN_PY_VERSION:
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     DAGSettings,
-    DeploymentMethod,
     DeploymentSettings,
     ExecutionSettings,
     OutputSettings,
@@ -54,6 +54,10 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from snakemake_interface_software_deployment_plugins.settings import (
+    SoftwareDeploymentSettingsBase,
+)
+from snakemake_software_deployment_plugin_container import Settings as ContainerSettings
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -120,6 +124,9 @@ class SnakemakeApi(ApiBase):
         workflow_settings: Optional[WorkflowSettings] = None,
         deployment_settings: Optional[DeploymentSettings] = None,
         storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
+        software_deployment_provider_settings: Optional[
+            Mapping[str, SoftwareDeploymentSettingsBase]
+        ] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
     ):
@@ -145,8 +152,12 @@ class SnakemakeApi(ApiBase):
             workflow_settings = WorkflowSettings()
         if deployment_settings is None:
             deployment_settings = DeploymentSettings()
+        if software_deployment_provider_settings is None:
+            software_deployment_provider_settings = {
+                "container": ContainerSettings(),
+            }
         if storage_provider_settings is None:
-            storage_provider_settings = dict()
+            storage_provider_settings = {}
 
         self._check_is_in_context()
 
@@ -164,6 +175,7 @@ class SnakemakeApi(ApiBase):
             workflow_settings=workflow_settings,
             deployment_settings=deployment_settings,
             storage_provider_settings=storage_provider_settings,
+            software_deployment_provider_settings=software_deployment_provider_settings,
         )
 
         return self._workflow_api
@@ -336,6 +348,7 @@ class WorkflowApi(ApiBase):
     workflow_settings: WorkflowSettings
     deployment_settings: DeploymentSettings
     storage_provider_settings: Mapping[str, TaggedSettings]
+    software_deployment_provider_settings: Mapping[str, SoftwareDeploymentSettingsBase]
 
     _workflow_store: Optional[Workflow] = field(init=False, default=None)
     _workdir_handler: Optional[WorkdirHandler] = field(init=False)
@@ -428,6 +441,7 @@ class WorkflowApi(ApiBase):
             output_settings=self.snakemake_api.output_settings,
             overwrite_workdir=self.workdir,
             storage_provider_settings=self.storage_provider_settings,
+            software_deployment_provider_settings=self.software_deployment_provider_settings,
             **kwargs,
         )
 
@@ -738,41 +752,24 @@ class DAGApi(ApiBase):
         self.workflow_api._workflow.cleanup_metadata(paths)
 
     @_no_exec
-    def conda_cleanup_envs(self):
-        """Cleanup the conda environments of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.CONDA
-        )
-        self.workflow_api._workflow.conda_cleanup_envs()
+    def cleanup_software_envs(self):
+        """Cleanup the software environments of the workflow."""
+        self.workflow_api._workflow.cleanup_software_envs()
 
     @_no_exec
-    def conda_create_envs(self):
-        """Only create the conda environments of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.CONDA
-        )
-        self.workflow_api._workflow.conda_create_envs()
+    def cache_or_deploy_software_envs(self):
+        """Only deploy or cache the software environments of the workflow."""
+        self.workflow_api._workflow.cache_or_deploy_software_envs()
 
     @_no_exec
-    def conda_list_envs(self):
-        """List the conda environments of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.CONDA
-        )
-        self.workflow_api._workflow.conda_list_envs()
+    def list_software_envs(self):
+        """List the software environments of the workflow."""
+        self.workflow_api._workflow.list_software_envs()
 
     @_no_exec
     def cleanup_shadow(self):
         """Cleanup the shadow directories of the workflow."""
         self.workflow_api._workflow.cleanup_shadow()
-
-    @_no_exec
-    def container_cleanup_images(self):
-        """Cleanup the container images of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.APPTAINER
-        )
-        self.workflow_api._workflow.container_cleanup_images()
 
     @_no_exec
     def list_changes(self, change_type: ChangeType):

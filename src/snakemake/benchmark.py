@@ -1,3 +1,5 @@
+from snakemake.common import is_serializable
+
 __author__ = "Manuel Holtgrewe"
 __copyright__ = "Copyright 2022, Manuel Holtgrewe"
 __email__ = "manuel.holtgrewe@bihealth.de"
@@ -136,7 +138,9 @@ class BenchmarkRecord:
         return {key: value for key, value in self.wildcards.items()}
 
     def parse_params(self):
-        return {key: value for key, value in self.params.items()}
+        return {
+            key: value for key, value in self.params.items() if is_serializable(value)
+        }
 
     def parse_resources(self):
         return {key: value for key, value in self.resources.items()}
