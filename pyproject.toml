@@ -74,7 +74,7 @@ reports = ["pygments"]
 all = ["eido", "peppy", "pygments"]
 
 [project.scripts]
-snakemake = "snakemake.cli_click:cli"
+snakemake = "snakemake.cli.click:cli"
 
 [tool.setuptools_scm]
 version_file = "src/snakemake/_version.py"

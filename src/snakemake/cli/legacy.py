@@ -72,7 +72,30 @@ from snakemake.settings.types import (
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
 from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings
-
+from snakemake.cli.operations import (
+    run_archive,
+    run_cleanup_metadata,
+    run_cleanup_shadow,
+    run_conda_cleanup_envs,
+    run_conda_create_envs,
+    run_conda_list_envs,
+    run_container_cleanup_images,
+    run_containerize,
+    run_delete_output,
+    run_generate_unit_tests,
+    run_lint,
+    run_list_changes,
+    run_list_rules,
+    run_list_untracked,
+    run_print_compilation,
+    run_printd3dag,
+    run_printdag,
+    run_printfilegraph,
+    run_printrulegraph,
+    run_report,
+    run_summary,
+    run_unlock,
+)
 
 def parse_size_in_bytes(value):
     from humanfriendly import parse_size
@@ -1941,104 +1964,6 @@ def create_output_settings(args, log_handler_settings) -> OutputSettings:
         pass
 
     return settings
-
-
-def run_lint(workflow_api) -> bool:
-    """Run linting. Returns False if lint errors found (triggers exit code 1)."""
-    any_lint = workflow_api.lint()
-    if any_lint:
-        return False
-    return True
-
-
-def run_list_rules(workflow_api, only_targets: bool = False) -> None:
-    workflow_api.list_rules(only_targets=only_targets)
-
-
-def run_print_compilation(workflow_api) -> None:
-    workflow_api.print_compilation()
-
-
-def run_printdag(dag_api) -> None:
-    dag_api.printdag()
-
-
-def run_printrulegraph(dag_api) -> None:
-    dag_api.printrulegraph()
-
-
-def run_printfilegraph(dag_api) -> None:
-    dag_api.printfilegraph()
-
-
-def run_printd3dag(dag_api) -> None:
-    dag_api.printd3dag()
-
-
-def run_summary(dag_api, detailed: bool = False) -> None:
-    dag_api.summary(detailed=detailed)
-
-
-def run_list_changes(dag_api, change_type) -> None:
-    dag_api.list_changes(change_type)
-
-
-def run_list_untracked(dag_api) -> None:
-    dag_api.list_untracked()
-
-
-def run_unlock(dag_api) -> None:
-    dag_api.unlock()
-
-
-def run_delete_output(dag_api, only_temp: bool = False, dryrun: bool = False) -> None:
-    dag_api.delete_output(only_temp=only_temp, dryrun=dryrun)
-
-
-def run_cleanup_metadata(dag_api, files) -> None:
-    dag_api.cleanup_metadata(files)
-
-
-def run_cleanup_shadow(dag_api) -> None:
-    dag_api.cleanup_shadow()
-
-
-def run_containerize(dag_api) -> None:
-    dag_api.containerize()
-
-
-def run_generate_unit_tests(dag_api, path) -> None:
-    dag_api.generate_unit_tests(path)
-
-
-def run_archive(dag_api, path) -> None:
-    dag_api.archive(path)
-
-
-def run_report(dag_api, reporter, report_settings, metadata_template=None) -> None:
-    dag_api.create_report(
-        reporter=reporter,
-        report_settings=report_settings,
-        global_report_settings=GlobalReportSettings(
-            metadata_template=metadata_template,
-        ),
-    )
-
-
-def run_conda_list_envs(dag_api) -> None:
-    dag_api.conda_list_envs()
-
-
-def run_conda_cleanup_envs(dag_api) -> None:
-    dag_api.conda_cleanup_envs()
-
-
-def run_conda_create_envs(dag_api) -> None:
-    dag_api.conda_create_envs()
-
-
-def run_container_cleanup_images(dag_api) -> None:
-    dag_api.container_cleanup_images()
 
 
 def args_to_api(args, parser):
