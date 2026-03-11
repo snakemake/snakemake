@@ -2909,6 +2909,7 @@ def test_github_issue3556():
     run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
 
 
+@skip_on_windows  # symlinks not properly supported in test framework on windows
 def test_github_issue3687():
     run(dpath("test_github_issue3687"))
 
