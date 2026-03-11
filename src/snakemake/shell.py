@@ -21,8 +21,6 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.deployment import singularity
 from snakemake.exceptions import WorkflowError
 
-__author__ = "Johannes Köster"
-
 STDOUT = sys.stdout
 if not isinstance(sys.stdout, _io.TextIOWrapper):
     # workaround for nosetest since it overwrites sys.stdout
@@ -167,8 +165,6 @@ class shell:
     def __new__(
         cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs
     ):
-        from snakemake.deployment.conda import Conda
-
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
 
@@ -231,6 +227,8 @@ class shell:
             logger.info(f"Activating environment modules: {env_modules}")
 
         if conda_env:
+            from snakemake.deployment.conda import Conda
+
             if ON_WINDOWS and not cls.get_executable():
                 # If we use cmd.exe directly on windows we need to prepend batch activation script.
                 cmd = Conda(
