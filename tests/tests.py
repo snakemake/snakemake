@@ -2322,7 +2322,7 @@ def test_workflow_profile():
     run(
         test_path,
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake --profile {general_profile} -c1",
+        shellcmd=f"snakemake --profile {general_profile}",
     )
 
 
