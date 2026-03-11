@@ -2035,8 +2035,7 @@ def test_strict_mode():
 @needs_strace
 def test_github_issue1158():
     path = dpath("test_github_issue1158")
-    with tempfile.TemporaryDirectory(prefix=f"snakemake-{path.name}") as tmpdir:
-        prepare_tmpdir(path, dest_path=tmpdir)
+    with prepare_tmpdir(path) as tmpdir:
         run(path, cluster="./qsub.py", tmpdir=tmpdir)
 
 
@@ -2888,13 +2887,13 @@ def test_immediate_submit_without_shared_fs():
 
 def test_ambiguousruleexception():
     path = dpath("test_ambiguousruleexception")
-    tmpdir = prepare_tmpdir(path)
-    try:
-        run(path, tmpdir=tmpdir)
-    except AmbiguousRuleException:
-        return
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+    with prepare_tmpdir(path) as tmpdir:
+        try:
+            run(path, tmpdir=tmpdir)
+        except AmbiguousRuleException:
+            return
+
     raise AssertionError("This is an ambiguous case! Should have raised an error...")
 
 
@@ -2929,10 +2928,11 @@ def test_checkpoint_omit_from():
 
 def test_wildcard_annotatedstrings():
     path = dpath("test_wildcard_annotatedstrings")
-    tmpdir = prepare_tmpdir(path, path.name)
-    with pytest.raises(WorkflowError, match=r"unpack\(\) is not allowed with params"):
-        run(path, targets=["test.out"], tmpdir=tmpdir)
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    with prepare_tmpdir(path, path.name) as tmpdir:
+        with pytest.raises(
+            WorkflowError, match=r"unpack\(\) is not allowed with params"
+        ):
+            run(path, targets=["test.out"], tmpdir=tmpdir)
 
 
 @skip_on_windows  # platform will have no effect

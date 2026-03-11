@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from contextlib import contextmanager
 import os
 from pathlib import Path
 import signal
@@ -141,23 +142,50 @@ def get_expected_files(results_dir: StrPath) -> list[str]:
     ]
 
 
-def prepare_tmpdir(source_path, snakefile_parent_dirname=None, dest_path=None):
+@contextmanager
+def prepare_tmpdir(source_path, name_slug=None, dest_path=None, cleanup=None):
+    """
+    Prepare a temporary directory containing the files associated with this test case.
+    Returns a context manager to handle removal of the temporary directory.
+    Arguments:
+        source_path:
+            Directory holding the test case files
+        name_slug:
+            Slug to identify tests and disambiguate them from each other.
+            Defaults to the name of the directory at source_path.
+        dest_path:
+            Directory in which to place the copied files.
+            By default, the function creates a temporary directory.
+        cleanup:
+            Whether to remove the created directory.
+            Defaults to True if dest_path is None,
+            and False otherwise.
+    """
     if not dest_path:
         # If we need to further check results, we won't cleanup tmpdir
         tmpdir = next(tempfile._get_candidate_names())
 
-        if snakefile_parent_dirname is None:
-            snakefile_parent_dirname = source_path.name
+        if name_slug is None:
+            name_slug = source_path.name
         dest_path = os.path.join(
-            tempfile.gettempdir(), f"snakemake-{snakefile_parent_dirname}-{tmpdir}"
+            tempfile.gettempdir(), f"snakemake-{name_slug}-{tmpdir}"
         )
         os.mkdir(dest_path)
+        if cleanup is None:
+            cleanup = True
+
+    elif cleanup is None:
+        cleanup = False
 
     # copy files
     for f in os.listdir(source_path):
         copy(os.path.join(source_path, f), dest_path)
 
-    return dest_path
+    try:
+        yield dest_path
+    finally:
+        if cleanup:
+            shutil.rmtree(dest_path, ignore_errors=ON_WINDOWS)
 
 
 def untar_folder(tar_file: StrPath, output_path: StrPath):
@@ -309,9 +337,14 @@ def run(
 
     if not no_tmpdir:
         if tmpdir is None:
-            tmpdir = prepare_tmpdir(path, snakefile_parent_dirname=original_dirname)
+            with prepare_tmpdir(
+                path, name_slug=original_dirname, cleanup=False
+            ) as tmpdir:
+                # We will manually manage the directory
+                tmpdir_created = True
         else:
             tmpdir = os.fsdecode(tmpdir)
+            tmpdir_created = False
 
     # Snakefile is now in temporary directory
     snakefile = join(path if no_tmpdir else tmpdir, snakefile)
