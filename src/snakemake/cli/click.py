@@ -6,9 +6,10 @@ main() for full backward compatibility.
 """
 
 import sys
+
 import click
 from snakemake.cli.legacy import main as legacy_main
-from snakemake.cli.commands import info, clean, dagviz, unlock, lint, utils, software
+from snakemake.cli.commands import info, clean, dagviz, unlock, lint, utils, software, new
 
 
 def _find_workflow_profile(snakefile):
@@ -123,3 +124,4 @@ cli.add_command(dagviz)
 cli.add_command(utils)
 cli.add_command(info)
 cli.add_command(software)
+cli.add_command(new)

@@ -32,6 +32,7 @@ classifiers = [
 dependencies = [
   "appdirs",
   "click>=8.0",
+  "copier>=9.13",
   "immutables",
   "configargparse",
   "connection_pool>=0.0.3",
