@@ -266,15 +266,18 @@ packaging = ">=24.0,<26"
 description = "Build the documentation in the docs/ directory"
 cwd = "docs"
 cmd = 'make html SPHINXOPTS="-W --keep-going -n"'
+default-environment = "docs"
 
 [tool.pixi.feature.docs.tasks.docs]
 description = "Serve the documentation on http://localhost:8000 with live reload"
 cmd = "sphinx-autobuild docs/ docs/_build/html --host 0.0.0.0 --port 8000 --watch docs"
+default-environment = "docs"
 
 [tool.pixi.feature.docs.tasks.build-apidocs]
 description = "Build the API documentation in the apidocs/ directory"
 cwd = "apidocs"
 cmd = 'make html SPHINXOPTS="--keep-going -n"'
+default-environment = "docs"
 
 # Style
 [tool.pixi.feature.style.dependencies]
