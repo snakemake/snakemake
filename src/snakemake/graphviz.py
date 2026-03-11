@@ -1,5 +1,5 @@
-__author__ = "Thomas Mulvaney"
-__copyright__ = "Copyright 2026, Thomas Mulvaney"
+__author__ = "Thomas Mulvaney, Johannes Köster"
+__copyright__ = "Copyright 2026, Thomas Mulvaney, Johannes Köster"
 __email__ = "mulvaney@mailbox.org"
 __license__ = "MIT"
 from collections import defaultdict
@@ -20,7 +20,7 @@ def resolve_functions(input_files):
     return files
 
 
-def enumerate_input_files(job):
+def enumerate_files(job_files, rule_files):
     """Given a job, enumerates all outputs as tuples in the form:
 
         (id, job_file, rule_file)
@@ -28,19 +28,8 @@ def enumerate_input_files(job):
     where job_file is a real path and rule_file is the input string as defined in the rule
     """
     for i, (job_file, rule_file) in enumerate(
-        zip(job._input, resolve_functions(job.rule._input))
+        zip(job_files, resolve_functions(rule_files))
     ):
-        yield (i, job_file, rule_file)
-
-
-def enumerate_output_files(job):
-    """Given a job, enumerates all inputs as tuples:
-
-         (id, job_file, rule_file)
-
-    where job_file is a real path and rule_file is the output as defined in the rule
-    """
-    for i, (job_file, rule_file) in enumerate(zip(job._output, job.rule._output)):
         yield (i, job_file, rule_file)
 
 
@@ -50,9 +39,11 @@ def rule_file_edges(dag, node_to_id):
     edges = defaultdict(int)
 
     for job in dag.jobs:
-        for i, job_input, rule_input in enumerate_input_files(job):
+        for i, job_input, rule_input in enumerate_files(job._input, job.rule._input):
             for dep in dag._dependencies[job]:
-                for j, dep_output, dep_rule_output in enumerate_output_files(dep):
+                for j, dep_output, dep_rule_output in enumerate_files(
+                    dep._output, dep.rule._output
+                ):
                     if job_input == dep_output:
                         edges[
                             (
@@ -69,9 +60,9 @@ def job_file_edges(dag, node_to_id):
     edges = defaultdict(int)
 
     for job in dag.jobs:
-        for i, job_input, _ in enumerate_input_files(job):
+        for i, job_input, _ in enumerate_files(job._input, job.rule._input):
             for dep in dag._dependencies[job]:
-                for j, dep_output, _ in enumerate_output_files(dep):
+                for j, dep_output, _ in enumerate_files(dep._output, dep.rule._output):
                     if job_input == dep_output:
                         edges[
                             (f"{node_to_id[dep]}:out{j}", f"{node_to_id[job]}:in{i}")
@@ -151,21 +142,50 @@ def job_rule_to_color(dag):
     return {j: r2c[j.rule] for j in dag.jobs}
 
 
-def render_graph(nodes, edges, edge_labels=False, rankdir="LR"):
+def render_legend(dag):
+    """A legend is a subgraph composed of a singular node which is a
+    table mapping rule to the rules docstring.
+    """
+    rules = rule_to_nodes(dag)
+    rc = rule_to_color(dag)
+    html = '<table border="0">'
+    for rule in rules:
+        html += (
+            "<tr>"
+            f'<td bgcolor="{rc[rule]}">{rule.name}</td>'
+            f'<td align="left">{rule.docstring}</td>'
+            "</tr>"
+        )
+    html += "</table>"
+    return (
+        "subgraph { graph [margin=0]; node[margin=0,penwidth=0]; -1 [label=<"
+        + html
+        + ">] }"
+    )
+
+
+def render_graph(nodes, edges, edge_labels=False, rankdir="LR", legend=""):
     edges = render_edges(edges, edge_labels)
     return textwrap.dedent("""\
         digraph snakemake_dag {{
-            graph[bgcolor=white, margin=0, rankdir={rankdir}, ranksep=0.5];
+            graph[bgcolor=white, margin=0, rankdir={rankdir}, ranksep=1.0];
             node[shape=box, style=rounded, fontname=sans, \
             fontsize=10, penwidth=2];
             edge[penwidth=2, color=grey];
         {items}
+        {legend}
         }}\
-        """).format(rankdir=rankdir, items="\n".join(nodes + list(edges)))
+        """).format(
+        legend=legend, rankdir=rankdir, items="\n".join(nodes + list(edges))
+    )
+
 
 def render_edges(edges, edge_labels=False):
     if edge_labels:
-        return [f"{source} -> {dest} [ label={edges[edge]} ]" for source, dest in edges]
+        return [
+            f"{source} -> {dest} [ label={edges[(source, dest)]} ]"
+            for source, dest in edges
+        ]
     else:
         return [f"{source} -> {dest}" for source, dest in edges]
 
@@ -217,6 +237,8 @@ def render_node(
 
     color = node_to_color[node]
 
+    # The body of our nodes are html tables, we expand with additional rows.
+    # The first row is the title of the node.
     html_node = (
         f'<table border="2" color="{color}" cellspacing="0" cellborder="0">'
         f'<tr><td bgcolor="{color}">'
@@ -224,24 +246,30 @@ def render_node(
         "</td></tr>"
     )
 
+    # add input rows
     if inputs:
         html_node += render_header("input")
         for f in sorted(input_files):
             html_node += render_file_row(html.escape(f), f"in{input_file_ids[f]}")
 
+    # add wildcards - Should they live in the middle? I dunno
     if wildcards:
         html_node += render_wildcard_rows(node)
 
+    # add outputs
     if outputs:
         html_node += render_header("output")
         for f in sorted(output_files):
             html_node += render_file_row(html.escape(f), f"out{output_file_ids[f]}")
 
+    # close up the table
     html_node += "</table>"
     return f"{node_to_id[node]} [ shape=none, margin=0, label=<{html_node}>]"
 
 
-def rule_graph(dag, edge_labels=True, file_edges=False, inputs=False, outputs=False):
+def rule_graph(
+    dag, edge_labels=False, file_edges=False, inputs=False, outputs=False, legend=False
+):
     """Print a rule graph.
 
     Options to be turned into CLI args:
@@ -249,6 +277,7 @@ def rule_graph(dag, edge_labels=True, file_edges=False, inputs=False, outputs=Fa
         * file_edges, --file-edges,   Show edges between files in the graph (Shows inputs and output files).
         * inputs,     --show-inputs   Show input files
         * outputs,    --show-oututs   Show output files
+        * legend,     --show-legend   Show legend for each rule.
     """
     nodes = rule_to_nodes(dag)
     node_to_color = rule_to_color(dag)
@@ -270,10 +299,16 @@ def rule_graph(dag, edge_labels=True, file_edges=False, inputs=False, outputs=Fa
         )
         for node in nodes
     ]
-    print(render_graph(render_nodes, edges, edge_labels))
+    if legend:
+        legend_text = render_legend(dag)
+    else:
+        legend_text = ""
+    return render_graph(render_nodes, edges, edge_labels, legend=legend_text)
 
 
-def job_graph(dag, inputs=False, outputs=False,file_edges=False, wildcards=False):
+def job_graph(
+    dag, inputs=False, outputs=False, file_edges=False, wildcards=False, legend=False
+):
     """Print a job graph.
 
     Options to be turned into CLI args:
@@ -281,6 +316,7 @@ def job_graph(dag, inputs=False, outputs=False,file_edges=False, wildcards=False
         * inputs,     --show-inputs   Show input files
         * outputs,    --show-oututs   Show output files
         * wildcards,  --show-wildcards   Show wildcards.
+        * legend,     --show-legend   Show legend for each rule.
     """
 
     nodes = job_to_nodes(dag)
@@ -293,8 +329,18 @@ def job_graph(dag, inputs=False, outputs=False,file_edges=False, wildcards=False
         edges = job_edges(dag, nodes)
     render_nodes = [
         render_node(
-            node, nodes, node_to_color, dag, wildcards=False, inputs=inputs, outputs=outputs
+            node,
+            nodes,
+            node_to_color,
+            dag,
+            wildcards=wildcards,
+            inputs=inputs,
+            outputs=outputs,
         )
         for node in nodes
     ]
-    print(render_graph(render_nodes, edges,edge_labels=False))
+    if legend:
+        legend_text = render_legend(dag)
+    else:
+        legend_text = ""
+    return render_graph(render_nodes, edges, edge_labels=False, legend=legend_text)
