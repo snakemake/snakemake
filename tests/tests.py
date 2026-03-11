@@ -2894,7 +2894,8 @@ def test_ambiguousruleexception():
     except AmbiguousRuleException:
         shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
         return
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
     raise AssertionError("This is an ambiguous case! Should have raised an error...")
 
 
