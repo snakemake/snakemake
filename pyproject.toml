@@ -146,6 +146,7 @@ cmd = [
   "tests/tests.py",
 ]
 description = "Run tests only for tests/tests.py"
+default-environment = "dev"
 
 [tool.pixi.feature.test.target.osx-arm64.tasks.test-simple]
 cmd = [
@@ -156,6 +157,7 @@ cmd = [
   "not (test_conda_global or queue)", # queue is buggy on osx-arm64
   "tests/tests.py",
 ]
+default-environment = "dev"
 
 [tool.pixi.feature.test.tasks.test-all]
 description = "Run all tests in the tests directory"
@@ -186,6 +188,7 @@ cmd = [
   # "tests/test_persistence.py"
   # "tests/test_script.py",
 ]
+default-environment = "dev"
 
 [tool.pixi.feature.test.dependencies]
 pytest = ">=8.3.5,<9"
