@@ -1020,9 +1020,12 @@ def get_argument_parser(profiles=None):
     )
     group_utils.add_argument(
         "--containerize",
-        action="store_true",
-        help="Print a Dockerfile that provides an execution environment for the workflow, including all "
-        "conda environments.",
+        nargs="?",
+        const="dockerfile",
+        default=None,
+        choices=["dockerfile", "apptainer"],
+        help="Print a container definition that provides an execution environment for the workflow, including all "
+        "conda environments. Supported formats: dockerfile (default), apptainer.",
     )
     group_utils.add_argument(
         "--export-cwl",
@@ -2090,8 +2093,8 @@ def args_to_api(args, parser):
                     else:
                         preemptible_rules = PreemptibleRules()
 
-                    if args.containerize:
-                        dag_api.containerize()
+                    if args.containerize is not None:
+                        dag_api.containerize(fmt=args.containerize)
                     elif report_plugin is not None and not args.report_after_run:
                         dag_api.create_report(
                             reporter=args.reporter,
