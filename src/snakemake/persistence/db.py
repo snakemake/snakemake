@@ -27,6 +27,7 @@ class Base(DeclarativeBase):
 class MetadataRecordORM(Base):
     __tablename__ = "snakemake_metadata"
 
+    namespace: Mapped[str] = mapped_column(String, primary_key=True)
     target: Mapped[str] = mapped_column(String, primary_key=True)
 
     incomplete: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -69,6 +70,7 @@ class MetadataRecordORM(Base):
 
 class LockORM(Base):
     __tablename__ = "snakemake_locks"
+    namespace: Mapped[str] = mapped_column(String, primary_key=True)
     file_path: Mapped[str] = mapped_column(String, primary_key=True)
     lock_type: Mapped[str] = mapped_column(String, primary_key=True)
 
@@ -98,6 +100,10 @@ class DbPersistence(PersistenceBase):
         # ensure default db path is based on persistence path
         if db_url is None:
             db_url = f"sqlite:///{self.path / 'metadata.db'}"
+
+        # use the absolute workdir path as a namespace
+        # to allow using the same db for multiple different Snakemake instances running in different directories
+        self.namespace = str(self.path.absolute())
 
         # using custom LRU to be able to clear specific keys only, see https://stackoverflow.com/a/52101715
         self._metadata_cache = OrderedDict()
@@ -129,7 +135,9 @@ class DbPersistence(PersistenceBase):
             return self._metadata_cache[key]
 
         with Session(self.engine) as session:
-            record: MetadataRecordORM | None = session.get(MetadataRecordORM, key)
+            record: MetadataRecordORM | None = session.get(
+                MetadataRecordORM, (self.namespace, key)
+            )
             record_ = record.to_record() if record else None
 
             self._metadata_cache[key] = record_
@@ -141,9 +149,9 @@ class DbPersistence(PersistenceBase):
     def _write_record(self, key: str, record: MetadataRecord) -> None:
         self._invalidate_cache(key)
         with Session(self.engine) as session:
-            orm_record = session.get(MetadataRecordORM, key) or MetadataRecordORM(
-                target=key
-            )
+            orm_record = session.get(
+                MetadataRecordORM, (self.namespace, key)
+            ) or MetadataRecordORM(namespace=self.namespace, target=key)
             for field_name in record.keys():
                 setattr(orm_record, field_name, getattr(record, field_name))
             session.add(orm_record)
@@ -152,7 +160,7 @@ class DbPersistence(PersistenceBase):
     def _delete_record(self, key: str) -> bool:
         self._invalidate_cache(key)
         with Session(self.engine) as session:
-            if record := session.get(MetadataRecordORM, key):
+            if record := session.get(MetadataRecordORM, (self.namespace, key)):
                 session.delete(record)
                 session.commit()
                 return True
@@ -161,9 +169,9 @@ class DbPersistence(PersistenceBase):
     def _mark_incomplete(self, key: str, external_jobid: str | None) -> None:
         self._invalidate_cache(key)
         with Session(self.engine) as session:
-            record = session.get(MetadataRecordORM, key) or MetadataRecordORM(
-                target=key
-            )
+            record = session.get(
+                MetadataRecordORM, (self.namespace, key)
+            ) or MetadataRecordORM(namespace=self.namespace, target=key)
             record.incomplete = True
             record.external_jobid = external_jobid
             session.add(record)
@@ -172,7 +180,7 @@ class DbPersistence(PersistenceBase):
     def _unmark_incomplete(self, key: str) -> None:
         self._invalidate_cache(key)
         with Session(self.engine) as session:
-            if record := session.get(MetadataRecordORM, key):
+            if record := session.get(MetadataRecordORM, (self.namespace, key)):
                 record.incomplete = False
 
                 # if the record has no actual metadata (i.e., is just a stub from being marked incomplete),
@@ -197,6 +205,7 @@ class DbPersistence(PersistenceBase):
         with Session(self.engine) as session:
             for chunk in self._chunked(keys_list):
                 stmt = select(MetadataRecordORM.target).where(
+                    MetadataRecordORM.namespace == self.namespace,
                     MetadataRecordORM.target.in_(chunk),
                     MetadataRecordORM.incomplete == True,
                 )
@@ -212,6 +221,7 @@ class DbPersistence(PersistenceBase):
         with Session(self.engine) as session:
             for chunk in self._chunked(keys_list):
                 stmt = select(MetadataRecordORM.external_jobid).where(
+                    MetadataRecordORM.namespace == self.namespace,
                     MetadataRecordORM.target.in_(chunk),
                     MetadataRecordORM.external_jobid.is_not(None),
                 )
@@ -220,7 +230,7 @@ class DbPersistence(PersistenceBase):
 
     def _read_locks(self) -> Iterable[tuple[str, str]]:
         with Session(self.engine) as session:
-            stmt = select(LockORM)
+            stmt = select(LockORM).where(LockORM.namespace == self.namespace)
             return [
                 (lock.lock_type, lock.file_path) for lock in session.scalars(stmt).all()
             ]
@@ -232,7 +242,11 @@ class DbPersistence(PersistenceBase):
 
         with Session(self.engine) as session:
             for key in keys_list:
-                session.add(LockORM(file_path=key, lock_type=lock_type))
+                session.add(
+                    LockORM(
+                        namespace=self.namespace, file_path=key, lock_type=lock_type
+                    )
+                )
             try:
                 session.commit()
             except IntegrityError as e:
@@ -241,5 +255,5 @@ class DbPersistence(PersistenceBase):
 
     def _delete_locks(self) -> None:
         with Session(self.engine) as session:
-            session.execute(delete(LockORM))
+            session.execute(delete(LockORM).where(LockORM.namespace == self.namespace))
             session.commit()
