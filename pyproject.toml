@@ -291,7 +291,7 @@ pyrefly = "*"
 ruff = "*"
 
 [tool.pixi.feature.style.tasks]
-format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format the code" }
+format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format the code", default-environment = "quality" }
 
 # Build
 [tool.pixi.feature.publish.dependencies]
