@@ -435,7 +435,7 @@ def expand_vars_and_user(value):
 def is_namedtuple_instance(x):
     t = type(x)
     b = t.__bases__
-    if len(b) != 1 or b[0] != tuple:
+    if len(b) != 1 or b[0] != tuple:  # noqa: E721
         return False
     f = getattr(t, "_fields", None)
     if not isinstance(f, tuple):

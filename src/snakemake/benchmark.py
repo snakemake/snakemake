@@ -119,13 +119,13 @@ class BenchmarkRecord:
         """Conversion of timedelta to str without fractions of seconds"""
         mm, ss = divmod(x.seconds, 60)
         hh, mm = divmod(mm, 60)
-        s = "%d:%02d:%02d" % (hh, mm, ss)
+        s = f"{hh:d}:{mm:02d}:{ss:02d}"
         if x.days:
 
             def plural(n):
-                return n, abs(n) != 1 and "s" or ""
+                return abs(n) != 1 and "s" or ""
 
-            s = ("%d day%s, " % plural(x.days)) + s
+            s = f"{x.days} day{plural(x.days)}, " + s
         return s
 
     def mean_load(self):

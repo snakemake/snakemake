@@ -856,7 +856,7 @@ class Paramspace:
         from snakemake.io import regex_from_filepattern
 
         def convert_value_dtype(name, value):
-            if self.dataframe.dtypes[name] == bool and value == "False":
+            if self.dataframe.dtypes[name] == bool and value == "False":  # noqa: E721
                 # handle problematic case when boolean False is returned as
                 # boolean True because the string "False" is misinterpreted
                 return False

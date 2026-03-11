@@ -323,7 +323,7 @@ def parse_config(entries):
                     # avoid accidental interpretation as function
                     if not callable(v):
                         break
-                except:
+                except Exception:
                     pass
             assert v is not None
             update_config(config, {key: v})

@@ -1302,7 +1302,7 @@ class Job(
         return self.rule.name
 
     @property
-    def priority(self):
+    def priority(self):  # noqa: F811
         return self.dag.priority(self)
 
     def products(self, include_logfiles=True):

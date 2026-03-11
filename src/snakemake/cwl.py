@@ -99,7 +99,7 @@ def job_to_cwl(job, dag, outputs, inputs):
     if job.conda_env_file:
         files.add(os.path.relpath(job.conda_env_file))
 
-    out = [get_output_id(job, i) for i, _ in enumerate(job.output)]
+    out = [get_output_id(job, i) for i, _ in enumerate(job.output)]  # noqa: F841
 
     def workdir_entry(i, f):
         location = f"??inputs.input_files[{i}].location??"
