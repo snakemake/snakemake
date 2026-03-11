@@ -75,6 +75,7 @@ class PathModifier:
         return path
 
     def _replace_prefix(self, path, property):
+        path = str(path)
         if (self._prefix_replacements is None and self.prefix is None) or (
             property in self.skip_properties
             or os.path.isabs(path)
