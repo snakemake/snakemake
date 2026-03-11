@@ -12,7 +12,7 @@ import base64
 import textwrap
 import datetime
 import io
-from typing import Any, Dict, List, Mapping, Optional, Type, Union
+from typing import Dict, List, Mapping, Optional, Union
 import uuid
 import itertools
 from collections import defaultdict
@@ -20,7 +20,6 @@ import hashlib
 from pathlib import Path
 import numbers
 from yte import process_yaml
-
 
 from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
@@ -45,7 +44,7 @@ from snakemake.io import (
 )
 from snakemake.io.container import Wildcards
 from snakemake.exceptions import InputFunctionException, WorkflowError
-from snakemake.script import Snakemake, FILE_HASH_PREFIX_LEN
+from snakemake.io.container import Snakemake, FILE_HASH_PREFIX_LEN
 from snakemake.common import (
     get_input_function_aux_params,
 )
