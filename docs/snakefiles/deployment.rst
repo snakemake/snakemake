@@ -462,7 +462,7 @@ To override the default behaviour, consider using ``--apptainer-args`` or ``--si
 Files that are mounted in ``input`` using ``workflow.source_path`` are also automatically available in the container. This is realized by mounting the snakemake cache in the container (/home/<user>/.cache/snakemake/snakemake/source-cache) where the sourced files will be cached. 
 
 .. note::
-    Files that are mounted in ``params`` automatically cause the rule to be rerun on each start, as the path to the cached file changes on each start. To avoid this, consider using ``workflow.source_path`` in ``input`` instead of ``params``.
+    Files that are referred by this from ``params`` automatically cause the rule to be rerun on each start, as the path to the cached file can change between runs. To avoid this, use ``workflow.source_path`` in ``input`` instead of ``params``.
 
 
 In general, it should be noted that only trusted containers should be used!
