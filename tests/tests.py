@@ -3206,6 +3206,7 @@ def test_github_issue_4039_runtime_cli():
 
     shutil.rmtree(tmpdir)
 
+
 @skip_on_windows
 def test_github_issue_4039_runtime_profile():
     """Test that runtime values from a profile are correctly interpreted as minutes, not seconds.
@@ -3216,6 +3217,7 @@ def test_github_issue_4039_runtime_profile():
         cleanup=False,
     )
     shutil.rmtree(tmpdir)
+
 
 @skip_on_windows
 def test_github_issue_4039_runtime_no_override():
