@@ -27,7 +27,6 @@ from snakemake.io import (
     _IOFile,
     Namedlist,
     AnnotatedString,
-    ResourceList,
     contains_wildcard,
     contains_wildcard_constraints,
     get_flag_store_keys,
@@ -37,17 +36,20 @@ from snakemake.io import (
     flag,
     get_flag_value,
     expand,
-    InputFiles,
-    OutputFiles,
-    Wildcards,
-    Params,
-    Log,
     strip_wildcard_constraints,
     apply_wildcards,
     is_flagged,
     flag,
     is_callable,
     ReportObject,
+)
+from snakemake.io.container import (
+    InputFiles,
+    OutputFiles,
+    Wildcards,
+    Params,
+    Log,
+    ResourceList,
 )
 from snakemake.resources import (
     Resource,

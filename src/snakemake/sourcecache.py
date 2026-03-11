@@ -766,7 +766,7 @@ class SourceCache:
 
     @retry(
         wait=wait_exponential(multiplier=2, min=3),
-        stop=stop_after_attempt(1),
+        stop=stop_after_attempt(3),
         after=after_log(logger, logging.INFO),
         reraise=True,
     )

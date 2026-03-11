@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Pattern, Tuple, TypeVar, Union
 from urllib.error import URLError
 
-from snakemake import io as io_
+from snakemake.io import container as io_
 from snakemake import sourcecache
 from snakemake.common import (
     MIN_PY_VERSION,

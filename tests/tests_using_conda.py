@@ -277,7 +277,6 @@ def test_conda_python_script():
     run(dpath("test_conda_python_script"), deployment_method={DeploymentMethod.CONDA})
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 8), reason="requires python <3.8")
 @conda
 def test_conda_python_3_7_script():
     run(
@@ -305,7 +304,6 @@ def test_conda_global():
     )
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 10), reason="requires python <3.10")
 @conda
 def test_script_pre_py39():
     run(dpath("test_script_pre_py39"), deployment_method={DeploymentMethod.CONDA})
