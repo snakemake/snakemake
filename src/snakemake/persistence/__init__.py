@@ -173,7 +173,9 @@ class EnvironmentMaintenanceMixin:
                 try:
                     shutil.rmtree(address)
                 except Exception as e:
-                    raise WorkflowError(f"Failed to remove conda env {address}: {e}")
+                    raise WorkflowError(
+                        f"Failed to remove conda env {address}: {e}"
+                    ) from e
                 removed = True
             yaml_path = Path(address).with_suffix(".yaml")
             if yaml_path.exists():
@@ -182,7 +184,7 @@ class EnvironmentMaintenanceMixin:
                 except Exception as e:
                     raise WorkflowError(
                         f"Failed to remove conda env yaml {yaml_path}: {e}"
-                    )
+                    ) from e
                 removed = True
             if removed:
                 logger.info(f"Removed conda env {address}")
