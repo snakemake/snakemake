@@ -48,7 +48,6 @@ from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFou
 
 from snakemake.common import (
     ON_WINDOWS,
-    async_run as async_run_fallback,
     get_input_function_aux_params,
     is_namedtuple_instance,
 )

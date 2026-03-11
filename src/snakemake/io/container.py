@@ -13,6 +13,7 @@ from typing import (
     Generic,
     Optional,
 )
+from snakemake.common import async_run as async_run_fallback
 
 # TODO: replace this with Self when Python 3.11 is the minimum supported version for
 #   executing scripts
@@ -208,6 +209,9 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
 class InputFiles(Namedlist):
     def _predicated_size_files(self, predicate: Callable) -> List[int]:
         async def sizes() -> List[int]:
+            import asyncio
+            from snakemake.io import _IOFile
+
             async def get_size(f: _IOFile) -> Optional[int]:
                 if await predicate(f):
                     return await f.size()
