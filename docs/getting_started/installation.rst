@@ -24,7 +24,6 @@ Installation
 Snakemake is available through :ref:`pixi<pixi-install>`, :ref:`conda<conda-install>`, or :ref:`pip<pip-install>`.
 Alternatively, you can also build it from source.
 
-.. _pixi-install:
 
 These instructions set out how to obtain and install the software and data on Linux. It is assumed that you have:
 
@@ -37,6 +36,7 @@ You do **not** need root/administrator access.
     Snakemake is intended to be run on Linux operating systems.
     If you want to run Snakemake on Windows, we recommend using the Windows Subsystem for Linux (WSL_), and then following the instructions for Linux.
 
+.. _pixi-install:
 
 Install via Pixi
 -----------------
@@ -83,32 +83,6 @@ Install via Conda/Mamba
 Conda_ is a language-agnostic package and environment manager.
 
 There are many different ways to install conda; we recommend Miniforge_.
-
-You can use the command below to download and install Miniconda, on your operating system:
-
-.. tab-set::
-
-    .. tab-item:: Linux
-
-        .. code:: console
-
-            $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -o Miniforge3-Linux-x86_64.sh
-            $ bash Miniforge3-Linux-x86_64.sh
-
-    .. tab-item:: MacOS (x86_64)
-
-        .. code:: console
-
-            $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-x86_64.sh -o Miniforge3-MacOSX-x86_64.sh
-            $ bash Miniforge3-MacOSX-x86_64.sh
-
-    .. tab-item:: MacOS (arm64)
-
-        .. code:: console
-
-            $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh -o Miniforge3-MacOSX-arm64.sh
-            $ bash Miniforge3-MacOSX-arm64.sh
-
 
 Of course, any other conda-based package manager can be used as well, e.g. Pixi_, Mamba_ or Micromamba_.
 Note however that for the :ref:`conda integration <integrated_package_management>` of Snakemake, the `conda` command is currently required to be installed in the root environment or in the same environment as Snakemake itself.

@@ -48,7 +48,7 @@ Once you have a basic understanding of this environment, you can go on directly 
 
 .. note::
     A common thing to happen while using the development environment in GitPod is to hit ``Ctrl-s`` while in the terminal window, because you wanted to save a file in the editor window.
-    This will freeze up you terminal.
+    This will freeze your terminal.
     To get it back, make sure you selected the terminal window by clicking on it and then hit ``Ctrl-q``.
 
 Running the tutorial on your local machine
