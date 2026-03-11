@@ -3215,7 +3215,7 @@ def test_github_issue_4039_runtime_profile():
 
 
 def test_github_issue_4039_runtime_no_override():
-    """Test the correct processing of times with units or as int/str in the resources directive in the snakefile..
+    """Test the correct processing of times with units or as int/str in the resources directive in the snakefile.
     Test for https://github.com/snakemake/snakemake/issues/4039"""
     tmpdir = run(
         dpath("test_github_issue_4039_runtime_no_override"),
