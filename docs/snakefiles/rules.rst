@@ -3158,6 +3158,7 @@ This can be achieved by accessing their path via the ``workflow.source_path``, w
 .. note::
     Note that if such source paths are specified as input files, they are automatically considered to be non-storage files.
     This means that Snakemake will not try to map them to an eventually specified default storage provider (see :ref:`storage-support`).
+    Further, note that ``workflow.source_path`` should not be used from ``params:`` but only from ``input:``. The reason is that it returns a cached path that may change between Snakemake runs, thereby triggering spurious reruns if referred via ``params:`` (since Snakemake would think that the parameter has changed.
 
 .. _snakefiles-template-integration:
 
