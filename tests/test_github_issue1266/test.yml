@@ -1,0 +1,5 @@
+name: test_github_issue1266
+channels:
+  - conda-forge
+dependencies:
+  - python
