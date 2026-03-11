@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Optional, Iterable
+from typing import Any, Iterable
 
 from sqlalchemy import (
     JSON,
