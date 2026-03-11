@@ -502,7 +502,7 @@ or to a single column, e.g.
     lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")
 
 In the latter case, just a list of items in that column is returned (e.g. ``["a", "b", "c"]``).
-Also in the latter case, if there's only one item in that column, then the item is returned (e.g. ``"a"``).
+Also in the latter case, if the query results in only one row, then the single item is returned (e.g. ``"a"``).
 
 The argument ``is_nrows`` allows to test for a given number of rows in the queried dataframe.
 If it is used, lookup just returns a boolean value indicating whether the number of rows in the queried dataframe matches the given number:
