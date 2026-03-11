@@ -7,6 +7,7 @@ import os
 import shutil
 import sys
 import subprocess as sp
+import re
 from pathlib import Path
 import tempfile
 from unittest.mock import AsyncMock, patch
@@ -68,6 +69,28 @@ def test_github_issue_14():
 
 def test_issue956():
     run(dpath("test_issue956"))
+
+
+def test_unlock_cli():
+    # run the workflow once to create the .snakemake/locks folder
+    tmpdir = run(dpath("test_unlock"), cleanup=False)
+    locks = os.path.join(tmpdir, ".snakemake", "locks")
+    # the lock directory may be cleaned up automatically by Snakemake,
+    # so ensure there's at least one file inside to simulate a stale lock.
+    os.makedirs(locks, exist_ok=True)
+    lockfile = os.path.join(locks, "dummy.lock")
+    open(lockfile, "w").close()
+    assert os.listdir(locks), "expected at least one lock file"
+
+    # run the CLI unlock command and verify it succeeds
+    sp.run(
+        [sys.executable, "-m", "snakemake", "--unlock"],
+        cwd=tmpdir,
+        check=True,
+    )
+    # after unlocking the locks directory should be removed or empty
+    assert not os.path.exists(locks) or not os.listdir(locks)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows
@@ -1496,6 +1519,23 @@ def test_checkpoint_missout():
     run(dpath("test_checkpoint_missout"))
 
 
+def test_uncreatable_checkpoint_input():
+    run(dpath("test_uncreatable_checkpoint_input"))
+
+
+@skip_on_windows  # OS agnostic
+@pytest.mark.skipif(ON_MACOS, reason="do not support `ln -s`")
+def test_checkpoint_rerun():
+    d = dpath("test_checkpoint_rerun")
+    run(d, no_tmpdir=True, cleanup=False, check_results=False)
+    shell("echo '1' > {d}/inputs/a/0.out")
+    shell("sleep 2")
+    shell("touch {d}/checkpoint/a1.ls")
+    run(d, no_tmpdir=True, cleanup=False, check_results=False)
+    with open(f"{d}/inputs/a/0.out", "r") as f:
+        assert f.read().strip() == "1"
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
@@ -1987,6 +2027,35 @@ def test_source_path():
     run(dpath("test_source_path"), snakefile="workflow/Snakefile")
 
 
+@skip_on_windows  # test shell command not properly working
+def test_source_path_parent():
+    run(dpath("test_source_path_parent"), snakefile="nest/subdir/Snakefile")
+
+
+@skip_on_windows  # test shell command not properly working
+def test_source_path_rerun():
+    import time
+
+    path1 = run(dpath("test_source_path_rerun"), cleanup=False)
+
+    param_out = os.path.join(path1, "test.out")
+    input_out = os.path.join(path1, "test2.out")
+
+    mtime_param_1 = os.stat(param_out).st_mtime_ns
+    mtime_input_1 = os.stat(input_out).st_mtime_ns
+
+    time.sleep(1.1)
+    run(dpath("test_source_path_rerun"), tmpdir=path1, cleanup=False)
+
+    mtime_param_2 = os.stat(param_out).st_mtime_ns
+    mtime_input_2 = os.stat(input_out).st_mtime_ns
+
+    # rerun of the same workflow with source_path as param results in a rerun
+    assert mtime_param_1 != mtime_param_2
+    # rerun of the same workflow with source_path as input results in no rerun
+    assert mtime_input_1 == mtime_input_2
+
+
 @only_on_windows
 def test_filesep_windows_targets():
     run(
@@ -2288,6 +2357,14 @@ def test_github_issue3213():
         assert ts_b2 != ts_b3
     finally:
         shutil.rmtree(tmpdir)
+
+
+def test_issue_3970():
+    run(
+        dpath("test_issue3970"),
+        shellcmd="snakemake --cores 1 --default-resources mem_mb=3*1024+input.size_mb",
+        check_results=False,
+    )
 
 
 @skip_on_windows  # not platform dependent
@@ -2934,3 +3011,103 @@ def test_cyclic_dependency_single():
     # It is expected behavior that Snakemake would not rerun in such a case without
     # forcing it.
     run(dpath("test_cyclic_dependency_single"), forceall=True)
+
+
+def test_stats_table_order_and_counts():
+    # Run snakemake in the example dir and ask it to write stats.txt
+    outdir = run(
+        dpath("test_issue3922"),
+        shellcmd="snakemake --dryrun > stats.txt 2>&1",
+        check_results=False,
+        cleanup=False,
+    )
+    stats_path = os.path.join(outdir, "stats.txt")
+    assert os.path.exists(stats_path), "stats.txt was not created"
+
+    with open(stats_path, "r", encoding="utf-8") as f:
+        txt = f.read()
+    # Extract lines that look like "name <whitespace> number"
+    # Skip header/dashes; match lines with a word-like rule name and integer count
+    pairs = []
+    for line in txt.splitlines():
+        m = re.match(r"^\s*([A-Za-z0-9_]+)\s+(\d+)\s*$", line)
+        if m:
+            name, count = m.group(1), int(m.group(2))
+            pairs.append((name, count))
+
+    # Expected topological order (same-level rules sorted deterministically):
+    # level0: a, b
+    # level1: c (3 instances aggregated), d
+    # level2: e
+    expected_order = ["a", "b", "c", "d", "e", "total"]
+    expected_counts = {"a": 1, "b": 1, "c": 3, "d": 1, "e": 1, "total": 8}
+
+    names = [p[0] for p in pairs]
+    counts = {p[0]: p[1] for p in pairs}
+
+    # Check that all expected names are present in the same order (they may be
+    # surrounded by other formatting lines that don't match the regex)
+    # We check that the subsequence of expected_order appears in names in the same order.
+    idx = 0
+    for expected in expected_order:
+        try:
+            idx = names.index(expected, idx)  # find expected at or after idx
+        except ValueError as e:
+            raise AssertionError(
+                f"Expected rule '{expected}' not found in stats output"
+            ) from e
+        idx += 1
+
+    # Check counts
+    for name, exp_count in expected_counts.items():
+        assert (
+            counts.get(name) == exp_count
+        ), f"Count for {name} was {counts.get(name)} != {exp_count}"
+
+
+@skip_on_windows
+def test_github_issue3913():
+    core_count_limit = 8
+    tmpdir = run(
+        dpath("test_github_issue3913"),
+        shellcmd=f"snakemake --cores {core_count_limit} --scheduler=greedy",
+        cleanup=False,
+    )
+
+    started_job_count = 0
+    completed_job_count = 0
+    active_job_thread_counts = {}
+    with open(next((tmpdir / ".snakemake/log").glob("*.log"))) as logfile:
+        for line in logfile:
+            if line.startswith("    jobid:"):
+                current_jobid = line.split()[-1]
+                thread_count = 1
+            elif line.startswith("    threads"):
+                thread_count = int(line.split()[-1])
+            elif line.startswith("    resources:"):
+                active_job_thread_counts[current_jobid] = thread_count
+                started_job_count += 1
+            elif line.startswith("Finished jobid:"):
+                finished_jobid = line.split()[2]
+                assert finished_jobid in active_job_thread_counts
+                del active_job_thread_counts[finished_jobid]
+                completed_job_count += 1
+
+            if not active_job_thread_counts:
+                # No active jobs trivially passes the test
+                continue
+
+            # At no point in workflow execution
+            # should there be more threads in active jobs than the set limit,
+            # except if a single job requests more threads than the limit
+            active_threads = sum(active_job_thread_counts.values())
+            max_allowed_threads = max(
+                max(active_job_thread_counts.values()),
+                core_count_limit,
+            )
+            assert active_threads <= max_allowed_threads
+
+    # Ensure that we observed every job we expect;
+    # avoid test passing spuriously if log format changes
+    assert completed_job_count == 4 and started_job_count == 4
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)

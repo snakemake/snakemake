@@ -973,7 +973,6 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=True,
             lock_warn_only=False,
         )
-        self._build_dag()
         try:
             self.persistence.cleanup_locks()
             logger.info("Unlocked working directory.")
@@ -1078,7 +1077,7 @@ class Workflow(WorkflowExecutorInterface):
 
         self.dag.d3dag()
 
-    def containerize(self):
+    def containerize(self, fmt="dockerfile"):
         from snakemake.deployment.containerize import containerize
 
         assert self.dag_settings is not None
@@ -1089,7 +1088,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
         with self.persistence.lock():
-            containerize(self, self.dag)
+            containerize(self, self.dag, fmt=fmt)
 
     def export_cwl(self, path: Path):
         """Export the workflow as CWL document.
