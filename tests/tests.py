@@ -3299,7 +3299,7 @@ def test_github_issue_4039_runtime_profile():
     generated_output = os.path.join(tmpdir, "output.txt")
 
     # Path to the expected output shipped with the test data
-    test_path = dpath("test_github_issue_4039_runtime_cli")
+    test_path = dpath("test_github_issue_4039_runtime_profile")
     expected_output = os.path.join(test_path, "expected-results", "output.txt")
 
     # Read both files and compare
