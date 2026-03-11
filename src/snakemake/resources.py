@@ -859,7 +859,7 @@ class Resource:
                     raise WorkflowError(err_msg.format(unit="size in MB")) from err
             elif name in TimeResources:
                 try:
-                    return max(int(round(parse_timespan(stripped) / 60)), 1)
+                    return max(int(round(parse_timespan(stripped))), 1)
                 except InvalidTimespan as err:
                     raise WorkflowError(err_msg.format(unit="minutes")) from err
         return value
