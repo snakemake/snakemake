@@ -153,9 +153,15 @@ class DbPersistence(PersistenceBase):
         with Session(self.engine) as session:
             if record := session.get(MetadataRecordORM, key):
                 record.incomplete = False
-                session.add(record)
-                session.commit()
 
+                # if the record has no actual metadata (i.e., is just a stub from being marked incomplete),
+                # delete it to correctly handle --drop-metadata and has_metadata() checks
+                if record.record_format_version == 0:
+                    session.delete(record)
+                else:
+                    session.add(record)
+
+                session.commit()
     def _filter_incomplete_keys(self, keys: Iterable[str]) -> Set[str]:
         keys_list = list(keys)
         if not keys_list:
