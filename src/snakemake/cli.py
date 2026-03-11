@@ -1583,7 +1583,7 @@ def get_argument_parser(profiles=None):
         "--persistence-backend-db-url",
         default=None,
         help="The database URL to use for the 'db' persistence backend "
-        "(e.g., 'sqlite:///.snakemake/metadata.db', 'postgresql://user:pass@host/db'). "
+        "(e.g., 'sqlite:///.snakemake/metadata.db', 'postgresql://user@host/db'). "
         "Only used if --persistence-backend is 'db'.",
     )
 
