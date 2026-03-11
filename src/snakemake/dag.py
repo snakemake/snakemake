@@ -1683,8 +1683,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     def update_priority(self):
         """Update job priorities."""
-        prioritized = (
-            lambda job: job.rule in self.priorityrules
+        prioritized = lambda job: (
+            job.rule in self.priorityrules
             or not self.priorityfiles.isdisjoint(job.output)
         )
         for job in self.needrun_jobs():
@@ -2769,8 +2769,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         rules = sorted(self.rules, key=lambda r: r.name)
         huefactor = 2 / (3 * len(rules))
         rulecolor = {
-            rule: f"{i * huefactor:.2f} 0.6 0.85"
-            for i, rule in enumerate(rules)
+            rule: f"{i * huefactor:.2f} 0.6 0.85" for i, rule in enumerate(rules)
         }
 
         # markup
@@ -2895,9 +2894,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 )
 
             html_node.append("<hr/>")
-            html_node.append(
-                f'<tr><td align="right"> {output_header} </td> </tr>'
-            )
+            html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>')
 
             for filename in sorted(output_files):
                 out_file = html.escape(filename)

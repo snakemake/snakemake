@@ -149,10 +149,8 @@ class IOCache(IOCacheStorageInterface):
         loaded = pickle.load(handle)
         if loaded.IOCACHE_VERSION != cls.IOCACHE_VERSION:
             raise IOCacheLoadError(
-
-                    f"Trying to load IOCache object with a mismatched version: "
-                    f"{loaded.IOCACHE_VERSION} (loaded) != {cls.IOCACHE_VERSION} (current)"
-
+                f"Trying to load IOCache object with a mismatched version: "
+                f"{loaded.IOCACHE_VERSION} (loaded) != {cls.IOCACHE_VERSION} (current)"
             )
         else:
             return loaded

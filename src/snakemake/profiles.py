@@ -21,7 +21,9 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
             raise ConfigFileParserException(
                 "The config file doesn't appear to "
                 "contain 'key: value' pairs (aka. a YAML mapping). "
-                "yaml.load('{}') returned type '{}' instead of 'dict'.".format(getattr(stream, "name", "stream"), type(parsed_obj).__name__)
+                "yaml.load('{}') returned type '{}' instead of 'dict'.".format(
+                    getattr(stream, "name", "stream"), type(parsed_obj).__name__
+                )
             )
 
         def format_one_level_dict(d):

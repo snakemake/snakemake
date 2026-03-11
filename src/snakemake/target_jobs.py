@@ -1,4 +1,3 @@
-
 from snakemake_interface_executor_plugins.utils import TargetSpec
 
 from snakemake.common import parse_key_value_arg

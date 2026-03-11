@@ -16,9 +16,7 @@ def mime_from_file(file):
     mime, encoding = mimetypes.guess_type(file)
     if mime is None:
         mime = "text/plain"
-        logger.info(
-            f"Could not detect mimetype for {file}, assuming text/plain."
-        )
+        logger.info(f"Could not detect mimetype for {file}, assuming text/plain.")
     return mime, encoding
 
 

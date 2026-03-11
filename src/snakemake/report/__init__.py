@@ -755,11 +755,9 @@ async def auto_report(
             # allowed values: str, int, float, list[str|int|float]
             if not _validate_flat_dict(metadata):
                 raise WorkflowError(
-
-                        "Metadata must be single level "
-                        "dict[str, str | int | float | "
-                        "list[str] | list[int] | list[float]]]"
-
+                    "Metadata must be single level "
+                    "dict[str, str | int | float | "
+                    "list[str] | list[int] | list[float]]]"
                 )
             render_metadata(metadata)
 

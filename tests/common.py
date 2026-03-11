@@ -537,7 +537,9 @@ def run(
                 # Skip win specific result files on Posix platforms
                 continue
 
-            assert os.path.exists(targetfile), f'expected file "{resultfile}" not produced'
+            assert os.path.exists(targetfile), (
+                f'expected file "{resultfile}" not produced'
+            )
             if check_md5:
                 md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
                 md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)

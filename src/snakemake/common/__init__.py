@@ -302,9 +302,7 @@ def log_location(msg):
     callerframerecord = inspect.stack()[1]
     frame = callerframerecord[0]
     info = inspect.getframeinfo(frame)
-    logger.debug(
-        f"{msg}: {info.filename}, {info.function}, {info.lineno}"
-    )
+    logger.debug(f"{msg}: {info.filename}, {info.function}, {info.lineno}")
 
 
 def group_into_chunks(n, iterable):

@@ -86,9 +86,7 @@ class JupyterNotebook(ScriptBase):
                     output_parameter = fname
                 else:
                     output_parameter = "{fname_out}"
-                cmd = (
-                    f"papermill --log-level ERROR {{fname:q}} {output_parameter}"
-                )
+                cmd = f"papermill --log-level ERROR {{fname:q}} {output_parameter}"
             else:
                 if fname_out is None:
                     output_parameter = f"--output '{tmp}/notebook.ipynb'"
