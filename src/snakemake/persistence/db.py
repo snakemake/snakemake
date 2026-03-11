@@ -226,7 +226,7 @@ class DbPersistence(PersistenceBase):
             ]
 
     def _write_locks(self, lock_type: str, keys: Iterable[str]) -> None:
-        keys_list = list(keys)
+        keys_list = list(set(keys))
         if not keys_list:
             return
 
