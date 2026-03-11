@@ -235,9 +235,9 @@ class DbPersistence(PersistenceBase):
                 session.add(LockORM(file_path=key, lock_type=lock_type))
             try:
                 session.commit()
-            except IntegrityError:
+            except IntegrityError as e:
                 session.rollback()
-                raise snakemake.exceptions.LockException()
+                raise snakemake.exceptions.LockException() from e
 
     def _delete_locks(self) -> None:
         with Session(self.engine) as session:
