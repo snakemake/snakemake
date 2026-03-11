@@ -1865,7 +1865,6 @@ def parse_args(argv):
             )
 
         parser = get_argument_parser(profiles=profiles)
-        args = parser.parse_args(argv)
 
         # configargparse appends the profile args to the end of argv
         # anything after '--' gets interpreted as a positional arg
