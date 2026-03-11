@@ -70,7 +70,7 @@ class MetadataRecordORM(Base):
 class LockORM(Base):
     __tablename__ = "snakemake_locks"
     file_path: Mapped[str] = mapped_column(String, primary_key=True)
-    lock_type: Mapped[str] = mapped_column(String)
+    lock_type: Mapped[str] = mapped_column(String, primary_key=True)
 
 
 class DbPersistence(PersistenceBase):
