@@ -22,6 +22,7 @@ from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from tabulate import tabulate
 from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
@@ -3201,7 +3202,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             logger.info(msg)
 
     def stats(self) -> Tuple[str, Dict[str, int]]:
-        from tabulate import tabulate
 
         # Count the jobs
         rules = Counter()
@@ -3211,10 +3211,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         # Create rows for the table and a dictionary for job stats
         rows = []
         stats_dict = {}
-        for rule, count in sorted(rules.most_common(), key=lambda item: item[0].name):
-            row = {"job": rule.name, "count": count}
-            rows.append(row)
-            stats_dict[rule.name] = count
+
+        relevant_jobs = set(chain(self.needrun_jobs(), self.finished_jobs))
+        ordered_jobs = [
+            str(job)
+            for level in self.toposorted(relevant_jobs)
+            for job in sorted(level, key=str)
+        ]
+        ordered_counts = Counter(ordered_jobs)
+
+        for unique_job in dict.fromkeys(ordered_jobs):
+            count = ordered_counts[unique_job]
+            rows.append({"job": unique_job, "count": count})
+            stats_dict[unique_job] = count
 
         # Add total row
         total_count = sum(rules.values())
@@ -3223,7 +3232,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         # Generate the formatted message
         message = "Job stats:\n" + tabulate(rows, headers="keys") + "\n"
-
         # Return both the message and dictionary
         return message, stats_dict
 
