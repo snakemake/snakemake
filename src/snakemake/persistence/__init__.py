@@ -12,10 +12,7 @@ from pathlib import Path
 from typing import (
     Any,
     Callable,
-    Dict,
     Iterable,
-    Optional,
-    Union,
 )
 
 from snakemake_interface_executor_plugins.persistence import (
@@ -51,7 +48,7 @@ class MetadataRecord:
     endtime: float | None = None
     incomplete: bool | None = None
     external_jobid: str | None = None
-    input_checksums: Dict[str, Any] | None = field(default_factory=dict)
+    input_checksums: dict[str, Any] | None = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> Any:
         try:
@@ -123,9 +120,9 @@ def _bool_or_gen(func, job, file=None):
 class EnvironmentMaintenanceMixin:
     """Handles standard filesystem cleanups (shadow, software deployment)."""
 
-    shadow_path: Union[str, Path]
-    container_img_path: Union[str, Path]
-    conda_env_archive_path: Union[str, Path]
+    shadow_path: str | Path
+    container_img_path: str | Path
+    conda_env_archive_path: str | Path
     dag: Any
 
     def cleanup_shadow(self) -> None:
@@ -594,16 +591,16 @@ class PersistenceBase(
     def rule(self, path: Any) -> str | None:
         return (m := self.metadata(path)) and m.rule
 
-    def input(self, path: Any) -> Optional[list[str]]:
+    def input(self, path: Any) -> list[str] | None:
         return (m := self.metadata(path)) and m.input
 
-    def log(self, path: Any) -> Optional[list[str]]:
+    def log(self, path: Any) -> list[str] | None:
         return (m := self.metadata(path)) and m.log
 
     def shellcmd(self, path: Any) -> str | None:
         return (m := self.metadata(path)) and m.shellcmd
 
-    def params(self, path: Any) -> Optional[list[Any]]:
+    def params(self, path: Any) -> list[Any] | None:
         return (m := self.metadata(path)) and m.params
 
     def code(self, path: Any) -> str | None:
@@ -663,7 +660,7 @@ class PersistenceBase(
         recorded = self.software_stack_hash(file)
         return recorded is not None and recorded != self._software_stack_hash(job)
 
-    def params_changed(self, job: Any, file=None) -> Union[bool, ParamsChange]:
+    def params_changed(self, job: Any, file=None) -> bool | ParamsChange:
         files = [file] if file is not None else job.output
         changes = NO_PARAMS_CHANGE
         new = set(self._params(job))
@@ -724,7 +721,7 @@ class PersistenceBase(
     def _log(self, job) -> list[str]:
         return sorted(job.log)
 
-    def _serialize_param_builtin(self, value: Any) -> Union[str, object]:
+    def _serialize_param_builtin(self, value: Any) -> str | object:
         if (
             value is None
             or isinstance(
@@ -751,7 +748,7 @@ class PersistenceBase(
         else:
             return UNREPRESENTABLE
 
-    def _serialize_param_pandas(self, value: Any) -> Union[str, object]:
+    def _serialize_param_pandas(self, value: Any) -> str | object:
         import pandas as pd
 
         if isinstance(value, (pd.DataFrame, pd.Series, pd.Index)):
@@ -760,7 +757,7 @@ class PersistenceBase(
 
     @property
     @lru_cache()
-    def _serialize_param(self) -> Callable[[Any], Union[str, object]]:
+    def _serialize_param(self) -> Callable[[Any], str | object]:
         import importlib.util
 
         if importlib.util.find_spec("pandas") is not None:
