@@ -139,9 +139,15 @@ class FilePersistence(PersistenceBase):
         try:
             recpath = self._record_path(subject, id)
             os.remove(recpath)
-            recdirs = os.path.relpath(os.path.dirname(recpath), start=subject)
-            if recdirs != ".":
-                os.removedirs(recdirs)
+
+            # also remove the directory if it is empty to avoid leaving a large number of empty directories around
+            recdir = os.path.dirname(recpath)
+            if recdir != subject:
+                try:
+                    os.removedirs(recdir)
+                except OSError:
+                    # ignore errors (e.g., when the directory is not empty or already removed by another process)
+                    pass
             return True
         except OSError as e:
             if e.errno != 2:
