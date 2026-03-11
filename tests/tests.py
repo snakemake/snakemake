@@ -25,7 +25,7 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected
+from .common import run, dpath, apptainer, connected, prepare_tmpdir
 from .conftest import (
     skip_on_windows,
     only_on_windows,
@@ -2034,7 +2034,10 @@ def test_strict_mode():
 
 @needs_strace
 def test_github_issue1158():
-    run(dpath("test_github_issue1158"), cluster="./qsub.py")
+    path = dpath("test_github_issue1158")
+    with tempfile.TemporaryDirectory(prefix=f"snakemake-{dpath.name}") as tmpdir:
+        prepare_tmpdir(path)
+        run(path, cluster="./qsub.py", tmpdir=tmpdir.name)
 
 
 def test_ancient_dag():
@@ -2884,10 +2887,14 @@ def test_immediate_submit_without_shared_fs():
 
 
 def test_ambiguousruleexception():
+    path = dpath("test_ambiguousruleexception")
+    tmpdir = prepare_tmpdir(path)
     try:
-        run(dpath("test_ambiguousruleexception"))
+        run(path, tmpdir=tmpdir)
     except AmbiguousRuleException:
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
         return
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
     raise AssertionError("This is an ambiguous case! Should have raised an error...")
 
 
@@ -2921,8 +2928,11 @@ def test_checkpoint_omit_from():
 
 
 def test_wildcard_annotatedstrings():
+    path = dpath("test_wildcard_annotatedstrings")
+    tmpdir = prepare_tmpdir(path, path.name)
     with pytest.raises(WorkflowError, match=r"unpack\(\) is not allowed with params"):
-        run(dpath("test_wildcard_annotatedstrings"), targets=["test.out"])
+        run(path, targets=["test.out"], tmpdir=tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows  # platform will have no effect

@@ -141,6 +141,25 @@ def get_expected_files(results_dir: StrPath) -> list[str]:
     ]
 
 
+def prepare_tmpdir(source_path, snakefile_parent_dirname=None, dest_path=None):
+    if not dest_path:
+        # If we need to further check results, we won't cleanup tmpdir
+        tmpdir = next(tempfile._get_candidate_names())
+
+        if snakefile_parent_dirname is None:
+            snakefile_parent_dirname = source_path.name
+        dest_path = os.path.join(
+            tempfile.gettempdir(), f"snakemake-{snakefile_parent_dirname}-{tmpdir}"
+        )
+        os.mkdir(dest_path)
+
+    # copy files
+    for f in os.listdir(source_path):
+        copy(os.path.join(source_path, f), dest_path)
+
+    return dest_path
+
+
 def untar_folder(tar_file: StrPath, output_path: StrPath):
     if not os.path.isdir(output_path):
         with tarfile.open(tar_file) as tar:
@@ -290,17 +309,7 @@ def run(
 
     if not no_tmpdir:
         if tmpdir is None:
-            # If we need to further check results, we won't cleanup tmpdir
-            tmpdir = next(tempfile._get_candidate_names())
-            tmpdir = os.path.join(
-                tempfile.gettempdir(), f"snakemake-{original_dirname}-{tmpdir}"
-            )
-            os.mkdir(tmpdir)
-
-            # copy files
-            for f in os.listdir(path):
-                copy(os.path.join(path, f), tmpdir)
-
+            tmpdir = prepare_tmpdir(path, snakefile_parent_dirname=original_dirname)
         else:
             tmpdir = os.fsdecode(tmpdir)
 
