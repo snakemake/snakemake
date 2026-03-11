@@ -421,3 +421,11 @@ def test_containerize_checkpoint():
     finally:
         if tmpdir and os.path.exists(tmpdir):
             shutil.rmtree(tmpdir)
+
+
+@conda
+def test_issue_1266():
+    run(
+        dpath("test_github_issue1266"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
