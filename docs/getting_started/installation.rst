@@ -39,13 +39,8 @@ You do **not** need root/administrator access.
 .. _pixi-install:
 
 Install via Pixi
------------------
-
 Pixi_ is a fast package management tool that acts as a drop-in replacement for Conda.
-
-This is the **recommended** way to install Snakemake,
-and will also enable Snakemake to use conda to :ref:`isolate your
-workflow environments<integrated_package_management>`.
+This is the **recommended** way to install Snakemake.
 
 To install `pixi`, you can run the following command in your terminal:
 
@@ -58,17 +53,26 @@ If you wish to install Snakemake globally on your system, run:
 
 .. code-block:: console
 
-    $ pixi global install snakemake -c conda-forge -c bioconda
+    $ pixi global install snakemake conda -c conda-forge -c bioconda
 
 
-You can also keep the installation contained in a pixi environment.
+Here, the `conda` installation ensures that `conda` is available for the management of any rule-specific software installations specified via the :ref:`conda directive <integrated_package_management>`.
+If you deploy software via a different mechanism, you can omit `conda` from the installation.
+
+You can also keep the installation contained in a directory-specific pixi environment.
 In the directory where you want to install Snakemake, run:
 
 .. code-block:: console
 
     $ pixi init; pixi add python; pixi add snakemake --pypi
 
-You can then enter the environment with
+If you want to use `conda` for your rule-specific software deployment, also install it:
+
+.. code-block:: console
+
+    $ pixi add conda
+
+You can then activate the environment in the directory where you created it by running:
 
 .. code-block:: console
 
@@ -88,7 +92,7 @@ Of course, any other conda-based package manager can be used as well, e.g. Pixi_
 Note however that for the :ref:`conda integration <integrated_package_management>` of Snakemake, the `conda` command is currently required to be installed in the root environment or in the same environment as Snakemake itself.
 
 Full Installation
------------------
+^^^^^^^^^^^^^^^^^
 
 Snakemake can be installed with all the goodies needed to run in any environment and for creating interactive reports via
 
@@ -107,7 +111,7 @@ This will install Snakemake into an isolated software environment, that has to b
 Installing into isolated environments is best practice in order to avoid side effects with other packages.
 
 Minimal Installation
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 A minimal version with only the necessary requirements can be installed with
 
@@ -154,6 +158,9 @@ If you want to quickly try out an unreleased version from the Snakemake reposito
 
 You can also install the current state of another branch or the repository state at a particular commit.
 For information on the syntax for this, see `the pip documentation on git support <https://pip.pypa.io/en/stable/topics/vcs-support/#git>`_.
+
+Alternatively, you can also check out the repository with `git` and install a `dev` environment with `pixi`.
+For detailed instructions, see :ref:`pixi-test-guide`.
 
 
 Editor Integrations
