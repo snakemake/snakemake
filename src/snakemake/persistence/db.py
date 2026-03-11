@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Iterable, Tuple, Set
+from typing import Any, Optional, Iterable
 
 from sqlalchemy import (
     JSON,
@@ -30,23 +30,21 @@ class MetadataRecordORM(Base):
     target: Mapped[str] = mapped_column(String, primary_key=True)
 
     incomplete: Mapped[bool] = mapped_column(Boolean, default=False)
-    external_jobid: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    starttime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    endtime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    job_hash: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    rule: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    shellcmd: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    external_jobid: Mapped[str | None] = mapped_column(String, nullable=True)
+    starttime: Mapped[float | None] = mapped_column(Float, nullable=True)
+    endtime: Mapped[float | None] = mapped_column(Float, nullable=True)
+    job_hash: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rule: Mapped[str | None] = mapped_column(String, nullable=True)
+    code: Mapped[str | None] = mapped_column(String, nullable=True)
+    shellcmd: Mapped[str | None] = mapped_column(String, nullable=True)
     record_format_version: Mapped[int] = mapped_column(Integer, default=0)
-    conda_env: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    container_img_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    software_stack_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    input: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-    log: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-    params: Mapped[Optional[List[Any]]] = mapped_column(JSON, nullable=True)
-    input_checksums: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSON, default=dict
-    )
+    conda_env: Mapped[str | None] = mapped_column(String, nullable=True)
+    container_img_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    software_stack_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    input: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    log: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    params: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
+    input_checksums: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=dict)
 
     def to_record(self) -> MetadataRecord:
         return MetadataRecord(
@@ -85,7 +83,7 @@ class DbPersistence(PersistenceBase):
         shadow_prefix=None,
         warn_only=False,
         path: Path | None = None,
-        db_url: Optional[str] = None,
+        db_url: str | None = None,
     ):
         super().__init__(
             nolock=nolock,
@@ -125,13 +123,13 @@ class DbPersistence(PersistenceBase):
     def _invalidate_cache(self, key: str) -> None:
         self._metadata_cache.pop(key, None)
 
-    def _read_record(self, key: str) -> Optional[MetadataRecord]:
+    def _read_record(self, key: str) -> MetadataRecord | None:
         if key in self._metadata_cache:
             self._metadata_cache.move_to_end(key)
             return self._metadata_cache[key]
 
         with Session(self.engine) as session:
-            record: Optional[MetadataRecordORM] = session.get(MetadataRecordORM, key)
+            record: MetadataRecordORM | None = session.get(MetadataRecordORM, key)
             record_ = record.to_record() if record else None
 
             self._metadata_cache[key] = record_
@@ -160,7 +158,7 @@ class DbPersistence(PersistenceBase):
                 return True
         return False
 
-    def _mark_incomplete(self, key: str, external_jobid: Optional[str]) -> None:
+    def _mark_incomplete(self, key: str, external_jobid: str | None) -> None:
         self._invalidate_cache(key)
         with Session(self.engine) as session:
             record = session.get(MetadataRecordORM, key) or MetadataRecordORM(
@@ -186,11 +184,11 @@ class DbPersistence(PersistenceBase):
 
                 session.commit()
 
-    def _chunked(self, keys_list: List[str], size: int = 900) -> Iterable[List[str]]:
+    def _chunked(self, keys_list: list[str], size: int = 900) -> Iterable[list[str]]:
         for i in range(0, len(keys_list), size):
             yield keys_list[i : i + size]
 
-    def _filter_incomplete_keys(self, keys: Iterable[str]) -> Set[str]:
+    def _filter_incomplete_keys(self, keys: Iterable[str]) -> set[str]:
         keys_list = list(keys)
         if not keys_list:
             return set()
@@ -205,7 +203,7 @@ class DbPersistence(PersistenceBase):
                 result.update(session.scalars(stmt).all())
         return result
 
-    def _get_external_jobids(self, keys: Iterable[str]) -> Set[str]:
+    def _get_external_jobids(self, keys: Iterable[str]) -> set[str]:
         keys_list = list(keys)
         if not keys_list:
             return set()
@@ -220,7 +218,7 @@ class DbPersistence(PersistenceBase):
                 result.update(session.scalars(stmt).all())
         return result
 
-    def _read_locks(self) -> Iterable[Tuple[str, str]]:
+    def _read_locks(self) -> Iterable[tuple[str, str]]:
         with Session(self.engine) as session:
             stmt = select(LockORM)
             return [
