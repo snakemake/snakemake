@@ -163,27 +163,39 @@ class DbPersistence(PersistenceBase):
 
                 session.commit()
 
+    def _chunked(self, keys_list: List[str], size: int = 900) -> Iterable[List[str]]:
+        for i in range(0, len(keys_list), size):
+            yield keys_list[i : i + size]
+
     def _filter_incomplete_keys(self, keys: Iterable[str]) -> Set[str]:
         keys_list = list(keys)
         if not keys_list:
             return set()
+
+        result = set()
         with Session(self.engine) as session:
-            stmt = select(MetadataRecordORM.target).where(
-                MetadataRecordORM.target.in_(keys_list),
-                MetadataRecordORM.incomplete == True,
-            )
-            return set(session.scalars(stmt).all())
+            for chunk in self._chunked(keys_list):
+                stmt = select(MetadataRecordORM.target).where(
+                    MetadataRecordORM.target.in_(chunk),
+                    MetadataRecordORM.incomplete == True,
+                )
+                result.update(session.scalars(stmt).all())
+        return result
 
     def _get_external_jobids(self, keys: Iterable[str]) -> Set[str]:
         keys_list = list(keys)
         if not keys_list:
             return set()
+
+        result = set()
         with Session(self.engine) as session:
-            stmt = select(MetadataRecordORM.external_jobid).where(
-                MetadataRecordORM.target.in_(keys_list),
-                MetadataRecordORM.external_jobid.is_not(None),
-            )
-            return set(session.scalars(stmt).all())
+            for chunk in self._chunked(keys_list):
+                stmt = select(MetadataRecordORM.external_jobid).where(
+                    MetadataRecordORM.target.in_(chunk),
+                    MetadataRecordORM.external_jobid.is_not(None),
+                )
+                result.update(session.scalars(stmt).all())
+        return result
 
     def _read_locks(self) -> Iterable[Tuple[str, str]]:
         with Session(self.engine) as session:
