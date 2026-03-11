@@ -18,7 +18,7 @@ from snakemake.sourcecache import HostingProviderFile
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import run, dpath, apptainer, conda, connected
-from .conftest import skip_on_macos_arm, skip_on_windows, only_on_windows, ON_WINDOWS
+from .conftest import skip_on_macos_arm, skip_on_windows, only_on_windows, ON_LINUX, ON_WINDOWS
 
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,

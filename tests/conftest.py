@@ -8,6 +8,7 @@ from snakemake.common import ON_WINDOWS
 from snakemake.utils import find_bash_on_windows
 from snakemake.shell import shell
 
+ON_LINUX = sys.platform == "linux"
 ON_MACOS = sys.platform == "darwin"
 ON_APPLE_SILICON = platform.processor() == "arm"
 skip_on_windows = pytest.mark.skipif(ON_WINDOWS, reason="Unix stuff")
