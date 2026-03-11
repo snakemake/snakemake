@@ -992,7 +992,6 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=True,
             lock_warn_only=False,
         )
-        self._build_dag()
         try:
             self.persistence.cleanup_locks()
             logger.info("Unlocked working directory.")

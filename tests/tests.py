@@ -71,6 +71,28 @@ def test_issue956():
     run(dpath("test_issue956"))
 
 
+def test_unlock_cli():
+    # run the workflow once to create the .snakemake/locks folder
+    tmpdir = run(dpath("test_unlock"), cleanup=False)
+    locks = os.path.join(tmpdir, ".snakemake", "locks")
+    # the lock directory may be cleaned up automatically by Snakemake,
+    # so ensure there's at least one file inside to simulate a stale lock.
+    os.makedirs(locks, exist_ok=True)
+    lockfile = os.path.join(locks, "dummy.lock")
+    open(lockfile, "w").close()
+    assert os.listdir(locks), "expected at least one lock file"
+
+    # run the CLI unlock command and verify it succeeds
+    sp.run(
+        [sys.executable, "-m", "snakemake", "--unlock"],
+        cwd=tmpdir,
+        check=True,
+    )
+    # after unlocking the locks directory should be removed or empty
+    assert not os.path.exists(locks) or not os.listdir(locks)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
 @skip_on_windows
 def test01():
     run(dpath("test01"))
@@ -2054,6 +2076,35 @@ def test_source_path():
     run(dpath("test_source_path"), snakefile="workflow/Snakefile")
 
 
+@skip_on_windows  # test shell command not properly working
+def test_source_path_parent():
+    run(dpath("test_source_path_parent"), snakefile="nest/subdir/Snakefile")
+
+
+@skip_on_windows  # test shell command not properly working
+def test_source_path_rerun():
+    import time
+
+    path1 = run(dpath("test_source_path_rerun"), cleanup=False)
+
+    param_out = os.path.join(path1, "test.out")
+    input_out = os.path.join(path1, "test2.out")
+
+    mtime_param_1 = os.stat(param_out).st_mtime_ns
+    mtime_input_1 = os.stat(input_out).st_mtime_ns
+
+    time.sleep(1.1)
+    run(dpath("test_source_path_rerun"), tmpdir=path1, cleanup=False)
+
+    mtime_param_2 = os.stat(param_out).st_mtime_ns
+    mtime_input_2 = os.stat(input_out).st_mtime_ns
+
+    # rerun of the same workflow with source_path as param results in a rerun
+    assert mtime_param_1 != mtime_param_2
+    # rerun of the same workflow with source_path as input results in no rerun
+    assert mtime_input_1 == mtime_input_2
+
+
 @only_on_windows
 def test_filesep_windows_targets():
     run(
@@ -2355,6 +2406,14 @@ def test_github_issue3213():
         assert ts_b2 != ts_b3
     finally:
         shutil.rmtree(tmpdir)
+
+
+def test_issue_3970():
+    run(
+        dpath("test_issue3970"),
+        shellcmd="snakemake --cores 1 --default-resources mem_mb=3*1024+input.size_mb",
+        check_results=False,
+    )
 
 
 @skip_on_windows  # not platform dependent
