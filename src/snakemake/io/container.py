@@ -5,7 +5,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import pickle
 from typing import (
     Callable,
     List,
