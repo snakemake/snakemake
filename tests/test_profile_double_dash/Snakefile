@@ -1,6 +1,7 @@
 rule all:
     input:
-        "done.txt",
+        "other.txt",
+    default_target: True
 
 
 rule one:
@@ -8,3 +9,10 @@ rule one:
         "done.txt",
     shell:
         "echo done > {output}"
+
+
+rule two:
+    output:
+        "other.txt",
+    shell:
+        "echo other > {output}"
