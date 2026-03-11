@@ -1,12 +1,13 @@
 from textwrap import dedent
 
-from snakemake.io import InputFiles
+from snakemake.io.container import InputFiles
 from snakemake.script import RustScript, BashEncoder
 
 
 class TestRustScriptExtractManifest:
     def test_single_line_manifest_with_shebang_and_second_manifest(self):
-        source = dedent("""#!/usr/bin/env rust-script
+        source = dedent(
+            """#!/usr/bin/env rust-script
 // cargo-deps: time="0.1.25", serde="*"
 // You can also leave off the version number, in which case, it's assumed
 // to be "*".  Also, the `cargo-deps` comment *must* be a single-line
@@ -17,7 +18,8 @@ class TestRustScriptExtractManifest:
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -41,7 +43,8 @@ fn main() {
         assert remaining_src == expected_remaining_src
 
     def test_single_line_manifest_not_at_start_with_shebang(self):
-        source = dedent("""#!/usr/bin/env rust-script
+        source = dedent(
+            """#!/usr/bin/env rust-script
 // this is where cargo-deps should be
 // cargo-deps: time="0.1.25", serde="*"
 // You can also leave off the version number, in which case, it's assumed
@@ -53,7 +56,8 @@ fn main() {
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -61,7 +65,8 @@ fn main() {
 
         assert manifest == expected_manifest
 
-        expected_remaining_src = dedent("""// this is where cargo-deps should be
+        expected_remaining_src = dedent(
+            """// this is where cargo-deps should be
 // cargo-deps: time="0.1.25", serde="*"
 // You can also leave off the version number, in which case, it's assumed
 // to be "*".  Also, the `cargo-deps` comment *must* be a single-line
@@ -72,12 +77,14 @@ fn main() {
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-""")
+"""
+        )
 
         assert remaining_src == expected_remaining_src
 
     def test_single_line_manifest_not_at_start_without_shebang(self):
-        source = dedent("""// this is where cargo-deps should be
+        source = dedent(
+            """// this is where cargo-deps should be
 // cargo-deps: time="0.1.25", serde="*"
 // You can also leave off the version number, in which case, it's assumed
 // to be "*".  Also, the `cargo-deps` comment *must* be a single-line
@@ -88,7 +95,8 @@ fn main() {
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -96,7 +104,8 @@ fn main() {
 
         assert manifest == expected_manifest
 
-        expected_remaining_src = dedent("""// this is where cargo-deps should be
+        expected_remaining_src = dedent(
+            """// this is where cargo-deps should be
 // cargo-deps: time="0.1.25", serde="*"
 // You can also leave off the version number, in which case, it's assumed
 // to be "*".  Also, the `cargo-deps` comment *must* be a single-line
@@ -107,12 +116,14 @@ fn main() {
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-""")
+"""
+        )
 
         assert remaining_src == expected_remaining_src
 
     def test_single_line_manifest_with_empty_line_without_shebang(self):
-        source = dedent("""
+        source = dedent(
+            """
 // cargo-deps: time="0.1.25", serde="*"
 // You can also leave off the version number, in which case, it's assumed
 // to be "*".  Also, the `cargo-deps` comment *must* be a single-line
@@ -123,7 +134,8 @@ fn main() {
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -147,7 +159,8 @@ fn main() {
         assert remaining_src == expected_remaining_src
 
     def test_single_line_manifest_is_case_insensitive(self):
-        source = dedent("""
+        source = dedent(
+            """
 // Cargo-deps: time="0.1.25", serde="*"
 // You can also leave off the version number, in which case, it's assumed
 // to be "*".  Also, the `cargo-deps` comment *must* be a single-line
@@ -158,7 +171,8 @@ fn main() {
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -182,7 +196,8 @@ fn main() {
         assert remaining_src == expected_remaining_src
 
     def test_single_line_manifest_spacing_has_no_impact(self):
-        source = dedent("""
+        source = dedent(
+            """
 // cargo-deps : time="0.1.25", serde="*"
 // You can also leave off the version number, in which case, it's assumed
 // to be "*".  Also, the `cargo-deps` comment *must* be a single-line
@@ -193,7 +208,8 @@ fn main() {
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -218,7 +234,8 @@ fn main() {
 
     def test_single_line_manifest_formatting_not_touched_even_if_wrong(self):
         """The dependency delimiter is wrong, but we let rust-script deal with it"""
-        source = dedent("""
+        source = dedent(
+            """
 // cargo-deps: time="0.1.25"; serde="*"
 // You can also leave off the version number, in which case, it's assumed
 // to be "*".  Also, the `cargo-deps` comment *must* be a single-line
@@ -229,7 +246,8 @@ fn main() {
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -253,7 +271,8 @@ fn main() {
         assert remaining_src == expected_remaining_src
 
     def test_single_line_manifest_spelt_wrong(self):
-        source = dedent("""
+        source = dedent(
+            """
 // cargo-dependencies: time="0.1.25"; serde="*"
 // You can also leave off the version number, in which case, it's assumed
 // to be "*".  Also, the `cargo-deps` comment *must* be a single-line
@@ -264,7 +283,8 @@ fn main() {
 fn main() {
     println!("{}", time::now().rfc822z());
 }
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -277,7 +297,8 @@ fn main() {
         assert remaining_src == expected_remaining_src
 
     def test_code_block_manifest_with_shebang(self):
-        source = dedent("""#!/usr/bin/env rust-script
+        source = dedent(
+            """#!/usr/bin/env rust-script
 //! This is a regular crate doc comment, but it also contains a partial
 //! Cargo manifest.  Note the use of a *fenced* code block, and the
 //! `cargo` "language".
@@ -290,7 +311,8 @@ fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -308,16 +330,19 @@ fn main() {
 
         assert manifest == expected_manifest
 
-        expected_remaining_src = dedent("""fn main() {
+        expected_remaining_src = dedent(
+            """fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         assert remaining_src == expected_remaining_src
 
     def test_code_block_manifest_without_shebang(self):
-        source = dedent("""
+        source = dedent(
+            """
 //! This is a regular crate doc comment, but it also contains a partial
 //! Cargo manifest.  Note the use of a *fenced* code block, and the
 //! `cargo` "language".
@@ -330,7 +355,8 @@ fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -348,16 +374,19 @@ fn main() {
 
         assert manifest == expected_manifest
 
-        expected_remaining_src = dedent("""fn main() {
+        expected_remaining_src = dedent(
+            """fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         assert remaining_src == expected_remaining_src
 
     def test_code_block_manifest_spacing_around_language(self):
-        source = dedent("""
+        source = dedent(
+            """
 //! This is a regular crate doc comment, but it also contains a partial
 //! Cargo manifest.  Note the use of a *fenced* code block, and the
 //! `cargo` "language".
@@ -370,7 +399,8 @@ fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -388,16 +418,19 @@ fn main() {
 
         assert manifest == expected_manifest
 
-        expected_remaining_src = dedent("""fn main() {
+        expected_remaining_src = dedent(
+            """fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         assert remaining_src == expected_remaining_src
 
     def test_code_block_manifest_has_non_cargo_block(self):
-        source = dedent("""
+        source = dedent(
+            """
 //! This is a regular crate doc comment, but it also contains a partial
 //! Cargo manifest.  Note the use of a *fenced* code block, and the
 //! `cargo` "language".
@@ -410,7 +443,8 @@ fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -423,7 +457,8 @@ fn main() {
         assert remaining_src == expected_remaining_src
 
     def test_code_block_manifest_missing_closing_fence(self):
-        source = dedent("""
+        source = dedent(
+            """
 //! This is a regular crate doc comment, but it also contains a partial
 //! Cargo manifest.  Note the use of a *fenced* code block, and the
 //! `cargo` "language".
@@ -436,7 +471,8 @@ fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -449,7 +485,8 @@ fn main() {
         assert remaining_src == expected_remaining_src
 
     def test_code_block_manifest_not_in_first_comment_block(self):
-        source = dedent("""//! crate comment
+        source = dedent(
+            """//! crate comment
 static FOO: &str = "foo";
 //! This is a regular crate doc comment, but it also contains a partial
 //! Cargo manifest.  Note the use of a *fenced* code block, and the
@@ -464,7 +501,8 @@ fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -477,7 +515,8 @@ fn main() {
         assert remaining_src == expected_remaining_src
 
     def test_code_block_manifest_with_outer_line_doc_comment(self):
-        source = dedent("""#!/usr/bin/env rust-script
+        source = dedent(
+            """#!/usr/bin/env rust-script
 /// This is a regular crate doc comment, but it also contains a partial
 /// Cargo manifest.  Note the use of a *fenced* code block, and the
 /// `cargo` "language".
@@ -490,7 +529,8 @@ fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         manifest, remaining_src = RustScript.extract_manifest(source)
 
@@ -508,11 +548,13 @@ fn main() {
 
         assert manifest == expected_manifest
 
-        expected_remaining_src = dedent("""fn main() {
+        expected_remaining_src = dedent(
+            """fn main() {
     println!("{}", time::now().rfc822z());
 }
 
-""")
+"""
+        )
 
         assert remaining_src == expected_remaining_src
 
