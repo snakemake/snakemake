@@ -152,22 +152,6 @@ Via `Snakedeploy <https://snakedeploy.readthedocs.io/en/stable/snakemake_develop
 The developer then only needs to implement extensively annotated abstract methods of base classes provided by the respective interface package.
 After pushing the plugin code into a new GitHub repository, testing, release-automation, and pypi upload then work out of the box.
 
-Assuming that the plugin type to create is given as bash variable ``$type`` and its name as ``$name`` below, given that Snakedeploy is available as a command, the following procedure should be followed for scaffolding a new plugin:
-
-.. code-block:: bash
-
-    # Initialize a repository directory following the pyproject strucutre.
-    pixi init --format pyproject snakemake-$type-plugin-$name
-
-    # Enter the directory and create the plugin scaffold inside.
-    cd snakemake-$type-plugin-$name
-    snakedeploy scaffold-snakemake-plugin $type
-
-    # Next, edit the scaffolded code according to your needs, and publish
-    # the resulting plugin into a github repository. The scaffold command also 
-    # creates github actions workflows that will immediately start to check and test
-    # the plugin.
-
 An example class (in this case for storage plugins) created by the scaffold command would be the following:
 
 .. code-block:: python
