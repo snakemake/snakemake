@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -8,10 +6,13 @@ __license__ = "MIT"
 from typing import (
     Callable,
     List,
+    Dict,
+    Iterator,
+    Tuple,
     TypeVar,
     Generic,
+    Optional,
 )
-
 
 # TODO: replace this with Self when Python 3.11 is the minimum supported version for
 #   executing scripts
