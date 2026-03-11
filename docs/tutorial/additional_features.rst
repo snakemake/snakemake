@@ -238,26 +238,26 @@ Declare a output data structure and reference it in a rule (or checkpoint rule):
     @dataclass
     class MyType:
         some_threshold: float
-        files: Mapping[str, str]
+        filestems: list[str]
 
     checkpoint a:
         output:
             meta=typed("metadata/{dataset}.json", MyType)
         run:
-            output.meta.dump(some_threshold=0.3, files={"a": "path/to/a"})
+            output.meta.dump(some_threshold=0.3, filestems=["a"])
 
 The ``dump`` method constructs an instance of ``MyType`` from the given keyword arguments and serializes it to the declared file path as JSON.
 The type passed to ``typed`` can be a ``dataclass``, a ``NamedTuple``, or any class that implements an ``.asdict() -> dict[str, Any]`` method.
 
 .. note::
    The structured data is serialized as JSON, so field values should be JSON-native types (``str``, ``int``, ``float``, ``bool``, ``list``, ``dict``), or types with built-in coercion support such as ``Path``.
-   Runtime type checking is not enforced; use a validated type like ``pydantic.BaseModel`` if strict validation is required.
+   Runtime type checking is not enforced; use a validated type like `pydantic.BaseModel <https://docs.pydantic.dev/latest/api/base_model/>`_ if strict validation is required.
 
 Accessing typed output
 ......................
 
 In downstream rules, typed files can be accessed directly via ``rules.<name>.output.<field>``.
-The ``load`` method (or the ``value`` property as a shorthand) reads the file back and returns a typed instance whose fields are accessible via attribute syntax.
+The ``.load()`` method (or the ``.value`` property as a shorthand) reads the file back and returns a typed instance whose fields are accessible via attribute syntax.
 To retrieve the underlying file path as a string, use ``str()``.
 
 - Call ``.load()`` to deserialize on demand::
@@ -276,8 +276,10 @@ When combined with checkpoints, ``typed`` enables structured access to deseriali
 This pattern avoids parsing raw text files and maintains a typed interface between the checkpoint and its consumers::
 
     def get_processed(wildcards):
-        meta = checkpoints.a.get(**wildcards).output.meta.value
-        yield from meta.files.values()
+        out = checkpoints.a.get(**wildcards).output
+        meta = out.meta.value
+        for f in meta.filestems:
+            yield f"{out.outdir}/{f}-processed.txt"
 
     rule d:
         input:

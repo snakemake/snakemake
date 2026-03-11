@@ -66,7 +66,7 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 from snakemake.logging import logger
-from snakemake.io.typed import TypedFile
+from snakemake.io.typed import typed_factory
 
 if TYPE_CHECKING:
     import snakemake.rules
@@ -1633,7 +1633,7 @@ def typed(value, type_):
     v = flag(value, "typed", None)
     if not isinstance(v, AnnotatedStringInterface):
         raise ValueError("typed can only be used on single files")
-    return flag(v, "typed", TypedFile.factory(type_))
+    return flag(v, "typed", typed_factory(type_))
 
 
 def limit(pattern: Union[str, AnnotatedString], **wildcards):
