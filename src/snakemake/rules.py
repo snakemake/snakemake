@@ -25,7 +25,6 @@ from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake.io import (
     IOFile,
     _IOFile,
-    Namedlist,
     AnnotatedString,
     contains_wildcard,
     contains_wildcard_constraints,
@@ -44,6 +43,7 @@ from snakemake.io import (
     ReportObject,
 )
 from snakemake.io.container import (
+    Namedlist,
     InputFiles,
     OutputFiles,
     Wildcards,
