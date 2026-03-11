@@ -3141,18 +3141,19 @@ def test_module_onstart_onsuccess():
 
 def test_module_onstart_not_in_main_snakefile():
     # check that onstart is not executed, if not in the main snakefile
+    path = dpath("test_module_onstart_not_in_main_snakefile")
     with prepare_tmpdir(path) as tmpdir:
-        path = run(
-            dpath("test_module_onstart_not_in_main_snakefile"),
+        run(
+            path,
             check_results=True,
             cleanup=False,
             tmpdir=tmpdir,
         )
         assert not (
-            Path(path) / "onstart_module1.log"
+            Path(tmpdir) / "onstart_module1.log"
         ).exists(), "onstart should not be executed for module1"
         assert not (
-            Path(path) / "onstart_module2.log"
+            Path(tmpdir) / "onstart_module2.log"
         ).exists(), "onstart should not be executed for module2"
 
 
