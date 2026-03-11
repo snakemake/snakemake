@@ -1219,7 +1219,7 @@ Snakemake allows for rules that specify numeric and/or callable priorities:
       priority: 50
       shell: ...
 
-Per default, each rule has a priority of 0. Any rule that specifies a higher priority, will be preferred by the scheduler over all rules that are ready to execute at the same time without having at least the same priority. Priority may also be specified with a callable that returns an integer. The signature of the callable must be `callable(wildcards)`.
+Per default, each rule has a priority of 0. Any rule that specifies a higher priority, will be preferred by the scheduler over all rules that are ready to execute at the same time without having at least the same priority.
 
 Priority may also be specified with a callable. The callable receives ``wildcards``
 as its first positional argument, and may optionally accept ``input``, ``attempt``,
