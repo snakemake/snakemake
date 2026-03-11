@@ -21,6 +21,7 @@ _TNamedList = TypeVar("_TNamedList")
 _TNamedKeys = TypeVar("_TNamedKeys")
 "Type variable for self returning methods on Namedlist deriving classes"
 
+
 class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
     """
     A list that additionally provides functions to name items. Further,
@@ -36,6 +37,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
         custom_map=None,
     ):
         from snakemake.io import _IOFile, AttributeGuard
+
         """
         Create the object.
 
@@ -182,6 +184,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
 
     def get(self, key, default_value=None):
         from snakemake.io import AttributeGuard
+
         value = self.__dict__.get(key, default_value)
         # handle internally guarded values like sort or index (see AttributeGuard)
         if isinstance(value, AttributeGuard):
