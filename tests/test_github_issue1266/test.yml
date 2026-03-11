@@ -1,5 +1,5 @@
+name: test_github_issue1266
 channels:
   - conda-forge
 dependencies:
-  - r-base =4.5.2
-  - r-rmarkdown =2.30
+  - python
