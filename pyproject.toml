@@ -100,9 +100,9 @@ platforms = ["linux-64", "osx-arm64", "win-64", "osx-64", "linux-aarch64"]
 
 [tool.pixi.pypi-dependencies]
 snakemake = { path = ".", editable = true, extras = ["all"] }
-snakemake-interface-software-deployment-plugins = { path = "../snakemake-interface-software-deployment-plugins", editable = true }
-snakemake-software-deployment-plugin-container = { path = "../snakemake-software-deployment-plugin-container", editable = true }
-snakemake-software-deployment-plugin-conda = { path = "../snakemake-software-deployment-plugin-conda", editable = true }
+#snakemake-interface-software-deployment-plugins = { path = "../snakemake-interface-software-deployment-plugins", editable = true }
+#snakemake-software-deployment-plugin-container = { path = "../snakemake-software-deployment-plugin-container", editable = true }
+#snakemake-software-deployment-plugin-conda = { path = "../snakemake-software-deployment-plugin-conda", editable = true }
 
 [tool.pixi.environments]
 dev = { features = ["test", "docs", "style"] }
