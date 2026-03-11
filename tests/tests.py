@@ -7,6 +7,7 @@ import os
 import shutil
 import sys
 import subprocess as sp
+import re
 from pathlib import Path
 import tempfile
 from unittest.mock import AsyncMock, patch
@@ -2951,6 +2952,58 @@ def test_cyclic_dependency_single():
     # It is expected behavior that Snakemake would not rerun in such a case without
     # forcing it.
     run(dpath("test_cyclic_dependency_single"), forceall=True)
+
+
+def test_stats_table_order_and_counts():
+    # Run snakemake in the example dir and ask it to write stats.txt
+    outdir = run(
+        dpath("test_issue3922"),
+        shellcmd="snakemake --dryrun > stats.txt 2>&1",
+        check_results=False,
+        cleanup=False,
+    )
+    stats_path = os.path.join(outdir, "stats.txt")
+    assert os.path.exists(stats_path), "stats.txt was not created"
+
+    with open(stats_path, "r", encoding="utf-8") as f:
+        txt = f.read()
+    # Extract lines that look like "name <whitespace> number"
+    # Skip header/dashes; match lines with a word-like rule name and integer count
+    pairs = []
+    for line in txt.splitlines():
+        m = re.match(r"^\s*([A-Za-z0-9_]+)\s+(\d+)\s*$", line)
+        if m:
+            name, count = m.group(1), int(m.group(2))
+            pairs.append((name, count))
+
+    # Expected topological order (same-level rules sorted deterministically):
+    # level0: a, b
+    # level1: c (3 instances aggregated), d
+    # level2: e
+    expected_order = ["a", "b", "c", "d", "e", "total"]
+    expected_counts = {"a": 1, "b": 1, "c": 3, "d": 1, "e": 1, "total": 8}
+
+    names = [p[0] for p in pairs]
+    counts = {p[0]: p[1] for p in pairs}
+
+    # Check that all expected names are present in the same order (they may be
+    # surrounded by other formatting lines that don't match the regex)
+    # We check that the subsequence of expected_order appears in names in the same order.
+    idx = 0
+    for expected in expected_order:
+        try:
+            idx = names.index(expected, idx)  # find expected at or after idx
+        except ValueError as e:
+            raise AssertionError(
+                f"Expected rule '{expected}' not found in stats output"
+            ) from e
+        idx += 1
+
+    # Check counts
+    for name, exp_count in expected_counts.items():
+        assert (
+            counts.get(name) == exp_count
+        ), f"Count for {name} was {counts.get(name)} != {exp_count}"
 
 
 @skip_on_windows
