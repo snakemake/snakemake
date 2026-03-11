@@ -469,7 +469,7 @@ e.g.
 
 .. code-block:: python
 
-    collect("results/{item.sample}.txt", sample=lookup(query="someval > 2", within=samples))
+    collect("results/{item.sample}.txt", item=lookup(query="someval > 2", within=samples))
 
 Here, we take the file ``"results/{item.sample}.txt"`` with ``{item.sample}`` being replaced by the
 sample names that occur in all rows of the dataframe ``samples`` where the value of the ``someval`` column is greater than 2.
@@ -2887,8 +2887,20 @@ To illustrate the possibilities of this mechanism, consider the following comple
   # a target rule to define the desired final output
   rule all:
       input:
-          "aggregated/a.txt",
-          "aggregated/b.txt"
+          "aggregated/sample1.txt",
+          "aggregated/sample2.txt"
+
+
+  # generate per-sample input files; filenames are sample IDs,
+  # while file content ("a" or "b") controls downstream branching
+  rule generate_sample_input:
+      output:
+          "samples/{sample}.txt"
+      run:
+          import random
+
+          with open(output[0], "w") as f:
+              f.write(random.choice(["a", "b"]))
 
 
   # the checkpoint that shall trigger re-evaluation of the DAG
@@ -2898,8 +2910,8 @@ To illustrate the possibilities of this mechanism, consider the following comple
       output:
           "somestep/{sample}.txt"
       shell:
-          # simulate some output value
-          "echo {wildcards.sample} > somestep/{wildcards.sample}.txt"
+          # propagate generated value into checkpoint output
+          "cp {input} {output}"
 
 
   # intermediate rule
@@ -2964,38 +2976,38 @@ Consider the following example where an arbitrary number of files is generated b
 .. code-block:: python
 
   # a target rule to define the desired final output
-    rule all:
-        input:
-            "aggregated.txt"
+  rule all:
+      input:
+          "aggregated.txt"
 
 
-    # the checkpoint that shall trigger re-evaluation of the DAG
-    # an number of file is created in a defined directory
-    checkpoint somestep:
-        output:
-            directory("my_directory/")
-        shell:'''
-        mkdir my_directory/
-        cd my_directory
-        for i in 1 2 3; do touch $i.txt; done
-        '''
+  # the checkpoint that shall trigger re-evaluation of the DAG
+  # an number of file is created in a defined directory
+  checkpoint somestep:
+      output:
+          directory("my_directory/")
+      shell:'''
+      mkdir my_directory/
+      cd my_directory
+      for i in 1 2 3; do touch $i.txt; done
+      '''
 
 
 
-    # input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
-    def aggregate_input(wildcards):
-        checkpoint_output = checkpoints.somestep.get(**wildcards).output[0]
-        return expand("my_directory/{i}.txt",
-                    i=glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i)
+  # input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
+  def aggregate_input(wildcards):
+      checkpoint_output = checkpoints.somestep.get(**wildcards).output[0]
+      return expand("my_directory/{i}.txt",
+                  i=glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i)
 
 
-    rule aggregate:
-        input:
-            aggregate_input
-        output:
-            "aggregated.txt"
-        shell:
-            "cat {input} > {output}"
+  rule aggregate:
+      input:
+          aggregate_input
+      output:
+          "aggregated.txt"
+      shell:
+          "cat {input} > {output}"
 
 Because the number of output files is unknown beforehand, the checkpoint only defines an output :ref:`directory <snakefiles-directory_output>`.
 This time, instead of explicitly writing
@@ -3151,16 +3163,17 @@ This can be achieved by accessing their path via the ``workflow.source_path``, w
 .. code-block:: python
 
     rule a:
+        input:
+            json=workflow.source_path("../resources/test.json")
         output:
             "test.out"
-        params:
-            json=workflow.source_path("../resources/test.json")
         shell:
-            "somecommand {params.json} > {output}"
+            "somecommand {input.json} > {output}"
 
-Note that if such source paths are specified as input files, they are automatically considered to be non-storage files.
-This means that Snakemake will not try to map them to an eventually specified default storage provider (see :ref:`storage-support`).
-
+.. note::
+    Note that if such source paths are specified as input files, they are automatically considered to be non-storage files.
+    This means that Snakemake will not try to map them to an eventually specified default storage provider (see :ref:`storage-support`).
+    Further, note that ``workflow.source_path`` should not be used from ``params:`` but only from ``input:``. The reason is that it returns a cached path that may change between Snakemake runs, thereby triggering spurious reruns if referred via ``params:`` (since Snakemake would think that the parameter has changed.
 
 .. _snakefiles-template-integration:
 
