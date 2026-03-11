@@ -1301,10 +1301,6 @@ class Job(
     def name(self):
         return self.rule.name
 
-    @property
-    def priority(self):  # noqa: F811
-        return self.dag.priority(self)
-
     def products(self, include_logfiles=True):
         products = list(self.output)
         if self.benchmark:
