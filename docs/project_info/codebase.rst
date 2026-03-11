@@ -151,57 +151,7 @@ Scaffolding
 Via `Snakedeploy <https://snakedeploy.readthedocs.io/en/stable/snakemake_developers/scaffold_snakemake_plugins.html>`__ (and `Pixi <https://pixi.prefix.dev/latest/>`__), plugins can be automatically scaffolded, leading to all files for plugin implementation, testing and package building being generated as skeletons.
 The developer then only needs to implement extensively annotated abstract methods of base classes provided by the respective interface package.
 After pushing the plugin code into a new GitHub repository, testing, release-automation, and pypi upload then work out of the box.
-
-An example class (in this case for storage plugins) created by the scaffold command would be the following:
-
-.. code-block:: python
-
-    # Required:
-    # Implementation of your storage provider
-    # This class can be empty as the one below.
-    # You can however use it to store global information or maintain e.g. a connection
-    # pool.
-    class StorageProvider(StorageProviderBase):
-        # For compatibility with future changes, you should not overwrite the __init__
-        # method. Instead, use __post_init__ to set additional attributes and initialize
-        # further stuff.
-
-        def __post_init__(self):
-            # This is optional and can be removed if not needed.
-            # Alternatively, you can e.g. prepare a connection to your storage backend here.
-            # and set additional attributes.
-            pass
-
-        @classmethod
-        def example_queries(cls) -> List[ExampleQuery]:
-            # Return example queries with description for this storage provider (at
-            # least one).
-            ...
-
-        def rate_limiter_key(self, query: str, operation: Operation) -> Any:
-            # Return a key for identifying a rate limiter given a query and an operation.
-
-            # This is used to identify a rate limiter for the query.
-            # E.g. for a storage provider like http that would be the host name.
-            # For s3 it might be just the endpoint URL.
-            ...
-
-        def default_max_requests_per_second(self) -> float:
-            # Return the default maximum number of requests per second for this storage
-            # provider.
-            ...
-
-        def use_rate_limiter(self) -> bool:
-            # Return False if no rate limiting is needed for this provider.
-            ...
-
-        @classmethod
-        def is_valid_query(cls, query: str) -> StorageQueryValidationResult:
-            # Return whether the given query is valid for this storage provider.
-            # Ensure that also queries containing wildcards (e.g. {sample}) are accepted
-            # and considered valid. The wildcards will be resolved before the storage
-            # object is actually used.
-            ...
+Have a look at the scaffold files in Snakedeploy (e.g. the init file for `storage plugins <https://github.com/snakemake/snakedeploy/blob/main/snakedeploy/templates/plugins/storage-plugins/init.py>`__) on how that may look.
 
 Once all methods of all scaffolded classes are implemented, the plugin is ready to be tested.
 
