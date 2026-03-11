@@ -1,7 +1,7 @@
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from functools import partial
-import re
 from typing import List, Optional, Union
 
 import snakemake.io
@@ -192,7 +192,11 @@ def lookup(
                 res = res[cols]
                 if not isinstance(cols, list):
                     # single column select, just return a list of values
-                    return res.to_list()
+                    res = res.to_list()
+                    if len(res) == 1:
+                        # just return the value if it is only one
+                        return res[0]
+                    return res
             res = list(res.itertuples(index=cols is None))
             if len(res) == 1:
                 # just return the item if it is only one
