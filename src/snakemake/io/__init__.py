@@ -533,14 +533,15 @@ class _IOFile(str, AnnotatedStringInterface):
         location.
         """
         mtime_in_storage = (
-            (await self.storage_object.managed_mtime())
+            (await self.storage_object.managed_mtime())  # type: ignore[reportOptionalMemberAccess]
             if self.is_storage and not skip_storage
             else None
         )
 
         # We first do a normal stat.
+        file = str(self.file)
         try:
-            _stat = os.stat(self.file, follow_symlinks=False)
+            _stat = os.stat(file, follow_symlinks=False)
 
             is_symlink = stat.S_ISLNK(_stat.st_mode)
             is_dir = stat.S_ISDIR(_stat.st_mode)
@@ -549,7 +550,7 @@ class _IOFile(str, AnnotatedStringInterface):
             def get_dir_mtime():
                 # Try whether we have a timestamp file for it.
                 return os.stat(
-                    os.path.join(self.file, ".snakemake_timestamp"),
+                    os.path.join(file, ".snakemake_timestamp"),
                     follow_symlinks=True,
                 ).st_mtime
 
@@ -567,7 +568,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
             else:
                 # In case of a symlink, we need the stats for the target file/dir.
-                target_stat = os.stat(self.file, follow_symlinks=True)
+                target_stat = os.stat(file, follow_symlinks=True)
                 # Further, we need to check again if this is a directory.
                 is_dir = stat.S_ISDIR(target_stat.st_mode)
                 mtime_target = target_stat.st_mtime
@@ -587,14 +588,14 @@ class _IOFile(str, AnnotatedStringInterface):
             if self.is_storage:
                 return Mtime(storage=mtime_in_storage)
             raise WorkflowError(
-                "Unable to obtain modification time of file {} although it existed before. "
+                f"Unable to obtain modification time of file {file} although it existed before. "
                 "It could be that a concurrent process has deleted it while Snakemake "
-                "was running.".format(self.file)
+                "was running."
             )
         except PermissionError:
             raise WorkflowError(
-                "Unable to obtain modification time of file {} because of missing "
-                "read permissions.".format(self.file)
+                f"Unable to obtain modification time of file {file} because of missing "
+                "read permissions."
             )
 
     @property
@@ -762,14 +763,17 @@ class _IOFile(str, AnnotatedStringInterface):
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
         try:
-            if self.is_directory:
-                file = os.path.join(self.file, ".snakemake_timestamp")
+            if self.is_directory and not os.path.islink(self.file):  # type: ignore[reportArgumentType]
+                # real directory: use .snakemake_timestamp as the mtime carrier
+                file = os.path.join(self.file, ".snakemake_timestamp")  # type: ignore[reportArgumentType]
                 # Create the flag file if it doesn't exist
                 if not os.path.exists(file):
                     with open(file, "w"):
                         pass
                 lutime(file, times)
             else:
+                # non-directory: update mtime directly
+                # For symlink file or symlink directory, only the link itself is updated, not the target.
                 lutime(self.file, times)
         except OSError as e:
             if e.errno == 2:
