@@ -90,6 +90,7 @@ from snakemake.io import (
     temp,
     temporary,
     ancient,
+    optional,
     directory,
     expand,
     glob_wildcards,

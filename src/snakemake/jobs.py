@@ -41,6 +41,7 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.io import (
     _IOFile,
     IOFile,
+    InputFiles,
     ResourceList,
     is_callable,
     Wildcards,
@@ -796,6 +797,70 @@ class Job(
         for f in self.log:
             await f.remove(remove_non_empty_dir=False)
 
+    async def _filter_optional_inputs(self) -> InputFiles:
+        """
+        Return self.input with missing optional files removed.
+        Log missing optional files as warnings.
+        
+        This may require creating a new input (InputFiles), where _names dict should be updated.
+        For example:
+        
+        "inputs": old range (0, 3)
+            old_i=0: survived → ni=0, new_start=0, new_end=1
+            old_i=1: survived → ni=1,              new_end=2
+            old_i=2: removed  → skip
+
+            → new_input._set_name("counts", 0, end=2)
+            Result:
+
+
+            new_input = ["file_0.json", "file_2.json"]
+            new_input._names = {"inputs": (0, 2)}
+        """
+        
+        to_remove = set()
+        # as Job.input is NamedList preserve index of the file that should be removed
+        for i, f in enumerate(self.input):
+            if is_flagged(f, "optional") and not await f.exists():
+                to_remove.add(i)
+                logger.warning(
+                    f"Optional input file '{f}' is missing for rule "
+                    f"'{self.rule.name}'. It will be excluded from {{input}}."
+                )
+        # early exit
+        if not to_remove:
+            return self.input
+
+        # copy every file skipping the removed ones to create a new input
+        # map old index and new index
+        new_input = InputFiles()
+        index_map = {}  # old index → new index
+        new_idx = 0
+        for old_idx, f in enumerate(self.input):
+            if old_idx not in to_remove:
+                new_input.append(f)
+                index_map[old_idx] = new_idx
+                new_idx += 1
+
+        for name, (start, end) in self.input._names.items():
+            if end is None:
+                if start not in to_remove:
+                    new_input._set_name(name, index_map[start])
+            else:
+                # Range named item — find surviving slice in new list
+                new_start = None
+                new_end = None
+                for old_i in range(start, end):
+                    if old_i not in to_remove:
+                        ni = index_map[old_i]
+                        if new_start is None:
+                            new_start = ni
+                        new_end = ni + 1
+                if new_start is not None:
+                    new_input._set_name(name, new_start, end=new_end)
+
+        return new_input
+
     async def prepare(self):
         """
         Prepare execution of job.
@@ -833,6 +898,10 @@ class Job(
                 f.prepare()
             if self.benchmark:
                 self.benchmark.prepare()
+
+        # Filter out missing optional input files before waiting / expanding {input}.
+        # This ensures they are absent from the shell command and from the wait_for_files call below.
+        self._input = await self._filter_optional_inputs()
 
         # wait for input files, respecting keep_storage_local
         try:

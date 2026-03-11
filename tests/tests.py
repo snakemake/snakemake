@@ -255,6 +255,112 @@ def test_ancient_cli():
         shellcmd="snakemake --consider-ancient A=0 B=x --cores 1",
     )
 
+def test_optional_input_missing_without_flag():
+    tmpdir = run(
+        dpath("test_optional_input_missing_without_flag"),
+        shouldfail=True,
+        cleanup=False,
+    )
+    assert not (tmpdir / "letter_counts.json").exists()
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_optional_input_okay_without_flag():
+    tmpdir = run(
+        dpath("test_optional_input_okay_without_flag"),
+        shouldfail=False,
+        cleanup=False,
+    )
+    assert (tmpdir / "letter_counts.json").exists()
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_optional_input_partial_merge():
+    """Optional flag allows partial merge when upstream job exits 0 but skips output."""
+    import json
+    tmpdir = run(
+        dpath("test_optional_input_partial_merge"),
+        shouldfail=False,
+        check_results=False,
+        cleanup=False,
+    )
+    assert (tmpdir / "letter_counts.json").exists()
+    result = json.loads((tmpdir / "letter_counts.json").read_text())
+    assert result == {"a": 2, "b": 3}
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_optional_input_upstream_failure():
+    """Optional flag does not hide actual upstream failure (exit code 1)."""
+    tmpdir = run(
+        dpath("test_optional_input_upstream_failure"),
+        shouldfail=True,
+        cleanup=False,
+    )
+    assert not (tmpdir / "letter_counts.json").exists()
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_optional_input_all_present_with_flag():
+    """Optional flag with all inputs present: normal full merge succeeds."""
+    import json
+    tmpdir = run(
+        dpath("test_optional_input_all_present_with_flag"),
+        shouldfail=False,
+        check_results=False,
+        cleanup=False,
+    )
+    assert (tmpdir / "letter_counts.json").exists()
+    result = json.loads((tmpdir / "letter_counts.json").read_text())
+    assert result == {"a": 2, "b": 3, "c": 4}
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_optional_input_mixed():
+    """Required + optional mixed inputs: succeeds with available files only."""
+    import json
+    tmpdir = run(
+        dpath("test_optional_input_mixed"),
+        shouldfail=False,
+        check_results=False,
+        cleanup=False,
+    )
+    assert (tmpdir / "letter_counts.json").exists()
+    result = json.loads((tmpdir / "letter_counts.json").read_text())
+    assert result == {"o": 1, "r": 5}
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_optional_input_required_blocks():
+    """Missing required input still blocks workflow; optional flag only applies to optional files."""
+    tmpdir = run(
+        dpath("test_optional_input_required_blocks"),
+        shouldfail=True,
+        cleanup=False,
+    )
+    assert not (tmpdir / "letter_counts.json").exists()
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_optional_input_logging():
+    """Optional missing input is visible in Snakemake log as a warning."""
+    import json
+    tmpdir = run(
+        dpath("test_optional_input_logging"),
+        shouldfail=False,
+        check_results=False,
+        cleanup=False,
+    )
+    assert (tmpdir / "letter_counts.json").exists()
+    result = json.loads((tmpdir / "letter_counts.json").read_text())
+    assert result == {"a": 2, "b": 3}
+    # Verify that the skipped optional file appears in the Snakemake log
+    log_files = list((tmpdir / ".snakemake" / "log").glob("*.log"))
+    if log_files:
+        log_text = log_files[-1].read_text()
+        assert "counts_002.json" in log_text
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
 
 def test_subpath():
     run(dpath("test_subpath"))
