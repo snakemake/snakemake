@@ -3259,6 +3259,10 @@ def test_github_issue2255():
     run(dpath("test_github_issue2255"), check_results=False)
 
 
+    
+@skip_on_windows 
+# On Windows this test output is emited with
+# quotes around the output string what cause tese tests to fail
 def test_github_issue_4039_runtime_cli():
     """Test that runtime values from CLI are correctly interpreted as minutes, not seconds.
     Test for https://github.com/snakemake/snakemake/issues/4039"""
@@ -3286,7 +3290,7 @@ def test_github_issue_4039_runtime_cli():
 
     shutil.rmtree(tmpdir)
 
-
+@skip_on_windows
 def test_github_issue_4039_runtime_profile():
     """Test that runtime values from a profile are correctly interpreted as minutes, not seconds.
     Test for https://github.com/snakemake/snakemake/issues/4039"""
@@ -3297,7 +3301,7 @@ def test_github_issue_4039_runtime_profile():
     )
     shutil.rmtree(tmpdir)
 
-
+@skip_on_windows
 def test_github_issue_4039_runtime_no_override():
     """Test the correct processing of times with units or as int/str in the resources directive in the snakefile.
     Test for https://github.com/snakemake/snakemake/issues/4039"""
