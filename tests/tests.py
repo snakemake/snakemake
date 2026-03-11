@@ -71,6 +71,28 @@ def test_issue956():
     run(dpath("test_issue956"))
 
 
+def test_unlock_cli():
+    # run the workflow once to create the .snakemake/locks folder
+    tmpdir = run(dpath("test_unlock"), cleanup=False)
+    locks = os.path.join(tmpdir, ".snakemake", "locks")
+    # the lock directory may be cleaned up automatically by Snakemake,
+    # so ensure there's at least one file inside to simulate a stale lock.
+    os.makedirs(locks, exist_ok=True)
+    lockfile = os.path.join(locks, "dummy.lock")
+    open(lockfile, "w").close()
+    assert os.listdir(locks), "expected at least one lock file"
+
+    # run the CLI unlock command and verify it succeeds
+    sp.run(
+        [sys.executable, "-m", "snakemake", "--unlock"],
+        cwd=tmpdir,
+        check=True,
+    )
+    # after unlocking the locks directory should be removed or empty
+    assert not os.path.exists(locks) or not os.listdir(locks)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
 @skip_on_windows
 def test01():
     run(dpath("test01"))
