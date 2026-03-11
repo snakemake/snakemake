@@ -59,7 +59,6 @@ from snakemake_interface_report_plugins.interfaces import (
     JobRecordInterface,
     FileRecordInterface,
 )
-from snakemake.common import get_report_id
 from snakemake.exceptions import WorkflowError
 
 
@@ -368,6 +367,8 @@ class FileRecord(FileRecordInterface):
     target: str = field(init=False)
 
     def __post_init__(self):
+        from snakemake.common import get_report_id
+
         self.target = str(self.path.name)
         self.size = os.path.getsize(self.path)
         logger.info(f"Adding {self.name} ({format_size(self.size)}).")

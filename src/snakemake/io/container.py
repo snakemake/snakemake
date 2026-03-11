@@ -5,7 +5,9 @@ __license__ = "MIT"
 
 # Only modules from python standard library should be imported here!
 import os
+import urllib.parse
 from pathlib import Path
+
 from typing import (
     Any,
     Callable,
@@ -35,6 +37,8 @@ class ReportHref:
         url_args: Optional[Dict[str, str]] = None,
         anchor: Optional[str] = None,
     ):
+        from snakemake.common import get_report_id
+
         self._parent = parent
         if parent is None:
             self._id = get_report_id(path)
@@ -390,6 +394,61 @@ class Snakemake:
         """
         return ReportHref(path)
 
+    def _log_shell_redirect(
+        self,
+        log: Optional[PathLike],
+        stdout: bool = True,
+        stderr: bool = True,
+        append: bool = False,
+    ) -> str:
+        """
+        Return a shell redirection string to be used in `shell()` calls
+
+        This function allows scripts and wrappers support optional `log` files
+        specified in the calling rule.  If no `log` was specified, then an
+        empty string "" is returned, regardless of the values of `stdout`,
+        `stderr`, and `append`.
+
+        Parameters
+        ---------
+
+        stdout : bool
+            Send stdout to log
+
+        stderr : bool
+            Send stderr to log
+
+        append : bool
+            Do not overwrite the log file. Useful for sending output of
+            multiple commands to the same log. Note however that the log will
+            not be truncated at the start.
+
+        The following table describes the output:
+
+        -------- -------- -------- ----- -------------
+        stdout   stderr   append   log   return value
+        -------- -------- -------- ----- ------------
+        True     True     True     fn    >> fn 2>&1
+        True     False    True     fn    >> fn
+        False    True     True     fn    2>> fn
+        True     True     False    fn    > fn 2>&1
+        True     False    False    fn    > fn
+        False    True     False    fn    2> fn
+        any      any      any      None  ""
+        -------- -------- -------- ----- -----------
+        """
+        if not log:
+            return ""
+        lookup = {
+            (True, True, True): " >> {0} 2>&1",
+            (True, False, True): " >> {0}",
+            (False, True, True): " 2>> {0}",
+            (True, True, False): " > {0} 2>&1",
+            (True, False, False): " > {0}",
+            (False, True, False): " 2> {0}",
+        }
+        return lookup[(stdout, stderr, append)].format(str(log))
+
     def log_fmt_shell(
         self, stdout: bool = True, stderr: bool = True, append: bool = False
     ) -> str:
@@ -429,7 +488,7 @@ class Snakemake:
         any      any      any      None  ""
         -------- -------- -------- ----- -----------
         """
-        return _log_shell_redirect(str(self.log), stdout, stderr, append)
+        return self._log_shell_redirect(str(self.log), stdout, stderr, append)
 
     @property
     def params(self):
