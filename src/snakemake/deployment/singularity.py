@@ -3,12 +3,14 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from pathlib import Path
-import subprocess
-import shutil
-import os
 import hashlib
-from typing import List, Optional
+import os
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Optional
+
+from snakemake_interface_common.utils import lazy_property
 
 from snakemake.common import (
     get_snakemake_searchpaths,
@@ -17,8 +19,6 @@ from snakemake.common import (
 )
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
-from snakemake_interface_common.utils import lazy_property
-from snakemake.common import get_appdirs
 
 SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
 
@@ -74,9 +74,7 @@ class Image:
                 )
             except subprocess.CalledProcessError as e:
                 raise WorkflowError(
-                    "Failed to pull singularity image from {}:\n{}".format(
-                        self.url, e.stdout.decode()
-                    )
+                    f"Failed to pull singularity image from {self.url}:\n{e.stdout.decode()}"
                 )
 
     @property
@@ -95,7 +93,7 @@ class Image:
 def shellcmd(
     img_path,
     cmd: str,
-    bind: Optional[List[Path]] = None,
+    bind: Optional[list[Path]] = None,
     args="",
     quiet=False,
     envvars=None,

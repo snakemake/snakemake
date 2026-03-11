@@ -1,14 +1,17 @@
-import sys, os, subprocess
+import os
+import subprocess
+import sys
 
 from snakemake.executors import local
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import *
+import copy
 
 from snakemake import api
 from snakemake.settings import types as settings
-import copy
+
+from .common import *
 
 
 def test_deploy_sources(s3_storage):

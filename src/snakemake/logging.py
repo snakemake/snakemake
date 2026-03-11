@@ -6,19 +6,20 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 
+import datetime
 import logging
 import logging.handlers
-import platform
-import time
-import datetime
-import sys
 import os
-import threading
-from queue import Queue
-from functools import partial
-from typing import TYPE_CHECKING, Any, Mapping
+import platform
+import sys
 import textwrap
-from typing import List, Optional, Collection, TextIO
+import threading
+import time
+from collections.abc import Collection, Mapping
+from functools import partial
+from queue import Queue
+from typing import TYPE_CHECKING, Any, Optional, TextIO
+
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
@@ -38,7 +39,7 @@ def show_logs(logs):
     """Helper method to show logs."""
     for f in logs:
         try:
-            with open(f, "r") as log_file:
+            with open(f) as log_file:
                 content = log_file.read()
         except FileNotFoundError:
             yield f"Logfile {f} not found."
@@ -110,7 +111,7 @@ def get_event(record: logging.LogRecord) -> Optional[LogEvent]:
     return getattr(record, "event", None)
 
 
-def is_quiet_about(quiet: Collection["Quietness"], msg_type: str) -> bool:
+def is_quiet_about(quiet: Collection[Quietness], msg_type: str) -> bool:
     from snakemake.settings.enums import Quietness
 
     parsed = Quietness.parse_choice(msg_type)
@@ -119,12 +120,12 @@ def is_quiet_about(quiet: Collection["Quietness"], msg_type: str) -> bool:
 
 
 class DefaultFormatter(logging.Formatter):
-    quiet: Collection["Quietness"]
+    quiet: Collection[Quietness]
     show_failed_logs: bool
 
     def __init__(
         self,
-        quiet: Optional[Collection["Quietness"]],
+        quiet: Optional[Collection[Quietness]],
         show_failed_logs: bool = False,
     ):
         self.quiet = set() if quiet is None else quiet
@@ -347,14 +348,14 @@ class DefaultFilter:
         Whether to allow SHELLCMD events.
     """
 
-    quiet: Collection["Quietness"]
+    quiet: Collection[Quietness]
     debug_dag: bool
     dryrun: bool
     printshellcmds: bool
 
     def __init__(
         self,
-        quiet: Optional[Collection["Quietness"]],
+        quiet: Optional[Collection[Quietness]],
         debug_dag: bool,
         dryrun: bool,
         printshellcmds: bool,
@@ -558,10 +559,10 @@ class LoggerManager:
     queue_listener: Optional[logging.handlers.QueueListener]
     needs_rulegraph: bool
     logfile_handlers: dict[logging.Handler, str]
-    settings: "OutputSettings"
-    plugin_handlers: List[LogHandlerBase]
+    settings: OutputSettings
+    plugin_handlers: list[LogHandlerBase]
 
-    def __init__(self, logger: logging.Logger, settings: "OutputSettings"):
+    def __init__(self, logger: logging.Logger, settings: OutputSettings):
         self.logger = logger
         self.settings = settings
         self.queue_listener = None
@@ -688,10 +689,10 @@ class LoggerManager:
         stream_handler.name = "DefaultStreamHandler"
         return stream_handler
 
-    def get_logfile(self) -> List[str]:
+    def get_logfile(self) -> list[str]:
         return list(self.logfile_handlers.values())
 
-    def get_log_handlers(self) -> List[LogHandlerBase]:
+    def get_log_handlers(self) -> list[LogHandlerBase]:
         """Return the list of instantiated plugin log handlers.
 
         Returns

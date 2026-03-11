@@ -15,7 +15,8 @@ sys.path.append(PIP_DEPLOYMENTS_PATH)
 from snakemake.shell import shell
 
 if __name__ == "__main__":
-    from snakemake.cli import main
     import sys
+
+    from snakemake.cli import main
 
     main(sys.argv)

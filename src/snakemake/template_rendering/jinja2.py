@@ -7,7 +7,7 @@ class Jinja2Renderer(TemplateRenderer):
         import jinja2
 
         try:
-            with open(self.input_file, "r") as infile:
+            with open(self.input_file) as infile:
                 template = jinja2.Template(infile.read())
             with open(self.output_file, "w") as outfile:
                 outfile.write(template.render(**self.variables))

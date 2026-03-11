@@ -1,4 +1,5 @@
 import json
+
 from snakemake_interface_common.exceptions import WorkflowError
 
 
@@ -16,9 +17,9 @@ def render_configfiles(configfiles):
 
 def render_code(configfile):
     try:
-        from pygments.lexers import get_lexer_by_name
-        from pygments.formatters import HtmlFormatter
         from pygments import highlight
+        from pygments.formatters import HtmlFormatter
+        from pygments.lexers import get_lexer_by_name
     except ImportError:
         raise WorkflowError(
             "Python package pygments must be installed to create reports."
@@ -31,9 +32,7 @@ def render_code(configfile):
         language = "json"
     else:
         raise ValueError(
-            "Config file extension {} is not supported - must be YAML or JSON".format(
-                file_ext
-            )
+            f"Config file extension {file_ext} is not supported - must be YAML or JSON"
         )
 
     source = configfile.source

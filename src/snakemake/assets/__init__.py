@@ -2,13 +2,13 @@
 # It should not use any modules that are not part of the standard library because it will
 # be called before the setup (and dependency deployment) of the snakemake package.
 
-from dataclasses import dataclass
 import hashlib
 import importlib.resources
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional
-import urllib.request
-import urllib.error
 
 
 class AssetDownloadError(Exception):
@@ -48,7 +48,7 @@ class Asset:
 
 class Assets:
     _base_path: Optional[Path] = None
-    spec: Dict[str, Asset] = {
+    spec: dict[str, Asset] = {
         "snakemake/LICENSE.md": Asset(
             url="https://raw.githubusercontent.com/snakemake/snakemake/main/LICENSE.md",
             sha256="84a1a82b05c80637744d3fe8257235c15380efa6cc32608adf4b21f17af5d2b8",

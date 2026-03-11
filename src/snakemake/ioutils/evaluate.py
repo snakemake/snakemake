@@ -1,5 +1,6 @@
-from snakemake.logging import format_dict
 from snakemake_interface_common.exceptions import WorkflowError
+
+from snakemake.logging import format_dict
 
 
 def evaluate(expr: str):

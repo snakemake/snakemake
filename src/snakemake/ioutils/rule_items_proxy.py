@@ -1,5 +1,5 @@
-from typing import Union
 from enum import Enum
+from typing import Union
 
 
 def rule_item_factory(name: str):

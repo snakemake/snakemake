@@ -1,38 +1,38 @@
 from __future__ import annotations
-from collections import defaultdict
+
 import copy
 import functools as ft
 import itertools as it
+import math
 import operator as op
 import os
 import re
 import shutil
 import tempfile
-import math
-from typing import (
-    TYPE_CHECKING,
-    Any,
+from collections import defaultdict
+from collections.abc import (
     Awaitable,
     Callable,
     Collection,
-    Dict,
-    Final,
     Iterable,
     Iterator,
-    List,
-    Literal,
     Mapping,
+    Sequence,
+)
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Final,
+    Literal,
     Optional,
     Self,
-    Sequence,
-    Tuple,
     TypeAlias,
     TypeVar,
     cast,
 )
 
 import humanfriendly
-from humanfriendly import InvalidTimespan, InvalidSize, parse_size, parse_timespan
+from humanfriendly import InvalidSize, InvalidTimespan, parse_size, parse_timespan
 from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 
 from snakemake.common import (
@@ -40,24 +40,24 @@ from snakemake.common import (
     mb_to_mib,
     mib_to_mb,
 )
+from snakemake.common.tbdstring import TBDString
 from snakemake.exceptions import (
     NestedCoroutineError,
     ResourceConstraintError,
+    ResourceConversionError,
     ResourceDuplicationError,
     ResourceError,
     ResourceInsufficiencyError,
     ResourceScopesException,
-    ResourceConversionError,
     ResourceValidationError,
     WorkflowError,
     is_file_not_found_error,
 )
-from snakemake.common.tbdstring import TBDString
 from snakemake.io import AnnotatedString
 
 if TYPE_CHECKING:
-    from snakemake.jobs import Job
     from snakemake.io import Wildcards
+    from snakemake.jobs import Job
     from snakemake.settings.types import ValidResource
 
 
@@ -65,11 +65,11 @@ class GroupResources:
     @classmethod
     def basic_layered(
         cls,
-        toposorted_jobs: List[List[Job]],
+        toposorted_jobs: list[list[Job]],
         constraints: Resources,
         run_local: bool,
-        additive_resources: Optional[List[str]] = None,
-        sortby: Optional[List[str]] = None,
+        additive_resources: Optional[list[str]] = None,
+        sortby: Optional[list[str]] = None,
     ) -> Mapping[str, str | int]:
         """Basic implementation of group job resources calculation
 
@@ -142,14 +142,14 @@ class GroupResources:
         )
         sortby = sortby if sortby is not None else ["runtime"]
 
-        blocks: List[Dict[str, str | int]] = []
+        blocks: list[dict[str, str | int]] = []
         # iterate over siblings that can be executed in parallel
         for siblings in toposorted_jobs:
             # Total resource requirements for this toposort layer
-            block_resources: Dict[str, str | int] = {}
+            block_resources: dict[str, str | int] = {}
 
-            job_resources: List[Dict[str, str | int]] = []
-            pipe_resources: Dict[str, List[Dict[str, str | int]]] = defaultdict(list)
+            job_resources: list[dict[str, str | int]] = []
+            pipe_resources: dict[str, list[dict[str, str | int]]] = defaultdict(list)
             for job in siblings:
                 # Get resources, filtering out FileNotFoundErrors. List items will
                 # be job resources objects with (resource: value)
@@ -195,7 +195,7 @@ class GroupResources:
 
             # Set of resource types requested in at least one job
             resource_types = list(set(it.chain(*job_resources)))
-            int_resources: Dict[str, List[int]] = {}
+            int_resources: dict[str, list[int]] = {}
             # Sort all integer resources in job_resources into int_resources. Resources
             # defined as a string are placed immediately into block_resources.
             for res in resource_types:
@@ -207,7 +207,7 @@ class GroupResources:
                 if cls._is_string_resource(res, values):
                     block_resources[res] = cast(str, values[0])
                 else:
-                    int_resources[res] = cast(List[int], values)
+                    int_resources[res] = cast(list[int], values)
 
             # Collect values from global_resources to use as constraints.
             sorted_constraints = {
@@ -271,7 +271,7 @@ class GroupResources:
         return final
 
     @classmethod
-    def _is_string_resource(cls, name: str, values: List[str | int]):
+    def _is_string_resource(cls, name: str, values: list[str | int]):
         # If any one of the values provided for a resource is not an int, we
         # can't process it in any way. So we constrain all such resource to be
         # the same
@@ -281,24 +281,22 @@ class GroupResources:
             unique = set(values)
             if len(unique) > 1:
                 raise WorkflowError(
-                    "Resource {name} is a string but not all jobs in group require the "
-                    "same value. Observed values: {values}.".format(
-                        name=name, values=unique
-                    )
+                    f"Resource {name} is a string but not all jobs in group require the "
+                    f"same value. Observed values: {unique}."
                 )
             return True
 
     @classmethod
     def _merge_resource_dict(
         cls,
-        resources: List[Dict[str, str | int]],
-        skip: Optional[List[str]] = None,
-        methods: Optional[Dict[str, Callable[[List[int]], int]]] = None,
-        default_method: Callable[[List[int]], int] = max,
+        resources: list[dict[str, str | int]],
+        skip: Optional[list[str]] = None,
+        methods: Optional[dict[str, Callable[[list[int]], int]]] = None,
+        default_method: Callable[[list[int]], int] = max,
     ):
         skip = skip or []
         methods = methods or {}
-        grouped: Dict[str, List[str | int]] = {}
+        grouped: dict[str, list[str | int]] = {}
         for job in resources:
             # Wrap every value in job with a list so that lists can be merged later
             job_l = {k: [v] for k, v in job.items()}
@@ -312,7 +310,7 @@ class GroupResources:
                 **{k: grouped[k] + job_l[k] for k in grouped.keys() & job_l},
             }
 
-        ret: Dict[str, int | str] = {}
+        ret: dict[str, int | str] = {}
         for res, values in grouped.items():
             if res in skip:
                 continue
@@ -320,15 +318,15 @@ class GroupResources:
             if cls._is_string_resource(res, values):
                 ret[res] = cast(str, values[0])
             elif res in methods:
-                ret[res] = methods[res](cast(List[int], values))
+                ret[res] = methods[res](cast(list[int], values))
             else:
-                ret[res] = default_method(cast(List[int], values))
+                ret[res] = default_method(cast(list[int], values))
         return ret
 
     @classmethod
     def _merge_resource_layer(
         cls,
-        resources: Sequence[Tuple[int, ...]],
+        resources: Sequence[tuple[int, ...]],
         methods: Sequence[Callable[[Sequence[int]], int]],
     ):
         """
@@ -346,7 +344,7 @@ class GroupResources:
 
     @staticmethod
     def _check_constraint(
-        resources: List[Tuple[int, ...]], constraints: List[int | None]
+        resources: list[tuple[int, ...]], constraints: list[int | None]
     ):
         sums = [sum(res) for res in zip(*resources)]
         for s, constraint in zip(sums, constraints):
@@ -368,9 +366,9 @@ class GroupResources:
     @classmethod
     def _get_layers(
         cls,
-        resources: Dict[str, List[int]],
-        constraints: List[int | None],
-        sortby: Optional[List[str]] = None,
+        resources: dict[str, list[int]],
+        constraints: list[int | None],
+        sortby: Optional[list[str]] = None,
     ):
         """Calculate required consecutive job layers.
 
@@ -384,21 +382,21 @@ class GroupResources:
         # Calculates the ratio of resource to constraint. E.g, if the resource is 12
         #  cores, and the constraint is 16, it will return 0.75. This is done for
         # every resource type in the group, returning the result in a list
-        def _proportion(group: Tuple[int, ...]):
+        def _proportion(group: tuple[int, ...]):
             return [r / c if c else 0 for r, c in zip(group, constraints)]
 
         # Return the highest _proportion item in the list
-        def _highest_proportion(group: Tuple[int, ...]):
+        def _highest_proportion(group: tuple[int, ...]):
             return max(_proportion(group))
 
         # Rows should always have at least one empty row to ensure space for insertion.
-        rows: List[List[Tuple[int, ...]]] = [[]]
+        rows: list[list[tuple[int, ...]]] = [[]]
 
         # By zipping, we combine the vals into tuples based on job, 1 tuple per
         # job: [ (val1, 1_val1, 2_val1), ...]. In each tuple, the resources
         # will remain in the same order as the original dict, so their identity
         # can be extracted later.
-        resource_groups: zip[Tuple[int, ...]] = zip(*resources.values())
+        resource_groups: zip[tuple[int, ...]] = zip(*resources.values())
 
         # Sort by _proportion highest to lowest
         pre_sorted = sorted(resource_groups, key=_highest_proportion, reverse=True)
@@ -429,7 +427,7 @@ class GroupResources:
             # than allowed by the constraint. This should only be possible for pipe
             # jobs, which must be run simultaneously.
             if not appended:
-                too_high: List[Tuple[str, int, int | None]] = []
+                too_high: list[tuple[str, int, int | None]] = []
                 for i, val in enumerate(_proportion(group)):
                     if val > 1:
                         too_high.append((list(resources)[i], group[i], constraints[i]))
@@ -898,9 +896,9 @@ class Resources(Mapping[str, Resource]):
         "bare": {"tmpdir": "system_tmpdir"},
     }
 
-    def __init__(self, mapping: Dict[str, Resource] | None = None):
+    def __init__(self, mapping: dict[str, Resource] | None = None):
         if mapping is None:
-            self._data: Dict[str, Resource] = {}
+            self._data: dict[str, Resource] = {}
             return
         self._data = mapping
         for res in SizedResources:
@@ -948,9 +946,9 @@ class Resources(Mapping[str, Resource]):
         ]
 
     @classmethod
-    def decode_arg(cls, arg: str) -> Tuple[str, str]:
+    def decode_arg(cls, arg: str) -> tuple[str, str]:
         try:
-            return cast(Tuple[str, str], tuple(arg.split("=", maxsplit=1)))
+            return cast(tuple[str, str], tuple(arg.split("=", maxsplit=1)))
         except ValueError:
             raise ValueError("Resources have to be defined as name=value pairs.")
 
@@ -981,7 +979,7 @@ class Resources(Mapping[str, Resource]):
         *,
         allow_expressions: bool = False,
         defaults: None | Literal["bare"] | Literal["full"] = None,
-    ) -> Callable[[List[str]], Self]:
+    ) -> Callable[[list[str]], Self]:
         """Return a parsing function with preset keyword arguments.
 
         Intended for use with argparse.
@@ -995,7 +993,7 @@ class Resources(Mapping[str, Resource]):
     @classmethod
     def parse(
         cls,
-        exprs: List[str],
+        exprs: list[str],
         *,
         allow_expressions: bool,
         defaults: None | Literal["bare"] | Literal["full"] = None,
@@ -1018,7 +1016,7 @@ class Resources(Mapping[str, Resource]):
         valid = re.compile(r"[a-zA-Z_]\w*$")
         unparsed = dict([cls.decode_arg(expr) for expr in exprs])
 
-        result: Dict[str, Resource] = {}
+        result: dict[str, Resource] = {}
         for res, val in unparsed.items():
             if res == "_cores":
                 raise WorkflowError(
@@ -1028,7 +1026,7 @@ class Resources(Mapping[str, Resource]):
             if not valid.match(res):
                 raise WorkflowError(
                     "Resource definition must start with a valid identifier, but found "
-                    "{}.".format(res)
+                    f"{res}."
                 )
 
             # check if resource is parsable as human friendly (given the correct
@@ -1111,7 +1109,7 @@ class Resources(Mapping[str, Resource]):
     def items(self):
         return self._data.items()
 
-    def unwrapped_items(self) -> Iterator[Tuple[str, str | int | None]]:
+    def unwrapped_items(self) -> Iterator[tuple[str, str | int | None]]:
         for key, val in self._data.items():
             yield key, val.value
 
@@ -1132,7 +1130,7 @@ class Resources(Mapping[str, Resource]):
         evaluate: Callable[[Resource], Resource] | None,
         skip: Optional[Collection[str]] = None,
         expand_sized: bool = True,
-    ) -> Iterable[Tuple[str, str | int | TBDString | None]]:
+    ) -> Iterable[tuple[str, str | int | TBDString | None]]:
         """Evaluate and constrain resources then convert into a simple resource mapping.
 
         SizedResources, including mem_mb and disk_mb, are optionally expanded into their
@@ -1178,7 +1176,7 @@ class Resources(Mapping[str, Resource]):
 ValidScope: TypeAlias = Literal["local"] | Literal["global"] | Literal["excluded"]
 
 
-class ResourceScopes(Dict[str, ValidScope]):
+class ResourceScopes(dict[str, ValidScope]):
     """Index of resource scopes, where each entry is 'RESOURCE': 'SCOPE'
 
     Each resource may be scoped as local, global, or excluded. Any resources not
@@ -1187,7 +1185,7 @@ class ResourceScopes(Dict[str, ValidScope]):
 
     def __init__(
         self,
-        *args: Mapping[str, ValidScope] | Tuple[str, ValidScope],
+        *args: Mapping[str, ValidScope] | tuple[str, ValidScope],
         **kwargs: ValidScope,
     ):
         super().__init__(*args, **kwargs)

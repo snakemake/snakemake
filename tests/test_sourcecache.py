@@ -1,6 +1,7 @@
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
+
 from snakemake.sourcecache import GithubFile, GitlabFile
 
 

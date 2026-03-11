@@ -20,7 +20,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from numbers import Complex, Integral, Number, Real
 from pathlib import Path
-from typing import Dict, List, Optional, Pattern, Tuple, TypeVar, Union
+from re import Pattern
+from typing import Dict, List, Optional, Tuple, TypeVar, Union
 from urllib.error import URLError
 
 from snakemake import io as io_
@@ -62,7 +63,7 @@ class ReportHref:
         self,
         path: Union[str, Path],
         parent: Optional[ReportHrefType] = None,
-        url_args: Optional[Dict[str, str]] = None,
+        url_args: Optional[dict[str, str]] = None,
         anchor: Optional[str] = None,
     ):
         self._parent = parent
@@ -115,7 +116,7 @@ class Snakemake:
         threads: int,
         resources: io_.ResourceList,
         log: io_.Log,
-        config: typing.Dict[str, typing.Any],
+        config: dict[str, typing.Any],
         rulename: str,
         bench_iteration,
         scriptdir: typing.Optional[PathLike] = None,
@@ -495,8 +496,8 @@ class BashEncoder:
 
     def __init__(
         self,
-        namedlists: List[str] = None,
-        dicts: List[str] = None,
+        namedlists: list[str] = None,
+        dicts: list[str] = None,
         prefix: str = "snakemake",
     ):
         """namedlists is a list of strings indicating the snakemake object's member
@@ -789,9 +790,7 @@ class PythonScript(ScriptBase):
         else:
             file_override = self.path.get_path_or_uri(secret_free=True)
         preamble_addendum = (
-            "__real_file__ = __file__; __file__ = {file_override};".format(
-                file_override=repr(file_override)
-            )
+            f"__real_file__ = __file__; __file__ = {repr(file_override)};"
         )
 
         return PythonScript.generate_preamble(
@@ -1440,7 +1439,7 @@ class RustScript(ScriptBase):
         return ",".join(["serde/derive"])
 
     @staticmethod
-    def extract_manifest(source: str) -> Tuple[str, str]:
+    def extract_manifest(source: str) -> tuple[str, str]:
         # we have no need for the shebang for now given the way we run the script
         _, src = RustScript._strip_shebang(source)
         manifest, src = RustScript._strip_manifest(src)
@@ -1448,13 +1447,13 @@ class RustScript(ScriptBase):
         return manifest, src
 
     @staticmethod
-    def _strip_shebang(src: str) -> Tuple[str, str]:
+    def _strip_shebang(src: str) -> tuple[str, str]:
         """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L312-L320"""
         rgx = re.compile(r"^#![^\[].*?(\r\n|\n)")
         return strip_re(rgx, src)
 
     @staticmethod
-    def _strip_manifest(src: str) -> Tuple[str, str]:
+    def _strip_manifest(src: str) -> tuple[str, str]:
         """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L405-L411"""
         manifest, remainder = RustScript._strip_single_line_manifest(src)
         if not manifest:
@@ -1462,13 +1461,13 @@ class RustScript(ScriptBase):
         return manifest, remainder
 
     @staticmethod
-    def _strip_single_line_manifest(src: str) -> Tuple[str, str]:
+    def _strip_single_line_manifest(src: str) -> tuple[str, str]:
         """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L618-L632"""
         rgx = re.compile(r"^\s*//\s*cargo-deps\s*:(.*?)(\r\n|\n)", flags=re.IGNORECASE)
         return strip_re(rgx, src)
 
     @staticmethod
-    def _strip_code_block_manifest(src: str) -> Tuple[str, str]:
+    def _strip_code_block_manifest(src: str) -> tuple[str, str]:
         """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L634-L664
         We need to find the first `/*!` or `//!` that *isn't* preceded by something
         that would make it apply to anything other than the create itself. Because we
@@ -1625,7 +1624,7 @@ class HyScript(PythonScript):
         self._execute_cmd("hy {fname:q}", fname=fname)
 
 
-def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
+def strip_re(regex: Pattern, s: str) -> tuple[str, str]:
     """Strip a substring matching a regex from a string and return the stripped part
     and the remainder of the original string.
     Returns an empty string and the original string if the regex is not found
@@ -1697,7 +1696,7 @@ def get_language(source_file, source):
         nb = nbformat.reads(source, as_version=nbformat.NO_CONVERT)
         try:
             kernel_language = nb["metadata"]["language_info"]["name"]
-        except KeyError as e:
+        except KeyError:
             raise WorkflowError(
                 "Notebook metadata is corrupt. Please delete notebook "
                 "and recreate it via --edit-notebook."

@@ -1,6 +1,7 @@
 import collections
 import json
 from pathlib import Path
+
 from snakemake_interface_common.exceptions import WorkflowError
 
 

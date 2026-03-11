@@ -1,16 +1,15 @@
-from abc import abstractmethod
 import os
-from pathlib import Path
-import subprocess as sp
-import shutil
-import tempfile
 import re
+import shutil
+import subprocess as sp
+import tempfile
+from abc import abstractmethod
+from pathlib import Path
 
+from snakemake.common import ON_WINDOWS, is_local_file
 from snakemake.exceptions import WorkflowError
-from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
-from snakemake.common import is_local_file
-from snakemake.common import ON_WINDOWS
+from snakemake.script import PythonScript, RScript, ScriptBase, get_source
 from snakemake.sourcecache import SourceCache, infer_source_file
 from snakemake.utils import format
 
@@ -79,8 +78,8 @@ class JupyterNotebook(ScriptBase):
                 assert not edit.draft_only
                 logger.info(f"Opening notebook for editing at {edit.ip}:{edit.port}")
                 cmd = (
-                    "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
-                    "--ServerApp.quit_button=True {{fname:q}}".format(edit=edit)
+                    f"jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
+                    "--ServerApp.quit_button=True {fname:q}"
                 )
             elif has_papermill:
                 if fname_out is None:
@@ -88,9 +87,7 @@ class JupyterNotebook(ScriptBase):
                 else:
                     output_parameter = "{fname_out}"
                 cmd = (
-                    "papermill --log-level ERROR {{fname:q}} {output_parameter}".format(
-                        output_parameter=output_parameter
-                    )
+                    f"papermill --log-level ERROR {{fname:q}} {output_parameter}"
                 )
             else:
                 if fname_out is None:
@@ -100,10 +97,8 @@ class JupyterNotebook(ScriptBase):
                     output_parameter = "--output {fname_out:q}"
 
                 cmd = (
-                    "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
-                    "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
-                        output_parameter=output_parameter
-                    )
+                    f"jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
+                    "--to notebook --ExecutePreprocessor.timeout=-1 {fname:q}"
                 )
 
             if ON_WINDOWS:
@@ -307,8 +302,8 @@ def notebook(
                     )
         else:
             raise WorkflowError(
-                "Notebook {} is not local, but edit mode is only allowed for "
-                "local notebooks.".format(path)
+                f"Notebook {path} is not local, but edit mode is only allowed for "
+                "local notebooks."
             )
 
     if not draft:
@@ -369,7 +364,7 @@ def notebook(
             )
             msg += (
                 "\nEditing with Jupyter CLI:"
-                "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
+                f"\nconda activate {conda_env}\njupyter notebook {path}\n"
             )
         logger.info(msg)
     elif draft:

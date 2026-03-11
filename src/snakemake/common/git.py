@@ -79,7 +79,7 @@ def git_content(git_file):
         return git.Repo(root_path).git.show(f"{version}:{file_path}")
     else:
         raise WorkflowError(
-            "Provided git path ({}) doesn't meet the expected format:".format(git_file)
+            f"Provided git path ({git_file}) doesn't meet the expected format:"
             + ", expected format is "
             "git+file://PATH_TO_REPO/PATH_TO_FILE_INSIDE_REPO@VERSION"
         )

@@ -1,7 +1,8 @@
-import os, sys
-from pathlib import Path
+import os
 import subprocess as sp
+import sys
 from itertools import product
+from pathlib import Path
 
 import pytest
 

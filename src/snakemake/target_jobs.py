@@ -1,5 +1,3 @@
-from collections import namedtuple
-import typing
 
 from snakemake_interface_executor_plugins.utils import TargetSpec
 

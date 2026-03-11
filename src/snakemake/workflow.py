@@ -3,139 +3,137 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+import copy
+import dis
 import hashlib
-import re
+import linecache
 import os
+import platform
+import re
 import subprocess
 import sys
-import platform
-import dis
-import linecache
-import threading
-from collections import OrderedDict, namedtuple
-from collections.abc import Iterator, Mapping
-from itertools import filterfalse, chain
-from functools import partial
-import copy
-from pathlib import Path
 import tarfile
 import tempfile
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union
-from snakemake.io.flags.access_patterns import AccessPatternFactory
+import threading
+from collections import OrderedDict, namedtuple
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from functools import partial
+from itertools import chain, filterfalse
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Union
+
+from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+from snakemake_interface_common.utils import lazy_property, not_iterable
+from snakemake_interface_executor_plugins.cli import (
+    SpawnedJobArgsFactoryExecutorInterface,
+)
+from snakemake_interface_executor_plugins.registry.plugin import (
+    Plugin as ExecutorPlugin,
+)
+from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake_interface_scheduler_plugins.registry.plugin import (
+    Plugin as SchedulerPlugin,
+)
+from snakemake_interface_scheduler_plugins.settings import (
+    SchedulerSettingsBase,
+)
+
+import snakemake.io
+import snakemake.ioflags
+import snakemake.ioutils
+import snakemake.wrapper
+from snakemake import api, caching, sourcecache
+from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
+from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
+from snakemake.checkpoints import Checkpoints
+from snakemake.common import (
+    NOTHING_TO_BE_DONE_MSG,
+    ON_WINDOWS,
+    Gather,
+    Rules,
+    Scatter,
+    async_runner,
+    get_appdirs,
+    is_local_file,
+    smart_join,
+)
 from snakemake.common.workdir_handler import WorkdirHandler
+from snakemake.cwl import cwl
+from snakemake.dag import DAG, ChangeType
+from snakemake.deployment.conda import Conda
+from snakemake.exceptions import (
+    CreateCondaEnvironmentException,
+    CreateRuleException,
+    MissingOutputFileCachePathException,
+    NoRulesException,
+    ResourceConversionError,
+    ResourceDuplicationError,
+    ResourceValidationError,
+    RuleException,
+    UnknownRuleException,
+    WorkflowError,
+    update_lineno,
+)
+from snakemake.io import (
+    IOFile,
+    ancient,
+    directory,
+    ensure,
+    expand,
+    flag,
+    from_queue,
+    glob_wildcards,
+    local,
+    multiext,
+    pipe,
+    protected,
+    repeat,
+    report,
+    service,
+    sourcecache_entry,
+    temp,
+    temporary,
+    touch,
+    unpack,
+)
+from snakemake.io.flags.access_patterns import AccessPatternFactory
+from snakemake.jobs import jobs_to_rulenames
+from snakemake.logging import LoggerManager, format_resources, logger
+from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
+from snakemake.notebook import notebook
+from snakemake.parser import parse
 from snakemake.pathvars import Pathvars
+from snakemake.persistence import Persistence
+from snakemake.resources import Resources, ResourceScopes
+from snakemake.ruleinfo import InOutput, RuleInfo
+from snakemake.rules import Rule, Ruleorder, RuleProxy
+from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
+from snakemake.scheduling.job_scheduler import JobScheduler
+from snakemake.script import script
+from snakemake.settings.enums import Quietness
 from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
     DeploymentMethod,
     DeploymentSettings,
     ExecutionSettings,
+    GlobalReportSettings,
     GroupSettings,
     OutputSettings,
     RemoteExecutionSettings,
     RerunTrigger,
     ResourceSettings,
     SchedulingSettings,
+    SharedFSUsage,
     StorageSettings,
     WorkflowSettings,
-    GlobalReportSettings,
-    SharedFSUsage,
 )
-from snakemake.settings.enums import Quietness
-from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
-from snakemake_interface_executor_plugins.cli import (
-    SpawnedJobArgsFactoryExecutorInterface,
-)
-from snakemake_interface_common.utils import lazy_property
-from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
-from snakemake_interface_executor_plugins.registry.plugin import (
-    Plugin as ExecutorPlugin,
-)
-from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
-from snakemake_interface_report_plugins.settings import ReportSettingsBase
-from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
-from snakemake_interface_logger_plugins.common import LogEvent
-from snakemake_interface_scheduler_plugins.settings import (
-    SchedulerSettingsBase,
-)
-from snakemake_interface_scheduler_plugins.registry.plugin import (
-    Plugin as SchedulerPlugin,
-)
-
-from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
-from snakemake.logging import LoggerManager, logger, format_resources
-from snakemake.rules import Rule, Ruleorder, RuleProxy
-from snakemake.exceptions import (
-    CreateCondaEnvironmentException,
-    MissingOutputFileCachePathException,
-    ResourceDuplicationError,
-    ResourceConversionError,
-    ResourceValidationError,
-    RuleException,
-    CreateRuleException,
-    UnknownRuleException,
-    NoRulesException,
-    WorkflowError,
-    update_lineno,
-)
-from snakemake.dag import DAG, ChangeType
-from snakemake.scheduling.job_scheduler import JobScheduler
-from snakemake.parser import parse
-import snakemake.io
-from snakemake.io import (
-    protected,
-    temp,
-    temporary,
-    ancient,
-    directory,
-    expand,
-    glob_wildcards,
-    flag,
-    touch,
-    unpack,
-    local,
-    pipe,
-    service,
-    repeat,
-    report,
-    multiext,
-    ensure,
-    from_queue,
-    IOFile,
-    sourcecache_entry,
-)
-
-from snakemake.persistence import Persistence
-from snakemake.utils import update_config
-from snakemake.script import script
-from snakemake.notebook import notebook
-from snakemake.wrapper import wrapper
-from snakemake.cwl import cwl
-from snakemake.template_rendering import render_template
-from snakemake_interface_common.utils import not_iterable
-
-import snakemake.wrapper
-from snakemake.common import (
-    ON_WINDOWS,
-    async_runner,
-    get_appdirs,
-    is_local_file,
-    Rules,
-    Scatter,
-    Gather,
-    smart_join,
-    NOTHING_TO_BE_DONE_MSG,
-)
-from snakemake.utils import simplify_path
-from snakemake.checkpoints import Checkpoints
-from snakemake.resources import ResourceScopes, Resources
-from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
-from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
-from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
-from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
     HostingProviderFile,
     LocalSourceFile,
@@ -143,11 +141,9 @@ from snakemake.sourcecache import (
     SourceFile,
     infer_source_file,
 )
-from snakemake.deployment.conda import Conda
-from snakemake import api, caching, sourcecache
-import snakemake.ioutils
-import snakemake.ioflags
-from snakemake.jobs import jobs_to_rulenames
+from snakemake.template_rendering import render_template
+from snakemake.utils import simplify_path, update_config
+from snakemake.wrapper import wrapper
 
 SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
 
@@ -170,11 +166,11 @@ class Workflow(WorkflowExecutorInterface):
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
-    cache_rules: Dict[str, str] = field(default_factory=dict)
+    cache_rules: dict[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str | Path] = None
     _rundir = str(Path.cwd().absolute())
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
-    injected_conda_envs: List = field(default_factory=list)
+    injected_conda_envs: list = field(default_factory=list)
 
     def __post_init__(self):
         """
@@ -382,12 +378,10 @@ class Workflow(WorkflowExecutorInterface):
                 max_file_size = 10000000
                 if source_file_size > max_file_size:
                     logger.warning(
-                        "Skipping the source file for upload {f}. Its size "
-                        "{source_file_size} exceeds "
+                        f"Skipping the source file for upload {f}. Its size "
+                        f"{source_file_size} exceeds "
                         "the maximum file size (10MB). Consider to provide the file as "
-                        "input file instead.".format(
-                            f=f, source_file_size=source_file_size
-                        )
+                        "input file instead."
                     )
                     continue
                 yield f
@@ -564,7 +558,7 @@ class Workflow(WorkflowExecutorInterface):
         return self.config_settings.configfiles
 
     @property
-    def rerun_triggers(self) -> Set[RerunTrigger]:
+    def rerun_triggers(self) -> set[RerunTrigger]:
         assert self.dag_settings is not None
         return self.dag_settings.rerun_triggers  # type: ignore[return-value]
 
@@ -946,7 +940,7 @@ class Workflow(WorkflowExecutorInterface):
             rundir=self.rundir,
         )
 
-    def cleanup_metadata(self, paths: List[Path]):
+    def cleanup_metadata(self, paths: list[Path]):
         assert self.dag_settings is not None
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
@@ -976,7 +970,7 @@ class Workflow(WorkflowExecutorInterface):
         try:
             self.persistence.cleanup_locks()
             logger.info("Unlocked working directory.")
-        except IOError as e:
+        except OSError as e:
             raise WorkflowError(
                 f"Error: Unlocking the directory {Path.cwd()} failed. Maybe "
                 "you don't have the permissions?",
@@ -1104,8 +1098,9 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        from snakemake.cwl import dag_to_cwl
         import json
+
+        from snakemake.cwl import dag_to_cwl
 
         with open(path, "w") as cwl:
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
@@ -1255,7 +1250,7 @@ class Workflow(WorkflowExecutorInterface):
         scheduler_plugin: SchedulerPlugin,
         scheduler_settings: Optional[SchedulerSettingsBase],
         greedy_scheduler_settings: GreedySchedulerSettings,
-        updated_files: Optional[List[str]] = None,
+        updated_files: Optional[list[str]] = None,
     ):
         logger.info(f"host: {platform.node()}")
 
@@ -1285,7 +1280,7 @@ class Workflow(WorkflowExecutorInterface):
                         latency_wait=self.execution_settings.latency_wait,
                     )
                 )
-            except IOError as e:
+            except OSError as e:
                 logger.error(str(e))
                 return False
 
@@ -1653,7 +1648,7 @@ class Workflow(WorkflowExecutorInterface):
         self.included_stack.append(snakefile)
 
         default_target = self.default_target
-        linemap: Dict[int, int] = dict()
+        linemap: dict[int, int] = dict()
         self.linemaps[snakefile.get_path_or_uri(secret_free=True)] = linemap
         code, rulecount = parse(
             snakefile,
@@ -1756,9 +1751,7 @@ class Workflow(WorkflowExecutorInterface):
                         self.globals["config"] = {}
                         merge_action = "replaced"
                     logger.info(
-                        "Config file {} is {} by additional config specified via the command line.".format(
-                            fp, merge_action
-                        )
+                        f"Config file {fp} is {merge_action} by additional config specified via the command line."
                     )
                     update_config(self.config, self.config_settings.overwrite_config)
             elif not self.overwrite_configfiles:
@@ -2084,7 +2077,7 @@ class Workflow(WorkflowExecutorInterface):
         return decorate
 
     @property
-    def runtime_paths(self) -> List[Path]:
+    def runtime_paths(self) -> list[Path]:
         assert self.storage_settings is not None
         return [
             self.storage_settings.local_storage_prefix,
@@ -2394,9 +2387,9 @@ class Workflow(WorkflowExecutorInterface):
 
     def userule(
         self,
-        rules: List[str],
+        rules: list[str],
         from_module: str | None = None,
-        exclude_rules: List[str] | None = None,
+        exclude_rules: list[str] | None = None,
         name_modifier: str | None = None,
         lineno=None,
     ):
@@ -2415,9 +2408,7 @@ class Workflow(WorkflowExecutorInterface):
                         module_name = currentframe().f_back.f_globals[from_module]
                         if module_name not in self.modules:
                             raise WorkflowError(
-                                "Dynamic module name '{}' resolves to '{}', but has not been registered with a 'module' statement.".format(
-                                    from_module, module_name
-                                )
+                                f"Dynamic module name '{from_module}' resolves to '{module_name}', but has not been registered with a 'module' statement."
                             )
                         module = self.modules[module_name]
 
@@ -2434,16 +2425,12 @@ class Workflow(WorkflowExecutorInterface):
                                     ]
                             except KeyError:
                                 raise WorkflowError(
-                                    "Module alias {} not in current frame to resolve dynamic module {} in 'use rule'.".format(
-                                        name_modifier, module_name
-                                    )
+                                    f"Module alias {name_modifier} not in current frame to resolve dynamic module {module_name} in 'use rule'."
                                 )
 
                     else:
                         raise WorkflowError(
-                            "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
-                                from_module
-                            )
+                            f"Module {from_module} has not been registered with 'module' statement before using it in 'use rule' statement."
                         )
                 module.use_rules(
                     rules,

@@ -1,24 +1,22 @@
+import os
+import re
 from abc import ABC
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import cached_property
-import os
 from pathlib import Path
-import re
-from typing import Any, Callable, Optional, TypeAlias, Union
-from typing import Mapping, Sequence, Set
+from typing import Optional, TypeAlias, Union
 
 import immutables
-
-from snakemake.common.typing import AnySet
 from snakemake_interface_common.exceptions import ApiError
 from snakemake_interface_executor_plugins.settings import (
-    RemoteExecutionSettingsExecutorInterface,
-    DeploymentSettingsExecutorInterface,
-    ExecutionSettingsExecutorInterface,
-    StorageSettingsExecutorInterface,
     DeploymentMethod,
+    DeploymentSettingsExecutorInterface,
     ExecMode,
+    ExecutionSettingsExecutorInterface,
+    RemoteExecutionSettingsExecutorInterface,
     SharedFSUsage,
+    StorageSettingsExecutorInterface,
 )
 from snakemake_interface_logger_plugins.settings import (
     LogHandlerSettingsBase,
@@ -31,17 +29,18 @@ from snakemake.common import (
     get_container_image,
 )
 from snakemake.common.configfile import load_configfile
-from snakemake.resources import Resource, Resources
-from snakemake.utils import update_config
+from snakemake.common.typing import AnySet
 from snakemake.exceptions import WorkflowError
+from snakemake.resources import Resource, Resources
 from snakemake.settings.enums import (
-    RerunTrigger,
-    ChangeType,
+    ChangeType,  # noqa: F401
     CondaCleanupPkgs,
-    Quietness,
-    StrictDagEvaluation,
     PrintDag,
+    Quietness,
+    RerunTrigger,
+    StrictDagEvaluation,
 )
+from snakemake.utils import update_config
 
 
 class SettingsBase(ABC):
@@ -153,8 +152,8 @@ class Batch:
         # make sure that we always consider items in the same order
         if len(items) < self.batches:
             raise WorkflowError(
-                "Batching rule {} has less input files than batches. "
-                "Please choose a smaller number of batches.".format(self.rulename)
+                f"Batching rule {self.rulename} has less input files than batches. "
+                "Please choose a smaller number of batches."
             )
         items = sorted(items)
 

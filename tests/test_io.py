@@ -1,7 +1,7 @@
 from pathlib import PosixPath
 
-from snakemake.io import WILDCARD_REGEX, expand
 from snakemake.exceptions import WildcardError
+from snakemake.io import WILDCARD_REGEX, expand
 
 
 def test_wildcard_regex():

@@ -1,8 +1,10 @@
 import json
-import pytest
-from snakemake.utils import validate
-from snakemake.exceptions import WorkflowError
+
 import pandas as pd
+import pytest
+
+from snakemake.exceptions import WorkflowError
+from snakemake.utils import validate
 
 CONFIG_SCHEMA = """$schema: "https://json-schema.org/draft/2020-12/schema#"
 description: Configuration schema

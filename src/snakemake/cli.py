@@ -3,25 +3,25 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from collections import defaultdict
+import logging
 import os
 import re
 import sys
-import logging
-from importlib.machinery import SourceFileLoader
+from collections import defaultdict
+from collections.abc import Mapping
 from pathlib import Path
-from typing import List, Mapping, Optional, Set, Tuple, Union, Dict
-from snakemake import caching
-from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
-from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
-from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
-from snakemake_interface_report_plugins.registry import ReportPluginRegistry
-from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
-from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from typing import Optional, Union
 
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_executor_plugins.utils import maybe_base64
+from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
+from snakemake_interface_report_plugins.registry import ReportPluginRegistry
+from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 import snakemake.common.argparse
+from snakemake import caching
 from snakemake.api import (
     SnakemakeApi,
     resolve_snakefile,
@@ -44,6 +44,7 @@ from snakemake.resources import (
     Resources,
     ResourceScopes,
 )
+from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings
 from snakemake.settings.types import (
     Batch,
     ChangeType,
@@ -52,11 +53,13 @@ from snakemake.settings.types import (
     DeploymentMethod,
     DeploymentSettings,
     ExecutionSettings,
+    GlobalReportSettings,
     GroupSettings,
     MaxJobsPerTimespan,
     NotebookEditMode,
     OutputSettings,
     PreemptibleRules,
+    PrintDag,
     Quietness,
     RemoteExecutionSettings,
     RerunTrigger,
@@ -64,14 +67,11 @@ from snakemake.settings.types import (
     SchedulingSettings,
     SharedFSUsage,
     StorageSettings,
-    WorkflowSettings,
     StrictDagEvaluation,
-    PrintDag,
-    GlobalReportSettings,
+    WorkflowSettings,
 )
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
-from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings
 
 
 def parse_size_in_bytes(value):
@@ -124,8 +124,8 @@ def parse_set_threads(args):
 
 
 def parse_consider_ancient(
-    args: Optional[List[str]],
-) -> Mapping[str, Set[Union[str, int]]]:
+    args: Optional[list[str]],
+) -> Mapping[str, set[Union[str, int]]]:
     """Parse command line arguments for marking input files as ancient.
 
     Args:
@@ -165,7 +165,7 @@ def parse_consider_ancient(
     return consider_ancient
 
 
-def parse_set_resources(args: List[str] | None) -> Dict[str, Resources]:
+def parse_set_resources(args: list[str] | None) -> dict[str, Resources]:
     errmsg = (
         "Invalid resource definition: entries have to be defined as "
         "RULE:RESOURCE=VALUE, with VALUE being a positive integer a quoted string, or "
@@ -177,7 +177,7 @@ def parse_set_resources(args: List[str] | None) -> Dict[str, Resources]:
     if args is None:
         return {}
 
-    assignments: Dict[str, List[str]] = defaultdict(list)
+    assignments: dict[str, list[str]] = defaultdict(list)
 
     for entry in args:
         rule, assign = entry.split(":", maxsplit=1)
@@ -352,7 +352,7 @@ def parse_jobs(jobs):
         )
 
 
-def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
+def get_profile_dir(profile: str) -> Optional[tuple[Path, Path]]:
     config_pattern = re.compile(r"config(.v(?P<min_major>\d+)\+)?.yaml")
 
     def get_config_min_major(filename):
@@ -411,9 +411,7 @@ def get_argument_parser(profiles=None):
                     "Error: profile given but no config.yaml found. "
                     "Profile has to be given as either absolute path, relative "
                     "path or name of a directory available in either "
-                    "{site} or {user}.".format(
-                        site=dirs.site_config_dir, user=dirs.user_config_dir
-                    ),
+                    f"{dirs.site_config_dir} or {dirs.user_config_dir}.",
                     file=sys.stderr,
                 )
                 exit(1)
@@ -1870,7 +1868,7 @@ def parse_args(argv):
     return parser, args
 
 
-def parse_quietness(quietness) -> Set[Quietness]:
+def parse_quietness(quietness) -> set[Quietness]:
     if quietness is not None and len(quietness) == 0:
         # default case, set quiet to progress and rule
         quietness = {Quietness.PROGRESS, Quietness.RULES}

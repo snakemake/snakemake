@@ -3,20 +3,21 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from pathlib import Path
-import types
 import re
-from typing import List, Optional, Set, Dict, Callable
-from snakemake.common import Rules
+import types
+from collections.abc import Callable
+from pathlib import Path
+from typing import Optional
 
+from snakemake import wrapper
+from snakemake.common import Rules
 from snakemake.exceptions import CreateRuleException, WorkflowError
 from snakemake.io.flags import DefaultFlags
 from snakemake.path_modifier import PathModifier
-from snakemake import wrapper
 from snakemake.pathvars import Pathvars
 
 
-def get_name_modifier_func(rules: List[str], name_modifier=None):
+def get_name_modifier_func(rules: list[str], name_modifier=None):
     if name_modifier is None:
         return None
     else:
@@ -52,7 +53,7 @@ class ModuleInfo:
         self.skip_validation = skip_validation
         self.parent_modifier: WorkflowModifier = self.workflow.modifier
         self.rule_proxies = Rules()
-        self.wildcards_modifier_overwrited: Dict[Callable | None, Set[str]] = {}
+        self.wildcards_modifier_overwrited: dict[Callable | None, set[str]] = {}
         self.pathvars = pathvars
 
         if prefix is not None:
@@ -73,9 +74,9 @@ class ModuleInfo:
 
     def use_rules(
         self,
-        rules: List[str],
+        rules: list[str],
         name_modifier: str | None = None,
-        exclude_rules: List[str] | None = None,
+        exclude_rules: list[str] | None = None,
         ruleinfo=None,
         skip_global_report_caption=False,
     ):
@@ -151,7 +152,7 @@ class ModuleInfo:
             return None
         return set(rules)
 
-    def check_overwrite(self, rule_whitelist: Set[str] | None, rulename_modifier):
+    def check_overwrite(self, rule_whitelist: set[str] | None, rulename_modifier):
         """Check if the rule from module can be overwritten.
 
         > Specific rules may even be modified before using them,
@@ -192,7 +193,7 @@ class WorkflowModifier:
         skip_global_report_caption=False,
         resolved_rulename_modifier=None,
         local_rulename_modifier=None,
-        rule_whitelist: Set[str] | None = None,
+        rule_whitelist: set[str] | None = None,
         rule_exclude_list=None,
         ruleinfo_overwrite=None,
         allow_rule_overwrite=False,

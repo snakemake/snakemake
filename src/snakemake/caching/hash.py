@@ -7,10 +7,9 @@ __license__ = "MIT"
 import hashlib
 import json
 
-from snakemake.jobs import Job
-from snakemake import script
-from snakemake import wrapper
+from snakemake import script, wrapper
 from snakemake.exceptions import WorkflowError
+from snakemake.jobs import Job
 from snakemake.settings.types import DeploymentMethod
 
 # ATTENTION: increase version number whenever the hashing algorithm below changes!
@@ -93,15 +92,13 @@ class ProvenanceHashMap:
                 h.update(json.dumps(value, sort_keys=True).encode())
             except TypeError as e:
                 raise WorkflowError(
-                    "Rule {} cannot be cached, because params "
+                    f"Rule {job.rule.name} cannot be cached, because params "
                     "are not JSON serializable. "
                     "Consider converting them into a suitable format "
                     "if you are sure that caching is necessary. "
                     "Otherwise, deactivate caching for this rule "
                     "by removing it from the --cache command line argument "
-                    "or removing the cache: true directive from the rule itself.".format(
-                        job.rule.name
-                    ),
+                    "or removing the cache: true directive from the rule itself.",
                     e,
                 )
 

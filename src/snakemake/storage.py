@@ -1,17 +1,18 @@
 import copy
-from typing import Any, List, Mapping, Optional, Union
-from snakemake.io import flag
-from snakemake.workflow import Workflow
+from collections.abc import Mapping
+from typing import Any, Optional, Union
+
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
-from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
 from snakemake_interface_storage_plugins.storage_object import (
-    StorageObjectWrite,
     StorageObjectRead,
+    StorageObjectWrite,
 )
-from snakemake.io import MaybeAnnotated
-from snakemake.common import __version__
+from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
+
+from snakemake.io import MaybeAnnotated, flag
 from snakemake.logging import logger
+from snakemake.workflow import Workflow
 
 
 def flag_with_storage_object(path: MaybeAnnotated, storage_object):
@@ -173,7 +174,7 @@ class StorageRegistry:
 
     def _storage_object(
         self,
-        query: Union[str, List[str]],
+        query: Union[str, list[str]],
         provider: Optional[str] = None,
         retrieve: Optional[bool] = None,
         keep_local: Optional[bool] = None,

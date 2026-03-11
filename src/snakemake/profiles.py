@@ -1,8 +1,8 @@
-from collections import OrderedDict
 import os
+from collections import OrderedDict
 from pathlib import Path
-from configargparse import YAMLConfigFileParser, ConfigFileParserException
 
+from configargparse import ConfigFileParserException, YAMLConfigFileParser
 from snakemake_interface_common.exceptions import WorkflowError
 
 

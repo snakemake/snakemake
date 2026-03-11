@@ -6,7 +6,8 @@ __license__ = "MIT"
 import sys
 import textwrap
 import tokenize
-from typing import Any, Callable, Dict, Generator, List, Optional, TYPE_CHECKING
+from collections.abc import Callable, Generator
+from typing import TYPE_CHECKING, Any, Optional
 
 from snakemake import common
 
@@ -96,8 +97,8 @@ class StopAutomaton(Exception):
 
 
 class TokenAutomaton:
-    subautomata: Dict[str, Any] = {}
-    deprecated: Dict[str, str] = {}
+    subautomata: dict[str, Any] = {}
+    deprecated: dict[str, str] = {}
 
     def __init__(self, snakefile: "Snakefile", base_indent=0, dedent=0, root=True):
         self.root = root
@@ -264,7 +265,7 @@ class GlobalKeywordState(KeywordState):
 
 class DecoratorKeywordState(KeywordState):
     decorator: Optional[str] = None
-    args: List[str] = []
+    args: list[str] = []
 
     def start(self):
         yield f"@workflow.{self.decorator}"
@@ -1029,7 +1030,7 @@ class Module(GlobalKeywordState):
                     yield t
             except KeyError:
                 self.error(
-                    "Unexpected keyword {} in module definition".format(token.string),
+                    f"Unexpected keyword {token.string} in module definition",
                     token,
                 )
             except StopAutomaton as e:
@@ -1067,9 +1068,7 @@ class UseRule(GlobalKeywordState):
 
     def end(self):
         name_modifier = "".join(self.name_modifier) if self.name_modifier else None
-        yield "@workflow.userule(rules={!r}, from_module={!r}, exclude_rules={!r}, name_modifier={!r}, lineno={})".format(
-            self.rules, self.from_module, self.exclude_rules, name_modifier, self.lineno
-        )
+        yield f"@workflow.userule(rules={self.rules!r}, from_module={self.from_module!r}, exclude_rules={self.exclude_rules!r}, name_modifier={name_modifier!r}, lineno={self.lineno})"
         yield "\n"
 
         if self._with_block:
@@ -1390,7 +1389,7 @@ def format_tokens(tokens) -> Generator[str, None, None]:
 def parse(
     path,
     workflow: "workflow.Workflow",
-    linemap: Dict[int, int],
+    linemap: dict[int, int],
     overwrite_shellcmd=None,
     rulecount=0,
 ):

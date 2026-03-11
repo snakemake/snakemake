@@ -1,5 +1,4 @@
 import json
-import os
 
 from humanfriendly import format_size
 

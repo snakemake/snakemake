@@ -1,12 +1,12 @@
-from pathlib import Path
 import hashlib
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from snakemake.exceptions import WorkflowError
+from snakemake.io import contains_wildcard, is_callable
 from snakemake.logging import logger
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
-from snakemake.io import is_callable, contains_wildcard
 
 CONDA_ENV_PATH = "/conda-envs"
 
@@ -237,7 +237,7 @@ def containerize(workflow, dag, fmt="dockerfile"):
         env_source_path = relfile(env)
         env_target_path = prefix / "environment.yaml"
 
-        formatter.comment(f"Conda environment:")
+        formatter.comment("Conda environment:")
         formatter.comment(f"  source: {env_source_path}")
         formatter.comment(f"  prefix: {prefix}")
         for line in env.content.decode().strip().split("\n"):

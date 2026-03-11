@@ -3,47 +3,44 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import hashlib
+import json
 import os
-from pathlib import Path
 import re
-from typing import Optional, Union
+import shutil
+import subprocess
+import tarfile
+import tempfile
+import threading
+import uuid
+import zipfile
+from abc import ABC, abstractmethod
+from enum import Enum
+from glob import glob
+from pathlib import Path
+from typing import Union
+
+from snakemake_interface_common.utils import lazy_property
+
+from snakemake.common import (
+    ON_WINDOWS,
+    copy_permission_safe,
+    is_local_file,
+    parse_uri,
+)
+from snakemake.deployment import containerize, singularity
+from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
+from snakemake.io import (
+    apply_wildcards,
+    contains_wildcard,
+)
+from snakemake.logging import logger
 from snakemake.sourcecache import (
     LocalGitFile,
     LocalSourceFile,
     SourceFile,
     infer_source_file,
 )
-import subprocess
-import tempfile
-import hashlib
-import shutil
-import json
-from glob import glob
-import tarfile
-import zipfile
-import uuid
-from enum import Enum
-import threading
-import shutil
-from abc import ABC, abstractmethod
-
-
-from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
-from snakemake.logging import logger
-from snakemake.common import (
-    copy_permission_safe,
-    is_local_file,
-    parse_uri,
-    ON_WINDOWS,
-)
-from snakemake.deployment import singularity, containerize
-from snakemake.io import (
-    IOFile,
-    apply_wildcards,
-    contains_wildcard,
-    _IOFile,
-)
-from snakemake_interface_common.utils import lazy_property
 
 MIN_CONDA_VER = "24.7.1"
 
@@ -305,10 +302,10 @@ class Env:
 
     def create_archive(self):
         """Create self-contained archive of environment."""
-        from snakemake.shell import shell
-
         # importing requests locally because it interferes with instantiating conda environments
         import requests
+
+        from snakemake.shell import shell
 
         self.check_is_file_based()
 
@@ -319,9 +316,7 @@ class Env:
         try:
             # Download
             logger.info(
-                "Downloading packages for conda environment {}...".format(
-                    self.file.get_path_or_uri(secret_free=True)
-                )
+                f"Downloading packages for conda environment {self.file.get_path_or_uri(secret_free=True)}..."
             )
             os.makedirs(env_archive, exist_ok=True)
             try:
@@ -360,7 +355,7 @@ class Env:
         except (
             requests.exceptions.ChunkedEncodingError,
             requests.exceptions.HTTPError,
-        ) as e:
+        ):
             shutil.rmtree(env_archive)
             raise WorkflowError(f"Error downloading conda package {pkg_url}.")
         except BaseException as e:
@@ -374,19 +369,15 @@ class Env:
 
         if ON_WINDOWS:
             raise WorkflowError(
-                "Post deploy script {} provided for conda env {} but unsupported on windows.".format(
-                    deploy_file, env_file
-                )
+                f"Post deploy script {deploy_file} provided for conda env {env_file} but unsupported on windows."
             )
         logger.info(
-            "Running post-deploy script {}...".format(
-                os.path.relpath(path=deploy_file, start=os.getcwd())
-            )
+            f"Running post-deploy script {os.path.relpath(path=deploy_file, start=os.getcwd())}..."
         )
 
         # Determine interpreter from shebang or use sh as default.
         interpreter = "sh"
-        with open(deploy_file, "r") as f:
+        with open(deploy_file) as f:
             first_line = next(iter(f))
             if first_line.startswith("#!"):
                 interpreter = first_line[2:].strip()
@@ -459,9 +450,7 @@ class Env:
                     raise WorkflowError(
                         "Unable to find environment in container image. "
                         "Maybe a conda environment was modified without containerizing again "
-                        "(see snakemake --containerize)?\nDetails:\n{}\n{}".format(
-                            e, e.stderr
-                        )
+                        f"(see snakemake --containerize)?\nDetails:\n{e}\n{e.stderr}"
                     )
                 return env_path
             else:
@@ -474,15 +463,11 @@ class Env:
         if os.path.exists(env_path) and not setup_done_flag.exists():
             if dryrun:
                 logger.info(
-                    "Incomplete Conda environment {} will be recreated.".format(
-                        self.file.simplify_path()
-                    )
+                    f"Incomplete Conda environment {self.file.simplify_path()} will be recreated."
                 )
             else:
                 logger.info(
-                    "Removing incomplete Conda environment {}...".format(
-                        self.file.simplify_path()
-                    )
+                    f"Removing incomplete Conda environment {self.file.simplify_path()}..."
                 )
                 shutil.rmtree(env_path, ignore_errors=True)
 
@@ -490,9 +475,7 @@ class Env:
         if not os.path.exists(env_path):
             if dryrun:
                 logger.info(
-                    "Conda environment {} will be created.".format(
-                        self.file.simplify_path()
-                    )
+                    f"Conda environment {self.file.simplify_path()} will be created."
                 )
                 return env_path
             logger.info(f"Creating conda environment {self.file.simplify_path()}...")
@@ -744,7 +727,7 @@ class Conda:
             shell.check_output(
                 self._get_cmd(locate_cmd), stderr=subprocess.STDOUT, text=True
             )
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             if self.container_img:
                 msg = (
                     f"The '{frontend}' command is not "
@@ -782,8 +765,9 @@ class Conda:
             )
 
     def _check_version(self):
-        from snakemake.shell import shell
         from packaging.version import Version
+
+        from snakemake.shell import shell
 
         version = shell.check_output(
             self._get_cmd("conda --version"), stderr=subprocess.PIPE, text=True

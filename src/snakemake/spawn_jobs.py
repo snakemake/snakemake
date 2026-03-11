@@ -1,17 +1,17 @@
-from dataclasses import dataclass, fields
-import hashlib
-from itertools import chain
 import os
 import sys
-from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any
-from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, fields
+from itertools import chain
+from typing import TYPE_CHECKING, Any, TypeVar
+
+from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_executor_plugins.settings import CommonSettings
+from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 from snakemake import PIP_DEPLOYMENTS_PATH
-from snakemake.io import get_flag_value, is_flagged
 from snakemake.settings.types import SharedFSUsage
-from snakemake_interface_common.exceptions import WorkflowError
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow

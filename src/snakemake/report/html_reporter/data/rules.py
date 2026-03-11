@@ -1,4 +1,5 @@
 import json
+
 from snakemake_interface_common.exceptions import WorkflowError
 
 
@@ -20,10 +21,10 @@ def render_rules(rules):
 
 def render_code(rule):
     try:
-        from pygments.lexers import get_lexer_by_name
-        from pygments.formatters import HtmlFormatter
-        from pygments import highlight
         import pygments.util
+        from pygments import highlight
+        from pygments.formatters import HtmlFormatter
+        from pygments.lexers import get_lexer_by_name
     except ImportError:
         raise WorkflowError(
             "Python package pygments must be installed to create reports."

@@ -1,11 +1,12 @@
 import os
 import sys
-import pytest
 from contextlib import suppress
 
+import pytest
+
 from snakemake.common import ON_WINDOWS
-from snakemake.utils import find_bash_on_windows
 from snakemake.shell import shell
+from snakemake.utils import find_bash_on_windows
 
 ON_MACOS = sys.platform == "darwin"
 skip_on_windows = pytest.mark.skipif(ON_WINDOWS, reason="Unix stuff")
@@ -38,10 +39,11 @@ if ON_WINDOWS and bash_cmd:
 
 @pytest.fixture
 def s3_storage():
-    from snakemake_storage_plugin_s3 import StorageProviderSettings
-    from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
     import uuid
+
     import boto3
+    from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+    from snakemake_storage_plugin_s3 import StorageProviderSettings
 
     endpoint_url = "http://127.0.0.1:9000"
     access_key = "minio"

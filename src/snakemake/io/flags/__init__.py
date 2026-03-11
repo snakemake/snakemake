@@ -1,5 +1,6 @@
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Mapping, Set, Union
+from typing import Set, Union
 
 from snakemake.io import get_flag_store_keys, is_flagged
 
@@ -18,7 +19,7 @@ CONTRADICTING_FLAGS = {
 
 @dataclass
 class DefaultFlags:
-    flags_to_store_keys: Mapping[Callable, Set[str]] = field(default_factory=dict)
+    flags_to_store_keys: Mapping[Callable, set[str]] = field(default_factory=dict)
 
     def register_flags(self, *flags: Callable):
         self.flags_to_store_keys.clear()

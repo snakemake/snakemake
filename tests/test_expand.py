@@ -1,6 +1,7 @@
-from snakemake.io import expand
-from snakemake.exceptions import WildcardError
 import pytest
+
+from snakemake.exceptions import WildcardError
+from snakemake.io import expand
 
 
 def test_simple_expand():

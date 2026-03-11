@@ -1,4 +1,4 @@
-from typing import FrozenSet, Set, TypeVar, Union
+from typing import TypeVar, Union
 
 T = TypeVar("T")
-AnySet = Union[Set[T], FrozenSet[T]]
+AnySet = Union[set[T], frozenset[T]]

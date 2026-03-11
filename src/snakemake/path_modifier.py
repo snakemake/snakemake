@@ -7,7 +7,7 @@ import os
 
 from snakemake.common.prefix_lookup import PrefixLookup
 from snakemake.exceptions import WorkflowError
-from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
+from snakemake.io import AnnotatedString, flag, get_flag_value, is_callable, is_flagged
 from snakemake.logging import logger
 
 PATH_MODIFIER_FLAG = "path_modified"

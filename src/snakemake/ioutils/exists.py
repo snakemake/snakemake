@@ -1,9 +1,10 @@
 import inspect
 import os
 
-from snakemake.common import async_run
-import snakemake.io
 from snakemake_interface_common.exceptions import WorkflowError
+
+import snakemake.io
+from snakemake.common import async_run
 
 
 def exists(path):

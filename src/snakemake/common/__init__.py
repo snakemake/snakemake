@@ -3,28 +3,28 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
+import asyncio
+import collections
 import contextlib
+import hashlib
+import inspect
 import itertools
 import math
 import operator
+import os
 import platform
-import hashlib
-import inspect
 import shutil
 import sys
-from tempfile import NamedTemporaryFile
-from typing import Any, Callable, List, Mapping, Optional, Tuple
 import uuid
-import os
-import asyncio
-import collections
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Union
+from tempfile import NamedTemporaryFile
+from typing import Any, List, Optional, Tuple, Union
 
 from snakemake import __version__
 from snakemake.exceptions import NestedCoroutineError
 
-MIN_PY_VERSION: Tuple[int, int] = (3, 7)
+MIN_PY_VERSION: tuple[int, int] = (3, 7)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
     "Nothing to be done (all requested files are present and up to date)."
@@ -303,7 +303,7 @@ def log_location(msg):
     frame = callerframerecord[0]
     info = inspect.getframeinfo(frame)
     logger.debug(
-        "{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info)
+        f"{msg}: {info.filename}, {info.function}, {info.lineno}"
     )
 
 
@@ -365,7 +365,7 @@ def get_function_params(func: Callable):
         return inspect.signature(func).parameters
 
 
-def overwrite_function_params(func: Callable, params: List[str]):
+def overwrite_function_params(func: Callable, params: list[str]):
     """Force function params to be the given list. Useful for functions that
     use *args to get all parameters in dynamically created cases like in
     snakemake.ioutils.subpath.subpath.
@@ -459,7 +459,7 @@ class LockFreeWritableFile:
     def __init__(self, orig_path: Path, binary: bool = False):
         self.orig_path = orig_path
         self._permissions: Optional[int] = None
-        self._times: Optional[Tuple[float, float]] = None
+        self._times: Optional[tuple[float, float]] = None
         # We aim to name the file like an rsync temp file.
         # This way, we get maximum compatibility and performance with systems like
         # glusterfs which apply specific optimizations for the write-then-move
@@ -495,5 +495,5 @@ class LockFreeWritableFile:
     def write_from_fileobj(self, fp):
         shutil.copyfileobj(fp, self.temp_file)
 
-    def utime(self, times: Tuple[float, float]) -> None:
+    def utime(self, times: tuple[float, float]) -> None:
         self._times = times

@@ -1,25 +1,20 @@
+import json
+import logging
 import os
 import shutil
-import sys
 import subprocess as sp
-import logging
+import sys
 from collections import Counter
 from pathlib import Path
-import json
 
 import pytest
-
 from snakemake_interface_logger_plugins.common import LogEvent
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected
+from .common import dpath, run
 from .conftest import (
-    skip_on_windows,
-    only_on_windows,
     ON_WINDOWS,
-    needs_strace,
-    ON_MACOS,
 )
 
 
@@ -91,7 +86,7 @@ Finished jobid: 0 (Rule: all)
     log_files.sort(key=os.path.getmtime, reverse=True)
     latest_log = log_files[0]
 
-    with open(latest_log, "r") as f:
+    with open(latest_log) as f:
         log_content = f.read()
 
     assert finished_stmt.strip() in log_content.strip(), (
@@ -142,12 +137,12 @@ def test_logger_in_workflow():
     log_files.sort(key=os.path.getmtime, reverse=True)
     latest_log = log_files[0]
 
-    with open(latest_log, "r") as f:
+    with open(latest_log) as f:
         log_content = f.read()
 
     custom_log = os.path.join(tmpdir, "mylog.txt")
 
-    with open(custom_log, "r") as f:
+    with open(custom_log) as f:
         custom_log_content = f.read()
 
     for stmt in stmts:

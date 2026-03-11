@@ -1,7 +1,7 @@
 from textwrap import dedent
 
 from snakemake.io import InputFiles
-from snakemake.script import RustScript, BashEncoder
+from snakemake.script import BashEncoder, RustScript
 
 
 class TestRustScriptExtractManifest:

@@ -1,8 +1,8 @@
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from functools import partial
-import re
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import snakemake.io
 import snakemake.utils
@@ -105,7 +105,7 @@ NODEFAULT = object()
 def lookup(
     dpath: Optional[str] = None,
     query: Optional[str] = None,
-    cols: Optional[Union[List[str], str]] = None,
+    cols: Optional[Union[list[str], str]] = None,
     is_nrows: Optional[int] = None,
     within=None,
     default=NODEFAULT,

@@ -12,51 +12,50 @@ import copy
 import functools
 import hashlib
 import os
+import pickle
 import queue
 import re
 import shutil
 import stat
 import string
 import time
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-import pickle
 from typing import (
+    TYPE_CHECKING,
     Any,
-    Callable,
     Dict,
-    Iterable,
     Generic,
-    Iterator,
     List,
     Optional,
     Set,
     Tuple,
     TypeVar,
     Union,
-    TYPE_CHECKING,
 )
 
-from snakemake_interface_common.utils import lchmod
-from snakemake_interface_common.utils import lutime as lutime_raw
-from snakemake_interface_common.utils import not_iterable
 from snakemake_interface_common.io import AnnotatedStringInterface
+from snakemake_interface_common.utils import lchmod, not_iterable
+from snakemake_interface_common.utils import lutime as lutime_raw
+from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
     Mtime,
     get_constant_prefix,
 )
-from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 
 from snakemake.common import (
     ON_WINDOWS,
-    async_run as async_run_fallback,
     get_input_function_aux_params,
     is_namedtuple_instance,
+)
+from snakemake.common import (
+    async_run as async_run_fallback,
 )
 from snakemake.exceptions import (
     InputOpenException,
@@ -68,8 +67,8 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 
 if TYPE_CHECKING:
-    import snakemake.rules
     import snakemake.jobs
+    import snakemake.rules
 
 
 def lutime(file, times):
@@ -154,10 +153,10 @@ class IOCache(IOCacheStorageInterface):
         loaded = pickle.load(handle)
         if loaded.IOCACHE_VERSION != cls.IOCACHE_VERSION:
             raise IOCacheLoadError(
-                (
+
                     f"Trying to load IOCache object with a mismatched version: "
                     f"{loaded.IOCACHE_VERSION} (loaded) != {cls.IOCACHE_VERSION} (current)"
-                )
+
             )
         else:
             return loaded
@@ -179,7 +178,7 @@ class IOCache(IOCacheStorageInterface):
         return self._size
 
     async def mtime_inventory(
-        self, jobs: "collections.abc.Iterable[snakemake.jobs.Job]", n_workers=8
+        self, jobs: collections.abc.Iterable[snakemake.jobs.Job], n_workers=8
     ):
         queue: asyncio.Queue = asyncio.Queue()
         stop_item = object()
@@ -207,7 +206,7 @@ class IOCache(IOCacheStorageInterface):
         ]
 
         for job in jobs:
-            f: "_IOFile"
+            f: _IOFile
             for f in chain(job.input, job.output):
                 if not f.is_storage and await f.exists():
                     queue.put_nowait(f)
@@ -224,7 +223,7 @@ class IOCache(IOCacheStorageInterface):
 
         await asyncio.gather(*tasks)
 
-    async def collect_mtime(self, path: "_IOFile"):
+    async def collect_mtime(self, path: _IOFile):
         return await path.mtime_uncached()
 
     def clear(self):
@@ -239,14 +238,14 @@ class IOCache(IOCacheStorageInterface):
         self.active = False
 
 
-def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
+def IOFile(file, rule: Union[snakemake.rules.Rule, None] = None):
     f = _IOFile(file, rule=rule)
     return f
 
 
 def iocache(func: Callable):
     @functools.wraps(func)
-    async def wrapper(self: "_IOFile", *args, **kwargs):
+    async def wrapper(self: _IOFile, *args, **kwargs):
         assert self.rule is not None
         if self.rule.workflow.iocache.active:
             cache = getattr(self.rule.workflow.iocache, func.__name__)
@@ -270,17 +269,17 @@ class _IOFile(str, AnnotatedStringInterface):
 
     if TYPE_CHECKING:
 
-        def __init__(self, file, rule: Optional["snakemake.rules.Rule"]):
+        def __init__(self, file, rule: Optional[snakemake.rules.Rule]):
             self._is_callable: bool
             self._file: str | AnnotatedString | Callable[[Namedlist], str]
             self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
-            self._wildcard_constraints: Dict[str, re.Pattern] | None
+            self._wildcard_constraints: dict[str, re.Pattern] | None
 
     def __new__(
         cls,
-        file: Union[str, Path, "AnnotatedString", Callable],
-        rule: Optional["snakemake.rules.Rule"],
+        file: Union[str, Path, AnnotatedString, Callable],
+        rule: Optional[snakemake.rules.Rule],
     ):
         is_annotated = isinstance(file, AnnotatedString)
         is_callable = (
@@ -587,14 +586,14 @@ class _IOFile(str, AnnotatedStringInterface):
             if self.is_storage:
                 return Mtime(storage=mtime_in_storage)
             raise WorkflowError(
-                "Unable to obtain modification time of file {} although it existed before. "
+                f"Unable to obtain modification time of file {self.file} although it existed before. "
                 "It could be that a concurrent process has deleted it while Snakemake "
-                "was running.".format(self.file)
+                "was running."
             )
         except PermissionError:
             raise WorkflowError(
-                "Unable to obtain modification time of file {} because of missing "
-                "read permissions.".format(self.file)
+                f"Unable to obtain modification time of file {self.file} because of missing "
+                "read permissions."
             )
 
     @property
@@ -665,7 +664,7 @@ class _IOFile(str, AnnotatedStringInterface):
                     raise WorkflowError(
                         f"File {self.file} seems to be a broken symlink."
                     )
-            except FileNotFoundError as e:
+            except FileNotFoundError:
                 # there is no broken symlink present, hence all fine
                 return
 
@@ -754,7 +753,7 @@ class _IOFile(str, AnnotatedStringInterface):
                 await self.storage_object.managed_touch()
             else:
                 raise WorkflowError(
-                    f"Storage does not support touch operation. Consider contributing to the used storage provider."
+                    "Storage does not support touch operation. Consider contributing to the used storage provider."
                 )
         else:
             self.touch()
@@ -871,7 +870,7 @@ class _IOFile(str, AnnotatedStringInterface):
     def match(self, target):
         return self.regex().match(target) or None
 
-    def clone_flags(self, other: "_IOFile", skip_storage_object=False):
+    def clone_flags(self, other: _IOFile, skip_storage_object=False):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
         assert isinstance(self._file, AnnotatedString)
@@ -885,7 +884,7 @@ class _IOFile(str, AnnotatedStringInterface):
                     "to change"
                 )
 
-    def clone_storage_object(self, other: "_IOFile"):
+    def clone_storage_object(self, other: _IOFile):
         if (
             isinstance(other._file, AnnotatedString)
             and "storage_object" in other._file.flags
@@ -924,7 +923,7 @@ class AnnotatedString(str, AnnotatedStringInterface):
         return self.callable is not None
 
     @property
-    def flags(self) -> Dict[str, Any]:
+    def flags(self) -> dict[str, Any]:
         return self._flags
 
     @flags.setter
@@ -955,7 +954,7 @@ def flag(value, flag_type, flag_value=True):
 
 
 def check(
-    iofile: str, rule: Optional["snakemake.rules.Rule"] = None, is_storage: bool = False
+    iofile: str, rule: Optional[snakemake.rules.Rule] = None, is_storage: bool = False
 ) -> None:
     if rule is not None:
         spec = f"rule {rule.name}, line {rule.lineno}, {rule.snakefile}: "
@@ -1004,7 +1003,7 @@ def check(
         )
 
 
-def get_flag_store_keys(flag_func: Callable) -> Set[str]:
+def get_flag_store_keys(flag_func: Callable) -> set[str]:
     return set(flag_func("dummy").flags.keys())
 
 
@@ -1041,7 +1040,7 @@ async def wait_for_files(
     latency_wait=3,
     wait_for_local=False,
     ignore_pipe_or_service=False,
-    consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
+    consider_local: set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
 ):
     """Wait for given files to be present in the filesystem."""
 
@@ -1094,7 +1093,7 @@ async def wait_for_files(
                 return
             time.sleep(sleep)
         missing = fmt_missing(await get_missing(list_parent=True))
-        raise IOError(
+        raise OSError(
             f"Missing files after {latency_wait} seconds. This might be due to "
             "filesystem latency. If that is the case, consider to increase the "
             "wait time with --latency-wait:\n"
@@ -1247,7 +1246,7 @@ class QueueInfo:
     finish_sentinel: Any
     last_checked: Optional[float] = None
     finished: bool = False
-    items: List[Any] = field(default_factory=list, init=False)
+    items: list[Any] = field(default_factory=list, init=False)
 
     def consume(self, wildcards):
         assert self.finished is False, (
@@ -1479,7 +1478,7 @@ def expand(*args, **wildcard_values):
         key: value
         for key, value in wildcard_values.items()
         if callable(value)
-        or (isinstance(value, List) and any(callable(v) for v in value))
+        or (isinstance(value, list) and any(callable(v) for v in value))
     }
 
     # remove unused wildcards to avoid duplicate filepatterns
@@ -1493,12 +1492,12 @@ def expand(*args, **wildcard_values):
     }
 
     def do_expand(
-        wildcard_values: Dict[
-            str, Dict[str, Union[str, collections.abc.Iterable[str]]]
+        wildcard_values: dict[
+            str, dict[str, Union[str, collections.abc.Iterable[str]]]
         ],
     ):
         def flatten(
-            wildcard_values: Dict[str, Union[str, collections.abc.Iterable[str]]],
+            wildcard_values: dict[str, Union[str, collections.abc.Iterable[str]]],
         ):
             for wildcard, value in wildcard_values.items():
                 if (
@@ -1654,7 +1653,7 @@ def glob_wildcards(pattern, files=None, followlinks=False):
         dirname = "."
 
     _names = [match.group("name") for match in WILDCARD_REGEX.finditer(pattern)]
-    names: List[str] = sorted(set(_names), key=_names.index)
+    names: list[str] = sorted(set(_names), key=_names.index)
     Wildcards = collections.namedtuple("Wildcards", names)  # type: ignore[misc]
     wildcards = Wildcards(*[list() for name in names])
 
@@ -1679,8 +1678,8 @@ def glob_wildcards(pattern, files=None, followlinks=False):
 
 def update_wildcard_constraints(
     pattern,
-    wildcard_constraints: Dict[str, str],
-    global_wildcard_constraints: Dict[str, str],
+    wildcard_constraints: dict[str, str],
+    global_wildcard_constraints: dict[str, str],
 ):
     """Update wildcard constraints
 
@@ -1708,7 +1707,7 @@ def update_wildcard_constraints(
         else:
             return match.group(0)
 
-    examined_names: Set[str] = set()
+    examined_names: set[str] = set()
     updated = WILDCARD_REGEX.sub(replace_constraint, pattern)
 
     # inherit flags
@@ -1768,7 +1767,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
     def __init__(
         self,
         toclone=None,
-        fromdict: Optional[Dict[_TNamedKeys, _TNamedList]] = None,
+        fromdict: Optional[dict[_TNamedKeys, _TNamedList]] = None,
         plainstr=False,
         strip_constraints=False,
         custom_map=None,
@@ -1838,7 +1837,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
         if name not in self._allowed_overrides and hasattr(self.__class__, name):
             raise AttributeError(
                 "invalid name for input, output, wildcard, "
-                "params or log: {name} is reserved for internal use".format(name=name)
+                f"params or log: {name} is reserved for internal use"
             )
 
         self._names[name] = (index, end)
@@ -1847,7 +1846,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
         else:
             setattr(self, name, Namedlist(toclone=self[index:end]))
 
-    def update(self, items: Dict):
+    def update(self, items: dict):
         for key, value in items.items():
             if key in self._names:
                 raise ValueError(f"Key {key} already exists in Namedlist")
@@ -1872,7 +1871,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
         for name, (i, j) in names:
             self._set_name(name, i, end=j)
 
-    def items(self) -> Iterator[Tuple[_TNamedKeys, _TNamedList]]:
+    def items(self) -> Iterator[tuple[_TNamedKeys, _TNamedList]]:
         for name in self._names:
             yield name, getattr(self, name)
 
@@ -1938,8 +1937,8 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
 
 
 class InputFiles(Namedlist):
-    def _predicated_size_files(self, predicate: Callable) -> List[int]:
-        async def sizes() -> List[int]:
+    def _predicated_size_files(self, predicate: Callable) -> list[int]:
+        async def sizes() -> list[int]:
             async def get_size(f: _IOFile) -> Optional[int]:
                 if await predicate(f):
                     return await f.size()
@@ -2030,9 +2029,7 @@ class PeriodicityDetector:
         """
         self.min_repeat = min_repeat
         self.regex = re.compile(
-            "((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(
-                min_repeat=min_repeat - 1, max_repeat=max_repeat - 1
-            )
+            f"((?P<value>.+)(?P=value){{{min_repeat - 1},{max_repeat - 1}}})$"
         )
 
     def is_periodic(self, value):

@@ -3,12 +3,14 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
+from snakemake_interface_executor_plugins.executors.base import (
+    AbstractExecutor,
+    SubmittedJobInfo,
+)
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
 )
 from snakemake_interface_executor_plugins.settings import CommonSettings
-from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 
 from snakemake.logging import logger
 
@@ -49,15 +51,11 @@ class Executor(AbstractExecutor):
                 self.workflow.output_file_cache.exists(job, cache_mode)
             ):
                 logger.info(
-                    "Output file {} will be obtained from global between-workflow cache.".format(
-                        job.output[0]
-                    )
+                    f"Output file {job.output[0]} will be obtained from global between-workflow cache."
                 )
             else:
                 logger.info(
-                    "Output file {} will be written to global between-workflow cache.".format(
-                        job.output[0]
-                    )
+                    f"Output file {job.output[0]} will be written to global between-workflow cache."
                 )
 
     def cancel(self):

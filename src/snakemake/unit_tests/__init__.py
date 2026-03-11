@@ -1,11 +1,11 @@
+import shutil
 from itertools import groupby
 from pathlib import Path
-import shutil
-from snakemake.common import async_run
 
-from snakemake.logging import logger
 from snakemake import __version__
+from snakemake.common import async_run
 from snakemake.exceptions import WorkflowError
+from snakemake.logging import logger
 
 
 class RuleTest:

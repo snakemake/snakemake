@@ -1,7 +1,6 @@
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Union
 import re
-
+from collections.abc import Mapping, Sequence
+from typing import Any, Optional, Union
 
 from snakemake_interface_common.exceptions import WorkflowError
 
@@ -13,8 +12,8 @@ PATHVAR_REGEX = re.compile(r"<(?P<name>[a-z][a-z0-9_]*)>")
 
 class Pathvars:
     def __init__(self) -> None:
-        self.items: Dict[str, str]
-        self.level: Dict[str, int]
+        self.items: dict[str, str]
+        self.level: dict[str, int]
 
     @classmethod
     def from_other(cls, other: "Pathvars") -> "Pathvars":
@@ -25,7 +24,7 @@ class Pathvars:
 
     @classmethod
     def _from_raw(
-        cls, items: Dict[Any, Any], level: Optional[int] = None
+        cls, items: dict[Any, Any], level: Optional[int] = None
     ) -> "Pathvars":
         cls.check_dict(items)
         instance = cls()
@@ -41,7 +40,7 @@ class Pathvars:
     def check(self) -> None:
         # Ensure that there are no cyclic references as they would lead to infinite loops
         # during pathvar expansion.
-        def dfs(key: str, seen: Set[str]) -> None:
+        def dfs(key: str, seen: set[str]) -> None:
             if key in seen:
                 cycle = ", ".join(seen | {key})
                 raise WorkflowError(
@@ -86,15 +85,15 @@ class Pathvars:
         return cls._from_raw(items={})
 
     @classmethod
-    def from_module(cls, module_pathvars: Dict[str, str]) -> "Pathvars":
+    def from_module(cls, module_pathvars: dict[str, str]) -> "Pathvars":
         return cls._from_raw(items=module_pathvars, level=1)
 
     @classmethod
-    def from_rule(cls, rule_pathvars: Dict[str, str]) -> "Pathvars":
+    def from_rule(cls, rule_pathvars: dict[str, str]) -> "Pathvars":
         return cls._from_raw(items=rule_pathvars, level=0)
 
     @classmethod
-    def from_workflow(cls, workflow_pathvars: Dict[str, str]) -> "Pathvars":
+    def from_workflow(cls, workflow_pathvars: dict[str, str]) -> "Pathvars":
         return cls._from_raw(items=workflow_pathvars, level=3)
 
     def update(self, other: "Pathvars") -> None:
@@ -129,7 +128,7 @@ class Pathvars:
         return applied_path
 
     @classmethod
-    def check_dict(cls, items: Dict[Any, Any]) -> None:
+    def check_dict(cls, items: dict[Any, Any]) -> None:
         errors = {}
         for key, value in items.items():
             if (
@@ -147,5 +146,5 @@ class Pathvars:
             )
 
 
-def fmt_pathvars(items: Dict[str, str]) -> str:
+def fmt_pathvars(items: dict[str, str]) -> str:
     return ",".join(f"{key}='{value}'" for key, value in items.items())

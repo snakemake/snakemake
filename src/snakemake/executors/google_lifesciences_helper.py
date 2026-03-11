@@ -9,11 +9,11 @@
 #    gls.py save <bucket> /google/logs/output source/logs
 
 import argparse
+import os
+import sys
+from glob import glob
 
 from google.cloud import storage
-from glob import glob
-import sys
-import os
 
 
 def download_blob(bucket_name, source_blob_name, destination_file_name):

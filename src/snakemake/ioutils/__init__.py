@@ -2,10 +2,10 @@ from snakemake.ioutils.branch import branch
 from snakemake.ioutils.collect import collect
 from snakemake.ioutils.evaluate import evaluate
 from snakemake.ioutils.exists import exists
+from snakemake.ioutils.input import extract_checksum, flatten, parse_input
 from snakemake.ioutils.lookup import lookup
 from snakemake.ioutils.rule_items_proxy import rule_item_factory
 from snakemake.ioutils.subpath import subpath
-from snakemake.ioutils.input import parse_input, extract_checksum, flatten
 
 
 def register_in_globals(_globals):

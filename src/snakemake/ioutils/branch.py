@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Callable
+from collections.abc import Callable, Mapping
 from typing import Optional, Union
 
 

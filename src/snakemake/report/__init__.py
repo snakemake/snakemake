@@ -3,68 +3,66 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from asyncio import TaskGroup
-from dataclasses import InitVar, dataclass, field
+import base64
+import datetime
+import hashlib
+import io
+import itertools
+import mimetypes
+import numbers
 import os
 import sys
-import mimetypes
-import base64
 import textwrap
-import datetime
-import io
-from typing import Any, Dict, List, Mapping, Optional, Type, Union
 import uuid
-import itertools
+from asyncio import TaskGroup
 from collections import defaultdict
-import hashlib
+from collections.abc import Mapping
+from dataclasses import InitVar, dataclass, field
 from pathlib import Path
-import numbers
+from typing import Any, Dict, List, Optional, Type, Union
+
+from docutils.core import publish_file, publish_parts
+from docutils.parsers.rst import directives
+from docutils.parsers.rst.directives.images import Figure, Image
+from humanfriendly import format_size
+from snakemake_interface_report_plugins.interfaces import (
+    CategoryInterface,
+    ConfigFileRecordInterface,
+    FileRecordInterface,
+    JobRecordInterface,
+    RuleRecordInterface,
+)
+from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from yte import process_yaml
 
-
-from docutils.parsers.rst.directives.images import Image, Figure
-from docutils.parsers.rst import directives
-from docutils.core import publish_file, publish_parts
-from humanfriendly import format_size
-
 import snakemake
-from snakemake import script, wrapper, notebook
-from snakemake.io.fmt import fmt_iofile
-from snakemake.jobs import Job
-from snakemake.report.common import data_uri_from_file, mime_from_file
-from snakemake.rules import Rule
-from snakemake.utils import format
-from snakemake.logging import logger
+from snakemake import logging, notebook, script, wrapper
+from snakemake.common import (
+    get_input_function_aux_params,
+    get_report_id,
+)
+from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.io import (
-    is_callable,
-    is_flagged,
-    get_flag_value,
-    glob_wildcards,
     Wildcards,
     apply_wildcards,
     contains_wildcard,
+    get_flag_value,
+    glob_wildcards,
+    is_callable,
+    is_flagged,
 )
-from snakemake.exceptions import InputFunctionException, WorkflowError
-from snakemake.script import Snakemake, FILE_HASH_PREFIX_LEN
-from snakemake.common import (
-    get_input_function_aux_params,
-)
-from snakemake import logging
-from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
-from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake.io.fmt import fmt_iofile
+from snakemake.jobs import Job
+from snakemake.logging import logger
+from snakemake.report.common import data_uri_from_file, mime_from_file
+from snakemake.rules import Rule
+from snakemake.script import FILE_HASH_PREFIX_LEN, Snakemake
 from snakemake.settings.types import GlobalReportSettings
-from snakemake_interface_report_plugins.interfaces import (
-    CategoryInterface,
-    RuleRecordInterface,
-    ConfigFileRecordInterface,
-    JobRecordInterface,
-    FileRecordInterface,
-)
-from snakemake.common import get_report_id
-from snakemake.exceptions import WorkflowError
+from snakemake.utils import format
 
 
-class EmbeddedMixin(object):
+class EmbeddedMixin:
     """
     Replaces the URI of a directive with a base64-encoded version.
 
@@ -156,13 +154,13 @@ def report(
                 )
             links = "\n\n              ".join(links)
             attachments.append(
-                """
+                f"""
        .. container::
           :name: {name}
 
           {name}:
               {links}
-                """.format(name=name, links=links)
+                """
             )
 
     text = definitions + text + "\n\n" + "\n\n".join(attachments) + metadata
@@ -362,7 +360,7 @@ class FileRecord(FileRecordInterface):
     wildcards_overwrite: Optional[Wildcards] = None
     labels: Optional[dict] = None
     raw_caption: Optional[Path] = None
-    aux_files: List[Path] = field(default_factory=list)
+    aux_files: list[Path] = field(default_factory=list)
     name_overwrite: Optional[str] = None
     size: int = field(init=False)
     params: str = field(init=False)
@@ -421,9 +419,7 @@ class FileRecord(FileRecordInterface):
                 self.caption = publish_parts(caption, writer_name="html")["body"]
             except Exception as e:
                 raise WorkflowError(
-                    "Error loading caption file {} of output marked for report.".format(
-                        self.raw_caption.get_path_or_uri(secret_free=True)
-                    ),
+                    f"Error loading caption file {self.raw_caption.get_path_or_uri(secret_free=True)} of output marked for report.",
                     e,
                 )
         else:
@@ -447,7 +443,7 @@ class FileRecord(FileRecordInterface):
         return self.job.rule.workflow
 
 
-def shorten_ids(results: Mapping[Category, Mapping[Category, List[FileRecord]]]):
+def shorten_ids(results: Mapping[Category, Mapping[Category, list[FileRecord]]]):
     file_records = [
         res
         for cat, subcats in results.items()
@@ -502,7 +498,7 @@ async def auto_report(
 ):
     try:
         from jinja2 import Environment, PackageLoader, UndefinedError
-    except ImportError as e:
+    except ImportError:
         raise WorkflowError(
             "Python package jinja2 must be installed to create reports."
         )
@@ -524,10 +520,10 @@ async def auto_report(
             meta = persistence.metadata(f)
             if not meta:
                 logger.warning(
-                    "Missing metadata for file {}. Maybe metadata "
+                    f"Missing metadata for file {f}. Maybe metadata "
                     "was deleted or it was created using an older "
                     "version of Snakemake. This is a non critical "
-                    "warning.".format(f)
+                    "warning."
                 )
                 continue
 
@@ -548,17 +544,17 @@ async def auto_report(
                 job_rec.conda_env = meta["conda_env"]
                 job_rec.container_img_url = meta["container_img_url"]
                 job_rec.output.append(f)
-            except KeyError as e:
+            except KeyError:
                 logger.warning(
-                    "Metadata for file {} was created with a too "
-                    "old Snakemake version.".format(f)
+                    f"Metadata for file {f} was created with a too "
+                    "old Snakemake version."
                 )
 
         for f in itertools.chain(job.output, job.input):
             if is_flagged(f, "report") and f not in recorded_files:
                 if not await f.exists():
                     raise WorkflowError(
-                        "File {} marked for report but does not exist.".format(f)
+                        f"File {f} marked for report but does not exist."
                     )
                 report_obj = get_flag_value(f, "report")
 
@@ -627,8 +623,8 @@ async def auto_report(
                                         index_found = True
                         if not index_found:
                             raise WorkflowError(
-                                "Given htmlindex {} not found in directory "
-                                "marked for report".format(report_obj.htmlindex)
+                                f"Given htmlindex {report_obj.htmlindex} not found in directory "
+                                "marked for report"
                             )
                         await register_file(
                             os.path.join(f, report_obj.htmlindex),
@@ -745,27 +741,25 @@ async def auto_report(
                 ]  # html_body is required to extract also the title, if given
             except UndefinedError as e:
                 raise WorkflowError(
-                    "Error rendering global report caption {}:".format(
-                        dag.workflow.report_text.get_path_or_uri(secret_free=True)
-                    ),
+                    f"Error rendering global report caption {dag.workflow.report_text.get_path_or_uri(secret_free=True)}:",
                     e,
                 )
 
     metadata = {}
     if global_report_settings.metadata_template:
         # parse metadata from yte template
-        with open(global_report_settings.metadata_template, "r") as template:
+        with open(global_report_settings.metadata_template) as template:
             metadata = process_yaml(template)
 
             # ensure that metadata is a key value dictionary
             # allowed values: str, int, float, list[str|int|float]
             if not _validate_flat_dict(metadata):
                 raise WorkflowError(
-                    (
+
                         "Metadata must be single level "
                         "dict[str, str | int | float | "
                         "list[str] | list[int] | list[float]]]"
-                    )
+
                 )
             render_metadata(metadata)
 
@@ -805,7 +799,7 @@ def _validate_flat_dict(metadata: dict) -> bool:
 
 
 def render_metadata(
-    metadata: Dict[str, Union[str, int, float, List[str], List[int], List[float]]],
+    metadata: dict[str, Union[str, int, float, list[str], list[int], list[float]]],
 ) -> None:
     """Render string values in metadata with restructured text"""
 

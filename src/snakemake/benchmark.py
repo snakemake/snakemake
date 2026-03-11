@@ -5,12 +5,11 @@ __license__ = "MIT"
 
 import contextlib
 import datetime
-from itertools import chain
 import os
-import time
 import threading
+import time
+from itertools import chain
 from pathlib import Path
-from typing import List
 
 from snakemake.logging import logger
 
@@ -114,7 +113,7 @@ class BenchmarkRecord:
         self.skipped_procs = set()
         #: Track if data has been collected
         self.data_collected = False
-        self.errors: List[str] = []
+        self.errors: list[str] = []
 
     def timedelta_to_str(self, x):
         """Conversion of timedelta to str without fractions of seconds"""
@@ -359,7 +358,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                             ioinfo = proc.io_counters()
                             io_in += ioinfo.read_bytes
                             io_out += ioinfo.write_bytes
-                        except NotImplementedError as nie:
+                        except NotImplementedError:
                             # OS doesn't track IO
                             check_io = False
 
@@ -452,7 +451,7 @@ def print_benchmark_jsonl(records, file_, extended_fmt):
 
 def write_benchmark_records(records, path, extended_fmt):
     """Write benchmark records to file at path"""
-    with open(path, "wt") as f:
+    with open(path, "w") as f:
         if path.endswith(".jsonl"):
             print_benchmark_jsonl(records, f, extended_fmt)
         else:

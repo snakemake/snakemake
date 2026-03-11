@@ -5,17 +5,15 @@ __license__ = "MIT"
 
 import time
 
+from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
-from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
-from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
-from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
 )
-from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.settings import CommonSettings
-from snakemake.logging import logger
+
 from snakemake.exceptions import print_exception
+from snakemake.logging import logger
 
 common_settings = CommonSettings(
     non_local_exec=False,

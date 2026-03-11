@@ -3,33 +3,33 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import glob
+import hashlib
 import os
-from pathlib import Path
-import signal
 import shlex
 import shutil
-import sys
-import time
-from os.path import join
-import tempfile
-import hashlib
-from typing import Any, List, Mapping
-import urllib
-import urllib.request
-import urllib.error
-import pytest
-import glob
+import signal
 import subprocess
+import sys
 import tarfile
-from typing import TypeAlias
+import tempfile
+import time
+import urllib
+import urllib.error
+import urllib.request
+from collections.abc import Mapping
+from os.path import join
+from pathlib import Path
+from typing import Any, TypeAlias
 
-from snakemake_interface_executor_plugins.settings import SharedFSUsage
+import pytest
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_executor_plugins.settings import SharedFSUsage
 
 from snakemake import api
 from snakemake.common import ON_WINDOWS
 from snakemake.report.html_reporter import ReportSettings
-from snakemake.resources import ResourceScopes, Resources
+from snakemake.resources import Resources, ResourceScopes
 from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
 
@@ -45,7 +45,7 @@ def dpath(path: StrPath) -> Path:
 
 def md5sum(filename: StrPath, ignore_newlines: bool = False) -> str:
     if ignore_newlines:
-        with open(filename, "r", encoding="utf-8", errors="surrogateescape") as f:
+        with open(filename, encoding="utf-8", errors="surrogateescape") as f:
             data = f.read().strip().encode("utf8", errors="surrogateescape")
     else:
         data = open(filename, "rb").read().strip()
@@ -205,7 +205,7 @@ def run(
     cluster_status=None,
     retries=0,
     resources: Mapping[str, Any] | None = None,
-    default_resources: Resources | List[str] | None = None,
+    default_resources: Resources | list[str] | None = None,
     group_components=dict(),
     max_threads=None,
     overwrite_groups=dict(),
@@ -315,7 +315,7 @@ def run(
     if shellcmd:
         if not shellcmd.startswith("snakemake"):
             raise ValueError("shellcmd does not start with snakemake")
-        shellcmd = "{} -m {}".format(sys.executable, shellcmd)
+        shellcmd = f"{sys.executable} -m {shellcmd}"
         try:
             if sigint_after is None:
                 res = subprocess.run(
@@ -537,9 +537,7 @@ def run(
                 # Skip win specific result files on Posix platforms
                 continue
 
-            assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
-                resultfile
-            )
+            assert os.path.exists(targetfile), f'expected file "{resultfile}" not produced'
             if check_md5:
                 md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
                 md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
@@ -549,11 +547,7 @@ def run(
                     with open(targetfile) as target:
                         content = target.read().strip()
                     assert False, (
-                        "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
-                            resultfile=resultfile,
-                            content=content,
-                            expected_content=expected_content,
-                        )
+                        f"wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------"
                     )
 
     if not cleanup:

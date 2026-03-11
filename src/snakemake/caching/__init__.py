@@ -3,18 +3,18 @@ __copyright__ = "Copyright 2022, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import ABCMeta, abstractmethod
 import os
+from abc import ABCMeta, abstractmethod
 from pathlib import Path
 
-from snakemake.jobs import Job
-from snakemake.io import apply_wildcards
+from snakemake.caching.hash import ProvenanceHashMap
 from snakemake.exceptions import (
+    CacheMissException,
     MissingOutputFileCachePathException,
     WorkflowError,
-    CacheMissException,
 )
-from snakemake.caching.hash import ProvenanceHashMap
+from snakemake.io import apply_wildcards
+from snakemake.jobs import Job
 from snakemake.logging import logger
 
 LOCATION_ENVVAR = "SNAKEMAKE_OUTPUT_CACHE"
@@ -62,17 +62,13 @@ class AbstractOutputFileCache:
 
     def raise_write_error(self, entry, exception=None):
         raise WorkflowError(
-            "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not writeable.".format(
-                entry, self.cache_location
-            ),
+            f"Given output cache entry {entry} ($SNAKEMAKE_OUTPUT_CACHE={self.cache_location}) is not writeable.",
             *[exception],
         )
 
     def raise_read_error(self, entry, exception=None):
         raise WorkflowError(
-            "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not readable.".format(
-                entry, self.cache_location
-            ),
+            f"Given output cache entry {entry} ($SNAKEMAKE_OUTPUT_CACHE={self.cache_location}) is not readable.",
             *[exception],
         )
 
