@@ -3299,7 +3299,7 @@ def test_github_issue_4039_runtime_profile():
 
 
 def test_github_issue_4039_runtime_no_override():
-    """Test that runtime values from a profile are correctly interpreted as minutes, not seconds.
+    """Test the correct processing of times with units or as int/str in the resources directive in the snakefile..
     Test for https://github.com/snakemake/snakemake/issues/4039"""
     tmpdir = run(
         dpath("test_github_issue_4039_runtime_no_override"),
