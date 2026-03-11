@@ -23,12 +23,19 @@ def typed_to_dict(obj):
 
 class TypedFile(str, Generic[T]):
     """
-    A typed file wrapper that serializes/deserializes a typed object (Dataclass or NamedTuple) as JSON.
+    A file path associated with a specific type for structured JSON serialization.
+
+    Behaves as a plain string (file path) in all contexts, but provides ``dump()`` and ``load()`` methods to serialize and deserialize instances of the associated type to and from disk as JSON.
+
+    The associated type must be convertible to a dict (see :func:`typed_to_dict`).
+    Type annotations serve as documentation only; no runtime type checking is performed.
     """
+
+    type_: Type[T]
 
     def __new__(cls, value: str, type_: Type[T]):
         self = super().__new__(cls, value)
-        self.type_ = type_  # type: ignore[attr-defined, reportAttributeAccessIssue]
+        self.type_ = type_
         return self
 
     def dump(self, *args, **kwargs):
@@ -43,19 +50,6 @@ class TypedFile(str, Generic[T]):
         with open(str(self), "r") as f:
             data = json.load(f)
         return self.type_(**data)
-
-    @property
-    def value(self):
-        """Read the current value from disk."""
-        return self.load()
-
-    def __getattr__(self, name: str):
-        """
-        Transparently proxy attribute access to the deserialized object.
-        Allows input.meta.some_threshold without an explicit .load() call.
-        Only triggered when the attribute is not found on TypedFile itself.
-        """
-        return getattr(self.load(), name)
 
 
 def typed_factory(type_: Type[T]) -> Callable[[str], TypedFile[T]]:
