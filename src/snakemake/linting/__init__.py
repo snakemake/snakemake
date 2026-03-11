@@ -1,6 +1,6 @@
-import textwrap
-import shutil
 import inspect
+import shutil
+import textwrap
 from abc import ABC, abstractmethod
 
 from snakemake.logging import logger

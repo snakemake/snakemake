@@ -1,8 +1,9 @@
 import json
-import snakemake
 
-from snakemake.assets import AssetDownloadError, Assets
 from snakemake_interface_common.exceptions import WorkflowError
+
+import snakemake
+from snakemake.assets import AssetDownloadError, Assets
 
 
 def get_packages():

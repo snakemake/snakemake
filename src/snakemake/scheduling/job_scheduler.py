@@ -6,32 +6,31 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
-from bisect import bisect
-from collections import defaultdict, deque
 import copy
-import math
-import os, signal, sys
+import signal
+import sys
 import threading
-
-from itertools import chain, accumulate, filterfalse, repeat
-from contextlib import ContextDecorator
 import time
-from typing import Iterable, Sequence, TYPE_CHECKING
+from bisect import bisect
+from collections import deque
+from collections.abc import Iterable, Sequence
+from contextlib import ContextDecorator
+from itertools import accumulate, chain, filterfalse, repeat
+from typing import TYPE_CHECKING
 
-from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
+from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_logger_plugins.common import LogEvent
-from snakemake.io import _IOFile
-from snakemake.jobs import AbstractJob
 from snakemake_interface_scheduler_plugins.base import SchedulerBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
+from snakemake.io import _IOFile
+from snakemake.jobs import AbstractJob
 from snakemake.logging import logger
 from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
-
 from snakemake.settings.enums import Quietness
 from snakemake.settings.types import MaxJobsPerTimespan, SharedFSUsage
 
@@ -601,9 +600,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # get number of free jobs to submit
         if self.job_rate_limiter is None:
             # ensure that the job count is not restricted
-            assert (
-                self.resources["_job_count"] == sys.maxsize
-            ), f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
+            assert self.resources["_job_count"] == sys.maxsize, (
+                f"Job count is {self.resources['_job_count']}, but should be {sys.maxsize}"
+            )
             return run_selector(self._job_selector)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:

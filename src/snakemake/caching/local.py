@@ -3,16 +3,16 @@ __copyright__ = "Copyright 2022, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from tempfile import TemporaryDirectory
-from pathlib import Path
 import os
 import shutil
 import stat
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from snakemake.logging import logger
-from snakemake.jobs import Job
-from snakemake.exceptions import WorkflowError
 from snakemake.caching import AbstractOutputFileCache
+from snakemake.exceptions import WorkflowError
+from snakemake.jobs import Job
+from snakemake.logging import logger
 
 
 class OutputFileCache(AbstractOutputFileCache):
@@ -54,8 +54,8 @@ class OutputFileCache(AbstractOutputFileCache):
 
         if not os.access(self.path, os.W_OK):
             raise WorkflowError(
-                "Cannot access cache location {}. Please ensure that "
-                "it is present and writeable.".format(self.path)
+                f"Cannot access cache location {self.path}. Please ensure that "
+                "it is present and writeable."
             )
         with TemporaryDirectory(dir=self.path) as tmpdirname:
             tmpdir = Path(tmpdirname)
@@ -98,9 +98,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 self.raise_cache_miss_exception(job)
 
             logger.debug(
-                "Output file {} exists as {} in the cache.".format(
-                    outputfile, cachefile
-                )
+                f"Output file {outputfile} exists as {cachefile} in the cache."
             )
 
             self.check_readable(cachefile)
@@ -125,9 +123,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 return False
 
             logger.debug(
-                "Output file {} exists as {} in the cache.".format(
-                    outputfile, cachefile
-                )
+                f"Output file {outputfile} exists as {cachefile} in the cache."
             )
 
             self.check_readable(cachefile)
@@ -150,9 +146,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 os.utime(outputfile, follow_symlinks=False)
         else:
             logger.info(
-                "Copying output file {} from cache (OS does not support updating the modification date of symlinks).".format(
-                    outputfile
-                )
+                f"Copying output file {outputfile} from cache (OS does not support updating the modification date of symlinks)."
             )
             shutil.copyfile(path, outputfile)
 

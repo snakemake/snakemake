@@ -1,13 +1,15 @@
-from dataclasses import dataclass, field
 import math
 import os
+from collections.abc import Collection, Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Collection, Dict, Iterator, List, Mapping, Optional, Sequence, Union
-from snakemake_interface_scheduler_plugins.base import SchedulerBase
-from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
-from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
+from typing import Optional, Union
+
 from snakemake_interface_common.io import AnnotatedStringInterface
+from snakemake_interface_scheduler_plugins.base import SchedulerBase
+from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
+from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 
 
 class LpSolverCollection(Collection[str]):
@@ -29,7 +31,7 @@ class LpSolverCollection(Collection[str]):
         self.default = default
 
     @cached_property
-    def nondefault_solvers(self) -> List[str]:
+    def nondefault_solvers(self) -> list[str]:
         try:
             import pulp
 
@@ -90,14 +92,13 @@ class Scheduler(SchedulerBase):
         selectable_jobs: Sequence[JobSchedulerInterface],
         remaining_jobs: Sequence[JobSchedulerInterface],
         available_resources: Mapping[str, Union[int, str]],
-        input_sizes: Dict[AnnotatedStringInterface, int],
+        input_sizes: dict[AnnotatedStringInterface, int],
     ) -> Optional[Sequence[JobSchedulerInterface]]:
         if self._technical_failure:
             # fallback early since we failed before already
             return None
         import pulp
-        from pulp import lpSum
-        from pulp import PulpSolverError
+        from pulp import PulpSolverError, lpSum
 
         scheduled_jobs = {
             job: pulp.LpVariable(

@@ -5,9 +5,11 @@ __license__ = "MIT"
 
 import os
 import traceback
+from collections.abc import Sequence
 from tokenize import TokenError
-from typing import Any, Sequence
-from snakemake_interface_common.exceptions import WorkflowError, ApiError
+from typing import Any
+
+from snakemake_interface_common.exceptions import ApiError, WorkflowError
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 
@@ -225,7 +227,7 @@ class RuleException(Exception):
         lineno -- the line the exception originates
         snakefile -- the file the exception originates
         """
-        super(RuleException, self).__init__(message)
+        super().__init__(message)
         _include = set()
         if include:
             for ex in include:
@@ -273,16 +275,14 @@ class ChildIOException(WorkflowError):
         snakefile=None,
         rule=None,
     ):
-        msg = "File/directory is a child to another output:\n" + "{}\n{}".format(
-            parent, child
-        )
+        msg = "File/directory is a child to another output:\n" + f"{parent}\n{child}"
         super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
 
 class IOException(RuleException):
     def __init__(self, prefix, job, files, include=None, lineno=None, snakefile=None):
-        from snakemake.logging import format_wildcards
         from snakemake.io.fmt import fmt_iofile
+        from snakemake.logging import format_wildcards
 
         msg = ""
         if files:
@@ -386,24 +386,18 @@ class AmbiguousRuleException(RuleException):
         wildcards_a = utils.format("{}", job_a._format_wildcards)
         wildcards_b = utils.format("{}", job_b._format_wildcards)
         super().__init__(
-            "Rules {job_a} and {job_b} are ambiguous for the file {f}.\n"
+            f"Rules {job_a} and {job_b} are ambiguous for the file {filename}.\n"
             "Consider starting rule output with a unique prefix, constrain "
             "your wildcards, or use the ruleorder directive.\n"
             "Wildcards:\n"
-            "\t{job_a}: {wildcards_a}\n"
-            "\t{job_b}: {wildcards_b}\n"
+            f"\t{job_a}: {wildcards_a}\n"
+            f"\t{job_b}: {wildcards_b}\n"
             "Expected input files:\n"
-            "\t{job_a}: {job_a.input}\n"
-            "\t{job_b}: {job_b.input}\n"
+            f"\t{job_a}: {job_a.input}\n"
+            f"\t{job_b}: {job_b.input}\n"
             "Expected output files:\n"
-            "\t{job_a}: {job_a.output}\n"
-            "\t{job_b}: {job_b.output}".format(
-                job_a=job_a,
-                job_b=job_b,
-                f=filename,
-                wildcards_a=wildcards_a,
-                wildcards_b=wildcards_b,
-            ),
+            f"\t{job_a}: {job_a.output}\n"
+            f"\t{job_b}: {job_b.output}",
             lineno=lineno,
             snakefile=snakefile,
         )
@@ -522,10 +516,8 @@ class ZenodoFileException(RuleException):
 class ClusterJobException(RuleException):
     def __init__(self, job_info, jobid):
         super().__init__(
-            "Error executing rule {} on cluster (jobid: {}, external: {}, jobscript: {}). "
-            "For detailed error see the cluster log.".format(
-                job_info.job.rule.name, jobid, job_info.jobid, job_info.jobscript
-            ),
+            f"Error executing rule {job_info.job.rule.name} on cluster (jobid: {jobid}, external: {job_info.jobid}, jobscript: {job_info.jobscript}). "
+            "For detailed error see the cluster log.",
             lineno=job_info.job.rule.lineno,
             snakefile=job_info.job.rule.snakefile,
         )
@@ -595,12 +587,12 @@ class LockException(WorkflowError):
         super().__init__(
             "Error: Directory cannot be locked. Please make "
             "sure that no other Snakemake process is trying to create "
-            "the same files in the following directory:\n{}\n"
+            f"the same files in the following directory:\n{os.getcwd()}\n"
             "If you are sure that no other "
             "instances of snakemake are running on this directory, "
             "the remaining lock was likely caused by a kill signal or "
             "a power loss. It can be removed with "
-            "the --unlock argument.".format(os.getcwd())
+            "the --unlock argument."
         )
 
 

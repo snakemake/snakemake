@@ -1,18 +1,18 @@
-from abc import ABC, abstractmethod
-from pathlib import Path
 import shutil
-from typing import List, Mapping, Optional
 import uuid
+from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Optional
 
 import pytest
-from snakemake import api
-
-from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
-from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
+from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
 from snakemake_interface_storage_plugins.settings import StorageProviderSettingsBase
 
+from snakemake import api
 from snakemake.settings import types as settings
 
 
@@ -76,7 +76,7 @@ class TestWorkflowsBase(ABC):
     def get_assume_shared_fs(self) -> bool:
         return True
 
-    def get_envvars(self) -> List[str]:
+    def get_envvars(self) -> list[str]:
         return []
 
     def cleanup_test(self):

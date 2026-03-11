@@ -1,6 +1,7 @@
 import bisect
 from collections import defaultdict
-from typing import Sequence, TypeVar, Generator
+from collections.abc import Generator, Sequence
+from typing import TypeVar
 
 V = TypeVar("V")
 

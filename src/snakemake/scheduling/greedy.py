@@ -1,9 +1,11 @@
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Dict, Mapping, Optional, Sequence, Union
-from snakemake_interface_scheduler_plugins.base import SchedulerBase
-from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
-from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
+from typing import Optional, Union
+
 from snakemake_interface_common.io import AnnotatedStringInterface
+from snakemake_interface_scheduler_plugins.base import SchedulerBase
+from snakemake_interface_scheduler_plugins.interfaces.jobs import JobSchedulerInterface
+from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 
 
 @dataclass
@@ -35,7 +37,6 @@ class SchedulerSettings(SchedulerSettingsBase):
 
 
 class Scheduler(SchedulerBase):
-
     def __post_init__(self):
         self._input_sizes = {}
 
@@ -44,7 +45,7 @@ class Scheduler(SchedulerBase):
         selectable_jobs: Sequence[JobSchedulerInterface],
         remaining_jobs: Sequence[JobSchedulerInterface],
         available_resources: Mapping[str, Union[int, str]],
-        input_sizes: Dict[AnnotatedStringInterface, int],
+        input_sizes: dict[AnnotatedStringInterface, int],
     ) -> Sequence[JobSchedulerInterface]:
         """
         Using the greedy heuristic from
@@ -116,7 +117,7 @@ class Scheduler(SchedulerBase):
         res = job.scheduler_resources
         return [res.get(name, 0) for name in available_resources]
 
-    def job_reward(self, job, input_sizes: Dict[AnnotatedStringInterface, int]):
+    def job_reward(self, job, input_sizes: dict[AnnotatedStringInterface, int]):
         if self.settings.omit_prioritize_by_temp_and_input:
             return job.priority
         else:

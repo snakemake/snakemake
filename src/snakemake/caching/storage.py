@@ -6,10 +6,11 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 
+from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
+
 from snakemake.caching import AbstractOutputFileCache
 from snakemake.exceptions import WorkflowError
 from snakemake.jobs import Job
-from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
 
 
 class OutputFileCache(AbstractOutputFileCache):

@@ -4,72 +4,66 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
-from builtins import ExceptionGroup
-from collections import defaultdict
-import os
 import base64
-from pathlib import Path
-import tempfile
-import json
-import shutil
 import functools
-
+import json
+import os
+import shutil
+import tempfile
+from abc import abstractmethod
+from builtins import ExceptionGroup
+from collections.abc import AsyncGenerator, Iterable, Sequence
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Dict, Iterable, List, Optional, Sequence, Union
-from collections.abc import AsyncGenerator
-from abc import abstractmethod
-from snakemake import wrapper
-from snakemake.rules import Rule
-from snakemake.settings.types import DeploymentMethod
+from pathlib import Path
+from typing import Optional, Union
 
-from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
-    JobExecutorInterface,
     GroupJobExecutorInterface,
+    JobExecutorInterface,
     SingleJobExecutorInterface,
-)
-from snakemake_interface_scheduler_plugins.interfaces.jobs import (
-    JobSchedulerInterface,
-    SingleJobSchedulerInterface,
-    GroupJobSchedulerInterface,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_logger_plugins.common import LogEvent
-
-from snakemake.io import (
-    _IOFile,
-    IOFile,
-    ResourceList,
-    is_callable,
-    Wildcards,
-    is_flagged,
-    get_flag_value,
-    wait_for_files,
+from snakemake_interface_report_plugins.interfaces import JobReportInterface
+from snakemake_interface_scheduler_plugins.interfaces.jobs import (
+    GroupJobSchedulerInterface,
+    JobSchedulerInterface,
+    SingleJobSchedulerInterface,
 )
-from snakemake.settings.types import SharedFSUsage
-from snakemake.resources import GroupResources, Resources
-from snakemake.target_jobs import TargetSpec
-from snakemake.sourcecache import LocalSourceFile, SourceFile, infer_source_file
-from snakemake.utils import format
+
+from snakemake import wrapper
+from snakemake.common import (
+    IO_PROP_LIMIT,
+    get_uuid,
+)
+from snakemake.common.tbdstring import TBDString
 from snakemake.exceptions import (
     InputOpenException,
+    ProtectedOutputException,
     ResourceInsufficiencyError,
     RuleException,
-    ProtectedOutputException,
     WorkflowError,
 )
-
-from snakemake.logging import logger
-from snakemake.common import (
-    get_function_params,
-    get_uuid,
-    IO_PROP_LIMIT,
+from snakemake.io import (
+    IOFile,
+    ResourceList,
+    Wildcards,
+    _IOFile,
+    get_flag_value,
+    is_flagged,
+    wait_for_files,
 )
 from snakemake.io.fmt import fmt_iofile
-from snakemake.common.tbdstring import TBDString
-from snakemake_interface_report_plugins.interfaces import JobReportInterface
+from snakemake.logging import logger
+from snakemake.resources import GroupResources, Resources
+from snakemake.rules import Rule
+from snakemake.settings.types import DeploymentMethod, SharedFSUsage
+from snakemake.sourcecache import LocalSourceFile, SourceFile, infer_source_file
+from snakemake.target_jobs import TargetSpec
+from snakemake.template_rendering import check_template_output
+from snakemake.utils import format
 
 
 def format_files(io, as_input: bool = False, as_output: bool = False):
@@ -100,7 +94,7 @@ class AbstractJob(JobExecutorInterface, JobSchedulerInterface):
             return True
         return False
 
-    def _get_scheduler_resources(self) -> Dict[str, Union[int, str]]:
+    def _get_scheduler_resources(self) -> dict[str, Union[int, str]]:
         if self._scheduler_resources is None:
             if self.dag.workflow.local_exec or self.is_local:
                 res_dict = {
@@ -498,7 +492,7 @@ class Job(
         return self._resources
 
     @property
-    def scheduler_resources(self) -> Dict[str, Union[int, str]]:
+    def scheduler_resources(self) -> dict[str, Union[int, str]]:
         return self._get_scheduler_resources()
 
     def reset_params_and_resources(self):
@@ -597,7 +591,7 @@ class Job(
             raise RuleException(str(ex), rule=self.rule)
         except KeyError as ex:
             raise RuleException(
-                "Unknown variable in message of shell command: {}".format(str(ex)),
+                f"Unknown variable in message of shell command: {str(ex)}",
                 rule=self.rule,
             )
 
@@ -614,7 +608,7 @@ class Job(
             raise RuleException(str(ex), rule=self.rule)
         except KeyError as ex:
             raise RuleException(
-                "Unknown variable when printing shell command: {}".format(str(ex)),
+                f"Unknown variable when printing shell command: {str(ex)}",
                 rule=self.rule,
             )
 
@@ -811,10 +805,8 @@ class Job(
         )
         if unexpected_output:
             logger.warning(
-                "Warning: the following output files of rule {} were not "
-                "present when the DAG was created:\n{}".format(
-                    self.rule, unexpected_output
-                )
+                f"Warning: the following output files of rule {self.rule} were not "
+                f"present when the DAG was created:\n{unexpected_output}"
             )
 
         if not self.is_norun:
@@ -844,7 +836,7 @@ class Job(
                     f for f in self.input if self.is_pipe_or_service_input(f)
                 },
             )
-        except IOError as ex:
+        except OSError as ex:
             raise WorkflowError(
                 ex,
                 rule=self.rule,
@@ -884,9 +876,7 @@ class Job(
                     else:
                         raise RuleException(
                             "The following file name references a parent directory relative to your workdir.\n"
-                            'This isn\'t supported for shadow: "{}". Consider using an absolute path instead.\n{}'.format(
-                                f, self.rule.shadow_depth
-                            ),
+                            f'This isn\'t supported for shadow: "{f}". Consider using an absolute path instead.\n{self.rule.shadow_depth}',
                             rule=self.rule,
                         )
 
@@ -1197,7 +1187,7 @@ class Job(
         handle_log: bool = True,
         handle_touch: bool = True,
         error: bool = False,
-        ignore_missing_output: Union[List[_IOFile], bool] = False,
+        ignore_missing_output: Union[list[_IOFile], bool] = False,
         check_output_mtime: bool = True,
     ):
         if self.dag.is_draft_notebook_job(self):
@@ -1297,11 +1287,11 @@ class Job(
 
         try:
             await self.dag.workflow.persistence.finished(self)
-        except IOError as e:
+        except OSError as e:
             raise WorkflowError(
                 "Error recording metadata for finished job "
-                "({}). Please ensure write permissions for the "
-                "directory {}".format(e, self.dag.workflow.persistence.path)
+                f"({e}). Please ensure write permissions for the "
+                f"directory {self.dag.workflow.persistence.path}"
             )
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
@@ -1310,10 +1300,6 @@ class Job(
     @property
     def name(self):
         return self.rule.name
-
-    @property
-    def priority(self):
-        return self.dag.priority(self)
 
     def products(self, include_logfiles=True):
         products = list(self.output)
@@ -1552,7 +1538,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
         return ResourceList(fromdict=self._resources)
 
     @property
-    def scheduler_resources(self) -> Dict[str, Union[int, str]]:
+    def scheduler_resources(self) -> dict[str, Union[int, str]]:
         return self._get_scheduler_resources()
 
     @property
@@ -1982,5 +1968,5 @@ class Reason:
         return v and not self.finished
 
 
-def jobs_to_rulenames(jobs: Iterable[Job]) -> List[str]:
+def jobs_to_rulenames(jobs: Iterable[Job]) -> list[str]:
     return sorted({job.rule.name for job in jobs})

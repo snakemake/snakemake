@@ -1,9 +1,9 @@
 import pytest
-
-from snakemake.pathvars import Pathvars
-from snakemake.ioutils import subpath
-from snakemake.io import Wildcards, InputFiles
 from snakemake_interface_common.exceptions import WorkflowError
+
+from snakemake.io import InputFiles, Wildcards
+from snakemake.ioutils import subpath
+from snakemake.pathvars import Pathvars
 
 
 def test_subpath():

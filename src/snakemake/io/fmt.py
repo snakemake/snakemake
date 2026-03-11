@@ -1,5 +1,5 @@
 from snakemake.common.tbdstring import TBDString
-from snakemake.io import get_flag_value, is_flagged, _IOFile
+from snakemake.io import _IOFile, get_flag_value, is_flagged
 
 
 def fmt_iofile(f, as_input: bool = False, as_output: bool = False) -> str:

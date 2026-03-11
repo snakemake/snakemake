@@ -1,11 +1,12 @@
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping, Optional
+from typing import Optional
 
-from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
-import snakemake.common.tests
-
-from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
 from snakemake_executor_plugin_cluster_generic import ExecutorSettings
+from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
+
+import snakemake.common.tests
 
 
 class TestWorkflows(snakemake.common.tests.TestWorkflowsBase):

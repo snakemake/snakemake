@@ -3,23 +3,25 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import ABC
-from dataclasses import dataclass, field
 import functools
 import hashlib
-from pathlib import Path
-import sys
-from typing import Dict, List, Mapping, Optional, Set
 import os
+import sys
 import tarfile
 import uuid
+from abc import ABC
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
 from snakemake.settings.types import (
     ChangeType,
+    GlobalReportSettings,
     GroupSettings,
     SchedulingSettings,
     WorkflowSettings,
-    GlobalReportSettings,
 )
 
 if sys.version_info < MIN_PY_VERSION:
@@ -27,43 +29,41 @@ if sys.version_info < MIN_PY_VERSION:
         f"Snakemake requires at least Python {'.'.join(map(str, MIN_PY_VERSION))}."
     )
 
+from snakemake_interface_common.exceptions import ApiError
+from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
+from snakemake_interface_logger_plugins.base import LogHandlerBase
+from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_report_plugins.registry import ReportPluginRegistry
+from snakemake_interface_report_plugins.settings import ReportSettingsBase
+from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
+from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
+
+from snakemake.common import (
+    MIN_PY_VERSION,
+)
 from snakemake.common.workdir_handler import WorkdirHandler
+from snakemake.exceptions import print_exception
+from snakemake.logging import LoggerManager, logger
+from snakemake.resources import Resources
+from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
+from snakemake.scheduling.milp import SchedulerSettings as IlpSchedulerSettings
 from snakemake.settings.types import (
+    ConfigSettings,
     DAGSettings,
     DeploymentMethod,
     DeploymentSettings,
     ExecutionSettings,
     OutputSettings,
-    ConfigSettings,
     RemoteExecutionSettings,
     ResourceSettings,
-    StorageSettings,
     SharedFSUsage,
+    StorageSettings,
 )
-from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSettings
-from snakemake.scheduling.milp import SchedulerSettings as IlpSchedulerSettings
-
-from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
-from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
-from snakemake_interface_common.exceptions import ApiError
-from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
-from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
-from snakemake_interface_report_plugins.settings import ReportSettingsBase
-from snakemake_interface_report_plugins.registry import ReportPluginRegistry
-from snakemake_interface_logger_plugins.common import LogEvent
-from snakemake_interface_logger_plugins.base import LogHandlerBase
-from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
-from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
-
-from snakemake.workflow import Workflow
-from snakemake.exceptions import print_exception
-from snakemake.logging import LoggerManager, logger
 from snakemake.shell import shell
-from snakemake.common import (
-    MIN_PY_VERSION,
-    __version__,
-)
-from snakemake.resources import Resources
+from snakemake.workflow import Workflow
 
 
 class ApiBase(ABC):
@@ -192,7 +192,7 @@ class SnakemakeApi(ApiBase):
         query: str,
         checksum: str,
         storage_settings: StorageSettings,
-        storage_provider_settings: Dict[str, TaggedSettings],
+        storage_provider_settings: dict[str, TaggedSettings],
     ):
         if (
             storage_settings.default_storage_provider is None
@@ -264,7 +264,7 @@ class SnakemakeApi(ApiBase):
             linemaps = self._workflow_api._workflow_store.linemaps
         print_exception(ex, linemaps)
 
-    def get_log_handlers(self) -> List[LogHandlerBase]:
+    def get_log_handlers(self) -> list[LogHandlerBase]:
         """Return the list of instantiated plugin log handlers.
 
         This method provides access to the :class:`LogHandlerBase` objects that were
@@ -469,7 +469,7 @@ class DAGApi(ApiBase):
         scheduling_settings: Optional[SchedulingSettings] = None,
         group_settings: Optional[GroupSettings] = None,
         executor_settings: Optional[ExecutorSettingsBase] = None,
-        updated_files: Optional[List[str]] = None,
+        updated_files: Optional[list[str]] = None,
         scheduler_settings: Optional[SchedulerSettingsBase] = None,
         greedy_scheduler_settings: Optional[GreedySchedulerSettings] = None,
     ):
@@ -733,7 +733,7 @@ class DAGApi(ApiBase):
         self.workflow_api._workflow.unlock()
 
     @_no_exec
-    def cleanup_metadata(self, paths: List[Path]):
+    def cleanup_metadata(self, paths: list[Path]):
         """Cleanup the metadata of the workflow."""
         self.workflow_api._workflow.cleanup_metadata(paths)
 

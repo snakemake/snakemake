@@ -80,6 +80,26 @@ version_file = "src/snakemake/_version.py"
 # Ignore Git hash
 local_scheme = "no-local-version"
 
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP"]
+ignore = [
+  "E501",  # line too long
+  "E741",  # ambiguous variable name
+  "E731",  # Do not assign a `lambda` expression, use a `def`
+
+  # Problems with dataclass_field_to_argument_args of snakemake_interface_common
+  "UP007", # Use `X | Y` instead of Union[X, Y]
+  "UP045", # Use `X | None` for type annotations
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+"src/snakemake/workflow.py" = [
+    "F401",
+    "F811",  # Redefinition of unused symbol
+    # (symbols like notebook are imported, and then also exist as arguments to methods)
+]
+
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
 skip = '.git,*.pdf,*.svg,versioneer.py,*.css,test_*'
@@ -284,14 +304,14 @@ default-environment = "docs"
 
 # Style
 [tool.pixi.feature.style.dependencies]
-black = "*"
 packaging = ">=24.0,<26"
 ty = "*"
 pyrefly = "*"
 ruff = "*"
 
 [tool.pixi.feature.style.tasks]
-format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format the code", default-environment = "quality" }
+format = { cmd = "ruff format docs/ apidocs/ src/ tests/*.py", description = "Format the code", default-environment = "quality" }
+lint = { cmd = "ruff check --fix src/ tests/*.py", description = "Lint the code", default-environment = "quality" }
 
 # Build
 [tool.pixi.feature.publish.dependencies]

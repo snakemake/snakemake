@@ -1,23 +1,22 @@
-from dataclasses import dataclass, field
 import datetime
 import json
 import os
-from pathlib import Path
 import textwrap
 import time
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from jinja2 import Environment, PackageLoader
-from snakemake.report.common import data_uri_from_file
-from snakemake.report.html_reporter import data
-
-from snakemake.report.rulegraph_spec import rulegraph_spec
-from snakemake.report.html_reporter.common import get_resource_as_string, get_result_uri
-
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_report_plugins.reporter import ReporterBase
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
+
+from snakemake.report.common import data_uri_from_file
+from snakemake.report.html_reporter import data
+from snakemake.report.html_reporter.common import get_resource_as_string, get_result_uri
+from snakemake.report.rulegraph_spec import rulegraph_spec
 
 
 @dataclass

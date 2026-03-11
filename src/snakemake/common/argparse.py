@@ -78,7 +78,6 @@ class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
             if isinstance(action.default, collections.abc.Iterable) and not isinstance(
                 action.default, str
             ):
-
                 if isinstance(action.default, (frozenset, set)):
                     default = sorted(map(str, action.default))
                 else:

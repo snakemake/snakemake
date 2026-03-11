@@ -4,40 +4,42 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
-import shutil
-import sys
-import subprocess as sp
 import re
-from pathlib import Path
+import shutil
+import subprocess as sp
+import sys
 import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from snakemake.exceptions import ResourceConversionError
-from snakemake.exceptions import ResourceDuplicationError
-from snakemake.persistence import Persistence
-from snakemake.resources import GroupResources, is_ordinary_string, Resources
-from snakemake.settings.enums import RerunTrigger
-from snakemake.utils import min_version  # import so we can patch out if needed
 
+from snakemake.exceptions import (
+    AmbiguousRuleException,
+    ResourceConversionError,
+    ResourceDuplicationError,
+    WorkflowError,
+)
+from snakemake.persistence import Persistence
+from snakemake.resources import GroupResources, Resources, is_ordinary_string
+from snakemake.settings.enums import RerunTrigger
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
-from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
-
-from .common import run, dpath, apptainer, connected
-from .conftest import (
-    skip_on_windows,
-    only_on_windows,
-    ON_WINDOWS,
-    needs_strace,
-    ON_MACOS,
-)
 
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
     SharedFSUsage,
+)
+
+from .common import apptainer, connected, dpath, run
+from .conftest import (
+    ON_MACOS,
+    ON_WINDOWS,
+    needs_strace,
+    only_on_windows,
+    skip_on_windows,
 )
 
 
@@ -346,7 +348,7 @@ def test_params_outdated_metadata(mocker):
     spy = mocker.spy(Persistence, "has_outdated_metadata")
 
     run(dpath("test_params_outdated_code"), targets=["somedir/test.out"])
-    assert spy.spy_return == True
+    assert spy.spy_return
 
 
 def test_same_wildcard():
@@ -1323,6 +1325,7 @@ def test_scopes_submitted_to_cluster(mocker):
 @skip_on_windows
 def test_group_job_resources_with_pipe(mocker):
     import copy
+
     from snakemake_interface_executor_plugins.executors.real import RealExecutor
 
     spy = mocker.spy(GroupResources, "basic_layered")
@@ -1532,7 +1535,7 @@ def test_checkpoint_rerun():
     shell("sleep 2")
     shell("touch {d}/checkpoint/a1.ls")
     run(d, no_tmpdir=True, cleanup=False, check_results=False)
-    with open(f"{d}/inputs/a/0.out", "r") as f:
+    with open(f"{d}/inputs/a/0.out") as f:
         assert f.read().strip() == "1"
 
 
@@ -2838,17 +2841,17 @@ def test_keep_local():
             ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
         )
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "keep_local_default.flag"], cwd=tmpdir
         )
         assert not os.path.exists(local_img)
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "keep_local_false.flag"], cwd=tmpdir
         )
         assert not os.path.exists(local_img)
 
-        p = sp.check_output(
+        sp.check_output(
             [
                 "snakemake",
                 "-s",
@@ -2863,13 +2866,13 @@ def test_keep_local():
         assert os.path.exists(local_img)
         shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "keep_local_true.flag"], cwd=tmpdir
         )
         assert os.path.exists(local_img)
         shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "keep_local_true_directive.flag"],
             cwd=tmpdir,
         )
@@ -2884,7 +2887,7 @@ def test_retrieve():
             ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
         )
 
-        p = sp.check_output(
+        sp.check_output(
             [
                 "snakemake",
                 "-s",
@@ -2897,18 +2900,18 @@ def test_retrieve():
         )
         assert not os.path.exists(local_img)
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "retrieve_false.flag"], cwd=tmpdir
         )
         assert not os.path.exists(local_img)
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "retrieve_false_directive.flag"],
             cwd=tmpdir,
         )
         assert not os.path.exists(local_img.replace("http", "http_ret"))
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "retrieve_default.flag", "--force"],
             cwd=tmpdir,
         )
@@ -2916,7 +2919,7 @@ def test_retrieve():
 
         shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "retrieve_true.flag"], cwd=tmpdir
         )
         assert os.path.exists(local_img)
@@ -3024,7 +3027,7 @@ def test_stats_table_order_and_counts():
     stats_path = os.path.join(outdir, "stats.txt")
     assert os.path.exists(stats_path), "stats.txt was not created"
 
-    with open(stats_path, "r", encoding="utf-8") as f:
+    with open(stats_path, encoding="utf-8") as f:
         txt = f.read()
     # Extract lines that look like "name <whitespace> number"
     # Skip header/dashes; match lines with a word-like rule name and integer count
@@ -3060,9 +3063,9 @@ def test_stats_table_order_and_counts():
 
     # Check counts
     for name, exp_count in expected_counts.items():
-        assert (
-            counts.get(name) == exp_count
-        ), f"Count for {name} was {counts.get(name)} != {exp_count}"
+        assert counts.get(name) == exp_count, (
+            f"Count for {name} was {counts.get(name)} != {exp_count}"
+        )
 
 
 @skip_on_windows

@@ -3,24 +3,23 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import os
-import json
-import re
+import collections
 import inspect
+import json
+import multiprocessing
+import os
+import re
+import shlex
+import string
+import sys
 import textwrap
 from itertools import chain
-import collections
-import multiprocessing
-import string
-import shlex
-import sys
 
-from snakemake.io import Namedlist, Wildcards
-from snakemake.common.configfile import _load_configfile
-from snakemake.logging import logger
 from snakemake.common import ON_WINDOWS
+from snakemake.common.configfile import _load_configfile
 from snakemake.exceptions import WorkflowError
-from snakemake.io import regex_from_filepattern
+from snakemake.io import Namedlist, Wildcards, regex_from_filepattern
+from snakemake.logging import logger
 
 
 def validate(data, schema, set_default=True):
@@ -44,13 +43,15 @@ def validate(data, schema, set_default=True):
         # skip if a corresponding modifier has been defined
         return
 
-    from snakemake.sourcecache import LocalSourceFile, infer_source_file
-    import jsonschema
-    from jsonschema import Draft202012Validator, validators
-    from referencing import Registry, Resource
     from pathlib import Path
     from urllib.parse import urlparse
     from urllib.request import url2pathname
+
+    import jsonschema
+    from jsonschema import Draft202012Validator, validators
+    from referencing import Registry, Resource
+
+    from snakemake.sourcecache import LocalSourceFile, infer_source_file
 
     schemafile = infer_source_file(schema)
 
@@ -124,13 +125,12 @@ def validate(data, schema, set_default=True):
                 if "default" in subschema:
                     instance.setdefault(property, subschema["default"])
 
-            for error in validate_properties(
+            yield from validate_properties(
                 validator,
                 properties,
                 instance,
                 schema,
-            ):
-                yield error
+            )
 
         return validators.extend(
             validator_class,
@@ -557,11 +557,11 @@ def format(_pattern, *args, stepout=1, _quote_all=False, quote_func=None, **kwar
                 "Did you mean 'wildcards.{0}'?".format(str(ex).strip("'"))
             )
         raise NameError(
-            "The name {} is unknown in this context. Please "
+            f"The name {str(ex)} is unknown in this context. Please "
             "make sure that you defined that variable. "
             "Also note that braces not used for variable access "
             "have to be escaped by repeating them, "
-            "i.e. {{{{print $1}}}}".format(str(ex))
+            "i.e. {{print $1}}"
         )
 
 
@@ -591,13 +591,12 @@ def read_job_properties(
 def min_version(version):
     """Require minimum snakemake version, raise workflow error if not met."""
     from packaging.version import parse
+
     from snakemake.common import __version__
 
     if parse(__version__) < parse(version):
         raise WorkflowError(
-            "Expecting Snakemake version {} or higher (you are currently using {}).".format(
-                version, __version__
-            )
+            f"Expecting Snakemake version {version} or higher (you are currently using {__version__})."
         )
 
 
@@ -649,7 +648,7 @@ def available_cpu_count():
             res = bin(int(m.group(1).replace(",", ""), 16)).count("1")
             if res > 0:
                 return min(res, multiprocessing.cpu_count())
-    except IOError:
+    except OSError:
         pass
 
     return multiprocessing.cpu_count()
@@ -794,7 +793,7 @@ class Paramspace:
             if isinstance(filename_params, str) and filename_params == "*":
                 filename_params = dataframe.columns
 
-            if any((param not in dataframe.columns for param in filename_params)):
+            if any(param not in dataframe.columns for param in filename_params):
                 raise KeyError(
                     "One or more entries of filename_params are not valid column names for the param file."
                 )
@@ -853,10 +852,11 @@ class Paramspace:
     def instance(self, wildcards):
         """Obtain instance (dataframe row) with the given wildcard values."""
         import pandas as pd
+
         from snakemake.io import regex_from_filepattern
 
         def convert_value_dtype(name, value):
-            if self.dataframe.dtypes[name] == bool and value == "False":
+            if self.dataframe.dtypes[name] == bool and value == "False":  # noqa: E721
                 # handle problematic case when boolean False is returned as
                 # boolean True because the string "False" is misinterpreted
                 return False

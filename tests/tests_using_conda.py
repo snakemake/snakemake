@@ -3,26 +3,25 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from functools import partial
 import os
 import shutil
-import sys
 import subprocess as sp
-from pathlib import Path
+import sys
 import tempfile
+from pathlib import Path
 
 import pytest
+
 from snakemake.deployment.conda import get_env_setup_done_flag_file
-from snakemake.sourcecache import HostingProviderFile
 
 sys.path.insert(0, os.path.dirname(__file__))
-
-from .common import run, dpath, apptainer, conda, connected
-from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
 
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
 )
+
+from .common import apptainer, conda, connected, dpath, run
+from .conftest import ON_WINDOWS, only_on_windows, skip_on_windows
 
 xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
@@ -414,9 +413,9 @@ def test_containerize_checkpoint():
         assert f"COPY {module_env_path}" in dockerfile_content
 
         # check three unique environments are being created
-        assert (
-            dockerfile_content.count("conda env create") == 3
-        ), "Expected 3 conda environments to be created."
+        assert dockerfile_content.count("conda env create") == 3, (
+            "Expected 3 conda environments to be created."
+        )
 
     finally:
         if tmpdir and os.path.exists(tmpdir):

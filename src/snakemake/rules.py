@@ -3,16 +3,16 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import collections
 import copy
 import os
 import types
 import typing
-from snakemake.path_modifier import PATH_MODIFIER_FLAG
-import collections
-from pathlib import Path
-from itertools import chain
 from functools import partial
+from itertools import chain
+from pathlib import Path
 
+from snakemake.path_modifier import PATH_MODIFIER_FLAG
 from snakemake.pathvars import Pathvars
 
 try:
@@ -20,63 +20,60 @@ try:
 except ImportError:  # python < 3.11
     import sre_constants
 
+from snakemake_interface_common.rules import RuleInterface
+from snakemake_interface_common.utils import lazy_property, not_iterable
 from snakemake_interface_executor_plugins.settings import ExecMode
 
-from snakemake.io import (
-    IOFile,
-    _IOFile,
-    Namedlist,
-    AnnotatedString,
-    ResourceList,
-    contains_wildcard,
-    contains_wildcard_constraints,
-    get_flag_store_keys,
-    is_multiext_items,
-    remove_flag,
-    update_wildcard_constraints,
-    flag,
-    get_flag_value,
-    expand,
-    InputFiles,
-    OutputFiles,
-    Wildcards,
-    Params,
-    Log,
-    strip_wildcard_constraints,
-    apply_wildcards,
-    is_flagged,
-    flag,
-    is_callable,
-    ReportObject,
-)
-from snakemake.resources import (
-    Resource,
-    ResourceConstraintError,
-    ResourceValidationError,
-    Resources,
-    SizedResources,
-)
-from snakemake.exceptions import (
-    InputOpenException,
-    NestedCoroutineError,
-    ResourceConversionError,
-    RuleException,
-    IOFileException,
-    WildcardError,
-    InputFunctionException,
-    WorkflowError,
-    IncompleteCheckpointException,
-    is_file_not_found_error,
-)
-from snakemake.logging import logger
 from snakemake.common import (
     ON_WINDOWS,
     get_function_params,
     get_input_function_aux_params,
 )
 from snakemake.common.tbdstring import TBDString
-from snakemake_interface_common.utils import not_iterable, lazy_property
-from snakemake_interface_common.rules import RuleInterface
+from snakemake.exceptions import (
+    IncompleteCheckpointException,
+    InputFunctionException,
+    InputOpenException,
+    IOFileException,
+    NestedCoroutineError,
+    ResourceConversionError,
+    RuleException,
+    WildcardError,
+    WorkflowError,
+    is_file_not_found_error,
+)
+from snakemake.io import (
+    AnnotatedString,
+    InputFiles,
+    IOFile,
+    Log,
+    Namedlist,
+    OutputFiles,
+    Params,
+    ReportObject,
+    ResourceList,
+    Wildcards,
+    _IOFile,
+    apply_wildcards,
+    contains_wildcard,
+    contains_wildcard_constraints,
+    flag,
+    get_flag_value,
+    is_callable,
+    is_flagged,
+    is_multiext_items,
+    remove_flag,
+    strip_wildcard_constraints,
+    update_wildcard_constraints,
+)
+from snakemake.logging import logger
+from snakemake.resources import (
+    Resource,
+    ResourceConstraintError,
+    Resources,
+    ResourceValidationError,
+    SizedResources,
+)
 
 if typing.TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -137,7 +134,7 @@ class Rule(RuleInterface):
         self.log_modifier = None
         self.benchmark_modifier = None
         self.ruleinfo = None
-        self.module_globals: typing.Dict
+        self.module_globals: dict
         self._pathvars: typing.Optional[Pathvars] = None
 
     @property
@@ -349,10 +346,10 @@ class Rule(RuleInterface):
             if self.wildcard_names != wildcard_names:
                 raise RuleException(
                     "Not all output, log and benchmark files of "
-                    "rule {} contain the same wildcards. "
+                    f"rule {self.name} contain the same wildcards. "
                     "This is crucial though, in order to "
                     "avoid that two or more jobs write to the "
-                    "same file.".format(self.name),
+                    "same file.",
                     rule=self,
                 )
 
@@ -406,10 +403,8 @@ class Rule(RuleInterface):
                     idx += 1
             if value and value in seen:
                 raise WorkflowError(
-                    "Duplicate output file pattern in rule {}. First two "
-                    "duplicate for entries {} and {}.".format(
-                        self.name, seen[value], name or idx
-                    )
+                    f"Duplicate output file pattern in rule {self.name}. First two "
+                    f"duplicate for entries {seen[value]} and {name or idx}."
                 )
             seen[value] = name or idx
 
@@ -519,15 +514,11 @@ class Rule(RuleInterface):
                         "update",
                     ]:
                         logger.warning(
-                            "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
-                                item_flag, self
-                            )
+                            f"The flag '{item_flag}' used in rule {self} is only valid for outputs, not inputs."
                         )
                     if output and item_flag in ["ancient", "before_update"]:
                         logger.warning(
-                            "The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(
-                                item_flag, self
-                            )
+                            f"The flag '{item_flag}' used in rule {self} is only valid for inputs, not outputs."
                         )
 
             if rule_dependency is not None:
@@ -546,9 +537,7 @@ class Rule(RuleInterface):
                     and self.workflow.exec_mode != ExecMode.SUBPROCESS
                 ):
                     logger.warning(
-                        "Wildcard constraints in inputs are ignored. (rule: {})".format(
-                            self
-                        )
+                        f"Wildcard constraints in inputs are ignored. (rule: {self})"
                     )
                 if mark_ancient:
                     item = flag(item, "ancient")
@@ -776,7 +765,7 @@ class Rule(RuleInterface):
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
         groupid=None,
-        non_derived_items: typing.List[typing.Any] = None,
+        non_derived_items: list[typing.Any] = None,
     ):
         incomplete = False
         if aux_params is None:
@@ -1189,13 +1178,13 @@ class Rule(RuleInterface):
             return self._expanded_conda_env
 
         from snakemake.common import is_local_file
-        from snakemake.sourcecache import SourceFile, infer_source_file
         from snakemake.deployment.conda import (
+            CondaEnvDirSpec,
             CondaEnvFileSpec,
             CondaEnvNameSpec,
-            CondaEnvDirSpec,
             CondaEnvSpecType,
         )
+        from snakemake.sourcecache import SourceFile, infer_source_file
 
         conda_env = self._conda_env
         if conda_env is not None:

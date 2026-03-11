@@ -1,10 +1,10 @@
-from typing import List
+from snakemake.exceptions import WorkflowError
 
 
 def parse_input(infile, parser, **kwargs):
     def _parse_input(wildcards, input):
         _infile = infile(wildcards, input) if callable(infile) else infile
-        with open(_infile, "r") as fh:
+        with open(_infile) as fh:
             if parser is None:
                 return fh.read().strip()
             else:
@@ -34,7 +34,7 @@ def extract_checksum(infile, **kwargs):
         raise WorkflowError("Pandas is required to extract checksum from file.")
 
 
-def flatten(list_of_lists: List) -> List:
+def flatten(list_of_lists: list) -> list:
     """Flatten an irregular list of lists recursively
 
     https://stackoverflow.com/a/53778278

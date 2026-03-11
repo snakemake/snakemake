@@ -1,7 +1,7 @@
 from textwrap import dedent
 
 from snakemake.io import InputFiles
-from snakemake.script import RustScript, BashEncoder
+from snakemake.script import BashEncoder, RustScript
 
 
 class TestRustScriptExtractManifest:
@@ -431,7 +431,7 @@ fn main() {
 //! ```cargo
 //! [dependencies]
 //! time = "0.1.25"
-//! 
+//!
 fn main() {
     println!("{}", time::now().rfc822z());
 }
@@ -459,7 +459,7 @@ static FOO: &str = "foo";
 //! [dependencies]
 //! time = "0.1.25"
 //! ```
-//! 
+//!
 fn main() {
     println!("{}", time::now().rfc822z());
 }

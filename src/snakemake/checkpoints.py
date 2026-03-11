@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING
+
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
 from snakemake.io import checkpoint_target
 from snakemake.logging import logger

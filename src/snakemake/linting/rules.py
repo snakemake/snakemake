@@ -1,8 +1,8 @@
-from itertools import chain
 import re
 import sys
+from itertools import chain
 
-from snakemake.linting import Linter, Lint, links, NAME_PATTERN
+from snakemake.linting import NAME_PATTERN, Lint, Linter, links
 from snakemake.rules import Rule
 
 
@@ -33,9 +33,7 @@ class RuleLinter(Linter):
                 )
             ):
                 yield Lint(
-                    title="Param {} is a prefix of input or output file but hardcoded".format(
-                        param
-                    ),
+                    title=f"Param {param} is a prefix of input or output file but hardcoded",
                     body="If this is meant to represent a file path prefix, it will fail when running "
                     "workflow in environments without a shared filesystem. "
                     "Instead, provide a function that infers the appropriate prefix from the input or "
@@ -80,9 +78,7 @@ class RuleLinter(Linter):
                     or (rule.shellcmd[before] != "{" and rule.shellcmd[after] != "}")
                 ):
                     yield Lint(
-                        title="Shell command directly uses variable {} from outside of the rule".format(
-                            name
-                        ),
+                        title=f"Shell command directly uses variable {name} from outside of the rule",
                         body="It is recommended to pass all files as input and output, and non-file parameters "
                         "via the params directive. Otherwise, provenance tracking is less accurate.",
                         links=[links.params],

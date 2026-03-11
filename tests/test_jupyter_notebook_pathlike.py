@@ -1,8 +1,10 @@
 import json
-import pytest
 from pathlib import Path
-from .common import run
+
+import pytest
 from snakemake_interface_executor_plugins.settings import DeploymentMethod
+
+from .common import run
 
 # See https://github.com/snakemake/snakemake/pull/3636.
 SNAKEFILE = """\

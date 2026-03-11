@@ -3,24 +3,22 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from functools import partial
-from pathlib import Path
+import io
+import os
 import posixpath
 import re
-import os
 import shutil
 import stat
+import tempfile
 import threading
 import typing
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
-
-import tempfile
-import io
 from abc import ABC, abstractmethod
+from functools import partial
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 from urllib.parse import unquote
 
 from snakemake import utils
-from snakemake.utils import format
 from snakemake.common import (
     ON_WINDOWS,
     LockFreeWritableFile,
@@ -28,10 +26,11 @@ from snakemake.common import (
     parse_uri,
     smart_join,
 )
-from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.common.git import split_git_path
-from snakemake.logging import logger
+from snakemake.exceptions import SourceFileError, WorkflowError
 from snakemake.io import check
+from snakemake.logging import logger
+from snakemake.utils import format
 
 if TYPE_CHECKING:
     import git
@@ -53,7 +52,7 @@ def _check_git_args(
         )
 
 
-def _replace_suffix(path: str, suffix: List[str], replacement: str) -> Optional[str]:
+def _replace_suffix(path: str, suffix: list[str], replacement: str) -> Optional[str]:
     for suff in suffix:
         if path.endswith(suff):
             return path[: -len(suff)] + replacement
@@ -89,7 +88,7 @@ class SourceFile(ABC):
 
     @abstractmethod
     def replace_suffix(
-        self, suffix: List[str], replacement: str
+        self, suffix: list[str], replacement: str
     ) -> Optional["typing.Self"]: ...
 
     def join(self, path):
@@ -132,7 +131,7 @@ class GenericSourceFile(SourceFile):
         return self.path_or_uri.endswith(suffix)
 
     def replace_suffix(
-        self, suffix: List[str], replacement: str
+        self, suffix: list[str], replacement: str
     ) -> Optional["typing.Self"]:
         repl = _replace_suffix(self.path_or_uri, suffix, replacement)
         if repl is None:
@@ -168,7 +167,7 @@ class LocalSourceFile(SourceFile):
         return self.path.endswith(suffix)
 
     def replace_suffix(
-        self, suffix: List[str], replacement: str
+        self, suffix: list[str], replacement: str
     ) -> Optional["typing.Self"]:
         repl = _replace_suffix(self.path, suffix, replacement)
         if repl is None:
@@ -231,7 +230,7 @@ class LocalGitFile(SourceFile):
         return self.path.endswith(suffix)
 
     def replace_suffix(
-        self, suffix: List[str], replacement: str
+        self, suffix: list[str], replacement: str
     ) -> Optional["typing.Self"]:
         repl = _replace_suffix(self.path, suffix, replacement)
         if repl is None:
@@ -401,7 +400,7 @@ class HostingProviderFile(SourceFile):
     """Marker for denoting github source files from releases."""
 
     valid_repo: ClassVar[re.Pattern] = re.compile("^.+/.+$")
-    _hosted_repos: ClassVar[Dict[str, HostedGitRepo]] = {}
+    _hosted_repos: ClassVar[dict[str, HostedGitRepo]] = {}
     _lock: ClassVar[threading.Lock] = threading.Lock()
 
     def __init__(
@@ -453,7 +452,7 @@ class HostingProviderFile(SourceFile):
         return self.path.endswith(suffix)
 
     def replace_suffix(
-        self, suffix: List[str], replacement: str
+        self, suffix: list[str], replacement: str
     ) -> Optional["typing.Self"]:
         repl = _replace_suffix(self.path, suffix, replacement)
         if repl is None:
@@ -489,9 +488,9 @@ class HostingProviderFile(SourceFile):
 
     @property
     def cache_path(self) -> Path:
-        assert (
-            self._cache_path
-        ), "bug: cache_path not set, should be done by SourceCache"
+        assert self._cache_path, (
+            "bug: cache_path not set, should be done by SourceCache"
+        )
 
         return self._cache_path
 

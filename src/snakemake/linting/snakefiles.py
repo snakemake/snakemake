@@ -1,7 +1,7 @@
 import re
 from itertools import chain
 
-from snakemake.linting import Linter, Lint, links, NAME_PATTERN
+from snakemake.linting import NAME_PATTERN, Lint, Linter, links
 
 ABS_PATH_PATTERN = "(?P<quote>['\"])(?P<path>(?:/[^/\\n]+?)+?)(?P=quote)"
 PATH_PATTERN = "(?P<quote>['\"])(?P<path>/?(?:[^/]+?/)+?(?:[^/]+?)?)(?P=quote)"
@@ -74,9 +74,7 @@ class SnakefileLinter(Linter):
             name = match.group("name")
             if name not in self.workflow.envvars:
                 yield Lint(
-                    title="Environment variable {} used but not asserted with envvars directive in line {}.".format(
-                        name, line
-                    ),
+                    title=f"Environment variable {name} used but not asserted with envvars directive in line {line}.",
                     body="Asserting existence of environment variables with the envvars directive ensures proper error "
                     "messages if the user fails to invoke a workflow with all required environment variables defined. "
                     "Further, it allows snakemake to pass them on in case of distributed execution.",
@@ -87,9 +85,7 @@ class SnakefileLinter(Linter):
         for match in regex.finditer(snakefile):
             line = get_line(match, snakefile)
             yield Lint(
-                title="Deprecated singularity directive used for container definition in line {}.".format(
-                    line
-                ),
+                title=f"Deprecated singularity directive used for container definition in line {line}.",
                 body="Use the container directive instead (it is agnostic of the underlying container runtime).",
                 links=[links.containers],
             )

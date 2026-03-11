@@ -4,37 +4,32 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
-from builtins import ExceptionGroup
 import datetime
 import hashlib
 import html
+import json
 import os
 import shutil
 import subprocess
 import tarfile
 import textwrap
 import time
-import json
-from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union, Dict
 import uuid
+from builtins import ExceptionGroup
 from collections import Counter, defaultdict, deque, namedtuple
+from collections.abc import Iterable, Mapping
 from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
-from tabulate import tabulate
-from snakemake.common.typing import AnySet
-from snakemake.io.flags.access_patterns import AccessPattern
-from snakemake.io.fmt import fmt_iofile
-from snakemake.rules import Rule
-from snakemake.settings.types import DeploymentMethod
+from typing import Optional, Union
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
-from snakemake_interface_report_plugins.interfaces import DAGReportInterface
-from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
-from snakemake_interface_scheduler_plugins.interfaces.dag import DAGSchedulerInterface
 from snakemake_interface_logger_plugins.common import LogEvent
-from snakemake.settings.enums import Quietness
+from snakemake_interface_report_plugins.interfaces import DAGReportInterface
+from snakemake_interface_scheduler_plugins.interfaces.dag import DAGSchedulerInterface
+from snakemake_interface_storage_plugins.storage_object import StorageObjectTouch
+from tabulate import tabulate
 
 from snakemake import workflow as _workflow
 from snakemake.common import (
@@ -43,7 +38,7 @@ from snakemake.common import (
     group_into_chunks,
     is_local_file,
 )
-from snakemake.settings.types import RerunTrigger, StrictDagEvaluation
+from snakemake.common.typing import AnySet
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,
@@ -61,17 +56,18 @@ from snakemake.exceptions import (
     WorkflowError,
     print_exception_warning,
 )
-from snakemake.settings.types import PrintDag
 from snakemake.io import (
-    _IOFile,
+    IOCacheLoadError,
     PeriodicityDetector,
+    _IOFile,
     flags,
     get_flag_value,
     is_callable,
     is_flagged,
     wait_for_files,
-    IOCacheLoadError,
 )
+from snakemake.io.flags.access_patterns import AccessPattern
+from snakemake.io.fmt import fmt_iofile
 from snakemake.jobs import (
     AbstractJob,
     GroupJob,
@@ -80,11 +76,19 @@ from snakemake.jobs import (
     JobFactory,
     Reason,
 )
-from snakemake.settings.types import SharedFSUsage
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
+from snakemake.rules import Rule
+from snakemake.settings.enums import Quietness
+from snakemake.settings.types import (
+    ChangeType,
+    DeploymentMethod,
+    PrintDag,
+    RerunTrigger,
+    SharedFSUsage,
+    StrictDagEvaluation,
+)
 from snakemake.sourcecache import LocalSourceFile, SourceFile
-from snakemake.settings.types import ChangeType
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
@@ -111,7 +115,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self,
         workflow,
         rules: Iterable[Rule],
-        targetfiles: Set[str] = None,
+        targetfiles: set[str] = None,
         targetrules=None,
         forceall=False,
         forcerules=None,
@@ -127,7 +131,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     ):
         self._deferred_temp_jobs = []
         self._queue_input_jobs = None
-        self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
+        self._dependencies: Mapping[Job, Mapping[Job, set[str]]] = defaultdict(
             partial(defaultdict, set)
         )
         self.depending = defaultdict(partial(defaultdict, set))
@@ -165,8 +169,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
         self._checked_jobs = set()
         self._checked_needrun_jobs = set()
-        self._seen_outputs: Dict[str, Union[Job, GroupJob]] = dict()
-        self._evicted_checkpoint_outputs: Set = set()
+        self._seen_outputs: dict[str, Union[Job, GroupJob]] = dict()
+        self._evicted_checkpoint_outputs: set = set()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -215,7 +219,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         return self._derived_targetfiles
 
     @property
-    def dependencies(self) -> Mapping[Job, Mapping[Job, Set[str]]]:
+    def dependencies(self) -> Mapping[Job, Mapping[Job, set[str]]]:
         return self._dependencies
 
     def job_dependencies(self, job: Job) -> Iterable[Job]:
@@ -393,9 +397,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 DeploymentMethod.APPTAINER
                 in self.workflow.deployment_settings.deployment_method
             ):
-                assert (
-                    simg_url in self.container_imgs
-                ), "bug: must first pull singularity images"
+                assert simg_url in self.container_imgs, (
+                    "bug: must first pull singularity images"
+                )
                 simg = self.container_imgs[simg_url]
             key = (env_spec, simg_url)
             if key not in self.conda_envs:
@@ -407,9 +411,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 self.conda_envs[key] = env
 
     async def retrieve_storage_inputs(
-        self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
+        self, jobs: list[Union[Job, GroupJob]], also_missing_internal=False
     ):
-
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
@@ -593,9 +596,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         elif len(jobids) > 1:
             raise WorkflowError(
                 "Multiple different external jobids registered "
-                "for output files of incomplete job {} ({}). This job "
+                f"for output files of incomplete job {job.jobid} ({jobids}). This job "
                 "cannot be resumed. Execute Snakemake with --rerun-incomplete "
-                "to fix this issue.".format(job.jobid, jobids)
+                "to fix this issue."
             )
 
     def is_edit_notebook_job(self, job):
@@ -768,7 +771,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self,
         job: Job,
         wait: int = 3,
-        ignore_missing_output: Union[List[_IOFile], bool] = False,
+        ignore_missing_output: Union[list[_IOFile], bool] = False,
         no_touch: bool = False,
         wait_for_local: bool = True,
         check_output_mtime: bool = True,
@@ -794,7 +797,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     wait_for_local=wait_for_local,
                     ignore_pipe_or_service=True,
                 )
-            except IOError as e:
+            except OSError as e:
                 raise MissingOutputException(
                     str(e), rule=job.rule, jobid=self.jobid(job)
                 )
@@ -834,7 +837,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             await self.check_output_mtime(job, expanded_output)
 
     async def check_output_mtime(
-        self, job: Job, expanded_output: List[_IOFile]
+        self, job: Job, expanded_output: list[_IOFile]
     ) -> None:
         # Check whether all output files are newer than the newest input file.
         # This catches problems with non-sychronous clocks in distributed execution.
@@ -899,11 +902,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             periodic_substring = self.periodic_wildcard_detector.is_periodic(value)
             if periodic_substring is not None:
                 raise PeriodicWildcardError(
-                    "The value {} in wildcard {} is periodically repeated ({}). "
+                    f"The value {periodic_substring} in wildcard {wildcard} is periodically repeated ({value}). "
                     "This would lead to an infinite recursion. "
-                    "To avoid this, e.g. restrict the wildcards in this rule to certain values.".format(
-                        periodic_substring, wildcard, value
-                    ),
+                    "To avoid this, e.g. restrict the wildcards in this rule to certain values.",
                     rule=job.rule,
                 )
 
@@ -1278,7 +1279,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         missing_input = set()
         producer = dict()
-        exceptions = dict()
         for res in potential_dependencies:
             if create_inventory:
                 # If possible, obtain inventory information starting from
@@ -1348,10 +1348,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             # previous batches are present on disk.
             if any([(f not in producer and not await f.exists()) for f in job.input]):
                 raise WorkflowError(
-                    "Unable to execute batch {} because not all previous batches "
-                    "have been completed before or files have been deleted.".format(
-                        self.batch
-                    )
+                    f"Unable to execute batch {self.batch} because not all previous batches "
+                    "have been completed before or files have been deleted."
                 )
 
         if missing_input:
@@ -1685,8 +1683,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     def update_priority(self):
         """Update job priorities."""
-        prioritized = (
-            lambda job: job.rule in self.priorityrules
+        prioritized = lambda job: (
+            job.rule in self.priorityrules
             or not self.priorityfiles.isdisjoint(job.output)
         )
         for job in self.needrun_jobs():
@@ -2032,19 +2030,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     ]
                     if is_pipe and len(depending) > 1:
                         raise WorkflowError(
-                            "Output file {} is marked as pipe "
+                            f"Output file {f} is marked as pipe "
                             "but more than one job depends on "
                             "it. Make sure that any pipe "
                             "output is only consumed by one "
-                            "job".format(f),
+                            "job",
                             rule=job.rule,
                         )
                     elif not is_nodelocal and len(depending) == 0:
                         raise WorkflowError(
-                            "Output file {} is marked as pipe or service "
+                            f"Output file {f} is marked as pipe or service "
                             "but it has no consumer. This is "
                             "invalid because it can lead to "
-                            "a dead lock.".format(f),
+                            "a dead lock.",
                             rule=job.rule,
                         )
                     elif is_pipe and depending[0].is_norun:
@@ -2488,9 +2486,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             input_batch = self.batch.get_batch(input_files)
             if len(input_batch) != len(input_files):
                 logger.info(
-                    "Considering only batch {} for DAG computation.\n"
+                    f"Considering only batch {self.batch} for DAG computation.\n"
                     "All jobs beyond the batching rule are omitted until the final batch.\n"
-                    "Don't forget to run the other batches too.".format(self.batch)
+                    "Don't forget to run the other batches too."
                 )
                 input_files = input_batch
 
@@ -2539,7 +2537,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 continue
             yield job
             for job_ in direction[job].keys():
-                if not job_ in visited:
+                if job_ not in visited:
                     queue.append(job_)
                     visited.add(job_)
 
@@ -2556,7 +2554,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             yield level, job
             level += 1
             for job_, _ in direction[job].items():
-                if not job_ in visited:
+                if job_ not in visited:
                     queue.append((job_, level))
                     visited.add(job_)
 
@@ -2573,14 +2571,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for job_ in direction[job]:
                 if job_ not in visited:
                     visited.add(job_)
-                    for j in _dfs(job_):
-                        yield j
+                    yield from _dfs(job_)
             if post:
                 yield job
 
         for job in jobs:
-            for job_ in _dfs(job):
-                yield job_
+            yield from _dfs(job)
 
     def new_wildcards(self, job):
         """Return wildcards that are newly introduced in this job,
@@ -2730,9 +2726,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             import colorsys
 
             hex_r, hex_g, hex_b = (round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v))
-            return "#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}".format(
-                hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
-            )
+            return f"#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}"
 
         # color the rules - sorting by name first gives deterministic output
         rules = sorted(self.rules, key=lambda r: r.name)
@@ -2755,16 +2749,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for node, deps in graph.items()
             for dep in deps
         ]
-        return (
-            textwrap.dedent("""\
+        return textwrap.dedent("""\
             ---
             title: DAG
             ---
             flowchart TB
-            """)
-            + "{}\n{}\n{}".format(
-                "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
-            )
+            """) + "{}\n{}\n{}".format(
+            "\n".join(nodes_headers), "\n".join(nodes_styles), "\n".join(edges)
         )
 
     def _dot(
@@ -2778,8 +2769,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         rules = sorted(self.rules, key=lambda r: r.name)
         huefactor = 2 / (3 * len(rules))
         rulecolor = {
-            rule: "{:.2f} 0.6 0.85".format(i * huefactor)
-            for i, rule in enumerate(rules)
+            rule: f"{i * huefactor:.2f} 0.6 0.85" for i, rule in enumerate(rules)
         }
 
         # markup
@@ -2838,9 +2828,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             import colorsys
 
             hex_r, hex_g, hex_b = (round(255 * x) for x in colorsys.hsv_to_rgb(h, s, v))
-            return "#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}".format(
-                hex_r=hex_r, hex_g=hex_g, hex_b=hex_b
-            )
+            return f"#{hex_r:0>2X}{hex_g:0>2X}{hex_b:0>2X}"
 
         # Sorting the rules by name before assigning colors gives deterministic output
         rules = sorted(self.rules, key=lambda r: r.name)
@@ -2884,16 +2872,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 else ""
             )
             html_node = [
-                '{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">'.format(
-                    node_id=node_id, color=color
-                ),
+                f'{node_id} [ shape=none, margin=0, label=<<table border="2" color="{color}" cellspacing="3" cellborder="0">',
                 "<tr><td>",
                 f'<b><font point-size="18">{node.name}</font></b>',
                 "</td></tr>",
                 "<hr/>",
-                '<tr><td align="left"> {input_header} </td></tr>'.format(
-                    input_header=input_header
-                ),
+                f'<tr><td align="left"> {input_header} </td></tr>',
             ]
 
             for filename in sorted(input_files):
@@ -2904,27 +2888,21 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 html_node.extend(
                     [
                         "<tr>",
-                        '<td align="left"><font face="monospace">{in_file}</font></td>'.format(
-                            in_file=in_file
-                        ),
+                        f'<td align="left"><font face="monospace">{in_file}</font></td>',
                         "</tr>",
                     ]
                 )
 
             html_node.append("<hr/>")
-            html_node.append(
-                '<tr><td align="right"> {output_header} </td> </tr>'.format(
-                    output_header=output_header
-                )
-            )
+            html_node.append(f'<tr><td align="right"> {output_header} </td> </tr>')
 
             for filename in sorted(output_files):
                 out_file = html.escape(filename)
                 html_node.extend(
                     [
                         "<tr>",
-                        '<td align="left"><font face="monospace">{out_file}</font></td>'
-                        "</tr>".format(out_file=out_file),
+                        f'<td align="left"><font face="monospace">{out_file}</font></td>'
+                        "</tr>",
                     ]
                 )
 
@@ -3056,8 +3034,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 def add(path):
                     if workdir not in Path(os.path.abspath(path)).parents:
                         logger.warning(
-                            "Path {} cannot be archived: "
-                            "not within working directory.".format(path)
+                            f"Path {path} cannot be archived: "
+                            "not within working directory."
                         )
                     else:
                         f = os.path.relpath(path)
@@ -3067,8 +3045,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             logger.info("archived " + f)
 
                 logger.info(
-                    "Archiving snakefiles, scripts and files under "
-                    "version control..."
+                    "Archiving snakefiles, scripts and files under version control..."
                 )
                 for f in self.get_sources():
                     add(f)
@@ -3201,8 +3178,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 msg += f"\n    {reason}:\n        {rules}"
             logger.info(msg)
 
-    def stats(self) -> Tuple[str, Dict[str, int]]:
-
+    def stats(self) -> tuple[str, dict[str, int]]:
         # Count the jobs
         rules = Counter()
         rules.update(job.rule for job in self.needrun_jobs())

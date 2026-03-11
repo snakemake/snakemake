@@ -3,18 +3,19 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from urllib.request import pathname2url
-import os
-import tempfile
 import json
+import os
 import shutil
+import tempfile
 from itertools import chain
+from urllib.request import pathname2url
 
-from snakemake.utils import format
+from snakemake_interface_executor_plugins.settings import ExecMode
+
+from snakemake.common import get_container_image
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import get_container_image
-from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake.utils import format
 
 
 def cwl(
@@ -98,7 +99,7 @@ def job_to_cwl(job, dag, outputs, inputs):
     if job.conda_env_file:
         files.add(os.path.relpath(job.conda_env_file))
 
-    out = [get_output_id(job, i) for i, _ in enumerate(job.output)]
+    out = [get_output_id(job, i) for i, _ in enumerate(job.output)]  # noqa: F841
 
     def workdir_entry(i, f):
         location = f"??inputs.input_files[{i}].location??"

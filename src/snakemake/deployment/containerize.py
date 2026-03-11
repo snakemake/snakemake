@@ -1,12 +1,12 @@
-from pathlib import Path
 import hashlib
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from snakemake.exceptions import WorkflowError
+from snakemake.io import contains_wildcard, is_callable
 from snakemake.logging import logger
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
-from snakemake.io import is_callable, contains_wildcard
 
 CONDA_ENV_PATH = "/conda-envs"
 
@@ -61,7 +61,6 @@ class ContainerFormat(ABC):
 
 
 class DockerFormat(ContainerFormat):
-
     def header(self, image, env_hash):
         print(f"FROM {image}")
         print('LABEL io.github.snakemake.containerized="true"')
@@ -92,7 +91,6 @@ class DockerFormat(ContainerFormat):
 
 
 class ApptainerFormat(ContainerFormat):
-
     def __init__(self):
         # Apptainer groups things into sections, so we collect them first
         self._labels = []
@@ -239,7 +237,7 @@ def containerize(workflow, dag, fmt="dockerfile"):
         env_source_path = relfile(env)
         env_target_path = prefix / "environment.yaml"
 
-        formatter.comment(f"Conda environment:")
+        formatter.comment("Conda environment:")
         formatter.comment(f"  source: {env_source_path}")
         formatter.comment(f"  prefix: {prefix}")
         for line in env.content.decode().strip().split("\n"):

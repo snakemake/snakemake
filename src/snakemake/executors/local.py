@@ -4,37 +4,37 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 
+import concurrent.futures
 import os
+import shlex
+import subprocess
 import sys
 import time
-import shlex
-import concurrent.futures
-import subprocess
 from functools import partial
-from snakemake.executors import change_working_directory
-from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
-from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
-from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
-from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 from snakemake_interface_executor_plugins.jobs import (
+    GroupJobExecutorInterface,
     JobExecutorInterface,
     SingleJobExecutorInterface,
-    GroupJobExecutorInterface,
 )
-from snakemake_interface_executor_plugins.settings import ExecMode, CommonSettings
+from snakemake_interface_executor_plugins.settings import CommonSettings, ExecMode
 
-from snakemake.shell import shell
-from snakemake.logging import logger
-from snakemake.exceptions import print_exception, get_exception_origin
-from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import (
-    WorkflowError,
-    SpawnedJobError,
     CacheMissException,
+    RuleException,
+    SpawnedJobError,
+    WorkflowError,
+    format_error,
+    get_exception_origin,
+    log_verbose_traceback,
+    print_exception,
 )
+from snakemake.executors import change_working_directory
+from snakemake.logging import logger
+from snakemake.settings.types import DeploymentMethod
+from snakemake.shell import shell
 
 common_settings = CommonSettings(
     non_local_exec=False,

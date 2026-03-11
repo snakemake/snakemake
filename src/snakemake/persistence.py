@@ -4,34 +4,33 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
-from dataclasses import dataclass, field
 import hashlib
+import json
 import os
 import shutil
-import json
 import stat
-import tempfile
 import time
-from base64 import urlsafe_b64encode, b64encode
+from base64 import b64encode, urlsafe_b64encode
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from functools import lru_cache
 from itertools import count
 from pathlib import Path
-from contextlib import contextmanager
-from typing import Any, Optional, Set
+from typing import Any, Optional
 
+from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
 
-from snakemake.common.tbdstring import TBDString
 import snakemake.exceptions
+from snakemake.common.tbdstring import TBDString
+from snakemake.io import IOCache, _IOFile, get_flag_value, is_flagged
+from snakemake.jobs import Job, jobfiles
 from snakemake.logging import logger
-from snakemake.jobs import jobfiles, Job
-from snakemake.utils import listfiles
-from snakemake.io import _IOFile, is_flagged, get_flag_value, IOCache
-from snakemake_interface_common.exceptions import WorkflowError
 from snakemake.settings.types import DeploymentMethod
+from snakemake.utils import listfiles
 
 UNREPRESENTABLE = object()
 RECORD_FORMAT_VERSION = 6
@@ -154,7 +153,7 @@ class Persistence(PersistenceExecutorInterface):
         for path, _, filenames in os.walk(self._metadata_path):
             path = Path(path)
             for filename in filenames:
-                with open(path / filename, "r") as f:
+                with open(path / filename) as f:
                     try:
                         record = json.load(f)
                     except json.JSONDecodeError:
@@ -603,7 +602,7 @@ class Persistence(PersistenceExecutorInterface):
     def _b64id(self, s):
         return urlsafe_b64encode(str(s).encode()).decode()
 
-    @lru_cache()
+    @lru_cache
     def _code(self, rule):
         # Scripts and notebooks are triggered by changes in the script mtime.
         # Changes to python and shell rules are triggered by changes in the plain text.
@@ -613,12 +612,12 @@ class Persistence(PersistenceExecutorInterface):
             return rule.run_func_src
         return None
 
-    @lru_cache()
+    @lru_cache
     def _conda_env(self, job):
         if job.conda_env:
             return b64encode(job.conda_env.content).decode()
 
-    @lru_cache()
+    @lru_cache
     def _input(self, job):
         def get_paths():
             for f in job.input:
@@ -638,7 +637,7 @@ class Persistence(PersistenceExecutorInterface):
 
         return sorted(get_paths())
 
-    @lru_cache()
+    @lru_cache
     def _log(self, job):
         return sorted(job.log)
 
@@ -676,7 +675,7 @@ class Persistence(PersistenceExecutorInterface):
             return repr(pd.util.hash_pandas_object(value).tolist())
         return self._serialize_param_builtin(value)
 
-    @lru_cache()
+    @lru_cache
     def _params(self, job: Job):
         return sorted(
             filter(
@@ -685,7 +684,7 @@ class Persistence(PersistenceExecutorInterface):
             )
         )
 
-    @lru_cache()
+    @lru_cache
     def _output(self, job):
         return sorted(job.output)
 
@@ -732,7 +731,7 @@ class Persistence(PersistenceExecutorInterface):
                 # file is missing, report failure
                 return False
 
-    @lru_cache()
+    @lru_cache
     def _read_record_cached(self, subject, id):
         return self._read_record_uncached(subject, id)
 
@@ -740,7 +739,7 @@ class Persistence(PersistenceExecutorInterface):
         if not self._exists_record(subject, id):
             return dict()
         path = self._record_path(subject, id)
-        with open(path, "r") as f:
+        with open(path) as f:
             try:
                 return json.load(f)
             except json.JSONDecodeError:
@@ -843,9 +842,9 @@ def _bool_or_gen(func, job, file=None):
 
 @dataclass
 class ParamsChange:
-    only_old: Set[Any] = field(default_factory=set)
-    only_new: Set[Any] = field(default_factory=set)
-    files: Set[str] = field(default_factory=set)
+    only_old: set[Any] = field(default_factory=set)
+    only_new: set[Any] = field(default_factory=set)
+    files: set[str] = field(default_factory=set)
 
     def __post_init__(self):
         if not self:

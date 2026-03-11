@@ -3,24 +3,25 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from pathlib import Path
 import _io
-import sys
-import os
-import subprocess as sp
 import inspect
+import os
 import shutil
 import stat
+import subprocess as sp
+import sys
 import tempfile
 import threading
+from pathlib import Path
 
-from snakemake.utils import format, argvquote, cmd_exe_quote
-from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
-from snakemake.logging import logger
 from snakemake_interface_logger_plugins.common import LogEvent
+
+from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
+from snakemake.logging import logger
+from snakemake.utils import argvquote, cmd_exe_quote, format
 
 __author__ = "Johannes Köster"
 
@@ -291,7 +292,7 @@ class shell:
             ):
                 raise WorkflowError(
                     "Given environment variables for shell command have to be a dict of strings, "
-                    "but the following was provided instead:\n{}".format(env)
+                    f"but the following was provided instead:\n{env}"
                 )
             envvars.update(env)
 
@@ -312,11 +313,7 @@ class shell:
             win_prefix = cls._get_win_command_prefix(
                 use_default=False, shell_exec=shell_executable
             )
-            cmd = '"{}" {} {}'.format(
-                shell_executable,
-                win_prefix,
-                argvquote(cmd),
-            )
+            cmd = f'"{shell_executable}" {win_prefix} {argvquote(cmd)}'
 
         proc = sp.Popen(
             cmd,
