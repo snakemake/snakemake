@@ -1689,15 +1689,21 @@ class Workflow(WorkflowExecutorInterface):
 
     def onstart(self, func):
         """Register onstart function."""
-        self._onstart = func
+        if self.modifier.is_main_snakefile():
+            self._onstart = func
+        self.globals["onstart"] = partial(func, log=self.logger_manager.get_logfile())
 
     def onsuccess(self, func):
         """Register onsuccess function."""
-        self._onsuccess = func
+        if self.modifier.is_main_snakefile():
+            self._onsuccess = func
+        self.globals["onsuccess"] = partial(func, log=self.logger_manager.get_logfile())
 
     def onerror(self, func):
         """Register onerror function."""
-        self._onerror = func
+        if self.modifier.is_main_snakefile():
+            self._onerror = func
+        self.globals["onerror"] = partial(func, log=self.logger_manager.get_logfile())
 
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""

@@ -2265,6 +2265,24 @@ In both handlers, you have access to the variable ``log``, which contains the pa
 Snakemake 3.6.0 adds an ``onstart`` handler, that will be executed before the workflow starts.
 Note that dry-runs do not trigger any of the handlers.
 
+When you are using :ref:`snakefiles-modules`, only the ``onstart``, ``onsuccess`` and ``onerror`` handlers of the top-level Snakefile are executed. Handlers defined inside module Snakefiles are not triggered automatically.
+To access the handlers from a specific module's Snakefile, you can use ``module_name.onstart``, ``module_name.onsuccess`` and ``module_name.onerror``.
+
+.. code-block:: python
+
+    module test1:
+        snakefile:
+            "module1/Snakefile"
+
+    use rule * from test1 as module1_*
+
+    onstart:
+        test1.onstart()
+    onsuccess:
+        test1.onsuccess()
+    onerror:
+        test1.onerror()
+
 
 Rule dependencies
 -----------------
