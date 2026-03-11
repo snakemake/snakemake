@@ -2036,8 +2036,8 @@ def test_strict_mode():
 def test_github_issue1158():
     path = dpath("test_github_issue1158")
     with tempfile.TemporaryDirectory(prefix=f"snakemake-{dpath.name}") as tmpdir:
-        prepare_tmpdir(path)
-        run(path, cluster="./qsub.py", tmpdir=tmpdir.name)
+        prepare_tmpdir(path, dest_path=tmpdir)
+        run(path, cluster="./qsub.py", tmpdir=tmpdir)
 
 
 def test_ancient_dag():
