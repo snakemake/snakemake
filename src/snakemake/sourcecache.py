@@ -294,6 +294,8 @@ class LocalGitFile(SourceFile):
 
 
 class HostedGitRepo:
+    from tenacity import retry, stop_after_attempt, wait_exponential
+
     def __init__(
         self,
         repo: str,
@@ -302,7 +304,6 @@ class HostedGitRepo:
         host: str,
     ):
         from git import Repo
-        from tenacity import retry, stop_after_attempt, wait_exponential, after_log
 
         repo_url = f"https://{auth}{host}/{repo}"
 
@@ -368,7 +369,7 @@ class HostedGitRepo:
         except KeyError:
             return False
 
-    # @retry(wait=wait_exponential(multiplier=2, min=3), stop=stop_after_attempt(3))
+    @retry(wait=wait_exponential(multiplier=2, min=3), stop=stop_after_attempt(3))
     def fetch(self) -> Optional[str]:
         import git
 
@@ -686,6 +687,9 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
 
 
 class SourceCache:
+    import logging
+    from tenacity import retry, stop_after_attempt, wait_exponential, after_log
+
     cache_whitelist = [
         r"https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
@@ -762,14 +766,12 @@ class SourceCache:
                     entryfile.utime((mtime, mtime))
                 entryfile.write_from_fileobj(source)
 
-    import logging
-
-    # @retry(
-    #    wait=wait_exponential(multiplier=2, min=3),
-    #    stop=stop_after_attempt(1),
-    #    after=after_log(logger, logging.INFO),
-    #    reraise=True,
-    # )
+    @retry(
+        wait=wait_exponential(multiplier=2, min=3),
+        stop=stop_after_attempt(1),
+        after=after_log(logger, logging.INFO, sec_format="%0.1f"),
+        reraise=True,
+    )
     def _open(self, source_file: SourceFile, mode, encoding=None):
         from smart_open import open
 

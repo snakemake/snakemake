@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+# Only modules from python standard library should be imported here!
 from typing import (
     Callable,
     List,
