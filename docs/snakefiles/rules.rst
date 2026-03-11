@@ -1223,7 +1223,7 @@ Per default, each rule has a priority of 0. Any rule that specifies a higher pri
 
 Priority may also be specified with a callable. The callable receives ``wildcards``
 as its first positional argument, and may optionally accept ``input``, ``attempt``,
-and ``rulename`` keyword arguments (similar to param functions):
+and ``rulename`` keyword arguments (similar to param functions). It has to return the priority as an integer or float (will be rounded):
 
 .. code-block:: python
 
