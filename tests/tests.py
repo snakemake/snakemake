@@ -3179,6 +3179,9 @@ def test_github_issue2255():
 @skip_on_windows 
 # On Windows this test output is emited with
 # quotes around the output string what cause tese tests to fail
+@skip_on_windows
+# On Windows this test output is emitted with
+# quotes around the output string what cause these tests to fail
 def test_github_issue_4039_runtime_cli():
     """Test that runtime values from CLI are correctly interpreted as minutes, not seconds.
     Test for https://github.com/snakemake/snakemake/issues/4039"""
