@@ -10,7 +10,6 @@ import os
 import shutil
 import stat
 import threading
-from tenacity import retry, stop_after_attempt, wait_exponential, after_log
 import typing
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 
@@ -303,6 +302,7 @@ class HostedGitRepo:
         host: str,
     ):
         from git import Repo
+        from tenacity import retry, stop_after_attempt, wait_exponential, after_log
 
         repo_url = f"https://{auth}{host}/{repo}"
 

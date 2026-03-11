@@ -19,7 +19,6 @@ from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.deployment import singularity
-from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
 
 __author__ = "Johannes Köster"
@@ -168,6 +167,8 @@ class shell:
     def __new__(
         cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs
     ):
+        from snakemake.deployment.conda import Conda
+
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
 
