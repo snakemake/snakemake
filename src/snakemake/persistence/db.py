@@ -162,6 +162,7 @@ class DbPersistence(PersistenceBase):
                     session.add(record)
 
                 session.commit()
+
     def _filter_incomplete_keys(self, keys: Iterable[str]) -> Set[str]:
         keys_list = list(keys)
         if not keys_list:
