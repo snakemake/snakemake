@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Iterable, Tuple, Set
@@ -101,6 +102,10 @@ class DbPersistence(PersistenceBase):
         if db_url is None:
             db_url = f"sqlite:///{self.path / 'metadata.db'}"
 
+        # using custom LRU to be able to clear specific keys only, see https://stackoverflow.com/a/52101715
+        self._metadata_cache = OrderedDict()
+        self._cache_size = 16384
+
         self.engine = create_engine(db_url)
 
         @event.listens_for(self.engine, "connect")
@@ -116,18 +121,28 @@ class DbPersistence(PersistenceBase):
         Base.metadata.create_all(self.engine)
 
     def _clear_cache(self) -> None:
-        self._read_record_cached.cache_clear()
+        self._metadata_cache.clear()
 
-    @lru_cache(maxsize=None)
-    def _read_record_cached(self, key: str) -> Optional[MetadataRecord]:
-        with Session(self.engine) as session:
-            record: Optional[MetadataRecordORM] = session.get(MetadataRecordORM, key)
-            return record.to_record() if record else None
+    def _invalidate_cache(self, key: str) -> None:
+        self._metadata_cache.pop(key, None)
 
     def _read_record(self, key: str) -> Optional[MetadataRecord]:
-        return self._read_record_cached(key)
+        if key in self._metadata_cache:
+            self._metadata_cache.move_to_end(key)
+            return self._metadata_cache[key]
+
+        with Session(self.engine) as session:
+            record: Optional[MetadataRecordORM] = session.get(MetadataRecordORM, key)
+            record_ = record.to_record() if record else None
+
+            self._metadata_cache[key] = record_
+            if len(self._metadata_cache) > self._cache_size:
+                self._metadata_cache.popitem(last=False)
+
+            return record_
 
     def _write_record(self, key: str, record: MetadataRecord) -> None:
+        self._invalidate_cache(key)
         with Session(self.engine) as session:
             orm_record = session.get(MetadataRecordORM, key) or MetadataRecordORM(
                 target=key
@@ -138,6 +153,7 @@ class DbPersistence(PersistenceBase):
             session.commit()
 
     def _delete_record(self, key: str) -> bool:
+        self._invalidate_cache(key)
         with Session(self.engine) as session:
             if record := session.get(MetadataRecordORM, key):
                 session.delete(record)
@@ -146,6 +162,7 @@ class DbPersistence(PersistenceBase):
         return False
 
     def _mark_incomplete(self, key: str, external_jobid: Optional[str]) -> None:
+        self._invalidate_cache(key)
         with Session(self.engine) as session:
             record = session.get(MetadataRecordORM, key) or MetadataRecordORM(
                 target=key
@@ -156,6 +173,7 @@ class DbPersistence(PersistenceBase):
             session.commit()
 
     def _unmark_incomplete(self, key: str) -> None:
+        self._invalidate_cache(key)
         with Session(self.engine) as session:
             if record := session.get(MetadataRecordORM, key):
                 record.incomplete = False
