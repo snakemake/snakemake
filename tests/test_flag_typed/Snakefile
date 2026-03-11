@@ -52,8 +52,7 @@ rule c:
 # scatter over items in the typed output
 def get_processed(wildcards):
     out = checkpoints.a.get(**wildcards).output
-    meta = out.meta.value
-
+    meta = out.meta.load()
     yield from meta.list_files(out.outdir)
 
 

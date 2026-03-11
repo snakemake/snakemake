@@ -257,7 +257,7 @@ Accessing typed output
 ......................
 
 In downstream rules, typed files can be accessed directly via ``rules.<name>.output.<field>``.
-The ``.load()`` method (or the ``.value`` property as a shorthand) reads the file back and returns a typed instance whose fields are accessible via attribute syntax.
+The ``.load()`` method reads the file back and returns a typed instance whose fields are accessible via attribute syntax.
 To retrieve the underlying file path as a string, use ``str()``.
 
 - Call ``.load()`` to deserialize on demand::
@@ -277,7 +277,7 @@ This pattern avoids parsing raw text files and maintains a typed interface betwe
 
     def get_processed(wildcards):
         out = checkpoints.a.get(**wildcards).output
-        meta = out.meta.value
+        meta = out.meta.load()
         for f in meta.filestems:
             yield f"{out.outdir}/{f}-processed.txt"
 
