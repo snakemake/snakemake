@@ -2036,7 +2036,7 @@ def test_strict_mode():
 def test_github_issue1158():
     path = dpath("test_github_issue1158")
     with prepare_tmpdir(path) as tmpdir:
-        run(path, cluster="./qsub.py", tmpdir=tmpdir)
+        run(path, cluster="./qsub.py", tmpdir=tmpdir, cleanup=False)
 
 
 def test_ancient_dag():
