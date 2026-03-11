@@ -148,23 +148,20 @@ Plugin authors can extend the catalog documentation for their plugin by providin
 Scaffolding
 """""""""""
 
-Via `poetry <https://github.com/snakemake/poetry-snakemake-plugin>`__, plugins can be automatically scaffolded, leading to all files for plugin implementation, testing and package building being generated as skeletons.
+Via `Snakedeploy <https://snakedeploy.readthedocs.io/en/stable/snakemake_developers/scaffold_snakemake_plugins.html>`__ (and `Pixi <https://pixi.prefix.dev/latest/>`__), plugins can be automatically scaffolded, leading to all files for plugin implementation, testing and package building being generated as skeletons.
 The developer then only needs to implement extensively annotated abstract methods of base classes provided by the respective interface package.
 After pushing the plugin code into a new GitHub repository, testing, release-automation, and pypi upload then work out of the box.
 
-Assuming that the plugin type to create is given as bash variable ``$type`` below, given that poetry is available as a command, the following procedure should be followed for scaffolding a new plugin:
+Assuming that the plugin type to create is given as bash variable ``$type`` and its name as ``$name`` below, given that Snakedeploy is available as a command, the following procedure should be followed for scaffolding a new plugin:
 
 .. code-block:: bash
 
-    # Install latest version of the snakemake poetry plugin
-    poetry self add poetry-snakemake-plugin@latest
+    # Initialize a repository directory following the pyproject strucutre.
+    pixi init --format pyproject snakemake-$type-plugin-$name
 
-    # Create a new poetry project via
-    poetry new snakemake-$type-plugin-myfancyplugin
-
-    cd snakemake-$type-plugin-myfancyplugin
-
-    poetry scaffold-snakemake-$type-plugin
+    # Enter the directory and create the plugin scaffold inside.
+    cd snakemake-$type-plugin-$name
+    snakedeploy scaffold-snakemake-plugin $type
 
     # Next, edit the scaffolded code according to your needs, and publish
     # the resulting plugin into a github repository. The scaffold command also 
