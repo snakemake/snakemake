@@ -18,7 +18,7 @@ from snakemake.sourcecache import HostingProviderFile
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import run, dpath, apptainer, conda, connected
-from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
+from .conftest import skip_on_macos_arm, skip_on_windows, only_on_windows, ON_WINDOWS
 
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
@@ -30,6 +30,7 @@ xfail_permissionerror_on_win = (
 
 
 @skip_on_windows
+@skip_on_macos_arm
 @conda
 def test_script():
     run(
@@ -266,7 +267,7 @@ def test_conda_function():
     )
 
 
-@skip_on_windows  # the testcase only has a linux-64 pin file
+@pytest.mark.skipif(not ON_LINUX, reason="This testcase only has a linux-64 pin file")
 @conda
 def test_conda_pin_file():
     run(dpath("test_conda_pin_file"), deployment_method={DeploymentMethod.CONDA})
@@ -277,6 +278,7 @@ def test_conda_python_script():
     run(dpath("test_conda_python_script"), deployment_method={DeploymentMethod.CONDA})
 
 
+@skip_on_macos_arm
 @conda
 def test_conda_python_3_7_script():
     run(
@@ -304,6 +306,7 @@ def test_conda_global():
     )
 
 
+@skip_on_macos_arm
 @conda
 def test_script_pre_py39():
     run(dpath("test_script_pre_py39"), deployment_method={DeploymentMethod.CONDA})
