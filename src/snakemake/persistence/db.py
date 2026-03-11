@@ -209,10 +209,18 @@ class DbPersistence(PersistenceBase):
             ]
 
     def _write_locks(self, lock_type: str, keys: Iterable[str]) -> None:
+        keys_list = list(keys)
+        if not keys_list:
+            return
+
         with Session(self.engine) as session:
-            for key in keys:
-                session.merge(LockORM(file_path=key, lock_type=lock_type))
-            session.commit()
+            for key in keys_list:
+                session.add(LockORM(file_path=key, lock_type=lock_type))
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                raise snakemake.exceptions.LockException()
 
     def _delete_locks(self) -> None:
         with Session(self.engine) as session:
