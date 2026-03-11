@@ -13,9 +13,11 @@ from sqlalchemy import (
     delete,
     event,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from snakemake.persistence import MetadataRecord, PersistenceBase
+import snakemake.exceptions
 
 
 class Base(DeclarativeBase):
