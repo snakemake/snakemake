@@ -3261,7 +3261,7 @@ def test_github_issue2255():
 
 def test_github_issue_4039_runtime_cli():
     """Test that runtime values from CLI are correctly interpreted as minutes, not seconds.
-    Regression test for https://github.com/snakemake/snakemake/issues/4039"""
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
     tmpdir = run(
         dpath("test_github_issue_4039_runtime_cli"),
         shellcmd="snakemake -c1 --set-resources 'echo_runtime:runtime=120'",
@@ -3289,27 +3289,21 @@ def test_github_issue_4039_runtime_cli():
 
 def test_github_issue_4039_runtime_profile():
     """Test that runtime values from a profile are correctly interpreted as minutes, not seconds.
-    Regression test for https://github.com/snakemake/snakemake/issues/4039"""
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
     tmpdir = run(
         dpath("test_github_issue_4039_runtime_profile"),
         shellcmd="snakemake -c1 --profile profile/",
         cleanup=False,
     )
-    # Path to the generated output in the temporary run directory
-    generated_output = os.path.join(tmpdir, "output.txt")
+    shutil.rmtree(tmpdir)
 
-    # Path to the expected output shipped with the test data
-    test_path = dpath("test_github_issue_4039_runtime_profile")
-    expected_output = os.path.join(test_path, "expected-results", "output.txt")
 
-    # Read both files and compare
-    with open(generated_output, "r") as f:
-        got = f.read().strip()
-    with open(expected_output, "r") as f:
-        expected = f.read().strip()
-
-    assert got == expected, (
-        f"Generated output does not match expected.\nExpected: {expected!r}\nGot:      {got!r}"
+def test_github_issue_4039_runtime_no_override():
+    """Test that runtime values from a profile are correctly interpreted as minutes, not seconds.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_no_override"),
+        shellcmd="snakemake -c1",
+        cleanup=False,
     )
-
     shutil.rmtree(tmpdir)
