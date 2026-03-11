@@ -7,7 +7,6 @@
 .. _Micromamba: https://prefix.dev/docs/mamba
 .. _WSL: https://learn.microsoft.com/en-us/windows/wsl/install
 
-
 .. _getting_started-installation:
 
 .. toctree::
@@ -39,15 +38,12 @@ You do **not** need root/administrator access.
 .. _pixi-install:
 
 Install via Pixi
+----------------
+
 Pixi_ is a fast package management tool that acts as a drop-in replacement for Conda.
 This is the **recommended** way to install Snakemake.
 
-To install `pixi`, you can run the following command in your terminal:
-
-.. code:: console
-
-    $ curl -fsSL https://pixi.sh/install.sh | bash
-
+To install pixi, please follow the :ref:`pixi installation instructions<https://pixi.prefix.dev/latest/installation/>`
 
 If you wish to install Snakemake globally on your system, run:
 
@@ -120,7 +116,7 @@ A minimal version with only the necessary requirements can be installed with
     $ conda create -c conda-forge -c bioconda -c nodefaults -n snakemake snakemake-minimal
 
 Notes on Bioconda as a Package Source
--------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Note that Snakemake is available via Bioconda for historical, reproducibility, and continuity reasons (although it is not limited to biology applications at all).
 However, it is easy to combine Snakemake installation with other channels, e.g., by prefixing the package name with ``::bioconda``, i.e.,
@@ -134,7 +130,7 @@ However, it is easy to combine Snakemake installation with other channels, e.g.,
 .. _pip-install:
 
 Install via Pip
-====================
+----------------
 
 pip is the default package manager in python.
 
@@ -146,7 +142,7 @@ You can install Snakemake via pip with:
 
 
 Install a Development Version
-=============================================
+------------------------------
 
 If you want to quickly try out an unreleased version from the Snakemake repository, e.g. to check whether a bug fix works for your workflow, you can get the current state of the main branch with:
 
@@ -164,7 +160,7 @@ For detailed instructions, see :ref:`pixi-test-guide`.
 
 
 Editor Integrations
-===================
+-------------------
 
 There are a number of integrations with popular editors that offer convenient features such as syntax highlighting and formatting:
 
