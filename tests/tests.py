@@ -3005,7 +3005,7 @@ def test_stats_table_order_and_counts():
             counts.get(name) == exp_count
         ), f"Count for {name} was {counts.get(name)} != {exp_count}"
 
-        
+
 @skip_on_windows
 def test_github_issue3913():
     core_count_limit = 8
