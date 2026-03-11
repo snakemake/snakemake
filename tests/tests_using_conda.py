@@ -429,3 +429,13 @@ def test_issue_1266():
         dpath("test_github_issue1266"),
         deployment_method={DeploymentMethod.CONDA},
     )
+
+
+@skip_on_windows
+@conda
+def test_github_issue2213():
+    run(
+        dpath("test_github_issue2213"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_results=False,
+    )
