@@ -83,7 +83,7 @@ class DbPersistence(PersistenceBase):
         shadow_prefix=None,
         warn_only=False,
         path: Path | None = None,
-        db_url: str = "sqlite:///.snakemake/metadata.db",
+        db_url: Optional[str] = None,
     ):
         super().__init__(
             nolock=nolock,
@@ -94,6 +94,10 @@ class DbPersistence(PersistenceBase):
             warn_only=warn_only,
             path=path,
         )
+
+        # ensure default db path is based on persistence path
+        if db_url is None:
+            db_url = f"sqlite:///{self.path / 'metadata.db'}"
 
         self.engine = create_engine(db_url)
 
