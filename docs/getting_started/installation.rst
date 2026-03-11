@@ -10,6 +10,13 @@
 
 .. _getting_started-installation:
 
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+
+   migration
+
+
 ============
 Installation
 ============
@@ -47,7 +54,7 @@ To install `pixi`, you can run the following command in your terminal:
     $ curl -fsSL https://pixi.sh/install.sh | bash
 
 
-If you wish to install snakemake globally on your system, run:
+If you wish to install Snakemake globally on your system, run:
 
 .. code-block:: console
 
@@ -55,7 +62,7 @@ If you wish to install snakemake globally on your system, run:
 
 
 You can also keep the installation contained in a pixi environment.
-In the directory where you want to install snakemake, run:
+In the directory where you want to install Snakemake, run:
 
 .. code-block:: console
 
@@ -75,7 +82,7 @@ Install via Conda/Mamba
 
 Conda_ is a language-agnostic package and environment manager.
 
-There are many different ways to install conda; We recommend Miniforge_.
+There are many different ways to install conda; we recommend Miniforge_.
 
 You can use the command below to download and install Miniconda, on your operating system:
 
@@ -104,7 +111,7 @@ You can use the command below to download and install Miniconda, on your operati
 
 
 Of course, any other conda-based package manager can be used as well, e.g. Pixi_, Mamba_ or Micromamba_.
-Note however that for the :ref:`conda integration <integrated_package_management>` of Snakemake, for now it requires the `conda` command to be installed in the root environment or in the same environment as Snakemake itself.
+Note however that for the :ref:`conda integration <integrated_package_management>` of Snakemake, the `conda` command is currently required to be installed in the root environment or in the same environment as Snakemake itself.
 
 Full Installation
 -----------------
@@ -116,7 +123,7 @@ Snakemake can be installed with all the goodies needed to run in any environment
     $ conda create -c conda-forge -c bioconda -c nodefaults -n snakemake snakemake
 
 from the `Bioconda <https://bioconda.github.io>`_ channel.
-This will install snakemake into an isolated software environment, that has to be activated with
+This will install Snakemake into an isolated software environment, that has to be activated with
 
 .. code-block:: console
 
@@ -153,7 +160,7 @@ Install via Pip
 
 pip is the default package manager in python.
 
-You can install snakemake via pip with:
+You can install Snakemake via pip with:
 
 .. code-block:: console
 
@@ -163,7 +170,7 @@ You can install snakemake via pip with:
 Install a Development Version
 =============================================
 
-If you want to quickly try out an unreleased version from the snakemake repository, e.g. to check whether a bug fix works for your workflow, you can get the current state of the main branch with:
+If you want to quickly try out an unreleased version from the Snakemake repository, e.g. to check whether a bug fix works for your workflow, you can get the current state of the main branch with:
 
 .. code-block:: console
 
