@@ -3,24 +3,26 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from pathlib import Path
 import _io
-import sys
-import os
-import subprocess as sp
 import inspect
+import os
+import re
 import shutil
 import stat
+import subprocess as sp
+import sys
 import tempfile
 import threading
+from pathlib import Path
 
-from snakemake.utils import format, argvquote, cmd_exe_quote
-from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
-from snakemake.logging import logger
 from snakemake_interface_logger_plugins.common import LogEvent
+
+from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
+from snakemake.logging import logger
+from snakemake.utils import argvquote, cmd_exe_quote, format
 
 __author__ = "Johannes Köster"
 
@@ -37,6 +39,9 @@ if not isinstance(sys.stdout, _io.TextIOWrapper):
 # hardcoded in the kernel as 32 pages, or 128kB. On OSX it appears to be
 # close to `getconf ARG_MAX`, about 253kb.
 MAX_ARG_LEN = 16 * 4096 - 1
+
+
+CUSTOM_SCRIPT_RE = re.compile(".*/\\.snakemake/scripts/.*")
 
 
 class shell:
@@ -193,9 +198,26 @@ class shell:
         # add kwargs to context (overwriting the locals of the caller)
         context.update(kwargs)
 
+        # detect shell calls from wrappers or script directives
+        real_file = func_context.get("__real_file__")
+        if real_file and CUSTOM_SCRIPT_RE.match(real_file):
+            context["is_custom_script"] = True
+
         jobid = context.get("jobid")
-        if not context.get("is_shell") and jobid is not None:
-            logger.info(None, extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
+        script = func_context.get("__file__")
+
+        if context.get("is_custom_script") or (
+            not context.get("is_shell") and jobid is not None
+        ):
+            if script is not None:
+                script = Path(script).name
+
+            logger.info(
+                None,
+                extra=dict(
+                    event=LogEvent.SHELLCMD, cmd=cmd, jobid=jobid, script=script
+                ),
+            )
 
         conda_env = context.get("conda_env", None)
         conda_base_path = context.get("conda_base_path", None)
