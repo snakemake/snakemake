@@ -1,0 +1,42 @@
+
+samples = list(range(2))
+
+
+rule b:
+    input:
+        "linkout/a/1.out"
+    output:
+        touch("inputs/b/1.out")
+
+
+rule a:
+    output:
+        touch("inputs/a/{sample}.out")
+
+checkpoint a1:
+    output:
+        "checkpoint/a1.ls"
+    run:
+        with open(output[0], "w") as f:
+            for sample in samples:
+                f.write(f"{sample}\n")
+
+
+def usea1(wildcards):
+    with open(checkpoints.a1.get().output[0], "r") as f:
+        lines = [i.strip() for i in f]
+    return [f"inputs/a/{i}.out" for i in lines]
+
+
+rule aggregate:
+    input:
+        assembly_files=usea1
+    output:
+        expand("linkout/a/{sample}.out", sample=samples)
+    params:
+      assembly_dir = "linkout/a",
+    shell:
+        """
+        mkdir -p {params.assembly_dir}
+        ln -rs {input.assembly_files} {params.assembly_dir}
+        """
