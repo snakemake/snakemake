@@ -1,6 +1,8 @@
 import os
 import subprocess
 import sys
+import tempfile
+from pathlib import Path
 
 from snakemake.executors import local
 
@@ -11,7 +13,7 @@ import copy
 from snakemake import api
 from snakemake.settings import types as settings
 
-from .common import *
+from .common import dpath
 
 
 def test_deploy_sources(s3_storage):

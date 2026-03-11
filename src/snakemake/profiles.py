@@ -15,14 +15,13 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
         try:
             parsed_obj = yte.process_yaml(stream, require_use_yte=True)
         except Exception as e:
-            raise ConfigFileParserException("Couldn't parse config file: %s" % e)
+            raise ConfigFileParserException(f"Couldn't parse config file: {e}")
 
         if not isinstance(parsed_obj, dict):
             raise ConfigFileParserException(
                 "The config file doesn't appear to "
                 "contain 'key: value' pairs (aka. a YAML mapping). "
-                "yaml.load('%s') returned type '%s' instead of 'dict'."
-                % (getattr(stream, "name", "stream"), type(parsed_obj).__name__)
+                "yaml.load('{}') returned type '{}' instead of 'dict'.".format(getattr(stream, "name", "stream"), type(parsed_obj).__name__)
             )
 
         def format_one_level_dict(d):

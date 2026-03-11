@@ -19,7 +19,7 @@ import uuid
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from snakemake import __version__
 from snakemake.exceptions import NestedCoroutineError
@@ -268,7 +268,7 @@ def get_file_hash(filename, algorithm="sha256"):
     try:
         hasher = hashlib.new(algorithm)
     except ValueError as ex:
-        logger.error("%s is not an available algorithm." % algorithm)
+        logger.error(f"{algorithm} is not an available algorithm.")
         raise ex
 
     with open(filename, "rb") as f:

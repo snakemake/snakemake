@@ -431,7 +431,7 @@ fn main() {
 //! ```cargo
 //! [dependencies]
 //! time = "0.1.25"
-//! 
+//!
 fn main() {
     println!("{}", time::now().rfc822z());
 }
@@ -459,7 +459,7 @@ static FOO: &str = "foo";
 //! [dependencies]
 //! time = "0.1.25"
 //! ```
-//! 
+//!
 fn main() {
     println!("{}", time::now().rfc822z());
 }

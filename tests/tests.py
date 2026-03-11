@@ -348,7 +348,7 @@ def test_params_outdated_metadata(mocker):
     spy = mocker.spy(Persistence, "has_outdated_metadata")
 
     run(dpath("test_params_outdated_code"), targets=["somedir/test.out"])
-    assert spy.spy_return == True
+    assert spy.spy_return
 
 
 def test_same_wildcard():
@@ -2841,17 +2841,17 @@ def test_keep_local():
             ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
         )
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "keep_local_default.flag"], cwd=tmpdir
         )
         assert not os.path.exists(local_img)
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "keep_local_false.flag"], cwd=tmpdir
         )
         assert not os.path.exists(local_img)
 
-        p = sp.check_output(
+        sp.check_output(
             [
                 "snakemake",
                 "-s",
@@ -2866,13 +2866,13 @@ def test_keep_local():
         assert os.path.exists(local_img)
         shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "keep_local_true.flag"], cwd=tmpdir
         )
         assert os.path.exists(local_img)
         shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "keep_local_true_directive.flag"],
             cwd=tmpdir,
         )
@@ -2887,7 +2887,7 @@ def test_retrieve():
             ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
         )
 
-        p = sp.check_output(
+        sp.check_output(
             [
                 "snakemake",
                 "-s",
@@ -2900,18 +2900,18 @@ def test_retrieve():
         )
         assert not os.path.exists(local_img)
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "retrieve_false.flag"], cwd=tmpdir
         )
         assert not os.path.exists(local_img)
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "retrieve_false_directive.flag"],
             cwd=tmpdir,
         )
         assert not os.path.exists(local_img.replace("http", "http_ret"))
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "retrieve_default.flag", "--force"],
             cwd=tmpdir,
         )
@@ -2919,7 +2919,7 @@ def test_retrieve():
 
         shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "retrieve_true.flag"], cwd=tmpdir
         )
         assert os.path.exists(local_img)

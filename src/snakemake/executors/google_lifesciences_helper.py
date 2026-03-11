@@ -38,10 +38,10 @@ def save_files(bucket_name, source_path, destination_path):
 
     # These are fullpaths
     filenames = get_source_files(source_path)
-    print("\nThe following files will be uploaded: %s" % "\n".join(filenames))
+    print("\nThe following files will be uploaded: {}".format("\n".join(filenames)))
 
     if not filenames:
-        print("Did not find any filenames under %s" % source_path)
+        print(f"Did not find any filenames under {source_path}")
 
     # Do the upload!
     for filename in filenames:
@@ -60,7 +60,7 @@ def get_source_files(source_path):
     """Given a directory, return a listing of files to upload"""
     filenames = []
     if not os.path.exists(source_path):
-        print("%s does not exist!" % source_path)
+        print(f"{source_path} does not exist!")
         sys.exit(0)
 
     for x in os.walk(source_path):
@@ -73,7 +73,7 @@ def get_source_files(source_path):
 def add_ending_slash(filename):
     """Since we want to replace based on having an ending slash, ensure it's there"""
     if not filename.endswith("/"):
-        filename = "%s/" % filename
+        filename = f"{filename}/"
     return filename
 
 

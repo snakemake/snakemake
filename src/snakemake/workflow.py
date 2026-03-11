@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from itertools import chain, filterfalse
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Union
+from typing import Optional, Union
 
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_common.utils import lazy_property, not_iterable
@@ -2010,7 +2010,7 @@ class Workflow(WorkflowExecutorInterface):
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not ruleinfo.template_engine and ruleinfo.container_img != False:
+                if not ruleinfo.template_engine and ruleinfo.container_img:
                     # skip rules with template_engine directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized

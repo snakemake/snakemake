@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Set, Union
+from typing import Union
 
 from snakemake.io import get_flag_store_keys, is_flagged
 

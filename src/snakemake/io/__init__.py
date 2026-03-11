@@ -28,12 +28,8 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
     Generic,
-    List,
     Optional,
-    Set,
-    Tuple,
     TypeVar,
     Union,
 )
@@ -796,7 +792,7 @@ class _IOFile(str, AnnotatedStringInterface):
                 if self.is_directory
                 else self.file
             )
-            with open(file, "w") as f:
+            with open(file, "w"):
                 pass
 
     def apply_wildcards(self, wildcards):
@@ -1858,8 +1854,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
         """
         Get the defined names as (name, index) pairs.
         """
-        for name, index in self._names.items():
-            yield name, index
+        yield from self._names.items()
 
     def _take_names(self, names):
         """

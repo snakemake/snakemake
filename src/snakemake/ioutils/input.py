@@ -1,3 +1,4 @@
+from snakemake.exceptions import WorkflowError
 
 
 def parse_input(infile, parser, **kwargs):

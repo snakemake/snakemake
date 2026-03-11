@@ -61,7 +61,7 @@ class Image:
         if not os.path.exists(self.path):
             logger.info(f"Pulling singularity image {self.url}.")
             try:
-                p = subprocess.check_output(
+                subprocess.check_output(
                     [
                         self.singularity.binary,
                         "pull",

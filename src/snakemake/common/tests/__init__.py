@@ -3,7 +3,7 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import pytest
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings

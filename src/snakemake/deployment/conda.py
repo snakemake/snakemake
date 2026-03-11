@@ -348,7 +348,7 @@ class Env:
                                 assert zipfile.ZipFile(pkg_path).testzip() is None
                             else:
                                 tarfile.open(pkg_path)
-                        except:
+                        except Exception:
                             raise WorkflowError(
                                 f"Package is invalid tar/zip archive: {pkg_url}"
                             )

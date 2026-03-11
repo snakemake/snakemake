@@ -19,7 +19,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Optional, Union
 
 from docutils.core import publish_file, publish_parts
 from docutils.parsers.rst import directives

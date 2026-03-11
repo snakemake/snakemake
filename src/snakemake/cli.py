@@ -1805,9 +1805,9 @@ def generate_parser_metadata(parser, args):
     """Given a populated parser, generate the original command along with
     metadata that can be handed to a logger to use as needed.
     """
-    command = "snakemake %s" % " ".join(
+    command = "snakemake {}".format(" ".join(
         parser._source_to_settings["command_line"][""][1]
-    )
+    ))
     metadata = args.__dict__
     metadata.update({"command": command})
     return metadata

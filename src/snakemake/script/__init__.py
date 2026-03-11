@@ -21,7 +21,7 @@ from collections.abc import Iterable
 from numbers import Complex, Integral, Number, Real
 from pathlib import Path
 from re import Pattern
-from typing import Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Optional, TypeVar, Union
 from urllib.error import URLError
 
 from snakemake import io as io_
@@ -655,7 +655,7 @@ class ScriptBase(ABC):
                 os.remove(fd.name)
             else:
                 if fd:
-                    logger.warning("Not cleaning up %s" % fd.name)
+                    logger.warning(f"Not cleaning up {fd.name}")
                 else:
                     # nothing to clean up (TODO: ??)
                     pass
@@ -1105,12 +1105,11 @@ class RMarkdown(ScriptBase):
         pos = next(itertools.islice(re.finditer(r"---\n", code), 1, 2)).start() + 3
         fd.write(str.encode(code[:pos]))
         preamble = textwrap.dedent(
-            """
-            ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-            %s
+            f"""
+            ```{{r, echo=FALSE, message=FALSE, warning=FALSE}}
+            {preamble}
             ```
             """
-            % preamble
         )
         fd.write(preamble.encode())
         fd.write(code[pos:].encode())

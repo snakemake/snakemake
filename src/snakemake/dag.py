@@ -1279,7 +1279,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         missing_input = set()
         producer = dict()
-        exceptions = dict()
         for res in potential_dependencies:
             if create_inventory:
                 # If possible, obtain inventory information starting from
@@ -2572,14 +2571,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for job_ in direction[job]:
                 if job_ not in visited:
                     visited.add(job_)
-                    for j in _dfs(job_):
-                        yield j
+                    yield from _dfs(job_)
             if post:
                 yield job
 
         for job in jobs:
-            for job_ in _dfs(job):
-                yield job_
+            yield from _dfs(job)
 
     def new_wildcards(self, job):
         """Return wildcards that are newly introduced in this job,

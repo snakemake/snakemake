@@ -802,8 +802,7 @@ class Rule(GlobalKeywordState):
         if not self.run:
             yield "@workflow.norun()"
             yield "\n"
-            for t in self.subautomaton("run", rulename=self.rulename).start():
-                yield t
+            yield from self.subautomaton("run", rulename=self.rulename).start()
             # the end is detected.
             # So we can safely reset the indent to zero here
             self.indent = 0
@@ -845,10 +844,9 @@ class Rule(GlobalKeywordState):
                         ),
                         token,
                     )
-                for t in self.subautomaton(
+                yield from self.subautomaton(
                     token.string, token=token, rulename=self.rulename
-                ).consume():
-                    yield t
+                ).consume()
             except KeyError:
                 self.error(
                     f"Unexpected keyword {token.string} in rule definition",
