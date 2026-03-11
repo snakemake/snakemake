@@ -1848,7 +1848,7 @@ def parse_args(argv):
             profiles.extend(args.profile)
         if workflow_profile:
             workflow_profile_stmt = f" {'and ' if profiles else ''}workflow specific profile {workflow_profile}"
-            profiles.extend(workflow_profile)
+            profiles.append(workflow_profile)
         else:
             workflow_profile_stmt = ""
 
