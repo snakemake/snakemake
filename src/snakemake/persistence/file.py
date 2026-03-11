@@ -12,7 +12,7 @@ from base64 import urlsafe_b64encode
 from functools import lru_cache
 from itertools import count
 from pathlib import Path
-from typing import Iterable, Optional, Set, Tuple
+from typing import Iterable
 
 from snakemake.persistence import PersistenceBase, MetadataRecord
 from snakemake.utils import listfiles
@@ -182,7 +182,7 @@ class FilePersistence(PersistenceBase):
         self._incomplete_cache = None
 
     @lru_cache()
-    def _read_record_cached(self, key: str) -> Optional[MetadataRecord]:
+    def _read_record_cached(self, key: str) -> MetadataRecord | None:
         rec = self._io_read(self._metadata_path, key)
         return (
             MetadataRecord(**{k: v for k, v in rec.items() if k in VALID_METADATA_KEYS})
@@ -190,7 +190,7 @@ class FilePersistence(PersistenceBase):
             else None
         )
 
-    def _read_record(self, key: str) -> Optional[MetadataRecord]:
+    def _read_record(self, key: str) -> MetadataRecord | None:
         return self._read_record_cached(key)
 
     def _write_record(self, key: str, record: MetadataRecord) -> None:
@@ -199,7 +199,7 @@ class FilePersistence(PersistenceBase):
     def _delete_record(self, key: str) -> bool:
         return self._io_delete(self._metadata_path, key)
 
-    def _mark_incomplete(self, key: str, external_jobid: Optional[str]) -> None:
+    def _mark_incomplete(self, key: str, external_jobid: str | None) -> None:
         self._io_write(self._incomplete_path, {"external_jobid": external_jobid}, key)
         if self._incomplete_cache is not None:
             self._incomplete_cache.add(self._record_path(self._incomplete_path, key))
@@ -211,7 +211,7 @@ class FilePersistence(PersistenceBase):
                 self._record_path(self._incomplete_path, key)
             )
 
-    def _filter_incomplete_keys(self, keys: Iterable[str]) -> Set[str]:
+    def _filter_incomplete_keys(self, keys: Iterable[str]) -> set[str]:
         if self._incomplete_cache is None:
             self._incomplete_cache = {
                 os.path.join(path, f)
@@ -225,7 +225,7 @@ class FilePersistence(PersistenceBase):
             if self._record_path(self._incomplete_path, k) in self._incomplete_cache
         }
 
-    def _get_external_jobids(self, keys: Iterable[str]) -> Set[str]:
+    def _get_external_jobids(self, keys: Iterable[str]) -> set[str]:
         jobids = set()
         for k in keys:
             rec = self._io_read(self._incomplete_path, k)
@@ -233,7 +233,7 @@ class FilePersistence(PersistenceBase):
                 jobids.add(rec["external_jobid"])
         return jobids
 
-    def _read_locks(self) -> Iterable[Tuple[str, str]]:
+    def _read_locks(self) -> Iterable[tuple[str, str]]:
         for lock_type in ["input", "output"]:
             for lockfile, _ in listfiles(
                 os.path.join(self._lockdir, f"{{n,[0-9]+}}.{lock_type}.lock")

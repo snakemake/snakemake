@@ -12,13 +12,9 @@ from pathlib import Path
 from typing import (
     Any,
     Callable,
-    ContextManager,
     Dict,
     Iterable,
-    List,
     Optional,
-    Set,
-    Tuple,
     Union,
 )
 
@@ -40,22 +36,22 @@ UNREPRESENTABLE = object()
 
 @dataclass
 class MetadataRecord:
-    rule: Optional[str] = None
-    input: Optional[List[str]] = None
-    log: Optional[List[str]] = None
-    shellcmd: Optional[str] = None
-    params: Optional[List[Any]] = None
-    code: Optional[str] = None
+    rule: str | None = None
+    input: list[str] | None = None
+    log: list[str] | None = None
+    shellcmd: str | None = None
+    params: list[Any] | None = None
+    code: str | None = None
     record_format_version: int = 0
-    conda_env: Optional[str] = None
-    container_img_url: Optional[str] = None
-    software_stack_hash: Optional[str] = None
-    job_hash: Optional[int] = None
-    starttime: Optional[float] = None
-    endtime: Optional[float] = None
-    incomplete: Optional[bool] = None
-    external_jobid: Optional[str] = None
-    input_checksums: Optional[Dict[str, Any]] = field(default_factory=dict)
+    conda_env: str | None = None
+    container_img_url: str | None = None
+    software_stack_hash: str | None = None
+    job_hash: int | None = None
+    starttime: float | None = None
+    endtime: float | None = None
+    incomplete: bool | None = None
+    external_jobid: str | None = None
+    input_checksums: Dict[str, Any] | None = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> Any:
         try:
@@ -75,9 +71,9 @@ class MetadataRecord:
 
 @dataclass
 class ParamsChange:
-    only_old: Set[Any] = field(default_factory=set)
-    only_new: Set[Any] = field(default_factory=set)
-    files: Set[str] = field(default_factory=set)
+    only_old: set[Any] = field(default_factory=set)
+    only_new: set[Any] = field(default_factory=set)
+    files: set[str] = field(default_factory=set)
 
     def __bool__(self):
         return bool(self.only_old or self.only_new)
@@ -320,7 +316,7 @@ class PersistenceBase(
         return Path(self._aux_path)
 
     @abstractmethod
-    def _read_record(self, key: str) -> Optional[MetadataRecord]:
+    def _read_record(self, key: str) -> MetadataRecord | None:
         """
         Fetch the metadata record for the given key.
 
@@ -328,7 +324,7 @@ class PersistenceBase(
             key (str): The unique string identifier for the output file.
 
         Returns:
-            Optional[MetadataRecord]: The deserialized record, or None if it does not exist.
+            MetadataRecord | None: The deserialized record, or None if it does not exist.
         """
         ...
 
@@ -357,13 +353,13 @@ class PersistenceBase(
         ...
 
     @abstractmethod
-    def _mark_incomplete(self, key: str, external_jobid: Optional[str]) -> None:
+    def _mark_incomplete(self, key: str, external_jobid: str | None) -> None:
         """
         Mark a file key as currently incomplete (job has started but not finished).
 
         Args:
             key (str): The unique string identifier for the output file.
-            external_jobid (Optional[str]): The cluster/executor job ID associated with this run.
+            external_jobid (str | None): The cluster/executor job ID associated with this run.
         """
         ...
 
@@ -378,7 +374,7 @@ class PersistenceBase(
         ...
 
     @abstractmethod
-    def _filter_incomplete_keys(self, keys: Iterable[str]) -> Set[str]:
+    def _filter_incomplete_keys(self, keys: Iterable[str]) -> set[str]:
         """
         Given a list of file keys, return a subset of those keys that are marked as incomplete.
 
@@ -386,12 +382,12 @@ class PersistenceBase(
             keys (Iterable[str]): A collection of file keys to check.
 
         Returns:
-            Set[str]: The keys from the input iterable that have an active incomplete marker.
+            set[str]: The keys from the input iterable that have an active incomplete marker.
         """
         ...
 
     @abstractmethod
-    def _get_external_jobids(self, keys: Iterable[str]) -> Set[str]:
+    def _get_external_jobids(self, keys: Iterable[str]) -> set[str]:
         """
         Given a list of file keys, return all unique external job IDs associated with them.
 
@@ -399,17 +395,17 @@ class PersistenceBase(
             keys (Iterable[str]): A collection of file keys to check.
 
         Returns:
-            Set[str]: A set of all non-null external job IDs found for the provided keys.
+            set[str]: A set of all non-null external job IDs found for the provided keys.
         """
         ...
 
     @abstractmethod
-    def _read_locks(self) -> Iterable[Tuple[str, str]]:
+    def _read_locks(self) -> Iterable[tuple[str, str]]:
         """
         Retrieve all currently active locks.
 
         Returns:
-            Iterable[Tuple[str, str]]: An iterable yielding (lock_type, key) pairs,
+            Iterable[tuple[str, str]]: An iterable yielding (lock_type, key) pairs,
                                        where lock_type is 'input' or 'output'.
         """
         ...
@@ -444,7 +440,7 @@ class PersistenceBase(
         assert isinstance(f, _IOFile)
         return str(f.storage_object.query if f.is_storage else f)
 
-    def metadata(self, target: Any) -> Optional[MetadataRecord]:
+    def metadata(self, target: Any) -> MetadataRecord | None:
         return self._read_record(self._get_key(target))
 
     def cleanup_metadata(self, target: Any) -> bool:
@@ -453,7 +449,7 @@ class PersistenceBase(
         self._unmark_incomplete(key)
         return self._delete_record(key)
 
-    def started(self, job: Any, external_jobid: Optional[str] = None) -> None:
+    def started(self, job: Any, external_jobid: str | None = None) -> None:
         self._clear_cache()
         for f in job.output:
             self._mark_incomplete(self._get_key(f), external_jobid)
@@ -519,7 +515,7 @@ class PersistenceBase(
         for f in job.output:
             self._unmark_incomplete(self._get_key(f))
 
-    async def incomplete(self, job: Any) -> List[Any]:
+    async def incomplete(self, job: Any) -> list[Any]:
         keys = [self._get_key(f) for f in job.output]
         marked_incomplete = self._filter_incomplete_keys(keys)
 
@@ -536,7 +532,7 @@ class PersistenceBase(
 
         return [t.result() for t in tasks if t.result() is not None]
 
-    def external_jobids(self, job: Any) -> List[str]:
+    def external_jobids(self, job: Any) -> list[str]:
         keys = [self._get_key(f) for f in job.output]
         return list(self._get_external_jobids(keys))
 
@@ -595,37 +591,37 @@ class PersistenceBase(
             for path in job.output
         )
 
-    def rule(self, path: Any) -> Optional[str]:
+    def rule(self, path: Any) -> str | None:
         return (m := self.metadata(path)) and m.rule
 
-    def input(self, path: Any) -> Optional[List[str]]:
+    def input(self, path: Any) -> Optional[list[str]]:
         return (m := self.metadata(path)) and m.input
 
-    def log(self, path: Any) -> Optional[List[str]]:
+    def log(self, path: Any) -> Optional[list[str]]:
         return (m := self.metadata(path)) and m.log
 
-    def shellcmd(self, path: Any) -> Optional[str]:
+    def shellcmd(self, path: Any) -> str | None:
         return (m := self.metadata(path)) and m.shellcmd
 
-    def params(self, path: Any) -> Optional[List[Any]]:
+    def params(self, path: Any) -> Optional[list[Any]]:
         return (m := self.metadata(path)) and m.params
 
-    def code(self, path: Any) -> Optional[str]:
+    def code(self, path: Any) -> str | None:
         return (m := self.metadata(path)) and m.code
 
-    def record_format_version(self, path: Any) -> Optional[int]:
+    def record_format_version(self, path: Any) -> int | None:
         return (m := self.metadata(path)) and m.record_format_version
 
-    def conda_env(self, path: Any) -> Optional[str]:
+    def conda_env(self, path: Any) -> str | None:
         return (m := self.metadata(path)) and m.conda_env
 
-    def container_img_url(self, path: Any) -> Optional[str]:
+    def container_img_url(self, path: Any) -> str | None:
         return (m := self.metadata(path)) and m.container_img_url
 
-    def software_stack_hash(self, path: Any) -> Optional[str]:
+    def software_stack_hash(self, path: Any) -> str | None:
         return (m := self.metadata(path)) and m.software_stack_hash
 
-    def input_checksums(self, job: Any, input_path: Any) -> Set[Any]:
+    def input_checksums(self, job: Any, input_path: Any) -> set[Any]:
         return set(
             (
                 m.input_checksums.get(input_path)
@@ -690,7 +686,7 @@ class PersistenceBase(
         return changes
 
     @lru_cache()
-    def _code(self, rule) -> Optional[str]:
+    def _code(self, rule) -> str | None:
         # Scripts and notebooks are triggered by changes in the script mtime.
         # Changes to python and shell rules are triggered by changes in the plain text.
         if rule.shellcmd is not None:
@@ -700,12 +696,12 @@ class PersistenceBase(
         return None
 
     @lru_cache()
-    def _conda_env(self, job) -> Optional[str]:
+    def _conda_env(self, job) -> str | None:
         if job.conda_env:
             return b64encode(job.conda_env.content).decode()
 
     @lru_cache()
-    def _input(self, job) -> List[str]:
+    def _input(self, job) -> list[str]:
         def get_paths():
             for f in job.input:
                 if f.is_storage:
@@ -725,7 +721,7 @@ class PersistenceBase(
         return sorted(get_paths())
 
     @lru_cache()
-    def _log(self, job) -> List[str]:
+    def _log(self, job) -> list[str]:
         return sorted(job.log)
 
     def _serialize_param_builtin(self, value: Any) -> Union[str, object]:
@@ -773,7 +769,7 @@ class PersistenceBase(
             return self._serialize_param_builtin
 
     @lru_cache()
-    def _params(self, job) -> List[Any]:
+    def _params(self, job) -> list[Any]:
         return sorted(
             filter(
                 lambda p: p is not UNREPRESENTABLE,
