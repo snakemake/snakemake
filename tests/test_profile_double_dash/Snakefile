@@ -1,0 +1,10 @@
+rule all:
+    input:
+        "done.txt",
+
+
+rule one:
+    output:
+        "done.txt",
+    shell:
+        "echo done > {output}"
