@@ -300,7 +300,7 @@ python-build = ">=1.2.2,<2"
 packaging = ">=24.0,<26"
 
 [tool.pixi.feature.publish.tasks]
-build = { cmd = "python -m build", description = "Build the package into the dist/ directory" }
+build = { cmd = "python -m build", description = "Build the package into the dist/ directory", default-environment = "publish" }
 build-check = { cmd = "python -m twine check --strict dist/*", depends-on = [
   "build",
-], description = "Check that the package can be uploaded" }
+], description = "Check that the package can be uploaded", default-environment = "publish" }
