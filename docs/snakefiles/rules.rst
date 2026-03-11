@@ -458,8 +458,8 @@ named tuples with the column names as attributes.
 If the query results in a single row, the result is returned as a single
 named tuple with the column names as attributes.
 If the query or dpath parameter is given a function, the function will be evaluated with wildcards passed as the first argument.
-In case of dpath, if the dpath is not found, a ``LookupError`` is raised, unless a
-default fallback value is provided via the ``default`` argument (this argument is ignored in case of ``query``).
+If the dpath is not found or the query returns no matching rows, the ``default`` fallback
+value is returned if provided. Otherwise, a ``LookupError`` is raised (for dpath) or an empty list is returned (for query).
 Note: ``None`` is also a valid default value.
 
 In both cases (``dpath`` and ``query``), the result can be used by the ``expand`` or ``collect`` function,
