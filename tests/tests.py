@@ -2892,7 +2892,6 @@ def test_ambiguousruleexception():
     try:
         run(path, tmpdir=tmpdir)
     except AmbiguousRuleException:
-        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
         return
     finally:
         shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
