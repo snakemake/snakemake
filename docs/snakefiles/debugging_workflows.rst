@@ -152,3 +152,9 @@ In an interactive R session, first load all the ``library()`` s that you need fo
 .. code-block:: r
 
     load("my_dump.RData")
+
+
+Preserving wrapper scripts
+--------------------------
+
+Snakemake produces a series of wrapper scripts for rules using the ``script`` directive (default location ``.snakemake/scripts/``). Normally, these are deleted after each run. For debugging purposes, you can disable this behavior by running snakemake with the ``--skip-script-cleanup`` flag.
