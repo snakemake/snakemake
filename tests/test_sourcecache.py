@@ -57,3 +57,34 @@ def test_infer_source_file_from_gitlab_api_url_custom_host():
     assert file.repo == "group/project"
     assert file.branch == "main"
     assert file.path == "workflow/Snakefile"
+
+
+def test_infer_source_file_from_github_shorthand():
+    file = infer_source_file("github.com:snakemake/snakemake@main:workflow/Snakefile")
+
+    assert isinstance(file, GithubFile)
+    assert file.repo == "snakemake/snakemake"
+    assert file.branch == "main"
+    assert file.path == "workflow/Snakefile"
+
+
+def test_infer_source_file_from_gitlab_shorthand():
+    file = infer_source_file("gitlab.com:group/project@main:workflow/Snakefile")
+
+    assert isinstance(file, GitlabFile)
+    assert file.host == "gitlab.com"
+    assert file.repo == "group/project"
+    assert file.branch == "main"
+    assert file.path == "workflow/Snakefile"
+
+
+def test_infer_source_file_from_gitlab_shorthand_custom_host():
+    file = infer_source_file(
+        "gitlab.cern.ch:group/subgroup/project@main:workflow/Snakefile"
+    )
+
+    assert isinstance(file, GitlabFile)
+    assert file.host == "gitlab.cern.ch"
+    assert file.repo == "group/subgroup/project"
+    assert file.branch == "main"
+    assert file.path == "workflow/Snakefile"
