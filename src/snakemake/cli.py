@@ -1967,7 +1967,9 @@ def args_to_api(args, parser):
     """Convert argparse args to API calls."""
 
     # handle legacy executor names
-    if args.dryrun:
+    # In interactive mode, the first phase is dryrun anyway. Keep the selected
+    # executor for the second phase instead of forcing "dryrun" here.
+    if args.dryrun and not args.interactive:
         args.executor = "dryrun"
     elif args.touch:
         args.executor = "touch"
