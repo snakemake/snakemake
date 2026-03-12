@@ -475,7 +475,6 @@ def get_argument_parser(profiles=None):
         "--snakefile",
         "-s",
         metavar="FILE",
-        type=Path,
         help=(
             "The workflow definition in form of a snakefile. "
             "Usually, you should not need to specify this. "
@@ -1844,10 +1843,11 @@ def parse_args(argv):
         elif snakefile is not None:
             # checking for default profile
             default_path = Path("profiles/default")
-            workflow_profile_candidates = [
-                default_path,
-                Path(snakefile).parent.joinpath(default_path),
-            ]
+            workflow_profile_candidates = [default_path]
+            if isinstance(snakefile, Path):
+                workflow_profile_candidates.append(
+                    snakefile.parent.joinpath(default_path)
+                )
             for profile in workflow_profile_candidates:
                 if profile.exists():
                     workflow_profile = profile
