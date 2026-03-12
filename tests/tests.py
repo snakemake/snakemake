@@ -3106,7 +3106,7 @@ def test_github_issue4003():
     with pytest.raises(ValueError, match="Only .py files may be run as Python modules."):
         format_python_module("package/module.pyx")
 
-    run(dpath("test_github_issue4003"), cleanup=False)
+    run(dpath("test_github_issue4003"))
 
 
 @skip_on_windows
