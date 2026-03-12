@@ -159,8 +159,28 @@ class DefaultFormatter(logging.Formatter):
         return formatter(record_dict)
 
     def format_workflow_started(self, msg: dict[str, Any]):
-        """Format the run_info log messages."""
-        return msg["msg"]  # Log the message directly
+        """Format the workflow_started log messages."""
+
+        return """
+SNAKEMAKE
+=========
+  Date: {datetime}
+  Workflow ID: {worklow_id}
+  Platform: {platform}
+  Host: {host}
+  User: {user}
+  Snakemake version: {snakemake_version}
+  Python version: {python_version}
+  Conda version: {conda_version}
+  Conda env: {conda_env} ({conda_prefix})
+  Command: {cmd}
+  Base directory: {basedir}
+  Run directory: {rundir}
+  Working directory: {cwd}
+  Config file(s): {configfiles}
+""".format(
+            **msg
+        )
 
     def format_run_info(self, msg: dict[str, Any]):
         """Format the run_info log messages."""

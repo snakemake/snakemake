@@ -271,48 +271,25 @@ class Workflow(WorkflowExecutorInterface):
     def info_header(self):
         import os
         from datetime import datetime
-        datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # See https://github.com/moiexpositoalonsolab/grenepipe/blob/95c91ef7e9a621887e88bc5a8c79e38d1a0b8436/workflow/rules/initialize.smk#L192
-        def info_conda_version():
-            conda_ver = "n/a"
-            try:
-                process = subprocess.Popen(
-                    ["conda", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
-                out, err = process.communicate()
-                out = out.decode("ascii")
-                conda_ver = out[out.startswith("conda") and len("conda") :].strip()
-                if not conda_ver:
-                    conda_ver = "n/a"
-            except:
-                pass
-            return conda_ver
-
-        # See https://stackoverflow.com/a/42660674/4184258
-        def info_conda_env():
-            conda_env = os.environ["CONDA_DEFAULT_ENV"] + " (" + os.environ["CONDA_PREFIX"] + ")"
-            if conda_env == " ()":
-                conda_env = "n/a"
-            return str(conda_env)
-
-        return f"""
-SNAKEMAKE
-=========
-Version: {__version__}
-Date: {datetime}
-Platform: {platform.platform()}
-host: {platform.node()}
-user: {os.getlogin()}
-conda: {info_conda_version()}
-Python v{sys.version}
-Conda env: {info_conda_env()}
-Command: {sys.argv}
-Base directory: {self.basedir}
-Run directory: {self.rundir}
-Working directory: {self.workdir_init}
-Config file(s): {workflow.configfiles}
-"""
+        return {
+            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "snakemake_version": __version__,
+            "platform": platform.platform(),
+            "host": platform.node(),
+            "user": os.getlogin(),
+            "conda_version": subprocess.getoutput("conda --version").removeprefix(
+                "conda "
+            ),
+            "python_version": sys.version,
+            "conda_env": os.environ["CONDA_DEFAULT_ENV"],
+            "conda_prefix": os.environ["CONDA_PREFIX"],
+            "cmd": sys.argv,
+            "basedir": self.basedir,
+            "rundir": self.rundir,
+            "cwd": self.workdir_init,
+            "configfiles": workflow.configfiles,
+        }
 
     @property
     def included(self) -> Iterator[SourceFile]:
@@ -1308,11 +1285,14 @@ Config file(s): {workflow.configfiles}
         import uuid
         from snakemake.shell import shell
 
-        logger.info(self.info_header,
-            extra=dict(event=LogEvent.WORKFLOW_STARTED,
-                       snakefile=self.snakefile,
-                       worklow_id=uuid.uuid4(),
-            ),
+        logger.info(
+            "Workflow has started!",
+            extra=dict(
+                event=LogEvent.WORKFLOW_STARTED,
+                snakefile=self.snakefile,
+                worklow_id=uuid.uuid4(),
+            )
+            | self.info_header,
         )
 
         assert self.deployment_settings is not None
