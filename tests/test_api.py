@@ -1,4 +1,8 @@
+from contextlib import contextmanager
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import sys, os, subprocess
+import threading
 
 from snakemake.executors import local
 
@@ -9,6 +13,26 @@ from .common import *
 from snakemake import api
 from snakemake.settings import types as settings
 import copy
+
+
+class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+
+@contextmanager
+def serve_directory(path: Path):
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), partial(QuietHTTPRequestHandler, directory=str(path))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
 
 
 def test_deploy_sources(s3_storage):
@@ -58,3 +82,32 @@ def test_deploy_sources(s3_storage):
                 subprocess.run(cmd, shell=True, check=True, env=env)
             finally:
                 os.chdir(origdir)
+
+
+def test_remote_snakefile_via_api():
+    source_dir = dpath("test_multiple_includes")
+    expected_results = source_dir / "expected-results"
+
+    with tempfile.TemporaryDirectory(prefix="snakemake-remote-snakefile-api-") as workdir:
+        workdir = Path(workdir)
+
+        with serve_directory(source_dir) as server_url:
+            with api.SnakemakeApi(
+                settings.OutputSettings(
+                    verbose=True,
+                    show_failed_logs=True,
+                ),
+            ) as snakemake_api:
+                workflow_api = snakemake_api.workflow(
+                    resource_settings=settings.ResourceSettings(cores=1),
+                    snakefile=f"{server_url}/Snakefile",
+                    workdir=workdir,
+                )
+                dag_api = workflow_api.dag()
+                dag_api.execute_workflow()
+
+        for relpath in get_expected_files(expected_results):
+            output = workdir / relpath
+            expected = expected_results / relpath
+            assert output.exists(), f"Missing output {relpath}"
+            assert md5sum(output) == md5sum(expected)
