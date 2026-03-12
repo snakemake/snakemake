@@ -62,6 +62,7 @@ from snakemake.shell import shell
 from snakemake.common import (
     MIN_PY_VERSION,
     __version__,
+    is_local_file,
 )
 from snakemake.resources import Resources
 
@@ -76,12 +77,13 @@ class ApiBase(ABC):
         pass
 
 
-def resolve_snakefile(path: Optional[Path], allow_missing: bool = False):
-    """Get path to the snakefile.
+def resolve_snakefile(path: Optional[Path | str], allow_missing: bool = False):
+    """Get path or URI to the snakefile.
 
     Arguments
     ---------
-    path: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
+    path: Optional[Path | str] -- The path or URI to the snakefile. If not provided,
+    default locations will be tried.
     """
     if path is None:
         for p in SNAKEFILE_CHOICES:
@@ -91,6 +93,10 @@ def resolve_snakefile(path: Optional[Path], allow_missing: bool = False):
             raise ApiError(
                 f"No Snakefile found, tried {', '.join(map(str, SNAKEFILE_CHOICES))}."
             )
+
+    if isinstance(path, str) and is_local_file(path):
+        return Path(path)
+
     return path
 
 
@@ -120,7 +126,7 @@ class SnakemakeApi(ApiBase):
         workflow_settings: Optional[WorkflowSettings] = None,
         deployment_settings: Optional[DeploymentSettings] = None,
         storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
-        snakefile: Optional[Path] = None,
+        snakefile: Optional[Path | str] = None,
         workdir: Optional[Path] = None,
     ):
         """Create the workflow API.
@@ -133,7 +139,7 @@ class SnakemakeApi(ApiBase):
         config_settings: ConfigSettings -- The config settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
         storage_settings: StorageSettings -- The storage settings for the workflow.
-        snakefile: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
+        snakefile: Optional[Path | str] -- The path or URI to the snakefile. If not provided, default locations will be tried.
         workdir: Optional[Path] -- The path to the working directory. If not provided, the current working directory will be used.
         """
 
@@ -328,7 +334,7 @@ class WorkflowApi(ApiBase):
     """
 
     snakemake_api: SnakemakeApi
-    snakefile: Path
+    snakefile: Path | str
     workdir: Optional[Path]
     config_settings: ConfigSettings
     resource_settings: ResourceSettings
@@ -434,12 +440,13 @@ class WorkflowApi(ApiBase):
     def __post_init__(self):
         self._workdir_handler = None
         super().__post_init__()
-        self.snakefile = self.snakefile.absolute()
+        if isinstance(self.snakefile, Path):
+            self.snakefile = self.snakefile.absolute()
         self._workdir_handler = WorkdirHandler(self.workdir)
         self._workdir_handler.change_to()
 
     def _check(self):
-        if not self.snakefile.exists():
+        if isinstance(self.snakefile, Path) and not self.snakefile.exists():
             raise ApiError(f'Snakefile "{self.snakefile}" not found.')
 
 
