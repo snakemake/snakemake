@@ -3090,9 +3090,22 @@ def test_stats_table_order_and_counts():
 def test_github_issue4003():
     from snakemake.ioutils.python_module import format_python_module
     assert (
-        format_python_module(r"package\subpackage/module.py")
+        format_python_module("package/subpackage/module.py")
         == "package.subpackage.module"
     )
+
+    windows_path = r"package\subpackage\module.py"
+    if ON_WINDOWS:
+        assert (format_python_module(windows_path) == "package.subpackage.module")
+    else:
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                f"{windows_path} does not translate to a valid Python name"
+            ),
+        ):
+            format_python_module(windows_path)
+
     for bad_name in [
         "0package/module.py",
         "sub-package/module.py",
