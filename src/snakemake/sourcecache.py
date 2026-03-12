@@ -708,6 +708,34 @@ def _infer_hosting_provider_file(path_or_uri: str) -> Optional[HostingProviderFi
     return _infer_github_file(path_or_uri) or _infer_gitlab_file(path_or_uri)
 
 
+def _infer_hosting_provider_file_shorthand(
+    path_or_uri: str,
+) -> Optional[HostingProviderFile]:
+    if "://" in path_or_uri:
+        return None
+
+    host, sep, remainder = path_or_uri.partition(":")
+    if not sep or "." not in host or "/" not in remainder or "@" not in remainder:
+        return None
+
+    repo_ref, sep, path = remainder.rpartition(":")
+    if not sep or not path:
+        return None
+
+    repo, sep, ref = repo_ref.rpartition("@")
+    if not sep or not repo or not ref or "/" not in repo:
+        return None
+
+    repo = unquote(repo)
+    ref = unquote(ref)
+    path = unquote(path)
+
+    if host == "github.com":
+        return GithubFile(repo=repo, path=path, branch=ref)
+
+    return GitlabFile(repo=repo, path=path, branch=ref, host=host)
+
+
 def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> SourceFile:
     if isinstance(path_or_uri, SourceFile):
         if basedir is None or isinstance(path_or_uri, HostingProviderFile):
@@ -720,6 +748,9 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
         raise SourceFileError(
             "must be given as Python string or one of the predefined source file marker types (see docs)"
         )
+    hosting_provider_file = _infer_hosting_provider_file_shorthand(path_or_uri)
+    if hosting_provider_file is not None:
+        return hosting_provider_file
     if is_local_file(path_or_uri):
         # either local file or relative to some remote basedir
         for schema in ("file://", "file:"):
