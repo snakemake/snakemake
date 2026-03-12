@@ -94,37 +94,22 @@ Development with ``pixi``
 =========================
 
 `pixi <https://pixi.sh/>`_ is a tool that is designed to help you manage 
-your development environment.It acts as a drop-in replacement for
-`conda <https://docs.conda.io/en/latest/>`_, offering:
+your development environment. It acts as a drop-in replacement for
+`conda <https://docs.conda.io/en/latest/>`_.
 
-- **Easy installation & Updating**: `install pixi <https://pixi.sh/latest/#installation>`_ 
-  through many methods and for different shells.
-  Updating ``pixi`` is as simple as ``pixi self-update``
+After having cloned the Snakemake repository and changed to the directory,
+use the following command to get `pixi` set up for Snakemake development:
 
-- **Ease of Use**: A streamlined CLI (similar to Yarn or Cargo) for quick
-  environment creation and management. Try commands like ``pixi init``,
-  ``pixi add <package>``, or ``pixi run`` to see how intuitive it is.
+.. code-block:: console
 
-- **Multiple Environments**: Define and switch between multiple sets of
-  dependencies under one project.
-  Pixi uses a ``feature`` system to compose an ``environment``.
-  Think of ``features`` as a way to group dependencies and settings together.
-  and an environment is a collection of features.
-  This allows easy management of different environments for multiple use.
-  See the ``pyproject.toml`` file for an example of how the ``test`` feature
-  is used to define the ``dev``, ``py311`` and ``py312`` environments.
+    $ pixi install
 
-- **Cross-Platform Solving**: Target Linux, macOS, and Windows from a single
-  config. Pixi resolves the correct packages for each platform and captures
-  them in a lockfile for reproducible setups—no Docker needed.
+This will create a new environment with all the dependencies needed for development.
+Then you can make changes and run e.g. 
 
-- **Speed & Conda Compatibility**: Written in Rust, Pixi downloads and solves
-  packages in parallel for faster operations. It uses the Conda ecosystem
-  and channels, so you get the same packages with improved performance. In
-  many cases, Pixi can outperform both Conda and Mamba.
+.. code-block:: console
 
-To learn more, visit the `Pixi docs <https://pixi.sh>`__ or check out helpful
-guides on `prefix.dev <https://prefix.dev/>`__. 
+    $ pixi run snakemake --help
 
 Testing Guidelines
 ==================
