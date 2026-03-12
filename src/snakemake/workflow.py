@@ -270,6 +270,7 @@ class Workflow(WorkflowExecutorInterface):
     def info_header(self):
         import os
         import sys
+        import shutil
         import getpass
         from datetime import datetime
         from snakemake.common import __version__
@@ -280,12 +281,25 @@ class Workflow(WorkflowExecutorInterface):
             "platform": platform.platform(),
             "host": platform.node(),
             "user": getpass.getuser(),
-            "conda_version": subprocess.getoutput("conda --version").removeprefix(
-                "conda "
+            "conda_version": (
+                subprocess.run(
+                    ["conda", "--version"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                .stdout.strip()
+                .removeprefix("conda ")
+                if shutil.which("conda")
+                else "n/a"
             ),
             "python_version": sys.version,
-            "conda_env": os.environ["CONDA_DEFAULT_ENV"],
-            "conda_prefix": os.environ["CONDA_PREFIX"],
+            "conda_env": (
+                os.environ["CONDA_DEFAULT_ENV"] if shutil.which("conda") else "n/a"
+            ),
+            "conda_prefix": (
+                os.environ["CONDA_PREFIX"] if shutil.which("conda") else "n/a"
+            ),
             "cmd": sys.argv,
             "basedir": self.basedir,
             "rundir": self.rundir,
