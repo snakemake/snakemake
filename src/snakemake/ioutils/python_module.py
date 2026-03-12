@@ -16,9 +16,9 @@ def format_python_module(filename: str) -> str:
     if not filename.endswith(".py"):
         raise ValueError("Only .py files may be run as Python modules.")
 
-    components = filename[:-3].split("/")
+    components = filename[:-3].replace("\\", "/").split("/")
     if any(
-        re.match("[A-Za-z_][A-Za-z0-9_]*", component) is None
+        re.match("[A-Za-z_][A-Za-z0-9_]*$", component) is None
         for component in components
     ):
         raise ValueError(f"{filename} does not translate to a valid Python name")

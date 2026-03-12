@@ -3088,6 +3088,24 @@ def test_stats_table_order_and_counts():
 
 
 def test_github_issue4003():
+    from snakemake.ioutils.python_module import format_python_module
+    assert (
+        format_python_module(r"package\subpackage/module.py")
+        == "package.subpackage.module"
+    )
+    for bad_name in [
+        "0package/module.py",
+        "sub-package/module.py",
+        "package/mod-ule.py",
+    ]:
+        with pytest.raises(
+            ValueError, match=f"{bad_name} does not translate to a valid Python name"
+        ):
+            format_python_module(bad_name)
+
+    with pytest.raises(ValueError, match="Only .py files may be run as Python modules."):
+        format_python_module("package/module.pyx")
+
     run(dpath("test_github_issue4003"), cleanup=False)
 
 
