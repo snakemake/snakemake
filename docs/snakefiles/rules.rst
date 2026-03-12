@@ -2705,7 +2705,7 @@ Consider the following example where an arbitrary number of files is generated b
         output:
             directory("my_directory/")
         shell:'''
-        mkdir my_directory/
+        mkdir -p my_directory/
         cd my_directory
         for i in 1 2 3; do touch $i.txt; done
         '''
