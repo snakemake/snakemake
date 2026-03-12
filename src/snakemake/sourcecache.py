@@ -666,7 +666,11 @@ def _infer_github_file(path_or_uri: str) -> Optional[GithubFile]:
         path = unquote("/".join(path_parts[3:]))
         return GithubFile(repo=repo, path=path, branch=ref)
 
-    if parsed.netloc == "github.com" and len(path_parts) >= 5 and path_parts[2] == "blob":
+    if (
+        parsed.netloc == "github.com"
+        and len(path_parts) >= 5
+        and path_parts[2] == "blob"
+    ):
         repo = "/".join(path_parts[:2])
         ref = unquote(path_parts[3])
         path = unquote("/".join(path_parts[4:]))
