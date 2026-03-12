@@ -270,6 +270,7 @@ class Workflow(WorkflowExecutorInterface):
     def info_header(self):
         import os
         import sys
+        import getpass
         from datetime import datetime
         from snakemake.common import __version__
 
@@ -278,7 +279,7 @@ class Workflow(WorkflowExecutorInterface):
             "snakemake_version": __version__,
             "platform": platform.platform(),
             "host": platform.node(),
-            "user": os.getlogin(),
+            "user": getpass.getuser(),
             "conda_version": subprocess.getoutput("conda --version").removeprefix(
                 "conda "
             ),
