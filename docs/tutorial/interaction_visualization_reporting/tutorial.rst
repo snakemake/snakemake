@@ -1,7 +1,7 @@
 .. _interaction_visualization_reporting_tutorial:
 
 ==================================================================
-Tutorial: Interaction, Visualization, and Reporting with Snakemake
+Tutorial: Interaction, Visualization, and Reporting
 ==================================================================
 
 .. _Snakemake: https://snakemake.github.io
@@ -39,7 +39,7 @@ In the ``Snakefile``, define the following rule:
 
 .. code-block:: python
 
-    
+
     rule get_data:
         output:
             "resources/data/cars.tsv"
@@ -83,7 +83,7 @@ In the presented interface, select the temporary notebook file and start editing
 We aim for the following content:
 
 .. code-block:: python
-    
+
     import polars as pl
     from vega_datasets import data
 
@@ -110,7 +110,7 @@ Add the following rule to the ``Snakefile``:
 
 .. code-block:: python
 
-    
+
     rule plot_with_r:
         input:
             "resources/data/cars.tsv"
@@ -150,7 +150,7 @@ We want to create a plot of the horsepower vs. miles per gallon from the cars da
 The plot shall finally be saves as an SVG file:
 
 .. code-block:: r
-    
+
     library(readr)
     library(ggplot2)
 
@@ -169,7 +169,7 @@ Add the following rule to the ``Snakefile``:
 
 .. code-block:: python
 
-    
+
     rule plot_with_python:
         input:
             "resources/data/cars.tsv"
@@ -212,7 +212,7 @@ Again, recall the terminal command from the previous step and run the equivalent
 The content of the notebook shall be:
 
 .. code-block:: python
-    
+
     import altair as alt
     import polars as pl
     alt.data_transformers.enable("vegafusion")
@@ -240,7 +240,7 @@ It is available as a `Snakemake wrapper <https://snakemake-wrappers.readthedocs.
 
 .. code-block:: python
 
-    
+
     rule view_with_datavzrd:
         input:
             config=workflow.source_path("resources/datavzrd/cars.yaml"),
@@ -341,7 +341,7 @@ Add a rule ``all`` to the top of the ``Snakefile``:
 
 .. code-block:: python
 
-    
+
     rule all:
         input:
             "results/plots/horsepower_vs_mpg.ggplot.svg",
