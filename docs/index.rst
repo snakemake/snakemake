@@ -156,6 +156,24 @@ Resources
    tutorial/interaction_visualization_reporting/tutorial
 
 .. toctree::
+    :caption: Defining Workflows
+    :name: snakefiles
+    :hidden:
+    :maxdepth: 2
+
+    snakefiles/rules
+    snakefiles/configuration
+    snakefiles/modularization
+    snakefiles/storage
+    snakefiles/utils
+    snakefiles/deployment
+    snakefiles/reporting
+    snakefiles/testing
+    snakefiles/debugging_workflows
+    snakefiles/foreign_wms
+
+
+.. toctree::
   :caption: Executing workflows
   :name: execution-toctree
   :hidden:
@@ -168,24 +186,8 @@ Resources
   executing/interoperability
   executing/monitoring
   executing/provenance
+  executing/cluster_execution
 
-.. toctree::
-    :caption: Defining workflows
-    :name: snakefiles
-    :hidden:
-    :maxdepth: 1
-
-    snakefiles/writing_snakefiles
-    snakefiles/rules
-    snakefiles/configuration
-    snakefiles/modularization
-    snakefiles/storage
-    snakefiles/utils
-    snakefiles/deployment
-    snakefiles/reporting
-    snakefiles/testing
-    snakefiles/foreign_wms
-    snakefiles/debugging_workflows
 
 .. toctree::
     :caption: Project Info
