@@ -158,8 +158,7 @@ class DbPersistence(PersistenceBase):
             yield keys_list[i : i + size]
 
     def _filter_incomplete_keys(self, keys: Iterable[str]) -> set[str]:
-        keys_list = list(keys)
-        if not keys_list:
+        if not (keys_list := list(keys)):
             return set()
 
         result = set()
@@ -174,8 +173,7 @@ class DbPersistence(PersistenceBase):
         return result
 
     def _get_external_jobids(self, keys: Iterable[str]) -> set[str]:
-        keys_list = list(keys)
-        if not keys_list:
+        if not (keys_list := list(keys)):
             return set()
 
         result = set()
@@ -197,8 +195,7 @@ class DbPersistence(PersistenceBase):
             ]
 
     def _write_locks(self, lock_type: str, keys: Iterable[str]) -> None:
-        keys_list = list(set(keys))
-        if not keys_list:
+        if not (keys_list := list(set(keys))):
             return
 
         with Session(self.engine) as session:
