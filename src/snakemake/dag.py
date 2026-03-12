@@ -27,6 +27,11 @@ from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
 from snakemake.rules import Rule
+from snakemake.scattergather import (
+    ScatterFailureResult,
+    ScatterItem,
+    ScatterProcessState,
+)
 from snakemake.settings.types import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
@@ -162,6 +167,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._running = set()
         self._jobs_with_finished_queue_input = set()
         self._storage_input_jobs = defaultdict(list)
+        self._scatter_processes = {
+            name: ScatterProcessState(definition)
+            for name, definition in self.workflow._scatter.items()
+        }
+        # Maps each job to the scatter items it is a member of.
+        self._scatter_job_memberships = defaultdict(set)
         self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
         self._checked_jobs = set()
         self._checked_needrun_jobs = set()
@@ -1343,6 +1354,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             dependencies[job_].add(file)
             self.depending[job_][job].add(file)
 
+            # When processing a gather job's dependencies (i.e. when `job` is a
+            # gather job and `job_` is producing a file that is consumed by the gather job),
+            # each produced `file` will have a scatter item flag attached.
+            scatter_item = self._get_scatter_item(file)
+            if scatter_item is not None:
+                # We then need to walk back up this branch to the scatter job, tagging each
+                # intermediate job as a member of the scatter branch.
+                self._register_scatter_dependency(
+                    scatter_item, producer_job=job_, consumer_job=job
+                )
+
         if self.is_batch_rule(job.rule) and self.batch.is_final:
             # For the final batch, ensure that all input files from
             # previous batches are present on disk.
@@ -1904,6 +1926,389 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         )
         return potential_new_ready_jobs
 
+    def _get_scatter_item(self, file) -> Optional[ScatterItem]:
+        """Get the scatter item that the given file belongs to (if any)."""
+        scatter_item = get_flag_value(file, "scattergather")
+        if isinstance(scatter_item, ScatterItem):
+            return scatter_item
+        return None
+
+    def _register_scatter_dependency(
+        self,
+        scatter_item: ScatterItem,
+        producer_job: Job,
+        consumer_job: Job,
+    ) -> None:
+        """
+        Given a scatter item which feeds a gather job, register this
+        gather job and register all intermediate jobs in the scatter
+        branch which lead to it as members of the scatter item.
+        """
+        state = self._scatter_processes.get(scatter_item.process)
+        if state is None or scatter_item.role != "gather":
+            return
+
+        state.gather_jobs.add(consumer_job)
+
+        # Walk back up this branch to the scatter job, tagging each
+        # intermediate job as a member of the scatter branch.
+        self._register_scatter_branch_jobs(scatter_item, producer_job)
+
+    def _register_scatter_branch_jobs(
+        self,
+        scatter_item: ScatterItem,
+        job: Job,
+        visited: Optional[Set[Job]] = None,
+    ) -> None:
+        """
+        Walk the DAG backwards from the given job to mark every job that belongs
+        to the same scatter branch as part of the given scatter_item.
+
+        This allows failures anywhere in the scatter branch to be
+        attributed back to the scatter process.
+        """
+        state = self._scatter_processes.get(scatter_item.process)
+        if state is None:
+            return
+
+        if visited is None:
+            visited = set()
+        if job in visited:
+            return
+        visited.add(job)
+
+        # Only jobs on the same scatteritem branch belong to this membership.
+        scatteritem = f"{scatter_item.item}-of-{scatter_item.total}"
+        wildcards = job.wildcards_dict or {}
+        if wildcards.get("scatteritem") != scatteritem:
+            return
+
+        # Register this job as part of the scatter item.
+        state.producers[scatter_item.item].add(job)
+
+        # Also register the reverse - this scatter item branch contains this job
+        memberships = getattr(self, "_scatter_job_memberships", None)
+        if memberships is None:
+            self._scatter_job_memberships = defaultdict(set)
+            memberships = self._scatter_job_memberships
+        memberships[job].add(scatter_item)
+
+        # Walk upstream so failures in intermediate jobs can still be attributed
+        # to the scatter item that eventually feeds the gather rule.
+        for dep_job in self._dependencies.get(job, {}):
+            if isinstance(dep_job, Job):
+                self._register_scatter_branch_jobs(
+                    scatter_item, dep_job, visited=visited
+                )
+
+    def _collect_scatter_successes(self, finished_job: Job) -> Set[str]:
+        """
+        Check whether the given `finished_job` has delivered inputs that
+        triggered any gather steps within a scatter-gather process.
+        :returns: Set of scatter process names that have successfully produced
+            an input that is now consumed by a gather job.
+        """
+        processes = set()
+
+        # Loop through all jobs which depend on the finished job
+        for consumer_job, files in self.depending.get(finished_job, {}).items():
+            # Loop through all files that the consumer job depends on
+            for file in files:
+                # Skip files unrelated to gather consumption
+                scatter_item = self._get_scatter_item(file)
+                if scatter_item is None or scatter_item.role != "gather":
+                    continue
+
+                # Ensure this scatter branch is up-to-date (new jobs may have been added).
+                self._register_scatter_dependency(
+                    scatter_item, producer_job=finished_job, consumer_job=consumer_job
+                )
+
+                # A branch only counts as successful once it has produced an input
+                # that is actually consumed by a gather job.
+                state = self._scatter_processes.get(scatter_item.process)
+                if state is None:
+                    continue
+                if (
+                    scatter_item.item in state.ignored
+                    or scatter_item.item in state.failures
+                ):
+                    continue
+                if (
+                    state.accepted is not None
+                    and scatter_item.item not in state.accepted
+                ):
+                    continue
+                if scatter_item.item not in state.successes:
+                    state.successes.add(scatter_item.item)
+                    processes.add(scatter_item.process)
+
+        return processes
+
+    @staticmethod
+    def _filter_namedlist(sequence, keep):
+        """
+        Filter `sequence` according to `keep` and retain any Namedlist name metadata.
+
+        If `sequence` is a Namedlist, the names are re-established on the filtered result.
+        Ordinary lists (which do not expose `_get_names`) are filtered normally.
+        """
+        # Create a new namedlist of the same type as the original.
+        # This will hold the items to keep.
+        filtered = sequence.__class__()
+        # Map<original_index, new_index_after_filtering>
+        kept_indices = dict()
+
+        for index, item in enumerate(sequence):
+            if keep(item):
+                kept_indices[index] = len(filtered)
+                filtered.append(item)
+
+        if isinstance(sequence, list) and hasattr(sequence, "_get_names"):
+            # Restore the names of the items that were kept.
+            for name, (start, end) in sequence._get_names():
+                # Single item
+                if end is None:
+                    if start in kept_indices:
+                        filtered._set_name(name, kept_indices[start])
+                else:
+                    # Range of items
+                    new_indices = [
+                        kept_indices[index]
+                        for index in range(start, end)
+                        if index in kept_indices
+                    ]
+                    if new_indices:
+                        filtered._set_name(
+                            name, new_indices[0], end=new_indices[-1] + 1
+                        )
+
+        return filtered
+
+    def _prune_gather_job_inputs(self, process: str) -> None:
+        """Prune inputs from gather jobs that belong to failed/ignored scatter branches."""
+        state = self._scatter_processes.get(process)
+        if state is None:
+            return
+
+        for job in list(state.gather_jobs):
+            # Skip jobs that are not in the DAG, have already finished, or are still running.
+            if (
+                job not in self._dependencies
+                or self.finished(job)
+                or job in self._running
+            ):
+                continue
+
+            # Remove failed or ignored scatter branches from gather inputs so the
+            # gather rule can still run with the surviving branches.
+            removed_files = {
+                file
+                for file in job.input
+                if (
+                    (scatter_item := self._get_scatter_item(file)) is not None
+                    and scatter_item.process == process
+                    and scatter_item.item not in state.active_items
+                )
+            }
+            if not removed_files:
+                continue
+
+            # Filter dead files from the gather job's input and dependencies.
+            job.input = self._filter_namedlist(
+                job.input, lambda file: file not in removed_files
+            )
+            job.dependencies = {
+                file: producer
+                for file, producer in job.dependencies.items()
+                if file not in removed_files
+            }
+
+            # Remove the now unreachable dependencies.
+            for dep_job, files in list(self._dependencies[job].items()):
+                removed = files & removed_files
+                if not removed:
+                    continue
+
+                files.difference_update(removed)
+                self.depending[dep_job][job].difference_update(removed)
+
+                # If the gather job no longer depends on this branch job, remove the dependency.
+                if not self.depending[dep_job][job]:
+                    del self.depending[dep_job][job]
+
+                if not files:
+                    del self._dependencies[job][dep_job]
+
+                    # We just disconnected a scatter branch job from the gather job.
+                    # If the branch job is not needed by any other job in the DAG,
+                    # we can safely delete it.
+                    if (
+                        dep_job in self._dependencies
+                        and not self.depending[dep_job]
+                        and dep_job not in self._running
+                        and not self.finished(dep_job)
+                    ):
+                        self.delete_job(dep_job, recursive=False)
+
+            # Recompute readiness of the gather job now that dependencies have been pruned.
+            if job in self._n_until_ready:
+                self._n_until_ready[job] = sum(
+                    1
+                    for dep_job in self._dependencies[job]
+                    if dep_job in self._needrun and not self.finished(dep_job)
+                )
+            job.invalidate_input_dependent_state()
+            self.update_ready([job])
+
+    def _update_scatter_process_state(self, process: str) -> None:
+        """
+        Update the state of the given scatter process.
+
+        For impatient processes, the state may be changed to 'accepted'
+        if enough branches have succeeded to meet the required tolerance.
+        """
+        state = self._scatter_processes.get(process)
+        if state is None:
+            return
+
+        if (
+            state.definition.impatient
+            and state.accepted is None
+            and len(state.successes) >= state.definition.required_successes
+        ):
+            # Freeze the accepted branches as soon as the process has enough
+            # successes, then prune the remaining (now ignored) inputs from
+            # downstream gather jobs.
+            state.accepted = frozenset(state.successes)
+            state.ignored.update(state.all_items - set(state.accepted))
+
+        self._prune_gather_job_inputs(process)
+
+    def _scatter_item_has_external_dependents(
+        self, scatter_item: ScatterItem, job: Job, state: ScatterProcessState
+    ):
+        """
+        Check if the given scatter item has any dependents outside the scatter process.
+        """
+        for consumer_job, files in self.depending.get(job, {}).items():
+            if consumer_job in state.gather_jobs:
+                # Check if the gather job depends on other branches than the one that failed.
+                if not any(
+                    (
+                        (ref := self._get_scatter_item(file)) is not None
+                        and ref.process == scatter_item.process
+                        and ref.item == scatter_item.item
+                    )
+                    for file in files
+                ):
+                    return True
+            else:
+                # Check if the consumer job is not a member of the scatter process.
+                consumer_memberships = getattr(
+                    self, "_scatter_job_memberships", {}
+                ).get(consumer_job, set())
+                if not any(
+                    membership.process == scatter_item.process
+                    and membership.item == scatter_item.item
+                    for membership in consumer_memberships
+                ):
+                    return True
+
+        return False
+
+    def handle_scatter_job_failure(self, job: Job) -> ScatterFailureResult:
+        """
+        Handle a failed scatter job by updating scatter process state and
+        pruning gather job inputs as needed.
+        """
+        # Get all scatter items that the failed job is a member of.
+        memberships = getattr(self, "_scatter_job_memberships", {}).get(job, set())
+        if not memberships:
+            # Not a member of any scatter process.
+            return ScatterFailureResult()
+
+        tolerated = set()
+        fatal = set()
+        ignored = set()
+        changed = set()
+
+        for scatter_item in memberships:
+            state = self._scatter_processes.get(scatter_item.process)
+            if state is None:
+                continue
+
+            # Tolerance only applies when the failed branch is still self-contained
+            # inside the scatter process. External consumers make the failure fatal.
+            if self._scatter_item_has_external_dependents(scatter_item, job, state):
+                fatal.add(scatter_item.process)
+                continue
+
+            # Branch is already ignored (triggered by 'impatient' flag) so we can skip it.
+            if scatter_item.item in state.ignored:
+                ignored.add(scatter_item.process)
+                continue
+
+            # state.accepted is set when in 'impatient' mode and enough
+            # branches have succeeded to meet the required tolerance.
+            if state.accepted is not None and scatter_item.item not in state.accepted:
+                # Set branch as ignored and proceed with our 'winning' state.accepted branches.
+                state.ignored.add(scatter_item.item)
+                ignored.add(scatter_item.process)
+                continue
+
+            # Branch was previously marked as a success but is now failing.
+            if scatter_item.item in state.successes:
+                fatal.add(scatter_item.process)
+                continue
+
+            # Branch was already marked as a failure but was tolerated - keep tolerating.
+            if scatter_item.item in state.failures:
+                tolerated.add(scatter_item.process)
+                continue
+
+            # At this point we know the branch is a brand new failure.
+            state.failures.add(scatter_item.item)
+
+            # If we're not in 'impatient' mode, check if we've reached the max tolerance.
+            if (
+                state.accepted is None
+                and len(state.failures) > state.definition.max_failures
+            ):
+                # No more tolerance left.
+                fatal.add(scatter_item.process)
+            else:
+                tolerated.add(scatter_item.process)
+                changed.add(scatter_item.process)
+
+        if fatal:
+            return ScatterFailureResult(
+                tolerated_processes=tuple(sorted(tolerated)),
+                fatal_processes=tuple(sorted(fatal)),
+                ignored_processes=tuple(sorted(ignored)),
+            )
+
+        if job in self._running:
+            self._running.remove(job)
+
+        for process in changed:
+            self._update_scatter_process_state(process)
+
+        if (
+            job in self._dependencies
+            and not self.depending[job]
+            and job not in self._running
+            and not self.finished(job)
+        ):
+            # Drop the failed branch job once nothing in the remaining DAG can
+            # reach it anymore.
+            self.delete_job(job)
+
+        return ScatterFailureResult(
+            tolerated_processes=tuple(sorted(tolerated)),
+            ignored_processes=tuple(sorted(ignored)),
+        )
+
     def get_jobs_or_groups(self):
         visited_groups = set()
         for job in self.jobs:
@@ -2290,6 +2695,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         self._finished.update(jobs)
         self.checkpoint_jobs.difference_update(job for job in jobs if job.is_checkpoint)
+
+        # Finishing a job in a scatter-gather branch can unblock
+        # impatient gather execution, so for each finished job, check if it
+        # contributed to any scatter process success.
+        updated_scatter_processes = set()
+        for finished_job in jobs:
+            if isinstance(finished_job, Job):
+                updated_scatter_processes.update(
+                    self._collect_scatter_successes(finished_job)
+                )
+        for process in updated_scatter_processes:
+            self._update_scatter_process_state(process)
 
         updated_dag = False
         if update_checkpoint_dependencies:
