@@ -377,9 +377,7 @@ def run(
                 success = True
             else:
                 if user_input is not None:
-                    raise ValueError(
-                        "user_input cannot be combined with sigint_after"
-                    )
+                    raise ValueError("user_input cannot be combined with sigint_after")
                 with subprocess.Popen(
                     shlex.split(shellcmd),
                     cwd=path if no_tmpdir else tmpdir,

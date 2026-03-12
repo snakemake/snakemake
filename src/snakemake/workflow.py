@@ -1562,6 +1562,7 @@ class Workflow(WorkflowExecutorInterface):
                 and len(self.dag)  # Only prompt if there are jobs
             ):
                 import builtins
+
                 response = builtins.input(
                     "\nDry-run successful. Continue with real execution? (y/n): "
                 )
@@ -1586,9 +1587,7 @@ class Workflow(WorkflowExecutorInterface):
                         self.upload_sources()
 
                     # Run the real execution phase
-                    logger.info(
-                        "\nStarting actual execution...\n"
-                    )
+                    logger.info("\nStarting actual execution...\n")
                     try:
                         success = self._run_scheduler_phase(
                             real_executor_plugin,
@@ -1602,7 +1601,6 @@ class Workflow(WorkflowExecutorInterface):
                         raise
                 else:
                     logger.info("Execution cancelled by user.")
-
 
     def prepare_for_real_execution_after_dryrun(
         self,
@@ -1642,7 +1640,6 @@ class Workflow(WorkflowExecutorInterface):
                 self.dag.pull_container_imgs()
             if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                 self.dag.create_conda_envs()
-
 
     def log_metadata_info(self, metadata_attr, description):
         jobs = [
