@@ -165,7 +165,7 @@ class DefaultFormatter(logging.Formatter):
 SNAKEMAKE
 =========
   Date: {datetime}
-  Workflow ID: {worklow_id}
+  Workflow ID: {workflow_id}
   Platform: {platform}
   Host: {host}
   User: {user}
@@ -174,6 +174,7 @@ SNAKEMAKE
   Conda version: {conda_version}
   Conda env: {conda_env} ({conda_prefix})
   Command: {cmd}
+  Snakefile: {snakefile_main}
   Base directory: {basedir}
   Run directory: {rundir}
   Working directory: {cwd}

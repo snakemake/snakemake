@@ -1290,8 +1290,9 @@ class Workflow(WorkflowExecutorInterface):
             "Workflow has started!",
             extra=dict(
                 event=LogEvent.WORKFLOW_STARTED,
+                snakefile_main=self.main_snakefile,
                 snakefile=self.snakefile,
-                worklow_id=uuid.uuid4(),
+                workflow_id=uuid.uuid4(),
             )
             | self.info_header,
         )
