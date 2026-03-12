@@ -973,7 +973,6 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=True,
             lock_warn_only=False,
         )
-        self._build_dag()
         try:
             self.persistence.cleanup_locks()
             logger.info("Unlocked working directory.")
@@ -1078,7 +1077,7 @@ class Workflow(WorkflowExecutorInterface):
 
         self.dag.d3dag()
 
-    def containerize(self):
+    def containerize(self, fmt="dockerfile"):
         from snakemake.deployment.containerize import containerize
 
         assert self.dag_settings is not None
@@ -1089,7 +1088,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
         with self.persistence.lock():
-            containerize(self, self.dag)
+            containerize(self, self.dag, fmt=fmt)
 
     def export_cwl(self, path: Path):
         """Export the workflow as CWL document.
@@ -1690,15 +1689,21 @@ class Workflow(WorkflowExecutorInterface):
 
     def onstart(self, func):
         """Register onstart function."""
-        self._onstart = func
+        if self.modifier.is_main_snakefile():
+            self._onstart = func
+        self.globals["onstart"] = partial(func, log=self.logger_manager.get_logfile())
 
     def onsuccess(self, func):
         """Register onsuccess function."""
-        self._onsuccess = func
+        if self.modifier.is_main_snakefile():
+            self._onsuccess = func
+        self.globals["onsuccess"] = partial(func, log=self.logger_manager.get_logfile())
 
     def onerror(self, func):
         """Register onerror function."""
-        self._onerror = func
+        if self.modifier.is_main_snakefile():
+            self._onerror = func
+        self.globals["onerror"] = partial(func, log=self.logger_manager.get_logfile())
 
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""
@@ -1963,11 +1968,14 @@ class Workflow(WorkflowExecutorInterface):
                     rule.shadow_depth = ruleinfo.shadow_depth
 
             if ruleinfo.priority:
-                if not isinstance(ruleinfo.priority, int) and not isinstance(
-                    ruleinfo.priority, float
+                if (
+                    not isinstance(ruleinfo.priority, int)
+                    and not isinstance(ruleinfo.priority, float)
+                    and not callable(ruleinfo.priority)
                 ):
                     raise RuleException(
-                        "Priority values have to be numeric.", rule=rule
+                        "Priority value has to be an integer, float, or a callable.",
+                        rule=rule,
                     )
                 rule.priority = ruleinfo.priority
 
