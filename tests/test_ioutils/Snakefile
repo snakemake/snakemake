@@ -8,6 +8,8 @@ configfile: "config.yaml"
 
 assert lookup(dpath="does/not/exist", within=config, default=None) is None
 assert lookup(dpath="does/not/exist", within=config, default=5) == 5
+assert lookup(query="sample == 999", within=samples, default="fallback") == "fallback"
+
 assert (
     extract_checksum("samples.md5", file="1.tsv") == "9695eb6f38992d796551f4cb20d7d138"
 )

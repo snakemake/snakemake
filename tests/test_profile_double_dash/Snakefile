@@ -1,0 +1,18 @@
+rule all:
+    input:
+        "other.txt",
+    default_target: True
+
+
+rule one:
+    output:
+        "done.txt",
+    shell:
+        "echo done > {output}"
+
+
+rule two:
+    output:
+        "other.txt",
+    shell:
+        "echo other > {output}"

@@ -57,7 +57,7 @@ from snakemake.io import AnnotatedString
 
 if TYPE_CHECKING:
     from snakemake.jobs import Job
-    from snakemake.io import Wildcards
+    from snakemake.io.container import Wildcards
     from snakemake.settings.types import ValidResource
 
 
@@ -669,6 +669,8 @@ class Resource:
         @ft.wraps(self._evaluator)
         def inner(*args: Any, **kwargs: Any):
             result = self._evaluator(*args, **kwargs)  # type: ignore (self._evaluator should never change)
+            if isinstance(result, TBDString):
+                return result
             if not isinstance(result, (int, float)):
                 raise ResourceConversionError.format_evaluated(self.name, result)
 
