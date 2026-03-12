@@ -141,7 +141,7 @@ html_theme_options = {
     },
     "awesome_external_links": True,
     "awesome_headerlinks": True,
-    "show_prev_next": False,
+    "show_prev_next": True,
 }
 html_permalinks_icon = Icons.permalinks_icon
 
