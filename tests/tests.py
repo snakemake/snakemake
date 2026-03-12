@@ -93,6 +93,42 @@ def test_unlock_cli():
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
+def test_interactive():
+    testdir = dpath("test_interactive")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        for f in os.listdir(testdir):
+            src = os.path.join(testdir, f)
+            if os.path.isdir(src):
+                shutil.copytree(src, os.path.join(tmpdir, f))
+            else:
+                shutil.copy(src, tmpdir)
+
+        result = sp.run(
+            [
+                sys.executable,
+                "-m",
+                "snakemake",
+                "--snakefile",
+                "Snakefile",
+                "--cores",
+                "1",
+                "--interactive",
+            ],
+            cwd=tmpdir,
+            input="y\n",
+            text=True,
+            stdout=sp.PIPE,
+            stderr=sp.STDOUT,
+        )
+
+        assert result.returncode == 0, result.stdout
+        assert "Dry-run successful. Continue with real execution?" in result.stdout
+
+        expected = (testdir / "expected-results" / "result.txt").read_text().strip()
+        produced = (Path(tmpdir) / "result.txt").read_text().strip()
+        assert produced == expected
+
+
 @skip_on_windows
 def test01():
     run(dpath("test01"))
