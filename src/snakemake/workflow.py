@@ -45,7 +45,7 @@ from snakemake.settings.types import (
     GlobalReportSettings,
     SharedFSUsage,
 )
-from snakemake.settings.enums import Quietness
+from snakemake.settings.enums import Quietness, PersistenceBackend
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import (
     SpawnedJobArgsFactoryExecutorInterface,
@@ -916,18 +916,15 @@ class Workflow(WorkflowExecutorInterface):
 
         persistence_backend = self.workflow_settings.persistence_backend
         persistence_kwargs = {}
-        if persistence_backend == "db":
-            persistence = DbPersistence
-            if self.workflow_settings.persistence_backend_db_url:
-                persistence_kwargs["db_url"] = (
-                    self.workflow_settings.persistence_backend_db_url
-                )
-        elif persistence_backend == "file":
-            persistence = FilePersistence
-        else:
-            raise WorkflowError(
-                "Unknown persistence backend: {}".format(persistence_backend)
-            )
+        match persistence_backend:
+            case PersistenceBackend.DB:
+                persistence = DbPersistence
+                if self.workflow_settings.persistence_backend_db_url:
+                    persistence_kwargs["db_url"] = (
+                        self.workflow_settings.persistence_backend_db_url
+                    )
+            case PersistenceBackend.FILE:
+                persistence = FilePersistence
 
         self._persistence = persistence(
             nolock=nolock,

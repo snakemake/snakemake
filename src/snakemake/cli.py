@@ -44,6 +44,7 @@ from snakemake.resources import (
     Resources,
     ResourceScopes,
 )
+from snakemake.settings.enums import PersistenceBackend
 from snakemake.settings.types import (
     Batch,
     ChangeType,
@@ -1573,7 +1574,7 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--persistence-backend",
-        choices=["file", "db"],
+        choices=PersistenceBackend.choices(),
         default="file",
         help="The backend to use for Snakemake's metadata persistence. "
         "The 'file' backend uses a file system directory structure. "

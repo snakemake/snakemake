@@ -41,6 +41,7 @@ from snakemake.settings.enums import (
     Quietness,
     StrictDagEvaluation,
     PrintDag,
+    PersistenceBackend,
 )
 
 
@@ -135,7 +136,7 @@ class WorkflowSettings(SettingsBase):
         default_factory=dict
     )
     runtime_source_cache_path: Optional[Path] = None
-    persistence_backend: str = "file"
+    persistence_backend: PersistenceBackend = PersistenceBackend.FILE
     persistence_backend_db_url: Optional[str] = None
 
 
