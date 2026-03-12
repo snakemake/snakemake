@@ -201,3 +201,4 @@ Resources
     project_info/authors
     project_info/history
     project_info/license
+    project_info/grammar
