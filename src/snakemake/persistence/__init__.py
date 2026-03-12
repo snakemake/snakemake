@@ -20,6 +20,8 @@ from snakemake_interface_executor_plugins.persistence import (
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_common.exceptions import WorkflowError
+from sqlalchemy import Column, JSON
+from sqlmodel import SQLModel, Field
 
 from snakemake.common.tbdstring import TBDString
 from snakemake.io import get_flag_value, is_flagged, _IOFile, IOCache
@@ -31,13 +33,12 @@ RECORD_FORMAT_VERSION = 6
 UNREPRESENTABLE = object()
 
 
-@dataclass
-class MetadataRecord:
+class MetadataRecord(SQLModel):
     rule: str | None = None
-    input: list[str] | None = None
-    log: list[str] | None = None
+    input: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    log: list[str] | None = Field(default=None, sa_column=Column(JSON))
     shellcmd: str | None = None
-    params: list[Any] | None = None
+    params: list[Any] | None = Field(default=None, sa_column=Column(JSON))
     code: str | None = None
     record_format_version: int = 0
     conda_env: str | None = None
@@ -48,7 +49,9 @@ class MetadataRecord:
     endtime: float | None = None
     incomplete: bool | None = None
     external_jobid: str | None = None
-    input_checksums: dict[str, Any] | None = field(default_factory=dict)
+    input_checksums: dict[str, Any] | None = Field(
+        default_factory=dict, sa_column=Column(JSON)
+    )
 
     def __getitem__(self, key: str) -> Any:
         try:
@@ -60,10 +63,10 @@ class MetadataRecord:
         return getattr(self, key, default)
 
     def keys(self):
-        return self.__dict__.keys()
+        return self.model_dump().keys()
 
     def items(self):
-        return self.__dict__.items()
+        return self.model_dump().items()
 
 
 @dataclass

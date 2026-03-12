@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from dataclasses import fields
 import os
 import shutil
 import json
@@ -17,8 +16,6 @@ from typing import Iterable
 from snakemake.persistence import PersistenceBase, MetadataRecord
 from snakemake.utils import listfiles
 from snakemake.logging import logger
-
-VALID_METADATA_KEYS = frozenset(f.name for f in fields(MetadataRecord))
 
 
 class FilePersistence(PersistenceBase):
@@ -184,11 +181,7 @@ class FilePersistence(PersistenceBase):
     @lru_cache()
     def _read_record_cached(self, key: str) -> MetadataRecord | None:
         rec = self._io_read(self._metadata_path, key)
-        return (
-            MetadataRecord(**{k: v for k, v in rec.items() if k in VALID_METADATA_KEYS})
-            if rec
-            else None
-        )
+        return MetadataRecord.model_validate(rec) if rec else None
 
     def _read_record(self, key: str) -> MetadataRecord | None:
         return self._read_record_cached(key)

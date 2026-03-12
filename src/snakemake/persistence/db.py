@@ -1,20 +1,16 @@
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 from sqlalchemy import (
-    JSON,
-    Boolean,
-    Float,
-    Integer,
-    String,
     create_engine,
     select,
     delete,
     event,
 )
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Session
+from sqlmodel import SQLModel, Field
 
 from snakemake.persistence import MetadataRecord, PersistenceBase
 import snakemake.exceptions
@@ -24,55 +20,17 @@ class Base(DeclarativeBase):
     pass
 
 
-class MetadataRecordORM(Base):
+class MetadataRecordORM(MetadataRecord, table=True):
     __tablename__ = "snakemake_metadata"
-
-    namespace: Mapped[str] = mapped_column(String, primary_key=True)
-    target: Mapped[str] = mapped_column(String, primary_key=True)
-
-    incomplete: Mapped[bool] = mapped_column(Boolean, default=False)
-    external_jobid: Mapped[str | None] = mapped_column(String, nullable=True)
-    starttime: Mapped[float | None] = mapped_column(Float, nullable=True)
-    endtime: Mapped[float | None] = mapped_column(Float, nullable=True)
-    job_hash: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    rule: Mapped[str | None] = mapped_column(String, nullable=True)
-    code: Mapped[str | None] = mapped_column(String, nullable=True)
-    shellcmd: Mapped[str | None] = mapped_column(String, nullable=True)
-    record_format_version: Mapped[int] = mapped_column(Integer, default=0)
-    conda_env: Mapped[str | None] = mapped_column(String, nullable=True)
-    container_img_url: Mapped[str | None] = mapped_column(String, nullable=True)
-    software_stack_hash: Mapped[str | None] = mapped_column(String, nullable=True)
-    input: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
-    log: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
-    params: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
-    input_checksums: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=dict)
-
-    def to_record(self) -> MetadataRecord:
-        return MetadataRecord(
-            rule=self.rule,
-            input=self.input,
-            log=self.log,
-            shellcmd=self.shellcmd,
-            params=self.params,
-            code=self.code,
-            record_format_version=self.record_format_version,
-            conda_env=self.conda_env,
-            container_img_url=self.container_img_url,
-            software_stack_hash=self.software_stack_hash,
-            job_hash=self.job_hash,
-            starttime=self.starttime,
-            endtime=self.endtime,
-            incomplete=self.incomplete,
-            external_jobid=self.external_jobid,
-            input_checksums=self.input_checksums or {},
-        )
+    namespace: str = Field(primary_key=True)
+    target: str = Field(primary_key=True)
 
 
-class LockORM(Base):
+class LockORM(SQLModel, table=True):
     __tablename__ = "snakemake_locks"
-    namespace: Mapped[str] = mapped_column(String, primary_key=True)
-    file_path: Mapped[str] = mapped_column(String, primary_key=True)
-    lock_type: Mapped[str] = mapped_column(String, primary_key=True)
+    namespace: str = Field(primary_key=True)
+    file_path: str = Field(primary_key=True)
+    lock_type: str = Field(primary_key=True)
 
 
 class DbPersistence(PersistenceBase):
@@ -121,7 +79,7 @@ class DbPersistence(PersistenceBase):
                 cursor.execute("PRAGMA busy_timeout=10000")
                 cursor.close()
 
-        Base.metadata.create_all(self.engine)
+        SQLModel.metadata.create_all(self.engine)
 
     def _clear_cache(self) -> None:
         self._metadata_cache.clear()
@@ -138,7 +96,7 @@ class DbPersistence(PersistenceBase):
             record: MetadataRecordORM | None = session.get(
                 MetadataRecordORM, (self.namespace, key)
             )
-            record_ = record.to_record() if record else None
+            record_ = MetadataRecord.model_validate(record) if record else None
 
             self._metadata_cache[key] = record_
             if len(self._metadata_cache) > self._cache_size:
@@ -149,11 +107,14 @@ class DbPersistence(PersistenceBase):
     def _write_record(self, key: str, record: MetadataRecord) -> None:
         self._invalidate_cache(key)
         with Session(self.engine) as session:
-            orm_record = session.get(
-                MetadataRecordORM, (self.namespace, key)
-            ) or MetadataRecordORM(namespace=self.namespace, target=key)
-            for field_name in record.keys():
-                setattr(orm_record, field_name, getattr(record, field_name))
+            orm_record = session.get(MetadataRecordORM, (self.namespace, key))
+            if orm_record:
+                orm_record.sqlmodel_update(record)
+            else:
+                orm_record = MetadataRecordORM(
+                    namespace=self.namespace, target=key, **record.model_dump()
+                )
+
             session.add(orm_record)
             session.commit()
 
