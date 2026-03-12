@@ -32,6 +32,10 @@ If called with the number of cores to use, i.e.
 
 Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (the Snakefile can be given via the parameter ``-s``).
 
+The ``--snakefile`` or ``-s`` argument can point to either a local file or an HTTP/HTTPS URL.
+In the latter case, relative ``include`` statements are resolved relative to the remote Snakefile location.
+In addition, GitHub and GitLab URLs are supported and resolved automatically.
+
 By issuing
 
 .. code-block:: console
