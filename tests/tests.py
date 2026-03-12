@@ -3112,11 +3112,14 @@ def test_github_issue4003():
         "package/mod-ule.py",
     ]:
         with pytest.raises(
-            ValueError, match=f"{bad_name} does not translate to a valid Python name"
+            ValueError,
+            match=re.escape(f"{bad_name} does not translate to a valid Python name"),
         ):
             format_python_module(bad_name)
 
-    with pytest.raises(ValueError, match="Only .py files may be run as Python modules."):
+    with pytest.raises(
+        ValueError, match=re.escape("Only .py files may be run as Python modules.")
+    ):
         format_python_module("package/module.pyx")
 
     run(dpath("test_github_issue4003"))
