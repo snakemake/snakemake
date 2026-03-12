@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 import tempfile
 import io
 from abc import ABC, abstractmethod
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 from snakemake import utils
 from snakemake.utils import format
@@ -661,6 +661,57 @@ class GitlabFile(HostingProviderFile):
         )
 
 
+def _infer_github_file(path_or_uri: str) -> Optional[GithubFile]:
+    parsed = urlparse(path_or_uri)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+
+    path_parts = [part for part in parsed.path.split("/") if part]
+
+    if parsed.netloc == "raw.githubusercontent.com" and len(path_parts) >= 4:
+        repo = "/".join(path_parts[:2])
+        ref = unquote(path_parts[2])
+        path = unquote("/".join(path_parts[3:]))
+        return GithubFile(repo=repo, path=path, branch=ref)
+
+    if parsed.netloc == "github.com" and len(path_parts) >= 5 and path_parts[2] == "blob":
+        repo = "/".join(path_parts[:2])
+        ref = unquote(path_parts[3])
+        path = unquote("/".join(path_parts[4:]))
+        return GithubFile(repo=repo, path=path, branch=ref)
+
+    return None
+
+
+def _infer_gitlab_file(path_or_uri: str) -> Optional[GitlabFile]:
+    parsed = urlparse(path_or_uri)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+
+    path_parts = [part for part in parsed.path.split("/") if part]
+    if (
+        len(path_parts) == 8
+        and path_parts[:3] == ["api", "v4", "projects"]
+        and path_parts[4:6] == ["repository", "files"]
+        and path_parts[7] == "raw"
+    ):
+        query = parse_qs(parsed.query)
+        ref = query.get("ref")
+        if ref and len(ref) == 1:
+            return GitlabFile(
+                repo=unquote(path_parts[3]),
+                path=unquote(path_parts[6]),
+                branch=unquote(ref[0]),
+                host=parsed.netloc,
+            )
+
+    return None
+
+
+def _infer_hosting_provider_file(path_or_uri: str) -> Optional[HostingProviderFile]:
+    return _infer_github_file(path_or_uri) or _infer_gitlab_file(path_or_uri)
+
+
 def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> SourceFile:
     if isinstance(path_or_uri, SourceFile):
         if basedir is None or isinstance(path_or_uri, HostingProviderFile):
@@ -690,6 +741,9 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
                 f"Failed to read source {path_or_uri} from git repo.", e
             )
         return LocalGitFile(root_path, file_path, ref=ref)
+    hosting_provider_file = _infer_hosting_provider_file(path_or_uri)
+    if hosting_provider_file is not None:
+        return hosting_provider_file
     # something else
     return GenericSourceFile(path_or_uri)
 
