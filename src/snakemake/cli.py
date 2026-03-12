@@ -1571,6 +1571,21 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Write extended benchmarking metrics.",
     )
+    group_behavior.add_argument(
+        "--share-benchmark",
+        default=False,
+        action="store_true",
+        help="Opt-in: collect benchmark telemetry for all shell rules and submit "
+        "to a PSB (Planetary Scale Benchmark) collector at workflow end. "
+        "Requires --share-benchmark-collector.",
+    )
+    group_behavior.add_argument(
+        "--share-benchmark-collector",
+        metavar="URL",
+        default=None,
+        help="URL of the PSB telemetry collector endpoint "
+        "(e.g. http://psb.example.com). Used with --share-benchmark.",
+    )
 
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
 
@@ -1939,6 +1954,8 @@ def create_output_settings(args, log_handler_settings) -> OutputSettings:
         log_handler_settings=log_handler_settings,
         stdout=args.dryrun,
         benchmark_extended=args.benchmark_extended,
+        share_benchmark=args.share_benchmark,
+        share_benchmark_collector=args.share_benchmark_collector,
     )
 
     # Set logging behavior based on execution mode

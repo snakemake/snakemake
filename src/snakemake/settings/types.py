@@ -461,6 +461,8 @@ class OutputSettings(SettingsBase, OutputSettingsLoggerInterface):
     log_handler_settings: Mapping[str, LogHandlerSettingsBase] = immutables.Map()
     stdout: bool = False
     benchmark_extended: bool = False
+    share_benchmark: bool = False
+    share_benchmark_collector: Optional[str] = None
     log_level_override: Optional[int] = None
     skip_plugin_handlers: bool = False
     enable_file_logging: bool = True

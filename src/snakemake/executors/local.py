@@ -35,6 +35,7 @@ from snakemake.exceptions import (
     SpawnedJobError,
     CacheMissException,
 )
+from snakemake.telemetry import capture_system_snapshot, submit_benchmark_records
 
 common_settings = CommonSettings(
     non_local_exec=False,
@@ -169,6 +170,7 @@ class Executor(RealExecutor):
             self.workflow.sourcecache.cache_path,
             self.workflow.sourcecache.runtime_cache_path,
             self.workflow.runtime_paths,
+            self.workflow.output_settings.share_benchmark,
         )
 
     def run_single_job(self, job: SingleJobExecutorInterface):
@@ -310,6 +312,7 @@ def run_wrapper(
     sourcecache_path,
     runtime_sourcecache_path,
     runtime_paths,
+    share_benchmark=False,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -331,7 +334,9 @@ def run_wrapper(
     if os.name == "posix" and debug:
         sys.stdin = open("/dev/stdin")
 
-    if benchmark is not None:
+    should_benchmark = (benchmark is not None) or share_benchmark
+
+    if should_benchmark:
         from snakemake.benchmark import (
             BenchmarkRecord,
             benchmarked,
@@ -347,7 +352,15 @@ def run_wrapper(
 
     try:
         with change_working_directory(shadow_dir):
-            if benchmark:
+            # Capture system state before benchmarking for PSB distress metrics
+            _psb_snapshot = None
+            if share_benchmark:
+                try:
+                    _psb_snapshot = capture_system_snapshot()
+                except Exception:
+                    pass
+
+            if should_benchmark:
                 bench_records = []
                 for bench_iteration in range(benchmark_repeats):
                     # Determine whether to benchmark this process or do not
@@ -473,7 +486,7 @@ def run_wrapper(
             # some internal bug, just reraise
             raise ex
 
-    if benchmark is not None:
+    if should_benchmark:
         try:
             # Add job info to (all repeats of) benchmark file
             for bench_record in bench_records:
@@ -484,6 +497,22 @@ def run_wrapper(
                 bench_record.resources = resources
                 bench_record.input = input
                 bench_record.threads = threads
-            write_benchmark_records(bench_records, benchmark, benchmark_extended)
+
+            # Write benchmark file if benchmark: directive was present
+            if benchmark is not None:
+                write_benchmark_records(bench_records, benchmark, benchmark_extended)
+
+            # Submit to telemetry collector if enabled (shell rules only)
+            if share_benchmark and is_shell and job_rule.shellcmd:
+                submit_benchmark_records(
+                    bench_records=bench_records,
+                    job_rule=job_rule,
+                    params=params,
+                    wildcards=wildcards,
+                    threads=threads,
+                    input_files=input,
+                    output_files=output,
+                    psb_snapshot=_psb_snapshot,
+                )
         except Exception as ex:
             raise WorkflowError(ex)
