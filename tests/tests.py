@@ -3087,6 +3087,10 @@ def test_stats_table_order_and_counts():
         ), f"Count for {name} was {counts.get(name)} != {exp_count}"
 
 
+def test_github_issue4003():
+    run(dpath("test_github_issue4003"), cleanup=False)
+
+
 @skip_on_windows
 def test_github_issue3913():
     core_count_limit = 8

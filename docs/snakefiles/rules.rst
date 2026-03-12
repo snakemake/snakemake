@@ -798,6 +798,47 @@ When selecting input files, sometimes you might end up with an irregular list of
     flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
 
 
+.. _snakefiles-python-module:
+
+python_module
+"""""""""""""
+When running a Python script under active development,
+which relies on relative imports
+you may want to have the script as an input file,
+but call it by its module name.
+The ``python_module`` function will
+translate a script filename from the ``input:`` block
+into a module name that may be used with ``python -m``.
+For example,
+
+.. code-block:: python
+
+    rule:
+        params:
+            module=python_module(),
+        input:
+            script="some_package/some_subpackage/some_module.py",
+        output:
+            "..."
+        shell:
+            "python -m {params.module} --output_file {output}"
+
+The helper by default looks at the input named ``script``.
+This may be set by passing the name of the input:
+
+.. code-block:: python
+
+    rule:
+        params:
+            module=python_module("my_script"),
+        input:
+            my_script="some_package/some_subpackage/some_module.py",
+        output:
+            "..."
+        shell:
+            "python -m {params.module} --output_file {output}"
+
+
 .. _snakefiles-targets:
 
 Target rules
