@@ -692,12 +692,40 @@ def _infer_gitlab_file(path_or_uri: str) -> Optional[GitlabFile]:
         and path_parts[7] == "raw"
     ):
         query = parse_qs(parsed.query)
+        if any(
+            token_name in query
+            for token_name in ("private_token", "access_token", "job_token")
+        ):
+            return None
         ref = query.get("ref")
         if ref and len(ref) == 1:
             return GitlabFile(
                 repo=unquote(path_parts[3]),
                 path=unquote(path_parts[6]),
                 branch=unquote(ref[0]),
+                host=parsed.netloc,
+            )
+
+    if len(path_parts) >= 6:
+        raw_or_blob_index = None
+        for i, part in enumerate(path_parts):
+            if part == "-":
+                raw_or_blob_index = i
+                break
+
+        if (
+            raw_or_blob_index is not None
+            and raw_or_blob_index >= 2
+            and raw_or_blob_index + 3 < len(path_parts)
+            and path_parts[raw_or_blob_index + 1] in {"blob", "raw"}
+        ):
+            repo = unquote("/".join(path_parts[:raw_or_blob_index]))
+            ref = unquote(path_parts[raw_or_blob_index + 2])
+            path = unquote("/".join(path_parts[raw_or_blob_index + 3 :]))
+            return GitlabFile(
+                repo=repo,
+                path=path,
+                branch=ref,
                 host=parsed.netloc,
             )
 
