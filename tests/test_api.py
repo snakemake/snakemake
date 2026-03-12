@@ -88,7 +88,9 @@ def test_remote_snakefile_via_api():
     source_dir = dpath("test_multiple_includes")
     expected_results = source_dir / "expected-results"
 
-    with tempfile.TemporaryDirectory(prefix="snakemake-remote-snakefile-api-") as workdir:
+    with tempfile.TemporaryDirectory(
+        prefix="snakemake-remote-snakefile-api-"
+    ) as workdir:
         workdir = Path(workdir)
 
         with serve_directory(source_dir) as server_url:
