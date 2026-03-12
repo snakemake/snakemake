@@ -3089,6 +3089,7 @@ def test_stats_table_order_and_counts():
 
 def test_github_issue4003():
     from snakemake.ioutils.python_module import format_python_module
+
     assert (
         format_python_module("package/subpackage/module.py")
         == "package.subpackage.module"
@@ -3096,7 +3097,7 @@ def test_github_issue4003():
 
     windows_path = r"package\subpackage\module.py"
     if ON_WINDOWS:
-        assert (format_python_module(windows_path) == "package.subpackage.module")
+        assert format_python_module(windows_path) == "package.subpackage.module"
     else:
         with pytest.raises(
             ValueError,
