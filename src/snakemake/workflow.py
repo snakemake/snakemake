@@ -119,7 +119,6 @@ from snakemake_interface_common.utils import not_iterable
 
 import snakemake.wrapper
 from snakemake.common import (
-    __version__,
     ON_WINDOWS,
     async_runner,
     get_appdirs,
@@ -270,7 +269,9 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def info_header(self):
         import os
+        import sys
         from datetime import datetime
+        from snakemake.common import __version__
 
         return {
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -288,7 +289,7 @@ class Workflow(WorkflowExecutorInterface):
             "basedir": self.basedir,
             "rundir": self.rundir,
             "cwd": self.workdir_init,
-            "configfiles": workflow.configfiles,
+            "configfiles": self.configfiles,
         }
 
     @property
