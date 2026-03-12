@@ -1,7 +1,12 @@
 from pathlib import Path
 import tempfile
 from unittest.mock import patch
-from snakemake.sourcecache import GithubFile, GitlabFile, infer_source_file
+from snakemake.sourcecache import (
+    GenericSourceFile,
+    GithubFile,
+    GitlabFile,
+    infer_source_file,
+)
 
 
 def test_gitlabfile_host_propagation():
@@ -57,6 +62,41 @@ def test_infer_source_file_from_gitlab_api_url_custom_host():
     assert file.repo == "group/project"
     assert file.branch == "main"
     assert file.path == "workflow/Snakefile"
+
+
+def test_infer_source_file_from_gitlab_blob_url_custom_host():
+    file = infer_source_file(
+        "https://gitlab.example.com/group/project/-/blob/main/workflow/Snakefile"
+    )
+
+    assert isinstance(file, GitlabFile)
+    assert file.host == "gitlab.example.com"
+    assert file.repo == "group/project"
+    assert file.branch == "main"
+    assert file.path == "workflow/Snakefile"
+
+
+def test_infer_source_file_from_gitlab_raw_url_custom_host():
+    file = infer_source_file(
+        "https://gitlab.example.com/group/subgroup/project/-/raw/main/workflow/Snakefile"
+    )
+
+    assert isinstance(file, GitlabFile)
+    assert file.host == "gitlab.example.com"
+    assert file.repo == "group/subgroup/project"
+    assert file.branch == "main"
+    assert file.path == "workflow/Snakefile"
+
+
+def test_infer_source_file_from_gitlab_api_url_with_private_token_falls_back_to_generic():
+    url = (
+        "https://gitlab.example.com/api/v4/projects/group%2Fproject/repository/files/"
+        "workflow%2FSnakefile/raw?ref=main&private_token=secret"
+    )
+    file = infer_source_file(url)
+
+    assert isinstance(file, GenericSourceFile)
+    assert file.get_path_or_uri(secret_free=False) == url
 
 
 def test_infer_source_file_from_github_shorthand():
