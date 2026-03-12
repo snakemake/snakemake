@@ -41,6 +41,18 @@ By issuing
 a dry-run can be performed.
 This is useful to test if the workflow is defined properly and to estimate the amount of needed computation.
 
+If you want to inspect a dry-run and then decide whether to continue immediately,
+you can use interactive mode via ``--interactive`` (short form ``-i``), e.g.
+
+.. code-block:: console
+
+    $ snakemake --cores 4 -i
+
+In this mode, Snakemake first performs a dry-run and then prompts:
+``Dry-run successful. Continue with real execution? (y/n):``.
+If you answer ``y``, Snakemake continues with a real execution in the same session
+using your configured executor and settings.
+
 Importantly, Snakemake can automatically determine which parts of the workflow can be run in parallel.
 By specifying more than one available core, i.e.
 

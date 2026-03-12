@@ -1057,6 +1057,7 @@ def get_argument_parser(profiles=None):
         "with visualization.",
     )
     group_exec.add_argument(
+        "-i",
         "--interactive",
         action="store_true",
         help="Run in interactive mode: perform a dryrun, display results, and "
