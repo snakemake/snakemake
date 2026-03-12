@@ -1566,7 +1566,7 @@ class Workflow(WorkflowExecutorInterface):
                 response = builtins.input(
                     "\nDry-run successful. Continue with real execution? (y/n): "
                 )
-                if response.lower() == "y":
+                if response.lower() in ("y", "yes"):
                     real_executor_plugin = interactive_executor_plugin
                     if real_executor_plugin is None:
                         raise WorkflowError(
