@@ -3172,3 +3172,29 @@ def test_github_issue3913():
     # avoid test passing spuriously if log format changes
     assert completed_job_count == 4 and started_job_count == 4
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_module_onstart_onsuccess():
+    run(dpath("test_module_onstart_onsuccess"), check_results=True)
+
+
+def test_module_onstart_not_in_main_snakefile():
+    # check that onstart is not executed, if not in the main snakefile
+    path = dpath("test_module_onstart_not_in_main_snakefile")
+    with prepare_tmpdir(path) as tmpdir:
+        run(
+            path,
+            check_results=True,
+            cleanup=False,
+            tmpdir=tmpdir,
+        )
+        assert not (
+            Path(tmpdir) / "onstart_module1.log"
+        ).exists(), "onstart should not be executed for module1"
+        assert not (
+            Path(tmpdir) / "onstart_module2.log"
+        ).exists(), "onstart should not be executed for module2"
+
+
+def test_module_onerror():
+    run(dpath("test_module_onerror"), shouldfail=True, check_results=True)
