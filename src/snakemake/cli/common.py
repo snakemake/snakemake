@@ -54,18 +54,21 @@ class SnakemakeContext:
 
     @contextmanager
     def workflow(self):
-        """Yield a WorkflowApi inside a managed SnakemakeApi context."""
         with SnakemakeApi(self.output_settings) as api:
-            workflow_api = api.workflow(
-                resource_settings=self.resource_settings,
-                config_settings=self.config_settings,
-                storage_settings=self.storage_settings,
-                workflow_settings=self.workflow_settings,
-                deployment_settings=self.deployment_settings,
-                snakefile=self.snakefile,
-                workdir=self.workdir,
-            )
-            yield workflow_api
+            try:
+                workflow_api = api.workflow(
+                    resource_settings=self.resource_settings,
+                    config_settings=self.config_settings,
+                    storage_settings=self.storage_settings,
+                    workflow_settings=self.workflow_settings,
+                    deployment_settings=self.deployment_settings,
+                    snakefile=self.snakefile,
+                    workdir=self.workdir,
+                )
+                yield workflow_api
+            except Exception as e:
+                api.print_exception(e)
+                raise SystemExit(1)
 
     @contextmanager
     def dag(self):
