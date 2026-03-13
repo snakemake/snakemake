@@ -34,6 +34,7 @@ def prepend(
 
     def do(paths):
         if isinstance(paths, RuleItemProxy):
+
             def inner(wildcards, **kwargs):
                 return do(kwargs[paths.name])
 
