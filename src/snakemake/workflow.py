@@ -407,6 +407,22 @@ class Workflow(WorkflowExecutorInterface):
 
     def check_cache_rules(self):
         for rule in self.rules:
+            cache_mode = self.cache_rules.get(rule.name)
+            if cache_mode:
+                if not self.enable_cache:
+                    logger.warning(
+                        f"Workflow defines that rule {rule.name} is eligible for caching between workflows "
+                        "(use the --cache argument to enable this)."
+                    )
+                if rule.benchmark:
+                    raise WorkflowError(
+                        "Rules with a benchmark directive may not be marked as eligible "
+                        "for between-workflow caching at the same time. The reason is that "
+                        "when the result is taken from cache, there is no way to fill the benchmark file with "
+                        "any reasonable values. Either remove the benchmark directive or disable "
+                        "between-workflow caching for this rule.",
+                        rule=rule,
+                    )
             if rule.cache:
                 rule.cache.check()
 
