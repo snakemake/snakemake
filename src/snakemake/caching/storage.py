@@ -55,7 +55,7 @@ class OutputFileCache(AbstractOutputFileCache):
         for outputfile, ext in self.get_outputfiles(job):
             if check_output_exists and not os.path.exists(outputfile):
                 raise WorkflowError(
-                    "Cannot move output file {} to cache. It does not exist "
+                    f"Cannot move output file {outputfile} to cache. It does not exist "
                     "(maybe it was not created by the job?)."
                 )
 
