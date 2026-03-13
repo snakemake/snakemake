@@ -165,7 +165,6 @@ Resources
     snakefiles/configuration
     snakefiles/modularization
     snakefiles/storage
-    snakefiles/utils
     snakefiles/deployment
     snakefiles/reporting
     snakefiles/testing
