@@ -72,7 +72,7 @@ Both mechanisms can be particularly handy when used in combination with :ref:`no
 Non-local execution
 ^^^^^^^^^^^^^^^^^^^
 
-Non-local execution on cluster or cloud infrastructure is implemented via plugins.
+Non-local execution on cluster or cloud infrastructure is implemented via :ref:`executor plugins <executors>`.
 The `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`__ lists available plugins and their documentation.
 In general, the configuration boils down to specifying an executor plugin (e.g. for SLURM or Kubernetes) and, if needed, a :ref:`storage <default_storage>` plugin (e.g. in order to use S3 for input and output files or in order to efficiently use a shared network filesystem).
 For maximizing the I/O performance over the network, it can be advisable to :ref:`annotate the input file access patterns of rules <storage-access-patterns>`.
@@ -413,6 +413,12 @@ To make use of such a workflow specific profile, you can make Snakemake aware of
 
 1. You give it a standardised filename (for example ``profile.v9+.yaml``, see the section on :ref:`profile-files`) and save it in the default folder hierarchy relative to the ``Snakefile`` or the current working directory, usually either ``profiles/default/profile.yaml`` or ``workflow/profiles/default/profile.yaml``.
 2. You use the command line argument ``--workflow-profile``.
+
+.. note::
+
+  When using modules, the profile will not be propagated to the main workflow importing that module.
+  However, using `snakedeploy deploy-workflow` to deploy a workflow as a module, will also copy any profiles included under the standard location `workflow/profiles` (for more info, see `the snakedploy documentation for deploying workflows <https://snakedeploy.readthedocs.io/en/stable/workflow_users/workflow_deployment.html>`_).
+  Starting from this import, or starting with a new file, users can create a profile for that main workflow.
 
 When using the command line argument, the ``default/`` location is not searched (unless you explicitly specify ``--workflow default``).
 But the given profile is also searched in paths relative to the ``Snakefile`` location and the current working directory.
