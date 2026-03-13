@@ -69,6 +69,14 @@ class DbPersistence(PersistenceBase):
 
         self.engine = create_engine(db_url)
 
+        # for SQLite, set a busy timeout to avoid immediate failures on database locks;
+        # if available, use the latency_wait setting instead.
+        # TODO: if that doesn't help, consider using flufl.lock
+        busy_timeout = 10000
+        if self.dag:
+            latency_wait_s = self.dag.workflow.execution_settings.latency_wait * 1000
+            busy_timeout = max(busy_timeout, latency_wait_s)
+
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
             if self.engine.dialect.name == "sqlite":
@@ -76,7 +84,7 @@ class DbPersistence(PersistenceBase):
                 # we may want to try this in the future if we encounter locking issues, but it can cause problems on network filesystems
                 # cursor.execute("PRAGMA journal_mode=WAL")
                 # cursor.execute("PRAGMA synchronous=NORMAL")
-                cursor.execute("PRAGMA busy_timeout=10000")
+                cursor.execute(f"PRAGMA busy_timeout={busy_timeout}")
                 cursor.close()
 
         SQLModel.metadata.create_all(self.engine)
