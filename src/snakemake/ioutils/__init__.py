@@ -29,6 +29,5 @@ def register_in_globals(_globals):
             "choose_file": choose_file,
             "choose_folder": choose_folder,
             "choose_tmp": choose_tmp,
-            "choose_f": choose_f,
         }
     )
