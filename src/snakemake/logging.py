@@ -177,6 +177,7 @@ SNAKEMAKE
   Run directory: {rundir}
   Working directory: {cwd}
   Config file(s): {configfiles}
+  Config MD5: {config_md5}
 """.format(**msg)
 
     def format_run_info(self, msg: dict[str, Any]):

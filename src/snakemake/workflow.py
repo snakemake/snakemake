@@ -275,6 +275,8 @@ class Workflow(WorkflowExecutorInterface):
         from datetime import datetime
         from snakemake.common import __version__
         import uuid
+        import json
+        import hashlib
 
         conda_bin = shutil.which("conda")
 
@@ -293,6 +295,9 @@ class Workflow(WorkflowExecutorInterface):
             "snakefile_main": self.main_snakefile,
             "snakefile": self.snakefile,
             "workflow_id": uuid.uuid4(),
+            "config_md5": hashlib.md5(
+                json.dumps(config, sort_keys=True).encode("utf-8")
+            ).hexdigest(),
         }
 
     @property
