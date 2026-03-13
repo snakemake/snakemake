@@ -504,3 +504,11 @@ When selecting input files, sometimes you might end up with an irregular list of
 
     flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
 
+
+
+.. _snakefiles-utils:
+
+Utils
+-----
+
+The module ``snakemake.utils`` provides a collection of helper functions for common tasks in Snakemake workflows. Details can be found in `the API documentation <https://snakemake-api.readthedocs.io/en/stable/api_reference/snakemake_utils.html>`__.
