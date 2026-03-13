@@ -675,6 +675,21 @@ Some apptainer instances are set to share the system /tmp with the containers.
 This can lead to unexpected behaviour where the system /tmp gets full.
 To stop this behaviour you'd have to run apptainer with the ``--contain`` option. 
 
+In which order are resource definitions prioritized?
+----------------------------------------------------
+
+Resources as ``resources`` and ``threads`` can be defined in different places, e.g. in the rule definition (see :ref:`snakefiles-threads` and :ref:`snakefiles-resources`), in a profile (see :ref:`executing-profiles`), or via the command line (see :ref:`all_options`).
+Thereby, the resources are gathered in the following order, where succeeding definitions overwrite previous ones:
+
+1. Rule definition (for details refer to :ref:`snakefiles-threads` and :ref:`snakefiles-resources`)
+2. Profile (for details refer to :ref:`executing-profiles`)
+    1. Defined in ``$HOME/.config/snakemake`` or ``/etc/xdg/snakemake`` (specified in output of ``snakemake --help``)
+    2. Defined with ``--profile`` via the command line
+3. Workflow specific profile (for details refer to :ref:`executing-profiles`)
+    1. In the current directory
+    2. Relative to the Snakefile of the executed workflow
+    3. If command line argument ``--workflow-profile`` is defined, the resources specified here are used
+4. Command line e.g. via ``--set-threads myrule=2`` or ``--set-resources myrule:partition="foo"`` (for details refer to :ref:`all_options`)
 
 .. _consider_ancient:
 
