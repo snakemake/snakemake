@@ -14,7 +14,7 @@ def prepend(
     space: bool = True,
 ):
     """
-    Prepend each filename in `path_or_func` with `prefix`,
+    Prepend each filename in `paths_or_func` with `prefix`,
     optionally with a space (if `space` is `True`),
     and return a single combined string.
     This allows easier use of
