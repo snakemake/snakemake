@@ -22,7 +22,6 @@ jobs:
         uses: prefix-dev/setup-pixi@v0.9.3
         with:
           environments: "docs"
-          pixi-version: v0.42.1
           cache: false # no pixi.lock
           locked: false
       
@@ -46,7 +45,6 @@ jobs:
         uses: prefix-dev/setup-pixi@v0.9.3
         with:
           environments: "docs"
-          pixi-version: v0.42.1
           cache: false # no pixi.lock
           locked: false
 

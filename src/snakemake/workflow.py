@@ -26,6 +26,8 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.pathvars import Pathvars
+from snakemake.persistence.file import FilePersistence
+from snakemake.persistence.db import DbPersistence
 from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
@@ -43,7 +45,7 @@ from snakemake.settings.types import (
     GlobalReportSettings,
     SharedFSUsage,
 )
-from snakemake.settings.enums import Quietness
+from snakemake.settings.enums import Quietness, PersistenceBackend
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import (
     SpawnedJobArgsFactoryExecutorInterface,
@@ -108,7 +110,7 @@ from snakemake.io import (
     sourcecache_entry,
 )
 
-from snakemake.persistence import Persistence
+from snakemake.persistence import PersistenceBase
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.notebook import notebook
@@ -195,7 +197,7 @@ class Workflow(WorkflowExecutorInterface):
         self.rule_count = 0
         self._included = OrderedDict()
         self.included_stack: list[SourceFile] = []
-        self._persistence: Optional[Persistence] = None
+        self._persistence: Optional[PersistenceBase] = None
         self._dag: Optional[DAG] = None
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
@@ -911,7 +913,24 @@ class Workflow(WorkflowExecutorInterface):
         )
 
         assert self.deployment_settings is not None
-        self._persistence = Persistence(
+
+        persistence_backend = self.workflow_settings.persistence_backend
+        persistence_kwargs = {}
+        match persistence_backend:
+            case PersistenceBackend.DB:
+                persistence = DbPersistence
+                if self.workflow_settings.persistence_backend_db_url:
+                    persistence_kwargs["db_url"] = (
+                        self.workflow_settings.persistence_backend_db_url
+                    )
+            case PersistenceBackend.FILE:
+                persistence = FilePersistence
+            case _:
+                raise WorkflowError(
+                    f"Unknown persistence backend: {persistence_backend}"
+                )
+
+        self._persistence = persistence(
             nolock=nolock,
             dag=self._dag,
             conda_prefix=self.deployment_settings.conda_prefix,
@@ -919,6 +938,7 @@ class Workflow(WorkflowExecutorInterface):
             shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
             path=persistence_path,
+            **persistence_kwargs,
         )
 
     def generate_unit_tests(self, path: Path):
@@ -973,7 +993,6 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=True,
             lock_warn_only=False,
         )
-        self._build_dag()
         try:
             self.persistence.cleanup_locks()
             logger.info("Unlocked working directory.")
@@ -1078,7 +1097,7 @@ class Workflow(WorkflowExecutorInterface):
 
         self.dag.d3dag()
 
-    def containerize(self):
+    def containerize(self, fmt="dockerfile"):
         from snakemake.deployment.containerize import containerize
 
         assert self.dag_settings is not None
@@ -1089,7 +1108,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
         with self.persistence.lock():
-            containerize(self, self.dag)
+            containerize(self, self.dag, fmt=fmt)
 
     def export_cwl(self, path: Path):
         """Export the workflow as CWL document.
@@ -1690,15 +1709,21 @@ class Workflow(WorkflowExecutorInterface):
 
     def onstart(self, func):
         """Register onstart function."""
-        self._onstart = func
+        if self.modifier.is_main_snakefile():
+            self._onstart = func
+        self.globals["onstart"] = partial(func, log=self.logger_manager.get_logfile())
 
     def onsuccess(self, func):
         """Register onsuccess function."""
-        self._onsuccess = func
+        if self.modifier.is_main_snakefile():
+            self._onsuccess = func
+        self.globals["onsuccess"] = partial(func, log=self.logger_manager.get_logfile())
 
     def onerror(self, func):
         """Register onerror function."""
-        self._onerror = func
+        if self.modifier.is_main_snakefile():
+            self._onerror = func
+        self.globals["onerror"] = partial(func, log=self.logger_manager.get_logfile())
 
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""
@@ -1963,11 +1988,14 @@ class Workflow(WorkflowExecutorInterface):
                     rule.shadow_depth = ruleinfo.shadow_depth
 
             if ruleinfo.priority:
-                if not isinstance(ruleinfo.priority, int) and not isinstance(
-                    ruleinfo.priority, float
+                if (
+                    not isinstance(ruleinfo.priority, int)
+                    and not isinstance(ruleinfo.priority, float)
+                    and not callable(ruleinfo.priority)
                 ):
                     raise RuleException(
-                        "Priority values have to be numeric.", rule=rule
+                        "Priority value has to be an integer, float, or a callable.",
+                        rule=rule,
                     )
                 rule.priority = ruleinfo.priority
 

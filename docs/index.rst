@@ -167,6 +167,7 @@ Resources
   executing/executors
   executing/interoperability
   executing/monitoring
+  executing/provenance
 
 .. toctree::
     :caption: Defining workflows
