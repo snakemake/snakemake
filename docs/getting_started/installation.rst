@@ -50,8 +50,9 @@ In the directory where you want to install Snakemake, run:
 .. code-block:: console
 
     $ pixi init
-    $ pixi add python 
-    $ pixi add snakemake --pypi
+    $ pixi workspace channel add conda-forge
+    $ pixi workspace channel add bioconda
+    $ pixi add snakemake
 
 If you want to use `conda` for your rule-specific software deployment, also install it:
 
