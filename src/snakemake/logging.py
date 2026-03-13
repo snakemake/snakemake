@@ -171,15 +171,12 @@ SNAKEMAKE
   User: {user}
   Snakemake version: {snakemake_version}
   Python version: {python_version}
-  Conda version: {conda_version}
-  Conda env: {conda_env} ({conda_prefix})
   Command: {cmd}
   Snakefile: {snakefile_main}
   Base directory: {basedir}
   Run directory: {rundir}
   Working directory: {cwd}
   Config file(s): {configfiles}
-  Config: {config}
 """.format(**msg)
 
     def format_run_info(self, msg: dict[str, Any]):

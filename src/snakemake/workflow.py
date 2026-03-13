@@ -284,27 +284,12 @@ class Workflow(WorkflowExecutorInterface):
             "platform": platform.platform(),
             "host": platform.node(),
             "user": getpass.getuser(),
-            "conda_version": (
-                subprocess.run(
-                    [conda_bin, "--version"],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                .stdout.strip()
-                .removeprefix("conda ")
-                if conda_bin
-                else "n/a"
-            ),
             "python_version": sys.version,
-            "conda_env": (os.environ["CONDA_DEFAULT_ENV"] if conda_bin else "n/a"),
-            "conda_prefix": (os.environ["CONDA_PREFIX"] if conda_bin else "n/a"),
-            "cmd": sys.argv,
+            "cmd": " ".join(sys.argv),
             "basedir": self.basedir,
             "rundir": self.rundir,
             "cwd": self.workdir_init,
-            "configfiles": self.configfiles,
-            "config": config,
+            "configfiles": ", "join(self.configfiles),
             "snakefile_main": self.main_snakefile,
             "snakefile": self.snakefile,
             "workflow_id": uuid.uuid4(),
