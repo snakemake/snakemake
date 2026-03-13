@@ -35,7 +35,7 @@ Snakemake tries to execute the workflow specified in a file called ``Snakefile``
 The ``--snakefile`` or ``-s`` argument can point to either a local file or an HTTP/HTTPS URL.
 In the latter case, relative ``include`` statements are resolved relative to the remote Snakefile location.
 In addition, GitHub and GitLab URLs are supported and resolved automatically.
-As a convenience syntax, hosted source files can also be referenced as ``gh:owner/repo@ref:path/to/Snakefile``, ``gh:github.example.org:owner/repo@ref:path/to/Snakefile``, ``gl:group/project@ref:path/to/Snakefile``, or ``gl:gitlab.example.org:group/project@ref:path/to/Snakefile``.
+As a convenience syntax, hosted source files can also be referenced as ``gh:owner/repo@ref:path/to/Snakefile``, ``gh:github.example.org:owner/repo@ref:path/to/Snakefile``, ``gl:group/project@ref:path/to/Snakefile``, or ``gl:gitlab.example.org:group/project@ref:path/to/Snakefile``. If the final path is omitted, Snakemake assumes ``workflow/Snakefile``.
 
 By issuing
 

@@ -622,10 +622,16 @@ class GithubFile(HostingProviderFile):
         return ""
 
     def get_path_or_uri(self, secret_free: bool) -> str:
+        from urllib.parse import quote
+
         auth = f":{self.token}@" if self.token and not secret_free else ""
-        # TODO find out how this URL looks like with Github enterprise server and support
-        # self.host being not none by removing the check in __post_init__
-        return f"https://{auth}raw.githubusercontent.com/{self.repo}/{self.ref}/{self.path}"
+        ref = quote(self.ref, safe="")
+        path = quote(self.path, safe="/")
+
+        if self.host == "github.com":
+            return f"https://{auth}raw.githubusercontent.com/{self.repo}/{ref}/{path}"
+
+        return f"https://{auth}{self.host}/{self.repo}/raw/{ref}/{path}"
 
 
 class GitlabFile(HostingProviderFile):
@@ -669,7 +675,7 @@ def _infer_github_file(path_or_uri: str) -> Optional[GithubFile]:
     if (
         parsed.netloc == "github.com"
         and len(path_parts) >= 5
-        and path_parts[2] == "blob"
+        and path_parts[2] in {"blob", "raw"}
     ):
         repo = "/".join(path_parts[:2])
         ref = unquote(path_parts[3])
@@ -743,12 +749,20 @@ def _infer_hosting_provider_file_shorthand(
         return None
 
     provider, sep, remainder = path_or_uri.partition(":")
-    if provider not in {"gh", "gl"} or not sep or "/" not in remainder or "@" not in remainder:
+    if (
+        provider not in {"gh", "gl"}
+        or not sep
+        or "/" not in remainder
+        or "@" not in remainder
+    ):
         return None
 
     repo_ref, sep, path = remainder.rpartition(":")
-    if not sep or not path:
-        return None
+    if sep and path:
+        parsed_path = path
+    else:
+        repo_ref = remainder
+        parsed_path = "workflow/Snakefile"
 
     repo, sep, ref = repo_ref.rpartition("@")
     if not sep or not repo or not ref or "/" not in repo:
@@ -764,7 +778,7 @@ def _infer_hosting_provider_file_shorthand(
 
     repo = unquote(repo)
     ref = unquote(ref)
-    path = unquote(path)
+    path = unquote(parsed_path)
 
     if provider == "gh":
         return GithubFile(repo=repo, path=path, branch=ref, host=host)
