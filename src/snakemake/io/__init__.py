@@ -702,19 +702,23 @@ class _IOFile(str, AnnotatedStringInterface):
             return None
 
     async def is_same_checksum(
-        self, other_checksum: str, threshold: Optional[int], force: bool=False
+        self, other_checksum: Optional[str], threshold: Optional[int], force: bool=False
     ) -> bool:
         """Return True if this file's checksum matches other_checksum.
 
         other_checksum must be in "{algorithm}:{hexdigest}" format.
         Returns False if either checksum is unavailable (file too large or missing)."""
+
+        if other_checksum is None:
+            return False
+
         pos = other_checksum.find(":")
         if pos == -1:
             raise ValueError("other_checksum needs to specify an algorithm prefix, like sha512:xxxx")
         algorithm = other_checksum[:pos]
 
         checksum = await self.checksum(threshold, force=force, algorithm=algorithm)
-        if checksum is None or other_checksum is None:
+        if checksum is None:
             # if no checksum available or files too large, not the same
             return False
         else:
