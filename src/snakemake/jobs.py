@@ -16,7 +16,7 @@ import functools
 
 from itertools import chain, filterfalse
 from operator import attrgetter
-from typing import Dict, Iterable, List, Optional, Sequence, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 from collections.abc import AsyncGenerator
 from abc import abstractmethod
 from snakemake import wrapper
@@ -42,11 +42,13 @@ from snakemake.io import (
     _IOFile,
     IOFile,
     InputFiles,
+    OptionalInputSpec,
     ResourceList,
-    is_callable,
     Wildcards,
-    is_flagged,
     get_flag_value,
+    get_optional_input_spec,
+    is_callable,
+    is_flagged,
     wait_for_files,
 )
 from snakemake.settings.types import SharedFSUsage
@@ -71,6 +73,31 @@ from snakemake.common import (
 from snakemake.io.fmt import fmt_iofile
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
+
+
+# Bookkeeping object for optional inputs  to group optional
+# files by their group id and track total count and missing files
+class _OptionalInputGroup:
+    def __init__(self, spec: OptionalInputSpec):
+        self.spec = spec
+        self.total = 0
+        self.missing: List[Tuple[int, _IOFile]] = []
+
+    @property
+    def tolerance(self) -> float:
+        return self.spec.tolerance
+
+    @property
+    def impatient(self) -> bool:
+        return self.spec.impatient
+
+    def exceeds_tolerance(self) -> bool:
+        # Helps avoid floating-point comparison issues
+        TOLERANCE_EPSILON = 1e-9
+        return (
+            self.total > 0
+            and len(self.missing) / self.total - self.tolerance > TOLERANCE_EPSILON
+        )
 
 
 def format_files(io, as_input: bool = False, as_output: bool = False):
@@ -800,11 +827,11 @@ class Job(
     async def _filter_optional_inputs(self) -> InputFiles:
         """
         Return self.input with missing optional files removed.
-        Log missing optional files as warnings.
-        
+        Log missing optional files as warnings and honor tolerance/impatient settings when provided.
+
         This may require creating a new input (InputFiles), where _names dict should be updated.
         For example:
-        
+
         "inputs": old range (0, 3)
             old_i=0: survived → ni=0, new_start=0, new_end=1
             old_i=1: survived → ni=1,              new_end=2
@@ -817,17 +844,95 @@ class Job(
             new_input = ["file_0.json", "file_2.json"]
             new_input._names = {"inputs": (0, 2)}
         """
-        
-        to_remove = set()
-        # as Job.input is NamedList preserve index of the file that should be removed
+        # Iterate all input files, find ones flagged 'optional' and group them
+        optional_groups: Dict[int, _OptionalInputGroup] = {}
         for i, f in enumerate(self.input):
-            if is_flagged(f, "optional") and not await f.exists():
-                to_remove.add(i)
+            spec = get_optional_input_spec(get_flag_value(f, "optional"))
+            if spec is None:
+                continue
+            group = optional_groups.setdefault(spec.group, _OptionalInputGroup(spec))
+            group.total += 1
+            if not await f.exists():
+                group.missing.append((i, f))
+
+        async def _refresh_missing(group: _OptionalInputGroup):
+            """
+            Remove any files from group.missing that now exist.
+            Modifies group.missing in-place.
+            """
+            remaining = []
+            for idx, f in group.missing:
+                if not await f.exists():
+                    remaining.append((idx, f))
+            group.missing = remaining
+
+        async def _wait_for_tolerance():
+            # Refresh missing files list before checking tolerance
+            for group in optional_groups.values():
+                await _refresh_missing(group)
+
+            # For impatient=True groups the scheduler already verified tolerance at
+            # launch time.  Some upstream jobs may still be running, so their files
+            # are not yet on disk; re-checking tolerance here would give a false
+            # positive.  Just skip tolerance enforcement for those groups.
+            #
+            # For impatient=False (patient) groups, collect ALL missing files —
+            # including those currently within tolerance — so that transiently-absent
+            # files (e.g. network filesystem latency) get a chance to appear before
+            # we decide to exclude them.
+            patient_missing = [
+                f
+                for g in optional_groups.values()
+                if not g.impatient
+                for _, f in g.missing
+            ]
+
+            if not patient_missing:
+                # All patient groups have no missing files → nothing to wait for.
+                return
+
+            # Wait once (up to latency_wait) for all missing patient-group files to
+            # appear.  wait_for_files handles its own internal retry loop.
+            consider_local = {
+                f for f in patient_missing if self.is_pipe_or_service_input(f)
+            }
+            try:
+                await wait_for_files(
+                    patient_missing,
+                    wait_for_local=self.dag.workflow.keep_storage_local_at_runtime,
+                    latency_wait=self.dag.workflow.execution_settings.latency_wait,
+                    consider_local=consider_local,
+                )
+            except IOError:
+                pass
+
+            # Re-check once after the wait; raise if any patient group now exceeds tolerance.
+            for group in optional_groups.values():
+                if not group.impatient:
+                    await _refresh_missing(group)
+
+            for group in optional_groups.values():
+                if not group.impatient and group.exceeds_tolerance():
+                    raise WorkflowError(
+                        f"Optional inputs for rule '{self.rule.name}' exceed tolerance "
+                        f"{group.tolerance:.3f} "
+                        f"({len(group.missing)}/{group.total} missing) "
+                        "after waiting for missing files to appear.",
+                        rule=self.rule,
+                    )
+
+        if optional_groups:
+            # Enforce the tolerance constraint for the optional inputs
+            await _wait_for_tolerance()
+
+        to_remove = set()
+        for group in optional_groups.values():
+            for idx, f in group.missing:
+                to_remove.add(idx)
                 logger.warning(
                     f"Optional input file '{f}' is missing for rule "
                     f"'{self.rule.name}'. It will be excluded from {{input}}."
                 )
-        # early exit
         if not to_remove:
             return self.input
 
@@ -844,7 +949,13 @@ class Job(
 
         for name, (start, end) in self.input._names.items():
             if end is None:
-                if start not in to_remove:
+                if start in to_remove:
+                    # Single optional file was filtered out.  Preserve the name
+                    # as an empty Namedlist so that attribute access on the rule's
+                    # input (e.g. ``for f in input.my_opt:``) doesn't raise
+                    # AttributeError when every file in the group is absent.
+                    new_input._set_name(name, len(new_input), end=len(new_input))
+                else:
                     new_input._set_name(name, index_map[start])
             else:
                 # Range named item — find surviving slice in new list
@@ -856,7 +967,11 @@ class Job(
                         if new_start is None:
                             new_start = ni
                         new_end = ni + 1
-                if new_start is not None:
+                if new_start is None:
+                    # All files in this named optional range were filtered out.
+                    # Preserve the name as an empty Namedlist for the same reason.
+                    new_input._set_name(name, len(new_input), end=len(new_input))
+                else:
                     new_input._set_name(name, new_start, end=new_end)
 
         return new_input

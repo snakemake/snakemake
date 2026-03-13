@@ -1,0 +1,53 @@
+"""
+impatient=True: too many upstream jobs fail, definitively exceeding tolerance.
+
+5 chunks; chunks 002, 003, 004 all fail.  3/5 = 60% missing > tol=0.4.
+
+With impatient=True the scheduler tracks _ImpatientDepGroup counts as each
+upstream job finishes.  After chunks 000 and 001 succeed (known_present=2),
+the group is not yet satisfied: (5-2)/5 = 60% potentially missing > 40%.
+As chunks 002, 003, 004 fail (known_absent grows to 3), is_definitely_failed()
+triggers (60% > 40%) and the downstream job is added to _impatient_failed_jobs.
+The scheduler then marks the workflow as failed.
+
+Expected: fails
+"""
+
+chunks = ["000", "001", "002", "003", "004"]
+
+
+rule all:
+    input:
+        "merged.json"
+
+
+rule count:
+    output:
+        "counts_{chunk}.json"
+    run:
+        import json
+        from pathlib import Path
+
+        if wildcards.chunk in ("002", "003", "004"):
+            raise Exception(f"Simulated failure for chunk {wildcards.chunk}")
+
+        data = {"000": {"a": 1}, "001": {"b": 2}}[wildcards.chunk]
+        Path(output[0]).write_text(json.dumps(data))
+
+
+rule merge:
+    input:
+        counts=optional(expand("counts_{chunk}.json", chunk=chunks), tolerance=0.4, impatient=True),
+    output:
+        "merged.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for f in input.counts:
+            data = json.loads(Path(f).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))

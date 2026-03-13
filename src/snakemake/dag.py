@@ -66,6 +66,7 @@ from snakemake.io import (
     PeriodicityDetector,
     flags,
     get_flag_value,
+    get_optional_input_spec,
     is_callable,
     is_flagged,
     wait_for_files,
@@ -101,6 +102,48 @@ def toposort(graph):
             sorter.done(task)
         sorted.append(ready)
     return sorted
+
+
+# Used with optional input groups to avoid floating-point comparison issues
+_TOLERANCE_EPSILON = 1e-9
+
+
+class _ImpatientDepGroup:
+    """Tracks an optional(impatient=True) input group for a downstream job.
+
+    Used by the scheduler to determine when enough upstream jobs have completed
+    to satisfy the tolerance threshold (enabling early start).
+    """
+
+    def __init__(self, tolerance: float, total: int):
+        self.tolerance = tolerance
+        self.total = total
+        self.known_present: int = 0  # files confirmed to exist from finished producers
+        self.known_absent: int = 0  # files confirmed missing from finished producers
+        self.pending_producers: set = set()  # upstream jobs still running
+        # upstream_job → list of _IOFile; which files each upstream job is responsible for
+        self.producer_files: dict = {}
+
+    def mark_producer_done(self, upstream_job, files_created: int):
+        """Update counts when an upstream producer finishes."""
+        n_files = len(self.producer_files.get(upstream_job, []))
+        self.known_present += files_created
+        self.known_absent += n_files - files_created
+        self.pending_producers.discard(upstream_job)
+
+    def is_satisfied(self) -> bool:
+        """Currently-present files are enough to meet tolerance (start early!)."""
+        if self.total == 0:
+            return True
+        return (
+            self.total - self.known_present
+        ) / self.total <= self.tolerance + _TOLERANCE_EPSILON
+
+    def is_definitely_failed(self) -> bool:
+        """Too many files are definitively absent; tolerance cannot be met."""
+        if self.total == 0:
+            return False
+        return self.known_absent / self.total > self.tolerance + _TOLERANCE_EPSILON
 
 
 class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
@@ -158,6 +201,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._progress = 0
         self._group = dict()
         self._n_until_ready = defaultdict(int)
+        # Optional dependency tracking for scheduler-level early start
+        # (downstream_job, upstream_job) pairs where ALL files from upstream are impatient-optional
+        self._soft_dep_pairs: set = set()
+        # upstream_job → set of downstream jobs that have at least one impatient-optional dep on it
+        self._soft_dep_upstream_to_downstream: dict = defaultdict(set)
+        # upstream_job → set of downstream jobs with it as optional-hard (impatient=False) dep
+        self._optional_hard_dep_upstream: dict = defaultdict(set)
+        # downstream_job → {group_id → _ImpatientDepGroup}
+        self._job_impatient_groups: dict = defaultdict(dict)
+        # Jobs whose impatient groups have definitively exceeded tolerance
+        self._impatient_failed_jobs: set = set()
         self._running = set()
         self._jobs_with_finished_queue_input = set()
         self._storage_input_jobs = defaultdict(list)
@@ -766,46 +820,34 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         """Return output files of job that are ONLY consumed as optional inputs
         by all downstream jobs.
         """
-        
+
+        # never suppress output checks for explicitly requested target jobs
+        if job in self.targetjobs:
+            return set()
+
         result = set()
         for f in job.output:
             # storage files are handled separately, skip them
             if f.is_storage:
                 continue
+            # never suppress output checks for explicitly requested target files
+            if f in self.targetfiles:
+                continue
             f_str = str(f)
 
-            # 1 check DAG.depending[Job] on current job output files; (only this job graph)
+            # Collect the instantiated DAG consumers of this specific file.
+            # Only self.depending[job] is consulted — scanning workflow rule
+            # templates would match files from rules not in the current DAG.
             consumers = []
             for ds_job, files in self.depending[job].items():
                 for flink in files:
                     if str(flink) == f_str:
                         consumers.append(flink)
                         break
-            # check whether all downstream jobs require this file optionally
-            if consumers:
-                if all(is_flagged(flink, "optional") for flink in consumers):
-                    result.add(f)
-                continue
-            
-            # 2 scan other workflow rules' raw inputs 
-            found_optional = False
-            found_required = False
-            for rule in self.workflow.rules:
-                if rule.name == job.rule.name:
-                    continue  # skip current rule to check others
-                # iterate through all rule's input files
-                for inp in rule.input:
-                    if callable(inp):
-                        continue  # skip lambda inputs
-                    if str(inp) == f_str:
-                        if is_flagged(inp, "optional"):
-                            found_optional = True
-                        else:
-                            found_required = True
-                            
-            # Only suppress the missing-output check when the file is consumed
-            # somewhere as optional AND nowhere as required.
-            if found_optional and not found_required:
+
+            # Suppress the missing-output check only when there is at least one
+            # consumer and every consumer declares this file optional.
+            if consumers and all(is_flagged(flink, "optional") for flink in consumers):
                 result.add(f)
         return result
 
@@ -833,21 +875,34 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         # Exclude output files that are only consumed as optional inputs downstream.
         # If the job exits 0 but skips creating such a file, that is not an error.
+        # optional_only_outputs contains unshadowed paths (from job.output), so map
+        # each to its shadowed counterpart before comparing against expanded_output.
         optional_only_outputs = self._get_optional_only_outputs(job)
+        shadowed_missing: set = set()
         if optional_only_outputs:
-            for f in optional_only_outputs:
-                if not await f.exists():
+            shadowed_optionals = {job.shadowed_path(f) for f in optional_only_outputs}
+            for s in shadowed_optionals:
+                if not await s.exists():
+                    shadowed_missing.add(s)
                     logger.warning(
-                        f"Output file '{f}' was not created by rule '{job.rule.name}' "
+                        f"Output file '{s}' was not created by rule '{job.rule.name}' "
                         "(exit 0). All downstream rules declared it optional; "
                         "workflow will continue without it."
                     )
-            expanded_output = [f for f in expanded_output if f not in optional_only_outputs]
 
-        if not ignore_missing_output and expanded_output:
+        # Only remove missing optional-only outputs from the wait_for_files check.
+        # Leave expanded_output intact for ensure/directory/mtime validation so
+        # that optional outputs which were created are still fully validated.
+        wait_for_files_input = (
+            [f for f in expanded_output if f not in shadowed_missing]
+            if shadowed_missing
+            else expanded_output
+        )
+
+        if not ignore_missing_output and wait_for_files_input:
             try:
                 await wait_for_files(
-                    expanded_output,
+                    wait_for_files_input,
                     latency_wait=wait,
                     wait_for_local=wait_for_local,
                     ignore_pipe_or_service=True,
@@ -1407,6 +1462,63 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             dependencies[job_].add(file)
             self.depending[job_][job].add(file)
 
+        # --- Optional dependency edge tracking ---
+        # Categorise each producer edge as required, optional-hard, or optional-soft.
+        _upstream_has_required: set = set()
+        _upstream_has_opt_hard: set = set()
+        for file, upstream_job in producer.items():
+            spec = get_optional_input_spec(get_flag_value(file, "optional"))
+            if spec is None:
+                _upstream_has_required.add(upstream_job)
+            elif not spec.impatient:
+                _upstream_has_opt_hard.add(upstream_job)
+
+        for upstream_job in set(producer.values()):
+            has_req = upstream_job in _upstream_has_required
+            has_opt_hard = upstream_job in _upstream_has_opt_hard
+            # Check if this upstream_job produces any impatient-optional files for job
+            has_impatient = any(
+                get_optional_input_spec(get_flag_value(f, "optional")) is not None
+                and get_optional_input_spec(get_flag_value(f, "optional")).impatient
+                for f, uj in producer.items()
+                if uj is upstream_job
+            )
+            if has_impatient and not has_req and not has_opt_hard:
+                self._soft_dep_pairs.add((job, upstream_job))
+            if has_impatient:
+                # Register for impatient group updates whenever upstream finishes,
+                # regardless of whether the edge is also required/opt-hard.
+                self._soft_dep_upstream_to_downstream[upstream_job].add(job)
+            if not has_req and has_opt_hard:
+                self._optional_hard_dep_upstream[upstream_job].add(job)
+
+        # Build impatient dep groups for this downstream job.
+        # Iterate ALL potential_dependencies to get accurate totals (including no-producer files).
+        _impatient_groups_init: dict = {}
+        for res in potential_dependencies:
+            spec = get_optional_input_spec(get_flag_value(res.file, "optional"))
+            if spec is None or not spec.impatient:
+                continue
+            grp_id = spec.group
+            if grp_id not in _impatient_groups_init:
+                _impatient_groups_init[grp_id] = _ImpatientDepGroup(
+                    tolerance=spec.tolerance, total=0
+                )
+            grp = _impatient_groups_init[grp_id]
+            grp.total += 1
+            if res.file in producer:
+                upstream_job = producer[res.file]
+                grp.producer_files.setdefault(upstream_job, []).append(res.file)
+                grp.pending_producers.add(upstream_job)
+            else:
+                # No upstream producer: file's presence is fixed at DAG build time.
+                if await res.file.exists():
+                    grp.known_present += 1
+                else:
+                    grp.known_absent += 1
+        for grp_id, grp in _impatient_groups_init.items():
+            self._job_impatient_groups[job][grp_id] = grp
+
         if self.is_batch_rule(job.rule) and self.batch.is_final:
             # For the final batch, ensure that all input files from
             # previous batches are present on disk.
@@ -1686,12 +1798,32 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         # update _n_until_ready
         for job in _needrun:
-            _n_until_ready[job] = sum(1 for dep in dependencies[job] if dep in _needrun)
+            # soft deps (impatient=True) are not counted in _n_until_ready
+            _n_until_ready[job] = sum(
+                1
+                for dep in dependencies[job]
+                if dep in _needrun and (job, dep) not in self._soft_dep_pairs
+            )
             if job.is_checkpoint:
                 self._checkpoint_jobs.add(job)
 
         # update len including finished jobs (because they have already increased the job counter)
         self._len = len(self._finished | self._needrun)
+
+        # Reconcile impatient dep groups: producers not in _needrun will never
+        # call finish(), so _update_impatient_group_on_completion() will never
+        # be invoked for them.  Their output files are already on disk (that is
+        # why they are not in _needrun), so check existence now and move them
+        # out of pending_producers so is_satisfied() reflects reality.
+        for downstream_job, grps in self._job_impatient_groups.items():
+            for grp in grps.values():
+                for upstream_job in list(grp.pending_producers):
+                    if upstream_job not in _needrun:
+                        files_present = 0
+                        for f in grp.producer_files.get(upstream_job, []):
+                            if await f.exists():
+                                files_present += 1
+                        grp.mark_producer_done(upstream_job, files_present)
 
     def in_until(self, job):
         """Return whether given job has been specified via --until."""
@@ -2177,14 +2309,26 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         group = self._group.get(job, None)
 
         if group is None:
-            return self._n_until_ready[job] == 0
+            return self._n_until_ready[
+                job
+            ] == 0 and self._impatient_groups_satisfied(  # all hard deps satisfied
+                job
+            )  # enough impatient files present
         else:
-            n_internal_deps = lambda job: sum(
-                self._group.get(dep) == group for dep in self._dependencies[job]
+            n_internal_deps = lambda j: sum(
+                self._group.get(dep) == group and (j, dep) not in self._soft_dep_pairs
+                for dep in self._dependencies[j]
             )
             return all(
-                (self._n_until_ready[job] - n_internal_deps(job)) == 0 for job in group
-            )
+                (self._n_until_ready[j] - n_internal_deps(j)) == 0 for j in group
+            ) and all(self._impatient_groups_satisfied(j) for j in group)
+
+    def _impatient_groups_satisfied(self, job) -> bool:
+        """Return True if all impatient dep groups for `job` have met their tolerance."""
+        grps = self._job_impatient_groups.get(job, {})
+        if not grps:
+            return True
+        return all(grp.is_satisfied() for grp in grps.values())
 
     async def update_queue_input_jobs(self):
         updated = False
@@ -2353,10 +2497,28 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             # Mark depending jobs as ready.
             # Skip jobs that are marked as until jobs.
             # This is not necessary if the DAG has been fully updated above.
-            for job in depending:
-                self._n_until_ready[job] -= 1
+            # Also skip soft dep pairs (impatient=True): they were not counted
+            # in _n_until_ready initially, so we must not decrement them here.
+            for job_ in jobs:
+                for j_downstream in self.depending[job_]:
+                    if not self.in_until(job_) and self.needrun(j_downstream):
+                        if (j_downstream, job_) not in self._soft_dep_pairs:
+                            self._n_until_ready[j_downstream] -= 1
 
-        potential_new_ready_jobs = self.update_ready(depending)
+        # Also update impatient dep groups for soft-dep downstream jobs and re-evaluate them.
+        soft_depending = []
+        for job_ in jobs:
+            for j_downstream in list(
+                self._soft_dep_upstream_to_downstream.get(job_, set())
+            ):
+                if self.needrun(j_downstream) and not self.finished(j_downstream):
+                    await self._update_impatient_group_on_completion(
+                        job_, j_downstream, failed=False
+                    )
+                    if j_downstream not in depending:
+                        soft_depending.append(j_downstream)
+
+        potential_new_ready_jobs = self.update_ready(depending + soft_depending)
 
         if updated_dag:
             # We might have new jobs, so we need to ensure that all conda envs
@@ -2385,6 +2547,94 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             self._deferred_temp_jobs.clear()
 
         return potential_new_ready_jobs
+
+    async def _update_impatient_group_on_completion(
+        self, upstream_job, downstream_job, failed: bool
+    ):
+        """Update impatient dep groups when an upstream producer finishes.
+
+        ``failed`` is True when the upstream job exited with an error (no output created).
+        """
+        for grp in self._job_impatient_groups.get(downstream_job, {}).values():
+            if upstream_job not in grp.pending_producers:
+                continue
+            if failed:
+                files_created = 0
+            else:
+                files_created = 0
+                for f in grp.producer_files.get(upstream_job, []):
+                    if await f.exists():
+                        files_created += 1
+            grp.mark_producer_done(upstream_job, files_created)
+            if grp.is_definitely_failed():
+                self._impatient_failed_jobs.add(downstream_job)
+
+    def pop_impatient_failed_jobs(self) -> list:
+        """Return and clear all jobs whose impatient dep groups have exceeded tolerance.
+
+        Called by the scheduler each round to collect downstream jobs that have
+        been definitively blocked by too many upstream failures.
+        """
+        jobs = list(self._impatient_failed_jobs)
+        self._impatient_failed_jobs.clear()
+        return jobs
+
+    async def notify_optional_dep_failure(self, job):
+        """Handle failure of a job for optional dependency tracking.
+
+        Called by the scheduler when a job fails.  Updates ``_n_until_ready`` for
+        optional-hard (impatient=False) downstream jobs so they are not blocked
+        forever, and updates impatient groups for soft-dep (impatient=True) jobs.
+        """
+        jobs = list(job) if job.is_group() else [job]
+
+        all_affected: list = []
+
+        for j_upstream in jobs:
+            # Optional-hard deps (impatient=False): decrement counter so downstream
+            # can eventually start and check tolerance in _filter_optional_inputs.
+            for j_downstream in list(
+                self._optional_hard_dep_upstream.get(j_upstream, set())
+            ):
+                if self.needrun(j_downstream) and not self.finished(j_downstream):
+                    self._n_until_ready[j_downstream] -= 1
+                    if j_downstream not in all_affected:
+                        all_affected.append(j_downstream)
+
+            # Soft deps (impatient=True): update impatient groups (file not created).
+            for j_downstream in list(
+                self._soft_dep_upstream_to_downstream.get(j_upstream, set())
+            ):
+                if self.needrun(j_downstream) and not self.finished(j_downstream):
+                    await self._update_impatient_group_on_completion(
+                        j_upstream, j_downstream, failed=True
+                    )
+                    if j_downstream not in all_affected:
+                        all_affected.append(j_downstream)
+
+        if all_affected:
+            self.update_ready(all_affected)
+
+    def is_failure_absorbed(self, job) -> bool:
+        """Return True if this job's failure is fully absorbed by optional dep handling.
+
+        A failure is absorbed when every downstream consumer declares the relevant
+        output files as optional (impatient or not).  If any consumer requires the
+        file unconditionally, the failure is not absorbed and ``_errors`` must be set.
+        """
+        jobs = list(job) if job.is_group() else [job]
+        for j_upstream in jobs:
+            if j_upstream in self.targetjobs:
+                return False  # Explicitly requested target; failure not absorbed
+            downstream = self.depending.get(j_upstream, {})
+            if not downstream:
+                return False  # No downstream consumers → terminal job; failure not absorbed
+            for j_downstream, files in downstream.items():
+                for f in files:
+                    spec = get_optional_input_spec(get_flag_value(f, "optional"))
+                    if spec is None:
+                        return False  # Required file – failure not absorbed
+        return True
 
     async def new_job(
         self, rule, targetfile=None, format_wildcards=None, wildcards_dict=None

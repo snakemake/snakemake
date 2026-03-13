@@ -1,0 +1,87 @@
+"""
+Diamond DAG: required upstream job fails → whole workflow must fail.
+
+Same diamond shape as test_optional_input_diamond_all_edge_types_success, but
+produce_a (the required dependency of merge) raises an exception.  Optional deps
+that are within tolerance cannot rescue a missing required input.
+
+Expected: fails
+"""
+
+
+rule all:
+    input:
+        "final.json"
+
+
+rule produce_a:
+    output:
+        "a.json"
+    run:
+        raise Exception("Simulated failure: required a.json will not be created")
+
+
+rule produce_b:
+    output:
+        "b.json"
+    run:
+        import json
+        from pathlib import Path
+        Path(output[0]).write_text(json.dumps({"b": 2}))
+
+
+rule produce_c:
+    output:
+        "c.json"
+    run:
+        import json
+        from pathlib import Path
+        Path(output[0]).write_text(json.dumps({"c": 3}))
+
+
+rule produce_d:
+    output:
+        "d.json"
+    run:
+        raise Exception("Simulated failure: d.json will not be created")
+
+
+rule produce_e:
+    output:
+        "e.json"
+    run:
+        raise Exception("Simulated failure: e.json will not be created")
+
+
+rule merge:
+    input:
+        req="a.json",
+        opt_hard=optional(["b.json", "c.json", "d.json"], tolerance=0.4),
+        opt_soft=optional(["e.json"], tolerance=1.0, impatient=True),
+    output:
+        "merged.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        data = json.loads(Path(input.req).read_text())
+        merged.update(data)
+        for f in input.opt_hard:
+            data = json.loads(Path(f).read_text())
+            merged.update(data)
+        for f in input.opt_soft:
+            data = json.loads(Path(f).read_text())
+            merged.update(data)
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))
+
+
+rule final:
+    input:
+        "merged.json"
+    output:
+        "final.json"
+    run:
+        import shutil
+        shutil.copy(input[0], output[0])

@@ -1,0 +1,87 @@
+"""
+Three-stage pipeline where optional-hard edges at the middle stage absorb a
+stage-1 failure, allowing the full pipeline to complete.
+
+Stage 1 — count: 4 chunks; chunk 002 fails.
+
+Stage 2 — normalize: each job depends on its matching count file via
+    optional(..., tolerance=1.0).  When count_002 fails,
+    notify_optional_dep_failure unblocks normalize_002, which then runs
+    with an empty input list and writes an empty {} to norm_002.json.
+
+Stage 3 — merge: requires ALL four norm files (hard deps).  Because
+    normalize always succeeds (even with no input), all four norm files
+    exist and merge can run normally.
+
+DAG:
+
+    count_000 ─(opt-hard)─ normalize_000 ─┐
+    count_001 ─(opt-hard)─ normalize_001 ─┤
+    count_002 ─(opt-hard)─ normalize_002 ─┼─(required)─ merge
+    count_003 ─(opt-hard)─ normalize_003 ─┘
+
+Expected output: result.json = {"a": 1, "b": 2, "d": 4}
+  (chunk 002 contributes {} so its key "c" is absent from the result)
+"""
+
+chunks = ["000", "001", "002", "003"]
+chunk_data = {
+    "000": {"a": 1},
+    "001": {"b": 2},
+    "003": {"d": 4},
+}
+
+
+rule all:
+    input:
+        "result.json"
+
+
+rule count:
+    output:
+        "count_{chunk}.json"
+    run:
+        import json
+        from pathlib import Path
+
+        if wildcards.chunk == "002":
+            raise Exception("Simulated failure for chunk 002")
+
+        Path(output[0]).write_text(json.dumps(chunk_data[wildcards.chunk]))
+
+
+rule normalize:
+    input:
+        optional("count_{chunk}.json", tolerance=1.0)
+    output:
+        "norm_{chunk}.json"
+    run:
+        import json
+        from pathlib import Path
+
+        # input is empty when the upstream count job failed;
+        # iterate over all inputs safely in both cases.
+        merged = {}
+        for f in input:
+            data = json.loads(Path(f).read_text())
+            merged.update(data)
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))
+
+
+rule merge:
+    input:
+        counts=expand("norm_{chunk}.json", chunk=chunks)
+    output:
+        "result.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for f in input.counts:
+            data = json.loads(Path(f).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))

@@ -1,0 +1,64 @@
+"""
+Two independent optional groups: group A passes, group B exceeds its tolerance.
+
+Group A: a0.json, a1.json, a2 FAILS → 1/3 = 33% missing ≤ tol=0.4 → OK
+Group B: b0.json, b1 FAILS, b2 FAILS → 2/3 = 67% missing > tol=0.3 → EXCEEDS TOLERANCE
+
+Because group B violates its tolerance, the workflow must fail even though group A
+is within its own (separate) tolerance.
+
+Expected: fails
+"""
+
+a_items = [0, 1, 2]
+b_items = [0, 1, 2]
+
+
+rule all:
+    input:
+        "result.json"
+
+
+rule produce_a:
+    output:
+        "a{i}.json"
+    run:
+        import json
+        from pathlib import Path
+
+        if wildcards.i == "2":
+            raise Exception("Simulated failure: a2.json will not be created")
+
+        Path(output[0]).write_text(json.dumps({"a": 1}))
+
+
+rule produce_b:
+    output:
+        "b{i}.json"
+    run:
+        import json
+        from pathlib import Path
+
+        if wildcards.i in ("1", "2"):
+            raise Exception(f"Simulated failure: b{wildcards.i}.json will not be created")
+
+        Path(output[0]).write_text(json.dumps({"b": 1}))
+
+
+rule merge:
+    input:
+        group_a=optional(expand("a{i}.json", i=a_items), tolerance=0.4),
+        group_b=optional(expand("b{i}.json", i=b_items), tolerance=0.3),
+    output:
+        "result.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for f in list(input.group_a) + list(input.group_b):
+            data = json.loads(Path(f).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))

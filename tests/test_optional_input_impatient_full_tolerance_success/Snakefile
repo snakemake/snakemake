@@ -1,0 +1,55 @@
+"""
+impatient=True with tolerance=1.0: the downstream job becomes ready immediately.
+
+With tolerance=1.0, is_satisfied() evaluates:
+    (total - known_present) / total <= 1.0 + epsilon
+
+At DAG build time known_present=0 and total=3, so (3-0)/3 = 1.0 <= 1.0 — True
+from the very first scheduling round, before any upstream job has run.  The
+downstream merge job starts with an empty soft-dep group and writes {}.
+
+All upstream count jobs fail (raising an exception), which exercises two
+additional properties:
+  - is_failure_absorbed() returns True for each because all downstream
+    consumers declare their outputs optional, so _errors is never set.
+  - is_definitely_failed() requires known_absent/total > 1.0, which is
+    impossible, so the merge job is never added to _impatient_failed_jobs.
+
+Expected output: merged.json = {}
+"""
+
+chunks = ["000", "001", "002"]
+
+
+rule all:
+    input:
+        "merged.json"
+
+
+rule count:
+    output:
+        "counts_{chunk}.json"
+    run:
+        raise Exception(f"Simulated failure for chunk {wildcards.chunk}")
+
+
+rule merge:
+    input:
+        counts=optional(
+            expand("counts_{chunk}.json", chunk=chunks),
+            tolerance=1.0,
+            impatient=True,
+        ),
+    output:
+        "merged.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for f in input.counts:
+            data = json.loads(Path(f).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))

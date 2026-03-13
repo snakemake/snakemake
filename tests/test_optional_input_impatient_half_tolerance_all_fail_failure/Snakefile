@@ -1,0 +1,66 @@
+"""
+impatient=True with tolerance=0.5: all upstream jobs fail, workflow must fail
+and the downstream 'final' rule must never execute.
+
+4 chunks, all raise exceptions.  With impatient=True:
+
+  is_satisfied() requires (total - known_present) / total <= 0.5.
+  known_present stays 0 throughout, so (4-0)/4 = 1.0 > 0.5 — the merge job
+  never becomes ready and never runs.
+
+  is_definitely_failed() fires when known_absent / total > 0.5.
+  After the 3rd failure: 3/4 = 0.75 > 0.5 — merge is added to
+  _impatient_failed_jobs and the scheduler marks the workflow as failed.
+
+  Because merge never runs, merged.json is never created, so the 'final'
+  rule (which has a required hard dep on merged.json) is also never executed
+  and final.json must not exist.
+
+Expected: fails; final.json must not be created.
+"""
+
+chunks = ["000", "001", "002", "003"]
+
+
+rule all:
+    input:
+        "final.json"
+
+
+rule count:
+    output:
+        "counts_{chunk}.json"
+    run:
+        raise Exception(f"Simulated failure for chunk {wildcards.chunk}")
+
+
+rule merge:
+    input:
+        counts=optional(
+            expand("counts_{chunk}.json", chunk=chunks),
+            tolerance=0.5,
+            impatient=True,
+        ),
+    output:
+        "merged.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for f in input.counts:
+            data = json.loads(Path(f).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))
+
+
+rule final:
+    input:
+        "merged.json"
+    output:
+        "final.json"
+    run:
+        import shutil
+        shutil.copy(input[0], output[0])

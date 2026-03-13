@@ -21,7 +21,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from inspect import isfunction, ismethod
-from itertools import chain, product
+from itertools import chain, count, product
 from pathlib import Path
 import pickle
 from typing import (
@@ -430,7 +430,7 @@ class _IOFile(str, AnnotatedStringInterface):
     @property
     def is_ancient(self):
         return is_flagged(self._file, "ancient")
-    
+
     @property
     def is_optional(self):
         return is_flagged(self._file, "optional")
@@ -1214,11 +1214,63 @@ def ancient(value):
     """
     return flag(value, "ancient")
 
-def optional(value):
+
+_optional_input_group_counter = count()
+
+
+@dataclass(frozen=True)
+class OptionalInputSpec:
+    tolerance: float
+    impatient: bool
+    group: int
+
+
+def _validate_optional_tolerance(value):
+    try:
+        tolerance = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "Optional input tolerance must be a number between 0 and 1."
+        ) from exc
+    if not 0 <= tolerance <= 1:
+        raise ValueError("Optional input tolerance must be between 0 and 1.")
+    return tolerance
+
+
+def _create_optional_input_spec(tolerance=1.0, impatient=False):
+    return OptionalInputSpec(
+        tolerance=_validate_optional_tolerance(tolerance),
+        impatient=bool(impatient),
+        group=next(_optional_input_group_counter),
+    )
+
+
+def get_optional_input_spec(flag_value):
+    if isinstance(flag_value, OptionalInputSpec):
+        return flag_value
+    if flag_value:
+        return _create_optional_input_spec()
+    return None
+
+
+def optional(value, tolerance=1.0, impatient=False):
     """
-    A flag for an input file that shall be considered optional; the file absense should not stop the whole workflow.
+    A flag for an input file that shall be considered optional; the file absence should not stop the whole workflow.
+
+    Args:
+        value: The input file(s) to be marked as optional.
+        tolerance: Fraction of inputs that are allowed to be missing (0.0-1.0).
+            Defaults to 1 (all inputs may be missing). Only meaningful when
+            wrapping a list of inputs.
+        impatient: When True, the rule proceeds as soon as the tolerance constraint
+            is satisfied, without waiting for storage latency (latency_wait).
+            When False (default), the rule waits up to latency_wait seconds for
+            missing files to appear before deciding whether the tolerance is met.
     """
-    return flag(value, "optional")
+    return flag(
+        value, "optional", flag_value=_create_optional_input_spec(tolerance, impatient)
+    )
+
 
 def directory(value):
     """

@@ -1,0 +1,27 @@
+"""
+Optional input tolerance success scenario (with wildcards):
+- counts_000.json and counts_001.json exist.
+- counts_002.json and counts_003.json are missing but
+    tolerance=0.5 allows two missing inputs.
+"""
+
+rule all:
+    input:
+        "letter_counts.json"
+
+rule merge_counts:
+    input:
+        counts=optional(expand("counts_00{i}.json", i=range(4)), tolerance=0.5)
+    output:
+        "letter_counts.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for counts_file in input.counts:
+            data = json.loads(Path(counts_file).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))

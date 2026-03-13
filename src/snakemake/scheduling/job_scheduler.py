@@ -232,6 +232,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 with self._lock:
                     self._finish_jobs()
                     self._error_jobs()
+                    self._process_impatient_failed_jobs()
                     needrun = set(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
@@ -570,8 +571,24 @@ class JobScheduler(JobSchedulerExecutorInterface):
             # add job to those being ready again
             self.workflow.dag._ready_jobs.add(job)
         else:
-            self._errors = True
+            if not self.workflow.dag.is_failure_absorbed(job):
+                self._errors = True
             self.failed.add(job)
+            # Notify DAG to update optional dep groups and re-evaluate readiness
+            # of downstream jobs that depend on this job optionally.
+            self.workflow.async_run(self.workflow.dag.notify_optional_dep_failure(job))
+
+    def _process_impatient_failed_jobs(self):
+        """Process downstream jobs whose impatient dep groups have definitively exceeded
+        their tolerance threshold."""
+        for job in self.workflow.dag.pop_impatient_failed_jobs():
+            if job not in self.failed and job not in self.running:
+                self._errors = True
+                self.failed.add(job)
+                logger.warning(
+                    f"Rule '{job.rule.name}': optional inputs exceed tolerance and "
+                    "cannot recover; job will not be executed."
+                )
 
     def exit_gracefully(self, *args):
         with self._lock:

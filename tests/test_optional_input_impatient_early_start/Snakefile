@@ -1,0 +1,58 @@
+"""
+impatient=True allows merge to start early once tolerance is met,
+ignoring the remaining slower jobs.
+
+Scenario:
+- 3 chunks: 000 and 001 succeed, 002 is delayed
+- merge_counts uses optional(expand(...), tolerance=0.4, impatient=True)
+- 1/3 slow = 33.3% <= 40% tolerance, so workflow should finish with 2/3 chunks
+
+Expected:
+- succeeds
+- letter_counts.json contains only chunks 000 and 001: {"a": 2, "b": 3}
+"""
+import time
+
+chunks = ["000", "001", "002"]
+counts = {"000": {"a": 2}, "001": {"b": 3}, "002": {"c": 6}}
+
+
+rule all:
+    input:
+        "letter_counts.json"
+
+
+rule count_letters:
+    output:
+        "counts_{chunk}.json"
+    run:
+        import json
+        from pathlib import Path
+
+        if wildcards.chunk == "002":
+            # Delay one chunk long enough for merge_counts to start without it.
+            # 20 s gives comfortable headroom even on slow CI runners.
+            time.sleep(20)
+
+        data = counts.get(wildcards.chunk, {})
+        Path(output[0]).write_text(json.dumps(data))
+
+
+rule merge_counts:
+    input:
+        counts=optional(expand("counts_{chunk}.json", chunk=chunks), tolerance=0.4, impatient=True)
+    output:
+        # letter_counts should only include chunks 000 and 001 even though
+        # the slower chunk 002 succeeds (since impatient=True)
+        "letter_counts.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for counts_file in input.counts:
+            data = json.loads(Path(counts_file).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))

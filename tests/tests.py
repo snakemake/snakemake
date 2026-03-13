@@ -25,7 +25,7 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected
+from .common import run, dpath, apptainer, connected, copy
 from .conftest import (
     skip_on_windows,
     only_on_windows,
@@ -255,111 +255,218 @@ def test_ancient_cli():
         shellcmd="snakemake --consider-ancient A=0 B=x --cores 1",
     )
 
-def test_optional_input_missing_without_flag():
-    tmpdir = run(
-        dpath("test_optional_input_missing_without_flag"),
-        shouldfail=True,
-        cleanup=False,
-    )
-    assert not (tmpdir / "letter_counts.json").exists()
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
+class TestOptionalInput:
+    def test_optional_input_missing_without_flag(self):
+        tmpdir = run(
+            dpath("test_optional_input_missing_without_flag"),
+            shouldfail=True,
+            cleanup=False,
+        )
+        assert not (tmpdir / "letter_counts.json").exists()
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
-def test_optional_input_okay_without_flag():
-    tmpdir = run(
-        dpath("test_optional_input_okay_without_flag"),
-        shouldfail=False,
-        cleanup=False,
-    )
-    assert (tmpdir / "letter_counts.json").exists()
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    def test_optional_input_okay_without_flag(self):
+        tmpdir = run(
+            dpath("test_optional_input_okay_without_flag"),
+            shouldfail=False,
+            cleanup=False,
+        )
+        assert (tmpdir / "letter_counts.json").exists()
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
+    def test_optional_input_partial_merge(self):
+        """Optional flag allows partial merge when upstream job exits 0 but skips output."""
+        run(dpath("test_optional_input_partial_merge"))
 
-def test_optional_input_partial_merge():
-    """Optional flag allows partial merge when upstream job exits 0 but skips output."""
-    import json
-    tmpdir = run(
-        dpath("test_optional_input_partial_merge"),
-        shouldfail=False,
-        check_results=False,
-        cleanup=False,
-    )
-    assert (tmpdir / "letter_counts.json").exists()
-    result = json.loads((tmpdir / "letter_counts.json").read_text())
-    assert result == {"a": 2, "b": 3}
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    def test_optional_input_tolerance_success(self):
+        """Optional tolerance allows a merge when the missing fraction stays within the quota."""
+        run(dpath("test_optional_input_tolerance_success"))
 
+    def test_optional_input_tolerance_failure(self):
+        """Workflow fails when missing optional files exceed the tolerance fraction."""
+        run(dpath("test_optional_input_tolerance_failure"), shouldfail=True)
 
-def test_optional_input_upstream_failure():
-    """Optional flag does not hide actual upstream failure (exit code 1)."""
-    tmpdir = run(
-        dpath("test_optional_input_upstream_failure"),
-        shouldfail=True,
-        cleanup=False,
-    )
-    assert not (tmpdir / "letter_counts.json").exists()
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    def test_optional_input_tolerance_wildcards_success(self):
+        run(dpath("test_optional_input_tolerance_wildcards_success"))
 
+    def test_optional_input_tolerance_wildcards_failure(self):
+        run(dpath("test_optional_input_tolerance_wildcards_failure"), shouldfail=True)
 
-def test_optional_input_all_present_with_flag():
-    """Optional flag with all inputs present: normal full merge succeeds."""
-    import json
-    tmpdir = run(
-        dpath("test_optional_input_all_present_with_flag"),
-        shouldfail=False,
-        check_results=False,
-        cleanup=False,
-    )
-    assert (tmpdir / "letter_counts.json").exists()
-    result = json.loads((tmpdir / "letter_counts.json").read_text())
-    assert result == {"a": 2, "b": 3, "c": 4}
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    def test_optional_input_impatient(self):
+        """impatient=False waits for all upstream jobs before checking tolerance."""
+        run(dpath("test_optional_input_impatient"))
 
+    def test_optional_input_upstream_failure(self):
+        """Optional flag with tolerance=0 does not hide upstream failure (exit code 1)."""
+        run(dpath("test_optional_input_upstream_failure"), shouldfail=True)
 
-def test_optional_input_mixed():
-    """Required + optional mixed inputs: succeeds with available files only."""
-    import json
-    tmpdir = run(
-        dpath("test_optional_input_mixed"),
-        shouldfail=False,
-        check_results=False,
-        cleanup=False,
-    )
-    assert (tmpdir / "letter_counts.json").exists()
-    result = json.loads((tmpdir / "letter_counts.json").read_text())
-    assert result == {"o": 1, "r": 5}
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    def test_optional_input_upstream_failure_absorbed(self):
+        """Upstream failure is absorbed when default tolerance allows the missing file."""
+        run(dpath("test_optional_input_upstream_failure_absorbed"))
 
+    def test_optional_input_impatient_early_start(self):
+        """impatient=True allows merge to succeed when upstream failure is within tolerance."""
+        run(dpath("test_optional_input_impatient_early_start"))
 
-def test_optional_input_required_blocks():
-    """Missing required input still blocks workflow; optional flag only applies to optional files."""
-    tmpdir = run(
-        dpath("test_optional_input_required_blocks"),
-        shouldfail=True,
-        cleanup=False,
-    )
-    assert not (tmpdir / "letter_counts.json").exists()
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    def test_optional_input_all_present_with_flag(self):
+        """Optional flag with all inputs present: normal full merge succeeds."""
+        import json
 
+        tmpdir = run(
+            dpath("test_optional_input_all_present_with_flag"),
+            shouldfail=False,
+            check_results=False,
+            cleanup=False,
+        )
+        assert (tmpdir / "letter_counts.json").exists()
+        result = json.loads((tmpdir / "letter_counts.json").read_text())
+        assert result == {"a": 2, "b": 3, "c": 4}
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
-def test_optional_input_logging():
-    """Optional missing input is visible in Snakemake log as a warning."""
-    import json
-    tmpdir = run(
-        dpath("test_optional_input_logging"),
-        shouldfail=False,
-        check_results=False,
-        cleanup=False,
-    )
-    assert (tmpdir / "letter_counts.json").exists()
-    result = json.loads((tmpdir / "letter_counts.json").read_text())
-    assert result == {"a": 2, "b": 3}
-    # Verify that the skipped optional file appears in the Snakemake log
-    log_files = list((tmpdir / ".snakemake" / "log").glob("*.log"))
-    if log_files:
-        log_text = log_files[-1].read_text()
-        assert "counts_002.json" in log_text
-    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    def test_optional_input_mixed(self):
+        """Required + optional mixed inputs: succeeds with available files only."""
+        import json
+
+        tmpdir = run(
+            dpath("test_optional_input_mixed"),
+            shouldfail=False,
+            check_results=False,
+            cleanup=False,
+        )
+        assert (tmpdir / "letter_counts.json").exists()
+        result = json.loads((tmpdir / "letter_counts.json").read_text())
+        assert result == {"o": 1, "r": 5}
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+    def test_optional_input_required_blocks(self):
+        """Missing required input still blocks workflow; optional flag only applies to optional files."""
+        tmpdir = run(
+            dpath("test_optional_input_required_blocks"),
+            shouldfail=True,
+            cleanup=False,
+        )
+        assert not (tmpdir / "letter_counts.json").exists()
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+    def test_optional_input_logging(self):
+        """Optional missing input is visible in Snakemake log as a warning."""
+        import json
+
+        tmpdir = run(
+            dpath("test_optional_input_logging"),
+            shouldfail=False,
+            check_results=False,
+            cleanup=False,
+        )
+        assert (tmpdir / "letter_counts.json").exists()
+        result = json.loads((tmpdir / "letter_counts.json").read_text())
+        assert result == {"a": 2, "b": 3}
+        # Verify that the skipped optional file appears in the Snakemake log
+        log_files = list((tmpdir / ".snakemake" / "log").glob("*.log"))
+        if log_files:
+            log_text = log_files[-1].read_text()
+            assert "counts_002.json" in log_text
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+    def test_optional_input_diamond_all_edge_types_success(self):
+        """Diamond DAG with all three edge types: required + optional-hard + optional-soft.
+
+        produce_a (required) and produce_b/c (optional-hard) succeed; produce_d
+        (optional-hard, 1/3 missing ≤ tol=0.4) and produce_e (optional-soft,
+        tol=1.0) both fail but are within their respective tolerances.  merge runs
+        with a.json + b.json + c.json, then final copies the result.
+        """
+        run(dpath("test_optional_input_diamond_all_edge_types_success"))
+
+    def test_optional_input_diamond_required_fails(self):
+        """Diamond DAG: required upstream job failing causes the whole workflow to fail.
+
+        Same diamond as the success case above, but produce_a (the required
+        dependency) fails.  Optional tolerances on the other edges cannot rescue a
+        missing required input.
+        """
+        run(dpath("test_optional_input_diamond_required_fails"), shouldfail=True)
+
+    def test_optional_input_two_groups_both_pass_success(self):
+        """Two independent optional groups with different tolerances, both within limits.
+
+        Group A (tol=0.4): 3 files, 1 fails → 33% missing ≤ 40% → OK
+        Group B (tol=0.3): 4 files, 1 fails → 25% missing ≤ 30% → OK
+        Both groups satisfy their own tolerance; merge succeeds.
+        """
+        run(dpath("test_optional_input_two_groups_both_pass_success"))
+
+    def test_optional_input_two_groups_second_exceeds_tolerance_failure(self):
+        """Two independent optional groups: group A passes, group B exceeds tolerance.
+
+        Group A (tol=0.4): 3 files, 1 fails → 33% ≤ 40% → OK
+        Group B (tol=0.3): 3 files, 2 fail → 67% > 30% → EXCEEDS TOLERANCE
+        A single over-tolerance group causes the workflow to fail even when the
+        other group is within its own limit.
+        """
+        run(
+            dpath("test_optional_input_two_groups_second_exceeds_tolerance_failure"),
+            shouldfail=True,
+        )
+
+    def test_optional_input_multistage_optional_pipeline_success(self):
+        """Three-stage pipeline where optional-hard edges absorb a mid-stage failure.
+
+        Stage 1 (count): 4 chunks, chunk 002 fails.
+        Stage 2 (normalize): each job takes its count file as optional(tol=1.0);
+            when count_002 fails, notify_optional_dep_failure unblocks normalize_002,
+            which runs with an empty input and writes {} to norm_002.json.
+        Stage 3 (merge): requires all four norm files (hard deps); succeeds because
+            normalize always produces its output.
+        """
+        run(dpath("test_optional_input_multistage_optional_pipeline_success"))
+
+    def test_optional_input_impatient_too_many_fail_failure(self):
+        """impatient=True: too many upstream failures definitively exceed tolerance.
+
+        5 chunks with impatient=True and tol=0.4.  Chunks 002, 003, 004 all fail,
+        so known_absent/total = 3/5 = 60% > 40%.  is_definitely_failed() triggers
+        and the scheduler adds the downstream job to _impatient_failed_jobs, causing
+        the workflow to fail without the merge rule ever running.
+        """
+        run(
+            dpath("test_optional_input_impatient_too_many_fail_failure"),
+            shouldfail=True,
+        )
+
+    def test_optional_input_impatient_half_tolerance_all_fail_failure(self):
+        """impatient=True, tolerance=0.5: all upstream jobs fail, workflow fails
+        and the downstream 'final' rule is never executed.
+
+        4 chunks, all fail.  is_satisfied() requires (4-0)/4 = 1.0 <= 0.5 which
+        is never true, so merge is never scheduled.  is_definitely_failed()
+        triggers after the 3rd failure (3/4 = 0.75 > 0.5) and the scheduler
+        adds merge to _impatient_failed_jobs.  Because merge never runs,
+        merged.json is never produced, so 'final' (hard dep on merged.json)
+        is also never executed and final.json must not exist.
+        """
+        tmpdir = run(
+            dpath("test_optional_input_impatient_half_tolerance_all_fail_failure"),
+            shouldfail=True,
+            cleanup=False,
+        )
+        assert not (tmpdir / "merged.json").exists(), "merge must not have run"
+        assert not (tmpdir / "final.json").exists(), "final must not have run"
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+    def test_optional_input_impatient_full_tolerance_success(self):
+        """impatient=True with tolerance=1.0: downstream job starts immediately.
+
+        is_satisfied() evaluates (total - known_present) / total <= 1.0, which is
+        true from the very first scheduling round regardless of how many upstream
+        jobs have finished.  All upstream count jobs fail, but is_failure_absorbed()
+        returns True for each (all consumers mark output optional) so _errors is
+        never set.  is_definitely_failed() requires known_absent/total > 1.0 which
+        is impossible, so the merge job is never blocked.  Merge runs with an empty
+        input list and writes {}.
+        """
+        run(dpath("test_optional_input_impatient_full_tolerance_success"))
 
 
 def test_subpath():

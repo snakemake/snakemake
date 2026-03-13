@@ -1,0 +1,98 @@
+"""
+Diamond DAG exercising all three dependency-edge types in one workflow.
+
+DAG shape:
+
+    produce_a  ──(required)──────────────────────────────────┐
+    produce_b  ──(optional-hard, succeeds)────────────────── merge ── final
+    produce_c  ──(optional-hard, succeeds)──  opt_hard group │
+    produce_d  ──(optional-hard, FAILS)─────  (tol=0.4)     │
+    produce_e  ──(optional-soft, FAILS)─────  opt_soft group ┘
+                                              (tol=1.0, impatient=True)
+
+Tolerance check for opt_hard group: 1 of 3 files missing = 33% ≤ 40% → OK
+Tolerance check for opt_soft group: 1 of 1 files missing = 100% ≤ 100% → OK
+Required dep (a.json) present → merge runs → final succeeds.
+
+Expected output: final.json = {"a": 1, "b": 2, "c": 3}
+"""
+
+
+rule all:
+    input:
+        "final.json"
+
+
+rule produce_a:
+    output:
+        "a.json"
+    run:
+        import json
+        from pathlib import Path
+        Path(output[0]).write_text(json.dumps({"a": 1}))
+
+
+rule produce_b:
+    output:
+        "b.json"
+    run:
+        import json
+        from pathlib import Path
+        Path(output[0]).write_text(json.dumps({"b": 2}))
+
+
+rule produce_c:
+    output:
+        "c.json"
+    run:
+        import json
+        from pathlib import Path
+        Path(output[0]).write_text(json.dumps({"c": 3}))
+
+
+rule produce_d:
+    output:
+        "d.json"
+    run:
+        raise Exception("Simulated failure: d.json will not be created")
+
+
+rule produce_e:
+    output:
+        "e.json"
+    run:
+        raise Exception("Simulated failure: e.json will not be created")
+
+
+rule merge:
+    input:
+        req="a.json",
+        opt_hard=optional(["b.json", "c.json", "d.json"], tolerance=0.4),
+        opt_soft=optional(["e.json"], tolerance=1.0, impatient=True),
+    output:
+        "merged.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        data = json.loads(Path(input.req).read_text())
+        merged.update(data)
+        for f in input.opt_hard:
+            data = json.loads(Path(f).read_text())
+            merged.update(data)
+        for f in input.opt_soft:
+            data = json.loads(Path(f).read_text())
+            merged.update(data)
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))
+
+
+rule final:
+    input:
+        "merged.json"
+    output:
+        "final.json"
+    run:
+        import shutil
+        shutil.copy(input[0], output[0])
