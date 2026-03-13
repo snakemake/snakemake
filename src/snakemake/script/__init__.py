@@ -852,60 +852,114 @@ class RMarkdown(ScriptBase):
 
 
 class JuliaScript(ScriptBase):
+    @staticmethod
+    def generate_preamble(
+        path,
+        cache_path: typing.Optional[str],
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        container_img,
+        singularity_args,
+        env_modules,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        is_local,
+        preamble_addendum="",
+    ) -> str:
+        return textwrap.dedent("""
+        ######## snakemake preamble start (automatically inserted, do not edit) ########
+        struct Snakemake
+            input::Dict
+            output::Dict
+            params::Dict
+            wildcards::Dict
+            threads::Int64
+            log::Dict
+            resources::Dict
+            config::Dict
+            rule::String
+            bench_iteration
+            scriptdir::String
+            #source::Any
+        end
+        snakemake = Snakemake(
+            {}, #input::Dict
+            {}, #output::Dict
+            {}, #params::Dict
+            {}, #wildcards::Dict
+            {}, #threads::Int64
+            {}, #log::Dict
+            {}, #resources::Dict
+            {}, #config::Dict
+            {}, #rule::String
+            {}, #bench_iteration::Int64
+            {}, #scriptdir::String
+            #, #source::Any
+        )
+        {preamble_addendum}
+
+        ######## snakemake preamble end #########
+        """).format(
+            JuliaEncoder.encode_namedlist(input_),
+            JuliaEncoder.encode_namedlist(output),
+            JuliaEncoder.encode_namedlist(params),
+            JuliaEncoder.encode_namedlist(wildcards),
+            threads,
+            JuliaEncoder.encode_namedlist(log),
+            JuliaEncoder.encode_namedlist(
+                {
+                    name: value
+                    for name, value in resources.items()
+                    if name != "_cores" and name != "_nodes"
+                }
+            ),
+            JuliaEncoder.encode_dict(config),
+            JuliaEncoder.encode_value(rulename),
+            JuliaEncoder.encode_value(bench_iteration),
+            JuliaEncoder.encode_value(
+                path.get_basedir().get_path_or_uri(secret_free=True)
+            ),
+            preamble_addendum=preamble_addendum,
+        )
+
     def get_preamble(self):
-        return textwrap.dedent(
-            """
-                ######## snakemake preamble start (automatically inserted, do not edit) ########
-                struct Snakemake
-                    input::Dict
-                    output::Dict
-                    params::Dict
-                    wildcards::Dict
-                    threads::Int64
-                    log::Dict
-                    resources::Dict
-                    config::Dict
-                    rule::String
-                    bench_iteration
-                    scriptdir::String
-                    #source::Any
-                end
-                snakemake = Snakemake(
-                    {}, #input::Dict
-                    {}, #output::Dict
-                    {}, #params::Dict
-                    {}, #wildcards::Dict
-                    {}, #threads::Int64
-                    {}, #log::Dict
-                    {}, #resources::Dict
-                    {}, #config::Dict
-                    {}, #rule::String
-                    {}, #bench_iteration::Int64
-                    {}, #scriptdir::String
-                    #, #source::Any
-                )
-                ######## snakemake preamble end #########
-                """.format(
-                JuliaEncoder.encode_namedlist(self.input),
-                JuliaEncoder.encode_namedlist(self.output),
-                JuliaEncoder.encode_namedlist(self.params),
-                JuliaEncoder.encode_namedlist(self.wildcards),
-                JuliaEncoder.encode_value(self.threads),
-                JuliaEncoder.encode_namedlist(self.log),
-                JuliaEncoder.encode_namedlist(
-                    {
-                        name: value
-                        for name, value in self.resources.items()
-                        if name != "_cores" and name != "_nodes"
-                    }
-                ),
-                JuliaEncoder.encode_dict(self.config),
-                JuliaEncoder.encode_value(self.rulename),
-                JuliaEncoder.encode_value(self.bench_iteration),
-                JuliaEncoder.encode_value(
-                    self.path.get_basedir().get_path_or_uri(secret_free=True)
-                ),
-            )
+        return JuliaScript.generate_preamble(
+            self.path,
+            self.cache_path,
+            self.source,
+            self.basedir,
+            self.input,
+            self.output,
+            self.params,
+            self.wildcards,
+            self.threads,
+            self.resources,
+            self.log,
+            self.config,
+            self.rulename,
+            self.conda_env,
+            self.container_img,
+            self.singularity_args,
+            self.env_modules,
+            self.bench_record,
+            self.jobid,
+            self.bench_iteration,
+            self.cleanup_scripts,
+            self.shadow_dir,
+            self.is_local,
         )
 
     def write_script(self, preamble, fd):
