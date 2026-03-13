@@ -1,5 +1,3 @@
-# things that are definitely not about defining rules
-
 .. _snakefiles-job_properties:
 
 Job Properties
@@ -34,16 +32,3 @@ The following shows an example job submission wrapper:
     job_properties["cluster"]["time"]
 
     os.system("qsub -t {threads} {script}".format(threads=threads, script=jobscript))
-
-.. _snakefiles-code_tracking:
-
-Code Tracking
--------------
-
-Snakemake tracks the code that was used to create your files.
-In combination with ``--summary`` or ``--list-code-changes`` this can be used to see what files may need a re-run because the implementation changed.
-Re-run can be automated by invoking Snakemake as follows:
-
-.. code-block:: console
-
-    $ snakemake -R `snakemake --list-code-changes`
