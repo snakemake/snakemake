@@ -62,7 +62,7 @@ For a practical example, see the :ref:`tutorial` (:ref:`tutorial-input_functions
 .. _snakefiles-unpack:
 
 Input Functions and ``unpack()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In some cases, you might want to have your input functions return named input files.
 This can be done by having them return ``dict()`` objects with the names as the dict keys and the file names as the dict values and using the ``unpack()`` keyword.
@@ -140,8 +140,8 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
 
 .. _snakefiles-directory_output:
 
-Auto-grouping via temp files upon remote execution
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Auto-grouping ``temp`` Files in Remote Execution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For performance reasons, it is sometimes useful to write intermediate files on a faster storage, e.g., attached locally on the cluster compute node rather than shared over the network (and thus neither visible to the main snakemake process that submits jobs to the cluster, nor to other nodes of the cluster).
 Snakemake (since version 9.0) allows files marked as ``temp`` to use the option ``group_jobs`` to indicate that rules creating and consuming them should be automatically :ref:`grouped  <job_grouping>` together so Snakemake will schedule them to run on the same physical node:
@@ -164,7 +164,7 @@ Snakemake (since version 9.0) allows files marked as ``temp`` to use the option 
         shell:
             "someothercommand {input} {output}"
 
-Directories as outputs
+Directories as Outputs
 ----------------------
 
 Sometimes it can be convenient to have directories, rather than files, as outputs of a rule.
@@ -191,7 +191,7 @@ Always consider if you can't formulate your workflow using normal files before r
 
     Note that because a directory marked as the output of a job will be deleted before that job executes (in order to start with a clean state), other jobs should not create output files within that directory, as these may be inadvertently deleted as well.
 
-Ignoring timestamps
+Ignoring Timestamps
 -------------------
 
 For determining whether output files have to be re-created, Snakemake checks whether the file modification date (i.e. the timestamp) of any input file of the same job is newer than the timestamp of the output file.
@@ -213,8 +213,8 @@ Note that any flag that forces re-creation of files still also applies to files 
 
 .. _snakefiles_ensure:
 
-Ensuring output file properties like non-emptyness or checksum compliance
--------------------------------------------------------------------------
+Ensuring Output File Properties
+-------------------------------
 
 It is possible to annotate certain additional criteria for output files to be ensured after they have been generated successfully.
 For example, this can be used to check for output files to be non-empty, or to compare them against a given sha256 checksum.
@@ -266,7 +266,7 @@ Note that you can also use `lambda expressions <https://docs.python.org/3/tutori
 
 Often, it is a good idea to combine ``ensure`` annotations with :ref:`retry definitions <snakefiles_retries>`, e.g. for retrying upon invalid checksums or empty files.
 
-Shadow rules
+Shadow Rules
 ------------
 
 Shadow rules result in each execution of the rule to be run in isolated temporary directories.
@@ -408,7 +408,7 @@ Consider the following complete toy example:
 
 .. _snakefiles_update_output:
 
-Updating existing output files
+Updating Existing Output Files
 ------------------------------
 
 By default, Snakemake deletes already existing output files before a job is executed.
@@ -459,7 +459,7 @@ An important helper for setting up the logic of ``before_update`` is the :ref:`e
 
 
 
-Flag files
+Flag Files
 ----------
 
 Sometimes it is necessary to enforce some rule execution order without real file dependencies. This can be achieved by "touching" empty files that denote that a certain task was completed. Snakemake supports this via the `touch` flag:

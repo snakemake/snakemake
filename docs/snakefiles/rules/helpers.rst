@@ -5,7 +5,7 @@ Helper functions
 .. _snakefiles-input_helpers:
 
 Input Helpers
---------------------------
+-------------
 
 Snakemake provides a number of helpers that can be used to define rules and drastically simplify over using
 :ref:`input functions <snakefiles-input_functions>` or :ref:`plain python expressions <snakefiles_aggregation>`.
@@ -14,8 +14,8 @@ Afterwards, we will further show a set of semantic helper functions should incre
 
 .. _snakefiles_expand:
 
-The expand function
-~~~~~~~~~~~~~~~~~~~
+``expand()``
+^^^^^^^^^^^^
 
 Instead of specifying input files via a Python list comprehension, Snakemake offers a helper function ``expand()``.
 
@@ -83,8 +83,8 @@ If that is the case, ``expand`` returns a function again, the evaluation of whic
 
 .. _snakefiles-multiext:
 
-The multiext function
-~~~~~~~~~~~~~~~~~~~~~
+``multiext()``
+^^^^^^^^^^^^^^
 
 ``multiext`` provides a simplified variant of ``expand`` that allows us to define a set of output or input files that just differ by their extension:
 
@@ -127,17 +127,17 @@ Additionally, if additional input/output statements are given, multiext should b
 
 .. _snakefiles-semantic-helpers:
 
-Semantic helpers
-~~~~~~~~~~~~~~~~
+Semantic Helpers
+----------------
 
-The collect function
-""""""""""""""""""""
+``collect()``
+^^^^^^^^^^^^^
 
 The ``collect`` function is an alias for the ``expand`` function with exactly the same behavior.
 It can be used to express more explicitly that a rule collects a set of files from upstream jobs.
 
-The lookup function
-"""""""""""""""""""
+``lookup()``
+^^^^^^^^^^^^
 
 The ``lookup`` function can be used to look up a value in a python mapping (e.g. a ``dict``) or a `pandas dataframe or series <https://pandas.pydata.org>`_.
 It is especially useful for looking up information based on wildcard values.
@@ -240,8 +240,8 @@ This way, one can e.g. pass additional variables or chain lookups into more comp
 
 .. _snakefiles-branch-function:
 
-The branch function
-"""""""""""""""""""
+``branch()``
+^^^^^^^^^^^^
 
 The ``branch`` function allows to choose different input files based on a given conditional.
 It has the signature
@@ -315,8 +315,8 @@ An example for using the cases argument could look as follows:
         }
     )
 
-The evaluate function
-"""""""""""""""""""""
+``evaluate()``
+^^^^^^^^^^^^^^
 
 The ``evaluate`` function allows to quickly evaluate a Python expression that contains wildcard values.
 It has the signature ``evaluate(expr: str)``.
@@ -339,8 +339,8 @@ If the sample wildcard is ``100``, the input is ``a/100.txt``, otherwise it is `
 
 .. _snakefiles-semantic-helpers-exists:
 
-The exists function
-"""""""""""""""""""
+``exists()``
+^^^^^^^^^^^^
 
 The ``exists`` function allows to check whether a file exists, while properly considering remote storage settings provided to Snakemake.
 For example, if Snakemake has been configured to consider all input and output files to be located in an S3 bucket, ``exists`` will check whether the file exists in the S3 bucket.
@@ -365,8 +365,8 @@ It can for example be used to condition some behavior in the workflow on the exi
 
 .. _snakefiles-semantic-helpers-parse-input:
 
-The parse_input function
-""""""""""""""""""""""""
+``parse_input()``
+^^^^^^^^^^^^^^^^^
 
 The ``parse_input`` function allows to parse an input file and return a value.
 It has the signature ``parse_input(input_item, parser, kwargs)``, with ``input_item`` being the key of an input file, ``parser`` being a callable to extract the desired information, and ``kwargs`` extra arguments passed to the parser.
@@ -387,8 +387,8 @@ The function will return the extracted value and this can, for example, be used 
 
 .. _snakefiles-semantic-helpers-extract-checksum:
 
-The extract_checksum function
-"""""""""""""""""""""""""""""
+``extract_checksum()``
+^^^^^^^^^^^^^^^^^^^^^^
 
 The ``extract_checksum`` function parses an input file and returns the checksum of the given file.
 It has the signature ``extract_checksum(infile, file)``, with ``infile`` being the input file, and ``file`` the filename to search for.
@@ -408,8 +408,8 @@ The function will return the checksum of ``file`` present in ``infile``.
 
 .. _snakefiles-rule-item-access:
 
-Rule item access helpers
-""""""""""""""""""""""""
+Rule Item Access Helpers
+------------------------
 
 Via functions (e.g. for :ref:`snakefiles-params` or :ref:`snakefiles-resources`) it is possible to access other items of the same rule in a deferred way, at the point in time when they are actually known.
 For this, functions like
@@ -442,8 +442,8 @@ For example, we could write
 
 .. _snakefiles-subpath:
 
-Sub-path access
-"""""""""""""""
+``subpath()``
+^^^^^^^^^^^^^
 
 In some cases, it is useful to access a sub-path of an input or output file or directory.
 For this purpose, Snakemake provides the ``subpath`` function.
@@ -495,8 +495,9 @@ The ``subpath`` function can be very handy in combination with :ref:`Snakemake's
 
 .. _snakefiles-flatten:
 
-flatten
-"""""""
+``flatten()``
+^^^^^^^^^^^^^
+
 When selecting input files, sometimes you might end up with an irregular list of lists. To flatten in, you can use:
 
 .. code-block:: python
