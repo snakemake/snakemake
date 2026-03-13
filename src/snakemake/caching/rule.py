@@ -71,7 +71,7 @@ class RuleCache:
 
         rule = self.rule
 
-        if len(rule.output) == 0:
+        if not rule.output:
             raise WorkflowError(
                 "Rules without output files cannot be cached.", rule=rule
             )
