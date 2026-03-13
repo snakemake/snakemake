@@ -44,10 +44,13 @@ from snakemake.io import (
     InputFiles,
     ResourceList,
     is_callable,
-    Wildcards,
     is_flagged,
     get_flag_value,
     wait_for_files,
+)
+from snakemake.io.container import (
+    ResourceList,
+    Wildcards,
 )
 from snakemake.settings.types import SharedFSUsage
 from snakemake.resources import GroupResources, Resources
