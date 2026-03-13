@@ -289,7 +289,7 @@ class Workflow(WorkflowExecutorInterface):
             "basedir": self.basedir,
             "rundir": self.rundir,
             "cwd": self.workdir_init,
-            "configfiles": ", "join(self.configfiles),
+            "configfiles": ", ".join(self.configfiles),
             "snakefile_main": self.main_snakefile,
             "snakefile": self.snakefile,
             "workflow_id": uuid.uuid4(),
