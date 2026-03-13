@@ -72,7 +72,7 @@ Both mechanisms can be particularly handy when used in combination with :ref:`no
 Non-local execution
 ^^^^^^^^^^^^^^^^^^^
 
-Non-local execution on cluster or cloud infrastructure is implemented via plugins.
+Non-local execution on cluster or cloud infrastructure is implemented via :ref:`executor plugins <executors>`.
 The `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`__ lists available plugins and their documentation.
 In general, the configuration boils down to specifying an executor plugin (e.g. for SLURM or Kubernetes) and, if needed, a :ref:`storage <default_storage>` plugin (e.g. in order to use S3 for input and output files or in order to efficiently use a shared network filesystem).
 For maximizing the I/O performance over the network, it can be advisable to :ref:`annotate the input file access patterns of rules <storage-access-patterns>`.
