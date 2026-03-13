@@ -72,6 +72,7 @@ class DbPersistence(PersistenceBase):
         # for SQLite, set a busy timeout to avoid immediate failures on database locks;
         # if available, use the latency_wait setting instead.
         # TODO: if that doesn't help, consider using flufl.lock
+        #  or a NullPool or enabling BEGIN IMMEDIATE
         busy_timeout = 10000
         if self.dag:
             latency_wait_s = self.dag.workflow.execution_settings.latency_wait * 1000
