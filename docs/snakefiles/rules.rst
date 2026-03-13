@@ -798,6 +798,39 @@ When selecting input files, sometimes you might end up with an irregular list of
     flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
 
 
+.. _snakefiles-prepend:
+
+prepend
+"""""""
+
+Some tools require adding a flag before each filename they are given.
+To add a flag before each input file in a list,
+the ``prepend`` helper can be used.
+For example:
+
+.. code-block:: python
+
+    params:
+        data=prepend("--input", input.data)
+    input:
+        data=["a.txt", "b.txt", "c.txt"],
+    shell:
+        "somecommand {params.data}"
+
+will run the command ``somecommand --input a.txt --input b.txt --input c.txt``.
+If spaces are not required between the prefix and the filename,
+set the ``space`` keyword argument to ``False``:
+
+.. code-block:: python
+
+    params:
+        data=prepend("-i", input.data, space=False)
+    input:
+        data=["a.txt", "b.txt", "c.txt"],
+    shell:
+        "somecommand {params.data}"  # Runs somecommand -ia.txt -ib.txt -ic.txt
+
+
 .. _snakefiles-targets:
 
 Target rules
