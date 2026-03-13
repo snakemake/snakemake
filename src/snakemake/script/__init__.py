@@ -1429,12 +1429,12 @@ class QuartoScript(ScriptBase):
         preamble_addendum="",
     ) -> str:
 
-        if (match := re.search(r"(?<=```{)[^,\s}]+", source)):
+        if match := re.search(r"(?<=```{)[^,\s}]+", source):
             engine = match.group()
         else:
             logger.warning(
                 f"No code-block found in Quarto script {path}.",
-                "Unable to determine engine for rendering."
+                "Unable to determine engine for rendering.",
             )
             engine = None
 
@@ -1522,21 +1522,15 @@ class QuartoScript(ScriptBase):
                 preamble = None
 
         if engine and preamble:
-            return textwrap.dedent(
-                """
+            return textwrap.dedent("""
                 ```{{{}}}
                 #| echo: false
                 #| warning: false
 
                 {}
                 ```
-                """.format(
-                    engine,
-                    preamble
-                )
-            )
+                """.format(engine, preamble))
         return ""
-
 
     def get_preamble(self) -> str:
         return QuartoScript.generate_preamble(
@@ -1567,7 +1561,9 @@ class QuartoScript(ScriptBase):
 
     def write_script(self, preamble, fd):
         # Insert Snakemake object after the Quarto header
-        pos = next(itertools.islice(re.finditer(r"---\n", self.source), 1, 2)).start() + 3
+        pos = (
+            next(itertools.islice(re.finditer(r"---\n", self.source), 1, 2)).start() + 3
+        )
         fd.write(str.encode(self.source[:pos]))
         fd.write(preamble.encode())
         fd.write(self.source[pos:].encode())
@@ -1578,7 +1574,7 @@ class QuartoScript(ScriptBase):
                 "Quarto scripts (.qmd) may only have a single output file."
             )
         self._execute_cmd(
-            "quarto render {fname:q} --quiet --metadata embed-resources:true --execute-param qmd:{fname} --output - 1> {out}"
+            "quarto render {fname:q} --quiet --metadata embed-resources:true --execute-param qmd:{fname} --output - 1> {out}",
             fname=fname,
             out=self.output[0],
         )
