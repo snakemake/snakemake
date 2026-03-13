@@ -60,7 +60,7 @@ def show_logs(logs):
 
 
 def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
-    from snakemake.io import Namedlist
+    from snakemake.io.container import Namedlist
 
     omit_keys = omit_keys or []
     omit_values = omit_values or []
