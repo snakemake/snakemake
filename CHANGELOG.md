@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [9.17.1](https://github.com/snakemake/snakemake/compare/v9.17.0...v9.17.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* correctly register module pathvars of the module of each rule ([#4105](https://github.com/snakemake/snakemake/issues/4105)) ([111a3ee](https://github.com/snakemake/snakemake/commit/111a3eee06b030edae50bb19ec030918d4b62f5b))
+* persistence-backend cli enum parsing ([#4099](https://github.com/snakemake/snakemake/issues/4099)) ([11a62e7](https://github.com/snakemake/snakemake/commit/11a62e734bf8ab27dfd93bb66a30ba12e1ffd354))
+
+
+### Documentation
+
+* Add note on profile and module usage ([#4103](https://github.com/snakemake/snakemake/issues/4103)) ([ff5e0b4](https://github.com/snakemake/snakemake/commit/ff5e0b49a9c24580866f15bcccc716cf01616619))
+
 ## [9.17.0](https://github.com/snakemake/snakemake/compare/v9.16.3...v9.17.0) (2026-03-13)
 
 
