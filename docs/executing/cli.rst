@@ -139,7 +139,9 @@ The default profile to use when no ``--profile`` argument is specified can also 
 e.g. by specifying ``export SNAKEMAKE_PROFILE=myprofile`` in your ``~/.bashrc`` or the system wide shell defaults means that the ``--profile`` flag can be omitted.
 In order unset the profile defined by this environment variable for individual runs without specifying and alternative profile you can provide the special value ``none``, i.e. ``--profile none``.
 
-.. note:: Note when using modules, the profile will not be propagated to the main workflow, which means that a profile has to be specified for the main workflow as well, if needed.
+.. note::
+
+  When using modules, the profile will not be propagated to the main workflow, which means that a profile has to be specified for the main workflow as well, if needed.
 
 The profile folder is expected to contain a configuration file that file that defines default values for the Snakemake command line arguments.
 The file has to be named ``config.vX+.yaml`` with ``X`` denoting the minimum supported Snakemake major version (e.g. ``config.v8+.yaml``).
