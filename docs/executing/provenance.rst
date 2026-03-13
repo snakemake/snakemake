@@ -23,3 +23,5 @@ Note that this can sometimes experience lock contention and latency issues durin
 This may or may not be a problem depending on your specific infrastructure.
 If you encounter database locking errors, consider using a dedicated database server (like PostgreSQL or MySQL) instead.
 Since this backend is experimental, finding the optimal setup for your cluster might require some experimentation. Use at your own risk.
+
+By default, we configure a ``PRAGMA busy_timeout={max(10s, latency_wait)}`` (so 10 seconds by default, or the value of ``latency_wait`` if it is higher) to mitigate locking issues with SQLite.
