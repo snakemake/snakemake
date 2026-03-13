@@ -26,7 +26,7 @@ def prepend(
             path = str(path)
         if not isinstance(path, str):
             raise ValueError(
-                "Values passed to subpath "
+                "Values passed to prepend "
                 "must be a single string or pathlib.Path (or a function returning those). "
                 f"Obtained value: {repr(path)}"
             )
