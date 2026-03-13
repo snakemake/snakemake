@@ -100,16 +100,29 @@ def test_infer_source_file_from_gitlab_api_url_with_private_token_falls_back_to_
 
 
 def test_infer_source_file_from_github_shorthand():
-    file = infer_source_file("github.com:snakemake/snakemake@main:workflow/Snakefile")
+    file = infer_source_file("gh:snakemake/snakemake@main:workflow/Snakefile")
 
     assert isinstance(file, GithubFile)
+    assert file.host == "github.com"
+    assert file.repo == "snakemake/snakemake"
+    assert file.branch == "main"
+    assert file.path == "workflow/Snakefile"
+
+
+def test_infer_source_file_from_github_shorthand_custom_host():
+    file = infer_source_file(
+        "gh:github.example.com:snakemake/snakemake@main:workflow/Snakefile"
+    )
+
+    assert isinstance(file, GithubFile)
+    assert file.host == "github.example.com"
     assert file.repo == "snakemake/snakemake"
     assert file.branch == "main"
     assert file.path == "workflow/Snakefile"
 
 
 def test_infer_source_file_from_gitlab_shorthand():
-    file = infer_source_file("gitlab.com:group/project@main:workflow/Snakefile")
+    file = infer_source_file("gl:group/project@main:workflow/Snakefile")
 
     assert isinstance(file, GitlabFile)
     assert file.host == "gitlab.com"
@@ -119,12 +132,19 @@ def test_infer_source_file_from_gitlab_shorthand():
 
 
 def test_infer_source_file_from_gitlab_shorthand_custom_host():
-    file = infer_source_file(
-        "gitlab.cern.ch:group/subgroup/project@main:workflow/Snakefile"
-    )
+    file = infer_source_file("gl:gitlab.cern.ch:group/subgroup/project@main:workflow/Snakefile")
 
     assert isinstance(file, GitlabFile)
     assert file.host == "gitlab.cern.ch"
     assert file.repo == "group/subgroup/project"
     assert file.branch == "main"
     assert file.path == "workflow/Snakefile"
+
+
+def test_infer_source_file_from_old_host_first_shorthand_falls_back_to_generic():
+    path = "github.com:snakemake/snakemake@main:workflow/Snakefile"
+
+    file = infer_source_file(path)
+
+    assert isinstance(file, GenericSourceFile)
+    assert file.get_path_or_uri(secret_free=False) == path
