@@ -26,6 +26,8 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.pathvars import Pathvars
+from snakemake.persistence.file import FilePersistence
+from snakemake.persistence.db import DbPersistence
 from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
@@ -43,7 +45,7 @@ from snakemake.settings.types import (
     GlobalReportSettings,
     SharedFSUsage,
 )
-from snakemake.settings.enums import Quietness
+from snakemake.settings.enums import Quietness, PersistenceBackend
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import (
     SpawnedJobArgsFactoryExecutorInterface,
@@ -108,7 +110,7 @@ from snakemake.io import (
     sourcecache_entry,
 )
 
-from snakemake.persistence import Persistence
+from snakemake.persistence import PersistenceBase
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.notebook import notebook
@@ -134,6 +136,7 @@ from snakemake.checkpoints import Checkpoints
 from snakemake.resources import ResourceScopes, Resources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
+from snakemake.caching.rule import CacheFlag, RuleCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
@@ -170,7 +173,6 @@ class Workflow(WorkflowExecutorInterface):
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
-    cache_rules: Dict[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str | Path] = None
     _rundir = str(Path.cwd().absolute())
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
@@ -195,7 +197,7 @@ class Workflow(WorkflowExecutorInterface):
         self.rule_count = 0
         self._included = OrderedDict()
         self.included_stack: list[SourceFile] = []
-        self._persistence: Optional[Persistence] = None
+        self._persistence: Optional[PersistenceBase] = None
         self._dag: Optional[DAG] = None
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
@@ -251,7 +253,6 @@ class Workflow(WorkflowExecutorInterface):
             WorkflowModifier(self, pathvars=Pathvars.with_defaults(), globals=_globals)
         ]
         self._output_file_cache = None
-        self.cache_rules = dict()
 
         config = copy.deepcopy(self.config_settings.overwrite_config)
         self.globals["config"] = config
@@ -440,30 +441,8 @@ class Workflow(WorkflowExecutorInterface):
 
     def check_cache_rules(self):
         for rule in self.rules:
-            cache_mode = self.cache_rules.get(rule.name)
-            if cache_mode:
-                if len(rule.output) > 1:
-                    if not all(out.is_multiext for out in rule.output):
-                        raise WorkflowError(
-                            "Rule is marked for between workflow caching but has multiple output files. "
-                            "This is only allowed if multiext() is used to declare them (see docs on between "
-                            "workflow caching).",
-                            rule=rule,
-                        )
-                if not self.enable_cache:
-                    logger.warning(
-                        f"Workflow defines that rule {rule.name} is eligible for caching between workflows "
-                        "(use the --cache argument to enable this)."
-                    )
-                if rule.benchmark:
-                    raise WorkflowError(
-                        "Rules with a benchmark directive may not be marked as eligible "
-                        "for between-workflow caching at the same time. The reason is that "
-                        "when the result is taken from cache, there is no way to fill the benchmark file with "
-                        "any reasonable values. Either remove the benchmark directive or disable "
-                        "between-workflow caching for this rule.",
-                        rule=rule,
-                    )
+            if rule.cache:
+                rule.cache.check()
 
     @property
     def attempt(self):
@@ -661,12 +640,6 @@ class Workflow(WorkflowExecutorInterface):
                 logger.info("Congratulations, your workflow is in a good condition!")
         return linted
 
-    def get_cache_mode(self, rule: Rule):
-        if self.workflow_settings.cache is None:
-            return None
-        else:
-            return self.cache_rules.get(rule.name)
-
     @property
     def rules(self) -> Iterable[Rule]:
         return self._rules.values()
@@ -809,9 +782,11 @@ class Workflow(WorkflowExecutorInterface):
         shadow_prefix: str | Path | None = None,
     ):
         if self.workflow_settings.cache is not None:
-            self.cache_rules.update(
-                {rulename: "all" for rulename in self.workflow_settings.cache}
-            )
+            cache_rules = set(self.workflow_settings.cache)
+            for rule in self.rules:
+                if rule.name in cache_rules and rule.cache:
+                    rule.cache.flag |= CacheFlag.output
+                    rule.cache.check()
             try:
                 if (
                     self.storage_settings is not None
@@ -945,7 +920,24 @@ class Workflow(WorkflowExecutorInterface):
         )
 
         assert self.deployment_settings is not None
-        self._persistence = Persistence(
+
+        persistence_backend = self.workflow_settings.persistence_backend
+        persistence_kwargs = {}
+        match persistence_backend:
+            case PersistenceBackend.DB:
+                persistence = DbPersistence
+                if self.workflow_settings.persistence_backend_db_url:
+                    persistence_kwargs["db_url"] = (
+                        self.workflow_settings.persistence_backend_db_url
+                    )
+            case PersistenceBackend.FILE:
+                persistence = FilePersistence
+            case _:
+                raise WorkflowError(
+                    f"Unknown persistence backend: {persistence_backend}"
+                )
+
+        self._persistence = persistence(
             nolock=nolock,
             dag=self._dag,
             conda_prefix=self.deployment_settings.conda_prefix,
@@ -953,6 +945,7 @@ class Workflow(WorkflowExecutorInterface):
             shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
             path=persistence_path,
+            **persistence_kwargs,
         )
 
     def generate_unit_tests(self, path: Path):
@@ -2094,17 +2087,7 @@ class Workflow(WorkflowExecutorInterface):
                 self._localrules.add(name)
                 rule.is_handover = True
 
-            if ruleinfo.cache and not (
-                ruleinfo.cache is True
-                or ruleinfo.cache == "omit-software"
-                or ruleinfo.cache == "all"
-            ):
-                raise WorkflowError(
-                    "Invalid value for cache directive. Use 'all' or 'omit-software'.",
-                    rule=rule,
-                )
-
-            self.cache_rules[name] = "all" if ruleinfo.cache is True else ruleinfo.cache
+            rule.cache = RuleCache.from_rule(rule, ruleinfo.cache)
 
             if ruleinfo.default_target is True:
                 self.default_target = name
