@@ -1400,6 +1400,190 @@ class HyScript(PythonScript):
         self._execute_cmd("hy {fname:q}", fname=fname)
 
 
+class QuartoScript(ScriptBase):
+    @staticmethod
+    def generate_preamble(
+        path,
+        cache_path: typing.Optional[str],
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        container_img,
+        singularity_args,
+        env_modules,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        is_local,
+        preamble_addendum="",
+    ) -> str:
+
+        if (match := re.search(r"(?<=```{)[^,\s}]+", source)):
+            engine = match.group()
+        else:
+            logger.warning(
+                f"No code-block found in Quarto script {path}.",
+                "Unable to determine engine for rendering."
+            )
+            engine = None
+
+        match engine:
+            case "python":
+                preamble = PythonScript.generate_preamble(
+                    path,
+                    cache_path,
+                    source,
+                    basedir,
+                    input,
+                    output,
+                    params,
+                    wildcards,
+                    threads,
+                    resources,
+                    log,
+                    config,
+                    rulename,
+                    conda_env,
+                    container_img,
+                    singularity_args,
+                    env_modules,
+                    bench_record,
+                    jobid,
+                    bench_iteration,
+                    cleanup_scripts,
+                    shadow_dir,
+                    is_local,
+                    preamble_addendum,
+                )
+            case "r":
+                preamble = RScript.generate_preamble(
+                    path,
+                    source,
+                    basedir,
+                    input,
+                    output,
+                    params,
+                    wildcards,
+                    threads,
+                    resources,
+                    log,
+                    config,
+                    rulename,
+                    conda_env,
+                    container_img,
+                    singularity_args,
+                    env_modules,
+                    bench_record,
+                    jobid,
+                    bench_iteration,
+                    cleanup_scripts,
+                    shadow_dir,
+                    preamble_addendum,
+                )
+            case "julia":
+                preamble = JuliaScript.generate_preamble(
+                    path,
+                    cache_path,
+                    source,
+                    basedir,
+                    input,
+                    output,
+                    params,
+                    wildcards,
+                    threads,
+                    resources,
+                    log,
+                    config,
+                    rulename,
+                    conda_env,
+                    container_img,
+                    singularity_args,
+                    env_modules,
+                    bench_record,
+                    jobid,
+                    bench_iteration,
+                    cleanup_scripts,
+                    shadow_dir,
+                    is_local,
+                    preamble_addendum,
+                )
+            case _:
+                preamble = None
+
+        if engine and preamble:
+            return textwrap.dedent(
+                """
+                ```{{{}}}
+                #| echo: false
+                #| warning: false
+
+                {}
+                ```
+                """.format(
+                    engine,
+                    preamble
+                )
+            )
+        return ""
+
+
+    def get_preamble(self) -> str:
+        return QuartoScript.generate_preamble(
+            self.path,
+            self.cache_path,
+            self.source,
+            self.basedir,
+            self.input,
+            self.output,
+            self.params,
+            self.wildcards,
+            self.threads,
+            self.resources,
+            self.log,
+            self.config,
+            self.rulename,
+            self.conda_env,
+            self.container_img,
+            self.singularity_args,
+            self.env_modules,
+            self.bench_record,
+            self.jobid,
+            self.bench_iteration,
+            self.cleanup_scripts,
+            self.shadow_dir,
+            self.is_local,
+        )
+
+    def write_script(self, preamble, fd):
+        # Insert Snakemake object after the Quarto header
+        pos = next(itertools.islice(re.finditer(r"---\n", self.source), 1, 2)).start() + 3
+        fd.write(str.encode(self.source[:pos]))
+        fd.write(preamble.encode())
+        fd.write(self.source[pos:].encode())
+
+    def execute_script(self, fname, edit=False):
+        if len(self.output) != 1:
+            raise WorkflowError(
+                "Quarto scripts (.qmd) may only have a single output file."
+            )
+        self._execute_cmd(
+            "quarto render {fname:q} --quiet --metadata embed-resources:true --execute-param qmd:{fname} --output - 1> {out}"
+            fname=fname,
+            out=self.output[0],
+        )
+
+
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
     """Strip a substring matching a regex from a string and return the stripped part
     and the remainder of the original string.
@@ -1466,6 +1650,8 @@ def get_language(source_file, source):
         language = "xonsh"
     elif filename.endswith(".hy"):
         language = "hy"
+    elif filename.endswith(".qmd"):
+        language = "quarto"
 
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
@@ -1532,10 +1718,11 @@ def script(
         "bash": BashScript,
         "xonsh": XonshScript,
         "hy": HyScript,
+        "quarto": QuartoScript,
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
-            "Script must be one of the following filetypes: [.py .R .Rmd .jl .rs .sh .xsh .hy]"
+            "Script must be one of the following filetypes: [.py .R .Rmd .jl .rs .sh .xsh .hy .qmd]"
         )
 
     executor = exec_class(
