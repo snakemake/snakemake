@@ -231,7 +231,7 @@ We recommend to clearly motivate any configuration choices in comments, for exam
     # jobs, we slightly oversubmit.
     cores: 220
     # If a rule doesn't have the following resources specified, it will default
-    # to requesting the resources sepcified here.
+    # to requesting the resources specified here.
     default-resources:
       mem_mb: 1024
 
@@ -386,7 +386,7 @@ Mostly, a workflow-specific profile is meant to set rule-specific resources and 
       # data.
       scatter_rule: 4
 
-But a worfklow specific profile can also overwrite ``default-resources`` from :ref:`global-profiles`, for example
+But a workflow specific profile can also overwrite ``default-resources`` from :ref:`global-profiles`, for example
 
 .. code-block:: yaml
 
@@ -447,7 +447,7 @@ With the same ``Snakefile`` location, ``snakemake --workflow-profile relative_pa
 
 And finally, assuming that the specified file exists, ``snakemake --workflow-profile extra_profiles_dir/workflow_profile.yaml`` will short-circuit the lookup and just use the file that is specified.
 
-Whenever a workflow profile is succesfully specified, it is parsed after any global profiles.
+Whenever a workflow profile is successfully specified, it is parsed after any global profiles.
 It takes precedence over them, overriding any pre-existing top-level keys that it also specifies, but keeping any top-level keys that it doesn't contain.
 
 For example, if the ``--profile global_profile`` YAML file sets
