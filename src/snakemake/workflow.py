@@ -274,6 +274,7 @@ class Workflow(WorkflowExecutorInterface):
         import getpass
         from datetime import datetime
         from snakemake.common import __version__
+        import uuid
 
         conda_bin = shutil.which("conda")
 
@@ -304,6 +305,9 @@ class Workflow(WorkflowExecutorInterface):
             "cwd": self.workdir_init,
             "configfiles": self.configfiles,
             "config": config,
+            "snakefile_main": self.main_snakefile,
+            "snakefile": self.snakefile,
+            "workflow_id": uuid.uuid4(),
         }
 
     @property
@@ -1297,18 +1301,15 @@ class Workflow(WorkflowExecutorInterface):
         greedy_scheduler_settings: GreedySchedulerSettings,
         updated_files: Optional[List[str]] = None,
     ):
-        import uuid
         from snakemake.shell import shell
 
         logger.info(
             "Workflow has started!",
             extra=dict(
                 event=LogEvent.WORKFLOW_STARTED,
-                snakefile_main=self.main_snakefile,
-                snakefile=self.snakefile,
-                workflow_id=uuid.uuid4(),
-            )
-            | self.info_header,
+                **self.info_header,
+                quietness=Quietness.HOST,
+            ),
         )
 
         assert self.deployment_settings is not None
