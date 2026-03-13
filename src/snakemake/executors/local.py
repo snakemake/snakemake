@@ -239,16 +239,20 @@ class Executor(RealExecutor):
         """
         Either retrieve result from cache, or run job with given function.
         """
-        cache_mode = self.workflow.get_cache_mode(job.rule)
+        cache = (
+            self.workflow.workflow_settings.cache is not None
+            and job.rule.cache
+            and job.rule.cache.output
+        )
         try:
-            if cache_mode:
-                await self.workflow.output_file_cache.fetch(job, cache_mode)
+            if cache:
+                await job.rule.cache.fetch(job)
                 return
         except CacheMissException:
             pass
         run_func(*args)
-        if cache_mode:
-            await self.workflow.output_file_cache.store(job, cache_mode)
+        if cache:
+            await job.rule.cache.store(job)
 
     def shutdown(self):
         self.pool.shutdown()
