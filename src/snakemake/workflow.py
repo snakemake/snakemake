@@ -26,6 +26,8 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.pathvars import Pathvars
+from snakemake.persistence.file import FilePersistence
+from snakemake.persistence.db import DbPersistence
 from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
@@ -43,7 +45,7 @@ from snakemake.settings.types import (
     GlobalReportSettings,
     SharedFSUsage,
 )
-from snakemake.settings.enums import Quietness
+from snakemake.settings.enums import Quietness, PersistenceBackend
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import (
     SpawnedJobArgsFactoryExecutorInterface,
@@ -109,7 +111,7 @@ from snakemake.io import (
     typed,
 )
 
-from snakemake.persistence import Persistence
+from snakemake.persistence import PersistenceBase
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.notebook import notebook
@@ -196,7 +198,7 @@ class Workflow(WorkflowExecutorInterface):
         self.rule_count = 0
         self._included = OrderedDict()
         self.included_stack: list[SourceFile] = []
-        self._persistence: Optional[Persistence] = None
+        self._persistence: Optional[PersistenceBase] = None
         self._dag: Optional[DAG] = None
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
@@ -912,7 +914,24 @@ class Workflow(WorkflowExecutorInterface):
         )
 
         assert self.deployment_settings is not None
-        self._persistence = Persistence(
+
+        persistence_backend = self.workflow_settings.persistence_backend
+        persistence_kwargs = {}
+        match persistence_backend:
+            case PersistenceBackend.DB:
+                persistence = DbPersistence
+                if self.workflow_settings.persistence_backend_db_url:
+                    persistence_kwargs["db_url"] = (
+                        self.workflow_settings.persistence_backend_db_url
+                    )
+            case PersistenceBackend.FILE:
+                persistence = FilePersistence
+            case _:
+                raise WorkflowError(
+                    f"Unknown persistence backend: {persistence_backend}"
+                )
+
+        self._persistence = persistence(
             nolock=nolock,
             dag=self._dag,
             conda_prefix=self.deployment_settings.conda_prefix,
@@ -920,6 +939,7 @@ class Workflow(WorkflowExecutorInterface):
             shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
             path=persistence_path,
+            **persistence_kwargs,
         )
 
     def generate_unit_tests(self, path: Path):
