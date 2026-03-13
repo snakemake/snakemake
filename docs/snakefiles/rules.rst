@@ -287,6 +287,38 @@ Finally, argument values passed to ``expand`` can also be functions or lists of 
 Depending on the context, that function has to accept the same arguments as functions for ``input`` (see :ref:`snakefiles-input_functions`) or functions for ``params`` (see :ref:`snakefiles-params`).
 If that is the case, ``expand`` returns a function again, the evaluation of which is deferred to the point in time when the wildcards of the respective job are known.
 
+.. _snakefiles_optional:
+
+Optional input
+~~~~~~~~~~~~~~~~~~~
+
+In some workflows, it can be desirable to proceed even if one or several expected input files are missing and a small number of missing intermediate results should not necessarily prevent the creation of a partial final result.
+
+By default, Snakemake requires all declared input files of a rule to be present before execution. If any expected input file is missing, the workflow stops with an error. To relax this behaviour for selected inputs, Snakemake provides the ``optional()`` input flag:
+
+.. code-block:: python
+
+	partial_results = ["result_0.txt", "result_1.txt", "result_2.txt", "result_3.txt"] # assuming some files are not present
+	rule merge:
+	    input:
+	        optional(partial_results)
+	    output:
+	        "path/to/merged_result.txt"
+	    shell:
+	        "somecommand {input} {output}"
+
+This function can also be combined with ``expand()``:
+
+.. code-block:: python
+
+    parts = ["0", "1", "2", "3"]
+	rule merge:
+	    input:
+	        optional(expand("result_{part}.txt", part=parts))
+	    output:
+	        "path/to/merged_result.txt"
+	    shell:
+	        "somecommand {input} {output}"
 
 .. _snakefiles-multiext:
 
