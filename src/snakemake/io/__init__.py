@@ -629,7 +629,12 @@ class _IOFile(str, AnnotatedStringInterface):
             and not self.is_fifo()
         )
 
-    async def checksum(self, threshold: Optional[int] = None, force: bool = False, algorithm: None|str|Callable=None) -> Optional[str]:
+    async def checksum(
+        self,
+        threshold: Optional[int] = None,
+        force: bool = False,
+        algorithm: None | str | Callable = None,
+    ) -> Optional[str]:
         """Return checksum as "{algorithm}:{hexdigest}", or None.
 
         Returns None if the file does not exist or exceeds the size threshold.
@@ -643,10 +648,11 @@ class _IOFile(str, AnnotatedStringInterface):
         wrong_algorithm_or_empty = False
 
         algorithm_name = (
-            None if algorithm is None
-            else algorithm if isinstance(algorithm, str)
-            else algorithm().name
+            None
+            if algorithm is None
+            else algorithm if isinstance(algorithm, str) else algorithm().name
         )
+
         def check_algorithm(checksum):
             if algorithm_name is None:
                 return True
@@ -703,7 +709,10 @@ class _IOFile(str, AnnotatedStringInterface):
             return None
 
     async def is_same_checksum(
-        self, other_checksum: Optional[str], threshold: Optional[int], force: bool=False
+        self,
+        other_checksum: Optional[str],
+        threshold: Optional[int],
+        force: bool = False,
     ) -> bool:
         """Return True if this file's checksum matches other_checksum.
 
@@ -715,7 +724,9 @@ class _IOFile(str, AnnotatedStringInterface):
 
         pos = other_checksum.find(":")
         if pos == -1:
-            raise ValueError("other_checksum needs to specify an algorithm prefix, like sha512:xxxx")
+            raise ValueError(
+                "other_checksum needs to specify an algorithm prefix, like sha512:xxxx"
+            )
         algorithm = other_checksum[:pos]
 
         checksum = await self.checksum(threshold, force=force, algorithm=algorithm)
