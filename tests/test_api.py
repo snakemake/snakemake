@@ -138,3 +138,9 @@ def test_remote_snakefile_via_api():
             expected = expected_results / relpath
             assert output.exists(), f"Missing output {relpath}"
             assert md5sum(output) == md5sum(expected)
+
+
+def test_resolve_snakefile_keeps_shorthand_uri():
+    path = "gh:snakemake/snakemake@main"
+
+    assert api.resolve_snakefile(path) == path

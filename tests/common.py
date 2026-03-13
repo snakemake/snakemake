@@ -4,6 +4,8 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from contextlib import contextmanager
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
 import signal
@@ -14,6 +16,7 @@ import time
 from os.path import join
 import tempfile
 import hashlib
+import threading
 from typing import Any, List, Mapping
 import urllib
 import urllib.request
@@ -37,6 +40,26 @@ from snakemake.settings.enums import PersistenceBackend
 
 #: File system path as string or pathlike object.
 StrPath: TypeAlias = str | os.PathLike
+
+
+class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+
+@contextmanager
+def serve_directory(path: Path):
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), partial(QuietHTTPRequestHandler, directory=str(path))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
 
 
 def dpath(path: StrPath) -> Path:

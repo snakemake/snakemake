@@ -403,11 +403,13 @@ This also applies to self-hosted GitLab instances, as long as they expose the st
 As a convenience syntax, hosted source files can also be written with an explicit provider prefix.
 Use ``gh:owner/repo@ref:path/to/Snakefile`` for GitHub, optionally inserting a custom host as ``gh:github.example.org:owner/repo@ref:path/to/Snakefile``.
 Use ``gl:group/project@ref:path/to/Snakefile`` for GitLab, optionally inserting a custom host as ``gl:gitlab.example.org:group/project@ref:path/to/Snakefile``.
+If the trailing path is omitted, Snakemake assumes ``workflow/Snakefile``.
 For example:
 
 .. code-block:: python
 
     "gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1:workflow/Snakefile"
+    "gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1"
     "gh:github.example.org:owner/repo@main:workflow/Snakefile"
     "gl:owner/repo@main:workflow/Snakefile"
     "gl:gitlab.cern.ch:group/project@main:workflow/Snakefile"
