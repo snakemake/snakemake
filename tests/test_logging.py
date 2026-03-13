@@ -101,6 +101,41 @@ Finished jobid: 0 (Rule: all)
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
+def test_issue4063():
+    # since it's difficult to replicate the exact conditions,
+    # we'll do a unit test of the relevant logging code instead of a full workflow run.
+    # the issue was that if the logger is configured with printshellcmds=True,
+    # shell.py calls logger.info(None, extra={"event": LogEvent.SHELLCMD, "cmd": ...}),
+    # which causes a crash because the default formatter expects the first argument to be a string message.
+    from snakemake.logging import ColorizingTextHandler
+    from snakemake.logging import DefaultFormatter
+    from snakemake.logging import DefaultFilter
+
+    handler = ColorizingTextHandler(stream=sys.stdout)
+    formatter = DefaultFormatter(quiet=set(), show_failed_logs=False)
+    handler.setFormatter(formatter)
+
+    log_filter = DefaultFilter(
+        quiet=set(), debug_dag=False, dryrun=False, printshellcmds=True
+    )
+    handler.addFilter(log_filter)
+
+    # make the logging error a hard error
+    def handle_logging_error(record):
+        raise sys.exc_info()[1]
+
+    handler.handleError = handle_logging_error
+
+    test_logger = logging.getLogger("foo")
+    test_logger.setLevel(logging.INFO)
+    test_logger.addHandler(handler)
+
+    test_logger.info(
+        None, extra={"event": LogEvent.SHELLCMD, "cmd": "echo 'bar'"}
+    )
+    test_logger.removeHandler(handler)
+
+
 def test_logging_config(tmp_path: Path):
     """Test configuring logging using ``logging.config.dictConfig()`` in the Snakefile.
 
