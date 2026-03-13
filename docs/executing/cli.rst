@@ -30,7 +30,7 @@ If called with the number of cores to use, i.e.
 
     $ snakemake --cores 1
 
-Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (the Snakefile can be given via the parameter ``-s``).
+Snakemake tries to execute the workflow specified in a file called ``workflow/Snakefile`` or ``Snakefile`` relative to the same directory (alternatively, the snakefile can be given via the parameter ``-s``).
 
 The ``--snakefile`` or ``-s`` argument can point to either a local file or an HTTP/HTTPS URL.
 In the latter case, relative ``include`` statements are resolved relative to the remote Snakefile location.
