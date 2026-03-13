@@ -787,6 +787,8 @@ def test_profile_new():
         assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
         assert result["group-components"] == list(["grp1=5"])
 
+def test_profile_with_env_var():
+    run(dpath("test_profile_with_env_var"))
 
 def test_profile_filename():
     run(dpath("test_profile_filename"))
