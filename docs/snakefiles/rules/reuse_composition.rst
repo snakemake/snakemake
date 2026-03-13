@@ -4,7 +4,6 @@ Rule Reuse and Composition
 
 .. _snakefiles-includes:
 
---------
 Includes
 --------
 
@@ -22,7 +21,6 @@ For example, if above Snakefile resides in the directory ``my/dir``, then Snakem
 
 .. _snakefiles-modules:
 
--------
 Modules
 -------
 
@@ -149,7 +147,7 @@ Of course, it is possible to combine the use of rules from multiple modules (see
 
 .. _snakefiles-rule-inheritance:
 
-Rule inheritance
+Rule Inheritance
 ----------------
 
 With Snakemake 6.0 and later, it is possible to inherit from previously defined rules, or in other words, reuse an existing rule in a modified way.
@@ -219,7 +217,7 @@ In other words, here we define a potentially complex rule only once, and explici
 
 .. _snakefiles-procedural-rules:
 
-Procedural rule definition
+Procedural Rule Definition
 --------------------------
 
 The name is optional and can be left out, creating an anonymous rule. It can also be overridden by setting a rule's ``name`` attribute.
