@@ -1,10 +1,11 @@
 from typing import TYPE_CHECKING
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
-from snakemake.io import checkpoint_target, OutputFiles
+from snakemake.io import checkpoint_target
 from snakemake.logging import logger
 
 if TYPE_CHECKING:
     from snakemake.rules import Rule
+    from snakemake.io.container import OutputFiles
 
 
 class Checkpoints:
@@ -79,7 +80,7 @@ class Checkpoint:
 class CheckpointJob:
     __slots__ = ["rule", "output"]
 
-    def __init__(self, rule: "Rule", output: OutputFiles):
+    def __init__(self, rule: "Rule", output: "OutputFiles"):
         # Convert _IOFile objects to their plain string (or TypedFile) equivalents,
         # matching the format of `output` as seen inside `run`/`shell` blocks.
         #

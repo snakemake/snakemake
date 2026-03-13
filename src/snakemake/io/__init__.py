@@ -64,6 +64,7 @@ from snakemake.io.typed import typed_factory
 if TYPE_CHECKING:
     import snakemake.rules
     import snakemake.jobs
+    from snakemake.io.container import Namedlist
 
 
 def lutime(file, times):
@@ -263,10 +264,9 @@ class _IOFile(str, AnnotatedStringInterface):
     __slots__ = ["_is_callable", "_file", "rule", "_regex", "_wildcard_constraints"]
 
     if TYPE_CHECKING:
-
         def __init__(self, file, rule: Optional["snakemake.rules.Rule"]):
             self._is_callable: bool
-            self._file: str | AnnotatedString | Callable[[Namedlist], str]
+            self._file: str | AnnotatedString | Callable[["Namedlist"], str]
             self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
             self._wildcard_constraints: Dict[str, re.Pattern] | None
@@ -813,6 +813,8 @@ class _IOFile(str, AnnotatedStringInterface):
         f = self._file
 
         if self.is_callable():
+            from snakemake.io.container import Namedlist
+
             assert callable(self._file)
             f = self._file(Namedlist(fromdict=wildcards))
 
@@ -1618,7 +1620,7 @@ def is_multiext_items(
     )
 
 
-def typed(value, type_):
+def typed(value, type_, loader=None, dumper=None):
     """
     Flag the file(=value) as a specific format(=type_).
     value must be a single file
@@ -1626,7 +1628,7 @@ def typed(value, type_):
     v = flag(value, "typed", None)
     if not isinstance(v, AnnotatedStringInterface):
         raise ValueError("typed can only be used on single files")
-    return flag(v, "typed", typed_factory(type_))
+    return flag(v, "typed", typed_factory(type_, loader, dumper))  # type: ignore[call-overload]
 
 
 def limit(pattern: Union[str, AnnotatedString], **wildcards):
