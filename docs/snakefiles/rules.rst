@@ -3069,10 +3069,7 @@ To illustrate the possibilities of this mechanism, consider the following comple
   # input function for the rule aggregate
   def aggregate_input(wildcards):
       # decision based on content of output file
-      # Important: use the method open() of the returned file!
-      # This way, Snakemake is able to automatically download the file if it is generated in
-      # a cloud environment without a shared filesystem.
-      with checkpoints.somestep.get(sample=wildcards.sample).output[0].open() as f:
+      with open(checkpoints.somestep.get(sample=wildcards.sample).output[0]) as f:
           if f.read().strip() == "a":
               return "post/{sample}.txt"
           else:
@@ -3095,6 +3092,17 @@ As can be seen, the rule aggregate uses an input function.
     In fact, it won't even work because the checkpoint mechanism is only considered for input functions.
     Instead, you can simply use normal parameter or resource functions that just assume that those output files are there. Snakemake will evaluate them immediately before
     the job is scheduled, when the required files from upstream rules are already present.
+
+.. note::
+
+    The ``.open()`` method previously available on checkpoint output files has been removed.
+    Replace all usages of ``output[0].open()`` with the standard ``open(output[0])``.
+    Cloud storage and path remapping are still handled transparently by Snakemake.
+
+    Currently, you can use the ``typed`` function (see :ref:`tutorial-typed`) to declare structured output files on a checkpoint,
+    which allows downstream rules and input functions to deserialize the checkpoint's output into a typed object directly,
+    without manually parsing files.
+
 
 Inside the function, we first retrieve the output files of the checkpoint ``somestep`` with the wildcards, passing through the value of the wildcard sample.
 Upon execution, if the checkpoint is not yet complete, Snakemake will record ``somestep`` as a direct dependency of the rule ``aggregate``.
@@ -3158,9 +3166,6 @@ If the checkpoint has not yet been executed, accessing ``checkpoints.somestep.ge
 Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
 Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
 Because the wildcard ``i`` is evaluated only after completion of the checkpoint, it is necessary to use ``directory`` to declare its output, instead of using the full wildcard patterns as output.
-
-You can also use the ``typed`` function (see :ref:`tutorial-typed`) to declare structured output files on a checkpoint.
-This allows downstream rules and input functions to deserialize the checkpoint's output into a typed object directly, without manually parsing files.
 
 A more practical example building on the previous one is a clustering process with an unknown number of clusters for different samples, where each cluster shall be saved into a separate file.
 In this example the clusters are being processed by an intermediate rule before being aggregated:
