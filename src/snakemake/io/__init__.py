@@ -463,7 +463,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return get_flag_value(self._file, "storage_object")
 
     @property
-    def file(self) -> str | AnnotatedString:
+    def file(self) -> "str | AnnotatedString":
         if not self.is_callable():
             return self._file  # type: ignore[return-value]
         else:
