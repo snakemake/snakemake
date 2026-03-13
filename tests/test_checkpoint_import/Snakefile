@@ -1,0 +1,35 @@
+"""
+Check if a checkpoint can be imported from a module and its output accessed.
+"""
+
+import os
+
+
+rule all:
+    input:
+        "all_done.txt",
+
+
+# TODO Check if prefixing causes issues.
+module module_with_checkpoint:
+    snakefile:
+        "module/Snakefile"
+
+
+use rule checkpoint_rule from module_with_checkpoint as module_checkpoint_rule
+
+
+def checkpoint_checking_input_fun(wildcards):
+    return checkpoints.module_checkpoint_rule.get(**wildcards).output
+
+
+rule use_checkpoint_output:
+    """
+    Write all done once the checkpoint has been reached.
+    """
+    input:
+        checkpoint_checking_input_fun,
+    output:
+        "all_done.txt",
+    shell:
+        "touch {output}"
