@@ -1,3 +1,5 @@
+import os
+
 import click
 from copier import run_copy
 from plumbum.commands.processes import ProcessExecutionError
@@ -10,25 +12,22 @@ DEFAULT_WORKFLOW_URL = (
 
 
 @click.command()
-@click.argument(
-    "name",
-)
 @click.option(
     "--from",
     "repo",
     help="Import a template from GitHub or Gitlab.",
 )
-def new(name, repo):
+def new(repo):
 
     if repo:
         try:
-            run_copy(repo, name)
+            run_copy(repo, os.getcwd())
         except ProcessExecutionError:
             print(f"Repository {repo} could not be found.")
             return
     else:
         # Create a project from a the default workflow template repo
-        run_copy(DEFAULT_WORKFLOW_URL, name)
+        run_copy(DEFAULT_WORKFLOW_URL, os.getcwd())
 
 
 if __name__ == "__main__":
