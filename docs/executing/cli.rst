@@ -79,6 +79,20 @@ For maximizing the I/O performance over the network, it can be advisable to :ref
 Snakemake provides lots of tunables for non-local execution, which can all be found under :ref:`all_options` and in the plugin descriptions of the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`__.
 In any case, the cluster or cloud specific configuration will entail lots of command line options to be chosen and set, which should be persisted in a :ref:`profile <executing-profiles>`.
 
+.. _snakefiles-code_tracking:
+
+Code Tracking
+^^^^^^^^^^^^^
+
+Snakemake tracks the code that was used to create your files.
+In combination with ``--summary`` or ``--list-code-changes`` this can be used to see what files may need a re-run because the implementation changed.
+Re-run can be automated by invoking Snakemake as follows:
+
+.. code-block:: console
+
+    $ snakemake -R `snakemake --list-code-changes`
+
+
 Dealing with very large workflows
 ---------------------------------
 
