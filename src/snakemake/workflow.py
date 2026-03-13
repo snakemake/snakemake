@@ -276,7 +276,7 @@ class Workflow(WorkflowExecutorInterface):
         from snakemake.common import __version__
 
         conda_bin = shutil.which("conda")
-        
+
         return {
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "snakemake_version": __version__,
@@ -296,12 +296,8 @@ class Workflow(WorkflowExecutorInterface):
                 else "n/a"
             ),
             "python_version": sys.version,
-            "conda_env": (
-                os.environ["CONDA_DEFAULT_ENV"] if conda_bin else "n/a"
-            ),
-            "conda_prefix": (
-                os.environ["CONDA_PREFIX"] if conda_bin else "n/a"
-            ),
+            "conda_env": (os.environ["CONDA_DEFAULT_ENV"] if conda_bin else "n/a"),
+            "conda_prefix": (os.environ["CONDA_PREFIX"] if conda_bin else "n/a"),
             "cmd": sys.argv,
             "basedir": self.basedir,
             "rundir": self.rundir,
