@@ -1,34 +1,10 @@
-from contextlib import contextmanager
-from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import threading
 
-from .common import dpath, get_expected_files, md5sum
-
-
-class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
-    def log_message(self, format, *args):
-        pass
-
-
-@contextmanager
-def serve_directory(path: Path):
-    server = ThreadingHTTPServer(
-        ("127.0.0.1", 0), partial(QuietHTTPRequestHandler, directory=str(path))
-    )
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}"
-    finally:
-        server.shutdown()
-        thread.join()
-        server.server_close()
+from .common import dpath, get_expected_files, md5sum, serve_directory
 
 
 def test_remote_snakefile_multiple_includes():

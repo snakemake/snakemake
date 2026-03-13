@@ -1,8 +1,4 @@
-from contextlib import contextmanager
-from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import sys, os, subprocess
-import threading
 
 from snakemake.executors import local
 
@@ -13,26 +9,6 @@ from .common import *
 from snakemake import api
 from snakemake.settings import types as settings
 import copy
-
-
-class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
-    def log_message(self, format, *args):
-        pass
-
-
-@contextmanager
-def serve_directory(path: Path):
-    server = ThreadingHTTPServer(
-        ("127.0.0.1", 0), partial(QuietHTTPRequestHandler, directory=str(path))
-    )
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}"
-    finally:
-        server.shutdown()
-        thread.join()
-        server.server_close()
 
 
 def test_deploy_sources(s3_storage):
@@ -113,3 +89,9 @@ def test_remote_snakefile_via_api():
             expected = expected_results / relpath
             assert output.exists(), f"Missing output {relpath}"
             assert md5sum(output) == md5sum(expected)
+
+
+def test_resolve_snakefile_keeps_shorthand_uri():
+    path = "gh:snakemake/snakemake@main"
+
+    assert api.resolve_snakefile(path) == path
