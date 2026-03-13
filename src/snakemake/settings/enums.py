@@ -42,4 +42,4 @@ class PrintDag(SettingsEnumBase):
 
 class PersistenceBackend(SettingsEnumBase):
     FILE = 0
-    DATABASE = 1
+    DB = 1
