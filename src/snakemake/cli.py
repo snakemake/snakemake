@@ -1575,7 +1575,7 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--persistence-backend",
         choices=PersistenceBackend.choices(),
-        default="file",
+        default=PersistenceBackend.FILE,
         help="The backend to use for Snakemake's metadata persistence. "
         "The 'file' backend uses a file system directory structure. "
         "The 'db' backend uses a relational database via SQLAlchemy.",
