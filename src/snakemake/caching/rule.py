@@ -83,7 +83,7 @@ class RuleCache:
                     "workflow caching).",
                     rule=rule,
                 )
-        if not rule.workflow.workflow_settings.cache:
+        if rule.workflow.workflow_settings.cache is None:
             logger.warning(
                 f"Workflow defines that rule {rule.name} is eligible for caching between workflows "
                 "(use the --cache argument to enable this)."
