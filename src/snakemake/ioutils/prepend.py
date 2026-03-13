@@ -20,6 +20,7 @@ def prepend(
     This allows easier use of
     tools requiring multiple filenames to be prepended with a keyword.
     """
+
     def do_single(path):
         if isinstance(path, Path):
             path = str(path)
