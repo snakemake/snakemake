@@ -5,14 +5,16 @@ __license__ = "MIT"
 
 from typing import cast
 
-from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
+from snakemake_interface_executor_plugins.executors.base import (
+    AbstractExecutor,
+    SubmittedJobInfo,
+)
 from snakemake_interface_executor_plugins.jobs import (
     GroupJobExecutorInterface,
     JobExecutorInterface,
     SingleJobExecutorInterface,
 )
 from snakemake_interface_executor_plugins.settings import CommonSettings
-from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 
 from snakemake.logging import logger
 
@@ -57,7 +59,7 @@ class Executor(AbstractExecutor):
                 "Output file {} will be {} global between-workflow cache.".format(
                     job.output[0],
                     "obtained from"
-                    if self.workflow.async_run(job.rule.cache.exists())
+                    if self.workflow.async_run(job.rule.cache.exists(job))
                     else "written to",
                 )
             )
