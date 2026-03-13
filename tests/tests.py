@@ -380,13 +380,7 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
                 MetadataRecordORM(
                     namespace=str(snakemake_dir.absolute()),
                     target="somedir/test.out",
-                    code=rec.get("code"),
-                    rule=rec.get("rule"),
-                    params=rec.get("params"),
-                    shellcmd=rec.get("shellcmd"),
-                    starttime=rec.get("starttime"),
-                    endtime=rec.get("endtime"),
-                    job_hash=rec.get("job_hash"),
+                    **rec,
                 )
             )
             session.commit()
