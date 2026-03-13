@@ -5,7 +5,8 @@ __license__ = "MIT"
 
 from abc import ABCMeta, abstractmethod
 import os
-from pathlib import Path
+from threading import Lock
+from urllib.parse import quote
 
 from snakemake.jobs import Job
 from snakemake.io import apply_wildcards
@@ -15,7 +16,6 @@ from snakemake.exceptions import (
     CacheMissException,
 )
 from snakemake.caching.hash import ProvenanceHashMap
-from snakemake.logging import logger
 
 LOCATION_ENVVAR = "SNAKEMAKE_OUTPUT_CACHE"
 
@@ -30,6 +30,12 @@ class AbstractOutputFileCache:
             raise MissingOutputFileCachePathException()
         self.provenance_hash_map = ProvenanceHashMap()
 
+        # Locking mechanism to prevent concurrent execution of same cache key
+        # Set of provenance hashes currently being computed
+        self._active_hashes = set()
+        # Single lock to protect the set
+        self._active_hashes_lock = Lock()
+
     @abstractmethod
     async def store(self, job: Job, cache_mode):
         pass
@@ -42,30 +48,49 @@ class AbstractOutputFileCache:
     async def exists(self, job: Job):
         pass
 
+    def mark_if_schedulable(self, job: Job, cache_mode) -> bool:
+        """Mark a job as scheduled unless its provenance hash is already active
+
+        Args:
+            job (Job): Job to try scheduling
+            cache_mode (str): Cache mode for this job
+
+        Returns:
+            bool: True if the job can be scheduled (hash was not marked yet).
+                  False if the hash is already being computed by another job.
+        """
+        provenance_hash = self.provenance_hash_map.get_provenance_hash(job, cache_mode)
+        with self._active_hashes_lock:
+            if provenance_hash in self._active_hashes:
+                # Hash already being computed by another job
+                return False
+            # Hash available, mark as being computed
+            self._active_hashes.add(provenance_hash)
+            return True
+
+    def discard_mark(self, job: Job, cache_mode):
+        """Release mark for a job.
+
+        Called when job not selected by job_selector or after completion.
+
+        Args:
+            job (Job): Job whose mark should be released
+            cache_mode (str): Cache mode for this job
+        """
+        provenance_hash = self.provenance_hash_map.get_provenance_hash(job, cache_mode)
+        with self._active_hashes_lock:
+            self._active_hashes.discard(provenance_hash)
+
     def get_outputfiles(self, job: Job):
-        if job.rule.output[0].is_multiext:
-            prefix_len = len(
-                apply_wildcards(job.rule.output[0].multiext_prefix, job.wildcards)
-            )
-            yield from ((f, f[prefix_len:]) for f in job.output)
-        else:
-            assert (
-                len(job.output) == 1
-            ), "bug: multiple output files in cacheable job but multiext not used for declaring them"
-            # It is crucial to distinguish cacheable objects by the file extension.
-            # Otherwise, for rules that generate different output based on the provided
-            # extension a wrong cache entry can be returned.
-            # Another nice side effect is that the cached files become more accessible
-            # because their extension is presented in the cache dir.
-            ext = Path(job.output[0]).suffix
-            yield (job.output[0], ext)
+        for _, fn in job.rule.output._allitems():
+            yield apply_wildcards(fn, job.wildcards), quote(fn, safe="{}")
 
     def raise_write_error(self, entry, exception=None):
         raise WorkflowError(
             "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not writeable.".format(
                 entry, self.cache_location
             ),
-            *[exception],
+            exception,
         )
 
     def raise_read_error(self, entry, exception=None):
@@ -73,7 +98,7 @@ class AbstractOutputFileCache:
             "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not readable.".format(
                 entry, self.cache_location
             ),
-            *[exception],
+            exception,
         )
 
     def raise_cache_miss_exception(self, job):
