@@ -1834,6 +1834,9 @@ def parse_args(argv):
                 default_workflow_profile_path,
                 Path(snakefile).parent.joinpath(default_workflow_profile_path),
             ]
+            # reset here, in case we just added the `default` path to search it
+            # but there is nothing there
+            workflow_profile = None
             for profile in workflow_profile_candidates:
                 if profile.exists():
                     workflow_profile = profile
