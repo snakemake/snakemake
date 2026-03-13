@@ -1,0 +1,45 @@
+scattergather:
+    split={"items": 4, "tolerance": 0.25}
+
+
+rule all:
+    input:
+        "gathered/all.txt"
+
+
+rule split:
+    output:
+        scatter.split("splitted/{scatteritem}.txt")
+    shell:
+        r"""
+        mkdir -p splitted
+        for output in {output}; do
+            printf '%s\n' "$output" | sed 's#^splitted/##; s#\.txt$##' > "$output"
+        done
+        """
+
+
+rule intermediate:
+    input:
+        "splitted/{scatteritem}.txt"
+    output:
+        "splitted/{scatteritem}.post.txt"
+    shell:
+        r"""
+        # Fail more branches than the process tolerance allows.
+        case "{input}" in
+            *2-of-4.txt|*4-of-4.txt)
+                exit 1
+                ;;
+        esac
+        cp {input} {output}
+        """
+
+
+rule gather:
+    input:
+        gather.split("splitted/{scatteritem}.post.txt")
+    output:
+        "gathered/all.txt"
+    shell:
+        "mkdir -p gathered && cat {input} > {output}"

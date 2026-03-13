@@ -1,0 +1,67 @@
+# 8 branches, 4 succeed quickly, 2 succeed slowly, 2 fail.
+# The workflow should finish with the 4 quick branches since
+# the failure tolerance is 50%.
+
+scattergather:
+    split={"items": 8, "tolerance": 0.5, "impatient": True}
+
+
+rule all:
+    input:
+        "gathered/all.txt"
+
+
+rule split:
+    output:
+        scatter.split("splitted/{scatteritem}.txt")
+    shell:
+        r"""
+        mkdir -p splitted
+        for output in {output}; do
+            printf '%s\n' "$output" | sed 's#^splitted/##; s#\.txt$##' > "$output"
+        done
+        """
+
+
+rule delayed:
+    output:
+        "delay/{scatteritem}.done"
+    shell:
+        r"""
+        mkdir -p delay
+        # Hold back branches 3 and 4 so gather proves it starts early once 4
+        # successes occur (1, 2, 5, 6 will succeed fast).
+        # Branches 7 and 8 fail instantly.
+        case "{output}" in
+            *3-of-8.done|*4-of-8.done)
+                sleep 2
+                ;;
+        esac
+        touch {output}
+        """
+
+
+rule intermediate:
+    input:
+        data="splitted/{scatteritem}.txt",
+        delay="delay/{scatteritem}.done"
+    output:
+        "splitted/{scatteritem}.post.txt"
+    shell:
+        r"""
+        case "{input.data}" in
+            *7-of-8.txt|*8-of-8.txt)
+                exit 1
+                ;;
+        esac
+        cp {input.data} {output}
+        """
+
+
+rule gather:
+    input:
+        gather.split("splitted/{scatteritem}.post.txt")
+    output:
+        "gathered/all.txt"
+    shell:
+        "mkdir -p gathered && cat {input} > {output}"
