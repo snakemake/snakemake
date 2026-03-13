@@ -1576,7 +1576,7 @@ def get_argument_parser(profiles=None):
         "--persistence-backend",
         choices=PersistenceBackend.choices(),
         default=PersistenceBackend.FILE,
-        type=PersistenceBackend.parse_choice,
+        parse_func=PersistenceBackend.parse_choice,
         help="The backend to use for Snakemake's metadata persistence. "
         "The 'file' backend uses a file system directory structure. "
         "The 'db' backend uses a relational database via SQLAlchemy.",
