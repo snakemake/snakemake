@@ -1,0 +1,14 @@
+
+rule all:
+    input:
+        'out.txt'
+
+rule compose:
+    input:
+        'in.txt',
+    output:
+        'out.txt',
+    shell:
+        r"""
+        touch {output}
+        """
