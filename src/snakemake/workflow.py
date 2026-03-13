@@ -925,6 +925,10 @@ class Workflow(WorkflowExecutorInterface):
                     )
             case PersistenceBackend.FILE:
                 persistence = FilePersistence
+            case _:
+                raise WorkflowError(
+                    f"Unknown persistence backend: {persistence_backend}"
+                )
 
         self._persistence = persistence(
             nolock=nolock,
