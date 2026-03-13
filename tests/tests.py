@@ -396,6 +396,43 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
     assert spy.spy_return == True
 
 
+def test_persistence_backend_db_run_directive_concurrency(tmp_path):
+    workdir = tmp_path / "workdir"
+    shutil.copytree(
+        dpath("test_persistence_backend_db_run_directive_concurrency"), workdir
+    )
+
+    # generate expected output dynamically
+    expected_out_dir = workdir / "expected-results" / "out"
+    expected_out_dir.mkdir(parents=True)
+    for i in range(100):
+        (expected_out_dir / f"{i}.txt").write_text("done")
+
+    db_file = tmp_path / "metadata.db"
+    db_url = f"sqlite:///{db_file}"
+
+    run(
+        path=workdir,
+        tmpdir=workdir,
+        cleanup=False,
+        cores=20,  # not sure this will work in CI, probably gets downscaled?
+        persistence_backend=PersistenceBackend.DB,
+        persistence_backend_db_url=db_url,
+        no_tmpdir=True,
+    )
+
+    from sqlmodel import Session, select, create_engine
+    from snakemake.persistence.db import MetadataRecordORM
+
+    engine = create_engine(db_url)
+    with Session(engine) as session:
+        stmt = select(MetadataRecordORM)
+        records = session.scalars(stmt).all()
+        assert (
+            len(records) == 100
+        ), f"Expected 100 DB records, but found {len(records)}!"
+
+
 def test_same_wildcard():
     run(dpath("test_same_wildcard"))
 
