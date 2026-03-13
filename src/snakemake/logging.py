@@ -179,6 +179,7 @@ SNAKEMAKE
   Run directory: {rundir}
   Working directory: {cwd}
   Config file(s): {configfiles}
+  Config: {config}
 """.format(**msg)
 
     def format_run_info(self, msg: dict[str, Any]):

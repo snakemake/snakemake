@@ -275,6 +275,8 @@ class Workflow(WorkflowExecutorInterface):
         from datetime import datetime
         from snakemake.common import __version__
 
+        conda_bin = shutil.which("conda")
+        
         return {
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "snakemake_version": __version__,
@@ -283,28 +285,29 @@ class Workflow(WorkflowExecutorInterface):
             "user": getpass.getuser(),
             "conda_version": (
                 subprocess.run(
-                    ["conda", "--version"],
+                    [conda_bin, "--version"],
                     capture_output=True,
                     text=True,
                     check=False,
                 )
                 .stdout.strip()
                 .removeprefix("conda ")
-                if shutil.which("conda")
+                if conda_bin
                 else "n/a"
             ),
             "python_version": sys.version,
             "conda_env": (
-                os.environ["CONDA_DEFAULT_ENV"] if shutil.which("conda") else "n/a"
+                os.environ["CONDA_DEFAULT_ENV"] if conda_bin else "n/a"
             ),
             "conda_prefix": (
-                os.environ["CONDA_PREFIX"] if shutil.which("conda") else "n/a"
+                os.environ["CONDA_PREFIX"] if conda_bin else "n/a"
             ),
             "cmd": sys.argv,
             "basedir": self.basedir,
             "rundir": self.rundir,
             "cwd": self.workdir_init,
             "configfiles": self.configfiles,
+            "config": config,
         }
 
     @property
