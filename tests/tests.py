@@ -2333,6 +2333,33 @@ def test_workflow_profile():
 
 
 @skip_on_windows  # not platform dependent
+def test_workflow_profile_default_path():
+    run(
+        dpath("test_workflow_profile_relative_path"),
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --workflow-profile workflow_at_site_x --cores 1",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_relative_path():
+    run(
+        dpath("test_workflow_profile_relative_path"),
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --workflow-profile workflow/profiles/workflow_at_site_x --cores 1",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_relative_filename():
+    run(
+        dpath("test_workflow_profile_relative_filename"),
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --workflow-profile ./workflow/some_dir/workflow_profile.yaml --cores 1",
+    )
+
+
+@skip_on_windows  # not platform dependent
 def test_no_workflow_profile():
     test_path = dpath("test_no_workflow_profile")
     general_profile = os.path.join(test_path, "dummy-general-profile")
