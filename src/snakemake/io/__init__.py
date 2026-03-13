@@ -459,7 +459,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
     @property
     def storage_object(self) -> Any:
-        # assume that all .storage_object is called after .is_storage check, hence it is safe to silance type checker
+        # assume that all .storage_object is called after .is_storage check, hence it is safe to silence type checker
         return get_flag_value(self._file, "storage_object")
 
     @property
@@ -790,20 +790,14 @@ class _IOFile(str, AnnotatedStringInterface):
             self.touch()
         except MissingOutputException:
             # first create directory if it does not yet exist
-            _file: str = self._file  # type: ignore[assignment]
-            if is_callable(self._file):
-                raise WorkflowError(
-                    "Cannot create file for touch_or_create because it is specified as a function. "
-                    "Consider using touch_or_create only with files that are not specified as functions."
-                )
-            dir = _file if self.is_directory else os.path.dirname(_file)
+            dir = self.file if self.is_directory else os.path.dirname(self.file)
             if dir:
                 os.makedirs(dir, exist_ok=True)
             # create empty file
             file = (
-                os.path.join(_file, ".snakemake_timestamp")
+                os.path.join(self.file, ".snakemake_timestamp")
                 if self.is_directory
-                else _file
+                else self.file
             )
             with open(file, "w") as f:
                 pass
