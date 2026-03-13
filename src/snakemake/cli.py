@@ -353,7 +353,9 @@ def parse_jobs(jobs):
 
 
 def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
-    config_pattern = re.compile(r"(?P<main_file_name>profile|config)(.v(?P<min_major>\d+)\+)?.yaml")
+    config_pattern = re.compile(
+        r"(?P<main_file_name>profile|config)(.v(?P<min_major>\d+)\+)?.yaml"
+    )
 
     def get_config_min_major(filename):
         m = config_pattern.match(filename)
@@ -415,7 +417,9 @@ def get_argument_parser(profiles=None):
                     "path or name of a directory available in either "
                     "{site} or {user}."
                     "Alternatively, you can explicitly specify a path and file name.".format(
-                        profile=profile, site=dirs.site_config_dir, user=dirs.user_config_dir
+                        profile=profile,
+                        site=dirs.site_config_dir,
+                        user=dirs.user_config_dir,
                     ),
                     file=sys.stderr,
                 )
@@ -1827,7 +1831,9 @@ def parse_args(argv):
             workflow_profile = Path(args.workflow_profile)
         else:
             workflow_profile = Path("default")
-        if snakefile is not None and not ( workflow_profile.exists() and workflow_profile.is_file()):
+        if snakefile is not None and not (
+            workflow_profile.exists() and workflow_profile.is_file()
+        ):
             # checking for default profile locations
             default_workflow_profile_path = Path("profiles") / workflow_profile
             workflow_profile_candidates = [
