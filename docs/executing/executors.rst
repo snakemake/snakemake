@@ -6,7 +6,7 @@ Using executor plugins
 
 By default, Snakemake will run all rules locally. For distributed computing, i.e. on a cluster or in the cloud, Snakemake offers an interface for so-called executor plugins (as of version 8.0.0 and onward). 
 
-To set up Snakemake for distributed execution on your compute environment, first navigate to the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/>`_. Locate an executor suitable your cluster/cloud environment and follow its respective installation instructions.
+To set up Snakemake for distributed execution on your compute environment, first navigate to the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/>`_. Locate an executor suitable for your cluster/cloud environment and follow its respective installation instructions.
 
 .. admonition:: No fitting executor?
    :class: note
