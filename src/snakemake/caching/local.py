@@ -60,7 +60,7 @@ class OutputFileCache(AbstractOutputFileCache):
         with TemporaryDirectory(dir=self.path) as tmpdirname:
             tmpdir = Path(tmpdirname)
 
-            for outputfile, cachefile in self.get_outputfiles_and_cachefiles( job ):
+            for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
                 if not os.path.exists(outputfile):
                     raise WorkflowError(
                         f"Cannot move output file {outputfile} to cache. It does not exist "
@@ -89,9 +89,7 @@ class OutputFileCache(AbstractOutputFileCache):
         """
         Retrieve cached output file and symlink to the place where the job expects it's output.
         """
-        for outputfile, cachefile in self.get_outputfiles_and_cachefiles(
-            job
-        ):
+        for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
             if not cachefile.exists():
                 self.raise_cache_miss_exception(job)
 
@@ -116,9 +114,7 @@ class OutputFileCache(AbstractOutputFileCache):
         """
         Return True if job is already cached
         """
-        for outputfile, cachefile in self.get_outputfiles_and_cachefiles(
-            job
-        ):
+        for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
             if not cachefile.exists():
                 return False
 

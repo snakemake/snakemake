@@ -58,9 +58,11 @@ class Executor(AbstractExecutor):
             logger.info(
                 "Output file {} will be {} global between-workflow cache.".format(
                     job.output[0],
-                    "obtained from"
-                    if self.workflow.async_run(job.rule.cache.exists(job))
-                    else "written to",
+                    (
+                        "obtained from"
+                        if self.workflow.async_run(job.rule.cache.exists(job))
+                        else "written to"
+                    ),
                 )
             )
 

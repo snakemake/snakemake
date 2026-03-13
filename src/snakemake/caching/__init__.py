@@ -54,9 +54,9 @@ class AbstractOutputFileCache:
             )
             yield from ((f, f[prefix_len:]) for f in job.output)
         else:
-            assert len(job.output) == 1, (
-                "bug: multiple output files in cacheable job but multiext not used for declaring them"
-            )
+            assert (
+                len(job.output) == 1
+            ), "bug: multiple output files in cacheable job but multiext not used for declaring them"
             # It is crucial to distinguish cacheable objects by the file extension.
             # Otherwise, for rules that generate different output based on the provided
             # extension a wrong cache entry can be returned.
