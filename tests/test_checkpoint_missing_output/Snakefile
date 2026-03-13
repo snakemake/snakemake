@@ -1,0 +1,34 @@
+checkpoint checkpoint_test:
+    output:
+        "output/test_{n}.txt"
+    shell:
+        '''
+        echo {wildcards.n} > {output[0]}
+        '''
+
+def aggregate_input(wildcards):
+    max_value = None
+    selected_file = None
+    for i in range(10):
+        check = checkpoints.checkpoint_test.get(n=i)
+        curr_file = check.output[0]
+        with open(curr_file) as f:
+            n = int(f.read().strip())
+        if max_value is None or n > max_value:
+            max_value = n
+            selected_file = curr_file
+    return selected_file
+
+rule aggregate:
+    input:
+        aggregate_input
+    output:
+        "output/selection.txt"
+    shell:
+        '''
+        cp {input[0]} {output[0]}
+        '''
+
+rule all:
+    default_target: True
+    input: "output/selection.txt"
