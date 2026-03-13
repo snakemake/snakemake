@@ -1254,7 +1254,7 @@ Note that access to wildcards is also possible via the variable ``wildcards`` (e
 Priorities
 ----------
 
-Snakemake allows for rules that specify numeric priorities:
+Snakemake allows for rules that specify numeric and/or callable priorities:
 
 
 .. code-block:: python
@@ -1266,6 +1266,21 @@ Snakemake allows for rules that specify numeric priorities:
       shell: ...
 
 Per default, each rule has a priority of 0. Any rule that specifies a higher priority, will be preferred by the scheduler over all rules that are ready to execute at the same time without having at least the same priority.
+
+Priority may also be specified with a callable. The callable receives ``wildcards``
+as its first positional argument, and may optionally accept ``input``, ``attempt``,
+and ``rulename`` keyword arguments (similar to param functions). It has to return the priority as an integer or float (will be rounded):
+
+.. code-block:: python
+
+    rule sort:
+        input: "{dataset}.txt"
+        output: "{dataset}.sorted"
+        priority: lambda wildcards, input: input.size_mb
+        shell: "sort {input} > {output}"
+
+This allows the scheduler to dynamically prioritise jobs based on, e.g., input
+file size so that larger jobs start first.
 
 Furthermore, the ``--prioritize`` or ``-P`` command line flag allows to specify files (or rules) that shall be created with highest priority during the workflow execution. This means that the scheduler will assign the specified target and all its dependencies highest priority, such that the target is finished as soon as possible.
 The ``--dry-run`` (equivalently ``--dryrun``) or ``-n`` option allows you to see the scheduling plan including the assigned priorities.
@@ -2310,6 +2325,24 @@ The ``onsuccess`` handler is executed if the workflow finished without error. Ot
 In both handlers, you have access to the variable ``log``, which contains the path to a logfile with the complete Snakemake output.
 Snakemake 3.6.0 adds an ``onstart`` handler, that will be executed before the workflow starts.
 Note that dry-runs do not trigger any of the handlers.
+
+When you are using :ref:`snakefiles-modules`, only the ``onstart``, ``onsuccess`` and ``onerror`` handlers of the top-level Snakefile are executed. Handlers defined inside module Snakefiles are not triggered automatically.
+To access the handlers from a specific module's Snakefile, you can use ``module_name.onstart``, ``module_name.onsuccess`` and ``module_name.onerror``.
+
+.. code-block:: python
+
+    module test1:
+        snakefile:
+            "module1/Snakefile"
+
+    use rule * from test1 as module1_*
+
+    onstart:
+        test1.onstart()
+    onsuccess:
+        test1.onsuccess()
+    onerror:
+        test1.onerror()
 
 
 Rule dependencies
