@@ -1,3 +1,6 @@
+# keep until 3.14 to avoid circular imports
+from __future__ import annotations
+
 __authors__ = "Johannes Köster, Sven Nahnsen"
 __copyright__ = "Copyright 2022, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
@@ -6,8 +9,8 @@ __license__ = "MIT"
 from abc import ABCMeta, abstractmethod
 import os
 from urllib.parse import quote
+from typing import TYPE_CHECKING
 
-from snakemake.jobs import Job
 from snakemake.io import apply_wildcards
 from snakemake.exceptions import (
     MissingOutputFileCachePathException,
@@ -15,6 +18,9 @@ from snakemake.exceptions import (
     CacheMissException,
 )
 from snakemake.caching.hash import ProvenanceHashMap
+
+if TYPE_CHECKING:
+    from snakemake.jobs import Job
 
 LOCATION_ENVVAR = "SNAKEMAKE_OUTPUT_CACHE"
 
@@ -30,11 +36,11 @@ class AbstractOutputFileCache:
         self.provenance_hash_map = ProvenanceHashMap()
 
     @abstractmethod
-    async def store(self, job: Job, cache_mode):
+    async def store(self, job: Job):
         pass
 
     @abstractmethod
-    async def fetch(self, job: Job, cache_mode):
+    async def fetch(self, job: Job):
         pass
 
     @abstractmethod
@@ -61,5 +67,5 @@ class AbstractOutputFileCache:
             exception,
         )
 
-    def raise_cache_miss_exception(self, job):
+    def raise_cache_miss_exception(self, job: Job):
         raise CacheMissException(f"Job {job} not yet cached.")
