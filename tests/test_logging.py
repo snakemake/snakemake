@@ -130,9 +130,7 @@ def test_issue4063():
     test_logger.setLevel(logging.INFO)
     test_logger.addHandler(handler)
 
-    test_logger.info(
-        None, extra={"event": LogEvent.SHELLCMD, "cmd": "echo 'bar'"}
-    )
+    test_logger.info(None, extra={"event": LogEvent.SHELLCMD, "cmd": "echo 'bar'"})
     test_logger.removeHandler(handler)
 
 
