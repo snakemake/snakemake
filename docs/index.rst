@@ -164,6 +164,7 @@ Resources
   executing/cli
   executing/grouping
   executing/caching
+  executing/executors
   executing/interoperability
   executing/monitoring
 
