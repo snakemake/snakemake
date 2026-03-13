@@ -2,7 +2,12 @@ rule all:
     input:
         expand(
             "{name}.out",
-            name=["default_name", "non_default_name", "call_script_fails"],
+            name=[
+                "default_name",
+                "non_default_name",
+                "call_script_fails",
+                "using_script_block_fails",
+            ],
         )
 
 
@@ -35,3 +40,10 @@ rule test_expect_fail:
         "call_script_fails.out"
     shell:
         "python {input.script} > {output}"
+
+
+rule test_expect_fail_script:
+    output:
+        stdout="using_script_block_fails.out"
+    script:
+        "some_package/some_subpackage/some_module.py"
