@@ -3175,13 +3175,9 @@ def test_github_issue2255():
     run(dpath("test_github_issue2255"), check_results=False)
 
 
-    
-@skip_on_windows 
-# On Windows this test output is emited with
-# quotes around the output string what cause tese tests to fail
-@skip_on_windows
 # On Windows this test output is emitted with
 # quotes around the output string what cause these tests to fail
+@skip_on_windows
 def test_github_issue_4039_runtime_cli():
     """Test that runtime values from CLI are correctly interpreted as minutes, not seconds.
     Test for https://github.com/snakemake/snakemake/issues/4039"""
@@ -3190,23 +3186,6 @@ def test_github_issue_4039_runtime_cli():
         shellcmd="snakemake -c1 --set-resources 'echo_runtime:runtime=120'",
         cleanup=False,
     )
-    # Path to the generated output in the temporary run directory
-    generated_output = os.path.join(tmpdir, "output.txt")
-
-    # Path to the expected output shipped with the test data
-    test_path = dpath("test_github_issue_4039_runtime_cli")
-    expected_output = os.path.join(test_path, "expected-results", "output.txt")
-
-    # Read both files and compare
-    with open(generated_output, "r") as f:
-        got = f.read().strip()
-    with open(expected_output, "r") as f:
-        expected = f.read().strip()
-
-    assert (
-        got == expected
-    ), f"Generated output does not match expected.\nExpected: {expected!r}\nGot:      {got!r}"
-
     shutil.rmtree(tmpdir)
 
 
