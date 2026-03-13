@@ -1680,6 +1680,7 @@ class Workflow(WorkflowExecutorInterface):
             self,
             rulecount=self._rulecount,
             linemap=linemap,
+            print_compilation=print_compilation,
         )
         self._rulecount = rulecount
 
