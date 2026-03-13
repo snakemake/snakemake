@@ -750,6 +750,7 @@ class Workflow(WorkflowExecutorInterface):
             for rule in self.rules:
                 if rule.name in cache_rules and rule.cache:
                     rule.cache.flag |= CacheFlag.output
+                    rule.cache.check()
             try:
                 if (
                     self.storage_settings is not None
