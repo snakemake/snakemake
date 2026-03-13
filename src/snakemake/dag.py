@@ -1439,7 +1439,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
             if is_forced(job):
                 reason.forced = True
-            elif job in self.targetjobs:
+            elif job in self.targetjobs or job.is_checkpoint:
                 if not job.has_products(include_logfiles=False):
                     if job.input:
                         if job.rule.norun:
