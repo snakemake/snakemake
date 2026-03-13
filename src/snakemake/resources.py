@@ -857,7 +857,7 @@ class Resource:
                     return max(int(math.ceil(parse_size(stripped) / 1e6)), 1)
                 except InvalidSize as err:
                     raise WorkflowError(err_msg.format(unit="size in MB")) from err
-            elif name in TimeResources and not re.fullmatch(r"\d+", stripped):
+            elif name in TimeResources and not type(int):
                 try:
                     return max(int(round(parse_timespan(stripped)) / 60), 1)
                 except InvalidTimespan as err:
@@ -1090,9 +1090,21 @@ class Resources(Mapping[str, Resource]):
             callable.
         WorkflowError
             if a given resource is of the human-readable group but cannot be parsed
+            or is a int in a string format without a unit.
         """
         if isinstance(mapping, cls):
             return mapping
+
+        for key, val in mapping.items():
+            if (
+                key in TimeResources
+                and isinstance(val, str)
+                and re.fullmatch(r"\d+", val)
+            ):
+                raise WorkflowError(
+                    f"Resource '{key}' must be provided as an integer in the Snakefile "
+                    f"or as a unit-bearing string. Bare numeric strings like {val!r} are not allowed."
+                )
 
         return cls({key: Resource(key, val) for key, val in mapping.items()})
 
