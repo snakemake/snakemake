@@ -8,7 +8,7 @@
 
 * Allow storing snakemake metadata in files or databases ([#4012](https://github.com/snakemake/snakemake/issues/4012)) ([dd75f31](https://github.com/snakemake/snakemake/commit/dd75f31bffecdbed1db5597c58f58fcca7ded2d2))
 * Allow to specify comparison command per-unit test ([#3956](https://github.com/snakemake/snakemake/issues/3956)) ([b88171c](https://github.com/snakemake/snakemake/commit/b88171cea0752b65cb6687906f7778c7f229c93d))
-* job table orderd topological when run is started ([#4018](https://github.com/snakemake/snakemake/issues/4018)) ([75cf506](https://github.com/snakemake/snakemake/commit/75cf506bc367eb0fd9ef75cdff30ebfe87714bc4))
+* job table ordered topological when run is started ([#4018](https://github.com/snakemake/snakemake/issues/4018)) ([75cf506](https://github.com/snakemake/snakemake/commit/75cf506bc367eb0fd9ef75cdff30ebfe87714bc4))
 * lambda functions for priority in rules ([#3253](https://github.com/snakemake/snakemake/issues/3253)) ([d2aa226](https://github.com/snakemake/snakemake/commit/d2aa22631bf9968d41ceafa1b9a97d1d43517ea1))
 * Make on... directive of modules accessible ([#4050](https://github.com/snakemake/snakemake/issues/4050)) ([e9f2e1c](https://github.com/snakemake/snakemake/commit/e9f2e1c381b37c6182051be2e25afd5e7b27a0c3))
 
