@@ -18,7 +18,7 @@ from snakemake.exceptions import ResourceDuplicationError
 from snakemake.persistence.db import DbPersistence
 from snakemake.persistence.file import FilePersistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
-from snakemake.settings.enums import RerunTrigger
+from snakemake.settings.enums import RerunTrigger, PersistenceBackend
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
@@ -342,17 +342,23 @@ def test_params():
     run(dpath("test_params"))
 
 
+from pathlib import Path
+
+
 @pytest.mark.parametrize(
-    "backend, PersistenceClass", [("file", FilePersistence), ("db", DbPersistence)]
+    "backend, PersistenceClass",
+    [
+        (PersistenceBackend.FILE, FilePersistence),
+        (PersistenceBackend.DB, DbPersistence),
+    ],
 )
 def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
     spy = mocker.spy(PersistenceClass, "has_outdated_metadata")
 
     db_url = None
-    if backend == "db":
-        from sqlalchemy import create_engine
-        from snakemake.persistence.db import Base, MetadataRecordORM
-        from sqlalchemy.orm import Session
+    if backend == PersistenceBackend.DB:
+        from sqlmodel import Session, SQLModel, create_engine
+        from snakemake.persistence.db import MetadataRecordORM
         import json
 
         # since we do not have a db in the test dir,
@@ -361,20 +367,18 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
         db_file = tmp_path / "metadata.db"
         db_url = f"sqlite:///{db_file}"
         engine = create_engine(db_url)
-        Base.metadata.create_all(engine)
+        SQLModel.metadata.create_all(engine)
+        workdir = Path(dpath("test_params_outdated_code"))
+        snakemake_dir = workdir / ".snakemake"
 
-        json_file = (
-            dpath("test_params_outdated_code")
-            / ".snakemake"
-            / "metadata"
-            / "c29tZWRpci90ZXN0Lm91dA=="
-        )
+        json_file = snakemake_dir / "metadata" / "c29tZWRpci90ZXN0Lm91dA=="
         with open(json_file, "r") as f:
             rec = json.load(f)
 
         with Session(engine) as session:
             session.add(
                 MetadataRecordORM(
+                    namespace=str(snakemake_dir.absolute()),
                     target="somedir/test.out",
                     code=rec.get("code"),
                     rule=rec.get("rule"),
