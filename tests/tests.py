@@ -342,9 +342,6 @@ def test_params():
     run(dpath("test_params"))
 
 
-from pathlib import Path
-
-
 @pytest.mark.parametrize(
     "backend, PersistenceClass",
     [
@@ -354,6 +351,10 @@ from pathlib import Path
 )
 def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
     spy = mocker.spy(PersistenceClass, "has_outdated_metadata")
+
+    workdir = tmp_path / "workdir"
+    shutil.copytree(dpath("test_params_outdated_code"), workdir)
+    snakemake_dir = workdir / ".snakemake"
 
     db_url = None
     if backend == PersistenceBackend.DB:
@@ -368,8 +369,6 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
         db_url = f"sqlite:///{db_file}"
         engine = create_engine(db_url)
         SQLModel.metadata.create_all(engine)
-        workdir = Path(dpath("test_params_outdated_code"))
-        snakemake_dir = workdir / ".snakemake"
 
         json_file = snakemake_dir / "metadata" / "c29tZWRpci90ZXN0Lm91dA=="
         with open(json_file, "r") as f:
@@ -386,10 +385,11 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
             session.commit()
 
     run(
-        dpath("test_params_outdated_code"),
+        path=workdir,
         targets=["somedir/test.out"],
         persistence_backend=backend,
         persistence_backend_db_url=db_url,
+        no_tmpdir=True,
     )
 
     assert spy.call_count > 0, f"has_outdated_metadata was not called for {backend}!"
