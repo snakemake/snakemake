@@ -33,6 +33,7 @@ from snakemake.report.html_reporter import ReportSettings
 from snakemake.resources import ResourceScopes, Resources
 from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
+from snakemake.settings.enums import PersistenceBackend
 
 #: File system path as string or pathlike object.
 StrPath: TypeAlias = str | os.PathLike
@@ -275,6 +276,8 @@ def run(
     benchmark_extended=False,
     apptainer_args="",
     tmpdir: StrPath | None = None,
+    persistence_backend: PersistenceBackend = PersistenceBackend.FILE,
+    persistence_backend_db_url: str | None = None,
 ) -> Path | None:
     """
     Test the Snakefile in the path.
@@ -455,6 +458,8 @@ def run(
                     workflow_settings=settings.WorkflowSettings(
                         wrapper_prefix=wrapper_prefix,
                         cache=cache,
+                        persistence_backend=persistence_backend,
+                        persistence_backend_db_url=persistence_backend_db_url,
                     ),
                     deployment_settings=settings.DeploymentSettings(
                         conda_frontend=conda_frontend,
