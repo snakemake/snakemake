@@ -206,6 +206,30 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         self.update_output_index()
 
+    def reset_after_dryrun(self) -> None:
+        """Reset state mutated by dryrun so this DAG can be executed for real."""
+        # dryrun marks all jobs as finished and marks reasons as finished.
+        self._finished.clear()
+        self._reason.clear()
+
+        # scheduler tracking state.
+        self._running.clear()
+        self._ready_jobs.clear()
+        self._n_until_ready.clear()
+
+        # per-run caches and counters.
+        self._group.clear()
+        self._storage_input_jobs.clear()
+        self._checked_jobs.clear()
+        self._checked_needrun_jobs.clear()
+        self._jobid.clear()
+        self._deferred_temp_jobs.clear()
+        self._seen_outputs.clear()
+        self._queue_input_jobs = None
+        self._has_unfinished_queue_input_jobs = None
+        self._jobs_with_finished_queue_input.clear()
+        self._progress = 0
+
     @property
     def derived_targetfiles(self):
         if self._derived_targetfiles is None:

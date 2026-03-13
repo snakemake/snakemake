@@ -275,6 +275,7 @@ def run(
     benchmark_extended=False,
     apptainer_args="",
     tmpdir: StrPath | None = None,
+    user_input: str | None = None,
 ) -> Path | None:
     """
     Test the Snakefile in the path.
@@ -294,6 +295,8 @@ def run(
     shellcmd
         Shell command to run. Must start with "snakemake". If given, Snakemake will be run in a
         subprocess.
+    user_input
+        Optional stdin text to pass to ``shellcmd``.
     sigint_after
         If not None, send a SIGINT signal after this many seconds.
     tmpdir
@@ -364,6 +367,7 @@ def run(
                 res = subprocess.run(
                     shellcmd,
                     cwd=path if no_tmpdir else tmpdir,
+                    input=(user_input.encode() if user_input is not None else None),
                     check=True,
                     shell=True,
                     stderr=subprocess.STDOUT,
@@ -372,6 +376,8 @@ def run(
                 print(res.stdout.decode())
                 success = True
             else:
+                if user_input is not None:
+                    raise ValueError("user_input cannot be combined with sigint_after")
                 with subprocess.Popen(
                     shlex.split(shellcmd),
                     cwd=path if no_tmpdir else tmpdir,

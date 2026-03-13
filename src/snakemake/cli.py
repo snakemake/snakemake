@@ -1056,6 +1056,13 @@ def get_argument_parser(profiles=None):
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
+    group_exec.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        help="Run in interactive mode: perform a dryrun, display results, and "
+        "prompt to continue execution.",
+    )
     group_utils.add_argument(
         "--rulegraph",
         nargs="?",
@@ -1961,7 +1968,9 @@ def args_to_api(args, parser):
     """Convert argparse args to API calls."""
 
     # handle legacy executor names
-    if args.dryrun:
+    # In interactive mode, the first phase is dryrun anyway. Keep the selected
+    # executor for the second phase instead of forcing "dryrun" here.
+    if args.dryrun and not args.interactive:
         args.executor = "dryrun"
     elif args.touch:
         args.executor = "touch"
@@ -2254,8 +2263,8 @@ def args_to_api(args, parser):
                             ),
                             executor_settings=executor_settings,
                             scheduler_settings=scheduler_settings,
+                            interactive=args.interactive,
                         )
-
                         if report_plugin is not None and args.report_after_run:
                             dag_api.create_report(
                                 reporter=args.reporter,

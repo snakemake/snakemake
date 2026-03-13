@@ -93,6 +93,22 @@ def test_unlock_cli():
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
+def test_interactive():
+    run(
+        dpath("test_interactive"),
+        shellcmd="snakemake --cores 1 --interactive",
+        user_input="y\n",
+    )
+
+
+def test_interactive_from_dryrun_flag():
+    run(
+        dpath("test_interactive"),
+        shellcmd="snakemake --cores 1 --dryrun --interactive",
+        user_input="y\n",
+    )
+
+
 @skip_on_windows
 def test01():
     run(dpath("test01"))

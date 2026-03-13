@@ -170,6 +170,7 @@ class Workflow(WorkflowExecutorInterface):
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
+    interactive: bool = False
     cache_rules: Dict[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str | Path] = None
     _rundir = str(Path.cwd().absolute())
@@ -1248,6 +1249,183 @@ class Workflow(WorkflowExecutorInterface):
 
         self.log_rulegraph()
 
+    def _run_scheduler_phase(
+        self,
+        executor_plugin: ExecutorPlugin,
+        scheduler_plugin: SchedulerPlugin,
+        scheduler_settings: Optional[SchedulerSettingsBase],
+        greedy_scheduler_settings: GreedySchedulerSettings,
+        should_deploy_sources: bool,
+        updated_files: Optional[List[str]] = None,
+    ) -> bool:
+        """
+        Execute a single phase of scheduling (either dryrun or real execution).
+        Updates self._executor_plugin and returns success status.
+        """
+        self._executor_plugin = executor_plugin
+        dryrun_or_touch = self.dryrun or self.touch
+
+        if not self.dryrun:
+            if len(self.dag):
+                from snakemake.shell import shell
+
+                shell_exec = shell.get_executable()
+                if shell_exec is not None:
+                    logger.info(f"Using shell: {shell_exec}")
+                if not self.local_exec:
+                    logger.info(
+                        f"Provided remote nodes: {self.nodes}",
+                        extra=dict(event=LogEvent.RESOURCES_INFO, nodes=self.nodes),
+                    )
+                else:
+                    if self._cores is not None:
+                        info = (
+                            ""
+                            if self._cores > 1
+                            else " (use --cores to define parallelism)"
+                        )
+                        logger.info(
+                            f"Provided cores: {self._cores}{info}",
+                            extra=dict(
+                                event=LogEvent.RESOURCES_INFO, cores=self._cores
+                            ),
+                        )
+                        logger.info(
+                            "Rules claiming more threads will be scaled down.",
+                            extra=dict(event=LogEvent.RESOURCES_INFO),
+                        )
+
+                provided_resources = format_resources(self.global_resources)
+                if provided_resources:
+                    logger.info(
+                        f"Provided resources: {provided_resources}",
+                        extra=dict(
+                            event=LogEvent.RESOURCES_INFO,
+                            provided_resources=self.global_resources,
+                        ),
+                    )
+
+                if self.local_exec and any(rule.group for rule in self.rules):
+                    logger.info("Group jobs: inactive (local execution)")
+
+                if (
+                    DeploymentMethod.CONDA
+                    not in self.deployment_settings.deployment_method
+                    and any(rule.conda_env for rule in self.rules)
+                ):
+                    logger.info("Conda environments: ignored")
+
+                if (
+                    DeploymentMethod.APPTAINER
+                    not in self.deployment_settings.deployment_method
+                    and any(rule.container_img for rule in self.rules)
+                ):
+                    logger.info("Singularity containers: ignored")
+
+                if self.exec_mode == ExecMode.DEFAULT:
+                    stats_msg, stats_dict = self.dag.stats()
+                    logger.info(
+                        stats_msg,
+                        extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
+                    )
+            else:
+                logger.info(NOTHING_TO_BE_DONE_MSG)
+                return True
+        else:
+            # the dryrun/touch case
+            if len(self.dag):
+                stats_msg, stats_dict = self.dag.stats()
+                logger.info(
+                    stats_msg,
+                    extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
+                )
+            else:
+                logger.info(NOTHING_TO_BE_DONE_MSG)
+                self.log_missing_metadata_info()
+                self.log_outdated_metadata_info()
+                return True
+            # in case of dryrun and quiet, just print above info and exit. this set is equiv to --quiet
+            if self.output_settings.quiet == {Quietness.RULES, Quietness.PROGRESS}:
+                return True
+
+        if not self.dryrun and not self.execution_settings.no_hooks:
+            self._onstart(self.logger_manager.get_logfile())
+
+        has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
+
+        # Create scheduler for this phase
+        self.scheduler = JobScheduler(
+            self,
+            executor_plugin,
+            scheduler_plugin.scheduler(self.dag, scheduler_settings, logger),
+            greedy_scheduler_settings,
+        )
+
+        try:
+            success = self.scheduler.schedule()
+        except Exception as e:
+            if self.dryrun:
+                self.log_provenance_info()
+            raise e
+        finally:
+            if should_deploy_sources:
+                self.cleanup_source_archive()
+
+        if (
+            not self.remote_execution_settings.immediate_submit
+            and not self.dryrun
+            and self.exec_mode == ExecMode.DEFAULT
+        ):
+            self.dag.cleanup_workdir()
+
+        if not dryrun_or_touch:
+            self.async_run(self.dag.store_storage_outputs())
+            if not self.storage_settings.keep_storage_local:
+                self.async_run(self.dag.cleanup_storage_objects())
+
+        if success:
+            if self.dryrun:
+                if len(self.dag):
+                    stats_msg, stats_dict = self.dag.stats()
+                    logger.info(
+                        stats_msg,
+                        extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
+                    )
+                    self.dag.print_reasons()
+                    self.log_provenance_info()
+
+                logger.info(
+                    "This was a dry-run (flag -n). The order of jobs "
+                    "does not reflect the order of execution."
+                )
+                if has_checkpoint_jobs:
+                    logger.info(
+                        "The run involves checkpoint jobs, "
+                        "which will result in alteration of the DAG of "
+                        "jobs (e.g. adding more jobs) after their completion."
+                    )
+            else:
+                self.logger_manager.logfile_hint()
+            if not self.dryrun and not self.execution_settings.no_hooks:
+                self._onsuccess(self.logger_manager.get_logfile())
+        else:
+            if not self.dryrun and not self.execution_settings.no_hooks:
+                self._onerror(self.logger_manager.get_logfile())
+            self.logger_manager.logfile_hint()
+            raise WorkflowError("At least one job did not complete successfully.")
+
+        return success
+
+    def _should_deploy_sources(self, executor_plugin: ExecutorPlugin) -> bool:
+        return (
+            SharedFSUsage.SOURCES not in self.storage_settings.shared_fs_usage
+            and self.exec_mode == ExecMode.DEFAULT
+            and self.remote_execution_settings.job_deploy_sources
+            and not executor_plugin.common_settings.can_transfer_local_files
+            and not self.dryrun
+            and bool(len(self.dag))
+        )
+
     def execute(
         self,
         executor_plugin: ExecutorPlugin,
@@ -1256,6 +1434,8 @@ class Workflow(WorkflowExecutorInterface):
         scheduler_settings: Optional[SchedulerSettingsBase],
         greedy_scheduler_settings: GreedySchedulerSettings,
         updated_files: Optional[List[str]] = None,
+        interactive_executor_plugin: Optional[ExecutorPlugin] = None,
+        interactive_executor_settings: Optional[ExecutorSettingsBase] = None,
     ):
         logger.info(f"host: {platform.node()}")
 
@@ -1351,167 +1531,115 @@ class Workflow(WorkflowExecutorInterface):
             )
             logger.debug(f"shared_storage_local_copies: {shared_storage_local_copies}")
             logger.debug(f"remote_exec: {self.remote_exec}")
-            dryrun_or_touch = self.dryrun or self.touch
 
-            should_deploy_sources = (
-                SharedFSUsage.SOURCES not in self.storage_settings.shared_fs_usage
-                and self.exec_mode == ExecMode.DEFAULT
-                and self.remote_execution_settings.job_deploy_sources
-                and not executor_plugin.common_settings.can_transfer_local_files
-                and not self.dryrun
-                and len(self.dag)
-            )
+            should_deploy_sources = self._should_deploy_sources(executor_plugin)
             if should_deploy_sources:
                 # no shared FS, hence we have to upload the sources to the storage
                 self.upload_sources()
 
-            self.scheduler = JobScheduler(
-                self,
-                executor_plugin,
-                scheduler_plugin.scheduler(self.dag, scheduler_settings, logger),
-                greedy_scheduler_settings,
+            # Store scheduler settings for potential interactive re-run.
+            original_scheduler_plugin = scheduler_plugin
+            original_scheduler_settings = scheduler_settings
+
+            # Run the initial phase (dryrun or real execution)
+            try:
+                success = self._run_scheduler_phase(
+                    executor_plugin,
+                    scheduler_plugin,
+                    scheduler_settings,
+                    greedy_scheduler_settings,
+                    should_deploy_sources,
+                    updated_files,
+                )
+            except WorkflowError:
+                raise
+
+            # Handle interactive mode: if dryrun was successful and interactive, prompt user
+            if (
+                self.interactive
+                and self.dryrun
+                and success
+                and len(self.dag)  # Only prompt if there are jobs
+            ):
+                import builtins
+
+                response = builtins.input(
+                    "\nDry-run successful. Continue with real execution? (y/n): "
+                )
+                if response.lower() in ("y", "yes"):
+                    real_executor_plugin = interactive_executor_plugin
+                    if real_executor_plugin is None:
+                        raise WorkflowError(
+                            "Interactive mode requires a real executor plugin."
+                        )
+
+                    self.prepare_for_real_execution_after_dryrun(
+                        real_executor_plugin,
+                        interactive_executor_settings,
+                        updated_files,
+                    )
+
+                    should_deploy_sources = self._should_deploy_sources(
+                        real_executor_plugin
+                    )
+                    if should_deploy_sources:
+                        # no shared FS, hence we have to upload the sources to storage
+                        self.upload_sources()
+
+                    # Run the real execution phase
+                    logger.info("\nStarting actual execution...\n")
+                    try:
+                        success = self._run_scheduler_phase(
+                            real_executor_plugin,
+                            original_scheduler_plugin,
+                            original_scheduler_settings,
+                            greedy_scheduler_settings,
+                            should_deploy_sources,
+                            updated_files,
+                        )
+                    except WorkflowError:
+                        raise
+                else:
+                    logger.info("Execution cancelled by user.")
+
+    def prepare_for_real_execution_after_dryrun(
+        self,
+        real_executor_plugin: ExecutorPlugin,
+        real_executor_settings: Optional[ExecutorSettingsBase],
+        updated_files: Optional[List[str]] = None,
+    ) -> None:
+        """Prepare workflow and DAG for a real execution after dryrun on the same object."""
+        self._executor_plugin = real_executor_plugin
+        self.executor_settings = real_executor_settings
+
+        # Dryrun marks jobs/reasons as finished. Reset to a runnable DAG state.
+        self.dag.reset_after_dryrun()
+
+        # Real execution must observe live file state and metadata updates.
+        self.iocache.deactivate()
+        self.persistence.deactivate_cache()
+        self.persistence.drop_iocache()
+
+        # Rebuild needrun/ready sets and run DAG consistency checks.
+        self.async_run(self.dag.postprocess(update_needrun=True, check_initial=True))
+
+        if self.touch:
+            self.dag.check_touch_compatible()
+
+        if updated_files is not None:
+            updated_files.clear()
+            updated_files.extend(
+                f for job in self.dag.needrun_jobs() for f in job.output
             )
 
-            if not self.dryrun:
-                if len(self.dag):
-                    from snakemake.shell import shell
-
-                    shell_exec = shell.get_executable()
-                    if shell_exec is not None:
-                        logger.info(f"Using shell: {shell_exec}")
-                    if not self.local_exec:
-                        logger.info(
-                            f"Provided remote nodes: {self.nodes}",
-                            extra=dict(event=LogEvent.RESOURCES_INFO, nodes=self.nodes),
-                        )
-                    else:
-                        if self._cores is not None:
-                            info = (
-                                ""
-                                if self._cores > 1
-                                else " (use --cores to define parallelism)"
-                            )
-                            logger.info(
-                                f"Provided cores: {self._cores}{info}",
-                                extra=dict(
-                                    event=LogEvent.RESOURCES_INFO, cores=self._cores
-                                ),
-                            )
-                            logger.info(
-                                "Rules claiming more threads will be scaled down.",
-                                extra=dict(event=LogEvent.RESOURCES_INFO),
-                            )
-
-                    provided_resources = format_resources(self.global_resources)
-                    if provided_resources:
-                        logger.info(
-                            f"Provided resources: {provided_resources}",
-                            extra=dict(
-                                event=LogEvent.RESOURCES_INFO,
-                                provided_resources=self.global_resources,
-                            ),
-                        )
-
-                    if self.local_exec and any(rule.group for rule in self.rules):
-                        logger.info("Group jobs: inactive (local execution)")
-
-                    if (
-                        DeploymentMethod.CONDA
-                        not in self.deployment_settings.deployment_method
-                        and any(rule.conda_env for rule in self.rules)
-                    ):
-                        logger.info("Conda environments: ignored")
-
-                    if (
-                        DeploymentMethod.APPTAINER
-                        not in self.deployment_settings.deployment_method
-                        and any(rule.container_img for rule in self.rules)
-                    ):
-                        logger.info("Singularity containers: ignored")
-
-                    if self.exec_mode == ExecMode.DEFAULT:
-                        stats_msg, stats_dict = self.dag.stats()
-                        logger.info(
-                            stats_msg,
-                            extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
-                        )
-                else:
-                    logger.info(NOTHING_TO_BE_DONE_MSG)
-                    return
-            else:
-                # the dryrun case
-                if len(self.dag):
-                    stats_msg, stats_dict = self.dag.stats()
-                    logger.info(
-                        stats_msg,
-                        extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
-                    )
-                else:
-                    logger.info(NOTHING_TO_BE_DONE_MSG)
-                    self.log_missing_metadata_info()
-                    self.log_outdated_metadata_info()
-                    return
-                # in case of dryrun and quiet, just print above info and exit. this set is equiv to --quiet
-                if self.output_settings.quiet == {Quietness.RULES, Quietness.PROGRESS}:
-                    return
-
-            if not self.dryrun and not self.execution_settings.no_hooks:
-                self._onstart(self.logger_manager.get_logfile())
-
-            has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
-
-            try:
-                success = self.scheduler.schedule()
-            except Exception as e:
-                if self.dryrun:
-                    self.log_provenance_info()
-                raise e
-            finally:
-                if should_deploy_sources:
-                    self.cleanup_source_archive()
-
-            if (
-                not self.remote_execution_settings.immediate_submit
-                and not self.dryrun
-                and self.exec_mode == ExecMode.DEFAULT
-            ):
-                self.dag.cleanup_workdir()
-
-            if not dryrun_or_touch:
-                self.async_run(self.dag.store_storage_outputs())
-                if not self.storage_settings.keep_storage_local:
-                    self.async_run(self.dag.cleanup_storage_objects())
-
-            if success:
-                if self.dryrun:
-                    if len(self.dag):
-                        stats_msg, stats_dict = self.dag.stats()
-                        logger.info(
-                            stats_msg,
-                            extra=dict(event=LogEvent.RUN_INFO, stats=stats_dict),
-                        )
-                        self.dag.print_reasons()
-                        self.log_provenance_info()
-
-                    logger.info(
-                        "This was a dry-run (flag -n). The order of jobs "
-                        "does not reflect the order of execution."
-                    )
-                    if has_checkpoint_jobs:
-                        logger.info(
-                            "The run involves checkpoint jobs, "
-                            "which will result in alteration of the DAG of "
-                            "jobs (e.g. adding more jobs) after their completion."
-                        )
-                else:
-                    self.logger_manager.logfile_hint()
-                if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onsuccess(self.logger_manager.get_logfile())
-            else:
-                if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onerror(self.logger_manager.get_logfile())
-                self.logger_manager.logfile_hint()
-                raise WorkflowError("At least one job did not complete successfully.")
+        shared_deployment = (
+            SharedFSUsage.SOFTWARE_DEPLOYMENT in self.storage_settings.shared_fs_usage
+        )
+        if shared_deployment or (self.remote_exec and not shared_deployment):
+            if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
+                self.dag.pull_container_imgs()
+            if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
+                self.dag.create_conda_envs()
 
     def log_metadata_info(self, metadata_attr, description):
         jobs = [

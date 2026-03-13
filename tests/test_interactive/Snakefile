@@ -1,0 +1,10 @@
+rule all:
+    input:
+        "result.txt"
+
+rule produce:
+    output:
+        "result.txt"
+    run:
+        with open(output[0], "w") as out:
+            out.write("ok\n")

@@ -472,6 +472,7 @@ class DAGApi(ApiBase):
         updated_files: Optional[List[str]] = None,
         scheduler_settings: Optional[SchedulerSettingsBase] = None,
         greedy_scheduler_settings: Optional[GreedySchedulerSettings] = None,
+        interactive: bool = False,
     ):
         """Execute the workflow.
 
@@ -483,6 +484,7 @@ class DAGApi(ApiBase):
         remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
         executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
         updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
+        interactive: bool -- Enable interactive mode (dryrun + prompt for execution).
         """
 
         if execution_settings is None:
@@ -630,11 +632,24 @@ class DAGApi(ApiBase):
 
         scheduler_plugin = SchedulerPluginRegistry().get_plugin(scheduler)
 
+        initial_executor_plugin = executor_plugin
+        initial_executor_settings = executor_settings
+        interactive_executor_plugin = None
+        interactive_executor_settings = None
+        if interactive:
+            initial_executor_plugin = self._get_dryrun_executor_plugin()
+            initial_executor_settings = initial_executor_plugin.get_settings(
+                executor_settings
+            )
+            interactive_executor_plugin = executor_plugin
+            interactive_executor_settings = executor_settings
+
         workflow = self.workflow_api._workflow
         workflow.execution_settings = execution_settings
         workflow.remote_execution_settings = remote_execution_settings
         workflow.scheduling_settings = scheduling_settings
         workflow.group_settings = group_settings
+        workflow.interactive = interactive
         logger.info(
             None,
             extra=dict(
@@ -644,13 +659,20 @@ class DAGApi(ApiBase):
             ),
         )
         workflow.execute(
-            executor_plugin=executor_plugin,
-            executor_settings=executor_settings,
+            executor_plugin=initial_executor_plugin,
+            executor_settings=initial_executor_settings,
             scheduler_plugin=scheduler_plugin,
             scheduler_settings=scheduler_settings,
             greedy_scheduler_settings=greedy_scheduler_settings,
             updated_files=updated_files,
+            interactive_executor_plugin=interactive_executor_plugin,
+            interactive_executor_settings=interactive_executor_settings,
         )
+
+    @staticmethod
+    def _get_dryrun_executor_plugin():
+        """Return the built-in dryrun executor plugin."""
+        return ExecutorPluginRegistry().get_plugin("dryrun")
 
     def _no_exec(method):
         @functools.wraps(method)
