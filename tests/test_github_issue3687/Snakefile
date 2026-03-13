@@ -1,8 +1,10 @@
-from pathlib import Path                                                        
+from pathlib import Path
 
 rule all:
   input:
     'dir2/D'
+  output:
+    touch('dir2/Done')
 
 
 rule make_file:
@@ -10,7 +12,6 @@ rule make_file:
   output:
     directory('dir1/D'),
     file='dir1/D/file.txt',
-
   run:
     Path(output.file).touch()
 
@@ -18,10 +19,8 @@ rule make_file:
 rule link_to_D:
   """ Create a symlink to dir1/D in dir2. """
   input:
-    'dir1/D'                                                                    
-
+    'dir1/D'
   output:
-    directory('dir2/D')                                                         
-
+    directory('dir2/D')
   run:
     Path(str(output)).symlink_to(f'../{input}')
