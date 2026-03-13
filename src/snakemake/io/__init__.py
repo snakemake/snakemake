@@ -640,7 +640,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
         A cached result is returned if available and the algorithm matches."""
 
-        wrong_algorithm = False
+        wrong_algorithm_or_empty = False
 
         algorithm_name = (
             None if algorithm is None
@@ -652,27 +652,28 @@ class _IOFile(str, AnnotatedStringInterface):
                 return True
             used_algorithm, _ = checksum.split(":", maxsplit=1)
             if algorithm_name == used_algorithm:
-                return checksum
+                return True
 
         assert self.rule is not None
         iocache = self.rule.workflow.iocache
         if iocache.active:
-            if (checksum := iocache.checksum.get(self)) is not None:
+            if self in iocache.checksum:
+                checksum = iocache.checksum[self]
                 # make sure the algorithm matches
-                if check_algorithm(checksum):
+                if checksum is not None and check_algorithm(checksum):
                     return checksum
 
-                wrong_algorithm = True
+                wrong_algorithm_or_empty = True
 
         if algorithm is None:
             algorithm = hashlib.sha256
 
         if self.is_storage:
-            if not wrong_algorithm:
+            if not wrong_algorithm_or_empty:
                 checksum = await self.storage_object.managed_checksum()
                 if iocache.active:
                     iocache.checksum[self] = checksum
-                if check_algorithm(checksum):
+                if checksum is not None and check_algorithm(checksum):
                     return checksum
 
             if force:
@@ -694,7 +695,7 @@ class _IOFile(str, AnnotatedStringInterface):
                 checksum = hashlib.file_digest(BytesIO(b""), algorithm)
 
             checksum = f"{checksum.name}:{checksum.hexdigest()}"
-            if iocache.active and not wrong_algorithm:
+            if iocache.active and not wrong_algorithm_or_empty:
                 # add the computed checksum, only if a different one was not already there
                 iocache.checksum[self] = checksum
             return checksum
