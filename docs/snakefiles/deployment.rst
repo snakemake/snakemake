@@ -27,6 +27,9 @@ following structure:
     │   ├── notebooks
     |   │   ├── notebook1.py.ipynb
     |   │   └── notebook2.r.ipynb
+    │   ├── profiles
+    |   │   └── default
+    |   │       └── profile.yaml
     │   ├── report
     |   │   ├── plot1.rst
     |   │   └── plot2.rst

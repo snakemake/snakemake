@@ -705,7 +705,7 @@ In case of directly using the command line option, you can run Snakemake like th
     $ snakemake --consider-ancient myrule=foo
 
 This will mark the file ``inputfile.txt`` as ancient for the rule ``myrule``.
-If the setting shall be persisted for all upcoming runs of Snakemake, you can store it e.g. in the default workflow specific profile (``profiles/default/config.yaml``), which will be automatically considered when being present in a working directory:
+If the setting shall be persisted for all upcoming runs of Snakemake, you can store it e.g. in the default workflow specific profile (``profiles/default/profile.yaml``), which will be automatically considered when being present in a working directory:
 
 .. code-block:: python
 
