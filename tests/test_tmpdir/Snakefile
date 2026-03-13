@@ -4,6 +4,17 @@ from pathlib import Path
 assert choose_file(["foo", "~/.bashrc"]) == Path("~/.bashrc").expanduser()
 # Folder with rwx access
 assert choose_folder(["foo/bar", "/proc", "~"]) == Path("~").expanduser()
+# Folder with rwx or creatable
+assert (
+    choose_folder(
+        ["/non/existing/path", "/foo", "/bar"],
+        read=True,
+        write=True,
+        open=True,
+        creatable=True,
+    )
+    is None
+)
 # First is non-existing and not creatable
 assert choose_tmp(["/foo/bar", "/tmp", "/tmp/jobid"]) == Path("/tmp")
 assert choose_tmp(["/foo/bar", "/tmp/$USER", "/tmp/"]) == Path("/tmp/$USER")
@@ -11,17 +22,6 @@ assert choose_tmp(["/foo/bar", "/tmp/$USER", "/tmp/"]) == Path("/tmp/$USER")
 assert choose_tmp(["foo/bar", "/tmp"]) == Path("foo/bar")
 # None is valid
 assert choose_tmp(["/foo", "/bar"]) == "system_tmpdir"
-# Folder with rwx or creatable
-assert (
-    choose_f(
-        ["/non/existing/path", "/foo", "/bar"],
-        read=True,
-        write=True,
-        execute=True,
-        creatable=True,
-    )
-    is None
-)
 
 
 rule a:

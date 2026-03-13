@@ -1,5 +1,6 @@
 from typing import List, Union
 from pathlib import Path
+from snakemake.io import AnnotatedString
 
 
 def choose_file(
@@ -15,7 +16,7 @@ def choose_file(
         write=write,
         execute=execute,
         creatable=creatable,
-        is_file=True,
+        is_dir=False,
     )
 
 
@@ -32,7 +33,7 @@ def choose_folder(
         write=write,
         execute=open,
         creatable=creatable,
-        is_file=False,
+        is_dir=True,
     )
 
 
@@ -49,7 +50,7 @@ def choose_tmp(
         write=write,
         execute=open,
         creatable=creatable,
-        is_file=False,
+        is_dir=True,
     )
     return "system_tmpdir" if tmpdir is None else tmpdir
 
@@ -60,7 +61,7 @@ def _choose_f(
     write: bool = None,
     execute: bool = None,
     creatable: bool = None,
-    is_file: bool = None,
+    is_dir: bool = None,
 ) -> Path:
     """
     Given a list of files/folder paths, return the first path that meets criteria.
@@ -79,7 +80,7 @@ def _choose_f(
 
     def is_creatable(path: Path) -> bool:
         """
-        Checks if path is creatable.
+        Checks if path is creatable (whether it exists or not).
         """
         if path == Path(path.root):
             return False
@@ -94,18 +95,19 @@ def _choose_f(
 
     for i in list:
         # If storage, permissions cannot be checked
-        if i.is_storage():
-            continue
+        if isinstance(i, AnnotatedString):
+            if i.is_storage() and is_dir == i.is_directory():
+                return True
+        else:
+            i = Path(i).expanduser()
 
-        i = Path(i).expanduser()
-        if is_file != i.is_file():
-            continue
-
-        if creatable:
-            if is_creatable(i):
+            # Check permissions
+            if _check_mode(i, [read, write, execute]) and is_dir == i.is_dir():
                 return i
 
-        if _check_mode(i, [read, write, execute]):
-            return i
+            # Checks if it is creatable
+            if creatable:
+                if is_creatable(i):
+                    return i
 
     return None
