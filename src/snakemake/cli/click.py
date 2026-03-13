@@ -8,8 +8,7 @@ main() for full backward compatibility.
 import sys
 import click
 from snakemake.cli.legacy import main as legacy_main
-from snakemake.cli.commands.lint import lint
-from snakemake.cli.commands.unlock import unlock
+from snakemake.cli.commands import info, clean, dagviz, unlock, lint, utils, software
 
 
 def _find_workflow_profile(snakefile):
@@ -110,6 +109,17 @@ def cli(ctx):
     if ctx.invoked_subcommand is None:
         legacy_main(sys.argv[1:])
 
+@cli.command()
+@click.pass_context
+def help(ctx):
+    """Show available subcommands."""
+    click.echo(ctx.parent.get_help())
+
 
 cli.add_command(lint)
 cli.add_command(unlock)
+cli.add_command(clean)
+cli.add_command(dagviz)
+cli.add_command(utils)
+cli.add_command(info)
+cli.add_command(software)
