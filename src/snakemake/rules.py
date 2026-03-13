@@ -25,9 +25,7 @@ from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake.io import (
     IOFile,
     _IOFile,
-    Namedlist,
     AnnotatedString,
-    ResourceList,
     contains_wildcard,
     contains_wildcard_constraints,
     get_flag_store_keys,
@@ -37,17 +35,21 @@ from snakemake.io import (
     flag,
     get_flag_value,
     expand,
-    InputFiles,
-    OutputFiles,
-    Wildcards,
-    Params,
-    Log,
     strip_wildcard_constraints,
     apply_wildcards,
     is_flagged,
     flag,
     is_callable,
     ReportObject,
+)
+from snakemake.io.container import (
+    Namedlist,
+    InputFiles,
+    OutputFiles,
+    Wildcards,
+    Params,
+    Log,
+    ResourceList,
 )
 from snakemake.resources import (
     Resource,
@@ -1170,6 +1172,31 @@ class Rule(RuleInterface):
         resources["_cores"] = threads
 
         return ResourceList(fromdict=resources)
+
+    def expand_priority(self, wildcards, input, attempt):
+        """Expand the priority given wildcards and input."""
+        if callable(self.priority):
+            try:
+                value, _ = self.apply_input_function(
+                    self.priority,
+                    wildcards,
+                    input=input,
+                    attempt=attempt,
+                    rulename=self.name,
+                    async_run=self.workflow.async_run,
+                )
+            except (InputFunctionException, WorkflowError):
+                raise
+            except Exception as e:
+                raise InputFunctionException(e, rule=self, wildcards=wildcards)
+            if not isinstance(value, (int, float)):
+                raise RuleException(
+                    "Priority function must return a numeric value (int or float), "
+                    f"got {type(value).__name__}.",
+                    rule=self,
+                )
+            return value
+        return self.priority
 
     def expand_group(self, wildcards):
         """Expand the group given wildcards."""
