@@ -798,8 +798,7 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
         raise SourceFileError(
             "must be given as Python string or one of the predefined source file marker types (see docs)"
         )
-    hosting_provider_file = _infer_hosting_provider_file_shorthand(path_or_uri)
-    if hosting_provider_file is not None:
+    if hosting_provider_file := _infer_hosting_provider_file_shorthand(path_or_uri):
         return hosting_provider_file
     try:
         is_local = is_local_file(path_or_uri)
