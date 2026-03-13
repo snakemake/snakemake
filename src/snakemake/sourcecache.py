@@ -742,8 +742,8 @@ def _infer_hosting_provider_file_shorthand(
     if "://" in path_or_uri:
         return None
 
-    host, sep, remainder = path_or_uri.partition(":")
-    if not sep or "." not in host or "/" not in remainder or "@" not in remainder:
+    provider, sep, remainder = path_or_uri.partition(":")
+    if provider not in {"gh", "gl"} or not sep or "/" not in remainder or "@" not in remainder:
         return None
 
     repo_ref, sep, path = remainder.rpartition(":")
@@ -754,12 +754,20 @@ def _infer_hosting_provider_file_shorthand(
     if not sep or not repo or not ref or "/" not in repo:
         return None
 
+    host = None
+    host_candidate, host_sep, repo_candidate = repo.partition(":")
+    if host_sep:
+        if not host_candidate or not repo_candidate or "/" not in repo_candidate:
+            return None
+        host = host_candidate
+        repo = repo_candidate
+
     repo = unquote(repo)
     ref = unquote(ref)
     path = unquote(path)
 
-    if host == "github.com":
-        return GithubFile(repo=repo, path=path, branch=ref)
+    if provider == "gh":
+        return GithubFile(repo=repo, path=path, branch=ref, host=host)
 
     return GitlabFile(repo=repo, path=path, branch=ref, host=host)
 
@@ -779,7 +787,11 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
     hosting_provider_file = _infer_hosting_provider_file_shorthand(path_or_uri)
     if hosting_provider_file is not None:
         return hosting_provider_file
-    if is_local_file(path_or_uri):
+    try:
+        is_local = is_local_file(path_or_uri)
+    except (NotImplementedError, ImportError, ValueError):
+        is_local = False
+    if is_local:
         # either local file or relative to some remote basedir
         for schema in ("file://", "file:"):
             if path_or_uri.startswith(schema):
