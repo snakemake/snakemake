@@ -51,7 +51,7 @@ External scripts
 A rule can also point to an external script instead of a shell command or inline Python code, e.g.
 
 Python
-~~~~~~
+^^^^^^
 
 .. code-block:: python
 
@@ -179,7 +179,7 @@ the Hy script might look like this:
 
 
 R and R Markdown
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
 
@@ -264,7 +264,7 @@ A link to the R Markdown document with the snakemake object can be inserted. The
 Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob `object <https://developer.mozilla.org/en-US/docs/Web/API/Blob>`_.
 
 Julia_
-~~~~~~
+^^^^^^
 
 .. _Julia: https://julialang.org
 
@@ -283,7 +283,7 @@ Julia_
 In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the :ref:`Python case <Python>`, with the only difference that you have to index from 1 instead of 0.
 
 Rust_
-~~~~~
+^^^^^
 
 .. _Rust: https://www.rust-lang.org/
 
@@ -409,7 +409,7 @@ If your script uses any of these packages, you do not need to ``use`` them in yo
 
 
 Bash
-~~~~
+^^^^
 
 Bash scripts work much the same as the other script languages above, but with some important differences. Access to the
 rule's directives is provided through the use of `associative arrays <arrays_>`_ - **requiring Bash version 4.0 or greater**.

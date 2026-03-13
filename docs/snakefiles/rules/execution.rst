@@ -1,5 +1,6 @@
+========================
 Execution and Scheduling
-=======================
+========================
 
 
 Local Rules
@@ -189,7 +190,7 @@ Snakemake will schedule the service with all consumers to the same physical node
 Once all consumer jobs are finished, the service job will be terminated automatically by Snakemake, and the service output will be removed.
 
 Group-local service jobs
-~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Since Snakemake supports arbitrary partitioning of the DAG into so-called :ref:`job groups <job_grouping>`, one should consider what this implies for service jobs when running a workflow in a cluster of cloud context:
 since each group job spans at least one connected component (see :ref:`job groups <job_grouping>` and `the Snakemake paper <https://doi.org/10.12688/f1000research.29032.2>`), this means that the service job will automatically connect all consumers into one big group.
