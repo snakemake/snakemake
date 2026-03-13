@@ -1,6 +1,7 @@
 # keep until 3.14
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
 from enum import Flag, auto
 from typing import TYPE_CHECKING
@@ -13,6 +14,19 @@ if TYPE_CHECKING:
 
     from snakemake.jobs import Job
     from snakemake.rules import Rule
+
+
+def _requires_cache(method):
+    @functools.wraps(method)
+    async def wrapper(self, *args, **kwargs):
+        if self.rule.workflow.output_file_cache is None:
+            raise RuntimeError(
+                f"Cache backend unavailable for rule '{self.rule}' during"
+                f" '{method.__name__}' operation."
+            )
+        return await method(self, *args, **kwargs)
+
+    return wrapper
 
 
 class CacheFlag(Flag):
@@ -99,14 +113,14 @@ class RuleCache:
                 rule=rule,
             )
 
+    @_requires_cache
     async def exists(self, job: Job):
-        assert self.rule.workflow.output_file_cache is not None
         return await self.rule.workflow.output_file_cache.exists(job)
 
+    @_requires_cache
     async def store(self, job: Job):
-        assert self.rule.workflow.output_file_cache is not None
         return await self.rule.workflow.output_file_cache.store(job)
 
+    @_requires_cache
     async def fetch(self, job: Job):
-        assert self.rule.workflow.output_file_cache is not None
         return await self.rule.workflow.output_file_cache.fetch(job)
