@@ -74,7 +74,7 @@ Interactive debugging
 Debugging the main workflow process using Visual Studio Code
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The `Visual Studio Code <https://code.visualstudio.com/>`_ editor comes with with a powerful debugger for Python.
+The `Visual Studio Code <https://code.visualstudio.com/>`_ editor comes with a powerful debugger for Python.
 With a little tinkering, you can also use it to debug Snakemake's main process, which can be very useful for developing both workflows and plugins for Snakemake.
 
 .. note:: This is neither officially supported by Snakemake nor by Visual Studio Code, and may frequently crash!
