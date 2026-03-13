@@ -41,7 +41,7 @@ class RuleCache:
                     flag |= CacheFlag.omit_software
                 elif x == "omit-storage-content":
                     flag |= CacheFlag.output | CacheFlag.omit_storage_content
-                elif flag == "hash-omit-storage-content":
+                elif x == "hash-omit-storage-content":
                     flag |= CacheFlag.omit_storage_content
                 else:
                     raise WorkflowError(
