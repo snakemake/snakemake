@@ -138,15 +138,17 @@ def test_typed():
         typed = typed_factory("npy")
         file = f"{tmpdir}/test.npy"
         import numpy as np
+
         arr = np.array([1, 2, 3])
         typed(file).dump(arr)
         assert np.array_equal(typed(file).load(), arr)
         import pandas as pd
+
         file = f"{tmpdir}/test.csv"
         typed = typed_factory(loader=pd.read_csv, dumper=pd.DataFrame.to_csv)  # type: ignore
         df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
         typed(file).dump(df)
-        assert typed(file).load().drop(columns='Unnamed: 0').equals(df)  # type: ignore[reportAttributeAccessIssue]
+        assert typed(file).load().drop(columns="Unnamed: 0").equals(df)  # type: ignore[reportAttributeAccessIssue]
         typed = typed_factory("tsv")
         file = f"{tmpdir}/test.tsv"
         typed(file).dump(df)

@@ -264,6 +264,7 @@ class _IOFile(str, AnnotatedStringInterface):
     __slots__ = ["_is_callable", "_file", "rule", "_regex", "_wildcard_constraints"]
 
     if TYPE_CHECKING:
+
         def __init__(self, file, rule: Optional["snakemake.rules.Rule"]):
             self._is_callable: bool
             self._file: str | AnnotatedString | Callable[["Namedlist"], str]
@@ -1628,7 +1629,7 @@ def typed(value, type_, loader=None, dumper=None):
     v = flag(value, "typed", None)
     if not isinstance(v, AnnotatedStringInterface):
         raise ValueError("typed can only be used on single files")
-    return flag(v, "typed", typed_factory(type_, loader, dumper))  # type: ignore[call-overload]
+    return flag(v, "typed", typed_factory(type_, loader=loader, dumper=loader))  # type: ignore[call-overload]
 
 
 def limit(pattern: Union[str, AnnotatedString], **wildcards):
