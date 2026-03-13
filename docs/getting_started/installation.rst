@@ -24,7 +24,8 @@ Snakemake is available through :ref:`pixi<pixi-install>`, :ref:`conda<conda-inst
 Alternatively, you can also build it from source.
 
 
-These instructions set out how to obtain and install the software and data on Linux. It is assumed that you have:
+These instructions set out how to obtain and install the software on Linux.
+It is assumed that you have:
 
 - access to the Bash or Zsh shell on a fairly modern Linux or macOS system
 - sufficient disk space (~1GB) to store the software
