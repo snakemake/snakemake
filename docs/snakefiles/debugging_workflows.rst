@@ -122,7 +122,7 @@ To set this up, perform the following steps:
 To now debug your workflow:
 
 1. Add breakpoints to your Snakefile by adding ``breakpoint()`` statements wherever you want to halt execution to inspect the state of the workflow.
-2. Start the debugger in Visual Studio Code by navigating to the "Run and Debug" tab and selecting the "DebugPy: debug Snakemake workflow" configuration (keyboard shortcut: ``F5``). This will open an interactive debugging console, allowing you to step through the workflow execution and inspect variables..
+2. Start the debugger in Visual Studio Code by navigating to the "Run and Debug" tab and selecting the "DebugPy: debug Snakemake workflow" configuration (keyboard shortcut: ``F5``). This will open an interactive debugging console, allowing you to step through the workflow execution and inspect variables.
 
 
 .. note:: This will **not** work for debugging the execution of individual jobs, regardless of whether they are executed locally or remotely. For this, you can use Snakemake's ``--debug`` flag, see below.
@@ -147,7 +147,7 @@ You can save the entire current state of a workspace in R, for debugging you can
     save.image(file = "my_dump.RData")
 
 
-In an interactive R session, first load all the ``library()`` s that you need for the script. Then you can load the full workspace and interactively explore / debug what's going on:
+Start an interactive R session and load all the ``library()`` s that you need for the script. Then you can load the full workspace and interactively explore / debug what's going on:
 
 .. code-block:: r
 
