@@ -1,14 +1,17 @@
 # keep until 3.14
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-from enum import Flag, auto
 from dataclasses import dataclass
+from enum import Flag, auto
+from typing import TYPE_CHECKING
+
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 
 if TYPE_CHECKING:
-    from typing import Self, Optional, Any
+    from typing import Any, Optional, Self
+
+    from snakemake.jobs import Job
     from snakemake.rules import Rule
 
 
@@ -97,10 +100,13 @@ class RuleCache:
             )
 
     async def exists(self, job: Job):
+        assert self.rule.workflow.output_file_cache is not None
         return await self.rule.workflow.output_file_cache.exists(job)
 
     async def store(self, job: Job):
+        assert self.rule.workflow.output_file_cache is not None
         return await self.rule.workflow.output_file_cache.store(job)
 
     async def fetch(self, job: Job):
+        assert self.rule.workflow.output_file_cache is not None
         return await self.rule.workflow.output_file_cache.fetch(job)
