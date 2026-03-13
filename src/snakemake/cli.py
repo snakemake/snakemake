@@ -1881,7 +1881,18 @@ def parse_args(argv):
             )
 
         parser = get_argument_parser(profiles=profiles)
-        args = parser.parse_args(argv)
+
+        # configargparse appends the profile args to the end of argv
+        # anything after '--' gets interpreted as a positional arg
+        # fix by splitting args at '--' and placing explicit targets at the end
+        effective_argv = argv if argv is not None else sys.argv[1:]
+        if "--" in effective_argv:
+            sep_idx = effective_argv.index("--")
+            explicit_targets = effective_argv[sep_idx + 1 :]
+            args = parser.parse_args(effective_argv[:sep_idx])
+            args.targets = list(args.targets) + explicit_targets
+        else:
+            args = parser.parse_args(argv)
 
     return parser, args
 

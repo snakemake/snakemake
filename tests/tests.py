@@ -26,7 +26,7 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected
+from .common import run, dpath, apptainer, connected, prepare_tmpdir
 from .conftest import (
     skip_on_windows,
     only_on_windows,
@@ -558,7 +558,7 @@ def test_script_python():
         shellcmd="snakemake -c1",
     )
     assert outfile_timestamp_orig != os.path.getmtime(outfile_path)
-    # shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows  # Test relies on perl
@@ -843,6 +843,15 @@ def test_profile():
         result = parser.parse(f)
         assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
         assert result["group-components"] == list(["grp1=5"])
+
+
+@skip_on_windows
+def test_profile_double_dash():
+    """Test that -- target separator works correctly with --profile (issue #3642)."""
+    run(
+        dpath("test_profile_double_dash"),
+        shellcmd="snakemake -c1 --profile profile -- done.txt",
+    )
 
 
 @skip_on_windows
@@ -1737,7 +1746,7 @@ def test_github_issue105():
 
 
 def test_github_issue413():
-    run(dpath("test_github_issue413"), no_tmpdir=True)
+    run(dpath("test_github_issue413"))
 
 
 @skip_on_windows
@@ -1869,12 +1878,14 @@ def test_parsing_terminal_comment_following_statement():
 
 @skip_on_windows
 def test_github_issue640():
-    run(
+    tmpdir = run(
         dpath("test_github_issue640"),
         targets=["Output/FileWithRights"],
         executor="dryrun",
         cleanup=False,
     )
+    shell(f"chmod -R u+rwX {tmpdir}")
+    shutil.rmtree(tmpdir)
 
 
 def test_generate_unit_tests():
@@ -2148,7 +2159,9 @@ def test_strict_mode():
 
 @needs_strace
 def test_github_issue1158():
-    run(dpath("test_github_issue1158"), cluster="./qsub.py")
+    path = dpath("test_github_issue1158")
+    with prepare_tmpdir(path) as tmpdir:
+        run(path, cluster="./qsub.py", tmpdir=tmpdir, cleanup=False)
 
 
 def test_ancient_dag():
@@ -2227,7 +2240,6 @@ def test_incomplete_params():
         dpath("test_incomplete_params"),
         executor="dryrun",
         printshellcmds=True,
-        cleanup=False,
     )
 
 
@@ -2300,6 +2312,16 @@ def test_ensure_checksum_fail():
 
 def test_fstring():
     run(dpath("test_fstring"), targets=["SID23454678.txt"])
+
+
+@skip_on_windows  # OS independent
+def test_priority():
+    run(dpath("test_priority"), cores=1)
+
+
+@skip_on_windows  # OS independent
+def test_priority_invalid():
+    run(dpath("test_priority_invalid"), shouldfail=True)
 
 
 @skip_on_windows
@@ -2685,6 +2707,7 @@ def test_update_flag_fail_cleanup():
     tmpdir = run(workdir, shouldfail=True, cleanup=False, check_results=False)
 
     assert not os.path.exists(os.path.join(tmpdir, "test.txt"))
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows
@@ -2723,6 +2746,7 @@ def test_failed_intermediate():
     tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
     run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 def test_github_issue2848():
@@ -3005,10 +3029,14 @@ def test_immediate_submit_without_shared_fs():
 
 
 def test_ambiguousruleexception():
-    try:
-        run(dpath("test_ambiguousruleexception"))
-    except AmbiguousRuleException:
-        return
+    path = dpath("test_ambiguousruleexception")
+
+    with prepare_tmpdir(path) as tmpdir:
+        try:
+            run(path, tmpdir=tmpdir)
+        except AmbiguousRuleException:
+            return
+
     raise AssertionError("This is an ambiguous case! Should have raised an error...")
 
 
@@ -3042,8 +3070,12 @@ def test_checkpoint_omit_from():
 
 
 def test_wildcard_annotatedstrings():
-    with pytest.raises(WorkflowError, match=r"unpack\(\) is not allowed with params"):
-        run(dpath("test_wildcard_annotatedstrings"), targets=["test.out"])
+    path = dpath("test_wildcard_annotatedstrings")
+    with prepare_tmpdir(path, path.name) as tmpdir:
+        with pytest.raises(
+            WorkflowError, match=r"unpack\(\) is not allowed with params"
+        ):
+            run(path, targets=["test.out"], tmpdir=tmpdir)
 
 
 @skip_on_windows  # platform will have no effect
@@ -3158,3 +3190,33 @@ def test_github_issue3913():
     # avoid test passing spuriously if log format changes
     assert completed_job_count == 4 and started_job_count == 4
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_module_onstart_onsuccess():
+    run(dpath("test_module_onstart_onsuccess"), check_results=True)
+
+
+def test_module_onstart_not_in_main_snakefile():
+    # check that onstart is not executed, if not in the main snakefile
+    path = dpath("test_module_onstart_not_in_main_snakefile")
+    with prepare_tmpdir(path) as tmpdir:
+        run(
+            path,
+            check_results=True,
+            cleanup=False,
+            tmpdir=tmpdir,
+        )
+        assert not (
+            Path(tmpdir) / "onstart_module1.log"
+        ).exists(), "onstart should not be executed for module1"
+        assert not (
+            Path(tmpdir) / "onstart_module2.log"
+        ).exists(), "onstart should not be executed for module2"
+
+
+def test_module_onerror():
+    run(dpath("test_module_onerror"), shouldfail=True, check_results=True)
+
+
+def test_github_issue2255():
+    run(dpath("test_github_issue2255"), check_results=False)

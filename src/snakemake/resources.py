@@ -57,7 +57,7 @@ from snakemake.io import AnnotatedString
 
 if TYPE_CHECKING:
     from snakemake.jobs import Job
-    from snakemake.io import Wildcards
+    from snakemake.io.container import Wildcards
     from snakemake.settings.types import ValidResource
 
 
