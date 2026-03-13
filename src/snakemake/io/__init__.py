@@ -32,6 +32,8 @@ from typing import (
     Set,
     Union,
     TYPE_CHECKING,
+    Coroutine,
+    TypeVar,
 )
 
 from snakemake_interface_common.utils import lchmod
@@ -239,7 +241,12 @@ def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
     return f
 
 
-def iocache(func: Callable):
+T = TypeVar("T")
+
+
+def iocache(
+    func: Callable[..., Coroutine[Any, Any, T]],
+) -> Callable[..., Coroutine[Any, Any, T]]:
     @functools.wraps(func)
     async def wrapper(self: "_IOFile", *args, **kwargs):
         assert self.rule is not None
@@ -279,7 +286,7 @@ class _IOFile(str, AnnotatedStringInterface):
     ):
         is_annotated = isinstance(file, AnnotatedString)
         is_callable = (
-            isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
+            isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))  # type: ignore[union-attr]
         )
         if isinstance(file, Path):
             file = str(file.as_posix())
@@ -295,7 +302,7 @@ class _IOFile(str, AnnotatedStringInterface):
                     raise WorkflowError(e, rule=rule) from e
             if is_annotated:
                 modified = AnnotatedString(modified)
-                modified.flags = file.flags
+                modified.flags = file.flags  # type: ignore[attr-defined]
             file = modified
         obj = str.__new__(cls, file)
         obj._is_callable = is_callable
@@ -452,13 +459,14 @@ class _IOFile(str, AnnotatedStringInterface):
         return not self.storage_object.retrieve
 
     @property
-    def storage_object(self):
+    def storage_object(self) -> Any:
+        # assume that all .storage_object is called after .is_storage check, hence it is safe to silence type checker
         return get_flag_value(self._file, "storage_object")
 
     @property
-    def file(self):
+    def file(self) -> "str | AnnotatedString":
         if not self.is_callable():
-            return self._file
+            return self._file  # type: ignore[return-value]
         else:
             raise ValueError(
                 "This IOFile is specified as a function and may not be used directly."
@@ -694,7 +702,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
             async def is_newer_in_storage():
                 mtime = await self.mtime()
-                return mtime.local() < mtime.storage()
+                return mtime.local() < mtime.storage()  # type: ignore[reportOptionalOperand]
 
             if not await self.exists_local() or await is_newer_in_storage():
                 logger.info(
@@ -1034,8 +1042,6 @@ _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
 
-_CONSIDER_LOCAL_DEFAULT = frozenset()  # type: ignore[var-annotated]
-
 _illegal_wildcard_name_regex = re.compile(
     r"""
     \{(?!\{) # Start matching from the second {, otherwise \W will match the second {
@@ -1053,7 +1059,7 @@ async def wait_for_files(
     latency_wait=3,
     wait_for_local=False,
     ignore_pipe_or_service=False,
-    consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,  # type: ignore[assignment]
+    consider_local: Set[_IOFile] = frozenset(),  # type: ignore[assignment]
 ):
     """Wait for given files to be present in the filesystem."""
 
@@ -1518,7 +1524,7 @@ def expand(*args, **wildcard_values):
                     or not isinstance(value, collections.abc.Iterable)
                     or is_namedtuple_instance(value)
                 ):
-                    values: collections.abc.Iterable[str] = [value]  # type: ignore[list-item]
+                    values: collections.abc.Iterable = [value]
                 else:
                     values = value
                 yield [(wildcard, value) for value in values]
@@ -1534,7 +1540,7 @@ def expand(*args, **wildcard_values):
         formatter = string.Formatter()
         try:
             return [
-                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))  # type: ignore[arg-type]
+                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))
                 for filepattern in filepatterns
                 for comb in map(
                     format_dict, combinator(*flatten(wildcard_values[filepattern]))

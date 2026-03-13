@@ -49,13 +49,13 @@ class ReportHref:
         self._anchor = anchor
 
     def child_path(self, path: Union[str, Path]):
-        return ReportHref(path, parent=self)
+        return self.__class__(path, parent=self)
 
     def url_args(self, **args: str):
-        return ReportHref(path=self._path, parent=self._parent, url_args=args)
+        return self.__class__(path=self._path, parent=self._parent, url_args=args)
 
     def anchor(self, anchor: str):
-        return ReportHref(
+        return self.__class__(
             path=self._path, parent=self._parent, url_args=self._url_args, anchor=anchor
         )
 
@@ -107,7 +107,7 @@ class Namedlist(list, Generic[_TNamedList]):
             Namedlist (keys become names)
         """
         list.__init__(self)
-        self._names: dict[str, Tuple[int, int | None]] = dict()
+        self._names: Dict[str, Tuple[int, int | None]] = dict()
 
         # white-list of attribute names that can be overridden in _set_name
         # default to throwing exception if called to prevent use as functions
