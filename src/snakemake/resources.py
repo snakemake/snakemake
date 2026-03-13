@@ -9,6 +9,7 @@ import re
 import shutil
 import tempfile
 import math
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -492,11 +493,13 @@ class Resource:
 
     def __init__(self, name: str, value: ValidResource, raw: int | str | None = None):
         if not (
-            isinstance(value, (str, int, float)) or callable(value) or value is None
+            isinstance(value, (str, int, float, Path))
+            or callable(value)
+            or value is None
         ):
             msg = (
                 f"Resource '{name}' assigned invalid value {value!r}. Must be str, "
-                "int, float, or callable (function)."
+                "int, float, Path, or callable (function)."
             )
             raise ResourceValidationError(msg)
         if isinstance(value, float):
@@ -789,9 +792,19 @@ class Resource:
         """
         # Expand env variables
         val = os.path.expanduser(os.path.expandvars(val))
+        # Add ioutils functions
+        import snakemake.ioutils
+
+        ioutils = {}
+        snakemake.ioutils.register_in_globals(ioutils)
+        # Try to evaluate resource expression.
+        # Note that `args` take precedence, i.e. if a name is present on
+        # both (e.g. `input`), the one in `args` is used.
+        # Eval expression
         try:
             value = eval(
                 val,
+                ioutils,
                 {
                     "input": input,
                     "attempt": attempt,
