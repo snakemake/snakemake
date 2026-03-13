@@ -107,7 +107,7 @@ class Namedlist(list, Generic[_TNamedList]):
             Namedlist (keys become names)
         """
         list.__init__(self)
-        self._names: dict[str, Tuple[int, int | None]] = dict()
+        self._names: Dict[str, Tuple[int, int | None]] = dict()
 
         # white-list of attribute names that can be overridden in _set_name
         # default to throwing exception if called to prevent use as functions
