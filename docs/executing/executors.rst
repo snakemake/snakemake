@@ -14,7 +14,7 @@ To set up Snakemake for distributed execution on your compute environment, first
    In this case you may check out the `generic cluster executor plugin <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/cluster-generic.html>`_ and configure it with your compute environment's submission and status check commands.
    Or - even better - you can use `Snakedeploy <https://snakedeploy.readthedocs.io/en/stable/snakemake_developers/scaffold_snakemake_plugins.html>`_ to set up a base package structure for `creating your own executor plugin <https://snakemake.github.io/snakemake-plugin-catalog/index.html#create-new-plugins>`_. 
 
-Depending on your compute environment you may also need install a :ref:`storage plugin <storage-support>` (e.g. in order to use S3 for input and output files, or in order to efficiently use a shared network filesystem).
+Depending on your compute environment you may also need to install a :ref:`storage plugin <storage-support>` (e.g. in order to use S3 for input and output files, or in order to efficiently use a shared network filesystem).
 
 To run a workflow using the executor, use the ``--executor`` parameter:
 
