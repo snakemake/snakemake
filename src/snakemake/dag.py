@@ -224,6 +224,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._checked_needrun_jobs.clear()
         self._jobid.clear()
         self._deferred_temp_jobs.clear()
+        self._seen_outputs.clear()
         self._has_unfinished_queue_input_jobs = None
         self._jobs_with_finished_queue_input.clear()
         self._progress = 0
