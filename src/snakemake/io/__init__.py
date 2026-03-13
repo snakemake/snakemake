@@ -45,6 +45,7 @@ from snakemake_interface_storage_plugins.io import (
     get_constant_prefix,
 )
 from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
+from snakemake_interface_storage_plugins.storage_object import StorageObjectBase
 
 from snakemake.common import (
     ON_WINDOWS,
@@ -103,13 +104,14 @@ class IOCacheLoadError(Exception):
 class IOCache(IOCacheStorageInterface):
     # Increment this when the class interface changes to invalidated previously
     # persisted versions.
-    IOCACHE_VERSION = 0
+    IOCACHE_VERSION = 1
 
     def __init__(self, max_wait_time):
         self._mtime = dict()
         self._exists_local = ExistsDict(self)
         self._exists_in_storage = ExistsDict(self)
         self._size = dict()
+        self._checksum = dict()
         self.active = True
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
@@ -171,6 +173,10 @@ class IOCache(IOCacheStorageInterface):
     def size(self):
         return self._size
 
+    @property
+    def checksum(self):
+        return self._checksum
+
     async def mtime_inventory(
         self, jobs: "collections.abc.Iterable[snakemake.jobs.Job]", n_workers=8
     ):
@@ -223,6 +229,7 @@ class IOCache(IOCacheStorageInterface):
     def clear(self):
         self.mtime.clear()
         self.size.clear()
+        self.checksum.clear()
         self.exists_local.clear()
         self.exists_in_storage.clear()
         self.remaining_wait_time = self.max_wait_time
@@ -450,7 +457,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return not self.storage_object.retrieve
 
     @property
-    def storage_object(self):
+    def storage_object(self) -> Optional[StorageObjectBase]:
         return get_flag_value(self._file, "storage_object")
 
     @property
