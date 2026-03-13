@@ -2,44 +2,16 @@
 .. _tutorial-setup:
 
 Setup
-====
+=====
 
-.. _Snakemake: https://snakemake.readthedocs.io
-.. _Snakemake homepage: https://snakemake.readthedocs.io
-.. _GNU Make: https://www.gnu.org/software/make
-.. _Python: https://www.python.org
-.. _BWA: http://bio-bwa.sourceforge.net
-.. _SAMtools: https://www.htslib.org
-.. _BCFtools: https://www.htslib.org
-.. _Pandas: https://pandas.pydata.org
-.. _Miniconda: https://conda.pydata.org/miniconda.html
 .. _Miniforge: https://github.com/conda-forge/miniforge
-.. _Mamba: https://github.com/mamba-org/mamba
-.. _Conda: https://conda.pydata.org
 .. _Pixi: https://pixi.sh/
-.. _Pixi installation: https://pixi.sh/latest/#installation
-.. _Pixi automated switching: https://pixi.sh/latest/switching_from/conda/#automated-switching
-.. _Bash: https://www.tldp.org/LDP/Bash-Beginners-Guide/html
-.. _Atom: https://atom.io
-.. _Graphviz: https://www.graphviz.org
-.. _PyYAML: https://pyyaml.org
-.. _Docutils: https://docutils.sourceforge.io
-.. _Jinja2: https://jinja.palletsprojects.com
-.. _NetworkX: https://networkx.github.io
-.. _Matplotlib: https://matplotlib.org
-.. _Pysam: https://pysam.readthedocs.io
-.. _Bioconda: https://bioconda.github.io
-.. _WSL: https://docs.microsoft.com/en-us/windows/wsl/about
-.. _WSL Documentation: https://docs.microsoft.com/en-us/windows/wsl/install-win10
-.. _Vagrant: https://www.vagrantup.com
-.. _Vagrant Documentation: https://docs.vagrantup.com
-.. _Blogpost: https://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
 
 
 .. _tutorial-free-on-gitpod:
 
 Run tutorial for free in the cloud via Gitpod
-----
+---------------------------------------------
 
 The easiest way to run this tutorial is to use Gitpod, which enables performing the exercises via your browser---including all required software, for free and in the cloud.
 In order to do this, simply open the predefined `snakemake-tutorial GitPod workspace <https://gitpod.io/#https://github.com/snakemake/snakemake-tutorial-data>`_ in your browser.
@@ -52,12 +24,12 @@ Once you have a basic understanding of this environment, you can go on directly 
     To get it back, make sure you selected the terminal window by clicking on it and then hit ``Ctrl-q``.
 
 Running the tutorial on your local machine
-----
+------------------------------------------
 
 If you prefer to run the tutorial on your local machine, please follow the installation instructions
 for either pixi or miniforge.
 
-The tutorial assumes that you are using either Linux or MacOS X.
+The tutorial assumes that you are using either Linux or MacOS.
 Snakemake, Pixi_, and Miniforge_ work also under Windows, but the Windows shell is too different to be able to provide generic examples.
 
 

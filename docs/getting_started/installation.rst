@@ -4,47 +4,34 @@
 .. _Conda: https://conda.pydata.org
 .. _PyPi: https://pypi.org/project/snakemake/
 .. _Pixi: https://pixi.sh
+.. _Pixi installation instructions: https://pixi.prefix.dev/latest/installation/
 .. _Micromamba: https://prefix.dev/docs/mamba
-.. _WSL: https://learn.microsoft.com/en-us/windows/wsl/install
+
+.. _WSL: https://docs.microsoft.com/en-us/windows/wsl/about
+.. _WSL documentation: https://learn.microsoft.com/en-us/windows/wsl/install
 
 .. _getting_started-installation:
-
-.. toctree::
-   :hidden:
-   :maxdepth: 1
-
-   migration
-
 
 ============
 Installation
 ============
 
-Snakemake is available through :ref:`pixi<pixi-install>`, :ref:`conda<conda-install>`, or :ref:`pip<pip-install>`.
-Alternatively, you can also build it from source.
-
-
 These instructions set out how to obtain and install the software on Linux.
-It is assumed that you have:
+It is assumed that you have access to a terminal/shell on a reasonably modern Linux or macOS system.
+If you are using Windows, please refer to the :ref:`section below<windows-install>`. 
 
-- access to the Bash or Zsh shell on a fairly modern Linux or macOS system
-- sufficient disk space (~1GB) to store the software
 
-You do **not** need root/administrator access.
-
-.. note::
-    Snakemake is intended to be run on Linux operating systems.
-    If you want to run Snakemake on Windows, we recommend using the Windows Subsystem for Linux (WSL_), and then following the instructions for Linux.
+Snakemake is available through :ref:`pixi<pixi-install>`, :ref:`conda<conda-install>`, or :ref:`pip<pip-install>`,
+and packaged for several :ref:`linux distributions<system-install>`. 
+Alternatively, you can also build it :ref:`from source<source-install>`.
 
 .. _pixi-install:
 
 Install via Pixi
 ----------------
 
-Pixi_ is a fast package management tool that acts as a drop-in replacement for Conda.
-This is the **recommended** way to install Snakemake.
-
-To install pixi, please follow the :ref:`pixi installation instructions<https://pixi.prefix.dev/latest/installation/>`
+This is the **recommended** way to install Snakemake. 
+To install Pixi on your system, please follow the `Pixi installation instructions`_.
 
 If you wish to install Snakemake globally on your system, run:
 
@@ -52,6 +39,7 @@ If you wish to install Snakemake globally on your system, run:
 
     $ pixi global install snakemake conda -c conda-forge -c bioconda
 
+You do **not** need root/administrator access for this.
 
 Here, the `conda` installation ensures that `conda` is available for the management of any rule-specific software installations specified via the :ref:`conda directive <integrated_package_management>`.
 If you deploy software via a different mechanism, you can omit `conda` from the installation.
@@ -61,7 +49,9 @@ In the directory where you want to install Snakemake, run:
 
 .. code-block:: console
 
-    $ pixi init; pixi add python; pixi add snakemake --pypi
+    $ pixi init
+    $ pixi add python 
+    $ pixi add snakemake --pypi
 
 If you want to use `conda` for your rule-specific software deployment, also install it:
 
@@ -119,7 +109,7 @@ A minimal version with only the necessary requirements can be installed with
 Notes on Bioconda as a Package Source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Note that Snakemake is available via Bioconda for historical, reproducibility, and continuity reasons (although it is not limited to biology applications at all).
+Snakemake is available via Bioconda for historical, reproducibility, and continuity reasons (although it is not limited to biology applications at all).
 However, it is easy to combine Snakemake installation with other channels, e.g., by prefixing the package name with ``::bioconda``, i.e.,
 
 .. code-block:: console
@@ -141,6 +131,32 @@ You can install Snakemake via pip with:
 
     $ pip install snakemake
 
+
+.. _system-install:
+
+System installation
+-------------------
+
+If you have root/administrator access, you can install Snakemake through your linux distributions' official package manager:
+
+.. tab-set::
+
+    .. tab-item:: Ubuntu / Debian
+
+        .. code:: console
+
+            $ sudo apt-get update
+            $ sudo apt-get install snakemake
+
+    .. tab-item:: RedHat / Fedora
+
+        .. code:: console
+
+            $ sudo yum install snakemake
+    
+Please note that these packages are not maintained by the snakemake organization, and may still be on older versions of Snakemake. 
+
+.. _source-install:
 
 Install a Development Version
 ------------------------------
@@ -168,3 +184,13 @@ There are a number of integrations with popular editors that offer convenient fe
 * `VSCode <https://github.com/snakemake/snakemake-lang-vscode-plugin>`_
 * `Vim <https://github.com/snakemake/snakemake/tree/main/misc/vim>`_
 * `Zed <https://github.com/lvignoli/zed-snakemake>`_
+
+.. _windows-install:
+
+Setup on Windows
+----------------
+
+If you use Windows 10, you can set up the Windows Subsystem for Linux (`WSL`_) to natively run linux applications.
+Install the WSL following the instructions in the `WSL Documentation`_. 
+You can chose any Linux distribution available for the WSL, but the most popular and accessible one is Ubuntu.
+Start WSL and set up your account; then, you can use one of the methods above to install Snakemake within your WSL Linux environment.
