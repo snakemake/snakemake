@@ -1267,6 +1267,32 @@ class Workflow(WorkflowExecutorInterface):
         assert self.dag_settings is not None
         assert self.remote_execution_settings is not None
         assert self.output_settings is not None
+
+        # Initialize telemetry if opted in
+        if self.output_settings.share_benchmark:
+            if not self.output_settings.share_benchmark_collector:
+                raise WorkflowError(
+                    "--share-benchmark requires --share-benchmark-collector=URL"
+                )
+            from snakemake import __version__ as sm_version
+            from snakemake.telemetry import init_psb
+
+            # Derive deploy_mode from deployment settings
+            deploy_methods = self.deployment_settings.deployment_method
+            if deploy_methods:
+                deploy_mode = "+".join(sorted(m.name.lower() for m in deploy_methods))
+            else:
+                deploy_mode = "host"
+
+            psb_cfg = self.config.get("psb", {}) or {}
+            init_psb(
+                self.output_settings.share_benchmark_collector,
+                sm_version=sm_version,
+                deploy_mode=deploy_mode,
+                workflow_url=psb_cfg.get("workflow_url", ""),
+                workflow_version=psb_cfg.get("workflow_version", ""),
+            )
+
         shell.conda_block_conflicting_envvars = (
             not self.deployment_settings.conda_not_block_search_path_envvars
         )
@@ -1505,13 +1531,25 @@ class Workflow(WorkflowExecutorInterface):
                         )
                 else:
                     self.logger_manager.logfile_hint()
+                    self._psb_session_hint()
                 if not self.dryrun and not self.execution_settings.no_hooks:
                     self._onsuccess(self.logger_manager.get_logfile())
             else:
                 if not self.dryrun and not self.execution_settings.no_hooks:
                     self._onerror(self.logger_manager.get_logfile())
                 self.logger_manager.logfile_hint()
+                self._psb_session_hint()
                 raise WorkflowError("At least one job did not complete successfully.")
+
+    def _psb_session_hint(self):
+        """Flush telemetry and log the session URL."""
+        if self.output_settings.share_benchmark:
+            from snakemake.telemetry import flush_psb, get_session_url
+
+            flush_psb()
+            url = get_session_url()
+            if url:
+                logger.info(f"Shared benchmark results: {url}")
 
     def log_metadata_info(self, metadata_attr, description):
         jobs = [

@@ -334,6 +334,8 @@ class SpawnedJobArgsFactory:
             w2a("config_settings.config_args", flag="--config"),
             w2a("output_settings.printshellcmds"),
             w2a("output_settings.benchmark_extended"),
+            w2a("output_settings.share_benchmark"),
+            w2a("output_settings.share_benchmark_collector"),
             w2a("execution_settings.latency_wait"),
             w2a("scheduling_settings.scheduler", flag="--scheduler"),
             w2a("workflow_settings.cache"),
