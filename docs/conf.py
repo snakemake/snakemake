@@ -309,7 +309,7 @@ html_js_files = ["gurubase-widget.js"]  # gurubase AI widget
 def anchor_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
     """A role to insert a hidden HTML anchor (ID) for redirects."""
     # This creates a raw HTML node
-    html = f'<span id="{text}"></span>'
+    html = f'<span class="customanchor" id="{text}"></span>'
     node = nodes.raw("", html, format="html")
     return [node], []
 
