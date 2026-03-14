@@ -1,6 +1,6 @@
 .. _tutorial-advanced:
 
-Advanced: Configuration, Input Functions, Logging
+Advanced: Decorating the example workflow
 -----------------------------------------
 
 .. _Snakemake: https://snakemake.readthedocs.io
@@ -35,7 +35,7 @@ Advanced: Configuration, Input Functions, Logging
 
 Now that the basic concepts of Snakemake have been illustrated, we can introduce some advanced functionality.
 
-1. Specifying the Number of Used Threads
+Step 1: Specifying the Number of Used Threads
 :::::::::::::::::::::::::::::::::::::::::::::
 
 For some tools, it is advisable to use more than one thread in order to speed up the computation.
@@ -57,7 +57,7 @@ In our example workflow, it makes sense to use multiple threads for the rule ``b
 The number of threads can be propagated to the shell command with the familiar braces notation (i.e. ``{threads}``).
 If no ``threads`` directive is given, a rule is assumed to need 1 thread.
 
-When a workflow is executed, **the number of threads** a jobs need is taken into account by the Snakemake **scheduler**.
+When a workflow is executed, **the number of threads** a job needs is taken into account by the Snakemake **scheduler**.
 In particular, the scheduler ensures that the sum of the threads of all jobs running at the same time does not exceed a given number of available CPU cores.
 This number is given with the ``--cores`` command line argument, which is mandatory for ``snakemake`` calls that actually run the workflow.
 For example
@@ -74,15 +74,15 @@ If ``--cores all`` is given, all available cores are used.
 
 .. note::
 
-  Apart from the very common thread resource, Snakemake provides a ``resources`` directive that can be used to **specify arbitrary resources**, e.g., memory usage or auxiliary computing devices like GPUs.
-  Similar to threads, these can be considered by the scheduler when an available amount of that resource is given with the command line argument ``--resources`` (see :ref:`snakefiles-resources`).
+    Apart from the very common thread resource, Snakemake provides a ``resources`` directive that can be used to **specify arbitrary resources**, e.g., memory usage or auxiliary computing devices like GPUs.
+    Similar to threads, these can be considered by the scheduler when an available amount of that resource is given with the command line argument ``--resources`` (see :ref:`snakefiles-resources`).
 
 Exercise
 ........
 
 * With the flag ``--forceall`` you can enforce a complete re-execution of the workflow. Combine this flag with different values for ``--cores`` and examine how the scheduler selects jobs to run in parallel.
 
-2. Config Files
+Step 2: Config files
 ::::::::::::::::::::
 
 So far, we specified which samples to consider by providing a Python list in the Snakefile.
@@ -122,7 +122,7 @@ Now, we can remove the statement defining ``SAMPLES`` from the Snakefile and cha
 
 .. _tutorial-input_functions:
 
-3. Input Functions
+Step 3: Input functions
 :::::::::::::::::::::::
 
 Since we have stored the path to the FASTQ files in the config file, we can also generalize the rule ``bwa_map`` to use these paths.
@@ -166,10 +166,10 @@ Exercise
 
 * In the ``data/samples`` folder, there is an additional sample ``C.fastq``. Add that sample to the config file and see how Snakemake wants to recompute the part of the workflow belonging to the new sample, when invoking with ``snakemake -n --forcerun bcftools_call``.
 
-4: Rule parameters
+Step 4: Rule parameters
 :::::::::::::::::::::::
 
-Most of the time, shell commands are not just composed of input and output files and some static flags.
+Occasionally, shell commands are not just composed of input and output files and some static flags.
 In particular, it can happen that additional parameters need to be set depending on the wildcard values of the job.
 For this, Snakemake allows to **define arbitrary parameters** for rules with the ``params`` directive.
 In our workflow, it is reasonable to annotate aligned reads with so-called read groups, that contain metadata like the sample name.
@@ -191,8 +191,8 @@ We modify the rule ``bwa_map`` accordingly:
 
 .. note::
 
-  The ``params`` directive can also take functions like in Step 3, to defer initialization to the DAG phase.
-  In contrast to input functions, these can optionally take additional arguments ``input``, ``output``, ``threads``, and ``resources``.
+    The ``params`` directive can also take functions like in Step 3, to defer initialization to the DAG phase.
+    In contrast to input functions, these can optionally take additional arguments ``input``, ``output``, ``threads``, and ``resources``.
 
 Similar to input and output files, ``params`` can be accessed from the shell command, the Python based ``run`` block, or the script directive (see :ref:`tutorial-script`).
 
@@ -203,7 +203,7 @@ Exercise
     A particularly important one is the prior mutation rate (1e-3 per default). It is set via the flag ``-P`` of the ``bcftools call`` command.
     Consider making this flag configurable via adding a new key to the config file and using the ``params`` directive in the rule ``bcftools_call`` to propagate it to the shell command.
 
-5. Logging
+Step 5: Logging
 :::::::::::::::
 
 When executing a large workflow, it is usually desirable to store the logging output of each job into a separate file, instead of just printing all logging output to the terminal ---
@@ -211,7 +211,7 @@ when multiple jobs are run in parallel, this would result in chaotic output.
 For this purpose, Snakemake allows to **specify log files** for rules.
 
 Log files are defined via the ``log`` directive and handled similarly to output files.
-However, they are not subject of rule matching, and do not get cleaned up when a job fails.
+However, they are not subject of rule matching and do not get cleaned up when a job fails.
 We modify our rule ``bwa_map`` as follows:
 
 .. code:: python
@@ -247,7 +247,7 @@ Exercise
 
 .. _tutorial_temp-and-protected-files:
 
-6. Temporary and Protected Files
+Step 6: Temporary and protected files
 :::::::::::::::::::::::::::::::::::::
 
 In our workflow, we create two BAM files for each sample, namely the output of the rules ``bwa_map`` and ``samtools_sort``.
@@ -255,7 +255,7 @@ When not dealing with examples, the underlying data is usually huge.
 Hence, the resulting BAM files need a lot of disk space and their creation takes some time.
 To save disk space, you can **mark output files as temporary**.
 Snakemake will delete the marked files for you, once all the consuming jobs (that need it as input) have been executed.
-We use this mechanism for the output file of the rule ``bwa_map``, which creates an intermediary BAM:
+We use this mechanism for the output file of the rule ``bwa_map``, which creates an intermediate BAM:
 
 .. code:: python
 

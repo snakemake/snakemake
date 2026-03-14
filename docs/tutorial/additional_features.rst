@@ -1,6 +1,6 @@
 .. _tutorial-additional_features:
 
-Additional Features: Benchmarking, Modularization
+Additional Features
 -------------------
 
 .. _Snakemake: https://snakemake.readthedocs.io
@@ -65,15 +65,17 @@ We activate benchmarking for the rule ``bwa_map``:
 The ``benchmark`` directive takes a string that points to the file where benchmarking results shall be stored.
 Similar to output files, the path can contain wildcards (it must be the same wildcards as in the output files).
 
-When a job derived from the rule is executed, Snakemake will measure the wall clock time, memory usage (in MiB), and several other hany metrics, and store it in the file in tab-delimited format.
+When a job derived from the rule is executed, Snakemake will measure the wall clock time, memory usage (in MiB), and several other handy metrics, and store it in the file in tab-delimited format.
 
 It is possible to repeat a benchmark multiple times in order to get a sense for the variability of the measurements.
 This can be done by annotating the benchmark file.
 For example, to run a job three times, you can use ``repeat("benchmarks/{sample}.bwa.benchmark.txt", 3)``
 The repeated measurements occur as subsequent lines in the tab-delimited benchmark file.
 
+:oldanchor:`Modularization`
+
 Working with multiple Snakefiles
-::::::::::::::
+::::::::::::::::::::::::::::::::
 
 In order to reuse building blocks or simply to structure large workflows, it is sometimes reasonable to **split a workflow into multiple Snakefiles**.
 For this, Snakemake provides the ``include`` directive to include another Snakefile into the current one, e.g.:
@@ -82,7 +84,7 @@ For this, Snakemake provides the ``include`` directive to include another Snakef
 
     include: "path/to/other.smk"
 
-As you can see, the default file extensions for snakefiles other than the main snakefile is ``.smk``.
+As you can see, the default file extension for snakefiles other than the main snakefile is ``.smk``.
 
 Alternatively, Snakemake allows you to **define external workflows as modules**.
 A module refers to a working directory with a complete Snakemake workflow.
@@ -100,7 +102,7 @@ Exercise
 
 .. _tutorial-conda:
 
-Isolated Software Environments with Conda
+Automatic deployment of software dependencies
 :::::::::::::::::::::::::::::::::::::::::::::
 
 In order to get a fully reproducible data analysis, it is not sufficient to be able to execute each step and document all used parameters.
@@ -201,8 +203,10 @@ Cluster or cloud execution
 
 Executing jobs on a cluster or in the cloud is supported by so-called executor plugins, which are distributed and documented via the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_.
 
+:oldanchor:`constraining-wildcards`
+
 Constraining Wildcard Values
-::::::::::::::::::::::
+::::::::::::::::::::::::::::
 
 Snakemake uses regular expressions to match output files to input files and determine dependencies between the jobs.
 Sometimes it is useful to constrain the values a wildcard can have.
@@ -214,8 +218,8 @@ This mechanism helps to solve two kinds of ambiguity.
 * It can help to avoid ambiguous rules, i.e. two or more rules that can be applied to generate the same output file. Other ways of handling ambiguous rules are described in the Section :ref:`snakefiles-ambiguous-rules`.
 * It can help to guide the regular expression based matching so that wildcards are assigned to the right parts of a file name.
     Consider the output file ``{sample}.{group}.txt`` and assume that the target file is ``A.1.normal.txt``.
-    It is not clear whether ``dataset="A.1"`` and ``group="normal"`` or ``dataset="A"`` and ``group="1.normal"`` is the right assignment.
-    Here, constraining the dataset wildcard by ``{sample,[A-Z]+}.{group}`` solves the problem.
+    It is not clear whether ``sample="A.1"`` and ``group="normal"`` or ``sample="A"`` and ``group="1.normal"`` is the right assignment.
+    Here, constraining the sample wildcard by ``{sample,[A-Z]+}.{group}`` solves the problem.
 
 When dealing with ambiguous rules, it is best practice to first try to solve the ambiguity by using a proper file structure, for example, by separating the output files of different steps in different directories.
 

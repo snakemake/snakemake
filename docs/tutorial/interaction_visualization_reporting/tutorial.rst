@@ -1,8 +1,10 @@
+:oldanchor:`tutorial-interaction-visualization-and-reporting-with-snakemake`
+
 .. _interaction_visualization_reporting_tutorial:
 
-==================================================================
+===================================================
 Tutorial: Interaction, Visualization, and Reporting
-==================================================================
+===================================================
 
 .. _Snakemake: https://snakemake.github.io
 .. _Jupyter: https://jupyter.org
