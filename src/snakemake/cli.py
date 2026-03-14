@@ -44,6 +44,7 @@ from snakemake.resources import (
     Resources,
     ResourceScopes,
 )
+from snakemake.settings.enums import PersistenceBackend
 from snakemake.settings.types import (
     Batch,
     ChangeType,
@@ -1571,6 +1572,22 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Write extended benchmarking metrics.",
     )
+    group_behavior.add_argument(
+        "--persistence-backend",
+        choices=PersistenceBackend.choices(),
+        default=PersistenceBackend.FILE,
+        parse_func=PersistenceBackend.parse_choice,
+        help="The backend to use for Snakemake's metadata persistence. "
+        "The 'file' backend uses a file system directory structure. "
+        "The 'db' backend uses a relational database via SQLAlchemy.",
+    )
+    group_behavior.add_argument(
+        "--persistence-backend-db-url",
+        default=None,
+        help="The database URL to use for the 'db' persistence backend "
+        "(e.g., 'sqlite:///.snakemake/metadata.db', 'postgresql://user@host/db'). "
+        "Only used if --persistence-backend is 'db'.",
+    )
 
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
 
@@ -1865,7 +1882,18 @@ def parse_args(argv):
             )
 
         parser = get_argument_parser(profiles=profiles)
-        args = parser.parse_args(argv)
+
+        # configargparse appends the profile args to the end of argv
+        # anything after '--' gets interpreted as a positional arg
+        # fix by splitting args at '--' and placing explicit targets at the end
+        effective_argv = argv if argv is not None else sys.argv[1:]
+        if "--" in effective_argv:
+            sep_idx = effective_argv.index("--")
+            explicit_targets = effective_argv[sep_idx + 1 :]
+            args = parser.parse_args(effective_argv[:sep_idx])
+            args.targets = list(args.targets) + explicit_targets
+        else:
+            args = parser.parse_args(argv)
 
     return parser, args
 
@@ -2073,6 +2101,8 @@ def args_to_api(args, parser):
                         cache=args.cache,
                         consider_ancient=args.consider_ancient,
                         runtime_source_cache_path=args.runtime_source_cache_path,
+                        persistence_backend=args.persistence_backend,
+                        persistence_backend_db_url=args.persistence_backend_db_url,
                     ),
                     deployment_settings=DeploymentSettings(
                         deployment_method=deployment_method,
