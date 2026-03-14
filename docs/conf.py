@@ -38,7 +38,7 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx_design",
     "myst_parser",
-    "sphinx_reredirects"
+    "sphinx_reredirects",
 ]
 
 html_css_files = ["custom.css"]
