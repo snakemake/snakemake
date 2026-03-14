@@ -41,7 +41,6 @@ In the ``Snakefile``, define the following rule:
 
 .. code-block:: python
 
-
     rule get_data:
         output:
             "resources/data/cars.tsv"
