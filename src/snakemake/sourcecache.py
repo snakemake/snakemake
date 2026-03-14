@@ -738,10 +738,6 @@ def _infer_gitlab_file(path_or_uri: str) -> Optional[GitlabFile]:
     return None
 
 
-def _infer_hosting_provider_file(path_or_uri: str) -> Optional[HostingProviderFile]:
-    return _infer_github_file(path_or_uri) or _infer_gitlab_file(path_or_uri)
-
-
 def _infer_hosting_provider_file_shorthand(
     path_or_uri: str,
 ) -> Optional[HostingProviderFile]:
@@ -749,41 +745,55 @@ def _infer_hosting_provider_file_shorthand(
         return None
 
     provider, sep, remainder = path_or_uri.partition(":")
-    if (
-        provider not in {"gh", "gl"}
-        or not sep
-        or "/" not in remainder
-        or "@" not in remainder
-    ):
+    if provider not in {"gh", "gl"} or not sep:
         return None
 
-    repo_ref, sep, path = remainder.rpartition(":")
-    if sep and path:
-        parsed_path = path
+    # Check for optional host (before the first slash)
+    first_slash = remainder.find("/")
+    if first_slash == -1:
+        return None
+
+    first_colon = remainder.find(":")
+    if first_colon != -1 and first_colon < first_slash:
+        host = remainder[:first_colon]
+        remainder = remainder[first_colon + 1 :]
     else:
-        repo_ref = remainder
-        parsed_path = "workflow/Snakefile"
+        host = None
 
-    repo, sep, ref = repo_ref.rpartition("@")
-    if not sep or not repo or not ref or "/" not in repo:
+    # Now we have repo@ref[:path]
+    repo, sep, ref_path = remainder.partition("@")
+    if not sep or not repo or not ref_path:
         return None
 
-    host = None
-    host_candidate, host_sep, repo_candidate = repo.partition(":")
-    if host_sep:
-        if not host_candidate or not repo_candidate or "/" not in repo_candidate:
-            return None
-        host = host_candidate
-        repo = repo_candidate
+    if "/" not in repo:
+        return None
+
+    # Check for optional path (after a colon)
+    # We use rpartition to stay consistent with the previous logic for ref vs path
+    ref_cand, sep, path_cand = ref_path.rpartition(":")
+    if not sep:
+        ref = ref_path
+        path = "workflow/Snakefile"
+    else:
+        ref = ref_cand
+        path = path_cand or "workflow/Snakefile"
 
     repo = unquote(repo)
     ref = unquote(ref)
-    path = unquote(parsed_path)
+    path = unquote(path)
 
     if provider == "gh":
         return GithubFile(repo=repo, path=path, branch=ref, host=host)
+    else:
+        return GitlabFile(repo=repo, path=path, branch=ref, host=host)
 
-    return GitlabFile(repo=repo, path=path, branch=ref, host=host)
+
+def _infer_hosting_provider_file(path_or_uri: str) -> Optional[HostingProviderFile]:
+    return (
+        _infer_hosting_provider_file_shorthand(path_or_uri)
+        or _infer_github_file(path_or_uri)
+        or _infer_gitlab_file(path_or_uri)
+    )
 
 
 def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> SourceFile:
@@ -798,7 +808,7 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
         raise SourceFileError(
             "must be given as Python string or one of the predefined source file marker types (see docs)"
         )
-    if hosting_provider_file := _infer_hosting_provider_file_shorthand(path_or_uri):
+    if hosting_provider_file := _infer_hosting_provider_file(path_or_uri):
         return hosting_provider_file
     try:
         is_local = is_local_file(path_or_uri)
@@ -821,9 +831,6 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
                 f"Failed to read source {path_or_uri} from git repo.", e
             )
         return LocalGitFile(root_path, file_path, ref=ref)
-    hosting_provider_file = _infer_hosting_provider_file(path_or_uri)
-    if hosting_provider_file is not None:
-        return hosting_provider_file
     # something else
     return GenericSourceFile(path_or_uri)
 
