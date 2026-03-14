@@ -26,7 +26,7 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected, prepare_tmpdir
+from .common import run, dpath, apptainer, connected, prepare_tmpdir, serve_directory
 from .conftest import (
     skip_on_windows,
     only_on_windows,
@@ -555,6 +555,15 @@ def test_wildcard_count_ambiguity():
 
 def test_multiple_includes():
     run(dpath("test_multiple_includes"))
+
+
+def test_remote_snakefile_multiple_includes():
+    source_dir = dpath("test_multiple_includes")
+    with serve_directory(source_dir) as server_url:
+        run(
+            source_dir,
+            shellcmd=f"snakemake --snakefile {server_url}/Snakefile --cores 1",
+        )
 
 
 def test_name_override():
