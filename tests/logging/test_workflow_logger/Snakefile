@@ -1,0 +1,18 @@
+import logging
+logger.addHandler(logging.FileHandler("mylog.txt"))
+logger.info("TESTINFO")
+logger.warning("TESTWARN")
+logger.error("TESTERROR")
+
+
+
+rule all:
+    input:
+        expand("results/{i}.txt", i=range(5)),
+
+
+rule a:
+    output:
+        "results/{i}.txt",
+    shell:
+        "echo {wildcards.i} > {output}"

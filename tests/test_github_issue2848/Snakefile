@@ -1,0 +1,23 @@
+shell.executable("bash")
+
+rule a:
+    output:
+        touch('output/dir/a.txt')
+
+rule b:
+    input:
+        'output/dir/a.txt'
+    output:
+        directory('output/dir/')
+    shell:
+        'cp {input} {output}/b.txt'
+
+rule c:
+    input:
+        'output/dir/'
+    output:
+        touch('output/c.txt')
+
+rule d:
+    output:
+        touch('output/dir2/d.txt')

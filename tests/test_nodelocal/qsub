@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Simulates node-local storage (a.k.a. "local scratch"):
+# - files and paths only accessible within a single compute node
+# - NOT accessible on other nodes nor on the login node
+
+mkdir -p scratch local
+
+# Unshare the mount namespace:
+# - mounts within qsub_stage2 NOT shared with other processes
+# - outer process will keep seeing "scratch" unaffected
+unshare --mount --map-root-user ./qsub_stage2 "$@"

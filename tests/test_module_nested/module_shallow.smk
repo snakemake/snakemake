@@ -1,9 +1,27 @@
-module deep_module:
+shell.executable("bash")
+
+
+module A:
     snakefile:
         "module_deep.smk"
+    prefix:
+        "b-"
 
 
-use rule work from deep_module as deep_work
+use rule * from A as A_*
+
+
+if "bb" not in config:
+
+    use rule run from A as A_run with:
+        threads: 1
+
+
+use rule run from A as A_run with:
+    input:
+        rds=config.get("bb", ".snakemake"),
+    log:
+        "aaalog",
 
 
 rule all:
@@ -15,5 +33,5 @@ rule all:
 # rules.deep_work has to work even if the rule is renamed in a parent module
 # The rulename itself can be already modified.
 assert hasattr(
-    rules, "deep_work"
-), f"bug: rule cannot be accessed as deep_work: {dir(rules)}"
+    rules, "A_run"
+), f"bug: rule cannot be accessed as A_run: {dir(rules)}"

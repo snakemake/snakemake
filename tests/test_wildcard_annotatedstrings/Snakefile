@@ -1,0 +1,6 @@
+getparams = lambda wildcards: {"foo": {wildcards.name}}
+
+rule all:
+    output: "{name}.out"
+    params: unpack(getparams)
+    shell: "echo {params.foo} > {wildcards.name}.out"

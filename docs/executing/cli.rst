@@ -72,8 +72,12 @@ Both mechanisms can be particularly handy when used in combination with :ref:`no
 Non-local execution
 ^^^^^^^^^^^^^^^^^^^
 
-Non-local execution on cluster or cloud infrastructure is implemented via plugins.
-The `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`_ lists available plugins and their documentation.
+Non-local execution on cluster or cloud infrastructure is implemented via :ref:`executor plugins <executors>`.
+The `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`__ lists available plugins and their documentation.
+In general, the configuration boils down to specifying an executor plugin (e.g. for SLURM or Kubernetes) and, if needed, a :ref:`storage <default_storage>` plugin (e.g. in order to use S3 for input and output files or in order to efficiently use a shared network filesystem).
+For maximizing the I/O performance over the network, it can be advisable to :ref:`annotate the input file access patterns of rules <storage-access-patterns>`.
+Snakemake provides lots of tunables for non-local execution, which can all be found under :ref:`all_options` and in the plugin descriptions of the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog>`__.
+In any case, the cluster or cloud specific configuration will entail lots of command line options to be chosen and set, which should be persisted in a :ref:`profile <executing-profiles>`.
 
 Dealing with very large workflows
 ---------------------------------
@@ -106,7 +110,7 @@ Snakemake will process beyond the rule ``myrule``, because all of its input file
 Obviously, a good choice of the rule to perform the batching is a rule that has a lot of input files and upstream jobs, for example a central aggregation step within your workflow.
 We advice all workflow developers to inform potential users of the best suited batching rule.
 
-.. _profiles:
+.. _executing-profiles:
 
 --------
 Profiles
@@ -134,6 +138,10 @@ Alternatively, an absolute or relative path to the profile folder can be given.
 The default profile to use when no ``--profile`` argument is specified can also be set via the environment variable ``SNAKEMAKE_PROFILE``,
 e.g. by specifying ``export SNAKEMAKE_PROFILE=myprofile`` in your ``~/.bashrc`` or the system wide shell defaults means that the ``--profile`` flag can be omitted.
 In order unset the profile defined by this environment variable for individual runs without specifying and alternative profile you can provide the special value ``none``, i.e. ``--profile none``.
+
+.. note::
+
+  When using modules, the profile will not be propagated to the main workflow, which means that a profile has to be specified for the main workflow as well, if needed.
 
 The profile folder is expected to contain a configuration file that file that defines default values for the Snakemake command line arguments.
 The file has to be named ``config.vX+.yaml`` with ``X`` denoting the minimum supported Snakemake major version (e.g. ``config.v8+.yaml``).

@@ -1,0 +1,10 @@
+shell("date > in.txt")
+
+
+rule a:
+    input:
+        "in.txt"
+    output:
+        update("test.txt")
+    shell:
+        "echo bar >> test.txt; exit 1"

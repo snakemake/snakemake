@@ -1,0 +1,5 @@
+{
+  "extra-files": [
+    "src/snakemake/__init__.py"
+  ]
+}

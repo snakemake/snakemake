@@ -1,0 +1,46 @@
+shell.executable("bash")
+
+rule all:
+    input:
+        'result_final.txt',
+        'book.result_final.txt',
+
+rule foo:
+    output:
+        fname = 'data.txt'
+    run:
+        with open(output.fname, 'w') as fd:
+            fd.write('result of serious computation')
+
+rule bar:
+    input:
+        infile = 'data.txt'
+    output:
+        outfile = 'result_intermediate.txt'
+    conda:
+        'env.yaml'
+    notebook:
+        'Notebook.ipynb'
+
+rule baz:
+    input:
+        infile = 'result_intermediate.txt'
+    output:
+        outfile = 'result_final.txt'
+    log:
+        notebook = 'Notebook_Processed.ipynb'
+    conda:
+        'env.yaml'
+    notebook:
+        'Notebook.ipynb'
+
+
+rule wild:
+    input:
+        infile = 'result_intermediate.txt'
+    output:
+        outfile = '{what}.result_final.txt'
+    conda:
+        'env.yaml'
+    notebook:
+        'Note{wildcards.what}.ipynb'

@@ -38,7 +38,7 @@ Snakemake can be installed with all goodies needed to run in any environment and
 
 .. code-block:: console
 
-    $ conda create -c conda-forge -c bioconda -n snakemake snakemake
+    $ conda create -c conda-forge -c bioconda -c nodefaults -n snakemake snakemake
 
 from the `Bioconda <https://bioconda.github.io>`_ channel.
 This will install snakemake into an isolated software environment, that has to be activated with
@@ -57,7 +57,7 @@ A minimal version with only the necessary requirements can be installed with
 
 .. code-block:: console
 
-    $ conda create -c conda-forge -c bioconda -n snakemake snakemake-minimal
+    $ conda create -c conda-forge -c bioconda -c nodefaults -n snakemake snakemake-minimal
 
 Notes on Bioconda as a package source
 -------------------------------------
@@ -68,7 +68,7 @@ However, it is easy to combine Snakemake installation with other channels, e.g.,
 .. code-block:: console
 
     $ conda activate base
-    $ conda create -n some-env -c conda-forge bioconda::snakemake ...
+    $ conda create -n some-env -c conda-forge -c nodefaults bioconda::snakemake ...
 
 Installation via pip
 ====================
@@ -87,7 +87,7 @@ If you want to quickly try out an unreleased version from the snakemake reposito
 
 .. code-block:: console
 
-    $ conda create --only-deps -n snakemake-dev snakemake
+    $ conda create --only-deps -n snakemake-dev -c conda-forge -c bioconda -c nodefaults snakemake
     $ conda activate snakemake-dev
     $ pip install git+https://github.com/snakemake/snakemake
 

@@ -1,0 +1,44 @@
+module foo:
+    snakefile:
+        "module/Snakefile"
+    pathvars:
+        results="results/foo"
+
+
+use rule * from foo as foo_*
+
+
+module foo2:
+    snakefile:
+        "module/Snakefile"
+    pathvars:
+        results="results/foo",
+    config:
+        {"pathvars": {"results": "results/foo2"}}
+
+
+use rule * from foo2 as foo2_*
+
+
+module foo3:
+    snakefile:
+        "module/Snakefile"
+
+
+use rule * from foo3 as foo3_*
+
+
+rule all:
+    default_target: True
+    input:
+        "<results>/text.txt",
+        "<results>/foo/text.txt",
+        "<results>/foo2/text.txt",
+        "<results>/custom/text.txt",
+
+
+rule a:
+    output:
+        "<results>/text.txt"
+    shell:
+        "touch {output}"

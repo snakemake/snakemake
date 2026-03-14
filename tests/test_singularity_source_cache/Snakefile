@@ -1,0 +1,9 @@
+rule a:
+    output:
+        "test.out"
+    params:
+        workflow.source_path("test.txt")
+    singularity:
+        "docker://bash:5.3.3"
+    shell:
+        "cp {params} {output}"

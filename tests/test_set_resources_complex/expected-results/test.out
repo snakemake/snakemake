@@ -1,1 +1,1 @@
-'--nice=150 --gres=gpu:1'
+--nice=150 --gres=gpu:1

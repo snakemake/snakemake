@@ -112,8 +112,8 @@ Instead, for data provenance and reproducibility reasons, you are required to pa
 Validation
 ----------
 
-With Snakemake 5.1, it is possible to validate both types of configuration via `JSON schemas <https://json-schema.org>`_.
-The function ``snakemake.utils.validate`` takes a loaded configuration (a config dictionary or a Pandas data frame) and validates it with a given JSON schema.
+With Snakemake 5.1, it is possible to validate both types of configuration (standard and tabular) via `JSON schemas <https://json-schema.org>`_.
+The function ``snakemake.utils.validate`` takes a loaded configuration (a config dictionary, a Pandas DataFrame, Polars DataFrame or Polars LazyFrame) and validates it with a given JSON schema.
 Thereby, the schema can be provided in JSON or YAML format. Also, by using the defaults property it is possible to populate entries with default values. See `jsonschema FAQ on setting default values <https://python-jsonschema.readthedocs.io/en/latest/faq/>`_ for details.
 In case of the data frame, the schema should model the record that is expected in each row of the data frame.
 In the following example,
@@ -226,4 +226,4 @@ Usually, it is preferred to only set the working directory via the command line,
 Cluster Configuration (not supported anymore)
 ---------------------------------------------
 
-The previously supported cluster configuration has been replaced by configuration profiles (see :ref:`profiles`).
+The previously supported cluster configuration has been replaced by configuration profiles (see :ref:`executing-profiles`).

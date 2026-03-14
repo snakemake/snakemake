@@ -1,0 +1,23 @@
+rule a:
+    output:
+        temp("results/a1/{name}.out"),
+    shell:
+        "echo 5 > {output}"
+
+
+rule b:
+    input:
+        expand("results/a1/{name}.out", name="test"),
+    output:
+        "results/b1/{name}.out",
+    shell:
+        "cat {input} > {output}"
+
+
+rule c:
+    input:
+        expand("results/b1/{name}.out", name="test"),
+    output:
+        "results/c1/{name}.txt",
+    shell:
+        "cat {input} > {output}"

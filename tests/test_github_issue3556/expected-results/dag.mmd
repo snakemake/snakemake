@@ -1,0 +1,31 @@
+---
+title: DAG
+---
+flowchart TB
+	id0[all]
+	id1[D]
+	id2[A]
+	id3[C]
+	id4[B - i: 0]
+	id5[B - i: 1]
+	id6[B - i: 2]
+	id7[B - i: 3]
+	style id0 fill:#57BFD9,stroke-width:2px,color:#333333
+	style id1 fill:#57D98B,stroke-width:2px,color:#333333
+	style id2 fill:#D95757,stroke-width:2px,color:#333333
+	style id3 fill:#8BD957,stroke-width:2px,color:#333333
+	style id4 fill:#D9BF57,stroke-width:2px,color:#333333
+	style id5 fill:#D9BF57,stroke-width:2px,color:#333333
+	style id6 fill:#D9BF57,stroke-width:2px,color:#333333
+	style id7 fill:#D9BF57,stroke-width:2px,color:#333333
+	id1 --> id0
+	id2 --> id1
+	id3 --> id1
+	id4 --> id3
+	id5 --> id3
+	id6 --> id3
+	id7 --> id3
+	id2 --> id4
+	id2 --> id5
+	id2 --> id6
+	id2 --> id7

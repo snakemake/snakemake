@@ -1,0 +1,15 @@
+rule all:
+    input: 
+        "output.txt"
+
+rule copy_in_container:
+    input: 
+        "input.txt"
+    output: 
+        "output.txt"
+    params:
+        workflow.source_path("some_dir/some_other_input.txt")
+    container: 
+        "docker://ubuntu:latest"
+    shell:
+        "touch ../../test.txt && cat {input} {params} > {output}"

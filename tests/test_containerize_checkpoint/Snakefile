@@ -1,0 +1,39 @@
+# to ensure we also correctly discover and include conda env specs from modules:
+module c_module:
+    snakefile: "workflow/Snakefile"
+
+
+rule all:
+    input:
+        "final.txt"
+
+rule a:
+    output:
+        touch("a.txt")
+    conda:
+        "envs/a.yaml"
+
+
+checkpoint b:
+    input:
+        "a.txt"
+    output:
+        "b.txt"
+    conda:
+        "envs/b.yaml"
+    shell:
+        "echo '1' > {output}"
+
+
+def aggregate_input(wildcards):
+    out = checkpoints.b.get().output[0]
+    i = open(out).readline().strip()
+    return f"c_{i}.txt"
+
+use rule c from c_module
+
+rule aggregate:
+    input:
+        aggregate_input
+    output:
+        touch("final.txt")

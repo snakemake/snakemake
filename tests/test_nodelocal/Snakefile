@@ -1,0 +1,36 @@
+rule all:
+    input:
+        "results/result.txt",
+
+
+rule create_nodelocal_temp:
+    output:
+        temp("scratch/temp.txt", group_jobs=True),
+    shell:
+        """
+        sleep 4
+        echo "test" > "{output}"
+        """
+
+
+rule create_nodelocal_persist:
+    output:
+        flag("scratch/persist.txt", "nodelocal"),
+    shell:
+        """
+        sleep 4
+        echo "test" > "{output}"
+        """
+
+
+rule consume_nodelocal:
+    input:
+        tmp="scratch/temp.txt",
+        persist="scratch/persist.txt",
+    output:
+        "results/result.txt",
+    shell:
+        """
+        ls "{input.tmp}" > "{output}"
+        ls "{input.persist}" >> "{output}"
+        """

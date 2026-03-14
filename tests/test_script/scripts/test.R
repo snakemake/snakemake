@@ -42,5 +42,9 @@ if (snakemake@config[["test"]] != TRUE) {
     stop("Error evaluating config.")
 }
 
+if (snakemake@config[["foo\' bar"]] != "let\'s go") {
+    stop("Error with the key/value containing single quotes.")
+}
+
 values <- scan(snakemake@input[[1]])
 write(values, file = snakemake@output[["txt"]])

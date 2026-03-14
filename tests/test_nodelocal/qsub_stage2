@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Simulates node-local storage (a.k.a. "local scratch"):
+# - files and paths only accessible within a single compute node
+# - NOT accessible on other nodes nor on the login node
+#
+# Make the mount namespace private and bind 'local' to appear as 'scratch' within the namespace
+mount --make-rprivate --bind local scratch
+# Create a marker file to verify the binding is limited
+# - current script ^will see it into "scratch/" too
+# - outer calling processes will only see it in "local/", will never see content appearing in "scratch/"
+echo "local" > scratch/local
+
+# normal qsub like other cluster-simulated tests
+
+echo `date` >> qsub.log
+tail -n1 $1 >> qsub.log
+# simulate printing of job id by a random number
+echo $RANDOM
+sh $1

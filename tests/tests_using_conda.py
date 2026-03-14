@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from functools import partial
 import os
 import shutil
 import sys
@@ -12,16 +13,22 @@ import tempfile
 
 import pytest
 from snakemake.deployment.conda import get_env_setup_done_flag_file
+from snakemake.sourcecache import HostingProviderFile
 
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import run, dpath, apptainer, conda, connected
-from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
+from .conftest import (
+    skip_on_macos_arm,
+    skip_on_windows,
+    only_on_windows,
+    ON_LINUX,
+    ON_WINDOWS,
+)
 
 from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
 )
-
 
 xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
@@ -29,6 +36,7 @@ xfail_permissionerror_on_win = (
 
 
 @skip_on_windows
+@skip_on_macos_arm
 @conda
 def test_script():
     run(
@@ -72,6 +80,7 @@ def test_conda_create_envs_only():
         cleanup=False,
         cleanup_scripts=False,
     )
+    assert tmpdir is not None
     env_dir = next(
         (p for p in Path(tmpdir, ".snakemake", "conda").iterdir() if p.is_dir()), None
     )
@@ -103,6 +112,7 @@ def test_deploy_hashing():
         deployment_method={DeploymentMethod.CONDA},
         cleanup=False,
     )
+    assert tmpdir is not None
     assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
 
 
@@ -131,6 +141,17 @@ def test_wrapper():
         dpath("test_wrapper"),
         deployment_method={DeploymentMethod.CONDA},
         check_md5=False,
+    )
+
+
+@skip_on_windows  # wrappers are for linux and macos only
+@conda
+def test_wrapper_qsub():
+    run(
+        dpath("test_wrapper"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+        cluster="./qsub",
     )
 
 
@@ -167,6 +188,7 @@ def test_singularity_conda():
 
 
 @conda
+@pytest.mark.needs_envmodules
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
@@ -251,7 +273,7 @@ def test_conda_function():
     )
 
 
-@skip_on_windows  # the testcase only has a linux-64 pin file
+@pytest.mark.skipif(not ON_LINUX, reason="This testcase only has a linux-64 pin file")
 @conda
 def test_conda_pin_file():
     run(dpath("test_conda_pin_file"), deployment_method={DeploymentMethod.CONDA})
@@ -262,6 +284,7 @@ def test_conda_python_script():
     run(dpath("test_conda_python_script"), deployment_method={DeploymentMethod.CONDA})
 
 
+@skip_on_macos_arm
 @conda
 def test_conda_python_3_7_script():
     run(
@@ -289,6 +312,7 @@ def test_conda_global():
     )
 
 
+@skip_on_macos_arm
 @conda
 def test_script_pre_py39():
     run(dpath("test_script_pre_py39"), deployment_method={DeploymentMethod.CONDA})
@@ -320,6 +344,28 @@ def test_conda_run():
     run(dpath("test_conda_run"), deployment_method={DeploymentMethod.CONDA})
 
 
+@conda
+def test_issue_3192():
+    assert (
+        sp.run(
+            "conda create -c conda-forge -n test_issue3192 python",
+            shell=True,
+        ).returncode
+        == 0
+    )
+    run(dpath("test_issue3192"), deployment_method={DeploymentMethod.CONDA})
+
+
+# Test that container and conda can be run independently using sdm
+@skip_on_windows
+@apptainer
+@connected
+@conda
+def test_issue_3202():
+    run(dpath("test_issue_3202"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_issue_3202"), deployment_method={DeploymentMethod.CONDA})
+
+
 # These tests have no explicit dependency on Conda and do not build new conda envs,
 # but will fail if 'conda info --json' does not work as expected, because the wrapper
 # code uses this to examine the installed software environment.
@@ -343,3 +389,52 @@ def test_get_log_stdout():
 
 def test_get_log_complex():
     run(dpath("test_get_log_complex"))
+
+
+@skip_on_windows
+@conda
+def test_containerize_checkpoint():
+    """Test that containerize considers rules not in the initial DAG (e.g. after checkpoints)."""
+    tmpdir = None
+    try:
+        tmpdir = run(
+            dpath("test_containerize_checkpoint"),
+            shellcmd="snakemake --containerize > Dockerfile",
+            check_results=False,
+            cleanup=False,
+            deployment_method={DeploymentMethod.CONDA},
+        )
+        tmpdir = Path(tmpdir)
+
+        dockerfile_path = tmpdir / "Dockerfile"
+        assert dockerfile_path.exists(), "Dockerfile was not generated."
+
+        with open(dockerfile_path) as f:
+            dockerfile_content = f.read()
+
+        assert "#   source: envs/a.yaml" in dockerfile_content
+        assert "#   source: envs/b.yaml" in dockerfile_content
+        module_env_path = os.path.join("workflow", "envs", "c.yaml")
+        assert f"#   source: {module_env_path}" in dockerfile_content
+
+        # check that COPY/ADD instructions use correct relative paths
+        assert "COPY envs/a.yaml" in dockerfile_content
+        assert "COPY envs/b.yaml" in dockerfile_content
+        assert f"COPY {module_env_path}" in dockerfile_content
+
+        # check three unique environments are being created
+        assert (
+            dockerfile_content.count("conda env create") == 3
+        ), "Expected 3 conda environments to be created."
+
+    finally:
+        if tmpdir and os.path.exists(tmpdir):
+            shutil.rmtree(tmpdir)
+
+
+@conda
+def test_issue_1266():
+    run(
+        dpath("test_github_issue1266"),
+        deployment_method={DeploymentMethod.CONDA},
+    )

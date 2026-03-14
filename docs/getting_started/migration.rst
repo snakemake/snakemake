@@ -11,6 +11,12 @@ Sometimes, new features are added that do not require, but make it strongly advi
 
 Below are migration hints for particular Snakemake versions.
 
+Migrating to Snakemake 9
+------------------------
+
+Between Snakemake 8 and Snakemake 9, there is only a single breaking change in how custom loggers are provided, such that hardly any user should be affected.
+The new way to specify custom log handlers is specifying a logger plugin via ``--logger`` or ``OutputSettings.log_handler_settings`` in the API.
+
 Migrating to Snakemake 8
 ------------------------
 
@@ -492,7 +498,7 @@ Moreover, some options have been renamed:
                         Specify a custom executor, available via an executor
                         plugin: snakemake_executor_<name> (default: None)
      - New designed: Now if you want to use ``--cluster CMD``, please use ``--executor cluster-generic --cluster-generic-submit-cmd CMD`` instead.
-        Note you should install ``cluster-generic`` using command ``pip install snakemake-executor-cluster-generic``
+        Note you should install ``cluster-generic`` using command ``pip install snakemake-executor-plugin-cluster-generic``
    * - --cluster CMD
      -
                         Execute snakemake rules with the given submit command,
@@ -571,7 +577,7 @@ Profiles
 ^^^^^^^^
 
 Profiles can now be versioned.
-If your profile makes use of settings that are available in version 8 or later, use the filename ``config.v8+.yaml`` for the profile configuration (see :ref:`profiles <profiles>`).
+If your profile makes use of settings that are available in version 8 or later, use the filename ``config.v8+.yaml`` for the profile configuration (see :ref:`executing-profiles`).
 
 API
 ^^^
