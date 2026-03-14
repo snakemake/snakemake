@@ -317,7 +317,7 @@ In the next step of our workflow, we would like to aggregate the mapped reads fr
 For this, we will combine the two utilities samtools_ and bcftools_.
 Snakemake provides a **helper function for collecting input files** that helps us to describe the aggregation in this step.
 In the following, we first conceptually describe how to use the function.
-**Do not immediately put thefollowing lines into your Snakefile**.
+**Do not immediately put the following examples into your Snakefile**.
 Using
 
 .. code:: python
@@ -343,11 +343,12 @@ would create the product of all elements of ``SAMPLES`` and the list ``[0, 1]``,
 
     ["sorted_reads/A.0.bam", "sorted_reads/A.1.bam", "sorted_reads/B.0.bam", "sorted_reads/B.1.bam"]
 
-Now that you know how ``expand`` works, we can now use it to perform our aggregation.
+Now that you know how ``expand`` works, we can now use it to perform our aggregation, i.e. **the following code goes into the Snakefile again**.
 We first let Snakemake know which samples we want to consider.
 Remember: Snakemake works backwards from requested output, not from available input.
 Thus, it does not automatically infer all possible output just because you placed new fastq files in the data folder.
 Also remember that Snakefiles are, in principle, Python code enhanced by some declarative statements to define workflows.
+
 Hence, we can define the list of samples ad-hoc in plain Python **at the top of the Snakefile**:
 
 .. code:: python
