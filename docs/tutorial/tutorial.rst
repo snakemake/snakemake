@@ -4,6 +4,9 @@
 Tutorial: General use
 =====================
 
+.. _Snakemake: https://snakemake.readthedocs.io
+.. _GNU Make: https://www.gnu.org/software/make
+.. _Python: https://www.python.org
 .. _slides: https://slides.com/johanneskoester/snakemake-tutorial
 
 This tutorial introduces the text-based workflow system Snakemake_.
@@ -16,8 +19,7 @@ The Python language is known to be concise yet readable and can appear almost li
 The syntactic extensions provided by Snakemake maintain this property for the definition of the workflow.
 Further, Snakemake's scheduling algorithm can be constrained by priorities, provided cores and customizable resources and it provides a generic support for distributed computing (e.g., cluster or batch systems).
 Hence, a Snakemake workflow scales without modification from single core workstations and multi-core servers to cluster or batch systems.
-Finally, Snakemake integrates with the package manager Conda_ and the container engine Singularity_ such that defining the software stack becomes part of the workflow itself.
-
+Finally, Snakemake integrates with package managers and container runtimes such that defining the software stack becomes part of the workflow itself.
 
 In this tutorial, we will design and execute our first workflow with Snakemake, going over the basic concepts and building blocks of the system.
 
