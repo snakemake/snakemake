@@ -104,9 +104,11 @@ This way, Snakemake only treats exit code 1 as an error, and thinks that everyth
 Note that such tools are an excellent use case for contributing a `wrapper <https://snakemake-wrappers.readthedocs.io>`_.
 
 
+:oldanchor:`how-do-i-run-my-rule-on-all-files-of-a-certain-directory`
+
 .. _glob-wildcards:
 
-How do I run my rule on all files of a certain directory?
+How can I run my rule on all files of a certain directory?
 ---------------------------------------------------------
 
 In Snakemake, similar to GNU Make, the workflow is determined from the top, i.e. from the target files. Imagine you have a directory with files ``1.fastq, 2.fastq, 3.fastq, ...``, and you want to produce files ``1.bam, 2.bam, 3.bam, ...`` you should specify these as target files, using the ids ``1,2,3,...``. You could end up with at least two rules like this (or any number of intermediate steps):
