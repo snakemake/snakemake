@@ -1,8 +1,0 @@
-
-Gurobi 13.0.0 (linux64, gurobi_cl) logging started Sat Mar 14 10:31:23 2026
-
-Set parameter WLSAccessID
-Set parameter WLSSecret
-Set parameter LicenseID to value 2525558
-Set parameter LogFile to value "gurobi.log"
-Using license file /home/johannes/Documents/UK-Essen-Cloud/Documents/Keys/gurobi.lic
