@@ -141,7 +141,7 @@ Later, you will see how parallelization works.
 
 Note that, if you try to run that command a second time, Snakemake will not try to create ``mapped_reads/A.bam`` again.
 That is because it is already present in the file system.
-Snakemake will **only** re-runs jobs if one of the input files is newer than one of the output files, if one of the input files will be updated by another job, or if the code and parameters of the job have changed.
+Snakemake will **only** re-run jobs if one of the input files is newer than one of the output files, if one of the input files will be updated by another job, or if the code and parameters of the job have changed.
 
 
 .. tip::
