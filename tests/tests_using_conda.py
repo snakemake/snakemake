@@ -438,3 +438,31 @@ def test_issue_1266():
         dpath("test_github_issue1266"),
         deployment_method={DeploymentMethod.CONDA},
     )
+
+
+@skip_on_windows
+@apptainer
+@connected
+@conda
+def test_conda_container_mixed_conda():
+    """Test a Snakefile with mixed conda and container directives, but only conda is used."""
+    run(
+        dpath("test_conda_container_mixed/conda_execution"),
+        deployment_method={DeploymentMethod.CONDA},
+        conda_frontend="conda",
+        check_md5=True,
+    )
+
+
+@skip_on_windows
+@apptainer
+@connected
+@conda
+def test_conda_container_mixed_apptainer():
+    """Test a Snakefile with mixed conda and container directives, but only apptainer is used."""
+    run(
+        dpath("test_conda_container_mixed/apptainer_execution"),
+        deployment_method={DeploymentMethod.APPTAINER, DeploymentMethod.CONDA},
+        conda_frontend="conda",
+        check_md5=True,
+    )
