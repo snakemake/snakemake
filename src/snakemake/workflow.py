@@ -268,6 +268,40 @@ class Workflow(WorkflowExecutorInterface):
         return runner.run(coro)
 
     @property
+    def info_header(self):
+        import os
+        import sys
+        import shutil
+        import getpass
+        from datetime import datetime
+        from snakemake.common import __version__
+        import uuid
+        import json
+        import hashlib
+
+        conda_bin = shutil.which("conda")
+
+        return {
+            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "snakemake_version": __version__,
+            "platform": platform.platform(),
+            "host": platform.node(),
+            "user": getpass.getuser(),
+            "python_version": sys.version,
+            "cmd": " ".join(sys.argv),
+            "basedir": self.basedir,
+            "rundir": self.rundir,
+            "cwd": self.workdir_init,
+            "configfiles": ", ".join([str(cfg) for cfg in self.configfiles]),
+            "snakefile_main": self.main_snakefile,
+            "snakefile": self.snakefile,
+            "workflow_id": uuid.uuid4(),
+            "config_md5": hashlib.md5(
+                json.dumps(config, sort_keys=True).encode("utf-8")
+            ).hexdigest(),
+        }
+
+    @property
     def included(self) -> Iterator[SourceFile]:
         """
         Return the included Snakefiles.
@@ -1250,9 +1284,16 @@ class Workflow(WorkflowExecutorInterface):
         greedy_scheduler_settings: GreedySchedulerSettings,
         updated_files: Optional[List[str]] = None,
     ):
-        logger.info(f"host: {platform.node()}")
-
         from snakemake.shell import shell
+
+        logger.info(
+            "Workflow has started!",
+            extra=dict(
+                event=LogEvent.WORKFLOW_STARTED,
+                **self.info_header,
+                quietness=Quietness.HOST,
+            ),
+        )
 
         assert self.deployment_settings is not None
         assert self.execution_settings is not None
