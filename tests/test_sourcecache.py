@@ -205,3 +205,33 @@ def test_infer_source_file_from_old_host_first_shorthand_falls_back_to_generic()
 
     assert isinstance(file, GenericSourceFile)
     assert file.get_path_or_uri(secret_free=False) == path
+
+
+def test_infer_source_file_from_github_shorthand_custom_host_without_path():
+    file = infer_source_file("gh:github.example.com:snakemake/snakemake@main")
+
+    assert isinstance(file, GithubFile)
+    assert file.host == "github.example.com"
+    assert file.repo == "snakemake/snakemake"
+    assert file.branch == "main"
+    assert file.path == "workflow/Snakefile"
+
+
+def test_infer_source_file_from_shorthand_trailing_colon_defaults_to_snakefile():
+    # gh:repo@ref: (trailing colon, empty path) should default to workflow/Snakefile
+    file = infer_source_file("gh:snakemake/snakemake@main:")
+
+    assert isinstance(file, GithubFile)
+    assert file.repo == "snakemake/snakemake"
+    assert file.branch == "main"
+    assert file.path == "workflow/Snakefile"
+
+
+def test_infer_source_file_from_shorthand_no_slash_in_repo_falls_back_to_generic():
+    # gh:notarepo@main has no slash in the repo part — should fall back gracefully
+    path = "gh:notarepo@main"
+
+    file = infer_source_file(path)
+
+    assert isinstance(file, GenericSourceFile)
+    assert file.get_path_or_uri(secret_free=False) == path
