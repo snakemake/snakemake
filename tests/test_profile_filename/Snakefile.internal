@@ -1,0 +1,21 @@
+from pathlib import Path
+
+shell.executable("bash")
+
+
+rule a:
+    input:
+        "input.txt",
+    output:
+        config["out"],
+    params:
+        cfg_file=Path(workflow.configfiles[0]).name,
+    shell:
+        "echo 'threads: {threads}\n"
+        "mem_mb: {resources.mem_mb}\n"
+        "eggs_factor: {resources.eggs_factor}\n"
+        "spam_factor: {resources.spam_factor}\n"
+        "double_jeopardy: {resources.double_jeopardy}\n"
+        "tmpdir: {resources.tmpdir}\n"
+        "configfile: {params.cfg_file}\n"
+        "' > {output}"

@@ -869,17 +869,42 @@ def test_run_namedlist():
     run(dpath("test_run_namedlist"))
 
 
-def test_profile():
-    run(dpath("test_profile"))
+def test_profile_old():
+    run(dpath("test_profile_old"))
 
     from snakemake.profiles import ProfileConfigFileParser
 
-    grouped_profile = Path(dpath("test_profile")) / "config.yaml"
+    grouped_profile = Path(dpath("test_profile_old")) / "config.yaml"
     with grouped_profile.open("r") as f:
         parser = ProfileConfigFileParser()
         result = parser.parse(f)
         assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
         assert result["group-components"] == list(["grp1=5"])
+
+
+def test_profile_new():
+    run(dpath("test_profile_new"))
+
+    from snakemake.profiles import ProfileConfigFileParser
+
+    grouped_profile = Path(dpath("test_profile_new")) / "profile.v9+.yaml"
+    with grouped_profile.open("r") as f:
+        parser = ProfileConfigFileParser()
+        result = parser.parse(f)
+        assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
+        assert result["group-components"] == list(["grp1=5"])
+
+
+def test_profile_with_env_var():
+    run(dpath("test_profile_with_env_var"))
+
+
+def test_profile_filename():
+    run(dpath("test_profile_filename"))
+
+
+def test_profile_multiple():
+    run(dpath("test_profile_multiple"))
 
 
 @skip_on_windows
@@ -2486,7 +2511,34 @@ def test_workflow_profile():
     run(
         test_path,
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake --profile {general_profile} -c1",
+        shellcmd=f"snakemake --profile {general_profile}",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_default_path():
+    run(
+        dpath("test_workflow_profile_relative_path"),
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --workflow-profile workflow_at_site_x --cores 1",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_relative_path():
+    run(
+        dpath("test_workflow_profile_relative_path"),
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --workflow-profile workflow/profiles/workflow_at_site_x --cores 1",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_relative_filename():
+    run(
+        dpath("test_workflow_profile_relative_filename"),
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --workflow-profile ./workflow/some_dir/workflow_profile.yaml --cores 1",
     )
 
 
