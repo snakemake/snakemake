@@ -1898,6 +1898,8 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.pathvars:
                 rule.pathvars = Pathvars.from_rule(ruleinfo.pathvars)
                 rule.pathvars.update(self.pathvars)
+            else:
+                rule.pathvars = self.pathvars
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
