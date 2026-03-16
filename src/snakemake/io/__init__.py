@@ -666,8 +666,7 @@ class _IOFile(str, AnnotatedStringInterface):
             if algorithm_name is None:
                 return True
             used_algorithm, _ = checksum.split(":", maxsplit=1)
-            if algorithm_name == used_algorithm:
-                return True
+            return algorithm_name == used_algorithm
 
         assert self.rule is not None
         iocache = self.rule.workflow.iocache
