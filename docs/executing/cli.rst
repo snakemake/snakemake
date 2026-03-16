@@ -420,7 +420,7 @@ To make use of such a workflow specific profile, you can make Snakemake aware of
   However, using `snakedeploy deploy-workflow` to deploy a workflow as a module, will also copy any profiles included under the standard location `workflow/profiles` (for more info, see `the snakedploy documentation for deploying workflows <https://snakedeploy.readthedocs.io/en/stable/workflow_users/workflow_deployment.html>`_).
   Starting from this import, or starting with a new file, users can create a profile for that main workflow.
 
-When using the command line argument, the ``default/`` location is not searched (unless you explicitly specify ``--workflow default``).
+When using the command line argument, the ``default/`` location is not searched (unless you explicitly specify ``--workflow-profile default``).
 But the given profile is also searched in paths relative to the ``Snakefile`` location and the current working directory.
 You have the same options to specify it as for :ref:`using-global-profiles`:
 
