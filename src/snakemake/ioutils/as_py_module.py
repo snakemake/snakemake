@@ -38,7 +38,9 @@ def format_python_module(filepath: Union[Path, str]) -> str:
 
 
 def as_py_module(
-    path_or_func: Union[Callable, str, Path, RuleItemProxy] = rule_item_factory("input").script
+    path_or_func: Union[Callable, str, Path, RuleItemProxy] = rule_item_factory(
+        "input"
+    ).script,
 ):
     """
     Returns the Python module name associated with the `.py` file at a given path.
