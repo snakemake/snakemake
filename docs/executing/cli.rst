@@ -136,7 +136,7 @@ If you directly reference the actual YAML file by name, you can use an arbitrary
 
 Alongside the actual profile YAML file, the profile folder can additionally contain auxiliary files.
 These can for example be jobscripts or wrappers. 
-See https://github.com/snakemake/snakemake-cluster/profiles for examples.
+See https://github.com/snakemake/snakemake-cluster-profiles for examples.
 
 While the different types of profiles should usually contain distinct sets of settings, you can set any of Snakemake's command line arguments in any of these profiles.
 However, if you also provide the same argument in the ``snakemake`` call on the command line, this command line specification will always take precedence.
