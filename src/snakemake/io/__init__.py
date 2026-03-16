@@ -108,7 +108,7 @@ class IOCacheLoadError(Exception):
 class IOCache(IOCacheStorageInterface):
     # Increment this when the class interface changes to invalidated previously
     # persisted versions.
-    IOCACHE_VERSION = 1
+    IOCACHE_VERSION = 2
 
     def __init__(self, max_wait_time):
         self._mtime = dict()
@@ -130,7 +130,7 @@ class IOCache(IOCacheStorageInterface):
             setattr(simplified, name, old_attr)
 
         # Copy dictionary attributes, casting keys to str.
-        for name in ["_mtime", "_exists_local", "_exists_in_storage", "_size"]:
+        for name in ["_mtime", "_exists_local", "_exists_in_storage", "_size", "_checksum"]:
             old_dict = getattr(self, name)
             if isinstance(old_dict, ExistsDict):
                 setattr(simplified, name, ExistsDict(simplified))
