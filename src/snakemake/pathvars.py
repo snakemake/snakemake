@@ -67,7 +67,7 @@ class Pathvars:
             "resources": "resources",
             "logs": "logs",
             "benchmarks": "benchmarks",
-            "temp", "temp",
+            "temp": "temp",
         }
         return cls._from_raw(
             items=items,
