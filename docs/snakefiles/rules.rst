@@ -320,6 +320,55 @@ This function can also be combined with ``expand()``:
 	    shell:
 	        "somecommand {input} {output}"
 
+Tolerance
+^^^^^^^^^
+
+By default, ``optional()`` allows *all* declared inputs to be missing (tolerance of 1.0). The ``tolerance`` parameter controls what fraction of inputs may be absent before the downstream rule is cancelled. It accepts a value between 0 and 1 (inclusive), where 0 means all inputs must be present and 1 (the default) means every input may be missing:
+
+.. code-block:: python
+
+	parts = ["0", "1", "2", "3"]
+	rule merge:
+	    input:
+	        optional(expand("result_{part}.txt", part=parts), tolerance=0.5)
+	    output:
+	        "path/to/merged_result.txt"
+	    shell:
+	        "somecommand {input} {output}"
+
+With ``tolerance=0.5``, up to half of the input files may be missing and the rule will still run (with only the present files passed to the shell command). If the fraction of missing files exceeds the tolerance threshold, the downstream rule is not executed and an error is raised.
+
+Impatient mode
+^^^^^^^^^^^^^^
+
+By default (``impatient=False``), Snakemake waits for *all* upstream jobs that produce optional inputs to finish (successfully or otherwise) before checking whether the tolerance threshold is met. This is the safest mode and avoids starting downstream work prematurely.
+
+Setting ``impatient=True`` allows the downstream rule to start as soon as enough upstream jobs have succeeded to satisfy the tolerance threshold, without waiting for the remaining upstream jobs to complete:
+
+.. code-block:: python
+
+	parts = ["0", "1", "2", "3"]
+	rule merge:
+	    input:
+	        optional(expand("result_{part}.txt", part=parts), tolerance=0.5, impatient=True)
+	    output:
+	        "path/to/merged_result.txt"
+	    shell:
+	        "somecommand {input} {output}"
+
+In the example above with ``tolerance=0.5``, as soon as at least 2 out of 4 upstream jobs have succeeded the merge rule will be submitted, even if the other 2 are still running. This is useful when upstream jobs are slow and downstream processing can begin on partial results.
+
+.. note::
+
+    With ``impatient=True``, only the files that are *confirmed present* at the moment the downstream job starts are passed as inputs. Files produced by still-running upstream jobs are excluded.
+
+Interaction with ``--retries`` and ``--keep-going``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Retries (``--retries N``):** When an upstream job fails, Snakemake retries it up to ``N`` times before considering it definitively failed. Optional tolerance logic is only evaluated *after all retries are exhausted*. This means a transient failure that is fixed by a retry has no effect on tolerance accounting.
+
+**Keep going (``--keep-going``):** When an upstream failure is *fully absorbed* by optional inputs (i.e. every downstream consumer declares the relevant outputs as optional and the tolerance threshold is not exceeded), Snakemake does **not** set the internal error flag and the workflow continues normally — even without ``--keep-going``. The ``--keep-going`` flag only becomes relevant when a failure is *not* absorbed (for example because another rule requires the same output unconditionally): in that case ``--keep-going`` allows independent parts of the workflow to continue executing despite the error.
+
 .. _snakefiles-multiext:
 
 The multiext function
