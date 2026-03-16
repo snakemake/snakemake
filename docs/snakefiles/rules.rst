@@ -362,7 +362,7 @@ The values of pathvars can thereby even contain wildcards themselves.
 Pathvar defaults
 """"""""""""""""
 
-By default, Snakemake offers the pathvars ``results``, ``stats``, ``temp``, ``resources``, ``logs``, ``benchmarks``.
+By default, Snakemake offers the pathvars ``results``, ``stats``, ``reports``, ``temp``, ``resources``, ``logs``, ``benchmarks``.
 Each of them is set to its respective name (i.e. the output file ``"<results>/processed/{sample}.txt"`` will be interpreted as ``"results/processed/{sample}.txt"``).
 
 Pathvar definition

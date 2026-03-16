@@ -65,6 +65,7 @@ class Pathvars:
         items = {
             "results": "results",
             "stats": "stats",
+            "reports": "reports",
             "temp": "temp",
             "resources": "resources",
             "logs": "logs",
