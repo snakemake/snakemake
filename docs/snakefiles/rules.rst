@@ -1312,6 +1312,8 @@ The log file has to use the same wildcards as output files, e.g.
     log: "logs/abc.{dataset}.log"
 
 
+.. note:: Using the ``log`` directive will not automatically redirect the rule's output towards the log file - this you will still need to facilitate yourself! The ``log`` directive merely prevents Snakemake from deleting the log file upon rule failure.
+
 For programs that do not have an explicit ``log`` parameter, you may always use ``2> {log}`` to redirect stderr to a file (here, the ``log`` file) in Linux-based systems.
 Note that it is also possible to have multiple named log files, which could be used to capture stdout and stderr:
 
@@ -3063,7 +3065,7 @@ Consider the following example where an arbitrary number of files is generated b
       output:
           directory("my_directory/")
       shell:'''
-      mkdir my_directory/
+      mkdir -p my_directory/
       cd my_directory
       for i in 1 2 3; do touch $i.txt; done
       '''
