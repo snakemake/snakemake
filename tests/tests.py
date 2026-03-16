@@ -3098,7 +3098,7 @@ def test_stats_table_order_and_counts():
 
 
 def test_github_issue4003():
-    from snakemake.ioutils.python_module import format_python_module
+    from snakemake.ioutils.as_py_module import format_python_module
 
     assert (
         format_python_module("package/subpackage/module.py")

@@ -800,14 +800,14 @@ When selecting input files, sometimes you might end up with an irregular list of
 
 .. _snakefiles-python-module:
 
-python_module
-"""""""""""""
+as_py_module
+""""""""""""
 When running a Python script under active development,
 which relies on relative imports
 you may want to have the script as an input file,
 but call it by its module name.
-The ``python_module`` function will
-translate a script filename from the ``input:`` block
+The ``as_py_module`` function will
+translate a given script filename
 into a module name that may be used with ``python -m``.
 For example,
 
@@ -815,7 +815,7 @@ For example,
 
     rule:
         params:
-            module=python_module(),
+            module=as_py_module(),
         input:
             script="some_package/some_subpackage/some_module.py",
         output:
@@ -823,14 +823,16 @@ For example,
         shell:
             "python -m {params.module} --output_file {output}"
 
-The helper by default looks at the input named ``script``.
-This may be set by passing the name of the input:
+The helper by default looks at ``input.script``.
+Other values may be used by using
+:ref:`Snakemake's rule item access helpers <snakefiles-rule-item-access>`,
+e.g.
 
 .. code-block:: python
 
     rule:
         params:
-            module=python_module("my_script"),
+            module=as_py_module(input.my_script),
         input:
             my_script="some_package/some_subpackage/some_module.py",
         output:

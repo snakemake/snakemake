@@ -5,6 +5,7 @@ rule all:
             name=[
                 "default_name",
                 "non_default_name",
+                "no_name",
                 "call_script_fails",
                 "using_script_block_fails",
             ],
@@ -13,7 +14,7 @@ rule all:
 
 rule test_with_default_name:
     params:
-        module=python_module(),
+        module=as_py_module(),
     input:
         script="some_package/some_subpackage/some_module.py",
     output:
@@ -24,11 +25,22 @@ rule test_with_default_name:
 
 rule test_with_non_default_name:
     params:
-        module=python_module("script_name"),
+        module=as_py_module(input.script_name),
     input:
         script_name="some_package/some_subpackage/some_module.py",
     output:
         "non_default_name.out"
+    shell:
+        "python -m {params.module} > {output}"
+
+
+rule test_with_non_default_non_name:
+    params:
+        module=as_py_module(input),
+    input:
+        "some_package/some_subpackage/some_module.py",
+    output:
+        "no_name.out"
     shell:
         "python -m {params.module} > {output}"
 
