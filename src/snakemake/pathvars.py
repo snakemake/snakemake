@@ -64,10 +64,11 @@ class Pathvars:
     def with_defaults(cls) -> "Pathvars":
         items = {
             "results": "results",
+            "stats": "stats",
+            "temp": "temp",
             "resources": "resources",
             "logs": "logs",
             "benchmarks": "benchmarks",
-            "temp": "temp",
         }
         return cls._from_raw(
             items=items,
