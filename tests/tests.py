@@ -2520,7 +2520,7 @@ def test_workflow_profile_default_path():
     run(
         dpath("test_workflow_profile_relative_path"),
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake --workflow-profile workflow_at_site_x --cores 1",
+        shellcmd="snakemake --workflow-profile workflow_at_site_x --cores 1",
     )
 
 
@@ -2529,7 +2529,7 @@ def test_workflow_profile_relative_path():
     run(
         dpath("test_workflow_profile_relative_path"),
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake --workflow-profile workflow/profiles/workflow_at_site_x --cores 1",
+        shellcmd="snakemake --workflow-profile workflow/profiles/workflow_at_site_x --cores 1",
     )
 
 
@@ -2538,7 +2538,7 @@ def test_workflow_profile_relative_filename():
     run(
         dpath("test_workflow_profile_relative_filename"),
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake --workflow-profile ./workflow/some_dir/workflow_profile.yaml --cores 1",
+        shellcmd="snakemake --workflow-profile ./workflow/some_dir/workflow_profile.yaml --cores 1",
     )
 
 
