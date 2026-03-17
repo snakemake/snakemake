@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -29,15 +27,13 @@ from typing import (
     Callable,
     Dict,
     Iterable,
-    Generic,
-    Iterator,
     List,
     Optional,
     Set,
-    Tuple,
-    TypeVar,
     Union,
     TYPE_CHECKING,
+    Coroutine,
+    TypeVar,
 )
 
 from snakemake_interface_common.utils import lchmod
@@ -54,7 +50,6 @@ from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFou
 
 from snakemake.common import (
     ON_WINDOWS,
-    async_run as async_run_fallback,
     get_input_function_aux_params,
     is_namedtuple_instance,
 )
@@ -70,6 +65,7 @@ from snakemake.logging import logger
 if TYPE_CHECKING:
     import snakemake.rules
     import snakemake.jobs
+    from snakemake.io.container import Namedlist
 
 
 def lutime(file, times):
@@ -244,7 +240,12 @@ def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
     return f
 
 
-def iocache(func: Callable):
+T = TypeVar("T")
+
+
+def iocache(
+    func: Callable[..., Coroutine[Any, Any, T]],
+) -> Callable[..., Coroutine[Any, Any, T]]:
     @functools.wraps(func)
     async def wrapper(self: "_IOFile", *args, **kwargs):
         assert self.rule is not None
@@ -272,7 +273,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
         def __init__(self, file, rule: Optional["snakemake.rules.Rule"]):
             self._is_callable: bool
-            self._file: str | AnnotatedString | Callable[[Namedlist], str]
+            self._file: str | AnnotatedString | Callable[["Namedlist"], str]
             self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
             self._wildcard_constraints: Dict[str, re.Pattern] | None
@@ -284,7 +285,7 @@ class _IOFile(str, AnnotatedStringInterface):
     ):
         is_annotated = isinstance(file, AnnotatedString)
         is_callable = (
-            isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
+            isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))  # type: ignore[union-attr]
         )
         if isinstance(file, Path):
             file = str(file.as_posix())
@@ -300,7 +301,7 @@ class _IOFile(str, AnnotatedStringInterface):
                     raise WorkflowError(e, rule=rule) from e
             if is_annotated:
                 modified = AnnotatedString(modified)
-                modified.flags = file.flags
+                modified.flags = file.flags  # type: ignore[attr-defined]
             file = modified
         obj = str.__new__(cls, file)
         obj._is_callable = is_callable
@@ -457,13 +458,14 @@ class _IOFile(str, AnnotatedStringInterface):
         return not self.storage_object.retrieve
 
     @property
-    def storage_object(self):
+    def storage_object(self) -> Any:
+        # assume that all .storage_object is called after .is_storage check, hence it is safe to silence type checker
         return get_flag_value(self._file, "storage_object")
 
     @property
-    def file(self):
+    def file(self) -> "str | AnnotatedString":
         if not self.is_callable():
-            return self._file
+            return self._file  # type: ignore[return-value]
         else:
             raise ValueError(
                 "This IOFile is specified as a function and may not be used directly."
@@ -804,6 +806,8 @@ class _IOFile(str, AnnotatedStringInterface):
         f = self._file
 
         if self.is_callable():
+            from snakemake.io.container import Namedlist
+
             assert callable(self._file)
             f = self._file(Namedlist(fromdict=wildcards))
 
@@ -941,7 +945,7 @@ def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
     return value.is_flagged(flag)
 
 
-def flag(value, flag_type, flag_value=True):
+def flag(value, flag_type, flag_value: Any = True):
     if isinstance(value, AnnotatedStringInterface):
         value.flags[flag_type] = flag_value
         return value
@@ -1022,8 +1026,6 @@ _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
 
-_CONSIDER_LOCAL_DEFAULT = frozenset()
-
 _illegal_wildcard_name_regex = re.compile(
     r"""
     \{(?!\{) # Start matching from the second {, otherwise \W will match the second {
@@ -1041,7 +1043,7 @@ async def wait_for_files(
     latency_wait=3,
     wait_for_local=False,
     ignore_pipe_or_service=False,
-    consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
+    consider_local: Set[_IOFile] = frozenset(),  # type: ignore[assignment]
 ):
     """Wait for given files to be present in the filesystem."""
 
@@ -1506,7 +1508,7 @@ def expand(*args, **wildcard_values):
                     or not isinstance(value, collections.abc.Iterable)
                     or is_namedtuple_instance(value)
                 ):
-                    values: collections.abc.Iterable[str] = [value]  # type: ignore[list-item]
+                    values: collections.abc.Iterable = [value]
                 else:
                     values = value
                 yield [(wildcard, value) for value in values]
@@ -1522,7 +1524,7 @@ def expand(*args, **wildcard_values):
         formatter = string.Formatter()
         try:
             return [
-                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))  # type: ignore[arg-type]
+                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))
                 for filepattern in filepatterns
                 for comb in map(
                     format_dict, combinator(*flatten(wildcard_values[filepattern]))
@@ -1748,274 +1750,6 @@ class AttributeGuard:
             "sort, convert to a plain list before or directly use sorted() on the "
             "object."
         )
-
-
-# TODO: replace this with Self when Python 3.11 is the minimum supported version for
-#   executing scripts
-_TNamedList = TypeVar("_TNamedList")
-"Type variable for self returning methods on Namedlist deriving classes"
-
-_TNamedKeys = TypeVar("_TNamedKeys")
-"Type variable for self returning methods on Namedlist deriving classes"
-
-
-class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
-    """
-    A list that additionally provides functions to name items. Further,
-    it is hashable, however, the hash does not consider the item names.
-    """
-
-    def __init__(
-        self,
-        toclone=None,
-        fromdict: Optional[Dict[_TNamedKeys, _TNamedList]] = None,
-        plainstr=False,
-        strip_constraints=False,
-        custom_map=None,
-    ):
-        """
-        Create the object.
-
-        Arguments
-        toclone  -- another Namedlist that shall be cloned
-        fromdict -- a dict that shall be converted to a
-            Namedlist (keys become names)
-        """
-        list.__init__(self)
-        self._names = dict()
-
-        # white-list of attribute names that can be overridden in _set_name
-        # default to throwing exception if called to prevent use as functions
-        self._allowed_overrides = ["index", "sort"]
-        for name in self._allowed_overrides:
-            setattr(self, name, AttributeGuard(name))
-
-        if toclone is not None:
-            if custom_map is not None:
-                self.extend(map(custom_map, toclone))
-            elif plainstr:
-                self.extend(
-                    # use original query if storage is not retrieved by snakemake
-                    (
-                        (
-                            str(x)
-                            if x.storage_object.retrieve
-                            else x.storage_object.query
-                        )
-                        if isinstance(x, _IOFile) and x.storage_object is not None
-                        else str(x)
-                    )
-                    for x in toclone
-                )
-            elif strip_constraints:
-                self.extend(map(strip_wildcard_constraints, toclone))
-            else:
-                self.extend(toclone)
-            if isinstance(toclone, Namedlist):
-                self._take_names(toclone._get_names())
-        if fromdict is not None:
-            for key, item in fromdict.items():
-                self.append(item)
-                self._add_name(key)
-
-    def _add_name(self, name):
-        """
-        Add a name to the last item.
-
-        Arguments
-        name -- a name
-        """
-        self._set_name(name, len(self) - 1)
-
-    def _set_name(self, name, index, end=None):
-        """
-        Set the name of an item.
-
-        Arguments
-        name  -- a name
-        index -- the item index
-        """
-        if name not in self._allowed_overrides and hasattr(self.__class__, name):
-            raise AttributeError(
-                "invalid name for input, output, wildcard, "
-                "params or log: {name} is reserved for internal use".format(name=name)
-            )
-
-        self._names[name] = (index, end)
-        if end is None:
-            setattr(self, name, self[index])
-        else:
-            setattr(self, name, Namedlist(toclone=self[index:end]))
-
-    def update(self, items: Dict):
-        for key, value in items.items():
-            if key in self._names:
-                raise ValueError(f"Key {key} already exists in Namedlist")
-            else:
-                self.append(value)
-                self._add_name(key)
-
-    def _get_names(self):
-        """
-        Get the defined names as (name, index) pairs.
-        """
-        for name, index in self._names.items():
-            yield name, index
-
-    def _take_names(self, names):
-        """
-        Take over the given names.
-
-        Arguments
-        names -- the given names as (name, index) pairs
-        """
-        for name, (i, j) in names:
-            self._set_name(name, i, end=j)
-
-    def items(self) -> Iterator[Tuple[_TNamedKeys, _TNamedList]]:
-        for name in self._names:
-            yield name, getattr(self, name)
-
-    def _allitems(self):
-        next = 0
-        for name, index in sorted(
-            self._names.items(),
-            key=lambda item: (
-                item[1][0],
-                item[1][0] + 1 if item[1][1] is None else item[1][1],
-            ),
-        ):
-            start, end = index
-            if end is None:
-                end = start + 1
-            if start > next:
-                for item in self[next:start]:
-                    yield None, item
-            yield name, getattr(self, name)
-            next = end
-        for item in self[next:]:
-            yield None, item
-
-    def _insert_items(self, index, items):
-        self[index : index + 1] = items
-        add = len(items) - 1
-        for name, (i, j) in self._names.items():
-            if i > index:
-                self._names[name] = (i + add, None if j is None else j + add)
-            elif i == index:
-                self._set_name(name, i, end=i + len(items))
-
-    def keys(self):
-        return self._names.keys()
-
-    def _plainstrings(self: _TNamedList) -> _TNamedList:
-        return self.__class__.__call__(toclone=self, plainstr=True)
-
-    def _stripped_constraints(self: _TNamedList) -> _TNamedList:
-        return self.__class__.__call__(toclone=self, strip_constraints=True)
-
-    def _clone(self: _TNamedList) -> _TNamedList:
-        return self.__class__.__call__(toclone=self)
-
-    def get(self, key, default_value=None):
-        value = self.__dict__.get(key, default_value)
-        # handle internally guarded values like sort or index (see AttributeGuard)
-        if isinstance(value, AttributeGuard):
-            return default_value
-        return value
-
-    def __getitem__(self, key):
-        if isinstance(key, str):
-            return getattr(self, key)
-        else:
-            return super().__getitem__(key)
-
-    def __hash__(self):
-        return hash(tuple(self))
-
-    def __str__(self):
-        return " ".join(map(str, self))
-
-
-class InputFiles(Namedlist):
-    def _predicated_size_files(self, predicate: Callable) -> List[int]:
-        async def sizes() -> List[int]:
-            async def get_size(f: _IOFile) -> Optional[int]:
-                if await predicate(f):
-                    return await f.size()
-                return None
-
-            sizes = await asyncio.gather(*map(get_size, self))
-            return [res for res in sizes if res is not None]
-
-        # the async_run method is expected to be provided through the eval context
-        return globals().get("async_run", async_run_fallback)(sizes())
-
-    @property
-    def size_files(self):
-        async def func_true(_) -> bool:
-            return True
-
-        return self._predicated_size_files(func_true)
-
-    @property
-    def size_tempfiles(self):
-        async def is_temp(iofile):
-            return is_flagged(iofile, "temp")
-
-        return self._predicated_size_files(is_temp)
-
-    @property
-    def size_files_kb(self):
-        return [f / 1024 for f in self.size_files]
-
-    @property
-    def size_files_mb(self):
-        return [f / 1024 for f in self.size_files_kb]
-
-    @property
-    def size_files_gb(self):
-        return [f / 1024 for f in self.size_files_mb]
-
-    @property
-    def size(self):
-        return sum(self.size_files)
-
-    @property
-    def size_kb(self):
-        return sum(self.size_files_kb)
-
-    @property
-    def size_mb(self):
-        return sum(self.size_files_mb)
-
-    @property
-    def temp_size_mb(self):
-        return sum(self.size_tempfiles)
-
-    @property
-    def size_gb(self):
-        return sum(self.size_files_gb)
-
-
-class OutputFiles(Namedlist):
-    pass
-
-
-class Wildcards(Namedlist):
-    pass
-
-
-class Params(Namedlist):
-    pass
-
-
-class ResourceList(Namedlist):
-    pass
-
-
-class Log(Namedlist):
-    pass
 
 
 ##### Wildcard pumping detection #####

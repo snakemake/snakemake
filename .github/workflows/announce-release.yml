@@ -32,8 +32,8 @@ jobs:
             
             Give us some time, and you will automatically find it on #Bioconda and #Pypi.
             
-            If you want to discuss the release, you will find the maintainer here on Mastodon!
-            @johanneskoester@fosstodon.org
+            The maintainer is here on Mastodon -
+            @johanneskoester@fosstodon.org .
             
             If you discover any issues, please report them on {{ issue_url }}.
 
