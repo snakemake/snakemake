@@ -1,14 +1,18 @@
 # does not exist, but this statement should be ignored on module import
-configfile: "config/config.yaml" # either exists
-configfile: "config.yaml" # or not
+configfile: "config/config.yaml"  # either exists
+configfile: "config.yaml"  # or not
+
 
 some_value = 15
+
+
 def some_func():
     return 15
 
 
 rule a:
-    input: "not exist"
+    input:
+        "not exist",
     output:
         temp("results/a/{name}.out"),
     shell:
@@ -29,8 +33,10 @@ rule c_tsv:
         expand(rules.b.output, name="test"),
     output:
         "results/c/{name}.tsv",
+    params:
+        some_value=some_value,
     shell:
-        "cat {input} > {output}"
+        "echo {params.some_value} | cat {input} - > {output}"
 
 
 use rule c_tsv as c_txt with:
