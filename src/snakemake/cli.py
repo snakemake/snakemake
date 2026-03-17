@@ -372,6 +372,7 @@ def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
     dirs = get_appdirs()
     if os.path.exists(profile):
         parent_dir = os.path.dirname(profile) or "."
+        # short circuit if the file path exists
         if os.path.isfile(profile):
             return Path(parent_dir), Path(profile)
         search_dirs = [parent_dir]
@@ -380,7 +381,10 @@ def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
         search_dirs = [os.getcwd(), dirs.user_config_dir, dirs.site_config_dir]
     for d in search_dirs:
         profile_candidate = Path(d) / profile
-        if profile_candidate.exists():
+        # short circuit if the file path exists in a search_dir
+        if profile_candidate.is_file():
+            return profile_candidate.parent, profile_candidate
+        if profile_candidate.is_dir():
             files = os.listdir(profile_candidate)
             # If versioneer cannot get the real version it will return something
             # like "0+untagged.5410.g40ffe59" - this should only occur in testing scenarios
