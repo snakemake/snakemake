@@ -1906,6 +1906,47 @@ def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
 
 
+def test_scatter_gather_tolerance():
+    run(dpath("test_scatter_gather_tolerance"))
+
+
+def test_scatter_gather_tolerance_fail():
+    run(
+        dpath("test_scatter_gather_tolerance_fail"),
+        shouldfail=True,
+        check_results=False,
+    )
+
+
+def test_scatter_gather_impatient():
+    run(dpath("test_scatter_gather_impatient"), cores=2)
+
+
+def test_scatter_gather_impatient_fail_mixed():
+    run(dpath("test_scatter_gather_impatient_fail_mixed"), cores=2)
+
+
+def test_scatter_gather_complex_DAG():
+    run(dpath("test_scatter_gather_complex_DAG"))
+
+
+def test_scatter_gather_tolerance_cli_override():
+    run(
+        dpath("test_scatter_gather_tolerance_cli_override"),
+        overwrite_scatter={"split": 6},
+    )
+
+
+def test_scatter_gather_fanning_intermediates():
+    run(dpath("test_scatter_gather_fanning_intermediates"))
+
+
+def test_scatter_gather_external_rule():
+    run(
+        dpath("test_scatter_gather_external_rule"), shouldfail=True, check_results=False
+    )
+
+
 # SLURM tests go here, after successful tests
 
 
