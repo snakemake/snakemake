@@ -355,11 +355,11 @@ def parse_jobs(jobs):
 
 def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
     config_pattern = re.compile(
-        r"(?P<main_file_name>profile|config)(.v(?P<min_major>\d+)\+)?.yaml"
+        r"(?P<main_file_name>profile|config)(?:\.v(?P<min_major>\d+)\+)?.yaml"
     )
 
     def get_config_min_major(filename):
-        m = config_pattern.match(filename)
+        m = config_pattern.fullmatch(filename)
         if m:
             min_major = m.group("min_major")
             if min_major is None:
