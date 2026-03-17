@@ -233,9 +233,11 @@ def containerize(workflow, dag, fmt="dockerfile"):
     generate_env_cmds = []
     generated = set()
 
-    # Add curl to image if wrapper rule in workflow
-    # curl not available in condaforge/miniforge3:latest
-    if has_wrapper_rule := any(rule.is_wrapper for rule in workflow.rules):
+    # curl is needed for Apptainer whenever remote env files are fetched in %post
+    needs_curl = fmt == "apptainer" and any(
+        not isinstance(env.file, LocalSourceFile) for env in envs
+    )
+    if needs_curl:
         formatter.run_command("apt-get update")
         formatter.run_command("apt-get install -y --no-install-recommends curl")
 
@@ -271,7 +273,7 @@ def containerize(workflow, dag, fmt="dockerfile"):
         formatter.run_combined(generate_env_cmds, "conda clean --all -y")
 
     # Remove lists to reduce image size
-    if has_wrapper_rule:
+    if needs_curl:
         formatter.run_command("rm -rf /var/lib/apt/lists/*")
 
     # For Apptainer, print the collected sections at the end
