@@ -38,7 +38,7 @@ In addition, GitHub and GitLab URLs are supported and resolved automatically.
 As a convenience syntax, hosted source files can also be referenced as ``gh:owner/repo@ref:path/to/Snakefile``, ``gh:github.example.org:owner/repo@ref:path/to/Snakefile``, ``gl:group/project@ref:path/to/Snakefile``, or ``gl:gitlab.example.org:group/project@ref:path/to/Snakefile``. If the final path is omitted, Snakemake assumes ``workflow/Snakefile``.
 
 .. note::
-    Note that referring to remote workflows via ``-s`` will only retrieve the snakefiles and everything directly referred by them, allowing an ad-hoc run. For workflows that expect configuration files or provide workflow profiles, it is usually more convenient to use `snakedeploy <https://snakedeploy.readthedocs.io/en/stable/workflow_users/workflow_deployment.html>`__ to retrieve a complete and templated instance.
+    Note that referring to remote workflows via ``-s`` will only retrieve the snakefiles and everything directly referred by them, allowing an ad-hoc run. For workflows that expect configuration files or provide workflow profiles, it is usually more convenient to use `snakedeploy <https://snakedeploy.readthedocs.io/en/stable/workflow_users/workflow_deployment.html>`__ to retrieve a complete instance with an editable and pre-filled configuration file.
 
 By issuing
 
