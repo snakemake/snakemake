@@ -1857,6 +1857,7 @@ def parse_args(argv):
             # checking for default profile locations
             default_workflow_profile_path = Path("profiles") / workflow_profile
             workflow_profile_candidates = [
+                workflow_profile,
                 default_workflow_profile_path,
                 Path(snakefile).parent.joinpath(default_workflow_profile_path),
             ]
