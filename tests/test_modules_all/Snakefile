@@ -23,4 +23,14 @@ rule all:
         multiext(expand("results/testmodule/c/{name}.", name="test")[0], "tsv", "txt"),
 
 
+assert test.some_value == 15
 assert test.some_func() == 15
+
+# Change module value/func
+test.some_value = 30
+def some_new_func():
+    return 30
+test.some_func = some_new_func
+
+assert test.some_value == 30
+assert test.some_func() == 30

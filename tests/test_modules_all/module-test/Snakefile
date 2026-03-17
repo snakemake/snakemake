@@ -2,7 +2,7 @@
 configfile: "config/config.yaml" # either exists
 configfile: "config.yaml" # or not
 
-
+some_value = 15
 def some_func():
     return 15
 
