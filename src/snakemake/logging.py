@@ -60,7 +60,7 @@ def show_logs(logs):
 
 
 def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
-    from snakemake.io import Namedlist
+    from snakemake.io.container import Namedlist
 
     omit_keys = omit_keys or []
     omit_values = omit_values or []
@@ -235,7 +235,7 @@ class DefaultFormatter(logging.Formatter):
                 prefix += f" (script: {script})"
 
             return f"{prefix}:\n{textwrap.indent(cmd, '    ')}"
-        return msg["msg"]
+        return msg.get("msg") or ""
 
     def format_dag_debug(self, msg: dict[str, Any]):
         """Format for dag_debug log."""
@@ -515,7 +515,11 @@ class ColorizingTextHandler(logging.StreamHandler):
                     # Reset flag if the message is not a 'job_info'
                     self.last_msg_was_job_info = False
                 formatted_message = self.format(record)
-                if formatted_message == "None" or formatted_message == "":
+                if (
+                    formatted_message is None
+                    or formatted_message == "None"
+                    or formatted_message == ""
+                ):
                     return
 
                 # Apply color to the formatted message

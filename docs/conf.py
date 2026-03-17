@@ -16,6 +16,7 @@
 import os
 from datetime import datetime
 from sphinxawesome_theme.postprocess import Icons
+from docutils import nodes
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -38,7 +39,13 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx_design",
     "myst_parser",
+    "sphinx_reredirects",
 ]
+
+# Redirect handling
+
+redirects = {}
+
 
 html_css_files = ["custom.css"]
 
@@ -299,5 +306,14 @@ html_js_files = ["gurubase-widget.js"]  # gurubase AI widget
 # texinfo_no_detailmenu = False
 
 
+def anchor_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
+    """A role to insert a hidden HTML anchor (ID) for redirects."""
+    # This creates a raw HTML node
+    html = f'<span class="customanchor" id="{text}"></span>'
+    node = nodes.raw("", html, format="html")
+    return [node], []
+
+
 def setup(app):
     app.add_css_file("sphinx-argparse.css")
+    app.add_role("oldanchor", anchor_role)
