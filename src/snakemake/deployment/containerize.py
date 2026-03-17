@@ -232,6 +232,13 @@ def containerize(workflow, dag, fmt="dockerfile"):
     # Step 2: Retrieve conda environments (was lines 78-109)
     generate_env_cmds = []
     generated = set()
+
+    # Add curl to image if wrapper rule in workflow
+    # curl not available in condaforge/miniforge3:latest
+    if has_wrapper_rule := any(rule.is_wrapper for rule in workflow.rules):
+        formatter.run_command("apt-get update")
+        formatter.run_command("apt-get install -y --no-install-recommends curl")
+
     for env in envs:
         if env.content_hash in generated:
             continue
@@ -262,6 +269,10 @@ def containerize(workflow, dag, fmt="dockerfile"):
     # Step 3: Generate conda environments (was lines 111-112)
     if generate_env_cmds:
         formatter.run_combined(generate_env_cmds, "conda clean --all -y")
+
+    # Remove lists to reduce image size
+    if has_wrapper_rule:
+        formatter.run_command("rm -rf /var/lib/apt/lists/*")
 
     # For Apptainer, print the collected sections at the end
     if hasattr(formatter, "finish"):
