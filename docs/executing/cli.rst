@@ -278,7 +278,7 @@ You can set the ``$SNAKEMAKE_PROFILE`` variable or the ``--profile`` argument to
 
 .. code-block:: bash
 
-    used_profile
+    user_profile
     user_profile/profile.yaml
     $HOME/.config/snakemake/user_profile/profile.yaml
 
@@ -302,7 +302,7 @@ Using multiple global profiles
 
 If multiple instances of the ``--profile`` command line argument are given, all the profiles are merged.
 While merging, the profile instances specified later take precedence over earlier instances, wherever the same top-level entries occur in multiple profiles.
-Take the following following example files and their invocation.
+Take the following example files and their invocation.
 
 ``/path/to/system_profile.yaml``
 
@@ -315,7 +315,7 @@ Take the following following example files and their invocation.
       # some resource, where you can only use two at any time
       rate_limiter: 2
 
-``~/.config/snakmake/user_profile/profile.yaml``
+``~/.config/snakemake/user_profile/profile.yaml``
 
 .. code-block:: yaml
 
@@ -343,7 +343,7 @@ As the ``user_profile`` does not specify an ``executor``, ``executor: slurm`` is
 As the ``user_profile`` also specifies ``cores``, its entry of ``cores: 50`` overwrites the value from the ``system_profile.yaml``.
 And as you can see from the last example, this overwriting of entries happens at the top level of YAML entries.
 As the ``user_profile`` specifies the top-level entry ``default-resources``, this whole entry from ``system_profile.yaml`` is discarded and replaced by what is specified in ``user_profile``.
-Thus, the ``default-resource: rate_limiter: 2`` entry is lost.
+Thus, the ``default-resources: rate_limiter: 2`` entry is lost.
 
 Workflow specific profiles take precedence over global profiles in the same way.
 
@@ -417,7 +417,7 @@ To make use of such a workflow specific profile, you can make Snakemake aware of
 .. note::
 
   When using modules, the profile will not be propagated to the main workflow importing that module.
-  However, using `snakedeploy deploy-workflow` to deploy a workflow as a module, will also copy any profiles included under the standard location `workflow/profiles` (for more info, see `the snakedploy documentation for deploying workflows <https://snakedeploy.readthedocs.io/en/stable/workflow_users/workflow_deployment.html>`_).
+  However, using `snakedeploy deploy-workflow` to deploy a workflow as a module, will also copy any profiles included under the standard location `workflow/profiles` (for more info, see `the snakedeploy documentation for deploying workflows <https://snakedeploy.readthedocs.io/en/stable/workflow_users/workflow_deployment.html>`_).
   Starting from this import, or starting with a new file, users can create a profile for that main workflow.
 
 When using the command line argument, the ``default/`` location is not searched (unless you explicitly specify ``--workflow-profile default``).
