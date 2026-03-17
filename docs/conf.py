@@ -148,7 +148,7 @@ html_theme_options = {
     },
     "awesome_external_links": True,
     "awesome_headerlinks": True,
-    "show_prev_next": False,
+    "show_prev_next": True,
 }
 html_permalinks_icon = Icons.permalinks_icon
 
@@ -314,6 +314,14 @@ def anchor_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
     return [node], []
 
 
+def oldheading_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
+    anchor_id = text.lower().replace(" ", "-").replace(":", "-")
+    return anchor_role(
+        name, rawtext, anchor_id, lineno, inliner, options=options, content=content
+    )
+
+
 def setup(app):
     app.add_css_file("sphinx-argparse.css")
     app.add_role("oldanchor", anchor_role)
+    app.add_role("oldheading", oldheading_role)
