@@ -1869,8 +1869,14 @@ def parse_args(argv):
                     workflow_profile = profile
                     break
 
-    if args.profile == "none":
-        args.profile = None
+    if args.profile is not None:
+        if args.profile == ["none"]:
+            args.profile = None
+        elif "none" in args.profile:
+            raise CliException(
+                "The special value 'none' cannot be combined with other --profile entries. \n"
+                f"You provided: '{args.profile}'.\n"
+            )
 
     if (args.profile or workflow_profile) and args.mode == ExecMode.DEFAULT:
         # Reparse args while inferring config file from profile.
