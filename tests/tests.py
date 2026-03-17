@@ -895,6 +895,10 @@ def test_profile_new():
         assert result["group-components"] == list(["grp1=5"])
 
 
+def test_profile_none():
+    run(dpath("test_profile_none"))
+
+
 def test_profile_with_env_var():
     run(dpath("test_profile_with_env_var"))
 
