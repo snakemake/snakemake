@@ -2520,6 +2520,15 @@ def test_workflow_profile():
 
 
 @skip_on_windows  # not platform dependent
+def test_workflow_profile_cli_overwrite():
+    run(
+        dpath("test_workflow_profile_cli_overwrite"),
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --set-resources a:foo='overwritten' a:mem_mb=8 --cores 2",
+    )
+
+
+@skip_on_windows  # not platform dependent
 def test_workflow_profile_default_path():
     run(
         dpath("test_workflow_profile_relative_path"),

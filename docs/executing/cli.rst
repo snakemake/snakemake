@@ -346,6 +346,7 @@ As the ``user_profile`` specifies the top-level entry ``default-resources``, thi
 Thus, the ``default-resources: rate_limiter: 2`` entry is lost.
 
 Workflow specific profiles take precedence over global profiles in the same way.
+And arguments specified on the command line take precedence over any profile YAML files.0
 
 .. _workflow-specific-profile:
 
@@ -465,6 +466,7 @@ and the ``--workflow-profile workflow_on_xyz`` sets
 
     default-resources:
       mem_mb: 4000
+      extra: something
     keep-going: True
 
 the resulting profile configuration will be
@@ -474,6 +476,17 @@ the resulting profile configuration will be
     cores: 50
     default-resources:
       mem_mb: 4000
+      extra: something
+    keep-going: True
+
+Similarly, any specifications in your workflow specific profile will be overwritten by command line arguments of the ``snakemake`` run.
+So, if you run ``snakemake --workflow-profile workfklow_on_xyz --default-resources mem_mb 1000 --cores 2``, the resulting configuration will be:
+
+.. code-block:: yaml
+
+    cores: 2
+    default-resources:
+      mem_mb: 1000
     keep-going: True
 
 
