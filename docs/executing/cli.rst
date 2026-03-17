@@ -346,7 +346,7 @@ As the ``user_profile`` specifies the top-level entry ``default-resources``, thi
 Thus, the ``default-resources: rate_limiter: 2`` entry is lost.
 
 Workflow specific profiles take precedence over global profiles in the same way.
-And arguments specified on the command line take precedence over any profile YAML files.0
+And arguments specified on the command line take precedence over any profile YAML files.
 
 .. _workflow-specific-profile:
 
