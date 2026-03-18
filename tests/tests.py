@@ -897,10 +897,14 @@ def test_profile_new():
 
 def test_profile_none():
     run(dpath("test_profile_none"))
+    # this seems to be necessary, so this doesn't persist for other tests
+    os.environ.pop("SNAKEMAKE_PROFILE")
 
 
 def test_profile_with_env_var():
     run(dpath("test_profile_with_env_var"))
+    # this seems to be necessary, so this doesn't persist for other tests
+    os.environ.pop("SNAKEMAKE_PROFILE")
 
 
 def test_profile_filename():
