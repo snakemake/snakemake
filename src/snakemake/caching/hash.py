@@ -79,6 +79,7 @@ class ProvenanceHashMap:
                     job.rule.wrapper,
                     sourcecache=job.rule.workflow.sourcecache,
                     prefix=workflow.workflow_settings.wrapper_prefix,
+                    basedir=job.rule.basedir,
                 ),
                 job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,

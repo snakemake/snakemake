@@ -257,6 +257,21 @@ def test_converting_path_for_r_script():
     )
 
 
+@conda
+def test_r_wrapper():
+    run(
+        dpath("test_r_wrapper"),
+        snakefile="r_wrapper/Snakefile",
+        shouldfail=True,
+        check_results=False,
+    )
+    run(
+        dpath("test_r_wrapper"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_results=False,
+    )
+
+
 @skip_on_windows
 @conda
 def test_conda_named():
