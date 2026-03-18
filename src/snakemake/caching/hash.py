@@ -1,17 +1,22 @@
+# keep until 3.14 to avoid circular imports
+from __future__ import annotations
+
 __authors__ = "Johannes Köster, Sven Nahnsen"
 __copyright__ = "Copyright 2022, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-
 import hashlib
 import json
+from typing import TYPE_CHECKING
 
-from snakemake.jobs import Job
 from snakemake import script
 from snakemake import wrapper
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.types import DeploymentMethod
+
+if TYPE_CHECKING:
+    from snakemake.jobs import Job
 
 # ATTENTION: increase version number whenever the hashing algorithm below changes!
 __version__ = "0.1"
@@ -21,14 +26,14 @@ class ProvenanceHashMap:
     def __init__(self):
         self._hashes = dict()
 
-    def get_provenance_hash(self, job: Job, cache_mode: str):
+    def get_provenance_hash(self, job: Job):
         versioned_hash = hashlib.sha256()
         # Ensure that semantic version changes in this module
-        versioned_hash.update(self._get_provenance_hash(job, cache_mode).encode())
+        versioned_hash.update(self._get_provenance_hash(job).encode())
         versioned_hash.update(__version__.encode())
         return versioned_hash.hexdigest()
 
-    def _get_provenance_hash(self, job: Job, cache_mode: str):
+    def _get_provenance_hash(self, job: Job):
         """
         Recursively calculate hash for the output of the given job
         and all upstream jobs in a blockchain fashion.
@@ -39,8 +44,6 @@ class ProvenanceHashMap:
         This hash, however, shall work without having to generate the files,
         just by describing all steps down to a given job.
         """
-        assert (cache_mode == "omit-software") or (cache_mode == "all")
-
         if job in self._hashes:
             return self._hashes[job]
 
@@ -114,7 +117,7 @@ class ProvenanceHashMap:
             h.update(file_hash.encode())
 
         # Hash used containers or conda environments.
-        if cache_mode != "omit-software":
+        if not (job.rule.cache and job.rule.cache.omit_software):
             if (
                 DeploymentMethod.CONDA in workflow.deployment_settings.deployment_method
                 and job.conda_env
@@ -135,7 +138,7 @@ class ProvenanceHashMap:
 
         # Generate hashes of dependencies, and add them in a blockchain fashion (as input to the current hash, sorted by hash value).
         for dep_hash in sorted(
-            self._get_provenance_hash(dep, cache_mode)
+            self._get_provenance_hash(dep)
             for dep in set(job.dag.dependencies[job].keys())
         ):
             h.update(dep_hash.encode())
