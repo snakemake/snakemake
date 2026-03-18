@@ -297,6 +297,16 @@ class TestOptionalInput:
         """impatient=False waits for all upstream jobs before checking tolerance."""
         run(dpath("test_optional_input_impatient"))
 
+    def test_optional_input_retries_transient_failure_success(self):
+        """Retries are exhausted before optional tolerance is evaluated.
+
+        Upstream job for chunk 002 fails on attempt 1 but succeeds on attempt 2
+        (retries: 1).  Because the retry succeeds, all 3 files are present when
+        merge_counts runs — tolerance is never needed to absorb a missing file.
+        The merged output therefore contains all three chunks.
+        """
+        run(dpath("test_optional_input_retries_transient_failure_success"))
+
     def test_optional_input_upstream_failure(self):
         """Optional flag with tolerance=0 does not hide upstream failure (exit code 1)."""
         run(dpath("test_optional_input_upstream_failure"), shouldfail=True)

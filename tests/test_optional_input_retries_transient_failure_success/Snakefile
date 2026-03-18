@@ -1,0 +1,59 @@
+"""
+Retries interact with optional tolerance: retries are exhausted before tolerance
+is evaluated.
+
+Scenario:
+- 3 chunks: 000 and 001 always succeed; 002 fails on attempt 1 but succeeds on
+  attempt 2 (retries: 1).
+- merge_counts uses optional(expand(...), tolerance=0.5), which could absorb one
+  missing file, but should not need to.
+
+Expected:
+- count_letters for chunk 002 is retried and succeeds.
+- All 3 files are present when merge_counts runs.
+- letter_counts.json contains all three chunks: {"a": 2, "b": 3, "c": 4}
+"""
+
+chunks = ["000", "001", "002"]
+
+
+rule all:
+    input:
+        "letter_counts.json"
+
+
+rule count_letters:
+    output:
+        "counts_{chunk}.json"
+    retries: 1
+    resources:
+        shouldfail=lambda w, attempt: w.chunk == "002" and attempt == 1
+    run:
+        import json
+        from pathlib import Path
+
+        if resources.shouldfail:
+            raise Exception("Simulated transient failure for chunk 002 on attempt 1")
+
+        data = {"000": {"a": 2}, "001": {"b": 3}, "002": {"c": 4}}.get(
+            wildcards.chunk, {}
+        )
+        Path(output[0]).write_text(json.dumps(data))
+
+
+rule merge_counts:
+    input:
+        counts=optional(expand("counts_{chunk}.json", chunk=chunks), tolerance=0.5)
+    output:
+        "letter_counts.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for counts_file in input.counts:
+            data = json.loads(Path(counts_file).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))
