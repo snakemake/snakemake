@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from snakemake.io.container import InputFiles
+from snakemake.io_container import InputFiles
 from snakemake.script import RustScript, BashEncoder
 
 

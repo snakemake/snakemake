@@ -1411,7 +1411,7 @@ For type checking, it is possible to import the a correctly typed stub for the s
     from typing import TYPE_CHECKING
 
     if TYPE_CHECKING:
-        from snakemake.io.container import snakemake
+        from snakemake.io_container import snakemake
 
     def do_something(data_path, out_path, threads, myparam):
         # python code

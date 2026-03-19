@@ -42,9 +42,9 @@ from snakemake.io import (
     apply_wildcards,
     contains_wildcard,
 )
-from snakemake.io.container import Wildcards
+from snakemake.io_container import Wildcards
 from snakemake.exceptions import InputFunctionException, WorkflowError
-from snakemake.io.container import Snakemake, FILE_HASH_PREFIX_LEN
+from snakemake.io_container import Snakemake, FILE_HASH_PREFIX_LEN
 from snakemake.common import (
     get_input_function_aux_params,
 )

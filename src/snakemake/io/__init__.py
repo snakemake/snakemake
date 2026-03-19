@@ -130,7 +130,13 @@ class IOCache(IOCacheStorageInterface):
             setattr(simplified, name, old_attr)
 
         # Copy dictionary attributes, casting keys to str.
-        for name in ["_mtime", "_exists_local", "_exists_in_storage", "_size", "_checksum"]:
+        for name in [
+            "_mtime",
+            "_exists_local",
+            "_exists_in_storage",
+            "_size",
+            "_checksum",
+        ]:
             old_dict = getattr(self, name)
             if isinstance(old_dict, ExistsDict):
                 setattr(simplified, name, ExistsDict(simplified))

@@ -23,7 +23,7 @@ from typing import List, Pattern, Tuple
 from urllib.error import URLError
 
 from snakemake.io import container as io_
-from snakemake.io.container import Snakemake
+from snakemake.io_container import Snakemake
 from snakemake.common import (
     MIN_PY_VERSION,
     ON_WINDOWS,
