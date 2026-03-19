@@ -30,7 +30,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
 
         def format_val(val):
             if isinstance(val, str) and int_re.match(val):
-                # when the value is an explicity string, we have to quote it to prevent
+                # when the value is an explicitly string, we have to quote it to prevent
                 # an evaluation as integer in the next pass
                 return repr(val)
             else:
