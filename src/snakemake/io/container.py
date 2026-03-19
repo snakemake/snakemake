@@ -569,3 +569,6 @@ class Snakemake:
                     self._params_types[i] = "pl.Series"
 
         self._params_store._take_names(params._get_names())
+
+
+snakemake: Snakemake
