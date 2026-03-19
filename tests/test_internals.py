@@ -1,3 +1,4 @@
+from snakemake.cli import parse_set_resources
 from io import StringIO
 from snakemake.profiles import ProfileConfigFileParser
 import textwrap
@@ -96,5 +97,14 @@ def test_profile_parse():
     stream = StringIO(profile)
     stream.name = "foo/config.yaml"
 
-    parsed = ProfileConfigFileParser().parse(stream)
-    assert parsed == {"set-resources": ["rule1:slurm_partition='42'"]}
+    parsed_profile = ProfileConfigFileParser().parse(stream)
+    assert parsed_profile == {"set-resources": ["rule1:slurm_partition='42'"]}
+
+    parsed_resources = parse_set_resources(parsed_profile["set-resources"])
+    # ensure that resource is still a string after evaluation
+    assert (
+        parsed_resources["rule1"]["slurm_partition"]
+        .evaluate(None, None, None, None, None, None)
+        .value
+        == "42"
+    )
