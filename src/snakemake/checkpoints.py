@@ -16,6 +16,7 @@ class Checkpoints:
 
     def __init__(self):
         self._created_output = set()
+        self._default_proxy: "CheckpointsProxy" = None  # type: ignore[reportAttributeAccessIssue]
 
     @property
     def created_output(self):
@@ -23,7 +24,10 @@ class Checkpoints:
 
     def spawn_new_namespace(self):
         """Make a new namespace for checkpoints in the module."""
-        return CheckpointsProxy(self)
+        proxy = CheckpointsProxy(self)
+        if self._default_proxy is None:
+            self._default_proxy = proxy
+        return proxy
 
 
 class CheckpointsProxy(Checkpoints):
@@ -45,7 +49,7 @@ class CheckpointsProxy(Checkpoints):
         checkpoint = Checkpoint(rule, self)
         if fallback_name:
             setattr(self, fallback_name, checkpoint)
-        setattr(self, rule.name, checkpoint)
+        setattr(self.parent._default_proxy, rule.name, checkpoint)
 
 
 class Checkpoint:
