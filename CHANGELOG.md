@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [9.17.2](https://github.com/snakemake/snakemake/compare/v9.17.1...v9.17.2) (2026-03-17)
+
+
+### Bug Fixes
+
+* **docs:** simplify development instructions ([#4073](https://github.com/snakemake/snakemake/issues/4073)) ([89e041d](https://github.com/snakemake/snakemake/commit/89e041d40a851db06ba6b942df825b00a6167880))
+* ensure that the snakemake-wrappers repo is properly cached when --wrapper-prefix is not specified ([#4111](https://github.com/snakemake/snakemake/issues/4111)) ([7c82cde](https://github.com/snakemake/snakemake/commit/7c82cdef62489a1c08b55015f1ac327709c3aef0))
+
+
+### Documentation
+
+* prepare redirects in docs ([#4106](https://github.com/snakemake/snakemake/issues/4106)) ([67d5ec4](https://github.com/snakemake/snakemake/commit/67d5ec45faaf4faf6c33b93a4f0520a1d0dd4a03))
+
 ## [9.17.1](https://github.com/snakemake/snakemake/compare/v9.17.0...v9.17.1) (2026-03-13)
 
 
