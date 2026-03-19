@@ -1,3 +1,6 @@
+from io import StringIO
+from snakemake.profiles import ProfileConfigFileParser
+import textwrap
 import pytest
 
 from snakemake.pathvars import Pathvars
@@ -82,3 +85,16 @@ def test_pathvars_level():
     assert pv.get("benchmarks") == "rule_benchmarks"
     assert pv.apply("<results>/foo.txt") == "mod_results/foo.txt"
     assert pv.apply("<logs>/foo.txt") == "rule_logs/foo.txt"
+
+
+def test_profile_parse():
+    profile = textwrap.dedent("""
+    set-resources:
+        rule1:
+            slurm_partition: "42"
+    """)
+    stream = StringIO(profile)
+    stream.name = "foo/config.yaml"
+
+    parsed = ProfileConfigFileParser().parse(stream)
+    assert parsed == {"set-resources": ["rule1:slurm_partition='42'"]}
