@@ -118,8 +118,9 @@ def wrapper(
         prefix=prefix,
     )
     if script_source is None:
+        prefix = prefix or DEFAULT_WRAPPER_PREFIX
         raise WorkflowError(
-            f"Unable to locate wrapper script at {DEFAULT_WRAPPER_PREFIX}{path}. "
+            f"Unable to locate wrapper script at {prefix}{path}. "
             "This can be a network issue or a mistake in the wrapper URL."
         )
     script(
