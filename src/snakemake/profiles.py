@@ -1,9 +1,12 @@
 from collections import OrderedDict
 import os
+import re
 from pathlib import Path
 from configargparse import YAMLConfigFileParser, ConfigFileParserException
 
 from snakemake_interface_common.exceptions import WorkflowError
+
+int_re = re.compile("^-?\d+$")
 
 
 class ProfileConfigFileParser(YAMLConfigFileParser):
@@ -26,7 +29,9 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
             )
 
         def format_val(val):
-            if isinstance(val, str):
+            if isinstance(val, str) and int_re.match(val):
+                # when the value is an explicity string, we have to quote it to prevent
+                # an evaluation as integer in the next pass
                 return repr(val)
             else:
                 return val
@@ -79,4 +84,5 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
 
                     result[key] = value
 
+        print(result, parsed_obj)
         return result
