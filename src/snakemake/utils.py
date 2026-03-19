@@ -20,7 +20,6 @@ from snakemake.common.configfile import _load_configfile
 from snakemake.logging import logger
 from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
-from snakemake.io import regex_from_filepattern
 
 
 def validate(data, schema, set_default=True):
@@ -301,6 +300,8 @@ def listfiles(pattern, restriction=None, omit_value=None):
     Yields:
         tuple: The next file matching the pattern, and the corresponding wildcards object
     """
+    from snakemake.io import regex_from_filepattern
+
     pattern = os.path.normpath(pattern)
     first_wildcard = re.search("{[^{]", pattern)
     if first_wildcard:
