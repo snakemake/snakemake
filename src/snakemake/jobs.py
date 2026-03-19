@@ -46,7 +46,7 @@ from snakemake.io import (
     get_flag_value,
     wait_for_files,
 )
-from snakemake.io_container import (
+from snakemake.iocontainers import (
     ResourceList,
     Wildcards,
 )

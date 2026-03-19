@@ -15,7 +15,7 @@ import string
 import shlex
 import sys
 
-from snakemake.io_container import Namedlist, Wildcards
+from snakemake.iocontainers import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
 from snakemake.logging import logger
 from snakemake.common import ON_WINDOWS
