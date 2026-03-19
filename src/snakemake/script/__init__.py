@@ -487,7 +487,7 @@ class PythonScript(ScriptBase):
             import pickle;
             snakemake = pickle.loads({snakemake});
             from snakemake.logging import logger;
-            from snakemake.io.container import Snakemake;
+            from snakemake.iocontainers import Snakemake;
             {shell_exec_stmt}
             {preamble_addendum}
             """

@@ -67,7 +67,7 @@ from snakemake.logging import logger
 if TYPE_CHECKING:
     import snakemake.rules
     import snakemake.jobs
-    from snakemake.io.container import Namedlist
+    from snakemake.iocontainers import Namedlist
 
 
 def lutime(file, times):
@@ -897,7 +897,7 @@ class _IOFile(str, AnnotatedStringInterface):
         f = self._file
 
         if self.is_callable():
-            from snakemake.io.container import Namedlist
+            from snakemake.iocontainers import Namedlist
 
             assert callable(self._file)
             f = self._file(Namedlist(fromdict=wildcards))
