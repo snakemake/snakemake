@@ -23,9 +23,6 @@ from typing import (
 
 PathLike = Union[str, Path, os.PathLike]
 
-# For compatibility with Python <3.11 where typing.Self is not available.
-ReportHrefType = TypeVar("ReportHrefType", bound="ReportHref")
-
 FILE_HASH_PREFIX_LEN = 16
 
 
@@ -33,7 +30,7 @@ class ReportHref:
     def __init__(
         self,
         path: Union[str, Path],
-        parent: Optional[ReportHrefType] = None,
+        parent: Optional["ReportHref"] = None,
         url_args: Optional[Dict[str, str]] = None,
         anchor: Optional[str] = None,
     ):
@@ -51,14 +48,14 @@ class ReportHref:
         )
         self._anchor = anchor
 
-    def child_path(self, path: Union[str, Path]) -> ReportHrefType:
-        return ReportHref(path, parent=self)
+    def child_path(self, path: Union[str, Path]):
+        return self.__class__(path, parent=self)
 
-    def url_args(self, **args: str) -> ReportHrefType:
-        return ReportHref(path=self._path, parent=self._parent, url_args=args)
+    def url_args(self, **args: str):
+        return self.__class__(path=self._path, parent=self._parent, url_args=args)
 
-    def anchor(self, anchor: str) -> ReportHrefType:
-        return ReportHref(
+    def anchor(self, anchor: str):
+        return self.__class__(
             path=self._path, parent=self._parent, url_args=self._url_args, anchor=anchor
         )
 
@@ -84,11 +81,8 @@ class ReportHref:
 _TNamedList = TypeVar("_TNamedList")
 "Type variable for self returning methods on Namedlist deriving classes"
 
-_TNamedKeys = TypeVar("_TNamedKeys")
-"Type variable for self returning methods on Namedlist deriving classes"
 
-
-class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
+class Namedlist(list, Generic[_TNamedList]):
     """
     A list that additionally provides functions to name items. Further,
     it is hashable, however, the hash does not consider the item names.
@@ -97,12 +91,12 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
     def __init__(
         self,
         toclone=None,
-        fromdict: Optional[Dict[_TNamedKeys, _TNamedList]] = None,
+        fromdict: Optional[Dict[str, _TNamedList]] = None,
         plainstr=False,
         strip_constraints=False,
         custom_map=None,
     ):
-        from snakemake.io import _IOFile, AttributeGuard
+        from snakemake.io import _IOFile, AttributeGuard, strip_wildcard_constraints
 
         """
         Create the object.
@@ -113,7 +107,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
             Namedlist (keys become names)
         """
         list.__init__(self)
-        self._names = dict()
+        self._names: Dict[str, Tuple[int, int | None]] = dict()
 
         # white-list of attribute names that can be overridden in _set_name
         # default to throwing exception if called to prevent use as functions
@@ -203,7 +197,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
         for name, (i, j) in names:
             self._set_name(name, i, end=j)
 
-    def items(self) -> Iterator[Tuple[_TNamedKeys, _TNamedList]]:
+    def items(self) -> Iterator[Tuple[str, _TNamedList]]:
         for name in self._names:
             yield name, getattr(self, name)
 
@@ -263,7 +257,7 @@ class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
         else:
             return super().__getitem__(key)
 
-    def __hash__(self):
+    def __hash__(self):  # type: ignore[override]
         return hash(tuple(self))
 
     def __str__(self):
@@ -298,6 +292,8 @@ class InputFiles(Namedlist):
 
     @property
     def size_tempfiles(self):
+        from snakemake.io import is_flagged
+
         async def is_temp(iofile):
             return is_flagged(iofile, "temp")
 
@@ -535,15 +531,15 @@ class Snakemake:
         try:
             import pandas as pd
         except ModuleNotFoundError:
-            pd = None
+            pd = None  # type: ignore[assignment]
         try:
             import numpy as np
         except ModuleNotFoundError:
-            np = None
+            np = None  # type: ignore[assignment]
         try:
             import polars as pl
         except ModuleNotFoundError:
-            pl = None
+            pl = None  # type: ignore[assignment]
 
         self._params_store = Params(toclone=list(params))
         self._params_types = dict()
@@ -573,3 +569,6 @@ class Snakemake:
                     self._params_types[i] = "pl.Series"
 
         self._params_store._take_names(params._get_names())
+
+
+snakemake: Snakemake
