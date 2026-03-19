@@ -2,15 +2,11 @@
 Check if a checkpoint can be imported from a module and its output accessed.
 """
 
-import os
-
-
 rule all:
     input:
         "all_done.txt",
 
 
-# TODO Check if prefixing causes issues.
 module module_with_checkpoint:
     snakefile:
         "module/Snakefile"
