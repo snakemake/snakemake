@@ -3261,3 +3261,41 @@ def test_module_onerror():
 
 def test_github_issue2255():
     run(dpath("test_github_issue2255"), check_results=False)
+
+
+# On Windows this test output is emitted with
+# quotes around the output string what cause these tests to fail
+@skip_on_windows
+def test_github_issue_4039_runtime_cli():
+    """Test that runtime values from CLI are correctly interpreted as minutes, not seconds.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_cli"),
+        shellcmd="snakemake -c1 --set-resources 'echo_runtime:runtime=120'",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_runtime_profile():
+    """Test that runtime values from a profile are correctly interpreted as minutes, not seconds.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_profile"),
+        shellcmd="snakemake -c1 --profile profile/",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_runtime_no_override():
+    """Test the correct processing of times with units or as int/str in the resources directive in the snakefile.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_no_override"),
+        shellcmd="snakemake -c1",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
