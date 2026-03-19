@@ -571,4 +571,5 @@ class Snakemake:
         self._params_store._take_names(params._get_names())
 
 
+# stub for the snakemake object, can be imported for type checking in scripts and wrappers
 snakemake: Snakemake
