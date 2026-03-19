@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [9.17.3](https://github.com/snakemake/snakemake/compare/v9.17.2...v9.17.3) (2026-03-19)
+
+
+### Bug Fixes
+
+* add curl when containerize with wrapper ([#4115](https://github.com/snakemake/snakemake/issues/4115)) ([44979e4](https://github.com/snakemake/snakemake/commit/44979e457556edddac0e1e7403a5ba88906fd6b8))
+* incorrect highlighting in HTML report ([#4120](https://github.com/snakemake/snakemake/issues/4120)) ([1ef224d](https://github.com/snakemake/snakemake/commit/1ef224da9310b07efe105d8b991c84ed804a98e0))
+
+
+### Documentation
+
+* document an accidental (sorry) recent breaking change in type checking compatibility of Python scripts, in favor of a clean and robust new syntax ([#4116](https://github.com/snakemake/snakemake/issues/4116)) ([013bc43](https://github.com/snakemake/snakemake/commit/013bc43522869fbbb005a9a7402bdd96c29eff6b))
+* Rework tutorial ([#4068](https://github.com/snakemake/snakemake/issues/4068)) ([4bba4a9](https://github.com/snakemake/snakemake/commit/4bba4a938b426680cbc63bcada10a444d960ab9c))
+
 ## [9.17.2](https://github.com/snakemake/snakemake/compare/v9.17.1...v9.17.2) (2026-03-17)
 
 
