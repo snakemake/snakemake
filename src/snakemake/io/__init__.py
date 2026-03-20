@@ -61,6 +61,7 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 from snakemake.logging import logger
+from snakemake.io.typed import typed_factory
 
 if TYPE_CHECKING:
     import snakemake.rules
@@ -471,6 +472,21 @@ class _IOFile(str, AnnotatedStringInterface):
                 "This IOFile is specified as a function and may not be used directly."
             )
 
+    @property
+    def plainstr(self):
+        """
+        Use original query if storage is not retrieved by snakemake
+        Decorated by typed if set
+        """
+        if self.storage_object is not None and not self.storage_object.retrieve:
+            x = self.storage_object.query
+        else:
+            x = str(self)
+        typed_factory = get_flag_value(self._file, "typed")
+        if typed_factory is not None:
+            return typed_factory(x)
+        return x
+
     def check(self):
         if callable(self._file):
             return
@@ -686,7 +702,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
             async def is_newer_in_storage():
                 mtime = await self.mtime()
-                return mtime.local() < mtime.storage()
+                return mtime.local() < mtime.storage()  # type: ignore[reportOptionalOperand]
 
             if not await self.exists_local() or await is_newer_in_storage():
                 logger.info(
@@ -945,7 +961,7 @@ def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
     return value.is_flagged(flag)
 
 
-def flag(value, flag_type, flag_value: Any = True):
+def flag(value, flag_type: str, flag_value: Any = True):
     if isinstance(value, AnnotatedStringInterface):
         value.flags[flag_type] = flag_value
         return value
@@ -1609,6 +1625,17 @@ def is_multiext_items(
         and not isinstance(items, str)
         and all(is_flagged(subitem, "multiext") for subitem in items)
     )
+
+
+def typed(value, type_, loader=None, dumper=None):
+    """
+    Flag the file(=value) as a specific format(=type_).
+    value must be a single file
+    """
+    v = flag(value, "typed", None)
+    if not isinstance(v, AnnotatedStringInterface):
+        raise ValueError("typed can only be used on single files")
+    return flag(v, "typed", typed_factory(type_, loader=loader, dumper=loader))  # type: ignore[call-overload]
 
 
 def limit(pattern: Union[str, AnnotatedString], **wildcards):

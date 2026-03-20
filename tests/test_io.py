@@ -44,12 +44,12 @@ def test_expand():
     wildcards = {"a": [1, 2], "b": [3, 4], "c": [5]}
 
     # each provided wildcard is used in the filepattern
-    assert sorted(expand("{a}{b}{c}", **wildcards)) == sorted(
+    assert sorted(expand("{a}{b}{c}", **wildcards)) == sorted(  # type: ignore[reportArgumentType]
         ["135", "145", "235", "245"]
     )
 
     # redundant wildcards are provided
-    assert sorted(expand("{a}{c}", **wildcards)) == sorted(["15", "25"])
+    assert sorted(expand("{a}{c}", **wildcards)) == sorted(["15", "25"])  # type: ignore[reportArgumentType]
 
     # missing wildcards (should fail)
     try:
@@ -64,7 +64,7 @@ def test_expand():
 
     # format-minilang: field names
     assert sorted(
-        expand("first letter of sample: {samples[0]}", samples=["A123", "B456", "C789"])
+        expand("first letter of sample: {samples[0]}", samples=["A123", "B456", "C789"])  # type: ignore[reportArgumentType]
     ) == sorted(
         [
             "first letter of sample: A",
@@ -87,7 +87,7 @@ def test_expand():
 
     # format-minilang: format specifications
     assert sorted(
-        expand(
+        expand(  # type: ignore[reportArgumentType]
             "The answer to life, the universe, and everything: {answer:f}",
             answer=range(41, 43),
         )
@@ -100,8 +100,56 @@ def test_expand():
 
     # multiple filepatterns with different wildcards
     assert sorted(
-        expand(["a: {a} + b: {b}", "c: {c}"], a="aa", b=["b", "bb"], c=["c", "cc"])
+        expand(["a: {a} + b: {b}", "c: {c}"], a="aa", b=["b", "bb"], c=["c", "cc"])  # type: ignore[reportArgumentType]
     ) == sorted(["a: aa + b: b", "a: aa + b: bb", "c: c", "c: cc"])
 
     # expand on pathlib.Path objects
     assert expand(PosixPath() / "{x}" / "{y}", x="Hello", y="world") == ["Hello/world"]
+
+
+def test_typed():
+    from snakemake.io.typed import typed_factory
+    from tempfile import TemporaryDirectory
+    from typing import NamedTuple, List
+
+    class CustomType(NamedTuple):
+        a: int
+        b: List[int]
+
+    with TemporaryDirectory() as tmpdir:
+        typed = typed_factory(CustomType, loader="json")
+        file = f"{tmpdir}/test.json"
+        objd = {"a": 1, "b": [1, 2, 3]}
+        obj = CustomType(**objd)  # type: ignore[arg-type]
+        typed(file).dump(**objd)
+        assert typed(file).load() == obj
+        typed = typed_factory(CustomType, loader="yaml")
+        file = f"{tmpdir}/test.yaml"
+        typed(file).dump(**objd)
+        assert typed(file).load() == obj
+        typed = typed_factory(CustomType, loader="toml")
+        file = f"{tmpdir}/test.toml"
+        typed(file).dump(**objd)
+        assert typed(file).load() == obj
+        typed = typed_factory("pkl")
+        file = f"{tmpdir}/test.pkl"
+        typed(file).dump(objd)
+        assert typed(file).load() == objd
+        typed = typed_factory("npy")
+        file = f"{tmpdir}/test.npy"
+        import numpy as np
+
+        arr = np.array([1, 2, 3])
+        typed(file).dump(arr)
+        assert np.array_equal(typed(file).load(), arr)
+        import pandas as pd
+
+        file = f"{tmpdir}/test.csv"
+        typed = typed_factory(loader=pd.read_csv, dumper=pd.DataFrame.to_csv)  # type: ignore
+        df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+        typed(file).dump(df)
+        assert typed(file).load().drop(columns="Unnamed: 0").equals(df)  # type: ignore[reportAttributeAccessIssue]
+        typed = typed_factory("tsv")
+        file = f"{tmpdir}/test.tsv"
+        typed(file).dump(df)
+        assert typed(file).load().equals(df)  # type: ignore[reportAttributeAccessIssue]
