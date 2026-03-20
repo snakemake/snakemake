@@ -901,6 +901,8 @@ def test_profile_none():
     os.environ.pop("SNAKEMAKE_PROFILE")
 
 
+# windows doesn't seem to like semicolon-separated multiline `shell:` calls
+@skip_on_windows
 def test_profile_with_env_var():
     run(dpath("test_profile_with_env_var"))
     # this seems to be necessary, so this doesn't persist for other tests
