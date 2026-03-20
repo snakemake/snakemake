@@ -1629,6 +1629,10 @@ def test_checkpoint_rerun():
         assert f.read().strip() == "1"
 
 
+def test_checkpoint_import():
+    run(dpath("test_checkpoint_import"))
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
