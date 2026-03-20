@@ -46,7 +46,7 @@ class CheckpointsProxy:
             f"Available checkpoints: {', '.join(self._rules)}"
         )
 
-    def register(self, rule: "Rule", fallback_name=None):
+    def _register(self, rule: "Rule", fallback_name=None):
         self._rules[fallback_name or rule.name] = Checkpoint(rule, self._parent)
 
 
