@@ -30,7 +30,15 @@ If called with the number of cores to use, i.e.
 
     $ snakemake --cores 1
 
-Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (the Snakefile can be given via the parameter ``-s``).
+Snakemake tries to execute the workflow specified in a file called ``workflow/Snakefile`` or ``Snakefile`` relative to the same directory (alternatively, the snakefile can be given via the parameter ``-s``).
+
+The ``--snakefile`` or ``-s`` argument can point to either a local file or an HTTP/HTTPS URL.
+In the latter case, relative ``include`` statements are resolved relative to the remote Snakefile location.
+In addition, GitHub and GitLab URLs are supported and resolved automatically.
+As a convenience syntax, hosted source files can also be referenced as ``gh:owner/repo@ref:path/to/Snakefile``, ``gh:github.example.org:owner/repo@ref:path/to/Snakefile``, ``gl:group/project@ref:path/to/Snakefile``, or ``gl:gitlab.example.org:group/project@ref:path/to/Snakefile``. If the final path is omitted, Snakemake assumes ``workflow/Snakefile``.
+
+.. note::
+    Note that referring to remote workflows via ``-s`` will only retrieve the snakefiles and everything directly referred by them, allowing an ad-hoc run. For workflows that expect configuration files or provide workflow profiles, it is usually more convenient to use `snakedeploy <https://snakedeploy.readthedocs.io/en/stable/workflow_users/workflow_deployment.html>`__ to retrieve a complete instance with an editable and pre-filled configuration file.
 
 By issuing
 
