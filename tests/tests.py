@@ -3259,5 +3259,9 @@ def test_module_onerror():
     run(dpath("test_module_onerror"), shouldfail=True, check_results=True)
 
 
+def test_github_issue672():
+    run(dpath("test_github_issue672"))
+
+
 def test_github_issue2255():
     run(dpath("test_github_issue2255"), check_results=False)
