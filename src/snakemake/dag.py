@@ -2180,7 +2180,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 await asyncio.gather(*(out.exists() for out in job.output))
             )
 
-        job_queue = defaultdict(set)
+        job_queue: Dict[Job, Set[Job]] = defaultdict(set)
         if jobs is None:
             jobs = [
                 job
@@ -2242,7 +2242,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 await self.update_needrun()
                 for job, posterior_checkpoint_deps in candidate_job_queue.items():
                     for checkpoint in posterior_checkpoint_deps:
-                        if not self.needrun(checkpoint):
+                        if not self.needrun(checkpoint) and await is_output_present(
+                            checkpoint
+                        ):
                             job_queue[job].add(checkpoint)
             i += 1
 
