@@ -1630,10 +1630,10 @@ def test_checkpoint_missing_output():
     # normal run to create the checkpoint output and final output
     tmpdir = run(dpath("test_checkpoint_missing_output"), cleanup=False)
     assert tmpdir
-    # should not fail (but nothing to do)
+    # should not fail (target file exists so nothing to do)
     (tmpdir / "output" / "test_1.txt").unlink()
     run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
-    # should not fail (but nothing to do)
+    # should not fail (target file exists so nothing to do)
     (tmpdir / "output" / "test_0.txt").unlink()
     run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
 
