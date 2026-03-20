@@ -384,8 +384,8 @@ def test_plugin(
             LogEvent.PROGRESS: 6,
             LogEvent.JOB_STARTED: None,
             LogEvent.JOB_FINISHED: 6,
-            # These are filtered out with the default filter
-            LogEvent.WORKFLOW_STARTED: 1 if has_filter else 0,
+            LogEvent.WORKFLOW_STARTED: 1,
+            # Filtered out with the default filter
             LogEvent.DEBUG_DAG: None if has_filter else 0,
             # Only emitted if requested by plugin
             LogEvent.RULEGRAPH: 1 if needs_rulegraph else 0,
