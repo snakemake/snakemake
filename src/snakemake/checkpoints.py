@@ -78,6 +78,7 @@ class CheckpointsProxy:
     def __exit__(self, exc_type, exc, tb):
         self._local.depth -= 1
         if self._local.depth == 0:
+            cache: "list[IncompleteCheckpointException]" = self._local.cache
             self._local.cache = None
             self._local.depth = 0
             if exc_type is None and cache:
