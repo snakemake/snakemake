@@ -1,13 +1,12 @@
-from typing import TYPE_CHECKING, NoReturn
 import threading
+from typing import TYPE_CHECKING
+
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
 from snakemake.io import checkpoint_target
 from snakemake.logging import logger
-from snakemake.rules import Rule
 
 if TYPE_CHECKING:
     from snakemake.rules import Rule
-
 
 class Checkpoints:
     """A singleton object in a workflow.
@@ -57,30 +56,16 @@ class CheckpointsProxy:
         self._rules[fallback_name or rule.name] = Checkpoint(rule, self._parent)
 
     def __enter__(self):
-        """
-        design:
-        ```snakemake
-        def multicheck(wildcards):
-            with checkpoints:
-                a = checkpoints.rule1.get(**wildcards).output
-                b = checkpoints.rule2.get(**wildcards).output
-                # now a and b are just CheckpointJob.outputs, IncompleteCheckpointException will be cached
-            # When __exit__ the block, cached IncompleteCheckpointException will be raised
-            with open(a) as fa, open(b) as fb:
-                ...
-        ```
-        """
         if getattr(self._local, "cache", None) is None:
             self._local.cache = []
         self._local.depth = getattr(self._local, "depth", 0) + 1
-        return self  # 不再需要 as cp
+        return self
 
     def __exit__(self, exc_type, exc, tb):
         self._local.depth -= 1
         if self._local.depth == 0:
             cache: "list[IncompleteCheckpointException]" = self._local.cache
             self._local.cache = None
-            self._local.depth = 0
             if exc_type is None and cache:
                 e, *_e = cache
                 e.extra = _e
@@ -114,7 +99,7 @@ class Checkpoint:
                 )
         return self.expect(output)
 
-    def expect(self, output) -> "NoReturn | CheckpointJob":
+    def expect(self, output) -> "CheckpointJob":
         raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
 
 
