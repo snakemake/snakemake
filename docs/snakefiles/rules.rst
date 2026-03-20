@@ -3131,9 +3131,9 @@ To allow Snakemake to discover all required checkpoints in a single evaluation, 
         # both step_a and step_b are guaranteed complete beyond this point
         val2 = 0
         for a in series:
-            with open(a) as f:
+            with a.open() as f:
                 val2 = max(int(f.read().strip()), val2)
-        with open(b) as f:
+        with b.open() as f:
             val = f.read().strip()
         return f"{val}/{val2}.txt"
 

@@ -70,16 +70,20 @@ class CheckpointsProxy:
                 ...
         ```
         """
-        self._local.cache = []
+        if getattr(self._local, "cache", None) is None:
+            self._local.cache = []
+        self._local.depth = getattr(self._local, "depth", 0) + 1
         return self  # 不再需要 as cp
 
     def __exit__(self, exc_type, exc, tb):
-        cache: "list[IncompleteCheckpointException]" = self._local.cache
-        self._local.cache = None
-        if exc_type is None and cache:
-            e, *_e = cache
-            e.extra = _e
-            raise e
+        self._local.depth -= 1
+        if self._local.depth == 0:
+            self._local.cache = None
+            self._local.depth = 0
+            if exc_type is None and cache:
+                e, *_e = cache
+                e.extra = _e
+                raise e
         return False
 
 
