@@ -1853,7 +1853,9 @@ def parse_args(argv):
     if args.workflow_profile != "none":
         if args.workflow_profile:
             workflow_profile = Path(args.workflow_profile)
-        if snakefile is not None and (workflow_profile is None or not workflow_profile.is_file()):
+        if snakefile is not None and (
+            workflow_profile is None or not workflow_profile.is_file()
+        ):
             if workflow_profile is None:
                 workflow_profile = Path("default")
             # checking for default profile locations
