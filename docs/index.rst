@@ -164,8 +164,10 @@ Resources
   executing/cli
   executing/grouping
   executing/caching
+  executing/executors
   executing/interoperability
   executing/monitoring
+  executing/provenance
 
 .. toctree::
     :caption: Defining workflows

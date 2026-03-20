@@ -1208,7 +1208,7 @@ Note that access to wildcards is also possible via the variable ``wildcards`` (e
 Priorities
 ----------
 
-Snakemake allows for rules that specify numeric priorities:
+Snakemake allows for rules that specify numeric and/or callable priorities:
 
 
 .. code-block:: python
@@ -1220,6 +1220,21 @@ Snakemake allows for rules that specify numeric priorities:
       shell: ...
 
 Per default, each rule has a priority of 0. Any rule that specifies a higher priority, will be preferred by the scheduler over all rules that are ready to execute at the same time without having at least the same priority.
+
+Priority may also be specified with a callable. The callable receives ``wildcards``
+as its first positional argument, and may optionally accept ``input``, ``attempt``,
+and ``rulename`` keyword arguments (similar to param functions). It has to return the priority as an integer or float (will be rounded):
+
+.. code-block:: python
+
+    rule sort:
+        input: "{dataset}.txt"
+        output: "{dataset}.sorted"
+        priority: lambda wildcards, input: input.size_mb
+        shell: "sort {input} > {output}"
+
+This allows the scheduler to dynamically prioritise jobs based on, e.g., input
+file size so that larger jobs start first.
 
 Furthermore, the ``--prioritize`` or ``-P`` command line flag allows to specify files (or rules) that shall be created with highest priority during the workflow execution. This means that the scheduler will assign the specified target and all its dependencies highest priority, such that the target is finished as soon as possible.
 The ``--dry-run`` (equivalently ``--dryrun``) or ``-n`` option allows you to see the scheduling plan including the assigned priorities.
@@ -1250,6 +1265,8 @@ The log file has to use the same wildcards as output files, e.g.
 
     log: "logs/abc.{dataset}.log"
 
+
+.. note:: Using the ``log`` directive will not automatically redirect the rule's output towards the log file - this you will still need to facilitate yourself! The ``log`` directive merely prevents Snakemake from deleting the log file upon rule failure.
 
 For programs that do not have an explicit ``log`` parameter, you may always use ``2> {log}`` to redirect stderr to a file (here, the ``log`` file) in Linux-based systems.
 Note that it is also possible to have multiple named log files, which could be used to capture stdout and stderr:
@@ -1387,11 +1404,14 @@ An example external Python script could look like this:
 
     do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
 
-or using the explicit import:
+For type checking, it is possible to import the a correctly typed stub for the snakemake object:
 
 .. code-block:: python
 
-    from snakemake.script import snakemake
+    from typing import TYPE_CHECKING
+
+    if TYPE_CHECKING:
+        from snakemake.io.container import snakemake
 
     def do_something(data_path, out_path, threads, myparam):
         # python code
@@ -3002,7 +3022,7 @@ Consider the following example where an arbitrary number of files is generated b
       output:
           directory("my_directory/")
       shell:'''
-      mkdir my_directory/
+      mkdir -p my_directory/
       cd my_directory
       for i in 1 2 3; do touch $i.txt; done
       '''

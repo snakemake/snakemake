@@ -19,16 +19,14 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from numbers import Complex, Integral, Number, Real
 from pathlib import Path
-from typing import Dict, List, Optional, Pattern, Tuple, TypeVar, Union
+from typing import List, Pattern, Tuple
 from urllib.error import URLError
 
 from snakemake.io import container as io_
-from snakemake.io.container import Snakemake, PathLike
-from snakemake import sourcecache
+from snakemake.io.container import Snakemake
 from snakemake.common import (
     MIN_PY_VERSION,
     ON_WINDOWS,
-    get_report_id,
     get_snakemake_searchpaths,
 )
 from snakemake.deployment import singularity
