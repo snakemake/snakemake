@@ -412,7 +412,7 @@ def get_argument_parser(profiles=None):
                 print("Error: invalid profile name.", file=sys.stderr)
                 exit(1)
 
-            print(f"current profile to check: {profile}", file=sys.stderr)
+            print(f"current profile to ckeck: {profile}", file=sys.stderr)
             profile_entry = get_profile_dir(profile)
             print(f"profile entry found: {profile_entry}", file=sys.stderr)
             if profile_entry is not None:
@@ -1853,7 +1853,6 @@ def parse_args(argv):
 
     snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
     workflow_profile = None
-    print(f"args.workflow_profile: {args.workflow_profile}", file=sys.stderr)
     if args.workflow_profile != "none":
         if args.workflow_profile:
             workflow_profile = Path(args.workflow_profile)
@@ -1872,10 +1871,8 @@ def parse_args(argv):
             workflow_profile = None
             for profile in workflow_profile_candidates:
                 if profile.exists():
-                    print(f"found profile: {profile}", file=sys.stderr)
                     workflow_profile = profile
                     break
-    print(f"workflow_profile: {workflow_profile}", file=sys.stderr)
 
     if args.profile is not None:
         if args.profile == ["none"]:
@@ -1893,7 +1890,6 @@ def parse_args(argv):
         if args.profile:
             profiles.extend(args.profile)
         if workflow_profile:
-            print(f"workflow_profile: {workflow_profile}", file=sys.stderr)
             workflow_profile_stmt = f" {'and ' if profiles else ''}workflow specific profile {workflow_profile}"
             profiles.append(workflow_profile)
         else:
