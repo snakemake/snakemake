@@ -406,12 +406,15 @@ def get_argument_parser(profiles=None):
     dirs = get_appdirs()
     config_files = []
     if profiles:
+        print(f"profiles_to_check: {profiles}", file=sys.stderr)
         for profile in profiles:
             if profile == "":
                 print("Error: invalid profile name.", file=sys.stderr)
                 exit(1)
 
+            print(f"current profile to ckeck: {profile}", file=sys.stderr)
             profile_entry = get_profile_dir(profile)
+            print(f"profile entry found: {profile_entry}", file=sys.stderr)
             if profile_entry is not None:
                 _profile_dir, config_file = profile_entry
                 config_files.append(config_file)
