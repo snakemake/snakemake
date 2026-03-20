@@ -107,8 +107,7 @@ class Checkpoint:
                     f"Missing checkpoint output for {self.rule.name} "
                     f"(wildcards: {wildcards}): {','.join(missing_output)} of {','.join(output)}"
                 )
-
-        self.expect(output)
+        return self.expect(output)
 
     def expect(self, output) -> "NoReturn | CheckpointJob":
         raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
