@@ -670,7 +670,7 @@ class Rule(RuleInterface):
 
     def apply_input_function(
         self,
-        func,
+        func: typing.Callable,
         wildcards,
         incomplete_checkpoint_func=lambda e: None,
         raw_exceptions=False,
@@ -678,9 +678,9 @@ class Rule(RuleInterface):
         **aux_params,
     ):
         if isinstance(func, _IOFile):
-            func = func._file.callable
+            func = func._file.callable  # type: ignore # must be function
         elif isinstance(func, AnnotatedString):
-            func = func.callable
+            func = func.callable  # type: ignore # must be function
 
         if "groupid" in get_function_params(func):
             if groupid is not None:
@@ -761,7 +761,7 @@ class Rule(RuleInterface):
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
         groupid=None,
-        non_derived_items: typing.List[typing.Any] = None,
+        non_derived_items: typing.Optional[typing.List[typing.Any]] = None,
     ):
         incomplete = False
         if aux_params is None:
@@ -787,7 +787,7 @@ class Rule(RuleInterface):
                         callable_item = item
                     is_derived = self._is_deriving_function(callable_item)
                 item, incomplete = self.apply_input_function(
-                    item,
+                    item,  # type: ignore[reportArgumentType] # _is_callable
                     wildcards,
                     incomplete_checkpoint_func=incomplete_checkpoint_func,
                     is_unpack=is_unpack,
@@ -890,7 +890,7 @@ class Rule(RuleInterface):
             else:
                 return f.apply_wildcards(wildcards)
 
-        def handle_incomplete_checkpoint(exception):
+        def handle_incomplete_checkpoint(exception: IncompleteCheckpointException):
             """If checkpoint is incomplete, target it such that it is completed
             before this rule gets executed."""
             return exception.targetfile
