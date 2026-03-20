@@ -2,7 +2,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from snakemake.persistence import Persistence
+from snakemake.persistence.file import FilePersistence
 
 
 class TestCleanupContainers:
@@ -42,7 +42,7 @@ rule foo:
             mock_img.path = str(required_img_path)
             container_imgs = {"docker://quay.io/mbhall88/rasusa:0.7.0": mock_img}
             mock_dag.container_imgs = container_imgs
-            persistence = Persistence(dag=mock_dag)
+            persistence = FilePersistence(dag=mock_dag)
             persistence.container_img_path = str(singularity_dir)
 
             persistence.cleanup_containers()

@@ -16,7 +16,7 @@ import os
 import threading
 from queue import Queue
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 import textwrap
 from typing import List, Optional, Collection, TextIO
 from snakemake_interface_logger_plugins.base import LogHandlerBase
@@ -60,12 +60,12 @@ def show_logs(logs):
 
 
 def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
-    from snakemake.io import Namedlist
+    from snakemake.io.container import Namedlist
 
     omit_keys = omit_keys or []
     omit_values = omit_values or []
 
-    if isinstance(dict_like, (Namedlist, dict)):
+    if isinstance(dict_like, (Namedlist, Mapping)):
         items = dict_like.items()
 
     else:
@@ -216,7 +216,7 @@ class DefaultFormatter(logging.Formatter):
 
     def format_shellcmd(self, msg: dict[str, Any]):
         """Format for shellcmd log."""
-        return msg["msg"]
+        return msg.get("cmd") or msg.get("msg") or ""
 
     def format_dag_debug(self, msg: dict[str, Any]):
         """Format for dag_debug log."""
@@ -496,7 +496,11 @@ class ColorizingTextHandler(logging.StreamHandler):
                     # Reset flag if the message is not a 'job_info'
                     self.last_msg_was_job_info = False
                 formatted_message = self.format(record)
-                if formatted_message == "None" or formatted_message == "":
+                if (
+                    formatted_message is None
+                    or formatted_message == "None"
+                    or formatted_message == ""
+                ):
                     return
                 # Apply color to the formatted message
                 self.stream.write(self.decorate(record, formatted_message))

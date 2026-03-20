@@ -26,6 +26,8 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.pathvars import Pathvars
+from snakemake.persistence.file import FilePersistence
+from snakemake.persistence.db import DbPersistence
 from snakemake.settings.types import (
     ConfigSettings,
     DAGSettings,
@@ -43,7 +45,7 @@ from snakemake.settings.types import (
     GlobalReportSettings,
     SharedFSUsage,
 )
-from snakemake.settings.enums import Quietness
+from snakemake.settings.enums import Quietness, PersistenceBackend
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import (
     SpawnedJobArgsFactoryExecutorInterface,
@@ -71,6 +73,9 @@ from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
     MissingOutputFileCachePathException,
+    ResourceDuplicationError,
+    ResourceConversionError,
+    ResourceValidationError,
     RuleException,
     CreateRuleException,
     UnknownRuleException,
@@ -105,7 +110,7 @@ from snakemake.io import (
     sourcecache_entry,
 )
 
-from snakemake.persistence import Persistence
+from snakemake.persistence import PersistenceBase
 from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.notebook import notebook
@@ -128,9 +133,10 @@ from snakemake.common import (
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoints
-from snakemake.resources import ParsedResource, ResourceScopes
+from snakemake.resources import ResourceScopes, Resources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
+from snakemake.caching.rule import CacheFlag, RuleCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
@@ -167,7 +173,6 @@ class Workflow(WorkflowExecutorInterface):
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     global_report_settings: Optional[GlobalReportSettings] = None
     check_envvars: bool = True
-    cache_rules: Dict[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str | Path] = None
     _rundir = str(Path.cwd().absolute())
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
@@ -179,7 +184,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         from snakemake.storage import StorageRegistry
 
-        self.global_resources: dict = dict(self.resource_settings.resources)
+        self.global_resources = self.resource_settings._parsed_resources
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
 
@@ -192,7 +197,7 @@ class Workflow(WorkflowExecutorInterface):
         self.rule_count = 0
         self._included = OrderedDict()
         self.included_stack: list[SourceFile] = []
-        self._persistence: Optional[Persistence] = None
+        self._persistence: Optional[PersistenceBase] = None
         self._dag: Optional[DAG] = None
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
@@ -248,7 +253,6 @@ class Workflow(WorkflowExecutorInterface):
             WorkflowModifier(self, pathvars=Pathvars.with_defaults(), globals=_globals)
         ]
         self._output_file_cache = None
-        self.cache_rules = dict()
 
         config = copy.deepcopy(self.config_settings.overwrite_config)
         self.globals["config"] = config
@@ -403,30 +407,8 @@ class Workflow(WorkflowExecutorInterface):
 
     def check_cache_rules(self):
         for rule in self.rules:
-            cache_mode = self.cache_rules.get(rule.name)
-            if cache_mode:
-                if len(rule.output) > 1:
-                    if not all(out.is_multiext for out in rule.output):
-                        raise WorkflowError(
-                            "Rule is marked for between workflow caching but has multiple output files. "
-                            "This is only allowed if multiext() is used to declare them (see docs on between "
-                            "workflow caching).",
-                            rule=rule,
-                        )
-                if not self.enable_cache:
-                    logger.warning(
-                        f"Workflow defines that rule {rule.name} is eligible for caching between workflows "
-                        "(use the --cache argument to enable this)."
-                    )
-                if rule.benchmark:
-                    raise WorkflowError(
-                        "Rules with a benchmark directive may not be marked as eligible "
-                        "for between-workflow caching at the same time. The reason is that "
-                        "when the result is taken from cache, there is no way to fill the benchmark file with "
-                        "any reasonable values. Either remove the benchmark directive or disable "
-                        "between-workflow caching for this rule.",
-                        rule=rule,
-                    )
+            if rule.cache:
+                rule.cache.check()
 
     @property
     def attempt(self):
@@ -624,12 +606,6 @@ class Workflow(WorkflowExecutorInterface):
                 logger.info("Congratulations, your workflow is in a good condition!")
         return linted
 
-    def get_cache_mode(self, rule: Rule):
-        if self.workflow_settings.cache is None:
-            return None
-        else:
-            return self.cache_rules.get(rule.name)
-
     @property
     def rules(self) -> Iterable[Rule]:
         return self._rules.values()
@@ -649,11 +625,11 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def _cores(self):
-        return self.global_resources["_cores"]
+        return self.global_resources["_cores"].value
 
     @property
     def nodes(self):
-        return self.global_resources["_nodes"]
+        return self.global_resources["_nodes"].value
 
     @property
     def concrete_files(self):
@@ -705,7 +681,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         return name in self._rules
 
-    def get_rule(self, name):
+    def get_rule(self, name) -> Rule:
         """
         Get rule by name.
 
@@ -772,9 +748,11 @@ class Workflow(WorkflowExecutorInterface):
         shadow_prefix: str | Path | None = None,
     ):
         if self.workflow_settings.cache is not None:
-            self.cache_rules.update(
-                {rulename: "all" for rulename in self.workflow_settings.cache}
-            )
+            cache_rules = set(self.workflow_settings.cache)
+            for rule in self.rules:
+                if rule.name in cache_rules and rule.cache:
+                    rule.cache.flag |= CacheFlag.output
+                    rule.cache.check()
             try:
                 if (
                     self.storage_settings is not None
@@ -908,7 +886,24 @@ class Workflow(WorkflowExecutorInterface):
         )
 
         assert self.deployment_settings is not None
-        self._persistence = Persistence(
+
+        persistence_backend = self.workflow_settings.persistence_backend
+        persistence_kwargs = {}
+        match persistence_backend:
+            case PersistenceBackend.DB:
+                persistence = DbPersistence
+                if self.workflow_settings.persistence_backend_db_url:
+                    persistence_kwargs["db_url"] = (
+                        self.workflow_settings.persistence_backend_db_url
+                    )
+            case PersistenceBackend.FILE:
+                persistence = FilePersistence
+            case _:
+                raise WorkflowError(
+                    f"Unknown persistence backend: {persistence_backend}"
+                )
+
+        self._persistence = persistence(
             nolock=nolock,
             dag=self._dag,
             conda_prefix=self.deployment_settings.conda_prefix,
@@ -916,6 +911,7 @@ class Workflow(WorkflowExecutorInterface):
             shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
             path=persistence_path,
+            **persistence_kwargs,
         )
 
     def generate_unit_tests(self, path: Path):
@@ -970,7 +966,6 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=True,
             lock_warn_only=False,
         )
-        self._build_dag()
         try:
             self.persistence.cleanup_locks()
             logger.info("Unlocked working directory.")
@@ -1075,7 +1070,7 @@ class Workflow(WorkflowExecutorInterface):
 
         self.dag.d3dag()
 
-    def containerize(self):
+    def containerize(self, fmt="dockerfile"):
         from snakemake.deployment.containerize import containerize
 
         assert self.dag_settings is not None
@@ -1086,7 +1081,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
         with self.persistence.lock():
-            containerize(self, self.dag)
+            containerize(self, self.dag, fmt=fmt)
 
     def export_cwl(self, path: Path):
         """Export the workflow as CWL document.
@@ -1687,15 +1682,21 @@ class Workflow(WorkflowExecutorInterface):
 
     def onstart(self, func):
         """Register onstart function."""
-        self._onstart = func
+        if self.modifier.is_main_snakefile():
+            self._onstart = func
+        self.globals["onstart"] = partial(func, log=self.logger_manager.get_logfile())
 
     def onsuccess(self, func):
         """Register onsuccess function."""
-        self._onsuccess = func
+        if self.modifier.is_main_snakefile():
+            self._onsuccess = func
+        self.globals["onsuccess"] = partial(func, log=self.logger_manager.get_logfile())
 
     def onerror(self, func):
         """Register onerror function."""
-        self._onerror = func
+        if self.modifier.is_main_snakefile():
+            self._onerror = func
+        self.globals["onerror"] = partial(func, log=self.logger_manager.get_logfile())
 
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""
@@ -1856,6 +1857,8 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.pathvars:
                 rule.pathvars = Pathvars.from_rule(ruleinfo.pathvars)
                 rule.pathvars.update(self.pathvars)
+            else:
+                rule.pathvars = self.pathvars
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
@@ -1895,43 +1898,46 @@ class Workflow(WorkflowExecutorInterface):
             # If requested, modify ruleinfo via the modifier.
             rule.module_globals = self.modifier.globals
 
-            def get_resource_value(value):
-                if isinstance(value, ParsedResource):
-                    return value.value
-                else:
-                    return value
-
-            # handle default resources
-            if self.resource_settings.default_resources is not None:
-                rule.resources = copy.deepcopy(
-                    self.resource_settings.default_resources.parsed
-                )
-            else:
-                rule.resources = dict()
+            # initialize rule with default resources
+            rule.resources = self.resource_settings._parsed_default_resources.copy()
             # Always require one node
             rule.resources["_nodes"] = 1
 
-            if ruleinfo.threads is not None:
-                if (
-                    not isinstance(ruleinfo.threads, int)
-                    and not isinstance(ruleinfo.threads, float)
-                    and not callable(ruleinfo.threads)
-                ):
-                    raise RuleException(
-                        "Threads value has to be an integer, float, or a callable.",
-                        rule=rule,
-                    )
-                if name not in self.resource_settings.overwrite_threads:
-                    if isinstance(ruleinfo.threads, float):
-                        ruleinfo.threads = int(ruleinfo.threads)
+            overwrite_threads = self.resource_settings._parsed_overwrite_threads.get(
+                name
+            )
+            try:
+                if overwrite_threads is not None:
+                    rule.resources["_cores"] = overwrite_threads
+                elif ruleinfo.threads is not None:
                     rule.resources["_cores"] = ruleinfo.threads
-            else:
-                rule.resources["_cores"] = 1
-
-            if name in self.resource_settings.overwrite_threads:
-                rule.resources["_cores"] = get_resource_value(
-                    self.resource_settings.overwrite_threads[name]
+                else:
+                    rule.resources["_cores"] = 1
+            except ResourceValidationError:
+                raise RuleException(
+                    "Threads value has to be an integer, float, or a callable.",
+                    rule=rule,
                 )
+
+            if ruleinfo.resources:
+                args, resources = ruleinfo.resources
+                if args:
+                    raise RuleException("Resources have to be named.")
+                try:
+                    resources = Resources.from_mapping(resources)
+                except ResourceDuplicationError as err:
+                    raise RuleException(err, rule=rule) from err
+                except ResourceConversionError as err:
+                    msg = "Standard resource specified with invalid type, got error:\n"
+                    raise RuleException(msg + str(err), rule=rule) from err
+                except ResourceValidationError as err:
+                    raise RuleException(err, rule=rule) from err
+
+                rule.resources.update(resources)
+
+            rule.resources.update(
+                self.resource_settings._parsed_overwrite_resources.get(name, {})
+            )
 
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (
@@ -1956,37 +1962,15 @@ class Workflow(WorkflowExecutorInterface):
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth
 
-            if ruleinfo.resources:
-                args, resources = ruleinfo.resources
-                if args:
-                    raise RuleException("Resources have to be named.")
-                if not all(
-                    map(
-                        lambda r: isinstance(r, int)
-                        or isinstance(r, str)
-                        or callable(r),
-                        resources.values(),
-                    )
-                ):
-                    raise RuleException(
-                        "Resources values have to be integers, strings, or callables (functions)",
-                        rule=rule,
-                    )
-                rule.resources.update(resources)
-            if name in self.resource_settings.overwrite_resources:
-                rule.resources.update(
-                    (resource, get_resource_value(value))
-                    for resource, value in self.resource_settings.overwrite_resources[
-                        name
-                    ].items()
-                )
-
             if ruleinfo.priority:
-                if not isinstance(ruleinfo.priority, int) and not isinstance(
-                    ruleinfo.priority, float
+                if (
+                    not isinstance(ruleinfo.priority, int)
+                    and not isinstance(ruleinfo.priority, float)
+                    and not callable(ruleinfo.priority)
                 ):
                     raise RuleException(
-                        "Priority values have to be numeric.", rule=rule
+                        "Priority value has to be an integer, float, or a callable.",
+                        rule=rule,
                     )
                 rule.priority = ruleinfo.priority
 
@@ -2058,29 +2042,13 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.handover:
                 if not ruleinfo.resources:
                     # give all available resources to the rule
-                    rule.resources.update(
-                        {
-                            name: val
-                            for name, val in self.global_resources.items()
-                            if val is not None
-                        }
-                    )
+                    rule.resources.update(self.global_resources)
                 # This becomes a local rule, which might spawn jobs to a cluster,
                 # depending on its configuration (e.g. nextflow config).
                 self._localrules.add(name)
                 rule.is_handover = True
 
-            if ruleinfo.cache and not (
-                ruleinfo.cache is True
-                or ruleinfo.cache == "omit-software"
-                or ruleinfo.cache == "all"
-            ):
-                raise WorkflowError(
-                    "Invalid value for cache directive. Use 'all' or 'omit-software'.",
-                    rule=rule,
-                )
-
-            self.cache_rules[name] = "all" if ruleinfo.cache is True else ruleinfo.cache
+            rule.cache = RuleCache.from_rule(rule, ruleinfo.cache)
 
             if ruleinfo.default_target is True:
                 self.default_target = name
