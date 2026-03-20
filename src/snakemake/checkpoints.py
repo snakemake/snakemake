@@ -8,6 +8,7 @@ from snakemake.logging import logger
 if TYPE_CHECKING:
     from snakemake.rules import Rule
 
+
 class Checkpoints:
     """A singleton object in a workflow.
 
