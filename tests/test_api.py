@@ -20,7 +20,6 @@ def test_deploy_sources(s3_storage):
             show_failed_logs=True,
         ),
     ) as snakemake_api:
-        print(f"snakemake_api: {snakemake_api}", file=sys.stderr)
         workflow_api = snakemake_api.workflow(
             storage_settings=settings.StorageSettings(
                 default_storage_prefix=s3_prefix,
@@ -33,7 +32,6 @@ def test_deploy_sources(s3_storage):
             storage_provider_settings=s3_settings,
             snakefile=Path(dpath("test_deploy_sources/Snakefile")),
         )
-        print(f"workflow_api: {workflow_api}", file=sys.stderr)
         dag_api = workflow_api.dag()
 
         workflow = dag_api.workflow_api._workflow
@@ -53,7 +51,6 @@ def test_deploy_sources(s3_storage):
 
         origdir = os.getcwd()
         env = copy.copy(os.environ)
-        print(f"env: {env}", file=sys.stderr)
         env.update(workflow.spawned_job_args_factory.envvars())
         with tempfile.TemporaryDirectory() as tmpdir:
             os.chdir(tmpdir)
