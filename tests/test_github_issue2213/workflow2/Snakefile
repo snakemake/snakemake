@@ -1,0 +1,7 @@
+rule compress_vcf:
+    input:
+        "{prefix}.vcf",
+    output:
+        "{prefix}.vcf.gz",
+    wrapper:
+        "0.42.0/bio/vcf/compress"

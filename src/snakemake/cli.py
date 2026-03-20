@@ -1447,7 +1447,6 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--wrapper-prefix",
-        default="https://github.com/snakemake/snakemake-wrappers/raw/",
         help="URL prefix for wrapper directive. Set this to use your fork or a local clone of the repository, "
         "e.g., use a git URL like `git+file://path/to/your/local/clone@`.",
     )
@@ -1576,6 +1575,7 @@ def get_argument_parser(profiles=None):
         "--persistence-backend",
         choices=PersistenceBackend.choices(),
         default=PersistenceBackend.FILE,
+        parse_func=PersistenceBackend.parse_choice,
         help="The backend to use for Snakemake's metadata persistence. "
         "The 'file' backend uses a file system directory structure. "
         "The 'db' backend uses a relational database via SQLAlchemy.",
