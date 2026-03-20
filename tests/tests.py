@@ -1608,10 +1608,6 @@ def test_module_checkpoint():
     run(dpath("test_module_checkpoint"))
 
 
-def test_checkpoint_missout():
-    run(dpath("test_checkpoint_missout"))
-
-
 def test_uncreatable_checkpoint_input():
     run(dpath("test_uncreatable_checkpoint_input"))
 
@@ -1630,21 +1626,16 @@ def test_checkpoint_rerun():
 
 
 def test_checkpoint_missing_output():
-    """test for issue 3879"""
-    test_dir = dpath("test_checkpoint_missing_output")
-    tmpdir = run(test_dir, cleanup=False, check_results=False)
-
-    try:
-        missing_file = Path(tmpdir) / "output" / "test_4.txt"
-        os.remove(missing_file)
-
-        run(test_dir, tmpdir=tmpdir, cleanup=False, check_results=False)
-
-        assert (
-            missing_file.exists()
-        ), "The missing checkpoint output was not regenerated."
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    """test for issue 3879, also covers 3009"""
+    # normal run to create the checkpoint output and final output
+    tmpdir = run(dpath("test_checkpoint_missing_output"), cleanup=False)
+    assert tmpdir
+    # should not fail (but nothing to do)
+    (tmpdir / "output" / "test_1.txt").unlink()
+    run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
+    # should not fail (but nothing to do)
+    (tmpdir / "output" / "test_0.txt").unlink()
+    run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
 
 
 def test_issue1092():

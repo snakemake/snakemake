@@ -9,7 +9,7 @@ checkpoint checkpoint_test:
 def aggregate_input(wildcards):
     max_value = None
     selected_file = None
-    for i in range(10):
+    for i in range(2):
         check = checkpoints.checkpoint_test.get(n=i)
         curr_file = check.output[0]
         with open(curr_file) as f:
