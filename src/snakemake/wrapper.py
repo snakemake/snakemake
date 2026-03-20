@@ -25,7 +25,7 @@ def is_script(source_file):
     )
 
 
-def get_path(path: str, prefix: Optional[str] = None):
+def get_path(path: str, prefix: Optional[str] = None, basedir=None):
     if not is_url(path):
         if prefix is not None and prefix.startswith("git+file"):
             parts = path.split("/")
@@ -43,7 +43,7 @@ def get_path(path: str, prefix: Optional[str] = None):
                 path = "https://github.com/snakemake/snakemake-wrappers/raw/" + path
         else:
             path = prefix + path
-    return infer_source_file(path)
+    return infer_source_file(path, basedir)
 
 
 def is_url(path):
@@ -66,13 +66,13 @@ def find_extension(source_file, sourcecache: SourceCache):
             return script
 
 
-def get_script(path, sourcecache: SourceCache, prefix=None):
-    path = get_path(path, prefix=prefix)
+def get_script(path, sourcecache: SourceCache, prefix=None, basedir=None):
+    path = get_path(path, prefix=prefix, basedir=basedir)
     return find_extension(path, sourcecache)
 
 
-def get_conda_env(path, prefix=None):
-    path = get_path(path, prefix=prefix)
+def get_conda_env(path, prefix=None, basedir=None):
+    path = get_path(path, prefix=prefix, basedir=basedir)
     if is_script(path):
         # URLs and posixpaths share the same separator. Hence use posixpath here.
         path = path.get_basedir()
@@ -81,6 +81,7 @@ def get_conda_env(path, prefix=None):
 
 def wrapper(
     path,
+    basedir,
     input,
     output,
     params,
@@ -114,6 +115,7 @@ def wrapper(
         path,
         SourceCache(sourcecache_path, runtime_cache_path=runtime_sourcecache_path),
         prefix=prefix,
+        basedir=basedir,
     )
     if script_source is None:
         raise WorkflowError(
