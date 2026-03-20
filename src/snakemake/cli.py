@@ -1851,6 +1851,7 @@ def parse_args(argv):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
+    print(f"args.snakefile: {args.snakefile}", file=sys.stderr)
     snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
     workflow_profile = None
     print(f"args.workflow_profile: {args.workflow_profile}", file=sys.stderr)
@@ -1859,6 +1860,7 @@ def parse_args(argv):
             workflow_profile = Path(args.workflow_profile)
         else:
             workflow_profile = Path("default")
+        print(f"snakefile: {snakefile}", file=sys.stderr)
         if snakefile is not None and not workflow_profile.is_file():
             # checking for default profile locations
             default_workflow_profile_path = Path("profiles") / workflow_profile
