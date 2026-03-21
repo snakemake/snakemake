@@ -13,12 +13,6 @@ rule all:
         derive_from_bob_output
 
 
-rule intermediate:
-    input:
-        "alice.txt",
-        "bob.txt",
-
-
 rule needs_alice:
     input:
         derive_from_alice_output

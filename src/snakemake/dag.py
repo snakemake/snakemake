@@ -127,9 +127,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     ):
         self._deferred_temp_jobs = []
         self._queue_input_jobs = None
+        # given DAG: Prior.output == Posterior.input
+        # dependencies[Posterior] => Set[Prior]
         self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
             partial(defaultdict, set)
         )
+        # depending[Prior] => Set[Posterior]
         self.depending: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
             partial(defaultdict, set)
         )
@@ -1997,7 +2000,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     def handle_pipes_and_services(self):
         """Use pipes and services to determine job groups. Check if every pipe has exactly
-        one consumer"""
+        one affected_job"""
 
         visited = set()
         for job in self.needrun_jobs():
@@ -2045,7 +2048,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     elif not is_nodelocal and len(depending) == 0:
                         raise WorkflowError(
                             "Output file {} is marked as pipe or service "
-                            "but it has no consumer. This is "
+                            "but it has no affected_job. This is "
                             "invalid because it can lead to "
                             "a dead lock.".format(f),
                             rule=job.rule,
@@ -2177,88 +2180,90 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         """Re-evaluates input functions of jobs that depend on completed checkpoints,
         expanding the DAG until no new checkpoint dependencies are discovered.
 
-        Args: Finished jobs to process. If None, scans all jobs in the DAG.
-        Returns True if the DAG was updated, False otherwise.
+        Args: Finished jobs to process. None = scans all jobs in the DAG.
+        Returns bool(DAG was updated)
         """
+        checkpoints_created_output = self.workflow.checkpoints.created_output
 
-        async def is_output_present(job):
-            return (self.finished(job) or not self.needrun(job)) and all(
-                await asyncio.gather(*(out.exists() for out in job.output))
-            )
+        async def is_output_new_present(job: Job) -> bool:
+            """True if job has checkpoint outputs not yet registered
+            and all exist on disk.
+            skips already-registered ones at negligible cost
+            """
+            if not (self.finished(job) or not self.needrun(job)):
+                return False
+            unregistered = set(job.output) - checkpoints_created_output
+            if not unregistered:
+                return False
+            return all(await asyncio.gather(*(f.exists() for f in unregistered)))
 
         async def get_completed_checkpoint_jobs(
-            jobs: Iterable[Job], skip_output_check=False
+            jobs: Iterable[Job],
+            skip_output_check=False
         ):
+            checkpoint_jobs = [job for job in jobs if job.is_checkpoint]
             if skip_output_check:
-                return [job for job in jobs if job.is_checkpoint]
-            return [
-                job
-                for job in jobs
-                if job.is_checkpoint and await is_output_present(job)
-            ]
+                return checkpoint_jobs
+            results = await asyncio.gather(
+                *(is_output_new_present(job) for job in checkpoint_jobs)
+            )
+            return [job for job, done in zip(checkpoint_jobs, results) if done]
 
-        def get_checkpoint_consumers(completed_checkpoint_jobs: Iterable[Job]):
-            """Return jobs directly depend on `completed_checkpoint_jobs`"""
+        def get_checkpoint_affected_jobs(
+            completed_checkpoint_jobs: Iterable[Job]
+        ):
+            """Return jobs directly depend on any `completed_checkpoint_jobs`"""
             return {
-                consumer
+                affected_job
                 for checkpoint_job in completed_checkpoint_jobs
-                for consumer in self.depending[checkpoint_job]
+                for affected_job in self.depending[checkpoint_job]
             }
 
-        def flag_checkpoints_as_completed(completed_checkpoint_jobs):
+        def flag_checkpoints_as_completed(
+            completed_checkpoint_jobs
+        ):
             for checkpoint_job in completed_checkpoint_jobs:
-                self.workflow.checkpoints.created_output.update(checkpoint_job.output)
+                checkpoints_created_output.update(checkpoint_job.output)
 
-        def has_new_checkpoint_target_inputs(consumer: Job, updated_consumer: Job):
-            """True if `updated_consumer` gained new checkpoint_target inputs."""
-            prior = {f for f in consumer.input if is_flagged(f, "checkpoint_target")}
-            posterior = {
-                f for f in updated_consumer.input if is_flagged(f, "checkpoint_target")
-            }
+        def has_new_checkpoint_target_inputs(job: Job, updated: Job) -> bool:
+            """bool(`updated_affected_job` gained new `checkpoint_target` inputs)"""
+            prior = {f for f in job.input if is_flagged(f, "checkpoint_target")}
+            posterior = {f for f in updated.input if is_flagged(f, "checkpoint_target")}
             return bool(posterior - prior)
 
         # If jobs is not None, they are finished jobs whose output is guaranteed present.
         completed_checkpoint_jobs = await get_completed_checkpoint_jobs(
-            jobs or self.jobs, skip_output_check=(jobs is not None)
+            jobs or self.jobs,
+            skip_output_check=(jobs is not None)
         )
         flag_checkpoints_as_completed(completed_checkpoint_jobs)
-        self.workflow.checkpoints.created_output.update(
-            self._evicted_checkpoint_outputs
-        )
-        consumers = get_checkpoint_consumers(completed_checkpoint_jobs)
-        if not consumers:
+        checkpoints_created_output.update(self._evicted_checkpoint_outputs)
+        affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
+        if not affected_jobs:
             return False
-        seen_jobs = set(self.jobs)
 
         logger.info("Updating checkpoint dependencies.")
-        for i in range(1, 100 + 1):
+        for i in range(1, 101):
             logger.debug(f"Checkpoint dependency update round {i}")
 
-            maybe_has_incomplete_consumers = False
-            # consumer: Job with one or more checkpoint input completed
-            for consumer in consumers:
-                updated_consumer = await consumer.updated()
-                if has_new_checkpoint_target_inputs(consumer, updated_consumer):
-                    maybe_has_incomplete_consumers = True
-                await self.replace_job(consumer, updated_consumer, recursive=False)
+            no_new_deps = True
+            for affected_job in affected_jobs:
+                updated_job = await affected_job.updated()
+                if no_new_deps and has_new_checkpoint_target_inputs(affected_job, updated_job):
+                    no_new_deps = False
+                await self.replace_job(affected_job, updated_job, recursive=False)
 
             await self.update_needrun()
-
-            # replace_job may expand the DAG; only examine newly added jobs
-            new_jobs = set(self.jobs)
-            completed_checkpoint_jobs = await get_completed_checkpoint_jobs(
-                new_jobs - seen_jobs
-            )
+            # replace_job may expand the DAG, rescan all checkpoints
+            completed_checkpoint_jobs = await get_completed_checkpoint_jobs(self.jobs)
             flag_checkpoints_as_completed(completed_checkpoint_jobs)
+            affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
 
-            if not maybe_has_incomplete_consumers and not completed_checkpoint_jobs:
+            if no_new_deps and not affected_jobs:
                 self.set_until_jobs()
                 self.delete_omitfrom_jobs()
                 await self.postprocess_after_update()
                 return True
-
-            consumers = get_checkpoint_consumers(completed_checkpoint_jobs)
-            seen_jobs = new_jobs
 
         raise WorkflowError(
             f"Checkpoint dependency update did not converge after {i-1} rounds. "
