@@ -3110,6 +3110,10 @@ def test_checkpoint_omit_from():
     )
 
 
+def test_checkpoints_2nd():
+    run(dpath("test_checkpoints_2nd"))
+
+
 def test_wildcard_annotatedstrings():
     path = dpath("test_wildcard_annotatedstrings")
     with prepare_tmpdir(path, path.name) as tmpdir:
