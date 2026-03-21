@@ -2183,7 +2183,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         Args: Finished jobs to process. None = scans all jobs in the DAG.
         Returns bool(DAG was updated)
         """
-        checkpoints_created_output = self.workflow.checkpoints.created_output
+        checkpoints_created = self.workflow.checkpoints.created_output
 
         async def is_output_new_present(job: Job) -> bool:
             """True if job has checkpoint outputs not yet registered
@@ -2192,7 +2192,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             """
             if not (self.finished(job) or not self.needrun(job)):
                 return False
-            unregistered = set(job.output) - checkpoints_created_output
+            unregistered = set(job.output) - checkpoints_created
             if not unregistered:
                 return False
             return all(await asyncio.gather(*(f.exists() for f in unregistered)))
@@ -2216,9 +2216,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 for affected_job in self.depending[checkpoint_job]
             }
 
-        def flag_checkpoints_as_completed(completed_checkpoint_jobs):
+        def update_checkpoints_created(completed_checkpoint_jobs):
             for checkpoint_job in completed_checkpoint_jobs:
-                checkpoints_created_output.update(checkpoint_job.output)
+                checkpoints_created.update(checkpoint_job.output)
 
         def checkpoint_target_inputs_updated(job: Job, updated: Job) -> bool:
             """bool(`updated_affected_job` gained new `checkpoint_target` inputs)"""
@@ -2230,8 +2230,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         completed_checkpoint_jobs = await get_completed_checkpoint_jobs(
             jobs or self.jobs, skip_output_check=(jobs is not None)
         )
-        flag_checkpoints_as_completed(completed_checkpoint_jobs)
-        checkpoints_created_output.update(self._evicted_checkpoint_outputs)
+        update_checkpoints_created(completed_checkpoint_jobs)
+        # Evicted checkpoint jobs are removed from the DAG because their inputs are missing,
+        # but their existing outputs must still be visible to `Checkpoint.*.get(`.
+        # We fold them once here: subsequent `.update_needrun(` calls may add new entries to evicted,
+        # but those belong to jobs evicted in this round and are unrelated to the current DAG traversal.
+        # Swap rather than clear so that outputs added concurrently are not lost.
+        evicted, self._evicted_checkpoint_outputs = self._evicted_checkpoint_outputs, set()
+        checkpoints_created.update(evicted)
         affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
         if not affected_jobs:
             return False
@@ -2252,7 +2258,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             await self.update_needrun()
             # replace_job may expand the DAG, rescan all checkpoints
             completed_checkpoint_jobs = await get_completed_checkpoint_jobs(self.jobs)
-            flag_checkpoints_as_completed(completed_checkpoint_jobs)
+            update_checkpoints_created(completed_checkpoint_jobs)
             affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
 
             if no_new_deps and not affected_jobs:
