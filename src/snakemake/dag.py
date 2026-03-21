@@ -1991,7 +1991,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     if other_job.jobid == job.jobid:
                         continue
 
-                    if not self.workflow.execution_settings.ignore_ambiguity:
+                    if not self.workflow.execution_settings.ignore_ambiguity:  # type: ignore[reportOptionalMemberAccess]
                         raise AmbiguousRuleException(output_file, other_job, job)
                 else:
                     self._seen_outputs[output_file] = job
@@ -1999,8 +1999,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             self._checked_jobs.add(job)
 
     def handle_pipes_and_services(self):
-        """Use pipes and services to determine job groups. Check if every pipe has exactly
-        one affected_job"""
+        """Use pipes and services to determine job groups. Check if every pipe has exactly one consumer"""
 
         visited = set()
         for job in self.needrun_jobs():
@@ -2038,19 +2037,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     ]
                     if is_pipe and len(depending) > 1:
                         raise WorkflowError(
-                            "Output file {} is marked as pipe "
+                            f"Output file {f} is marked as pipe "
                             "but more than one job depends on "
                             "it. Make sure that any pipe "
                             "output is only consumed by one "
-                            "job".format(f),
+                            "job",
                             rule=job.rule,
                         )
                     elif not is_nodelocal and len(depending) == 0:
                         raise WorkflowError(
-                            "Output file {} is marked as pipe or service "
-                            "but it has no affected_job. This is "
+                            f"Output file {f} is marked as pipe or service "
+                            "but it has no consumer. This is "
                             "invalid because it can lead to "
-                            "a dead lock.".format(f),
+                            "a dead lock.",
                             rule=job.rule,
                         )
                     elif is_pipe and depending[0].is_norun:
@@ -2104,7 +2103,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     group = CandidateGroup()  # str(uuid.uuid4())
 
                 # Assign the pipe group to all involved jobs.
-                job.pipe_group = group
+                job.pipe_group = group  # type: ignore[reportAttributeAccessIssue]
                 visited.add(job)
                 for j in all_depending:
                     j.pipe_group = group
