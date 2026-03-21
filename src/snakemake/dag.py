@@ -2236,7 +2236,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         # We fold them once here: subsequent `.update_needrun(` calls may add new entries to evicted,
         # but those belong to jobs evicted in this round and are unrelated to the current DAG traversal.
         # Swap rather than clear so that outputs added concurrently are not lost.
-        evicted, self._evicted_checkpoint_outputs = self._evicted_checkpoint_outputs, set()
+        evicted, self._evicted_checkpoint_outputs = (
+            self._evicted_checkpoint_outputs,
+            set(),
+        )
         checkpoints_created.update(evicted)
         affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
         if not affected_jobs:
