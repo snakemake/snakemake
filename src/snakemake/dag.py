@@ -2219,6 +2219,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         def update_checkpoints_created(completed_checkpoint_jobs):
             for checkpoint_job in completed_checkpoint_jobs:
                 checkpoints_created.update(checkpoint_job.output)
+            # Evicted checkpoint jobs are removed from the DAG because their inputs are missing and cannot be rerun,
+            # but their existing outputs must still be visible to `Checkpoint.*.get(`
+            # in input functions called during `self.replace_job(`.
+            # Swap rather than clear so that outputs appended concurrently are not lost.
+            evicted, self._evicted_checkpoint_outputs = (
+                self._evicted_checkpoint_outputs,
+                set(),
+            )
+            checkpoints_created.update(evicted)
 
         def checkpoint_target_inputs_updated(job: Job, updated: Job) -> bool:
             """bool(`updated_affected_job` gained new `checkpoint_target` inputs)"""
@@ -2231,16 +2240,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             jobs or self.jobs, skip_output_check=(jobs is not None)
         )
         update_checkpoints_created(completed_checkpoint_jobs)
-        # Evicted checkpoint jobs are removed from the DAG because their inputs are missing,
-        # but their existing outputs must still be visible to `Checkpoint.*.get(`.
-        # We fold them once here: subsequent `.update_needrun(` calls may add new entries to evicted,
-        # but those belong to jobs evicted in this round and are unrelated to the current DAG traversal.
-        # Swap rather than clear so that outputs added concurrently are not lost.
-        evicted, self._evicted_checkpoint_outputs = (
-            self._evicted_checkpoint_outputs,
-            set(),
-        )
-        checkpoints_created.update(evicted)
         affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
         if not affected_jobs:
             return False
