@@ -2198,8 +2198,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             return all(await asyncio.gather(*(f.exists() for f in unregistered)))
 
         async def get_completed_checkpoint_jobs(
-            jobs: Iterable[Job],
-            skip_output_check=False
+            jobs: Iterable[Job], skip_output_check=False
         ):
             checkpoint_jobs = [job for job in jobs if job.is_checkpoint]
             if skip_output_check:
@@ -2209,9 +2208,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             )
             return [job for job, done in zip(checkpoint_jobs, results) if done]
 
-        def get_checkpoint_affected_jobs(
-            completed_checkpoint_jobs: Iterable[Job]
-        ):
+        def get_checkpoint_affected_jobs(completed_checkpoint_jobs: Iterable[Job]):
             """Return jobs directly depend on any `completed_checkpoint_jobs`"""
             return {
                 affected_job
@@ -2219,13 +2216,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 for affected_job in self.depending[checkpoint_job]
             }
 
-        def flag_checkpoints_as_completed(
-            completed_checkpoint_jobs
-        ):
+        def flag_checkpoints_as_completed(completed_checkpoint_jobs):
             for checkpoint_job in completed_checkpoint_jobs:
                 checkpoints_created_output.update(checkpoint_job.output)
 
-        def has_new_checkpoint_target_inputs(job: Job, updated: Job) -> bool:
+        def checkpoint_target_inputs_updated(job: Job, updated: Job) -> bool:
             """bool(`updated_affected_job` gained new `checkpoint_target` inputs)"""
             prior = {f for f in job.input if is_flagged(f, "checkpoint_target")}
             posterior = {f for f in updated.input if is_flagged(f, "checkpoint_target")}
@@ -2233,8 +2228,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         # If jobs is not None, they are finished jobs whose output is guaranteed present.
         completed_checkpoint_jobs = await get_completed_checkpoint_jobs(
-            jobs or self.jobs,
-            skip_output_check=(jobs is not None)
+            jobs or self.jobs, skip_output_check=(jobs is not None)
         )
         flag_checkpoints_as_completed(completed_checkpoint_jobs)
         checkpoints_created_output.update(self._evicted_checkpoint_outputs)
@@ -2249,7 +2243,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             no_new_deps = True
             for affected_job in affected_jobs:
                 updated_job = await affected_job.updated()
-                if no_new_deps and has_new_checkpoint_target_inputs(affected_job, updated_job):
+                if no_new_deps and checkpoint_target_inputs_updated(
+                    affected_job, updated_job
+                ):
                     no_new_deps = False
                 await self.replace_job(affected_job, updated_job, recursive=False)
 

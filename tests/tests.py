@@ -3111,7 +3111,7 @@ def test_checkpoint_omit_from():
 
 
 def test_checkpoints_2nd():
-    run(dpath("test_checkpoints_2nd"), check_results=False)
+    run(dpath("test_checkpoints_2nd"))
 
 
 def test_wildcard_annotatedstrings():
