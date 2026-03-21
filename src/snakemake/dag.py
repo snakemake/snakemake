@@ -2227,6 +2227,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 set(),
             )
             checkpoints_created.update(evicted)
+            return evicted
 
         def checkpoint_target_inputs_updated(job: Job, updated: Job) -> bool:
             """bool(`updated_affected_job` gained new `checkpoint_target` inputs)"""
@@ -2259,8 +2260,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             await self.update_needrun()
             # replace_job may expand the DAG, rescan all checkpoints
             completed_checkpoint_jobs = await get_completed_checkpoint_jobs(self.jobs)
-            update_checkpoints_created(completed_checkpoint_jobs)
+            evicted = update_checkpoints_created(completed_checkpoint_jobs)
             affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
+            if evicted:
+                affected_jobs.update(
+                    job
+                    for job in self.jobs
+                    if any(
+                        is_flagged(f, "checkpoint_target")
+                        for f in evicted.intersection(job.input)
+                    )
+                )
 
             if no_new_deps and not affected_jobs:
                 self.set_until_jobs()
