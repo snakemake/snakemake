@@ -2262,7 +2262,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 return True
 
         raise WorkflowError(
-            f"Checkpoint dependency update did not converge after {i-1} rounds. "
+            f"Checkpoint dependency update did not converge after {i} rounds. "
             "This may indicate a cycle in checkpoint dependencies."
         )
 
