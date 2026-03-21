@@ -1,0 +1,47 @@
+def derive_from_bob_output(wildcards):
+    with checkpoints.bob.get().output[0].open() as f:
+        return f.read().strip()
+
+
+def derive_from_alice_output(wildcards):
+    with checkpoints.alice.get().output[0].open() as f:
+        return f.read().strip()
+
+
+rule all:
+    input:
+        derive_from_bob_output
+
+
+rule intermediate:
+    input:
+        "alice.txt",
+        "bob.txt",
+
+
+rule needs_alice:
+    input:
+        derive_from_alice_output
+    output:
+        touch("second.txt")
+    shell:
+        "test {input} = 'first.txt' || exit 1"
+
+
+rule first:
+    output:
+        touch("first.txt")
+
+
+checkpoint alice:
+    output:
+        "alice.txt"
+    shell:
+        "echo first.txt > {output}"
+
+
+checkpoint bob:
+    output:
+        "bob.txt"
+    shell:
+        "echo second.txt > {output}"

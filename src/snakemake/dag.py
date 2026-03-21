@@ -111,7 +111,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self,
         workflow,
         rules: Iterable[Rule],
-        targetfiles: Set[str] = None,
+        targetfiles: Optional[Set[str]] = None,
         targetrules=None,
         forceall=False,
         forcerules=None,
@@ -130,7 +130,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
             partial(defaultdict, set)
         )
-        self.depending = defaultdict(partial(defaultdict, set))
+        self.depending: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
+            partial(defaultdict, set)
+        )
         self._needrun = set()
         self._checkpoint_jobs = set()
         self._priority = dict()
@@ -144,7 +146,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self.targetfiles = targetfiles
         self.targetrules = targetrules
         self.target_jobs_rules = {
-            spec.rulename for spec in self.workflow.dag_settings.target_jobs
+            spec.rulename for spec in self.workflow.dag_settings.target_jobs  # type: ignore[reportOptionalMemberAccess]
         }
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
@@ -162,7 +164,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._running = set()
         self._jobs_with_finished_queue_input = set()
         self._storage_input_jobs = defaultdict(list)
-        self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
+        self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size  # type: ignore[reportOptionalMemberAccess]
         self._checked_jobs = set()
         self._checked_needrun_jobs = set()
         self._seen_outputs: Dict[str, Union[Job, GroupJob]] = dict()
@@ -2179,7 +2181,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 await asyncio.gather(*(out.exists() for out in job.output))
             )
 
-        async def compute_completed_checkpoint_jobs(
+        async def get_completed_checkpoint_jobs(
             jobs: Iterable[Job], skip_output_check=False
         ):
             if skip_output_check:
@@ -2190,16 +2192,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 if job.is_checkpoint and await is_output_present(job)
             ]
 
-        def compute_checkpoint_consumers(completed_checkpoint_jobs: Iterable[Job]):
-            """Return a dict:
-            key=Job depends on `completed_checkpoint_jobs`,
-            value=Set of `completed_checkpoint_jobs` it directly depends on
-            """
-            checkpoint_consumers: Dict[Job, Set[Job]] = defaultdict(set)
-            for checkpoint_job in completed_checkpoint_jobs:
-                for consumer in self.depending[checkpoint_job]:
-                    checkpoint_consumers[consumer].add(checkpoint_job)
-            return checkpoint_consumers
+        def get_checkpoint_consumers(completed_checkpoint_jobs: Iterable[Job]):
+            """Return Job depends on `completed_checkpoint_jobs`"""
+            return {
+                consumer
+                for checkpoint_job in completed_checkpoint_jobs
+                for consumer in self.depending[checkpoint_job]
+            }
 
         def flag_checkpoints_as_completed(completed_checkpoint_jobs):
             for checkpoint_job in completed_checkpoint_jobs:
@@ -2214,24 +2213,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         # If jobs is not None, those are the finished jobs passed to this method.
         # For those, the output is already present and thus does not need to be checked.
-        completed_checkpoint_jobs = await compute_completed_checkpoint_jobs(
+        completed_checkpoint_jobs = await get_completed_checkpoint_jobs(
             jobs or self.jobs, jobs is not None
         )
         flag_checkpoints_as_completed(completed_checkpoint_jobs)
         self.workflow.checkpoints.created_output.update(
             self._evicted_checkpoint_outputs
         )
-        consumers_prior = compute_checkpoint_consumers(completed_checkpoint_jobs)
+        consumers_prior = get_checkpoint_consumers(completed_checkpoint_jobs)
         if len(consumers_prior) == 0:
             return False
+        jobs_prior = set(self.jobs)
 
         logger.info("Updating checkpoint dependencies.")
-
         for i in range(1, 100 + 1):
             logger.debug(f"Checkpoint dependency update round {i}")
 
+            maybe_has_incomplete_consumers = False
             # consumer := jobs with one or more checpoint input completed
-            updated_consumers: Set[Job] = set()
             for consumer in consumers_prior:
                 # we need these to see if they change
                 target_inputs_prior = get_checkpoint_target_inputs(consumer)
@@ -2240,29 +2239,25 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 await self.replace_job(consumer, updated_consumer, recursive=False)
                 if target_inputs_posterior - target_inputs_prior:
                     # new checkpoint input dependance occurs
-                    updated_consumers.add(updated_consumer)
+                    maybe_has_incomplete_consumers = True
 
             await self.update_needrun()
-            upstream_jobs = {
-                dep
-                for consumer in updated_consumers
-                for dep in self.dependencies[consumer]
-            }
-            completed_checkpoint_jobs = await compute_completed_checkpoint_jobs(
-                upstream_jobs
+            jobs_posterior = set(self.jobs)
+            # jobs may updated by replace_job, only check increased set
+            completed_checkpoint_jobs = await get_completed_checkpoint_jobs(
+                jobs_posterior - jobs_prior
             )
             flag_checkpoints_as_completed(completed_checkpoint_jobs)
-            consumers_posterior = compute_checkpoint_consumers(
-                completed_checkpoint_jobs
-            )
+            consumers_posterior = get_checkpoint_consumers(completed_checkpoint_jobs)
 
-            if not updated_consumers:
+            if not maybe_has_incomplete_consumers and not completed_checkpoint_jobs:
                 self.set_until_jobs()
                 self.delete_omitfrom_jobs()
                 await self.postprocess_after_update()
                 return True
 
             consumers_prior = consumers_posterior
+            jobs_prior = jobs_posterior
 
         raise WorkflowError(f"Checkpoint update did not converge after {i - 1} rounds")
 
