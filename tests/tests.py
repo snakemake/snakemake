@@ -7,6 +7,7 @@ import os
 import shutil
 import sys
 import subprocess as sp
+import re
 from pathlib import Path
 import tempfile
 from unittest.mock import AsyncMock, patch
@@ -14,10 +15,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from snakemake.exceptions import ResourceConversionError
 from snakemake.exceptions import ResourceDuplicationError
-from snakemake.persistence import Persistence
+from snakemake.persistence.db import DbPersistence
+from snakemake.persistence.file import FilePersistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
-from snakemake.settings.enums import RerunTrigger
-from snakemake.utils import min_version  # import so we can patch out if needed
+from snakemake.settings.enums import RerunTrigger, PersistenceBackend
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
@@ -25,7 +26,7 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected
+from .common import run, dpath, apptainer, connected, prepare_tmpdir
 from .conftest import (
     skip_on_windows,
     only_on_windows,
@@ -68,6 +69,28 @@ def test_github_issue_14():
 
 def test_issue956():
     run(dpath("test_issue956"))
+
+
+def test_unlock_cli():
+    # run the workflow once to create the .snakemake/locks folder
+    tmpdir = run(dpath("test_unlock"), cleanup=False)
+    locks = os.path.join(tmpdir, ".snakemake", "locks")
+    # the lock directory may be cleaned up automatically by Snakemake,
+    # so ensure there's at least one file inside to simulate a stale lock.
+    os.makedirs(locks, exist_ok=True)
+    lockfile = os.path.join(locks, "dummy.lock")
+    open(lockfile, "w").close()
+    assert os.listdir(locks), "expected at least one lock file"
+
+    # run the CLI unlock command and verify it succeeds
+    sp.run(
+        [sys.executable, "-m", "snakemake", "--unlock"],
+        cwd=tmpdir,
+        check=True,
+    )
+    # after unlocking the locks directory should be removed or empty
+    assert not os.path.exists(locks) or not os.listdir(locks)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows
@@ -319,11 +342,95 @@ def test_params():
     run(dpath("test_params"))
 
 
-def test_params_outdated_metadata(mocker):
-    spy = mocker.spy(Persistence, "has_outdated_metadata")
+@pytest.mark.parametrize(
+    "backend, PersistenceClass",
+    [
+        (PersistenceBackend.FILE, FilePersistence),
+        (PersistenceBackend.DB, DbPersistence),
+    ],
+)
+def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
+    spy = mocker.spy(PersistenceClass, "has_outdated_metadata")
 
-    run(dpath("test_params_outdated_code"), targets=["somedir/test.out"])
+    workdir = tmp_path / "workdir"
+    shutil.copytree(dpath("test_params_outdated_code"), workdir)
+    snakemake_dir = workdir / ".snakemake"
+
+    db_url = None
+    if backend == PersistenceBackend.DB:
+        from sqlmodel import Session, SQLModel, create_engine
+        from snakemake.persistence.db import MetadataRecordORM
+        import json
+
+        # since we do not have a db in the test dir,
+        # we create one from the single _outdated_ .snakemake/metadata/c29tZWRpci90ZXN0Lm91dA== file,
+        # which is the metadata for the test.out file
+        db_file = tmp_path / "metadata.db"
+        db_url = f"sqlite:///{db_file}"
+        engine = create_engine(db_url)
+        SQLModel.metadata.create_all(engine)
+
+        json_file = snakemake_dir / "metadata" / "c29tZWRpci90ZXN0Lm91dA=="
+        with open(json_file, "r") as f:
+            rec = json.load(f)
+
+        with Session(engine) as session:
+            session.add(
+                MetadataRecordORM(
+                    namespace=str(snakemake_dir.absolute()),
+                    target="somedir/test.out",
+                    **rec,
+                )
+            )
+            session.commit()
+
+    run(
+        path=workdir,
+        targets=["somedir/test.out"],
+        persistence_backend=backend,
+        persistence_backend_db_url=db_url,
+        no_tmpdir=True,
+    )
+
+    assert spy.call_count > 0, f"has_outdated_metadata was not called for {backend}!"
     assert spy.spy_return == True
+
+
+def test_persistence_backend_db_run_directive_concurrency(tmp_path):
+    workdir = tmp_path / "workdir"
+    shutil.copytree(
+        dpath("test_persistence_backend_db_run_directive_concurrency"), workdir
+    )
+
+    # generate expected output dynamically
+    expected_out_dir = workdir / "expected-results" / "out"
+    expected_out_dir.mkdir(parents=True)
+    for i in range(100):
+        (expected_out_dir / f"{i}.txt").write_text("done")
+
+    db_file = tmp_path / "metadata.db"
+    db_url = f"sqlite:///{db_file}"
+
+    run(
+        path=workdir,
+        tmpdir=workdir,
+        cleanup=False,
+        cores=20,  # not sure this will work in CI, probably gets downscaled?
+        persistence_backend=PersistenceBackend.DB,
+        persistence_backend_db_url=db_url,
+        no_tmpdir=True,
+    )
+
+    from sqlmodel import Session, select, create_engine
+    from snakemake.persistence.db import MetadataRecordORM
+
+    engine = create_engine(db_url)
+    with Session(engine) as session:
+        stmt = select(MetadataRecordORM)
+        records = session.scalars(stmt).all()
+        assert (
+            len(records) == 100
+        ), f"Expected 100 DB records, but found {len(records)}!"
 
 
 def test_same_wildcard():
@@ -488,7 +595,7 @@ def test_script_python():
         shellcmd="snakemake -c1",
     )
     assert outfile_timestamp_orig != os.path.getmtime(outfile_path)
-    # shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows  # Test relies on perl
@@ -773,6 +880,15 @@ def test_profile():
         result = parser.parse(f)
         assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
         assert result["group-components"] == list(["grp1=5"])
+
+
+@skip_on_windows
+def test_profile_double_dash():
+    """Test that -- target separator works correctly with --profile (issue #3642)."""
+    run(
+        dpath("test_profile_double_dash"),
+        shellcmd="snakemake -c1 --profile profile -- done.txt",
+    )
 
 
 @skip_on_windows
@@ -1496,6 +1612,23 @@ def test_checkpoint_missout():
     run(dpath("test_checkpoint_missout"))
 
 
+def test_uncreatable_checkpoint_input():
+    run(dpath("test_uncreatable_checkpoint_input"))
+
+
+@skip_on_windows  # OS agnostic
+@pytest.mark.skipif(ON_MACOS, reason="do not support `ln -s`")
+def test_checkpoint_rerun():
+    d = dpath("test_checkpoint_rerun")
+    run(d, no_tmpdir=True, cleanup=False, check_results=False)
+    shell("echo '1' > {d}/inputs/a/0.out")
+    shell("sleep 2")
+    shell("touch {d}/checkpoint/a1.ls")
+    run(d, no_tmpdir=True, cleanup=False, check_results=False)
+    with open(f"{d}/inputs/a/0.out", "r") as f:
+        assert f.read().strip() == "1"
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
@@ -1650,7 +1783,7 @@ def test_github_issue105():
 
 
 def test_github_issue413():
-    run(dpath("test_github_issue413"), no_tmpdir=True)
+    run(dpath("test_github_issue413"))
 
 
 @skip_on_windows
@@ -1782,12 +1915,14 @@ def test_parsing_terminal_comment_following_statement():
 
 @skip_on_windows
 def test_github_issue640():
-    run(
+    tmpdir = run(
         dpath("test_github_issue640"),
         targets=["Output/FileWithRights"],
         executor="dryrun",
         cleanup=False,
     )
+    shell(f"chmod -R u+rwX {tmpdir}")
+    shutil.rmtree(tmpdir)
 
 
 def test_generate_unit_tests():
@@ -1987,6 +2122,35 @@ def test_source_path():
     run(dpath("test_source_path"), snakefile="workflow/Snakefile")
 
 
+@skip_on_windows  # test shell command not properly working
+def test_source_path_parent():
+    run(dpath("test_source_path_parent"), snakefile="nest/subdir/Snakefile")
+
+
+@skip_on_windows  # test shell command not properly working
+def test_source_path_rerun():
+    import time
+
+    path1 = run(dpath("test_source_path_rerun"), cleanup=False)
+
+    param_out = os.path.join(path1, "test.out")
+    input_out = os.path.join(path1, "test2.out")
+
+    mtime_param_1 = os.stat(param_out).st_mtime_ns
+    mtime_input_1 = os.stat(input_out).st_mtime_ns
+
+    time.sleep(1.1)
+    run(dpath("test_source_path_rerun"), tmpdir=path1, cleanup=False)
+
+    mtime_param_2 = os.stat(param_out).st_mtime_ns
+    mtime_input_2 = os.stat(input_out).st_mtime_ns
+
+    # rerun of the same workflow with source_path as param results in a rerun
+    assert mtime_param_1 != mtime_param_2
+    # rerun of the same workflow with source_path as input results in no rerun
+    assert mtime_input_1 == mtime_input_2
+
+
 @only_on_windows
 def test_filesep_windows_targets():
     run(
@@ -2032,7 +2196,9 @@ def test_strict_mode():
 
 @needs_strace
 def test_github_issue1158():
-    run(dpath("test_github_issue1158"), cluster="./qsub.py")
+    path = dpath("test_github_issue1158")
+    with prepare_tmpdir(path) as tmpdir:
+        run(path, cluster="./qsub.py", tmpdir=tmpdir, cleanup=False)
 
 
 def test_ancient_dag():
@@ -2096,6 +2262,10 @@ def test_groupid_expand_local():
     run(dpath("test_groupid_expand"))
 
 
+def test_script_import_snakemake_obj():
+    run(dpath("test_script_import_snakemake_obj"))
+
+
 @skip_on_windows
 def test_groupid_expand_cluster():
     run(dpath("test_groupid_expand_cluster"), cluster="./qsub", nodes=3)
@@ -2111,7 +2281,6 @@ def test_incomplete_params():
         dpath("test_incomplete_params"),
         executor="dryrun",
         printshellcmds=True,
-        cleanup=False,
     )
 
 
@@ -2184,6 +2353,16 @@ def test_ensure_checksum_fail():
 
 def test_fstring():
     run(dpath("test_fstring"), targets=["SID23454678.txt"])
+
+
+@skip_on_windows  # OS independent
+def test_priority():
+    run(dpath("test_priority"), cores=1)
+
+
+@skip_on_windows  # OS independent
+def test_priority_invalid():
+    run(dpath("test_priority_invalid"), shouldfail=True)
 
 
 @skip_on_windows
@@ -2288,6 +2467,14 @@ def test_github_issue3213():
         assert ts_b2 != ts_b3
     finally:
         shutil.rmtree(tmpdir)
+
+
+def test_issue_3970():
+    run(
+        dpath("test_issue3970"),
+        shellcmd="snakemake --cores 1 --default-resources mem_mb=3*1024+input.size_mb",
+        check_results=False,
+    )
 
 
 @skip_on_windows  # not platform dependent
@@ -2561,6 +2748,7 @@ def test_update_flag_fail_cleanup():
     tmpdir = run(workdir, shouldfail=True, cleanup=False, check_results=False)
 
     assert not os.path.exists(os.path.join(tmpdir, "test.txt"))
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows
@@ -2599,6 +2787,7 @@ def test_failed_intermediate():
     tmpdir = run(path, config={"fail": "init"}, cleanup=False, check_results=False)
     run(path, config={"fail": "true"}, shouldfail=True, cleanup=False, tmpdir=tmpdir)
     run(path, config={"fail": "false"}, cleanup=False, tmpdir=tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 def test_github_issue2848():
@@ -2881,10 +3070,14 @@ def test_immediate_submit_without_shared_fs():
 
 
 def test_ambiguousruleexception():
-    try:
-        run(dpath("test_ambiguousruleexception"))
-    except AmbiguousRuleException:
-        return
+    path = dpath("test_ambiguousruleexception")
+
+    with prepare_tmpdir(path) as tmpdir:
+        try:
+            run(path, tmpdir=tmpdir)
+        except AmbiguousRuleException:
+            return
+
     raise AssertionError("This is an ambiguous case! Should have raised an error...")
 
 
@@ -2918,8 +3111,12 @@ def test_checkpoint_omit_from():
 
 
 def test_wildcard_annotatedstrings():
-    with pytest.raises(WorkflowError, match=r"unpack\(\) is not allowed with params"):
-        run(dpath("test_wildcard_annotatedstrings"), targets=["test.out"])
+    path = dpath("test_wildcard_annotatedstrings")
+    with prepare_tmpdir(path, path.name) as tmpdir:
+        with pytest.raises(
+            WorkflowError, match=r"unpack\(\) is not allowed with params"
+        ):
+            run(path, targets=["test.out"], tmpdir=tmpdir)
 
 
 @skip_on_windows  # platform will have no effect
@@ -2934,3 +3131,133 @@ def test_cyclic_dependency_single():
     # It is expected behavior that Snakemake would not rerun in such a case without
     # forcing it.
     run(dpath("test_cyclic_dependency_single"), forceall=True)
+
+
+def test_stats_table_order_and_counts():
+    # Run snakemake in the example dir and ask it to write stats.txt
+    outdir = run(
+        dpath("test_issue3922"),
+        shellcmd="snakemake --dryrun > stats.txt 2>&1",
+        check_results=False,
+        cleanup=False,
+    )
+    stats_path = os.path.join(outdir, "stats.txt")
+    assert os.path.exists(stats_path), "stats.txt was not created"
+
+    with open(stats_path, "r", encoding="utf-8") as f:
+        txt = f.read()
+    # Extract lines that look like "name <whitespace> number"
+    # Skip header/dashes; match lines with a word-like rule name and integer count
+    pairs = []
+    for line in txt.splitlines():
+        m = re.match(r"^\s*([A-Za-z0-9_]+)\s+(\d+)\s*$", line)
+        if m:
+            name, count = m.group(1), int(m.group(2))
+            pairs.append((name, count))
+
+    # Expected topological order (same-level rules sorted deterministically):
+    # level0: a, b
+    # level1: c (3 instances aggregated), d
+    # level2: e
+    expected_order = ["a", "b", "c", "d", "e", "total"]
+    expected_counts = {"a": 1, "b": 1, "c": 3, "d": 1, "e": 1, "total": 8}
+
+    names = [p[0] for p in pairs]
+    counts = {p[0]: p[1] for p in pairs}
+
+    # Check that all expected names are present in the same order (they may be
+    # surrounded by other formatting lines that don't match the regex)
+    # We check that the subsequence of expected_order appears in names in the same order.
+    idx = 0
+    for expected in expected_order:
+        try:
+            idx = names.index(expected, idx)  # find expected at or after idx
+        except ValueError as e:
+            raise AssertionError(
+                f"Expected rule '{expected}' not found in stats output"
+            ) from e
+        idx += 1
+
+    # Check counts
+    for name, exp_count in expected_counts.items():
+        assert (
+            counts.get(name) == exp_count
+        ), f"Count for {name} was {counts.get(name)} != {exp_count}"
+
+
+@skip_on_windows
+def test_github_issue3913():
+    core_count_limit = 8
+    tmpdir = run(
+        dpath("test_github_issue3913"),
+        shellcmd=f"snakemake --cores {core_count_limit} --scheduler=greedy",
+        cleanup=False,
+    )
+
+    started_job_count = 0
+    completed_job_count = 0
+    active_job_thread_counts = {}
+    with open(next((tmpdir / ".snakemake/log").glob("*.log"))) as logfile:
+        for line in logfile:
+            if line.startswith("    jobid:"):
+                current_jobid = line.split()[-1]
+                thread_count = 1
+            elif line.startswith("    threads"):
+                thread_count = int(line.split()[-1])
+            elif line.startswith("    resources:"):
+                active_job_thread_counts[current_jobid] = thread_count
+                started_job_count += 1
+            elif line.startswith("Finished jobid:"):
+                finished_jobid = line.split()[2]
+                assert finished_jobid in active_job_thread_counts
+                del active_job_thread_counts[finished_jobid]
+                completed_job_count += 1
+
+            if not active_job_thread_counts:
+                # No active jobs trivially passes the test
+                continue
+
+            # At no point in workflow execution
+            # should there be more threads in active jobs than the set limit,
+            # except if a single job requests more threads than the limit
+            active_threads = sum(active_job_thread_counts.values())
+            max_allowed_threads = max(
+                max(active_job_thread_counts.values()),
+                core_count_limit,
+            )
+            assert active_threads <= max_allowed_threads
+
+    # Ensure that we observed every job we expect;
+    # avoid test passing spuriously if log format changes
+    assert completed_job_count == 4 and started_job_count == 4
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_module_onstart_onsuccess():
+    run(dpath("test_module_onstart_onsuccess"), check_results=True)
+
+
+def test_module_onstart_not_in_main_snakefile():
+    # check that onstart is not executed, if not in the main snakefile
+    path = dpath("test_module_onstart_not_in_main_snakefile")
+    with prepare_tmpdir(path) as tmpdir:
+        run(
+            path,
+            check_results=True,
+            cleanup=False,
+            tmpdir=tmpdir,
+        )
+        assert not (
+            Path(tmpdir) / "onstart_module1.log"
+        ).exists(), "onstart should not be executed for module1"
+        assert not (
+            Path(tmpdir) / "onstart_module2.log"
+        ).exists(), "onstart should not be executed for module2"
+
+
+def test_module_onerror():
+    run(dpath("test_module_onerror"), shouldfail=True, check_results=True)
+
+
+def test_github_issue2255():
+    run(dpath("test_github_issue2255"), check_results=False)
