@@ -6,9 +6,21 @@ main() for full backward compatibility.
 """
 
 import sys
+
 import click
+
 from snakemake.cli.legacy import main as legacy_main
-from snakemake.cli.commands import info, clean, dagviz, unlock, lint, utils, software
+from snakemake.cli.commands import (
+    info,
+    clean,
+    dagviz,
+    unlock,
+    lint,
+    utils,
+    software,
+    plugins,
+    run,
+)
 
 
 def _find_workflow_profile(snakefile):
@@ -59,17 +71,40 @@ def _extract_flag(args, *flags):
     return None
 
 
-class ProfileAwareGroup(click.Group):
-    """Click group that loads snakemake profiles as default_map.
+class FallthroughGroup(click.Group):
+    """When the first arg is not a registered subcommand, leave everything
+    in ctx.args so invoke_without_command fires and we fall through to
+    legacy_main.
+    """
 
-    When no registered subcommand is found, all args are passed through
-    to the legacy argparse-based main() for full backward compatibility.
+    def parse_args(self, ctx, args):
+        rest = super().parse_args(ctx, args)
+
+        if ctx._protected_args:
+            cmd_name = ctx._protected_args[0]
+            if cmd_name not in self.commands:
+                ctx.args = [*ctx._protected_args, *ctx.args]
+                ctx._protected_args = []
+
+        return rest
+
+
+class ProfileAwareCommand(click.Command):
+    """Click command that loads snakemake profiles as default_map.
+
+    Pre-scans args for --profile, --workflow-profile, and --snakefile
+    before Click parses options, loads the corresponding YAML files, and
+    injects their contents into default_map so that explicit CLI flags
+    override profile values automatically.
+
+    Used only by the ``run`` subcommand.
     """
 
     def make_context(self, info_name, args, parent=None, **extra):
         profile = _extract_flag(args, "--profile")
         snakefile = _extract_flag(args, "--snakefile", "-s")
-        workflow_profile = _find_workflow_profile(snakefile)
+        workflow_profile_arg = _extract_flag(args, "--workflow-profile")
+        workflow_profile = workflow_profile_arg or _find_workflow_profile(snakefile)
 
         if profile or workflow_profile:
             defaults = _load_profile_defaults(profile, workflow_profile)
@@ -78,24 +113,9 @@ class ProfileAwareGroup(click.Group):
 
         return super().make_context(info_name, args, parent=parent, **extra)
 
-    def parse_args(self, ctx, args):
-        # Let Click parse the group's own options.
-        rest = super().parse_args(ctx, args)
-
-        # If the first remaining arg is not a registered subcommand,
-        # move everything into ctx.args so that invoke_without_command
-        # fires and we fall through to legacy_main.
-        if ctx.protected_args:
-            cmd_name = ctx.protected_args[0]
-            if cmd_name not in self.commands:
-                ctx.args = ctx.protected_args + ctx.args
-                ctx.protected_args = []
-
-        return rest
-
 
 @click.group(
-    cls=ProfileAwareGroup,
+    cls=FallthroughGroup,
     invoke_without_command=True,
     context_settings=dict(
         ignore_unknown_options=True,
@@ -109,6 +129,7 @@ def cli(ctx):
     if ctx.invoked_subcommand is None:
         legacy_main(sys.argv[1:])
 
+
 @cli.command()
 @click.pass_context
 def help(ctx):
@@ -116,6 +137,7 @@ def help(ctx):
     click.echo(ctx.parent.get_help())
 
 
+cli.add_command(run)
 cli.add_command(lint)
 cli.add_command(unlock)
 cli.add_command(clean)
@@ -123,3 +145,4 @@ cli.add_command(dagviz)
 cli.add_command(utils)
 cli.add_command(info)
 cli.add_command(software)
+cli.add_command(plugins)
