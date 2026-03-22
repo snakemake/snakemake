@@ -6,5 +6,18 @@ from .report import report
 from .unlock import unlock
 from .utils import utils
 from .software import software
+from .plugins import plugins
+from .run import run
 
-__all__ = ["clean", "dagviz", "info", "lint", "report", "unlock", "utils", "software"]
+__all__ = [
+    "clean",
+    "dagviz",
+    "info",
+    "lint",
+    "report",
+    "unlock",
+    "utils",
+    "software",
+    "plugins",
+    "run",
+]
