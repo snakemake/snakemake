@@ -31,7 +31,7 @@ classifiers = [
 
 dependencies = [
   "appdirs",
-  "click>=8.0",
+  "click>=8.2, <9.0",
   "immutables",
   "configargparse",
   "connection_pool>=0.0.3",
@@ -110,18 +110,23 @@ docs = { features = ["docs"] }
 quality = { features = ["style"] }
 publish = { features = ["publish"] }
 
+[tool.pixi.dependencies]
+click = ">=8.2, <9.0"
 # Python Envs
 [tool.pixi.feature.py311.dependencies]
 python = ">=3.11.0,<3.12"
 packaging = ">=24.0,<26"
 
+
 [tool.pixi.feature.py312.dependencies]
 python = ">=3.12.0,<3.13"
 packaging = ">=24.0,<26"
 
+
 [tool.pixi.feature.py313.dependencies]
 python = ">=3.13.0,<3.14"
 packaging = ">=24.0,<26"
+
 
 # Test
 [tool.pytest.ini_options]
