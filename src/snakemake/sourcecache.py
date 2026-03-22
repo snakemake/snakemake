@@ -411,6 +411,7 @@ class HostingProviderFile(SourceFile):
         commit: Optional[str] = None,
         host: Optional[str] = None,
         cache_path: Optional[Path] = None,
+        _ref_path_candidates: Optional[List[tuple]] = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -439,6 +440,7 @@ class HostingProviderFile(SourceFile):
         self.host = host
 
         self._cache_path: Optional[Path] = cache_path
+        self._ref_path_candidates: Optional[List[tuple]] = _ref_path_candidates
 
         # Via __post_init__ implementing subclasses can do additional things without
         # replicating the constructor args.
@@ -524,7 +526,31 @@ class HostingProviderFile(SourceFile):
     def get_filename(self):
         return os.path.basename(self.path)
 
+    def _resolve_ref(self):
+        """Resolve ambiguous ref/path candidates using the hosted git repo.
+
+        When a URL contains a branch name with slashes (e.g. perf/autobump),
+        multiple (ref, path) splits are possible. This method tries each
+        candidate and picks the one whose ref exists in the repo.
+        """
+        if not self._ref_path_candidates or len(self._ref_path_candidates) <= 1:
+            return
+
+        for ref_candidate, path_candidate in self._ref_path_candidates:
+            if self.hosted_repo.ref_exists(commit=None, branch_or_tag=ref_candidate):
+                self.branch = ref_candidate
+                self.path = path_candidate
+                self._ref_path_candidates = None
+                return
+
+        # No candidate matched; keep the current (naive) values and clear
+        # candidates so we don't retry.
+        self._ref_path_candidates = None
+
     def fetch_if_required(self) -> Optional[str]:
+        # Resolve ambiguous ref/path before any ref-based operations.
+        self._resolve_ref()
+
         # always fetch if this points to a branch
         if (
             self.branch is not None
@@ -667,6 +693,24 @@ class GitlabFile(HostingProviderFile):
         )
 
 
+def _build_ref_path_candidates(path_parts: list, ref_start: int) -> List[tuple]:
+    """Build all possible (ref, path) splits from the ambiguous path segments.
+
+    Given path_parts and the index where the ref begins, generate candidates
+    by trying progressively longer ref strings.  The list is ordered from
+    shortest to longest ref so that the resolution logic can stop at the first
+    match.
+    """
+    candidates = []
+    # There must be at least one segment for the path, so the ref can span
+    # from ref_start up to (but not including) the last segment.
+    for split in range(ref_start + 1, len(path_parts)):
+        ref = unquote("/".join(path_parts[ref_start:split]))
+        path = unquote("/".join(path_parts[split:]))
+        candidates.append((ref, path))
+    return candidates
+
+
 def _infer_github_file(path_or_uri: str) -> Optional[GithubFile]:
     parsed = urlparse(path_or_uri)
     if parsed.scheme not in {"http", "https"}:
@@ -678,7 +722,13 @@ def _infer_github_file(path_or_uri: str) -> Optional[GithubFile]:
         repo = "/".join(path_parts[:2])
         ref = unquote(path_parts[2])
         path = unquote("/".join(path_parts[3:]))
-        return GithubFile(repo=repo, path=path, branch=ref)
+        candidates = _build_ref_path_candidates(path_parts, ref_start=2)
+        return GithubFile(
+            repo=repo,
+            path=path,
+            branch=ref,
+            _ref_path_candidates=candidates if len(candidates) > 1 else None,
+        )
 
     if (
         parsed.netloc == "github.com"
@@ -688,7 +738,13 @@ def _infer_github_file(path_or_uri: str) -> Optional[GithubFile]:
         repo = "/".join(path_parts[:2])
         ref = unquote(path_parts[3])
         path = unquote("/".join(path_parts[4:]))
-        return GithubFile(repo=repo, path=path, branch=ref)
+        candidates = _build_ref_path_candidates(path_parts, ref_start=3)
+        return GithubFile(
+            repo=repo,
+            path=path,
+            branch=ref,
+            _ref_path_candidates=candidates if len(candidates) > 1 else None,
+        )
 
     return None
 
@@ -733,14 +789,17 @@ def _infer_gitlab_file(path_or_uri: str) -> Optional[GitlabFile]:
             and raw_or_blob_index + 3 < len(path_parts)
             and path_parts[raw_or_blob_index + 1] in {"blob", "raw"}
         ):
+            ref_start = raw_or_blob_index + 2
             repo = unquote("/".join(path_parts[:raw_or_blob_index]))
-            ref = unquote(path_parts[raw_or_blob_index + 2])
-            path = unquote("/".join(path_parts[raw_or_blob_index + 3 :]))
+            ref = unquote(path_parts[ref_start])
+            path = unquote("/".join(path_parts[ref_start + 1 :]))
+            candidates = _build_ref_path_candidates(path_parts, ref_start=ref_start)
             return GitlabFile(
                 repo=repo,
                 path=path,
                 branch=ref,
                 host=parsed.netloc,
+                _ref_path_candidates=candidates if len(candidates) > 1 else None,
             )
 
     return None
