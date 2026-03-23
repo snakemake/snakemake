@@ -322,6 +322,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
 
         # Memory measurements
         rss, vms, uss, pss = 0, 0, 0, 0
+        check_pss = True
         # I/O measurements
         io_in, io_out = 0, 0
         check_io = True
@@ -354,7 +355,11 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                     rss += meminfo.rss
                     vms += meminfo.vms
                     uss += meminfo.uss
-                    pss += meminfo.pss
+                    if check_pss:
+                        if hasattr(meminfo, "pss"):
+                            pss += meminfo.pss
+                        else:
+                            check_pss = False
 
                     if check_io:
                         try:
@@ -379,7 +384,10 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
             rss /= 1024 * 1024
             vms /= 1024 * 1024
             uss /= 1024 * 1024
-            pss /= 1024 * 1024
+            if check_pss:
+                pss /= 1024 * 1024
+            else:
+                pss = None
 
             if check_io:
                 io_in /= 1024 * 1024
@@ -399,7 +407,8 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
             self.bench_record.max_rss = max(self.bench_record.max_rss or 0, rss)
             self.bench_record.max_vms = max(self.bench_record.max_vms or 0, vms)
             self.bench_record.max_uss = max(self.bench_record.max_uss or 0, uss)
-            self.bench_record.max_pss = max(self.bench_record.max_pss or 0, pss)
+            if pss is not None:
+                self.bench_record.max_pss = max(self.bench_record.max_pss or 0, pss)
 
             self.bench_record.io_in = io_in
             self.bench_record.io_out = io_out
