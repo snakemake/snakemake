@@ -774,7 +774,7 @@ class Resource:
                 wildcards=wildcards,
                 input=input,
                 attempt=attempt,
-                async_run=async_run
+                async_run=async_run,
             )
 
         if with_threads_arg:
