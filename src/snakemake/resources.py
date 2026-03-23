@@ -754,6 +754,7 @@ class Resource:
             return cls.cli_evaluator(
                 name,
                 value,
+                wildcards=wildcards,
                 input=input,
                 attempt=attempt,
                 async_run=async_run,
@@ -768,7 +769,12 @@ class Resource:
             async_run: Callable[[Awaitable[_T]], _T],
         ):
             return cls.cli_evaluator(
-                name, value, input=input, attempt=attempt, async_run=async_run
+                name,
+                value,
+                wildcards=wildcards,
+                input=input,
+                attempt=attempt,
+                async_run=async_run
             )
 
         if with_threads_arg:
@@ -781,6 +787,7 @@ class Resource:
         name: str,
         val: str,
         *,
+        wildcards: Wildcards,
         input: Any,
         attempt: int,
         threads: int | None = None,
@@ -806,6 +813,7 @@ class Resource:
                 val,
                 ioutils,
                 {
+                    "wildcards": wildcards,
                     "input": input,
                     "attempt": attempt,
                     "system_tmpdir": tempfile.gettempdir(),
