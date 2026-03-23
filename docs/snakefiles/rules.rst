@@ -1450,11 +1450,14 @@ An example external Python script could look like this:
 
     do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
 
-or using the explicit import:
+For type checking, it is possible to import the a correctly typed stub for the snakemake object:
 
 .. code-block:: python
 
-    from snakemake.script import snakemake
+    from typing import TYPE_CHECKING
+
+    if TYPE_CHECKING:
+        from snakemake.io.container import snakemake
 
     def do_something(data_path, out_path, threads, myparam):
         # python code
