@@ -138,7 +138,7 @@ Alongside the actual profile YAML file, the profile folder can additionally cont
 These can for example be jobscripts or wrappers. 
 See https://github.com/snakemake/snakemake-cluster-profiles for examples.
 
-While the different types of profiles should usually contain distinct sets of settings, you can set any of Snakemake's command line arguments in any of these profiles.
+While the different types of profiles should usually contain distinct sets of settings, you can configure any of Snakemake's command line arguments in any of these profiles.
 However, if you also provide the same argument in the ``snakemake`` call on the command line, this command line specification will always take precedence.
 
 For example, a :ref:`global-profiles` YAML file with
@@ -415,14 +415,16 @@ To make use of such a workflow specific profile, you can make Snakemake aware of
 1. You give it a standardised filename (for example ``profile.v9+.yaml``, see the section on :ref:`profile-files`) and save it in the default folder hierarchy relative to the ``Snakefile`` or the current working directory, usually either ``profiles/default/profile.yaml`` or ``workflow/profiles/default/profile.yaml``.
 2. You use the command line argument ``--workflow-profile``.
 
+Note that even without specifying ``--workflow-profile``, Snakemake will automatically search for and apply a workflow profile in ``profiles/default/`` (relative to the Snakefile or working directory).
+To prevent any workflow profile from being loaded, you can explicitly call ``--workflow-profile none``, as using the command line argument ensures that the ``default/`` location is not searched implicitly (unless you explicitly specify ``--workflow-profile default``).
+
 .. note::
 
   When using modules, the profile will not be propagated to the main workflow importing that module.
   However, using `snakedeploy deploy-workflow` to deploy a workflow as a module, will also copy any profiles included under the standard location `workflow/profiles` (for more info, see `the snakedeploy documentation for deploying workflows <https://snakedeploy.readthedocs.io/en/stable/workflow_users/workflow_deployment.html>`_).
   Starting from this import, or starting with a new file, users can create a profile for that main workflow.
 
-When using the command line argument, the ``default/`` location is not searched (unless you explicitly specify ``--workflow-profile default``).
-But the given profile is also searched in paths relative to the ``Snakefile`` location and the current working directory.
+Any profile you specify on the command line is searched in paths relative to the ``Snakefile`` location and the current working directory.
 You have the same options to specify it as for :ref:`using-global-profiles`:
 
 1. With a profile name, which represents a subdirectory of one of the standard locations, and is assumed to contain a file called ``profile.yaml`` (or ``config.yaml`` for backwards compatibility).
