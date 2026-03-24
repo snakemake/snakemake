@@ -157,6 +157,14 @@ cmd = [
   "-k",
   "not (test_conda_global or queue)", # queue is buggy on osx-arm64
   "tests/tests.py",
+  "tests/test_internals.py",
+  "tests/test_expand.py",
+  "tests/test_io.py",
+  "tests/test_schema.py",
+  "tests/test_logging.py",
+  "tests/test_output_index.py",
+  "tests/test_prefix_lookup.py",
+  "tests/test_args.py",
 ]
 default-environment = "dev"
 
