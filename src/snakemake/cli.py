@@ -460,14 +460,70 @@ def get_argument_parser(profiles=None):
 
     group_exec.add_argument(
         "--profile",
-        help=f"Profile to use for configuring the Snakemake run with settings regarding the compute environment. Every key in this YAML file gets parsed into the respective command line argument: `executor: slurm` gets parsed to `--executor slurm`, `default-resources: mem_mb: 16000` is interpreted as `--default-resources mem_mb=16000`, etc. You can specify a Snakemake profile as (i) a profile name, (ii) a relative path to a folder or (iii) the relative path to the profile YAML file itself. Snakemake will look for a folder with the profile name or the existence of the relative path in `{dirs.site_config_dir}`, `{dirs.user_config_dir}` and the current working directory. Alternatively, you can also specify absolute paths. If a profile name or folder is given, it has to contain a file `profile.yaml` (or a `config.yaml` file, for backwards compatibility). This file can have an optional infix specifying a minimal snakemake version (for example `profile.v9+.yaml`). The profile can also be set via the environment variable `$SNAKEMAKE_PROFILE`. However, once you provide a profile via the command line argument `--profile`, this environment variable is ignored. And to override this variable without setting another one, provide the value `none` to this argument. Finally, you can specify this argument multiple times. In this case, the profiles get merged with the later `--profile` instances overriding top-level entries in profiles specified earlier. For example, if the last `--profile` specifies the top level `default-resources:` keyword, all entries under that keyword from previous `--profile`s will be ignored. Similarly, also specifying any of the top-level keys from your profile as a command line argument will overwrite this whole top-level key. Example profiles for certain compute infrastructure can be obtained at https://github.com/snakemake/snakemake-cluster-profiles.",
+        help="Profile to use for configuring the Snakemake run with settings "
+        "regarding the compute environment. Every key in this YAML file gets "
+        "parsed into the respective command line argument: `executor: slurm` "
+        "gets parsed to `--executor slurm`, `default-resources: mem_mb: 16000` "
+        "is interpreted as `--default-resources mem_mb=16000`, etc. You can "
+        "specify a Snakemake profile as (i) a profile name, (ii) a relative "
+        "path to a folder or (iii) the relative path to the profile YAML file "
+        "itself. Snakemake will look for a folder with the profile name or "
+        f"the existence of the relative path in `{dirs.site_config_dir}`, "
+        f"`{dirs.user_config_dir}` and the current working directory. "
+        "Alternatively, you can also specify absolute paths. If a profile "
+        "name or folder is given, it has to contain a file `profile.yaml` "
+        "(or a `config.yaml` file, for backwards compatibility). This file "
+        "can have an optional infix specifying a minimal snakemake version "
+        "(for example `profile.v9+.yaml`). The profile can also be set via "
+        "the environment variable `$SNAKEMAKE_PROFILE`. However, once you "
+        "provide a profile via the command line argument `--profile`, this "
+        "environment variable is ignored. And to override this variable "
+        "without setting another one, provide the value `none` to this "
+        "argument. Finally, you can specify this argument multiple times. In "
+        "this case, the profiles get merged with the later `--profile` "
+        "instances overriding top-level entries in profiles specified "
+        "earlier. For example, if the last `--profile` specifies the top "
+        "level `default-resources:` keyword, all entries under that keyword "
+        "from previous `--profile`s will be ignored. Similarly, also "
+        "specifying any of the top-level keys from your profile as a command "
+        "line argument will overwrite this whole top-level key. Example "
+        "profiles for certain compute infrastructure can be obtained at "
+        "https://github.com/snakemake/snakemake-cluster-profiles.",
         env_var="SNAKEMAKE_PROFILE",
         action="append",
     )
 
     group_exec.add_argument(
         "--workflow-profile",
-        help="Profile to use for configuring this Snakemake run with parameters specific for this workflow (like resources). For settings specific to the compute environment (for example a specific compute cluster), use global `--profile`s. Generally, an entry like `set-resources: a: mem_mb=8` in the YAML file, will become `--set-resources a:mem_mb=8` for the `snakemake` run. The profile can be specified as a file name with a full relative path from the current working directory. In this case, the YAML profile file can be named arbitrarily. In all other cases the respective folder(s) will be searched for a `profile.yaml` file (or a `config.yaml` file, for backwards compatibility). This file can have an optional infix specifying a minimal snakemake version (for example `profile.v9+.yaml`). And any of the following options will always search relative to both the current working directory and the location of the Snakefile: (i) If this option is not provided, the directory `profiles/default/` will be searched (and used, if a profile is present; override this implicit usage with `--workflow-profile none`). (ii) If a profile name is given, the subdirectory of that name under `profiles/` will be searched. (iii) If a full relative path is given, this directory will be searched. Settings made in the workflow profile will override settings made in the general profile (see `--profile`) on a per-key basis. For example, if you specify `default-resources:` in the workflow profile, all `default-resources:` entries from other profiles will be ignored; but if you don't specify `default-resources` in your workflow profile, `default-resources` from other profiles will get passed through. Similarly, also specifying any of the top-level keys from your workflow specific profile via command line arguments will completely overwrite their entries.",
+        help="Profile to use for configuring this Snakemake run with "
+        "parameters specific for this workflow (like resources). For settings "
+        "specific to the compute environment (for example a specific compute "
+        "cluster), use global `--profile`s. Generally, an entry like "
+        "`set-resources: a: mem_mb=8` in the YAML file, will become "
+        "`--set-resources a:mem_mb=8` for the `snakemake` run. The profile "
+        "can be specified as a file name with a full relative path from the "
+        "current working directory. In this case, the YAML profile file can "
+        "be named arbitrarily. In all other cases the respective folder(s) "
+        "will be searched for a `profile.yaml` file (or a `config.yaml` file, "
+        "for backwards compatibility). This file can have an optional infix "
+        "specifying a minimal snakemake version (for example "
+        "`profile.v9+.yaml`). And any of the following options will always "
+        "search relative to both the current working directory and the "
+        "location of the Snakefile: (i) If this option is not provided, the "
+        "directory `profiles/default/` will be searched (and used, if a "
+        "profile is present; override this implicit usage with "
+        "`--workflow-profile none`). (ii) If a profile name is given, the "
+        "subdirectory of that name under `profiles/` will be searched. "
+        "(iii) If a full relative path is given, this directory will be "
+        "searched. Settings made in the workflow profile will override "
+        "settings made in the general profile (see `--profile`) on a per-key "
+        "basis. For example, if you specify `default-resources:` in the "
+        "workflow profile, all `default-resources:` entries from other "
+        "profiles will be ignored; but if you don't specify "
+        "`default-resources` in your workflow profile, `default-resources` "
+        "from other profiles will get passed through. Similarly, also "
+        "specifying any of the top-level keys from your workflow specific "
+        "profile via command line arguments will completely overwrite their entries.",
     )
 
     group_exec.add_argument(
