@@ -729,7 +729,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                         "Error calling checksum function provided to ensure marker.",
                         e,
                         rule=job.rule,
-                    )
+                    ) from e
             return not await f.is_same_checksum(
                 f"{checksum_algorithm}:{checksum_hash}",
                 self.max_checksum_file_size,
