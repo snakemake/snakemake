@@ -1823,26 +1823,6 @@ def strip_wildcard_constraints(pattern):
     return WILDCARD_REGEX.sub(strip_constraint, pattern)
 
 
-class AttributeGuard:
-    def __init__(self, name):
-        self.name = name
-
-    def __call__(self, *args, **kwargs):
-        """
-        Generic function that throws an `AttributeError`.
-
-        Used as replacement for functions such as `index()` and `sort()`,
-        which may be overridden by workflows, to signal to a user that
-        these functions should not be used.
-        """
-        raise AttributeError(
-            f"{self.name}() cannot be used on snakemake input, output, resources etc.; "
-            "instead it is a valid name for items on those objects. If you want e.g. to "
-            "sort, convert to a plain list before or directly use sorted() on the "
-            "object."
-        )
-
-
 ##### Wildcard pumping detection #####
 
 
