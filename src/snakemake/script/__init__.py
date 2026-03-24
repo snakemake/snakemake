@@ -44,9 +44,6 @@ from snakemake.utils import format
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 
-# Type hint, object injected by the python preamble
-snakemake: "Snakemake"
-
 
 class REncoder:
     """Encoding Python data structures into R."""
