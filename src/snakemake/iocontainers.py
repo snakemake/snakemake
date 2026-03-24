@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 # Only modules from python standard library should be imported here (except for methods
 # that are only called by Snakemake itself)!
-# Further, the code here has to be keept compatible with Python 3.7.
+# Further, the code here has to be kept compatible with Python 3.7.
 # THe reason is that objects from this module are unpickled in scripts that might still
 # run in older Python versions than Snakemake itself.
 
