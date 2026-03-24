@@ -48,7 +48,6 @@ from snakemake_interface_storage_plugins.io import (
     get_constant_prefix,
 )
 from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
-from snakemake_interface_storage_plugins.storage_object import StorageObjectBase
 
 from snakemake.common import (
     ON_WINDOWS,
