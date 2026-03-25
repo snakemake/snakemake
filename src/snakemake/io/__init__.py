@@ -107,7 +107,7 @@ class IOCacheLoadError(Exception):
 class IOCache(IOCacheStorageInterface):
     # Increment this when the class interface changes to invalidated previously
     # persisted versions.
-    IOCACHE_VERSION = 2
+    IOCACHE_VERSION = 1
 
     def __init__(self, max_wait_time):
         self._mtime = dict()
