@@ -701,7 +701,7 @@ class _IOFile(str, AnnotatedStringInterface):
         assert force or threshold is not None
 
         if force or await self.is_checksum_eligible(threshold):
-            if await self.size() > 0:
+            if await self.size_local() > 0:
                 # only read if file is bigger than zero
                 # otherwise the checksum is the same as taking hexdigest
                 # from the empty sha256 as initialized above
