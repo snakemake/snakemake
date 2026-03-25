@@ -301,6 +301,7 @@ format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format t
 [tool.pixi.feature.publish.pypi-dependencies]
 twine = ">=6.1.0,<7"
 build = ">=1.2.2,<2"
+pip = ">=26.0"
 
 [tool.pixi.feature.publish.tasks]
 build = { cmd = "python -m build", description = "Build the package into the dist/ directory", default-environment = "publish" }
