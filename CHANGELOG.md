@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.18.0](https://github.com/snakemake/snakemake/compare/v9.17.3...v9.18.0) (2026-03-25)
+
+
+### Features
+
+* use checksums reported by storage plugins for between workflow caching ([#4098](https://github.com/snakemake/snakemake/issues/4098)) ([2ed2c23](https://github.com/snakemake/snakemake/commit/2ed2c23dd8e5cb40ef4a5ebfe8d40a6e3646d5f6))
+
 ## [9.17.3](https://github.com/snakemake/snakemake/compare/v9.17.2...v9.17.3) (2026-03-24)
 
 
