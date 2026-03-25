@@ -6,7 +6,7 @@ import pytest
 
 from snakemake.pathvars import Pathvars
 from snakemake.ioutils import subpath
-from snakemake.io.container import Wildcards, InputFiles
+from snakemake.iocontainers import Wildcards, InputFiles
 from snakemake_interface_common.exceptions import WorkflowError
 
 
