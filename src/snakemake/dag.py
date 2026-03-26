@@ -716,25 +716,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             )
 
         # handle checksum
-        async def is_not_same_checksum(f, ensure):
-            if not ensure.get("checksum_algorithm"):
+        async def is_not_same_checksum(f: _IOFile, ensure):
+            checksum_algorithm = ensure.get("checksum_algorithm")
+            if not checksum_algorithm:
                 return False
-            checksum_algorithm = ensure["checksum_algorithm"]
-            checksum = ensure["checksum"]
-            if is_callable(checksum):
+            checksum_hash = ensure["checksum"]
+            if is_callable(checksum_hash):
                 try:
-                    checksum = checksum(job.wildcards)
+                    checksum_hash = checksum_hash(job.wildcards)
                 except Exception as e:
                     raise WorkflowError(
                         "Error calling checksum function provided to ensure marker.",
                         e,
                         rule=job.rule,
-                    )
+                    ) from e
             return not await f.is_same_checksum(
-                checksum,
+                f"{checksum_algorithm}:{checksum_hash}",
                 self.max_checksum_file_size,
                 force=True,
-                algorithm=checksum_algorithm,
             )
 
         checksum_failed_output = [
@@ -1394,7 +1393,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         is_same_checksum_cache = dict()
 
-        async def is_same_checksum(f, job):
+        async def is_same_checksum(f: _IOFile, job: Job):
             try:
                 return is_same_checksum_cache[(f, job)]
             except KeyError:

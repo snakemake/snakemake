@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 import sys
 
-from snakemake._version import version as __version__
+__version__ = "9.18.1"
 
 PIP_DEPLOYMENTS_PATH = ".snakemake/pip-deployments"
 

@@ -1,6 +1,49 @@
 # Changelog
 
 
+## [9.18.1](https://github.com/snakemake/snakemake/compare/v9.18.0...v9.18.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* add pip dependency to publish task ([ea2b5c9](https://github.com/snakemake/snakemake/commit/ea2b5c9708792c9261ded758cc859ce8e18e956b))
+
+## [9.18.0](https://github.com/snakemake/snakemake/compare/v9.17.3...v9.18.0) (2026-03-25)
+
+
+### Features
+
+* use checksums reported by storage plugins for between workflow caching ([#4098](https://github.com/snakemake/snakemake/issues/4098)) ([2ed2c23](https://github.com/snakemake/snakemake/commit/2ed2c23dd8e5cb40ef4a5ebfe8d40a6e3646d5f6))
+
+## [9.17.3](https://github.com/snakemake/snakemake/compare/v9.17.2...v9.17.3) (2026-03-24)
+
+
+### Bug Fixes
+
+* add curl when containerize with wrapper ([#4115](https://github.com/snakemake/snakemake/issues/4115)) ([44979e4](https://github.com/snakemake/snakemake/commit/44979e457556edddac0e1e7403a5ba88906fd6b8))
+* ensure proper wrapper prefix is passed to CWL and shown in wrapper error messages ([#4121](https://github.com/snakemake/snakemake/issues/4121)) ([11b6f29](https://github.com/snakemake/snakemake/commit/11b6f292e06cd76049f9fe06997185c20614de20))
+* ensure that strings that purely contain integers or floats (e.g. "42") remain strings when parsing profiles ([#4119](https://github.com/snakemake/snakemake/issues/4119)) ([3ca08e1](https://github.com/snakemake/snakemake/commit/3ca08e19435f8645dc9aca49c98dc51dc586e8aa))
+* incorrect highlighting in HTML report ([#4120](https://github.com/snakemake/snakemake/issues/4120)) ([1ef224d](https://github.com/snakemake/snakemake/commit/1ef224da9310b07efe105d8b991c84ed804a98e0))
+
+
+### Documentation
+
+* document an accidental (sorry) recent breaking change in type checking compatibility of Python scripts, in favor of a clean and robust new syntax ([#4116](https://github.com/snakemake/snakemake/issues/4116)) ([013bc43](https://github.com/snakemake/snakemake/commit/013bc43522869fbbb005a9a7402bdd96c29eff6b))
+* Rework tutorial ([#4068](https://github.com/snakemake/snakemake/issues/4068)) ([4bba4a9](https://github.com/snakemake/snakemake/commit/4bba4a938b426680cbc63bcada10a444d960ab9c))
+
+## [9.17.2](https://github.com/snakemake/snakemake/compare/v9.17.1...v9.17.2) (2026-03-17)
+
+
+### Bug Fixes
+
+* **docs:** simplify development instructions ([#4073](https://github.com/snakemake/snakemake/issues/4073)) ([89e041d](https://github.com/snakemake/snakemake/commit/89e041d40a851db06ba6b942df825b00a6167880))
+* ensure that the snakemake-wrappers repo is properly cached when --wrapper-prefix is not specified ([#4111](https://github.com/snakemake/snakemake/issues/4111)) ([7c82cde](https://github.com/snakemake/snakemake/commit/7c82cdef62489a1c08b55015f1ac327709c3aef0))
+
+
+### Documentation
+
+* prepare redirects in docs ([#4106](https://github.com/snakemake/snakemake/issues/4106)) ([67d5ec4](https://github.com/snakemake/snakemake/commit/67d5ec45faaf4faf6c33b93a4f0520a1d0dd4a03))
+
 ## [9.17.1](https://github.com/snakemake/snakemake/compare/v9.17.0...v9.17.1) (2026-03-13)
 
 
