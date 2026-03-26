@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.18.2](https://github.com/snakemake/snakemake/compare/v9.18.1...v9.18.2) (2026-03-26)
+
+
+### Bug Fixes
+
+* remove debug code ([ac5ad20](https://github.com/snakemake/snakemake/commit/ac5ad209e00aeca2d38e5e5d6ac7f930d2c6a93e))
+
 ## [9.18.1](https://github.com/snakemake/snakemake/compare/v9.18.0...v9.18.1) (2026-03-25)
 
 
