@@ -43,7 +43,7 @@ from snakemake.io import (
     is_callable,
     ReportObject,
 )
-from snakemake.io.container import (
+from snakemake.iocontainers import (
     Namedlist,
     InputFiles,
     OutputFiles,
