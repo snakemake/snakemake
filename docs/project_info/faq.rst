@@ -120,7 +120,7 @@ How does Snakemake lock the working directory?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Per default, Snakemake will lock a working directory by output and input files. Two Snakemake instances that want to create the same output file are not possible. Two instances creating disjoint sets of output files are possible.
-With the command line option ``--nolock``, you can disable this mechanism on your own risk. With ``--unlock``, you can be remove a stale lock. Stale locks can appear if your machine is powered off with a running Snakemake instance.
+With the command line option ``--nolock``, you can disable this mechanism at your own risk. With ``--unlock``, you can remove a stale lock. Stale locks can appear if your machine is powered off with a running Snakemake instance.
 
 
 My workflow is very large, how do I stop Snakemake from printing all this rule/job information in a dry-run?
@@ -167,7 +167,7 @@ Yes, from version 2.4.8 on, Snakemake allows to import python modules (and also 
 I want to configure the behavior of my shell for all rules. How can that be achieved with Snakemake?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can set a prefix that will prepended to all shell commands by adding e.g.
+You can set a prefix that will be prepended to all shell commands by adding e.g.
 
 .. code-block:: python
 
@@ -355,7 +355,7 @@ or, more concise in this special case:
 Troubleshooting
 ---------------
 
-My shell command fails with with errors about an ``unbound variable``
+My shell command fails with errors about an ``unbound variable``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This happens often when calling virtual environments from within Snakemake. Snakemake is using `bash strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_, to ensure e.g. proper error behavior of shell scripts.
@@ -605,7 +605,7 @@ Consider the following...
         shell: "do_op -params {latest_parameters}  {input} {output}"
 
 
-When run a single machine, you will see a single connection to your database and get a single value for *latest_parameters* for the duration of the run.  On a cluster you will see a connection attempt from the cluster node for each job submitted, regardless of whether it happens to involve rule a or not, and the parameters will be recalculated for each job.
+When run on a single machine, you will see a single connection to your database and get a single value for *latest_parameters* for the duration of the run.  On a cluster you will see a connection attempt from the cluster node for each job submitted, regardless of whether it happens to involve rule a or not, and the parameters will be recalculated for each job.
 
 How can I make use of node-local storage when running cluster jobs?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
