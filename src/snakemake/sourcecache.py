@@ -368,6 +368,8 @@ class HostedGitRepo:
             return True
         except KeyError:
             return False
+        except IndexError:
+            return False
 
     @retry(wait=wait_exponential(multiplier=2, min=3), stop=stop_after_attempt(3))
     def fetch(self) -> Optional[str]:
