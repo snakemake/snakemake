@@ -147,7 +147,7 @@ Resources
    :caption: Getting started
    :name: getting_started
    :hidden:
-   :maxdepth: 1
+   :maxdepth: 2
 
    getting_started/installation
    getting_started/migration
