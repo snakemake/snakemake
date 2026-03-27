@@ -12,6 +12,8 @@ from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file
 
 EXTENSIONS = [".py", ".R", ".Rmd", ".jl"]
 
+DEFAULT_WRAPPER_PREFIX = "https://github.com/snakemake/snakemake-wrappers/raw/"
+
 
 ver_regex = re.compile(r"v?(?P<ver>[0-9]+\.[0-9]+\.[0-9]+)")
 
@@ -40,7 +42,7 @@ def get_path(path: str, prefix: Optional[str] = None):
                 )
             else:
                 # Otherwise, use a plain url and store it in runtime cache only.
-                path = "https://github.com/snakemake/snakemake-wrappers/raw/" + path
+                path = DEFAULT_WRAPPER_PREFIX + path
         else:
             path = prefix + path
     return infer_source_file(path)
@@ -116,6 +118,7 @@ def wrapper(
         prefix=prefix,
     )
     if script_source is None:
+        prefix = prefix or DEFAULT_WRAPPER_PREFIX
         raise WorkflowError(
             f"Unable to locate wrapper script at {prefix}{path}. "
             "This can be a network issue or a mistake in the wrapper URL."

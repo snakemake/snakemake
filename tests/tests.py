@@ -15,10 +15,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from snakemake.exceptions import ResourceConversionError
 from snakemake.exceptions import ResourceDuplicationError
-from snakemake.persistence import Persistence
+from snakemake.persistence.db import DbPersistence
+from snakemake.persistence.file import FilePersistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
-from snakemake.settings.enums import RerunTrigger
-from snakemake.utils import min_version  # import so we can patch out if needed
+from snakemake.settings.enums import RerunTrigger, PersistenceBackend
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
@@ -342,11 +342,95 @@ def test_params():
     run(dpath("test_params"))
 
 
-def test_params_outdated_metadata(mocker):
-    spy = mocker.spy(Persistence, "has_outdated_metadata")
+@pytest.mark.parametrize(
+    "backend, PersistenceClass",
+    [
+        (PersistenceBackend.FILE, FilePersistence),
+        (PersistenceBackend.DB, DbPersistence),
+    ],
+)
+def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
+    spy = mocker.spy(PersistenceClass, "has_outdated_metadata")
 
-    run(dpath("test_params_outdated_code"), targets=["somedir/test.out"])
+    workdir = tmp_path / "workdir"
+    shutil.copytree(dpath("test_params_outdated_code"), workdir)
+    snakemake_dir = workdir / ".snakemake"
+
+    db_url = None
+    if backend == PersistenceBackend.DB:
+        from sqlmodel import Session, SQLModel, create_engine
+        from snakemake.persistence.db import MetadataRecordORM
+        import json
+
+        # since we do not have a db in the test dir,
+        # we create one from the single _outdated_ .snakemake/metadata/c29tZWRpci90ZXN0Lm91dA== file,
+        # which is the metadata for the test.out file
+        db_file = tmp_path / "metadata.db"
+        db_url = f"sqlite:///{db_file}"
+        engine = create_engine(db_url)
+        SQLModel.metadata.create_all(engine)
+
+        json_file = snakemake_dir / "metadata" / "c29tZWRpci90ZXN0Lm91dA=="
+        with open(json_file, "r") as f:
+            rec = json.load(f)
+
+        with Session(engine) as session:
+            session.add(
+                MetadataRecordORM(
+                    namespace=str(snakemake_dir.absolute()),
+                    target="somedir/test.out",
+                    **rec,
+                )
+            )
+            session.commit()
+
+    run(
+        path=workdir,
+        targets=["somedir/test.out"],
+        persistence_backend=backend,
+        persistence_backend_db_url=db_url,
+        no_tmpdir=True,
+    )
+
+    assert spy.call_count > 0, f"has_outdated_metadata was not called for {backend}!"
     assert spy.spy_return == True
+
+
+def test_persistence_backend_db_run_directive_concurrency(tmp_path):
+    workdir = tmp_path / "workdir"
+    shutil.copytree(
+        dpath("test_persistence_backend_db_run_directive_concurrency"), workdir
+    )
+
+    # generate expected output dynamically
+    expected_out_dir = workdir / "expected-results" / "out"
+    expected_out_dir.mkdir(parents=True)
+    for i in range(100):
+        (expected_out_dir / f"{i}.txt").write_text("done")
+
+    db_file = tmp_path / "metadata.db"
+    db_url = f"sqlite:///{db_file}"
+
+    run(
+        path=workdir,
+        tmpdir=workdir,
+        cleanup=False,
+        cores=20,  # not sure this will work in CI, probably gets downscaled?
+        persistence_backend=PersistenceBackend.DB,
+        persistence_backend_db_url=db_url,
+        no_tmpdir=True,
+    )
+
+    from sqlmodel import Session, select, create_engine
+    from snakemake.persistence.db import MetadataRecordORM
+
+    engine = create_engine(db_url)
+    with Session(engine) as session:
+        stmt = select(MetadataRecordORM)
+        records = session.scalars(stmt).all()
+        assert (
+            len(records) == 100
+        ), f"Expected 100 DB records, but found {len(records)}!"
 
 
 def test_same_wildcard():
@@ -785,17 +869,52 @@ def test_run_namedlist():
     run(dpath("test_run_namedlist"))
 
 
-def test_profile():
-    run(dpath("test_profile"))
+def test_profile_old():
+    run(dpath("test_profile_old"))
 
     from snakemake.profiles import ProfileConfigFileParser
 
-    grouped_profile = Path(dpath("test_profile")) / "config.yaml"
+    grouped_profile = Path(dpath("test_profile_old")) / "config.yaml"
     with grouped_profile.open("r") as f:
         parser = ProfileConfigFileParser()
         result = parser.parse(f)
         assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
         assert result["group-components"] == list(["grp1=5"])
+
+
+def test_profile_new():
+    run(dpath("test_profile_new"))
+
+    from snakemake.profiles import ProfileConfigFileParser
+
+    grouped_profile = Path(dpath("test_profile_new")) / "profile.v9+.yaml"
+    with grouped_profile.open("r") as f:
+        parser = ProfileConfigFileParser()
+        result = parser.parse(f)
+        assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
+        assert result["group-components"] == list(["grp1=5"])
+
+
+def test_profile_none():
+    run(dpath("test_profile_none"))
+    # this seems to be necessary, so this doesn't persist for other tests
+    os.environ.pop("SNAKEMAKE_PROFILE")
+
+
+# windows doesn't seem to like semicolon-separated multiline `shell:` calls
+@skip_on_windows
+def test_profile_with_env_var():
+    run(dpath("test_profile_with_env_var"))
+    # this seems to be necessary, so this doesn't persist for other tests
+    os.environ.pop("SNAKEMAKE_PROFILE")
+
+
+def test_profile_filename():
+    run(dpath("test_profile_filename"))
+
+
+def test_profile_multiple():
+    run(dpath("test_profile_multiple"))
 
 
 @skip_on_windows
@@ -2178,6 +2297,10 @@ def test_groupid_expand_local():
     run(dpath("test_groupid_expand"))
 
 
+def test_script_import_snakemake_obj():
+    run(dpath("test_script_import_snakemake_obj"))
+
+
 @skip_on_windows
 def test_groupid_expand_cluster():
     run(dpath("test_groupid_expand_cluster"), cluster="./qsub", nodes=3)
@@ -2402,7 +2525,43 @@ def test_workflow_profile():
     run(
         test_path,
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake --profile {general_profile} -c1",
+        shellcmd=f"snakemake --profile {general_profile}",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_cli_overwrite():
+    run(
+        dpath("test_workflow_profile_cli_overwrite"),
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --set-resources a:foo='overwritten' a:mem_mb=8 --cores 2",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_default_path():
+    run(
+        dpath("test_workflow_profile_relative_path"),
+        snakefile="workflow/Snakefile",
+        shellcmd="snakemake --workflow-profile workflow_at_site_x --cores 1",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_relative_path():
+    run(
+        dpath("test_workflow_profile_relative_path"),
+        snakefile="workflow/Snakefile",
+        shellcmd="snakemake --workflow-profile workflow/profiles/workflow_at_site_x --cores 1",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_relative_filename():
+    run(
+        dpath("test_workflow_profile_relative_filename"),
+        snakefile="workflow/Snakefile",
+        shellcmd="snakemake --workflow-profile ./workflow/some_dir/workflow_profile.yaml --cores 1",
     )
 
 
