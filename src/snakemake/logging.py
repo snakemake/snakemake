@@ -743,6 +743,10 @@ class LoggerManager:
         if self.queue_listener is not None and self.queue_listener._thread is not None:
             self.queue_listener.stop()
 
+        # Close plugin handlers managed by the QueueListener (not attached to the logger).
+        for handler in self.plugin_handlers:
+            handler.close()
+
         # Remove and close all handlers - this should mostly clean up the global logger instance.
         for handler in list(self.logger.handlers):
             self.logger.removeHandler(handler)
