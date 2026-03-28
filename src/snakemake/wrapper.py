@@ -95,7 +95,7 @@ def get_script(
     return find_extension(path, sourcecache)
 
 
-def get_conda_env(path, prefix=None):
+def get_conda_env(path, prefix=None) -> SourceFile:
     path = get_path(path, prefix=prefix)
     if is_script(path):
         # URLs and posixpaths share the same separator. Hence use posixpath here.

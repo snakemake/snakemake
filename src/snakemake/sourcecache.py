@@ -727,6 +727,9 @@ class SourceCache:
         return self._open(LocalSourceFile(cache_entry), mode, encoding="utf-8")
 
     def exists(self, source_file) -> bool:
+        # TODO we should have a dedicated FileNotFound exception in the different source
+        # files in order to be able to distinguish the whether the item really does
+        # not exist or is just temporarily not readable.
         try:
             self._cache(source_file)
         except Exception:
