@@ -76,8 +76,6 @@ def find_extension(
             sourcecache.try_access(script)
             return script
         except Exception as e:
-            # TODO remove dbg print
-            print_exception(e)
             if isinstance(e, WorkflowError):
                 msg = str(e)
             else:

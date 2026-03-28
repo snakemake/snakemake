@@ -3479,14 +3479,18 @@ class ScriptProcessor(DAGProcessorBase):
 
     def process_job(self, job: Job) -> None:
         if getattr(job, f"is_{self.script_type}"):
-            script_path, _, _, _, _ = script.get_source(
-                getattr(job.rule, self.script_type),
+            script_entry = getattr(job.rule, self.script_type)
+            if isinstance(script_entry, Path):
+                script_entry = str(script_entry)
+
+            script_sourcefile, _, _, _, _ = script.get_source(
+                script_entry,
                 self.dag.workflow.sourcecache,
                 job.rule.basedir,
                 job.wildcards,
                 job.params,
             )
-            if not self.dag.workflow.sourcecache.exists(script_path):
+            if not self.dag.workflow.sourcecache.exists(script_sourcefile):
                 raise WorkflowError(
                     f"{self.script_type.capitalize()} {job.rule.script} not accessible. "
                     "Please check the path to the script."
@@ -3495,3 +3499,9 @@ class ScriptProcessor(DAGProcessorBase):
 
 class NotebookProcessor(ScriptProcessor):
     script_type = "notebook"
+
+    def process_job(self, job: Job) -> None:
+        if not (
+            self.dag.is_edit_notebook_job(job) or self.dag.is_draft_notebook_job(job)
+        ):
+            super().process_job(job)
