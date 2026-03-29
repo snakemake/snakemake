@@ -852,10 +852,10 @@ class Resource:
                 f"Resource '{name}' with value {value!r} could not be parsed as "
                 "{unit}"
             )
-            if stripped.isdecimal():
-                return int(stripped)
 
             if name in SizedResources:
+                if stripped.isdecimal():
+                    return int(stripped)
                 try:
                     return max(int(math.ceil(parse_size(stripped) / 1e6)), 1)
                 except InvalidSize as err:
