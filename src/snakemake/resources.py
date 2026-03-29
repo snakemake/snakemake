@@ -861,6 +861,8 @@ class Resource:
                 except InvalidSize as err:
                     raise WorkflowError(err_msg.format(unit="size in MB")) from err
             elif name in TimeResources:
+                if stripped.isdecimal():
+                    return int(stripped)
                 try:
                     return max(int(round(parse_timespan(stripped)) / 60), 1)
                 except InvalidTimespan as err:
