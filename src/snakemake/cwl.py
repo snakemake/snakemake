@@ -202,8 +202,11 @@ def dag_to_cwl(dag):
             "--target-files-omit-workdir-adjustment",
             "--keep-remote",
             "--force-use-threads",
-            "--wrapper-prefix",
-            dag.workflow.workflow_settings.wrapper_prefix,
+            *(
+                [f"--wrapper-prefix {dag.workflow.workflow_settings.wrapper_prefix}"]
+                if dag.workflow.workflow_settings.wrapper_prefix
+                else []
+            ),
             "--notemp",
             "--quiet",
             "--use-conda",

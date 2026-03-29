@@ -60,7 +60,7 @@ class OutputFileCache(AbstractOutputFileCache):
         with TemporaryDirectory(dir=self.path) as tmpdirname:
             tmpdir = Path(tmpdirname)
 
-            for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
+            for outputfile, cachefile in await self.get_outputfiles_and_cachefiles(job):
                 if not os.path.exists(outputfile):
                     raise WorkflowError(
                         f"Cannot move output file {outputfile} to cache. It does not exist "
@@ -89,7 +89,7 @@ class OutputFileCache(AbstractOutputFileCache):
         """
         Retrieve cached output file and symlink to the place where the job expects it's output.
         """
-        for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
+        for outputfile, cachefile in await self.get_outputfiles_and_cachefiles(job):
             if not cachefile.exists():
                 self.raise_cache_miss_exception(job)
 
@@ -114,7 +114,7 @@ class OutputFileCache(AbstractOutputFileCache):
         """
         Return True if job is already cached
         """
-        for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
+        for outputfile, cachefile in await self.get_outputfiles_and_cachefiles(job):
             if not cachefile.exists():
                 return False
 
@@ -127,14 +127,14 @@ class OutputFileCache(AbstractOutputFileCache):
             self.check_readable(cachefile)
         return True
 
-    def get_outputfiles_and_cachefiles(self, job: Job):
-        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
+    async def get_outputfiles_and_cachefiles(self, job: Job):
+        provenance_hash = await self.provenance_hash_map.get_provenance_hash(job)
         base_path = self.path / provenance_hash
 
-        return (
+        return [
             (Path(outputfile), Path(f"{base_path}{ext}"))
             for outputfile, ext in self.get_outputfiles(job)
-        )
+        ]
 
     def symlink(self, path, outputfile, utime=True):
         if os.utime in os.supports_follow_symlinks or not utime:

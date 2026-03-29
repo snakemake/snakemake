@@ -129,7 +129,7 @@ Resources
     The provided code should also serve as a best-practices of how to build production ready workflows with Snakemake.
     Everybody is invited to contribute.
 
-`Snakemake Profiles Project <https://github.com/snakemake-profiles/doc>`__
+`Snakemake Cluster Profiles Project <https://github.com/snakemake/snakemake-cluster-profiles>`__
     This project provides Snakemake configuration profiles for various execution environments.
     Please consider contributing your own if it is still missing.
 
@@ -147,7 +147,7 @@ Resources
    :caption: Getting started
    :name: getting_started
    :hidden:
-   :maxdepth: 1
+   :maxdepth: 2
 
    getting_started/installation
    getting_started/migration
