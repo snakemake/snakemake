@@ -4,13 +4,11 @@ min_version("6.1.1")
 
 configfile: "config.yaml"
 
-remote_snakefile = "https://raw.githubusercontent.com/snakemake-workflows/dna-seq-varlociraptor/v5.0.2/workflow/Snakefile"
-
 
 # import 1
 module first:
     snakefile:
-        remote_snakefile
+        github("snakemake-workflows/dna-seq-varlociraptor", path="workflow/Snakefile", tag="v5.0.2")
     replace_prefix:
         {
             "benchmarking/": "benchmarking/first/",

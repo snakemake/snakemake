@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [9.19.0](https://github.com/snakemake/snakemake/compare/v9.18.2...v9.19.0) (2026-03-28)
+
+
+### Features
+
+* clean up profile handling, switch to `profile.yaml` as default file name, allow specifying yaml file instead of dir ([#4087](https://github.com/snakemake/snakemake/issues/4087)) ([2f34008](https://github.com/snakemake/snakemake/commit/2f340087ddc6fd132b0a68dac597916cbc4cf219))
+
+
+### Bug Fixes
+
+* avoid race conditions in wrapper/script/notebook retrieval; better error messages for missing wrappers; introduction of DAGProcessorBase for modularization of DAG processing code (for now in the same module to avoid conflicts with open PRs) ([#4133](https://github.com/snakemake/snakemake/issues/4133)) ([15468be](https://github.com/snakemake/snakemake/commit/15468be38a1acca82ca23136735fb2817fbb1e66))
+
+
+### Documentation
+
+* update installation instuctions ([#4025](https://github.com/snakemake/snakemake/issues/4025)) ([bfb6b59](https://github.com/snakemake/snakemake/commit/bfb6b59f82aa5c86d6c9df3c4006cbe73ac2604a))
+
 ## [9.18.2](https://github.com/snakemake/snakemake/compare/v9.18.1...v9.18.2) (2026-03-26)
 
 
