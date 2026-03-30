@@ -593,6 +593,10 @@ class Singularity(RuleKeywordState):
     def keyword(self):
         return "container"
 
+    @property
+    def keyword_name(self):
+        return "singularity"
+
 
 class Container(RuleKeywordState):
     pass
@@ -614,6 +618,10 @@ class Cache(RuleKeywordState):
     @property
     def keyword(self):
         return "cache_rule"
+
+    @property
+    def keyword_name(self):
+        return "cache"
 
 
 class DefaultTarget(RuleKeywordState):
@@ -813,35 +821,32 @@ class CWL(Script):
         )
 
 
-rule_property_subautomata = {
-    str(i.keyword_name): i
-    for i in (
-        Name,
-        Input,
-        Output,
-        Params,
-        Threads,
-        Resources,
-        Retries,
-        Priority,
-        Log,
-        Message,
-        Benchmark,
-        Conda,
-        Singularity,
-        Container,
-        Containerized,
-        EnvModules,
-        WildcardConstraints,
-        Shadow,
-        Group,
-        Cache,
-        Handover,
-        DefaultTarget,
-        LocalRule,
-        RulePathvars,
-    )
-}
+rule_property_subautomata = dict(
+    name=Name,
+    input=Input,
+    output=Output,
+    params=Params,
+    threads=Threads,
+    resources=Resources,
+    retries=Retries,
+    priority=Priority,
+    log=Log,
+    message=Message,
+    benchmark=Benchmark,
+    conda=Conda,
+    singularity=Singularity,
+    container=Container,
+    containerized=Containerized,
+    envmodules=EnvModules,
+    wildcard_constraints=WildcardConstraints,
+    shadow=Shadow,
+    group=Group,
+    cache=Cache,
+    handover=Handover,
+    default_target=DefaultTarget,
+    localrule=LocalRule,
+    pathvars=RulePathvars,
+)
 rule_property_deprecated = dict(
     version="Use conda or container directive instead (see docs)."
 )
