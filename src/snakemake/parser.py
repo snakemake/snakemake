@@ -299,6 +299,10 @@ class RuleKeywordState(KeywordState):
     # or the merge modifier    (`input with:`).
     # ------------------------------------------------------------------
 
+    @property
+    def keyword_name(self):
+        return self.keyword
+
     def colon(self, token):
         if is_colon(token):
             # normal path: `input:`
@@ -306,9 +310,9 @@ class RuleKeywordState(KeywordState):
             for t in self.start():
                 yield t, token
         elif is_name(token) and token.string == "with":
-            if self.keyword not in MERGE_SUPPORTED_SECTIONS:
+            if self.keyword_name not in MERGE_SUPPORTED_SECTIONS:
                 self.error(
-                    f"'with' modifier is not supported for '{self.keyword}'. "
+                    f"'with' modifier is not supported for '{self.keyword_name}'. "
                     f"Supported sections: {sorted(MERGE_SUPPORTED_SECTIONS)}.",
                     token,
                 )
@@ -383,6 +387,10 @@ class RulePathvars(RuleKeywordState):
     @property
     def keyword(self):
         return "rule_pathvars"
+
+    @property
+    def keyword_name(self):
+        return "pathvars"
 
 
 # PEPs
@@ -613,6 +621,10 @@ class DefaultTarget(RuleKeywordState):
     def keyword(self):
         return "default_target_rule"
 
+    @property
+    def keyword_name(self):
+        return "default_target"
+
 
 class Handover(RuleKeywordState):
     pass
@@ -622,6 +634,10 @@ class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
         return "register_wildcard_constraints"
+
+    @property
+    def keyword_name(self):
+        return "wildcard_constraints"
 
 
 class LocalRule(RuleKeywordState):
@@ -797,32 +813,35 @@ class CWL(Script):
         )
 
 
-rule_property_subautomata = dict(
-    name=Name,
-    input=Input,
-    output=Output,
-    params=Params,
-    threads=Threads,
-    resources=Resources,
-    retries=Retries,
-    priority=Priority,
-    log=Log,
-    message=Message,
-    benchmark=Benchmark,
-    conda=Conda,
-    singularity=Singularity,
-    container=Container,
-    containerized=Containerized,
-    envmodules=EnvModules,
-    wildcard_constraints=WildcardConstraints,
-    shadow=Shadow,
-    group=Group,
-    cache=Cache,
-    handover=Handover,
-    default_target=DefaultTarget,
-    localrule=LocalRule,
-    pathvars=RulePathvars,
-)
+rule_property_subautomata = {
+    str(i.keyword_name): i
+    for i in (
+        Name,
+        Input,
+        Output,
+        Params,
+        Threads,
+        Resources,
+        Retries,
+        Priority,
+        Log,
+        Message,
+        Benchmark,
+        Conda,
+        Singularity,
+        Container,
+        Containerized,
+        EnvModules,
+        WildcardConstraints,
+        Shadow,
+        Group,
+        Cache,
+        Handover,
+        DefaultTarget,
+        LocalRule,
+        RulePathvars,
+    )
+}
 rule_property_deprecated = dict(
     version="Use conda or container directive instead (see docs)."
 )
