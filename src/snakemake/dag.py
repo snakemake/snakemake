@@ -1,3 +1,6 @@
+from snakemake import wrapper
+from abc import abstractmethod
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -15,18 +18,20 @@ import tarfile
 import textwrap
 import time
 import json
-from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union, Dict
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union
 import uuid
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from tabulate import tabulate
 from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
 from snakemake.rules import Rule
 from snakemake.settings.types import DeploymentMethod
+from snakemake import script
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
@@ -124,6 +129,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         ignore_incomplete=False,
         rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
+        self.dag_processors: List["DAGProcessorBase"] = [
+            ScriptProcessor(self),
+            WrapperProcessor(self),
+            NotebookProcessor(self),
+        ]
         self._deferred_temp_jobs = []
         self._queue_input_jobs = None
         self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
@@ -165,6 +175,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._checked_jobs = set()
         self._checked_needrun_jobs = set()
         self._seen_outputs: Dict[str, Union[Job, GroupJob]] = dict()
+        self._evicted_checkpoint_outputs: Set = set()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -714,25 +725,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             )
 
         # handle checksum
-        async def is_not_same_checksum(f, ensure):
-            if not ensure.get("checksum_algorithm"):
+        async def is_not_same_checksum(f: _IOFile, ensure):
+            checksum_algorithm = ensure.get("checksum_algorithm")
+            if not checksum_algorithm:
                 return False
-            checksum_algorithm = ensure["checksum_algorithm"]
-            checksum = ensure["checksum"]
-            if is_callable(checksum):
+            checksum_hash = ensure["checksum"]
+            if is_callable(checksum_hash):
                 try:
-                    checksum = checksum(job.wildcards)
+                    checksum_hash = checksum_hash(job.wildcards)
                 except Exception as e:
                     raise WorkflowError(
                         "Error calling checksum function provided to ensure marker.",
                         e,
                         rule=job.rule,
-                    )
+                    ) from e
             return not await f.is_same_checksum(
-                checksum,
+                f"{checksum_algorithm}:{checksum_hash}",
                 self.max_checksum_file_size,
                 force=True,
-                algorithm=checksum_algorithm,
             )
 
         checksum_failed_output = [
@@ -1353,6 +1363,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 )
 
         if missing_input:
+            if job.is_checkpoint:
+                # If a checkpoint input was e.g. deleted but the output is still present,
+                # the checkpoint has to be removed here from the dag as with any other
+                # job. However, we still have to record its output for updating downstream
+                # jobs. This is what happens in self._evicted_checkpoint_outputs
+                incomplete_outputs = set(
+                    await self.workflow.persistence.incomplete(job)  # type: ignore[reportOptionalMemberAccess]
+                )
+                for out in job.output:
+                    if await out.exists() and out not in incomplete_outputs:
+                        self._evicted_checkpoint_outputs.add(out)
             self.delete_job(job, recursive=False)  # delete job from tree
             raise MissingInputException(job, missing_input)
 
@@ -1381,7 +1402,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         is_same_checksum_cache = dict()
 
-        async def is_same_checksum(f, job):
+        async def is_same_checksum(f: _IOFile, job: Job):
             try:
                 return is_same_checksum_cache[(f, job)]
             except KeyError:
@@ -1461,7 +1482,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             if not reason:
                 output_mintime_ = output_mintime.get(job)
                 reason.updated_input.clear()
-                if output_mintime_:
+                # Skip this check if the job depends on a checkpoint target, as it will be
+                # reevaluated in a second pass after the checkpoint output has been determined.
+                # The checkpoint target file itself may have been updated,
+                # but the real input files are not yet known.
+                depends_on_checkpoint_target = any(
+                    f.flags.get("checkpoint_target") for f in job.input
+                )
+                if output_mintime_ and not depends_on_checkpoint_target:
                     # Input is updated if it is newer than the oldest output file
                     # and does not have the same checksum as the one previously recorded.
                     async def updated_input():
@@ -1478,10 +1506,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     reason.unfinished_queue_input = job.has_unfinished_queue_input()
                     if not reason.unfinished_queue_input:
                         # check for other changes like parameters, set of input files, or code
-                        depends_on_checkpoint_target = any(
-                            f.flags.get("checkpoint_target") for f in job.input
-                        )
-
                         if not depends_on_checkpoint_target:
                             # When the job depends on a checkpoint, it will be reevaluated in a second pass
                             # after the checkpoint output has been determined.
@@ -1674,7 +1698,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             or not self.priorityfiles.isdisjoint(job.output)
         )
         for job in self.needrun_jobs():
-            self._priority[job] = job.rule.priority
+            self._priority[job] = job.rule.expand_priority(
+                job.wildcards_dict, job.input, job.attempt
+            )
         for job in self.bfs(
             self._dependencies,
             *filter(prioritized, self.needrun_jobs()),
@@ -1948,6 +1974,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 "ready for execution."
             )
 
+        for processor in self.dag_processors:
+            processor.process()
+
     async def check_jobs(self):
         # first we check all **needrun** jobs whether its output can be made
         for job in filterfalse(
@@ -2176,6 +2205,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             for depending in self.depending[job]:
                 job_queue[depending].add(job)
             self.workflow.checkpoints.created_output.update(job.output)
+        self.workflow.checkpoints.created_output.update(
+            self._evicted_checkpoint_outputs
+        )
 
         updated = len(job_queue) > 0
         if updated:
@@ -3183,7 +3215,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             logger.info(msg)
 
     def stats(self) -> Tuple[str, Dict[str, int]]:
-        from tabulate import tabulate
 
         # Count the jobs
         rules = Counter()
@@ -3193,10 +3224,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         # Create rows for the table and a dictionary for job stats
         rows = []
         stats_dict = {}
-        for rule, count in sorted(rules.most_common(), key=lambda item: item[0].name):
-            row = {"job": rule.name, "count": count}
-            rows.append(row)
-            stats_dict[rule.name] = count
+
+        relevant_jobs = set(chain(self.needrun_jobs(), self.finished_jobs))
+        ordered_jobs = [
+            str(job)
+            for level in self.toposorted(relevant_jobs)
+            for job in sorted(level, key=str)
+        ]
+        ordered_counts = Counter(ordered_jobs)
+
+        for unique_job in dict.fromkeys(ordered_jobs):
+            count = ordered_counts[unique_job]
+            rows.append({"job": unique_job, "count": count})
+            stats_dict[unique_job] = count
 
         # Add total row
         total_count = sum(rules.values())
@@ -3205,7 +3245,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         # Generate the formatted message
         message = "Job stats:\n" + tabulate(rows, headers="keys") + "\n"
-
         # Return both the message and dictionary
         return message, stats_dict
 
@@ -3388,3 +3427,81 @@ class CandidateGroup:
 
     def merge(self, other):
         self.id = other.id
+
+
+class DAGProcessorBase:
+    needrun_only: bool = True
+
+    def __init__(self, dag: DAG) -> None:
+        self.dag: DAG = dag
+        self.processed_jobs: Set[Job] = set()
+
+    def process(self) -> None:
+        for job in self.dag.needrun_jobs() if self.needrun_only else self.dag.jobs:
+            if job in self.processed_jobs:
+                continue
+            self.process_job(job)
+            self.processed_jobs.add(job)
+
+    @abstractmethod
+    def process_job(self, job: Job) -> None: ...
+
+
+class WrapperProcessor(DAGProcessorBase):
+    def process_job(self, job: Job) -> None:
+        if job.is_wrapper:
+            script = wrapper.get_script(
+                job.rule.wrapper,
+                self.dag.workflow.sourcecache,
+                self.dag.workflow.workflow_settings.wrapper_prefix,
+            )
+            if script is None:
+                raise WorkflowError(
+                    f"Wrapper {job.rule.wrapper} not accessible. "
+                    "Please check the name of the wrapper and your wrapper prefix."
+                )
+            if (
+                DeploymentMethod.CONDA
+                in self.dag.workflow.deployment_settings.deployment_method
+            ):
+                env = wrapper.get_conda_env(
+                    job.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
+                )
+                if not self.dag.workflow.sourcecache.exists(env):
+                    raise WorkflowError(
+                        f"Conda environment for wrapper {job.rule.wrapper} not accessible. "
+                        "Please check the name of the wrapper and your wrapper prefix."
+                    )
+
+
+class ScriptProcessor(DAGProcessorBase):
+    script_type = "script"
+
+    def process_job(self, job: Job) -> None:
+        if getattr(job, f"is_{self.script_type}"):
+            script_entry = getattr(job.rule, self.script_type)
+            if isinstance(script_entry, Path):
+                script_entry = str(script_entry)
+
+            script_sourcefile, _, _, _, _ = script.get_source(
+                script_entry,
+                self.dag.workflow.sourcecache,
+                job.rule.basedir,
+                job.wildcards,
+                job.params,
+            )
+            if not self.dag.workflow.sourcecache.exists(script_sourcefile):
+                raise WorkflowError(
+                    f"{self.script_type.capitalize()} {job.rule.script} not accessible. "
+                    "Please check the path to the script."
+                )
+
+
+class NotebookProcessor(ScriptProcessor):
+    script_type = "notebook"
+
+    def process_job(self, job: Job) -> None:
+        if not (
+            self.dag.is_edit_notebook_job(job) or self.dag.is_draft_notebook_job(job)
+        ):
+            super().process_job(job)

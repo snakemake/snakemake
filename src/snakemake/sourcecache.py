@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from functools import partial
 from pathlib import Path
 import posixpath
 import re
@@ -295,6 +294,8 @@ class LocalGitFile(SourceFile):
 
 
 class HostedGitRepo:
+    from tenacity import retry, stop_after_attempt, wait_exponential
+
     def __init__(
         self,
         repo: str,
@@ -367,10 +368,12 @@ class HostedGitRepo:
             return True
         except KeyError:
             return False
+        except IndexError:
+            return False
 
+    @retry(wait=wait_exponential(multiplier=2, min=3), stop=stop_after_attempt(3))
     def fetch(self) -> Optional[str]:
         import git
-        from reretry import retry_call
 
         if self._fetched:
             # up to date, nothing to do
@@ -380,14 +383,9 @@ class HostedGitRepo:
             f"Fetching latest changes of {self.host}/{self.repo_name} to {self.repo_clone}"
         )
         try:
-            retry_call(
-                # arg is needed in order to have a refspec, associated issue with
-                # workaround is here: https://github.com/gitpython-developers/GitPython/issues/296
-                partial(self.repo.remotes.origin.fetch, "+refs/heads/*:refs/heads/*"),
-                delay=3,
-                backoff=2,
-                tries=3,
-            )
+            # arg is needed in order to have a refspec, associated issue with
+            # workaround is here: https://github.com/gitpython-developers/GitPython/issues/296
+            self.repo.remotes.origin.fetch("+refs/heads/*:refs/heads/*")
         except git.GitCommandError as e:
             return str(e)
         self._fetched = True
@@ -550,8 +548,14 @@ class HostingProviderFile(SourceFile):
             )
             return last_commit.committed_date
         except git.GitCommandError as e:
+            msg = f"Failed to get mtime of git source file {self.ref}:{self.path}"
+            if fetch_error:
+                msg += f" Unable to fetch from remote: {fetch_error}."
+            raise WorkflowError(msg) from e
+        except StopIteration as e:
             msg = (
-                f"Failed to get mtime of cached git source file {self.ref}:{self.path}"
+                f"Failed to get mtime of git source file {self.ref}:{self.path}. "
+                "File does not occur in the repository."
             )
             if fetch_error:
                 msg += f" Unable to fetch from remote: {fetch_error}."
@@ -567,7 +571,7 @@ class HostingProviderFile(SourceFile):
                 self.hosted_repo.repo.git.show(f"{self.ref}:{self.path}").encode()
             )
         except git.GitCommandError as e:
-            msg = f"Failed to get cached git source file {self.repo}:{self.path}: {e}. "
+            msg = f"Failed to get git source file {self.repo}:{self.path}: {e}. "
             if fetch_error:
                 msg += f" Unable to fetch from remote: {fetch_error}."
             raise WorkflowError(msg) from e
@@ -691,6 +695,9 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
 
 
 class SourceCache:
+    import logging
+    from tenacity import retry, stop_after_attempt, wait_exponential, after_log
+
     cache_whitelist = [
         r"https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
@@ -717,16 +724,20 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return self._open_local_or_remote(
-            LocalSourceFile(cache_entry), mode, encoding="utf-8"
-        )
+        return self._open(LocalSourceFile(cache_entry), mode, encoding="utf-8")
 
-    def exists(self, source_file):
+    def exists(self, source_file) -> bool:
+        # TODO we should have a dedicated FileNotFound exception in the different source
+        # files in order to be able to distinguish the whether the item really does
+        # not exist or is just temporarily not readable.
         try:
-            self._cache(source_file, retries=1)
+            self._cache(source_file)
         except Exception:
             return False
         return True
+
+    def try_access(self, source_file):
+        self._cache(source_file)
 
     def get_path(self, source_file):
         cache_entry = self._cache(source_file)
@@ -746,16 +757,16 @@ class SourceCache:
             # check runtime cache
             return Path(self.runtime_cache_path) / file_cache_path
 
-    def _cache(self, source_file: SourceFile, retries: int = 3):
+    def _cache(self, source_file: SourceFile):
         cache_entry = self._cache_entry(source_file)
         if not cache_entry.exists():
-            self._do_cache(source_file, cache_entry, retries=retries)
+            self._do_cache(source_file, cache_entry)
         return cache_entry
 
-    def _do_cache(self, source_file, cache_entry: Path, retries: int = 3):
+    def _do_cache(self, source_file, cache_entry: Path):
         mtime = source_file.mtime()
         # open from origin
-        with self._open_local_or_remote(source_file, "rb", retries=retries) as source:
+        with self._open(source_file, "rb", encoding=None) as source:
             cache_entry.parent.mkdir(parents=True, exist_ok=True)
             with LockFreeWritableFile(cache_entry, binary=True) as entryfile:
                 entryfile.chmod(
@@ -769,23 +780,12 @@ class SourceCache:
                     entryfile.utime((mtime, mtime))
                 entryfile.write_from_fileobj(source)
 
-    def _open_local_or_remote(
-        self, source_file: SourceFile, mode, encoding=None, retries: int = 3
-    ):
-        from reretry.api import retry_call
-
-        if source_file.is_local:
-            return self._open(source_file, mode, encoding=encoding)
-        else:
-            return retry_call(
-                self._open,
-                [source_file, mode, encoding],
-                tries=retries,
-                delay=3,
-                backoff=2,
-                logger=logger,
-            )
-
+    @retry(
+        wait=wait_exponential(multiplier=2, min=3),
+        stop=stop_after_attempt(1),
+        after=after_log(logger, logging.DEBUG, sec_format="%0.1f"),
+        reraise=True,
+    )
     def _open(self, source_file: SourceFile, mode, encoding=None):
         from smart_open import open
 

@@ -7,6 +7,7 @@ import copy
 import os
 import types
 import typing
+from snakemake.caching.rule import RuleCache
 from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import collections
 from pathlib import Path
@@ -25,9 +26,7 @@ from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake.io import (
     IOFile,
     _IOFile,
-    Namedlist,
     AnnotatedString,
-    ResourceList,
     contains_wildcard,
     contains_wildcard_constraints,
     get_flag_store_keys,
@@ -37,17 +36,21 @@ from snakemake.io import (
     flag,
     get_flag_value,
     expand,
-    InputFiles,
-    OutputFiles,
-    Wildcards,
-    Params,
-    Log,
     strip_wildcard_constraints,
     apply_wildcards,
     is_flagged,
     flag,
     is_callable,
     ReportObject,
+)
+from snakemake.iocontainers import (
+    Namedlist,
+    InputFiles,
+    OutputFiles,
+    Wildcards,
+    Params,
+    Log,
+    ResourceList,
 )
 from snakemake.resources import (
     Resource,
@@ -139,10 +142,11 @@ class Rule(RuleInterface):
         self.ruleinfo = None
         self.module_globals: typing.Dict
         self._pathvars: typing.Optional[Pathvars] = None
+        self.cache: typing.Optional[RuleCache] = None
 
     @property
     def pathvars(self) -> Pathvars:
-        return self._pathvars or self.workflow.pathvars
+        return self._pathvars
 
     @pathvars.setter
     def pathvars(self, pathvars: Pathvars) -> None:
@@ -195,19 +199,19 @@ class Rule(RuleInterface):
         self._group = group
 
     @property
-    def is_shell(self):
+    def is_shell(self) -> bool:
         return self.shellcmd is not None
 
     @property
-    def is_script(self):
+    def is_script(self) -> bool:
         return self.script is not None
 
     @property
-    def is_notebook(self):
+    def is_notebook(self) -> bool:
         return self.notebook is not None
 
     @property
-    def is_wrapper(self):
+    def is_wrapper(self) -> bool:
         return self.wrapper is not None
 
     @property
@@ -228,24 +232,6 @@ class Rule(RuleInterface):
             or self.is_wrapper
             or self.is_cwl
         )
-
-    def check_caching(self):
-        if self.workflow.cache_rules.get(self.name):
-            if len(self.output) == 0:
-                raise RuleException(
-                    "Rules without output files cannot be cached.", rule=self
-                )
-            if len(self.output) > 1:
-                prefixes = set(out.multiext_prefix for out in self.output)
-                if None in prefixes or len(prefixes) > 1:
-                    raise RuleException(
-                        "Rules marked as eligible for caching that have with multiple "
-                        "output files must define them as a single multiext() "
-                        '(e.g. multiext("path/to/index", ".bwt", ".ann")). '
-                        "The rationale is that multiple output files can only be unambiously resolved "
-                        "if they can be distinguished by a fixed set of extensions (i.e. mime types).",
-                        rule=self,
-                    )
 
     def has_wildcards(self):
         """
@@ -390,7 +376,6 @@ class Rule(RuleInterface):
             self.register_wildcards(item)
         # Check output file name list for duplicates
         self.check_output_duplicates()
-        self.check_caching()
 
     def check_output_duplicates(self):
         """Check ``Namedlist`` for duplicate entries and raise a ``WorkflowError``
@@ -1170,6 +1155,31 @@ class Rule(RuleInterface):
         resources["_cores"] = threads
 
         return ResourceList(fromdict=resources)
+
+    def expand_priority(self, wildcards, input, attempt):
+        """Expand the priority given wildcards and input."""
+        if callable(self.priority):
+            try:
+                value, _ = self.apply_input_function(
+                    self.priority,
+                    wildcards,
+                    input=input,
+                    attempt=attempt,
+                    rulename=self.name,
+                    async_run=self.workflow.async_run,
+                )
+            except (InputFunctionException, WorkflowError):
+                raise
+            except Exception as e:
+                raise InputFunctionException(e, rule=self, wildcards=wildcards)
+            if not isinstance(value, (int, float)):
+                raise RuleException(
+                    "Priority function must return a numeric value (int or float), "
+                    f"got {type(value).__name__}.",
+                    rule=self,
+                )
+            return value
+        return self.priority
 
     def expand_group(self, wildcards):
         """Expand the group given wildcards."""
