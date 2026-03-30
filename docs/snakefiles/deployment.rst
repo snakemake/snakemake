@@ -376,7 +376,7 @@ If no shebang line like above (``#!env bash``) is provided, the script will be e
 
 Also, make sure that you do not accidentally inherit any environment variables that set installation paths.
 This can for example be the case if you set up ``$R_LIBS_USER`` in a ``.Renviron`` file (usually in your ``$HOME`` directory), which automatically gets `loaded on every startup of <https://rstats.wtf/r-startup.html>`_ ``R`` and ``Rscript``.
-To make sure that any package installations you do in the ``.post-deploy.sh`` do not go into such a user ``R`` library path, but into the conda environment, run the installation with the ``--no-environ`` flag, for example:
+To make sure that any package installations in the ``.post-deploy.sh`` do not go into such a user ``R`` library path, but into the conda environment, run the installation with the ``--no-environ`` flag, for example:
 
 .. code-block:: bash
 
