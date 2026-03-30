@@ -15,12 +15,11 @@ import string
 import shlex
 import sys
 
-from snakemake.io import Namedlist, Wildcards
+from snakemake.iocontainers import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
 from snakemake.logging import logger
 from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
-from snakemake.io import regex_from_filepattern
 
 
 def validate(data, schema, set_default=True):
@@ -173,12 +172,19 @@ def validate(data, schema, set_default=True):
                         )
 
                 if set_default:
-                    newdata = pd.DataFrame(recordlist, data.index)
-                    # Add missing columns
-                    newcol = newdata.columns[~newdata.columns.isin(data.columns)]
-                    data[newcol] = None
-                    # Fill in None values with values from newdata
-                    data.update(newdata)
+                    newdata = pd.DataFrame(recordlist)
+                    # Add missing columns and fill None values using positional alignment
+                    # to avoid ValueError with duplicate indices (data.update() aligns on index)
+                    for col in newdata.columns:
+                        new_vals = newdata[col].to_numpy()
+                        if col not in data.columns:
+                            data[col] = new_vals
+                        else:
+                            cur_vals = data[col].to_numpy(copy=True)
+                            na_mask = pd.isna(cur_vals)
+                            if na_mask.any():
+                                cur_vals[na_mask] = new_vals[na_mask]
+                                data[col] = cur_vals
 
             else:
                 return False
@@ -301,6 +307,8 @@ def listfiles(pattern, restriction=None, omit_value=None):
     Yields:
         tuple: The next file matching the pattern, and the corresponding wildcards object
     """
+    from snakemake.io import regex_from_filepattern
+
     pattern = os.path.normpath(pattern)
     first_wildcard = re.search("{[^{]", pattern)
     if first_wildcard:

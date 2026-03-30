@@ -19,10 +19,7 @@ from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.deployment import singularity
-from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
-
-__author__ = "Johannes Köster"
 
 STDOUT = sys.stdout
 if not isinstance(sys.stdout, _io.TextIOWrapper):
@@ -230,6 +227,8 @@ class shell:
             logger.info(f"Activating environment modules: {env_modules}")
 
         if conda_env:
+            from snakemake.deployment.conda import Conda
+
             if ON_WINDOWS and not cls.get_executable():
                 # If we use cmd.exe directly on windows we need to prepend batch activation script.
                 cmd = Conda(
