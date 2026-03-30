@@ -622,9 +622,16 @@ class PersistenceBase(
         return (m := self.metadata(path)) and m.software_stack_hash
 
     def input_checksums(self, job: Any, input_path: Any) -> set[Any]:
+        def ensure_algorithm(checksum):
+            return (
+                checksum
+                if checksum is None or ":" in checksum
+                else f"sha256:{checksum}"
+            )
+
         return set(
             (
-                m.input_checksums.get(input_path)
+                ensure_algorithm(m.input_checksums.get(input_path))
                 if (m := self.metadata(output_path)) and m.input_checksums
                 else None
             )

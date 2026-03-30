@@ -19,6 +19,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from inspect import isfunction, ismethod
+from io import BytesIO
 from itertools import chain, product
 from pathlib import Path
 import pickle
@@ -65,7 +66,7 @@ from snakemake.logging import logger
 if TYPE_CHECKING:
     import snakemake.rules
     import snakemake.jobs
-    from snakemake.io.container import Namedlist
+    from snakemake.iocontainers import Namedlist
 
 
 def lutime(file, times):
@@ -106,13 +107,14 @@ class IOCacheLoadError(Exception):
 class IOCache(IOCacheStorageInterface):
     # Increment this when the class interface changes to invalidated previously
     # persisted versions.
-    IOCACHE_VERSION = 0
+    IOCACHE_VERSION = 1
 
     def __init__(self, max_wait_time):
         self._mtime = dict()
         self._exists_local = ExistsDict(self)
         self._exists_in_storage = ExistsDict(self)
         self._size = dict()
+        self._checksum = dict()
         self.active = True
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
@@ -127,7 +129,13 @@ class IOCache(IOCacheStorageInterface):
             setattr(simplified, name, old_attr)
 
         # Copy dictionary attributes, casting keys to str.
-        for name in ["_mtime", "_exists_local", "_exists_in_storage", "_size"]:
+        for name in [
+            "_mtime",
+            "_exists_local",
+            "_exists_in_storage",
+            "_size",
+            "_checksum",
+        ]:
             old_dict = getattr(self, name)
             if isinstance(old_dict, ExistsDict):
                 setattr(simplified, name, ExistsDict(simplified))
@@ -173,6 +181,10 @@ class IOCache(IOCacheStorageInterface):
     @property
     def size(self):
         return self._size
+
+    @property
+    def checksum(self):
+        return self._checksum
 
     async def mtime_inventory(
         self, jobs: "collections.abc.Iterable[snakemake.jobs.Job]", n_workers=8
@@ -226,6 +238,7 @@ class IOCache(IOCacheStorageInterface):
     def clear(self):
         self.mtime.clear()
         self.size.clear()
+        self.checksum.clear()
         self.exists_local.clear()
         self.exists_in_storage.clear()
         self.remaining_wait_time = self.max_wait_time
@@ -630,13 +643,65 @@ class _IOFile(str, AnnotatedStringInterface):
             and not self.is_fifo()
         )
 
-    async def checksum(self, threshold, force=False, algorithm=hashlib.sha256):
-        """Return checksum if file is small enough, else None.
-        Returns None if file does not exist. If force is True,
-        omit eligibility check."""
+    async def checksum(
+        self,
+        threshold: Optional[int] = None,
+        force: bool = False,
+        algorithm: None | str | Callable = None,
+    ) -> Optional[str]:
+        """Return checksum as "{algorithm}:{hexdigest}", or None.
+
+        Returns None if the file does not exist or exceeds the size threshold.
+        If force is True, the eligibility check is skipped (threshold may be None).
+
+        If algorithm is None, local files are returned as sha256, storage files may
+        use different algorithms.
+
+        A cached result is returned if available and the algorithm matches."""
+
+        wrong_algorithm_or_empty = False
+
+        algorithm_name = (
+            None
+            if algorithm is None
+            else algorithm if isinstance(algorithm, str) else algorithm().name
+        )
+
+        def check_algorithm(checksum):
+            if algorithm_name is None:
+                return True
+            used_algorithm, _ = checksum.split(":", maxsplit=1)
+            return algorithm_name == used_algorithm
+
+        assert self.rule is not None
+        iocache = self.rule.workflow.iocache
+        if iocache.active:
+            if self in iocache.checksum:
+                checksum = iocache.checksum[self]
+                # make sure the algorithm matches
+                if checksum is not None and check_algorithm(checksum):
+                    return checksum
+
+                wrong_algorithm_or_empty = True
+
+        if algorithm is None:
+            algorithm = hashlib.sha256
+
+        if self.is_storage:
+            if not wrong_algorithm_or_empty:
+                checksum = await self.storage_object.managed_checksum()
+                if iocache.active:
+                    iocache.checksum[self] = checksum
+                if checksum is not None and check_algorithm(checksum):
+                    return checksum
+
+            if force:
+                await self.retrieve_from_storage()
+
+        assert force or threshold is not None
+
         if force or await self.is_checksum_eligible(threshold):
-            checksum = algorithm()
-            if await self.size() > 0:
+            if await self.size_local() > 0:
                 # only read if file is bigger than zero
                 # otherwise the checksum is the same as taking hexdigest
                 # from the empty sha256 as initialized above
@@ -644,16 +709,41 @@ class _IOFile(str, AnnotatedStringInterface):
                 # is a named pipe or a socket or a symlink to a device like
                 # /dev/random.
                 with open(self.file, "rb") as f:
-                    checksum.update(f.read())
-            return checksum.hexdigest()
+                    checksum = hashlib.file_digest(f, algorithm)
+            else:
+                checksum = hashlib.file_digest(BytesIO(b""), algorithm)
+
+            checksum = f"{checksum.name}:{checksum.hexdigest()}"
+            if iocache.active and not wrong_algorithm_or_empty:
+                # add the computed checksum, only if a different one was not already there
+                iocache.checksum[self] = checksum
+            return checksum
         else:
             return None
 
     async def is_same_checksum(
-        self, other_checksum, threshold, force=False, algorithm=hashlib.sha256
-    ):
+        self,
+        other_checksum: Optional[str],
+        threshold: Optional[int],
+        force: bool = False,
+    ) -> bool:
+        """Return True if this file's checksum matches other_checksum.
+
+        other_checksum must be in "{algorithm}:{hexdigest}" format.
+        Returns False if either checksum is unavailable (file too large or missing)."""
+
+        if other_checksum is None:
+            return False
+
+        pos = other_checksum.find(":")
+        if pos == -1:
+            raise ValueError(
+                "other_checksum needs to specify an algorithm prefix, like sha512:xxxx"
+            )
+        algorithm = other_checksum[:pos]
+
         checksum = await self.checksum(threshold, force=force, algorithm=algorithm)
-        if checksum is None or other_checksum is None:
+        if checksum is None:
             # if no checksum available or files too large, not the same
             return False
         else:
@@ -806,7 +896,7 @@ class _IOFile(str, AnnotatedStringInterface):
         f = self._file
 
         if self.is_callable():
-            from snakemake.io.container import Namedlist
+            from snakemake.iocontainers import Namedlist
 
             assert callable(self._file)
             f = self._file(Namedlist(fromdict=wildcards))
@@ -1336,11 +1426,11 @@ def ensure(value, non_empty=False, sha256=None, md5=None, sha1=None):
     checksum = sha256 or md5 or sha1
     checksum_algorithm = None
     if sha256 is not None:
-        checksum_algorithm = hashlib.sha256
+        checksum_algorithm = "sha256"
     elif md5 is not None:
-        checksum_algorithm = hashlib.md5
+        checksum_algorithm = "md5"
     elif sha1 is not None:
-        checksum_algorithm = hashlib.sha1
+        checksum_algorithm = "sha1"
     return flag(
         value,
         "ensure",
@@ -1730,26 +1820,6 @@ def strip_wildcard_constraints(pattern):
         return "{{{}}}".format(match.group("name"))
 
     return WILDCARD_REGEX.sub(strip_constraint, pattern)
-
-
-class AttributeGuard:
-    def __init__(self, name):
-        self.name = name
-
-    def __call__(self, *args, **kwargs):
-        """
-        Generic function that throws an `AttributeError`.
-
-        Used as replacement for functions such as `index()` and `sort()`,
-        which may be overridden by workflows, to signal to a user that
-        these functions should not be used.
-        """
-        raise AttributeError(
-            f"{self.name}() cannot be used on snakemake input, output, resources etc.; "
-            "instead it is a valid name for items on those objects. If you want e.g. to "
-            "sort, convert to a plain list before or directly use sorted() on the "
-            "object."
-        )
 
 
 ##### Wildcard pumping detection #####

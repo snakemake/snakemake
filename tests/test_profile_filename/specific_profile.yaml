@@ -1,0 +1,22 @@
+configfile: "$WORKFLOW_CONFIG"
+cores: all
+set-threads:
+  - a=max(1024*24*input.size_mb, 2)
+  - b=4
+default-resources:
+  - mem_mb=max(1024*32*input.size_mb, 5)
+  - eggs_factor=twitter
+set-resources:
+  a:
+    mem_mb: max(1024*24*input.size_mb, 1)
+    spam_factor: X
+    double_jeopardy: attempt
+    tmpdir: "/tmp/$TMPDIR_SUBFOLDER"
+
+groups:
+  a: grp1
+  b: grp1
+  c: grp1
+
+group-components:
+  grp1: 5
