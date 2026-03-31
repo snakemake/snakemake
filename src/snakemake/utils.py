@@ -3,17 +3,21 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import os
-import json
-import re
+import collections.abc
 import inspect
+import json
+import multiprocessing
+import os
+import re
+import shlex
+import string
+import sys
 import textwrap
 from itertools import chain
-import collections
-import multiprocessing
-import string
-import shlex
-import sys
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import TypeGuard
 
 from snakemake.iocontainers import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
@@ -43,13 +47,15 @@ def validate(data, schema, set_default=True):
         # skip if a corresponding modifier has been defined
         return
 
-    from snakemake.sourcecache import LocalSourceFile, infer_source_file
-    import jsonschema
-    from jsonschema import Draft202012Validator, validators
-    from referencing import Registry, Resource
     from pathlib import Path
     from urllib.parse import urlparse
     from urllib.request import url2pathname
+
+    import jsonschema
+    from jsonschema import Draft202012Validator, validators
+    from referencing import Registry, Resource
+
+    from snakemake.sourcecache import LocalSourceFile, infer_source_file
 
     schemafile = infer_source_file(schema)
 
@@ -426,7 +432,7 @@ def R(code):
         code (str): R code to be executed
     """
     try:
-        import rpy2.robjects as robjects
+        import rpy2.robjects as robjects  # type: ignore[import]
     except ImportError:
         raise ValueError(
             "Python 3 package rpy2 needs to be installed to use the R function."
@@ -599,6 +605,7 @@ def read_job_properties(
 def min_version(version):
     """Require minimum snakemake version, raise workflow error if not met."""
     from packaging.version import parse
+
     from snakemake.common import __version__
 
     if parse(__version__) < parse(version):
@@ -621,7 +628,7 @@ def update_config(config, overwrite_config):
       overwrite_config (dict): dictionary whose items will overwrite those in config
     """
 
-    def _update_config(config, overwrite_config):
+    def _update_config(config: Dict, overwrite_config):
         """Necessary as recursive calls require a return value,
         but `update_config()` has no return value.
         """
@@ -638,6 +645,90 @@ def update_config(config, overwrite_config):
         return config
 
     _update_config(config, overwrite_config)
+
+
+class UseArgsWith:
+    """Update input, output, log, params, etc in rule definitions."""
+
+    _MARK_PATH_MODIFIER = "path_modifier"
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.args = args
+        self.kwargs = kwargs
+        self._marks: Dict = {"auto_update": True}
+
+    @classmethod
+    def updateable(cls, obj: object) -> 'TypeGuard["usewith"]':
+        return isinstance(obj, cls) and bool(obj._marks.get("auto_update", False))
+
+    def mark(self, key: str, value):
+        self._marks[key] = value
+        return self
+
+    @classmethod
+    def guard(cls, paths: Tuple, kwpaths: Dict):
+        """
+        If called with a single `UseArgsWith` positional argument, return it;
+        otherwise return the original ``(paths, kwpaths)`` tuple unchanged.
+        """
+        if len(paths) == 1 and not kwpaths:
+            obj = paths[0]
+            if cls.updateable(obj):
+                return obj
+        ret = (paths, kwpaths)
+        return ret
+
+    @classmethod
+    def guard_ioput(cls, paths, kwpaths, path_modifier):
+        obj = cls.guard(paths, kwpaths)
+        if isinstance(obj, cls):
+            return obj.mark(cls._MARK_PATH_MODIFIER, path_modifier)
+        from snakemake.ruleinfo import InOutput
+
+        return InOutput(paths, kwpaths, path_modifier)
+
+    def update_params(self, params: Optional[Tuple[List, Dict]]):
+        """
+        If old positional params is not None, it cannot only be overwritten but not cleaned up.
+
+        To fully clean up old positional params, one should not use this class.
+        """
+        if params is None:
+            return self.args, self.kwargs
+        old_positional = list(params[0] or [])
+        old_keyword = dict(params[1] or {})
+        positional, keyword = self.args, self.kwargs
+        if positional:
+            if old_positional and (len(old_positional) != len(positional)):
+                logger.warning(
+                    f"Overwriting positional arguments with different length. "
+                    f"\nprevious: {old_positional}\ncurrent: {positional}"
+                )
+            old_positional = list(positional)
+        return old_positional, old_keyword | keyword
+
+    def update_ioput(self, ioput):
+        """
+        Usage:
+        ```
+        use rule r1 from module m2 with:
+            input:
+                UseArgsWith(
+                    config="modified/{keyword}.tsv",
+                )
+                # this will keep all other r1's inputs unmodified
+        ```
+        """
+        from snakemake.ruleinfo import InOutput
+
+        modifier = self._marks[self._MARK_PATH_MODIFIER]
+        if ioput is None:
+            return InOutput(self.args, self.kwargs, modifier)
+        paths, kwpaths = self.update_params((ioput.paths, ioput.kwpaths))
+        return InOutput(paths, kwpaths, modifier)
+
+
+usewith = UseArgsWith
 
 
 def available_cpu_count():
