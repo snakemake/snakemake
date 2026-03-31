@@ -248,6 +248,44 @@ def test_containerize():
     run(dpath("test_conda"), containerize=True, check_results=False)
 
 
+@skip_on_windows
+@conda
+def test_containerize_wrapper_apptainer():
+    tmpdir = None
+    try:
+        tmpdir = run(
+            dpath("test_wrapper"),
+            shellcmd="snakemake --containerize apptainer > apptainer.def",
+            check_results=False,
+            cleanup=False,
+            deployment_method={DeploymentMethod.CONDA},
+        )
+        tmpdir = Path(tmpdir)
+
+        apptainer_def_path = tmpdir / "apptainer.def"
+        assert apptainer_def_path.exists(), "apptainer.def was not generated."
+
+        with open(apptainer_def_path) as f:
+            apptainer_def_content = f.read()
+
+        assert (
+            "#   source: https://raw.githubusercontent.com/snakemake/snakemake-wrappers/v8.1.1/bio/bgzip/environment.yaml"
+            in apptainer_def_content
+        )
+
+        # check that wrapper rule detected
+        assert "    apt-get update" in apptainer_def_content
+        assert (
+            "    apt-get install -y --no-install-recommends curl"
+            in apptainer_def_content
+        )
+        assert "    rm -rf /var/lib/apt/lists/*" in apptainer_def_content
+
+    finally:
+        if tmpdir and os.path.exists(tmpdir):
+            shutil.rmtree(tmpdir)
+
+
 @conda
 def test_converting_path_for_r_script():
     run(
@@ -437,4 +475,14 @@ def test_issue_1266():
     run(
         dpath("test_github_issue1266"),
         deployment_method={DeploymentMethod.CONDA},
+    )
+
+
+@skip_on_windows
+@conda
+def test_github_issue2213():
+    run(
+        dpath("test_github_issue2213"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_results=False,
     )

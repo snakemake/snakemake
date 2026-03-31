@@ -1,3 +1,10 @@
+.customanchor {
+    display: block;        /* Necessary for margin/padding to work correctly */
+    visibility: hidden;    /* Keep it invisible */
+    position: relative;
+    scroll-margin-top: 57px; /* This is the magic line */
+}
+
 .image-reference img {
     display: inline;
     background: none !important;

@@ -368,6 +368,8 @@ class HostedGitRepo:
             return True
         except KeyError:
             return False
+        except IndexError:
+            return False
 
     @retry(wait=wait_exponential(multiplier=2, min=3), stop=stop_after_attempt(3))
     def fetch(self) -> Optional[str]:
@@ -546,8 +548,14 @@ class HostingProviderFile(SourceFile):
             )
             return last_commit.committed_date
         except git.GitCommandError as e:
+            msg = f"Failed to get mtime of git source file {self.ref}:{self.path}"
+            if fetch_error:
+                msg += f" Unable to fetch from remote: {fetch_error}."
+            raise WorkflowError(msg) from e
+        except StopIteration as e:
             msg = (
-                f"Failed to get mtime of cached git source file {self.ref}:{self.path}"
+                f"Failed to get mtime of git source file {self.ref}:{self.path}. "
+                "File does not occur in the repository."
             )
             if fetch_error:
                 msg += f" Unable to fetch from remote: {fetch_error}."
@@ -563,7 +571,7 @@ class HostingProviderFile(SourceFile):
                 self.hosted_repo.repo.git.show(f"{self.ref}:{self.path}").encode()
             )
         except git.GitCommandError as e:
-            msg = f"Failed to get cached git source file {self.repo}:{self.path}: {e}. "
+            msg = f"Failed to get git source file {self.repo}:{self.path}: {e}. "
             if fetch_error:
                 msg += f" Unable to fetch from remote: {fetch_error}."
             raise WorkflowError(msg) from e
@@ -718,12 +726,18 @@ class SourceCache:
         cache_entry = self._cache(source_file)
         return self._open(LocalSourceFile(cache_entry), mode, encoding="utf-8")
 
-    def exists(self, source_file):
+    def exists(self, source_file) -> bool:
+        # TODO we should have a dedicated FileNotFound exception in the different source
+        # files in order to be able to distinguish the whether the item really does
+        # not exist or is just temporarily not readable.
         try:
             self._cache(source_file)
         except Exception:
             return False
         return True
+
+    def try_access(self, source_file):
+        self._cache(source_file)
 
     def get_path(self, source_file):
         cache_entry = self._cache(source_file)
