@@ -115,7 +115,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self,
         workflow,
         rules: Iterable[Rule],
-        targetfiles: Set[str] = None,
+        targetfiles: Optional[Set[str]] = None,
         targetrules=None,
         forceall=False,
         forcerules=None,
@@ -136,10 +136,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         ]
         self._deferred_temp_jobs = []
         self._queue_input_jobs = None
+        # given DAG: Prior.output == Posterior.input
+        # dependencies[Posterior] => Set[Prior]
         self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
             partial(defaultdict, set)
         )
-        self.depending = defaultdict(partial(defaultdict, set))
+        # depending[Prior] => Set[Posterior]
+        self.depending: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
+            partial(defaultdict, set)
+        )
         self._needrun = set()
         self._checkpoint_jobs = set()
         self._priority = dict()
@@ -153,7 +158,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self.targetfiles = targetfiles
         self.targetrules = targetrules
         self.target_jobs_rules = {
-            spec.rulename for spec in self.workflow.dag_settings.target_jobs
+            spec.rulename for spec in self.workflow.dag_settings.target_jobs  # type: ignore[reportOptionalMemberAccess]
         }
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
@@ -171,7 +176,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self._running = set()
         self._jobs_with_finished_queue_input = set()
         self._storage_input_jobs = defaultdict(list)
-        self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size
+        self.max_checksum_file_size = self.workflow.dag_settings.max_checksum_file_size  # type: ignore[reportOptionalMemberAccess]
         self._checked_jobs = set()
         self._checked_needrun_jobs = set()
         self._seen_outputs: Dict[str, Union[Job, GroupJob]] = dict()
@@ -418,7 +423,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     async def retrieve_storage_inputs(
         self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
     ):
-
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
@@ -1998,7 +2002,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     if other_job.jobid == job.jobid:
                         continue
 
-                    if not self.workflow.execution_settings.ignore_ambiguity:
+                    if not self.workflow.execution_settings.ignore_ambiguity:  # type: ignore[reportOptionalMemberAccess]
                         raise AmbiguousRuleException(output_file, other_job, job)
                 else:
                     self._seen_outputs[output_file] = job
@@ -2006,8 +2010,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             self._checked_jobs.add(job)
 
     def handle_pipes_and_services(self):
-        """Use pipes and services to determine job groups. Check if every pipe has exactly
-        one consumer"""
+        """Use pipes and services to determine job groups. Check if every pipe has exactly one consumer"""
 
         visited = set()
         for job in self.needrun_jobs():
@@ -2045,19 +2048,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     ]
                     if is_pipe and len(depending) > 1:
                         raise WorkflowError(
-                            "Output file {} is marked as pipe "
+                            f"Output file {f} is marked as pipe "
                             "but more than one job depends on "
                             "it. Make sure that any pipe "
                             "output is only consumed by one "
-                            "job".format(f),
+                            "job",
                             rule=job.rule,
                         )
                     elif not is_nodelocal and len(depending) == 0:
                         raise WorkflowError(
-                            "Output file {} is marked as pipe or service "
+                            f"Output file {f} is marked as pipe or service "
                             "but it has no consumer. This is "
                             "invalid because it can lead to "
-                            "a dead lock.".format(f),
+                            "a dead lock.",
                             rule=job.rule,
                         )
                     elif is_pipe and depending[0].is_norun:
@@ -2111,7 +2114,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     group = CandidateGroup()  # str(uuid.uuid4())
 
                 # Assign the pipe group to all involved jobs.
-                job.pipe_group = group
+                job.pipe_group = group  # type: ignore[reportAttributeAccessIssue]
                 visited.add(job)
                 for j in all_depending:
                     j.pipe_group = group
@@ -2183,86 +2186,113 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     def has_unfinished_queue_input_jobs(self):
         return any(job.has_unfinished_queue_input() for job in self.queue_input_jobs)
 
-    async def update_checkpoint_dependencies(self, jobs=None):
-        """Update dependencies of checkpoints."""
+    async def update_checkpoint_dependencies(self, jobs: Optional[List[Job]] = None):
+        """Re-evaluates input functions of jobs that depend on completed checkpoints,
+        expanding the DAG until no new checkpoint dependencies are discovered.
 
-        async def is_output_present(job):
-            return (self.finished(job) or not self.needrun(job)) and all(
-                await asyncio.gather(*(out.exists() for out in job.output))
+        Args: Finished jobs to process. None = scans all jobs in the DAG.
+        Returns bool(DAG was updated)
+        """
+        checkpoints_created = self.workflow.checkpoints.created_output
+
+        async def is_output_new_present(job: Job) -> bool:
+            """True if job has checkpoint outputs not yet registered
+            and all exist on disk.
+            skips already-registered ones at negligible cost
+            """
+            if not (self.finished(job) or not self.needrun(job)):
+                return False
+            unregistered = set(job.output) - checkpoints_created
+            if not unregistered:
+                return False
+            return all(await asyncio.gather(*(f.exists() for f in unregistered)))
+
+        async def get_completed_checkpoint_jobs(
+            jobs: Iterable[Job], skip_output_check=False
+        ):
+            checkpoint_jobs = [job for job in jobs if job.is_checkpoint]
+            if skip_output_check:
+                return checkpoint_jobs
+            results = await asyncio.gather(
+                *(is_output_new_present(job) for job in checkpoint_jobs)
             )
+            return [job for job, done in zip(checkpoint_jobs, results) if done]
 
-        job_queue = defaultdict(set)
-        if jobs is None:
-            jobs = [
-                job
-                for job in self.jobs
-                if job.is_checkpoint and await is_output_present(job)
-            ]
-        else:
-            # called with finished jobs, no need to check if output is present
-            jobs = [job for job in jobs if job.is_checkpoint]
-        for job in jobs:
-            for depending in self.depending[job]:
-                job_queue[depending].add(job)
-            self.workflow.checkpoints.created_output.update(job.output)
-        self.workflow.checkpoints.created_output.update(
-            self._evicted_checkpoint_outputs
+        def get_checkpoint_affected_jobs(completed_checkpoint_jobs: Iterable[Job]):
+            """Return jobs directly depend on any `completed_checkpoint_jobs`"""
+            return {
+                affected_job
+                for checkpoint_job in completed_checkpoint_jobs
+                for affected_job in self.depending[checkpoint_job]
+            }
+
+        def update_checkpoints_created(completed_checkpoint_jobs):
+            for checkpoint_job in completed_checkpoint_jobs:
+                checkpoints_created.update(checkpoint_job.output)
+            # Evicted checkpoint jobs are removed from the DAG because their inputs are missing and cannot be rerun,
+            # but their existing outputs must still be visible to `Checkpoint.*.get(`
+            # in input functions called during `self.replace_job(`.
+            # Swap rather than clear so that outputs appended concurrently are not lost.
+            evicted, self._evicted_checkpoint_outputs = (
+                self._evicted_checkpoint_outputs,
+                set(),
+            )
+            checkpoints_created.update(evicted)
+            return evicted
+
+        def checkpoint_target_inputs_updated(job: Job, updated: Job) -> bool:
+            """bool(`updated_affected_job` gained new `checkpoint_target` inputs)"""
+            prior = {f for f in job.input if is_flagged(f, "checkpoint_target")}
+            posterior = {f for f in updated.input if is_flagged(f, "checkpoint_target")}
+            return bool(posterior - prior)
+
+        # If jobs is not None, they are finished jobs whose output is guaranteed present.
+        completed_checkpoint_jobs = await get_completed_checkpoint_jobs(
+            jobs or self.jobs, skip_output_check=(jobs is not None)
         )
+        update_checkpoints_created(completed_checkpoint_jobs)
+        affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
+        if not affected_jobs:
+            return False
 
-        updated = len(job_queue) > 0
-        if updated:
-            logger.info("Updating checkpoint dependencies.")
-
-        i = 1
-        while job_queue:
+        logger.info("Updating checkpoint dependencies.")
+        for i in range(1, 101):
             logger.debug(f"Checkpoint dependency update round {i}")
-            for noneedrun_checkpoint_deps in job_queue.values():
-                for checkpoint in noneedrun_checkpoint_deps:
-                    self.workflow.checkpoints.created_output.update(checkpoint.output)
 
-            candidate_job_queue = defaultdict(set)
-            for job in job_queue.keys():
-                prior_checkpoint_targets = {
-                    infile
-                    for infile in job.input
-                    if is_flagged(infile, "checkpoint_target")
-                }
-                updated_job = await job.updated()
+            no_new_deps = True
+            for affected_job in affected_jobs:
+                updated_job = await affected_job.updated()
+                if no_new_deps and checkpoint_target_inputs_updated(
+                    affected_job, updated_job
+                ):
+                    no_new_deps = False
+                await self.replace_job(affected_job, updated_job, recursive=False)
 
-                await self.replace_job(job, updated_job, recursive=False)
+            await self.update_needrun()
+            # replace_job may expand the DAG, rescan all checkpoints
+            completed_checkpoint_jobs = await get_completed_checkpoint_jobs(self.jobs)
+            evicted = update_checkpoints_created(completed_checkpoint_jobs)
+            affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
+            if evicted:
+                affected_jobs.update(
+                    job
+                    for job in self.jobs
+                    if any(
+                        is_flagged(f, "checkpoint_target")
+                        for f in evicted.intersection(job.input)
+                    )
+                )
 
-                posterior_checkpoint_targets = {
-                    infile
-                    for infile in updated_job.input
-                    if is_flagged(infile, "checkpoint_target")
-                    and infile not in prior_checkpoint_targets
-                }
-                posterior_checkpoint_deps = {
-                    dep
-                    for dep, files in self.dependencies[updated_job].items()
-                    if dep.is_checkpoint
-                    and not files.isdisjoint(posterior_checkpoint_targets)
-                }
-                if posterior_checkpoint_deps:
-                    # there is at least one dep that is a new potentially
-                    # unfinished checkpoint target
-                    candidate_job_queue[updated_job].update(posterior_checkpoint_deps)
+            if no_new_deps and not affected_jobs:
+                self.set_until_jobs()
+                self.delete_omitfrom_jobs()
+                await self.postprocess_after_update()
+                return True
 
-            job_queue = defaultdict(set)
-            if candidate_job_queue:
-                await self.update_needrun()
-                for job, posterior_checkpoint_deps in candidate_job_queue.items():
-                    for checkpoint in posterior_checkpoint_deps:
-                        if not self.needrun(checkpoint):
-                            job_queue[job].add(checkpoint)
-            i += 1
-
-        if updated:
-            self.set_until_jobs()
-            self.delete_omitfrom_jobs()
-            await self.postprocess_after_update()
-
-        return updated
+        raise WorkflowError(
+            f"Checkpoint dependency update did not converge after {i} rounds. "
+            "This may indicate a cycle in checkpoint dependencies."
+        )
 
     async def postprocess_after_update(self):
         await self.postprocess()
@@ -3080,8 +3110,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             logger.info("archived " + f)
 
                 logger.info(
-                    "Archiving snakefiles, scripts and files under "
-                    "version control..."
+                    "Archiving snakefiles, scripts and files under version control..."
                 )
                 for f in self.get_sources():
                     add(f)
