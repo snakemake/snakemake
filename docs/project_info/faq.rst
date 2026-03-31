@@ -682,9 +682,9 @@ Resources as ``resources`` and ``threads`` can be defined in different places, e
 Thereby, the resources are gathered in the following order, where succeeding definitions overwrite previous ones:
 
 1. Rule definition (for details refer to :ref:`snakefiles-threads` and :ref:`snakefiles-resources`)
-2. Profile (for details refer to :ref:`executing-profiles`)
-    1. Defined in ``$HOME/.config/snakemake`` or ``/etc/xdg/snakemake`` (specified in output of ``snakemake --help``)
-    2. Defined with ``--profile`` via the command line
+2. Profile (for details refer to :ref:`executing-profiles`) can be either given as name or as path
+    1. Resolved by name in the following order: current working directory, user config dir (``$HOME/.config/snakemake``), system config dir (``/etc/xdg/snakemake``). Alternatively, an absolute or relative path to the profile directory can be given.
+    2. Defined as an absolute or relative path via ``--profile`` in the command line.
 3. Workflow specific profile (for details refer to :ref:`executing-profiles`)
     1. In the current directory
     2. Relative to the Snakefile of the executed workflow
