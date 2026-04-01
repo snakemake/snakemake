@@ -18,7 +18,7 @@ Logs of remotely executed jobs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Depending on the executor you are using, additional log files may be generated for each job. 
-For the location thereof, please refer to the documentation of the respective executor.
+For the location thereof, please refer to the `documentation of the respective executor pluging <https://snakemake.github.io/snakemake-plugin-catalog/>`_.
 
 Redirecting STDERR of rules
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -140,14 +140,17 @@ When executing Snakemake with the ``--debug`` flag, Snakemake will drop into an 
 
 **For R scripts / run blocks:**
 
-You can save the entire current state of a workspace in R, for debugging you can insert this line right before some code triggers an error:
+You can save the entire current state of a workspace in R for debugging. 
+Insert this line right before some code triggers an error:
 
 .. code-block:: r
 
     save.image(file = "my_dump.RData")
 
 
-Start an interactive R session and load all the ``library()`` s that you need for the script. Then you can load the full workspace and interactively explore / debug what's going on:
+Activate the conda environment that the rule uses (you can find this in the logging output, with a statement starting with ``Activating conda environment: ``) and start an interactive R session.
+In this session, load all the ``library()`` s that you need for the script.
+Then you can load the full workspace and interactively explore / debug what's going on:
 
 .. code-block:: r
 
