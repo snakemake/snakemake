@@ -18,7 +18,7 @@ Logs of remotely executed jobs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Depending on the executor you are using, additional log files may be generated for each job. 
-For the location thereof, please refer to the `documentation of the respective executor pluging <https://snakemake.github.io/snakemake-plugin-catalog/>`_.
+For the location thereof, please refer to the `documentation of the respective executor plugin <https://snakemake.github.io/snakemake-plugin-catalog/>`_.
 
 Redirecting STDERR of rules
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -121,8 +121,15 @@ To set this up, perform the following steps:
 
 To now debug your workflow:
 
-1. Add breakpoints to your Snakefile by adding ``breakpoint()`` statements wherever you want to halt execution to inspect the state of the workflow.
-2. Start the debugger in Visual Studio Code by navigating to the "Run and Debug" tab and selecting the "DebugPy: debug Snakemake workflow" configuration (keyboard shortcut: ``F5``). This will open an interactive debugging console, allowing you to step through the workflow execution and inspect variables.
+1. Add breakpoints to your Snakefile by adding ``breakpoint()`` statements wherever you want to halt execution to inspect the state of the workflow - for example, in the :ref:`onerror handler <snakefiles-job_lifetime_handlers>`:
+    
+.. code-block:: python
+
+    onerror: # Is executed if the pipeline fails
+        breakpoint()
+
+2. Start the debugger in Visual Studio Code by navigating to the "Run and Debug" tab and selecting the "DebugPy: debug Snakemake workflow" configuration (keyboard shortcut: ``F5``). 
+   This will open an interactive debugging console, allowing you to step through the workflow execution and inspect variables, e.g. Snakemake's ``workflow`` object.
 
 
 .. note:: This will **not** work for debugging the execution of individual jobs, regardless of whether they are executed locally or remotely. For this, you can use Snakemake's ``--debug`` flag, see below.
@@ -141,23 +148,24 @@ When executing Snakemake with the ``--debug`` flag, Snakemake will drop into an 
 **For R scripts / run blocks:**
 
 You can save the entire current state of a workspace in R for debugging. 
-Insert this line right before some code triggers an error:
+Insert this line right before the code that triggers an error:
 
 .. code-block:: r
 
-    save.image(file = "my_dump.RData")
+    save.image(file = "workspace.RData")
 
 
-Activate the conda environment that the rule uses (you can find this in the logging output, with a statement starting with ``Activating conda environment: ``) and start an interactive R session.
+Activate the conda environment that the rule uses (you can find this in the rule's logging output, with a statement ``Activating conda environment: <path to environment>``) and start an interactive R session.
 In this session, load all the ``library()`` s that you need for the script.
 Then you can load the full workspace and interactively explore / debug what's going on:
 
 .. code-block:: r
 
-    load("my_dump.RData")
+    load("workspace.RData")
 
 
 Preserving wrapper scripts
 --------------------------
 
-Snakemake produces a series of wrapper scripts for rules using the ``script`` directive (default location ``.snakemake/scripts/``). Normally, these are deleted after each run. For debugging purposes, you can disable this behavior by running snakemake with the ``--skip-script-cleanup`` flag.
+Snakemake produces a series of wrapper scripts for rules using the ``script`` directive (default location ``.snakemake/scripts/``). 
+Normally, these are deleted after each run. For debugging purposes, you can disable this behavior by running snakemake with the ``--skip-script-cleanup`` flag.
