@@ -3291,9 +3291,14 @@ def test_github_issue4003():
         "sub-package/module.py",
         "package/mod-ule.py",
     ]:
+        if ON_WINDOWS:
+            expect_name = bad_name.replace('/', '\\')
+        else:
+            expect_name = bad_name
+
         with pytest.raises(
             ValueError,
-            match=re.escape(f"{bad_name} does not translate to a valid Python name"),
+            match=re.escape(f"{expect_name} does not translate to a valid Python name"),
         ):
             format_python_module(bad_name)
 
