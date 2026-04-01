@@ -1672,7 +1672,7 @@ class Workflow(WorkflowExecutorInterface):
             sys.path.insert(0, snakefile_path_or_uri)
 
         exec(
-            compile(code, snakefile.get_path_or_uri(secret_free=False), "exec"),
+            compile(code, snakefile.get_path_or_uri(secret_free=True), "exec"),
             self.globals,
         )
 
@@ -1857,6 +1857,8 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.pathvars:
                 rule.pathvars = Pathvars.from_rule(ruleinfo.pathvars)
                 rule.pathvars.update(self.pathvars)
+            else:
+                rule.pathvars = self.pathvars
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
