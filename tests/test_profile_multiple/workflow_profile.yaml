@@ -1,0 +1,7 @@
+configfile: "$WORKFLOW_CONFIG"
+set-threads:
+  - a=max(1024*24*input.size_mb, 2)
+set-resources:
+  a:
+    spam_factor: X
+    double_jeopardy: attempt

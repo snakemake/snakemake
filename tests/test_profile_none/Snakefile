@@ -1,0 +1,7 @@
+import os
+
+os.environ["SNAKEMAKE_PROFILE"] = "./env_var_profile.yaml"
+
+rule:
+    shell:
+        "python -m snakemake --profile none --cores 3 --set-threads a=2 -s Snakefile.internal"

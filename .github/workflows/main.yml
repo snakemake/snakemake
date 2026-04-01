@@ -33,7 +33,7 @@ jobs:
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           message: "Please format your code with `pixi run format`"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -140,9 +140,39 @@ jobs:
     needs: tests
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect container build input changes
+        id: container_inputs
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
+
+          if [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
+            changed_files="$(git show --pretty='' --name-only "$head_sha")"
+          else
+            changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+          fi
+
+          if echo "$changed_files" | grep -Eq '^(Dockerfile|pyproject\.toml)$'; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build container image
+        if: steps.container_inputs.outputs.build == 'true'
         run: docker build .
+
+      - name: Skip container image build
+        if: steps.container_inputs.outputs.build != 'true'
+        run: echo "No changes to Dockerfile or pyproject.toml; skipping container image build."
 
   testing-done:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
