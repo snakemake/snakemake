@@ -3292,7 +3292,7 @@ def test_github_issue4003():
         "package/mod-ule.py",
     ]:
         if ON_WINDOWS:
-            expect_name = bad_name.replace('/', '\\')
+            expect_name = bad_name.replace("/", "\\")
         else:
             expect_name = bad_name
 
