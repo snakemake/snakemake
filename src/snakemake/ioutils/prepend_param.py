@@ -8,7 +8,7 @@ from snakemake.io import is_callable
 from snakemake.ioutils.rule_items_proxy import RuleItemProxy
 
 
-def prepend(
+def prepend_param(
     prefix: str,
     paths_or_func: Union[Callable, str, Path, List[Union[str, Path]]],
     space: bool = True,

@@ -8,7 +8,7 @@ rule all:
 
 rule:
     params:
-        data=prepend("--input", input.data),
+        data=prepend_param("--input", input.data),
     input:
         data=['1.dat', '2.dat', '3.dat'],
     output:
@@ -19,7 +19,7 @@ rule:
 
 rule:
     params:
-        data=prepend("--input", input.data),
+        data=prepend_param("--input", input.data),
     input:
         data="1.dat",
     output:
@@ -30,7 +30,7 @@ rule:
 
 rule:
     params:
-        data=prepend("--input", input),
+        data=prepend_param("--input", input),
     input:
         "1.dat",
     output:
@@ -41,7 +41,7 @@ rule:
 
 rule:
     params:
-        data=prepend("-I", input.data, space=False),
+        data=prepend_param("-I", input.data, space=False),
     input:
         data=['1.dat', '2.dat', '3.dat'],
     output:
