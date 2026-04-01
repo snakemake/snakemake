@@ -1,4 +1,6 @@
+import threading
 from typing import TYPE_CHECKING
+
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
 from snakemake.io import checkpoint_target
 from snakemake.logging import logger
@@ -26,7 +28,7 @@ class Checkpoints:
         return CheckpointsProxy(self)
 
 
-class CheckpointsProxy(Checkpoints):
+class CheckpointsProxy:
     """A namespace for checkpoints so that they can be accessed via dot notation.
 
     It will be created once a module is created,
@@ -35,17 +37,41 @@ class CheckpointsProxy(Checkpoints):
     """
 
     def __init__(self, parent: Checkpoints):
-        self.parent = parent
+        self._parent = parent
+        self._rules = {}
+        self._local = threading.local()
 
-    @property
-    def created_output(self):
-        return self.parent.created_output
+    def __getattr__(self, name):
+        if name in self._rules:
+            checkpoint = self._rules[name]
+            cache: "list | None" = getattr(self._local, "cache", None)
+            if cache is not None:
+                return CheckpointLater(checkpoint, cache)
+            return checkpoint
+        raise WorkflowError(
+            f"Checkpoint {name} is not defined in this workflow. "
+            f"Available checkpoints: {', '.join(self._rules)}"
+        )
 
     def register(self, rule: "Rule", fallback_name=None):
-        checkpoint = Checkpoint(rule, self)
-        if fallback_name:
-            setattr(self, fallback_name, checkpoint)
-        setattr(self, rule.name, checkpoint)
+        self._rules[fallback_name or rule.name] = Checkpoint(rule, self._parent)
+
+    def __enter__(self):
+        if getattr(self._local, "cache", None) is None:
+            self._local.cache = []
+        self._local.depth = getattr(self._local, "depth", 0) + 1
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._local.depth -= 1
+        if self._local.depth == 0:
+            cache: "list[IncompleteCheckpointException]" = self._local.cache
+            self._local.cache = None
+            if exc_type is None and cache:
+                e, *_e = cache
+                e.extra = _e
+                raise e
+        return False
 
 
 class Checkpoint:
@@ -72,8 +98,22 @@ class Checkpoint:
                     f"Missing checkpoint output for {self.rule.name} "
                     f"(wildcards: {wildcards}): {','.join(missing_output)} of {','.join(output)}"
                 )
+        return self.expect(output)
 
+    def expect(self, output) -> "CheckpointJob":
         raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
+
+
+class CheckpointLater(Checkpoint):
+    def __init__(self, checkpoint: Checkpoint, exceptions: list):
+        super().__init__(checkpoint.rule, checkpoint.checkpoints)
+        self.exceptions = exceptions
+
+    def expect(self, output):
+        self.exceptions.append(
+            IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
+        )
+        return CheckpointJob(self.rule, output)
 
 
 class CheckpointJob:

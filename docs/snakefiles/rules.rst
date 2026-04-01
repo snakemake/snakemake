@@ -3116,6 +3116,34 @@ Here a new directory will be created for each sample by the checkpoint.
 After completion of the checkpoint, the ``aggregate_input`` function is re-evaluated as previously.
 The values of the wildcard ``i`` is this time used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
 
+Once a checkpoint output is missing, Snakemake immediately re-evaluates the DAG.
+Multiple checkpoints in an input function raise exceptions one by one, leading to unnecessary sequential scheduling.
+To allow Snakemake to discover all required checkpoints in a single evaluation, use the ``with checkpoints:`` context manager:
+
+.. code-block:: python
+
+    def aggregate_input(wildcards):
+        with checkpoints:
+            # multiple checkpoints of the same rule can be accessed in the same block
+            series = {checkpoints.step_a.get(**wildcards, a=a).output[0] for a in range(3)}
+            # different checkpoint rules can also be accessed together
+            b = checkpoints.step_b.get(**wildcards).output[0]
+        # both step_a and step_b are guaranteed complete beyond this point
+        val2 = 0
+        for a in series:
+            with a.open() as f:
+                val2 = max(int(f.read().strip()), val2)
+        with b.open() as f:
+            val = f.read().strip()
+        return f"{val}/{val2}.txt"
+
+Inside the ``with`` block, calls to ``.get()`` on incomplete checkpoints no longer raise immediately.
+Instead, all missing checkpoints are packaged and raised at the end of the block, so all missing checkpoints and their upstream dependencies can be scheduled and executed in parallel where possible.
+
+.. note::
+
+    File I/O on checkpoint outputs (e.g. ``open()``) must happen **outside** the ``with`` block.
+    Inside the block, output paths are valid but the files themselves are only guaranteed to exist after the block exits without error.
 
 .. _snakefiles-rule-inheritance:
 
