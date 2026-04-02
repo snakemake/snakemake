@@ -139,6 +139,11 @@ from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.caching.rule import CacheFlag, RuleCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import InOutput, RuleInfo
+from snakemake.scattergather import (
+    ScatterItem,
+    ScatterProcess,
+    scattergather_process,
+)
 from snakemake.sourcecache import (
     HostingProviderFile,
     LocalSourceFile,
@@ -211,7 +216,11 @@ class Workflow(WorkflowExecutorInterface):
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self._envvars = set()
-        self._scatter = dict(self.resource_settings.overwrite_scatter)
+        # Scatter processes defined via the "scattergather:" directive in the Snakefile
+        self._scatter = {
+            name: ScatterProcess(items=items)
+            for name, items in self.resource_settings.overwrite_scatter.items()
+        }
         self._resource_scopes = ResourceScopes.defaults()
         self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
         self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
@@ -239,6 +248,7 @@ class Workflow(WorkflowExecutorInterface):
         _globals["checkpoints"] = self._checkpoints
         _globals["scatter"] = Scatter()
         _globals["gather"] = Gather()
+        _globals["scattergather_process"] = scattergather_process
         _globals["github"] = sourcecache.GithubFile
         _globals["gitlab"] = sourcecache.GitlabFile
         _globals["gitfile"] = sourcecache.LocalGitFile
@@ -1707,23 +1717,58 @@ class Workflow(WorkflowExecutorInterface):
 
     def scattergather(self, **content):
         """Register scattergather defaults."""
-        self._scatter.update(content)
-        self._scatter.update(self.resource_settings.overwrite_scatter)
+        # Parse each process definition in the scattergather directive.
+        for key, value in content.items():
+            self._scatter[key] = ScatterProcess.parse(value)
+
+        # Merge in CLI overrides.
+        for key, value in self.resource_settings.overwrite_scatter.items():
+            if key in self._scatter:
+                # CLI overrides still only support item counts (not tolerance/impatient).
+                # Update the existing process definition with the overridden item count.
+                self._scatter[key] = self._scatter[key].with_items(value)
+            else:
+                self._scatter[key] = ScatterProcess(items=value)
 
         # add corresponding wildcard constraint
         self.global_wildcard_constraints(scatteritem=r"\d+-of-\d+")
 
-        def func(key, *args, **wildcards):
-            n = self._scatter[key]
-            return expand(
-                *args,
-                scatteritem=map(f"{{}}-of-{n}".format, range(1, n + 1)),
-                **wildcards,
-            )
+        def func(key, role, *args, **wildcards):
+            # Get the scatter process definition {items, tolerance, impatient}.
+            process = self._scatter[key]
+            # At the end we will return the expanded list of paths for this
+            # scatter item (which will go into the rule's input/output).
+            paths = list()
+
+            # Expand the given template for each scatter item.
+            for item in range(1, process.items + 1):
+                # Add the scatteritem as a wildcard
+                scatteritem = f"{item}-of-{process.items}"
+                expanded = expand(
+                    *args,
+                    scatteritem=[scatteritem],
+                    **wildcards,
+                )
+                paths.extend(
+                    # Tag each path so the DAG can reconnect jobs to the
+                    # scatter process and item they belong to at runtime.
+                    flag(
+                        path,
+                        "scattergather",
+                        ScatterItem(
+                            process=key,
+                            item=item,
+                            total=process.items,
+                            role=role,
+                        ),
+                    )
+                    for path in expanded
+                )
+            return paths
 
         for key in content:
-            setattr(self.globals["scatter"], key, partial(func, key))
-            setattr(self.globals["gather"], key, partial(func, key))
+            setattr(self.globals["scatter"], key, partial(func, key, "scatter"))
+            setattr(self.globals["gather"], key, partial(func, key, "gather"))
 
     def resourcescope(self, **content):
         """Register resource scope defaults"""

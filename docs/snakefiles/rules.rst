@@ -2492,6 +2492,18 @@ Scatter-gather processes can be defined via a global ``scattergather`` directive
         split=8
 
 Each process thereby defines a name (here e.g. ``split``) and a default number of scatter items.
+Optionally, a process can also define a failure tolerance and whether downstream
+gather jobs may proceed early:
+
+.. code-block:: python
+
+    scattergather:
+        split={"items": 8, "tolerance": 0.25, "impatient": True}
+
+Here, up to 25% of the scatter items may fail. If ``impatient=True`` is set,
+Snakemake allows the gather step to proceed as soon as enough scatter items have
+completed successfully to satisfy the tolerance bound. Already running leftover
+scatter jobs are not preempted, but failed leftover jobs are ignored.
 Then, scattering and gathering can be implemented by using globally available ``scatter`` and ``gather`` objects:
 
 .. code-block:: python

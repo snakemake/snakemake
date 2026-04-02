@@ -570,6 +570,20 @@ class JobScheduler(JobSchedulerExecutorInterface):
             # add job to those being ready again
             self.workflow.dag._ready_jobs.add(job)
         else:
+            # Let the DAG decide whether this failure can be absorbed by a
+            # scattergather process before marking the whole workflow failed.
+            scatter_failure = self.workflow.dag.handle_scatter_job_failure(job)
+            if scatter_failure.handled and not scatter_failure.is_fatal:
+                processes = ", ".join(
+                    scatter_failure.tolerated_processes
+                    or scatter_failure.ignored_processes
+                )
+                logger.warning(
+                    f"Ignoring failed job {self.workflow.dag.jobid(job)} because "
+                    f"scattergather process constraints allow it ({processes})."
+                )
+                return
+
             self._errors = True
             self.failed.add(job)
 
