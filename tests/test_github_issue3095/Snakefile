@@ -1,0 +1,8 @@
+rule second:
+    input: "first.txt"
+    output: "second.txt"
+    shell: "echo second > {output}"
+
+rule first:
+    output: "first.txt"
+    shell: "echo first > {output}"
