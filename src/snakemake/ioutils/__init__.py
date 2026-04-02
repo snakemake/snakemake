@@ -6,6 +6,7 @@ from snakemake.ioutils.lookup import lookup
 from snakemake.ioutils.rule_items_proxy import rule_item_factory
 from snakemake.ioutils.subpath import subpath
 from snakemake.ioutils.input import parse_input, extract_checksum, flatten
+from snakemake.ioutils.choose_f import choose_file, choose_folder, choose_tmp
 
 
 def register_in_globals(_globals):
@@ -25,5 +26,8 @@ def register_in_globals(_globals):
             "parse_input": parse_input,
             "extract_checksum": extract_checksum,
             "flatten": flatten,
+            "choose_file": choose_file,
+            "choose_folder": choose_folder,
+            "choose_tmp": choose_tmp,
         }
     )
