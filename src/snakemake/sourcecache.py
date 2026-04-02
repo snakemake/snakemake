@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 import tempfile
 import io
 from abc import ABC, abstractmethod
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 from snakemake import utils
 from snakemake.utils import format
@@ -411,6 +411,7 @@ class HostingProviderFile(SourceFile):
         commit: Optional[str] = None,
         host: Optional[str] = None,
         cache_path: Optional[Path] = None,
+        _ref_path_candidates: Optional[List[tuple]] = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -439,6 +440,7 @@ class HostingProviderFile(SourceFile):
         self.host = host
 
         self._cache_path: Optional[Path] = cache_path
+        self._ref_path_candidates: Optional[List[tuple]] = _ref_path_candidates
 
         # Via __post_init__ implementing subclasses can do additional things without
         # replicating the constructor args.
@@ -524,7 +526,31 @@ class HostingProviderFile(SourceFile):
     def get_filename(self):
         return os.path.basename(self.path)
 
+    def _resolve_ref(self):
+        """Resolve ambiguous ref/path candidates using the hosted git repo.
+
+        When a URL contains a branch name with slashes (e.g. perf/autobump),
+        multiple (ref, path) splits are possible. This method tries each
+        candidate and picks the one whose ref exists in the repo.
+        """
+        if not self._ref_path_candidates or len(self._ref_path_candidates) <= 1:
+            return
+
+        for ref_candidate, path_candidate in self._ref_path_candidates:
+            if self.hosted_repo.ref_exists(commit=None, branch_or_tag=ref_candidate):
+                self.branch = ref_candidate
+                self.path = path_candidate
+                self._ref_path_candidates = None
+                return
+
+        # No candidate matched; keep the current (naive) values and clear
+        # candidates so we don't retry.
+        self._ref_path_candidates = None
+
     def fetch_if_required(self) -> Optional[str]:
+        # Resolve ambiguous ref/path before any ref-based operations.
+        self._resolve_ref()
+
         # always fetch if this points to a branch
         if (
             self.branch is not None
@@ -630,10 +656,16 @@ class GithubFile(HostingProviderFile):
         return ""
 
     def get_path_or_uri(self, secret_free: bool) -> str:
+        from urllib.parse import quote
+
         auth = f":{self.token}@" if self.token and not secret_free else ""
-        # TODO find out how this URL looks like with Github enterprise server and support
-        # self.host being not none by removing the check in __post_init__
-        return f"https://{auth}raw.githubusercontent.com/{self.repo}/{self.ref}/{self.path}"
+        ref = quote(self.ref, safe="")
+        path = quote(self.path, safe="/")
+
+        if self.host == "github.com":
+            return f"https://{auth}raw.githubusercontent.com/{self.repo}/{ref}/{path}"
+
+        return f"https://{auth}{self.host}/{self.repo}/raw/{ref}/{path}"
 
 
 class GitlabFile(HostingProviderFile):
@@ -661,6 +693,176 @@ class GitlabFile(HostingProviderFile):
         )
 
 
+def _build_ref_path_candidates(path_parts: list, ref_start: int) -> List[tuple]:
+    """Build all possible (ref, path) splits from the ambiguous path segments.
+
+    Given path_parts and the index where the ref begins, generate candidates
+    by trying progressively longer ref strings.  The list is ordered from
+    shortest to longest ref so that the resolution logic can stop at the first
+    match.
+    """
+    candidates = []
+    # There must be at least one segment for the path, so the ref can span
+    # from ref_start up to (but not including) the last segment.
+    for split in range(ref_start + 1, len(path_parts)):
+        ref = unquote("/".join(path_parts[ref_start:split]))
+        path = unquote("/".join(path_parts[split:]))
+        candidates.append((ref, path))
+    return candidates
+
+
+def _infer_github_file(path_or_uri: str) -> Optional[GithubFile]:
+    parsed = urlparse(path_or_uri)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+
+    path_parts = [part for part in parsed.path.split("/") if part]
+
+    if parsed.netloc == "raw.githubusercontent.com" and len(path_parts) >= 4:
+        repo = "/".join(path_parts[:2])
+        ref = unquote(path_parts[2])
+        path = unquote("/".join(path_parts[3:]))
+        candidates = _build_ref_path_candidates(path_parts, ref_start=2)
+        return GithubFile(
+            repo=repo,
+            path=path,
+            branch=ref,
+            _ref_path_candidates=candidates if len(candidates) > 1 else None,
+        )
+
+    if (
+        parsed.netloc == "github.com"
+        and len(path_parts) >= 5
+        and path_parts[2] in {"blob", "raw"}
+    ):
+        repo = "/".join(path_parts[:2])
+        ref = unquote(path_parts[3])
+        path = unquote("/".join(path_parts[4:]))
+        candidates = _build_ref_path_candidates(path_parts, ref_start=3)
+        return GithubFile(
+            repo=repo,
+            path=path,
+            branch=ref,
+            _ref_path_candidates=candidates if len(candidates) > 1 else None,
+        )
+
+    return None
+
+
+def _infer_gitlab_file(path_or_uri: str) -> Optional[GitlabFile]:
+    parsed = urlparse(path_or_uri)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+
+    path_parts = [part for part in parsed.path.split("/") if part]
+    if (
+        len(path_parts) == 8
+        and path_parts[:3] == ["api", "v4", "projects"]
+        and path_parts[4:6] == ["repository", "files"]
+        and path_parts[7] == "raw"
+    ):
+        query = parse_qs(parsed.query)
+        if any(
+            token_name in query
+            for token_name in ("private_token", "access_token", "job_token")
+        ):
+            return None
+        ref = query.get("ref")
+        if ref and len(ref) == 1:
+            return GitlabFile(
+                repo=unquote(path_parts[3]),
+                path=unquote(path_parts[6]),
+                branch=unquote(ref[0]),
+                host=parsed.netloc,
+            )
+
+    if len(path_parts) >= 6:
+        raw_or_blob_index = None
+        for i, part in enumerate(path_parts):
+            if part == "-":
+                raw_or_blob_index = i
+                break
+
+        if (
+            raw_or_blob_index is not None
+            and raw_or_blob_index >= 2
+            and raw_or_blob_index + 3 < len(path_parts)
+            and path_parts[raw_or_blob_index + 1] in {"blob", "raw"}
+        ):
+            ref_start = raw_or_blob_index + 2
+            repo = unquote("/".join(path_parts[:raw_or_blob_index]))
+            ref = unquote(path_parts[ref_start])
+            path = unquote("/".join(path_parts[ref_start + 1 :]))
+            candidates = _build_ref_path_candidates(path_parts, ref_start=ref_start)
+            return GitlabFile(
+                repo=repo,
+                path=path,
+                branch=ref,
+                host=parsed.netloc,
+                _ref_path_candidates=candidates if len(candidates) > 1 else None,
+            )
+
+    return None
+
+
+def _infer_hosting_provider_file_shorthand(
+    path_or_uri: str,
+) -> Optional[HostingProviderFile]:
+    if "://" in path_or_uri:
+        return None
+
+    provider, sep, remainder = path_or_uri.partition(":")
+    if provider not in {"gh", "gl"} or not sep:
+        return None
+
+    # Check for optional host (before the first slash)
+    first_slash = remainder.find("/")
+    if first_slash == -1:
+        return None
+
+    first_colon = remainder.find(":")
+    if first_colon != -1 and first_colon < first_slash:
+        host = remainder[:first_colon]
+        remainder = remainder[first_colon + 1 :]
+    else:
+        host = None
+
+    # Now we have repo@ref[:path]
+    repo, sep, ref_path = remainder.partition("@")
+    if not sep or not repo or not ref_path:
+        return None
+
+    if "/" not in repo:
+        return None
+
+    # Check for optional path (after a colon)
+    # We use rpartition to stay consistent with the previous logic for ref vs path
+    ref_cand, sep, path_cand = ref_path.rpartition(":")
+    if not sep:
+        ref = ref_path
+        path = "workflow/Snakefile"
+    else:
+        ref = ref_cand
+        path = path_cand or "workflow/Snakefile"
+
+    repo = unquote(repo)
+    ref = unquote(ref)
+    path = unquote(path)
+
+    if provider == "gh":
+        return GithubFile(repo=repo, path=path, branch=ref, host=host)
+    else:
+        return GitlabFile(repo=repo, path=path, branch=ref, host=host)
+
+
+def _infer_hosting_provider_file(path_or_uri: str) -> Optional[HostingProviderFile]:
+    return (
+        _infer_hosting_provider_file_shorthand(path_or_uri)
+        or _infer_github_file(path_or_uri)
+        or _infer_gitlab_file(path_or_uri)
+    )
+
+
 def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> SourceFile:
     if isinstance(path_or_uri, SourceFile):
         if basedir is None or isinstance(path_or_uri, HostingProviderFile):
@@ -673,7 +875,13 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
         raise SourceFileError(
             "must be given as Python string or one of the predefined source file marker types (see docs)"
         )
-    if is_local_file(path_or_uri):
+    if hosting_provider_file := _infer_hosting_provider_file(path_or_uri):
+        return hosting_provider_file
+    try:
+        is_local = is_local_file(path_or_uri)
+    except (NotImplementedError, ImportError, ValueError):
+        is_local = False
+    if is_local:
         # either local file or relative to some remote basedir
         for schema in ("file://", "file:"):
             if path_or_uri.startswith(schema):
