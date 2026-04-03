@@ -738,13 +738,27 @@ class LoggerManager:
 
     def stop(self) -> None:
         """Shut down logging, removing and closing all log handlers."""
+
         # Stop the queue listener (if it exists) - this finishes processing the remaining records
         # and waits for the thread to exit.
         if self.queue_listener is not None and self.queue_listener._thread is not None:
             self.queue_listener.stop()
 
-        # Remove and close all handlers - this should mostly clean up the global logger instance.
+        # Flush and close plugin handlers (not attached directly to global logger instance)
+        for handler in self.plugin_handlers:
+            try:
+                handler.flush()
+            except Exception:
+                pass
+            handler.close()
+
+        # Flush, remove and close all handlers on the global logger instance (this should mostly
+        # reset it).
         for handler in list(self.logger.handlers):
+            try:
+                handler.flush()
+            except Exception:
+                pass
             self.logger.removeHandler(handler)
             handler.close()
 
