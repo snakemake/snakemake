@@ -856,11 +856,7 @@ def _infer_hosting_provider_file_shorthand(
 
 
 def _infer_hosting_provider_file(path_or_uri: str) -> Optional[HostingProviderFile]:
-    return (
-        _infer_hosting_provider_file_shorthand(path_or_uri)
-        or _infer_github_file(path_or_uri)
-        or _infer_gitlab_file(path_or_uri)
-    )
+    return _infer_hosting_provider_file_shorthand(path_or_uri)
 
 
 def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> SourceFile:
