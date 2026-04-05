@@ -1,7 +1,12 @@
 from pathlib import PosixPath
+from tempfile import TemporaryDirectory
+from typing import Any, List, NamedTuple
 
-from snakemake.io import WILDCARD_REGEX, expand
+import pytest
+
 from snakemake.exceptions import WildcardError
+from snakemake.io import WILDCARD_REGEX, expand
+from snakemake.io.typed import typed_factory
 
 
 def test_wildcard_regex():
@@ -107,49 +112,58 @@ def test_expand():
     assert expand(PosixPath() / "{x}" / "{y}", x="Hello", y="world") == ["Hello/world"]
 
 
+class _CustomType(NamedTuple):
+    a: int
+    b: List[int]
+
+
 def test_typed():
-    from snakemake.io.typed import typed_factory
-    from tempfile import TemporaryDirectory
-    from typing import NamedTuple, List
+    def dump_load(*args, **kwargs) -> Any:
+        _typed = typed(f"{tmpdir}/{file}")
+        _typed.dump(*args, **kwargs)
+        return _typed.load()
 
-    class CustomType(NamedTuple):
-        a: int
-        b: List[int]
-
+    objd = {"a": 1, "b": [1, 2, 3]}
+    obj = _CustomType(**objd)
     with TemporaryDirectory() as tmpdir:
-        typed = typed_factory(CustomType, loader="json")
-        file = f"{tmpdir}/test.json"
-        objd = {"a": 1, "b": [1, 2, 3]}
-        obj = CustomType(**objd)  # type: ignore[arg-type]
-        typed(file).dump(**objd)
-        assert typed(file).load() == obj
-        typed = typed_factory(CustomType, loader="yaml")
-        file = f"{tmpdir}/test.yaml"
-        typed(file).dump(**objd)
-        assert typed(file).load() == obj
-        typed = typed_factory(CustomType, loader="toml")
-        file = f"{tmpdir}/test.toml"
-        typed(file).dump(**objd)
-        assert typed(file).load() == obj
-        typed = typed_factory("pkl")
-        file = f"{tmpdir}/test.pkl"
-        typed(file).dump(objd)
-        assert typed(file).load() == objd
-        typed = typed_factory("npy")
-        file = f"{tmpdir}/test.npy"
+        typed, file = typed_factory(_CustomType, loader="yaml"), "test.yaml"
+        assert dump_load(**objd) == obj
+        typed, file = typed_factory("pkl"), "test.pkl"
+        assert dump_load(objd) == objd
+
         import numpy as np
 
         arr = np.array([1, 2, 3])
-        typed(file).dump(arr)
-        assert np.array_equal(typed(file).load(), arr)
+        typed, file = typed_factory("npy"), "test.npy"
+        assert np.array_equal(dump_load(arr), arr)
+
         import pandas as pd
 
-        file = f"{tmpdir}/test.csv"
-        typed = typed_factory(loader=pd.read_csv, dumper=pd.DataFrame.to_csv)  # type: ignore
         df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
-        typed(file).dump(df)
-        assert typed(file).load().drop(columns="Unnamed: 0").equals(df)  # type: ignore[reportAttributeAccessIssue]
-        typed = typed_factory("tsv")
-        file = f"{tmpdir}/test.tsv"
-        typed(file).dump(df)
-        assert typed(file).load().equals(df)  # type: ignore[reportAttributeAccessIssue]
+        typed, file = (
+            typed_factory(loader=pd.read_csv, dumper=pd.DataFrame.to_csv),
+            "test.csv",
+        )
+        assert dump_load(df).drop(columns="Unnamed: 0").equals(df)
+        typed, file = typed_factory("tsv"), "test.tsv"
+        assert dump_load(df).equals(df)
+
+
+def test_typed_compress():
+    def dump_load_compress(*args, **kwargs) -> Any:
+        _typed = typed(f"{tmpdir}/{file}")
+        _typed.dump(*args, **kwargs)
+        # check file is actually compressed and cannot be read as text
+        with pytest.raises(Exception):
+            typed(f"{tmpdir}/{file}".rsplit(".", 1)[0]).load()
+        return _typed.load()
+
+    objd = {"a": 1, "b": [1, 2, 3]}
+    obj = _CustomType(**objd)
+    with TemporaryDirectory() as tmpdir:
+        typed, file = typed_factory(_CustomType), "test.json.gz"
+        assert dump_load_compress(**objd) == obj
+        typed, file = typed_factory(_CustomType), "test.yaml.bz2"
+        assert dump_load_compress(**objd) == obj
+        typed, file = typed_factory(_CustomType), "test.toml.xz"
+        assert dump_load_compress(**objd) == obj

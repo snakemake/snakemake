@@ -18,6 +18,10 @@ def typed_to_dict(obj):
     raise NotImplementedError(f"Cannot convert {type(obj)} to dict")
 
 
+def _compressed_mode(mode: str) -> str:
+    return mode if "b" in mode else f"{mode}t"
+
+
 def resolve_file_format(
     file: str,
 ) -> Tuple[Callable[[str], Any], Callable[[Any, str], None]]:
@@ -27,15 +31,15 @@ def resolve_file_format(
         case "gz":
             import gzip
 
-            open_ = lambda f, mode: gzip.open(f, f"{mode}b")
+            open_ = lambda f, mode: gzip.open(f, _compressed_mode(mode))
         case "bz2":
             import bz2
 
-            open_ = lambda f, mode: bz2.open(f, f"{mode}b")
+            open_ = lambda f, mode: bz2.open(f, _compressed_mode(mode))
         case "xz":
             import lzma
 
-            open_ = lambda f, mode: lzma.open(f, f"{mode}b")
+            open_ = lambda f, mode: lzma.open(f, _compressed_mode(mode))
         case _:
             open_ = open
     if open_ is not open:
