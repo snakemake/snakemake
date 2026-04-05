@@ -80,7 +80,13 @@ def resolve_file_format(
                 )
         case "pkl" | "pickle":
             import pickle
+            from snakemake.logging import logger
 
+            logger.warning(
+                "Never unpickle data that could have come from an untrusted source, "
+                "or that could have been tampered with. "
+                "Consider using json/yaml/toml instead."
+            )
             return (
                 lambda f: pickle.load(open_(f, "rb")),  # type: ignore[arg-type]
                 lambda obj, f: pickle.dump(obj, open_(f, "wb")),  # type: ignore
