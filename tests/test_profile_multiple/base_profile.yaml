@@ -1,0 +1,6 @@
+cores: 8
+resources:
+  mem_mb: 2000
+default-resources:
+  mem_mb: 1024
+  eggs_factor: twitter

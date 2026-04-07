@@ -1,6 +1,60 @@
 # Changelog
 
 
+## [9.19.0](https://github.com/snakemake/snakemake/compare/v9.18.2...v9.19.0) (2026-03-28)
+
+
+### Features
+
+* clean up profile handling, switch to `profile.yaml` as default file name, allow specifying yaml file instead of dir ([#4087](https://github.com/snakemake/snakemake/issues/4087)) ([2f34008](https://github.com/snakemake/snakemake/commit/2f340087ddc6fd132b0a68dac597916cbc4cf219))
+
+
+### Bug Fixes
+
+* avoid race conditions in wrapper/script/notebook retrieval; better error messages for missing wrappers; introduction of DAGProcessorBase for modularization of DAG processing code (for now in the same module to avoid conflicts with open PRs) ([#4133](https://github.com/snakemake/snakemake/issues/4133)) ([15468be](https://github.com/snakemake/snakemake/commit/15468be38a1acca82ca23136735fb2817fbb1e66))
+
+
+### Documentation
+
+* update installation instructions ([#4025](https://github.com/snakemake/snakemake/issues/4025)) ([bfb6b59](https://github.com/snakemake/snakemake/commit/bfb6b59f82aa5c86d6c9df3c4006cbe73ac2604a))
+
+## [9.18.2](https://github.com/snakemake/snakemake/compare/v9.18.1...v9.18.2) (2026-03-26)
+
+
+### Bug Fixes
+
+* remove debug code ([ac5ad20](https://github.com/snakemake/snakemake/commit/ac5ad209e00aeca2d38e5e5d6ac7f930d2c6a93e))
+
+## [9.18.1](https://github.com/snakemake/snakemake/compare/v9.18.0...v9.18.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* add pip dependency to publish task ([ea2b5c9](https://github.com/snakemake/snakemake/commit/ea2b5c9708792c9261ded758cc859ce8e18e956b))
+
+## [9.18.0](https://github.com/snakemake/snakemake/compare/v9.17.3...v9.18.0) (2026-03-25)
+
+
+### Features
+
+* use checksums reported by storage plugins for between workflow caching ([#4098](https://github.com/snakemake/snakemake/issues/4098)) ([2ed2c23](https://github.com/snakemake/snakemake/commit/2ed2c23dd8e5cb40ef4a5ebfe8d40a6e3646d5f6))
+
+## [9.17.3](https://github.com/snakemake/snakemake/compare/v9.17.2...v9.17.3) (2026-03-24)
+
+
+### Bug Fixes
+
+* add curl when containerize with wrapper ([#4115](https://github.com/snakemake/snakemake/issues/4115)) ([44979e4](https://github.com/snakemake/snakemake/commit/44979e457556edddac0e1e7403a5ba88906fd6b8))
+* ensure proper wrapper prefix is passed to CWL and shown in wrapper error messages ([#4121](https://github.com/snakemake/snakemake/issues/4121)) ([11b6f29](https://github.com/snakemake/snakemake/commit/11b6f292e06cd76049f9fe06997185c20614de20))
+* ensure that strings that purely contain integers or floats (e.g. "42") remain strings when parsing profiles ([#4119](https://github.com/snakemake/snakemake/issues/4119)) ([3ca08e1](https://github.com/snakemake/snakemake/commit/3ca08e19435f8645dc9aca49c98dc51dc586e8aa))
+* incorrect highlighting in HTML report ([#4120](https://github.com/snakemake/snakemake/issues/4120)) ([1ef224d](https://github.com/snakemake/snakemake/commit/1ef224da9310b07efe105d8b991c84ed804a98e0))
+
+
+### Documentation
+
+* document an accidental (sorry) recent breaking change in type checking compatibility of Python scripts, in favor of a clean and robust new syntax ([#4116](https://github.com/snakemake/snakemake/issues/4116)) ([013bc43](https://github.com/snakemake/snakemake/commit/013bc43522869fbbb005a9a7402bdd96c29eff6b))
+* Rework tutorial ([#4068](https://github.com/snakemake/snakemake/issues/4068)) ([4bba4a9](https://github.com/snakemake/snakemake/commit/4bba4a938b426680cbc63bcada10a444d960ab9c))
+
 ## [9.17.2](https://github.com/snakemake/snakemake/compare/v9.17.1...v9.17.2) (2026-03-17)
 
 

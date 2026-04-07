@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from snakemake.io.container import InputFiles
+from snakemake.iocontainers import InputFiles
 from snakemake.script import RustScript, BashEncoder
 
 
@@ -519,7 +519,7 @@ fn main() {
 
 class TestBashEncoder:
     def test_named_list_one_named_one_str(self):
-        """InputFiles is a subclass of snakemake.io.NamedInput
+        """InputFiles is a subclass of snakemake.iocontainers
         ierate over input and store each with the integer index - i.e 0, 1, 2
         then use input.items() to iterate over the named files and store them as named also
         check how this works with named things being lists
