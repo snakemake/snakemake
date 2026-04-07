@@ -44,9 +44,8 @@ class CheckpointsProxy:
     def __getattr__(self, name):
         if name in self._rules:
             checkpoint = self._rules[name]
-            cache: "list | None" = getattr(self._local, "cache", None)
-            if cache is not None:
-                return CheckpointLater(checkpoint, cache)
+            if getattr(self._local, "cache", None):
+                return CheckpointLater(checkpoint, self._local.cache[-1])
             return checkpoint
         raise WorkflowError(
             f"Checkpoint {name} is not defined in this workflow. "
@@ -59,18 +58,18 @@ class CheckpointsProxy:
     def __enter__(self):
         if getattr(self._local, "cache", None) is None:
             self._local.cache = []
-        self._local.depth = getattr(self._local, "depth", 0) + 1
+        # do not lost message with nested checkpoint
+        self._local.cache.append([])
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        self._local.depth -= 1
-        if self._local.depth == 0:
-            cache: "list[IncompleteCheckpointException]" = self._local.cache
-            self._local.cache = None
-            if exc_type is None and cache:
-                e, *_e = cache
-                e.extra = _e
-                raise e
+        cache: "list[IncompleteCheckpointException]" = self._local.cache.pop()
+        if exc_type is None and cache:
+            e, *_e = cache
+            for c in self._local.cache:
+                _e.extend(c)
+            e.extra = _e
+            raise e
         return False
 
 
