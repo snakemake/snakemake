@@ -406,15 +406,20 @@ def test_stop_closes_plugin_handlers():
     from snakemake.settings.types import OutputSettings
 
     class TrackingHandler(logging.Handler):
-        """A handler that tracks whether emit() and close() were called."""
+        """A handler that tracks whether emit(), flush(), and close() were called."""
 
         def __init__(self):
             super().__init__()
             self.records: list[logging.LogRecord] = []
+            self.flush_called = False
             self.close_called = False
 
         def emit(self, record: logging.LogRecord) -> None:
             self.records.append(record)
+
+        def flush(self) -> None:
+            self.flush_called = True
+            super().flush()
 
         def close(self) -> None:
             self.close_called = True
@@ -444,6 +449,7 @@ def test_stop_closes_plugin_handlers():
         if manager.queue_listener._thread is not None:
             manager.queue_listener.stop()
 
+    assert handler.flush_called, "Plugin handler was not flushed by LoggerManager.stop()"
     assert handler.close_called, "Plugin handler was not closed by LoggerManager.stop()"
     assert len(handler.records) == 1, (
         f"Expected 1 record delivered to plugin handler, got {len(handler.records)}"
