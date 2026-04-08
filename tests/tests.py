@@ -3359,6 +3359,18 @@ def test_github_issue_4039_runtime_cli():
 
 
 @skip_on_windows
+def test_github_issue_4039_mem_cli():
+    """Test that mem values from CLI are correctly interpreted as MB, not bytes.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_mem_cli"),
+        shellcmd="snakemake -c1 --set-resources 'echo_mem:mem=1024'",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
 def test_github_issue_4039_runtime_profile():
     """Test that runtime values from a profile are correctly interpreted as minutes, not seconds.
     Test for https://github.com/snakemake/snakemake/issues/4039"""
