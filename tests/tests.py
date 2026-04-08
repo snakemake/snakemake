@@ -1674,6 +1674,24 @@ def test_checkpoint_rerun():
         assert f.read().strip() == "1"
 
 
+def test_checkpoint_missing_output():
+    """test for issue 3879"""
+    test_dir = dpath("test_checkpoint_missing_output")
+    tmpdir = run(test_dir, cleanup=False, check_results=False)
+
+    try:
+        missing_file = Path(tmpdir) / "output" / "test_4.txt"
+        os.remove(missing_file)
+
+        run(test_dir, tmpdir=tmpdir, cleanup=False, check_results=False)
+
+        assert (
+            missing_file.exists()
+        ), "The missing checkpoint output was not regenerated."
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 
