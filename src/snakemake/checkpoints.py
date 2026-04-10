@@ -26,7 +26,7 @@ class Checkpoints:
         return CheckpointsProxy(self)
 
 
-class CheckpointsProxy(Checkpoints):
+class CheckpointsProxy:
     """A namespace for checkpoints so that they can be accessed via dot notation.
 
     It will be created once a module is created,
@@ -35,17 +35,19 @@ class CheckpointsProxy(Checkpoints):
     """
 
     def __init__(self, parent: Checkpoints):
-        self.parent = parent
+        self._parent = parent
+        self._rules = {}
 
-    @property
-    def created_output(self):
-        return self.parent.created_output
+    def __getattr__(self, name):
+        if name in self._rules:
+            return self._rules[name]
+        raise WorkflowError(
+            f"Checkpoint {name} is not defined in this workflow. "
+            f"Available checkpoints: {', '.join(self._rules)}"
+        )
 
-    def register(self, rule: "Rule", fallback_name=None):
-        checkpoint = Checkpoint(rule, self)
-        if fallback_name:
-            setattr(self, fallback_name, checkpoint)
-        setattr(self, rule.name, checkpoint)
+    def _register(self, rule: "Rule", fallback_name=None):
+        self._rules[fallback_name or rule.name] = Checkpoint(rule, self._parent)
 
 
 class Checkpoint:
