@@ -1845,6 +1845,7 @@ class Workflow(WorkflowExecutorInterface):
 
             name = self.modifier.avail_rulename(orig_name)
             rule = Rule(name or orig_name, self, lineno=lineno, snakefile=snakefile)
+            rule.ruleinfo = ruleinfo
             # Register rule under its original name.
             # Modules using this snakefile as a module, will register it additionally under their
             # requested name.
@@ -2065,7 +2066,6 @@ class Workflow(WorkflowExecutorInterface):
             ruleinfo.func.__name__ = f"__{name}"
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
-            rule.ruleinfo = ruleinfo
             return ruleinfo.func
 
         return decorate
@@ -2458,7 +2458,7 @@ class Workflow(WorkflowExecutorInterface):
                     raise WorkflowError(
                         "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."
                     )
-                orig_rule = self._rules[self.modifier.modify_rulename(rules[0])]
+                orig_rule = self.modifier.rule_proxies._rules[rules[0]].rule
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 with WorkflowModifier(
                     self,
