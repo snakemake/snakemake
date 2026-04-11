@@ -62,7 +62,9 @@ class AbstractOutputFileCache:
             yield (job.output[0], Path(job.output[0]).suffix)
         else:
             for name, outputfile in job.output._allitems():
-                assert name is not None, "bug: multiple unnamed output files in cacheable job"
+                assert (
+                    name is not None
+                ), "bug: multiple unnamed output files in cacheable job"
                 yield (outputfile, f"_{name}{Path(outputfile).suffix}")
 
     def raise_write_error(self, entry, exception=None):
