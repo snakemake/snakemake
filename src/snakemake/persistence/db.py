@@ -244,7 +244,7 @@ def is_network_filesystem(path: Path | str) -> bool:
     if os.name != "posix":
         return False
 
-    path = os.path.abspath(path)
+    path = os.path.realpath(path)
 
     # track the best mount point match
     longest_prefix_length = -1
