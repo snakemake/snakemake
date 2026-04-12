@@ -258,14 +258,20 @@ def is_network_filesystem(path: Path | str) -> bool:
                     fstype = part.fstype
 
         network_fs_types = {
+            "afs",
+            "beegfs",
+            "ceph",
+            "cifs",
+            "fhgfs",
+            "fuse.sshfs",
+            "glusterfs",
+            "gpfs",
+            "lustre",
             "nfs",
             "nfs3",
             "nfs4",
-            "ceph",
-            "glusterfs",
-            "lustre",
-            "gpfs",
-            "cifs",
+            "orangefs",
+            "pvfs2",
             "smbfs",
         }
         return fstype.casefold() in network_fs_types
