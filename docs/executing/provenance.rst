@@ -20,7 +20,7 @@ note that the database backend must support JSON columns (e.g. PostgreSQL, MySQL
 
 If using an SQLite database on networked filesystems:
 Note that this can sometimes experience lock contention and latency issues during highly parallel cluster execution.
-By default, snakemake automatically detects if the database is located on a network filesystem (like NFS, CephFS, Lustre, or GPFS) and applies specific SQLite3 optimizations (see `sqlite docs <https://sqlite.org/pragma.html>`__):
+By default, snakemake automatically detects if the database is located on a network filesystem and applies specific SQLite3 optimizations (see `sqlite docs <https://sqlite.org/pragma.html>`__):
 
 * ``PRAGMA journal_mode=PERSIST``: Overwrites the journal header with zeros instead of deleting the file.
 * ``PRAGMA synchronous=OFF``: Hands data off to the OS immediately without waiting for disk syncs.
