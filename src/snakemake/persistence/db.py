@@ -1,7 +1,9 @@
+import os
 from collections import OrderedDict
 from pathlib import Path
 from typing import Iterable
 
+import psutil
 from sqlalchemy import (
     create_engine,
     select,
@@ -78,13 +80,22 @@ class DbPersistence(PersistenceBase):
             latency_wait_s = self.dag.workflow.execution_settings.latency_wait * 1000
             busy_timeout = max(busy_timeout, latency_wait_s)
 
+        is_network_fs = is_network_filesystem(self.path)
+
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
             if self.engine.dialect.name == "sqlite":
                 cursor = dbapi_connection.cursor()
-                # we may want to try this in the future if we encounter locking issues, but it can cause problems on network filesystems
-                # cursor.execute("PRAGMA journal_mode=WAL")
-                # cursor.execute("PRAGMA synchronous=NORMAL")
+
+                if is_network_fs:
+                    cursor.execute("PRAGMA journal_mode=PERSIST")
+                    cursor.execute("PRAGMA synchronous=OFF")
+                    cursor.execute("PRAGMA temp_store=MEMORY")
+                    cursor.execute("PRAGMA cache_size=-64000")
+                else:
+                    cursor.execute("PRAGMA journal_mode=TRUNCATE")
+                    cursor.execute("PRAGMA synchronous=NORMAL")
+
                 cursor.execute(f"PRAGMA busy_timeout={busy_timeout}")
                 cursor.close()
 
@@ -224,3 +235,40 @@ class DbPersistence(PersistenceBase):
         with Session(self.engine) as session:
             session.execute(delete(LockORM).where(LockORM.namespace == self.namespace))
             session.commit()
+
+
+def is_network_filesystem(path: Path | str) -> bool:
+    """
+    Detects if a given path resides on a network filesystem.
+    """
+    if os.name != "posix":
+        return False
+
+    path = os.path.abspath(path)
+
+    # track the best mount point match
+    longest_prefix_length = -1
+    fstype = ""
+
+    try:
+        for part in psutil.disk_partitions(all=True):
+            if path.startswith(part.mountpoint):
+                if len(part.mountpoint) > longest_prefix_length:
+                    longest_prefix_length = len(part.mountpoint)
+                    fstype = part.fstype
+
+        network_fs_types = {
+            "nfs",
+            "nfs3",
+            "nfs4",
+            "ceph",
+            "glusterfs",
+            "lustre",
+            "gpfs",
+            "cifs",
+            "smbfs",
+        }
+        return fstype.casefold() in network_fs_types
+
+    except (PermissionError, OSError):
+        return False
