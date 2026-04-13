@@ -83,9 +83,9 @@ class DbPersistence(PersistenceBase):
         # Parse SQLite file path from the DB URL for filesystem checks
         sqlite_db_path = db_url
         if sqlite_db_path.startswith("sqlite:///"):
-            sqlite_db_path = sqlite_db_path[len("sqlite:///"):]
+            sqlite_db_path = sqlite_db_path[len("sqlite:///") :]
         elif sqlite_db_path.startswith("sqlite://"):
-            sqlite_db_path = sqlite_db_path[len("sqlite://"):]
+            sqlite_db_path = sqlite_db_path[len("sqlite://") :]
         # Remove query parameters and fragments if present
         if "?" in sqlite_db_path:
             sqlite_db_path = sqlite_db_path.split("?", 1)[0]
