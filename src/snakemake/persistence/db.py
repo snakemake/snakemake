@@ -251,7 +251,7 @@ def is_network_filesystem(path: Path | str) -> bool:
     if os.name != "posix":
         return False
 
-    path = os.path.realpath(path)
+    path_obj = Path(path).resolve()
 
     # track the best mount point match
     longest_prefix_length = -1
@@ -259,10 +259,11 @@ def is_network_filesystem(path: Path | str) -> bool:
 
     try:
         for part in psutil.disk_partitions(all=True):
-            # Check for path-boundary-aware prefix match
-            if path == part.mountpoint or path.startswith(part.mountpoint + os.sep):
-                if len(part.mountpoint) > longest_prefix_length:
-                    longest_prefix_length = len(part.mountpoint)
+            mount_path = Path(part.mountpoint).resolve()
+            if path_obj.is_relative_to(mount_path):
+                mount_depth = len(mount_path.parts)
+                if mount_depth > longest_prefix_length:
+                    longest_prefix_length = mount_depth
                     fstype = part.fstype
 
         network_fs_types = {
