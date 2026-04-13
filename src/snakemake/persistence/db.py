@@ -80,7 +80,19 @@ class DbPersistence(PersistenceBase):
             latency_wait_s = self.dag.workflow.execution_settings.latency_wait * 1000
             busy_timeout = max(busy_timeout, latency_wait_s)
 
-        is_network_fs = is_network_filesystem(self.path)
+        # Parse SQLite file path from the DB URL for filesystem checks
+        sqlite_db_path = db_url
+        if sqlite_db_path.startswith("sqlite:///"):
+            sqlite_db_path = sqlite_db_path[len("sqlite:///"):]
+        elif sqlite_db_path.startswith("sqlite://"):
+            sqlite_db_path = sqlite_db_path[len("sqlite://"):]
+        # Remove query parameters and fragments if present
+        if "?" in sqlite_db_path:
+            sqlite_db_path = sqlite_db_path.split("?", 1)[0]
+        if "#" in sqlite_db_path:
+            sqlite_db_path = sqlite_db_path.split("#", 1)[0]
+
+        is_network_fs = is_network_filesystem(sqlite_db_path)
 
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -252,7 +264,8 @@ def is_network_filesystem(path: Path | str) -> bool:
 
     try:
         for part in psutil.disk_partitions(all=True):
-            if path.startswith(part.mountpoint):
+            # Check for path-boundary-aware prefix match
+            if path == part.mountpoint or path.startswith(part.mountpoint + os.sep):
                 if len(part.mountpoint) > longest_prefix_length:
                     longest_prefix_length = len(part.mountpoint)
                     fstype = part.fstype
