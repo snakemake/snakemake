@@ -10,6 +10,7 @@ from sqlalchemy import (
     delete,
     event,
 )
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Session
 from sqlmodel import SQLModel, Field
@@ -80,19 +81,13 @@ class DbPersistence(PersistenceBase):
             latency_wait_s = self.dag.workflow.execution_settings.latency_wait * 1000
             busy_timeout = max(busy_timeout, latency_wait_s)
 
-        # Parse SQLite file path from the DB URL for filesystem checks
-        sqlite_db_path = db_url
-        if sqlite_db_path.startswith("sqlite:///"):
-            sqlite_db_path = sqlite_db_path[len("sqlite:///") :]
-        elif sqlite_db_path.startswith("sqlite://"):
-            sqlite_db_path = sqlite_db_path[len("sqlite://") :]
-        # Remove query parameters and fragments if present
-        if "?" in sqlite_db_path:
-            sqlite_db_path = sqlite_db_path.split("?", 1)[0]
-        if "#" in sqlite_db_path:
-            sqlite_db_path = sqlite_db_path.split("#", 1)[0]
+        parsed_url = make_url(db_url)
+        is_network_fs = False
 
-        is_network_fs = is_network_filesystem(sqlite_db_path)
+        if parsed_url.get_backend_name() == "sqlite":
+            sqlite_db_path = parsed_url.database
+            if sqlite_db_path and sqlite_db_path != ":memory:":
+                is_network_fs = is_network_filesystem(sqlite_db_path)
 
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
