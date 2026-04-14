@@ -254,6 +254,8 @@ class WorkflowModifier:
         self.allow_rule_overwrite = allow_rule_overwrite
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
+        self.global_container_img = None
+        self.global_is_containerized = False
         self.default_input_flags: DefaultFlags = DefaultFlags()
         self.default_output_flags: DefaultFlags = DefaultFlags()
 

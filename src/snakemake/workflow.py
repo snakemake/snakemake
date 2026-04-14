@@ -204,8 +204,6 @@ class Workflow(WorkflowExecutorInterface):
         self._onstart = lambda log: None
         self._rulecount = 0
         self._parent_groupids = dict()
-        self.global_container_img = None
-        self.global_is_containerized = False
         self.configfiles = list(self.config_settings.configfiles)
         self.report_text = None
         # environment variables to pass to jobs
@@ -2020,11 +2018,11 @@ class Workflow(WorkflowExecutorInterface):
                 check_may_use_software_deployment("container/singularity")
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
-            elif self.global_container_img:
+            elif self.modifier.global_container_img:
                 if not ruleinfo.template_engine and ruleinfo.container_img != False:
                     # skip rules with template_engine directive or empty image
-                    rule.container_img = self.global_container_img
-                    rule.is_containerized = self.global_is_containerized
+                    rule.container_img = self.modifier.global_container_img
+                    rule.is_containerized = self.modifier.global_is_containerized
 
             rule.norun = ruleinfo.norun
             rule.docstring = ruleinfo.docstring
@@ -2228,12 +2226,12 @@ class Workflow(WorkflowExecutorInterface):
         return decorate
 
     def global_container(self, container_img):
-        self.global_container_img = container_img
-        self.global_is_containerized = False
+        self.modifier.global_container_img = container_img
+        self.modifier.global_is_containerized = False
 
     def global_containerized(self, container_img):
-        self.global_container_img = container_img
-        self.global_is_containerized = True
+        self.modifier.global_container_img = container_img
+        self.modifier.global_is_containerized = True
 
     def threads(self, threads):
         def decorate(ruleinfo):
