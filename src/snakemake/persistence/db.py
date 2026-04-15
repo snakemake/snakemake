@@ -253,18 +253,17 @@ def is_network_filesystem(path: Path | str) -> bool:
 
     path_obj = Path(path).resolve()
 
-    # track the best mount point match
-    longest_prefix_length = -1
-    fstype = ""
-
     try:
-        for part in psutil.disk_partitions(all=True):
-            mount_path = Path(part.mountpoint).resolve()
-            if path_obj.is_relative_to(mount_path):
-                mount_depth = len(mount_path.parts)
-                if mount_depth > longest_prefix_length:
-                    longest_prefix_length = mount_depth
-                    fstype = part.fstype
+        best_match = max(
+            (
+                mount
+                for mount in psutil.disk_partitions(all=True)
+                if path_obj.is_relative_to(Path(mount.mountpoint).resolve())
+            ),
+            key=lambda part: len(Path(part.mountpoint).resolve().parts),
+            default=None,
+        )
+        fstype = best_match.fstype if best_match else ""
 
         network_fs_types = {
             "afs",
