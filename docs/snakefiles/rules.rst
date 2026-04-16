@@ -741,15 +741,27 @@ Sub-path access
 
 In some cases, it is useful to access a sub-path of an input or output file or directory.
 For this purpose, Snakemake provides the ``subpath`` function.
-It has the signature ``subpath(path_or_func, strip_suffix=None, basename=False, parent=False, ancestor=None)``.
+It has the signature ``subpath(path_or_func, strip_suffix=None, with_suffix=None, basename=False, parent=False, ancestor=None)``.
 If a path is given as first argument (of type ``str`` or ``pathlib.Path``), the function directly returns the sub-path of the given path.
 Thereby, the sub-path is determined depending on the other arguments.
 
-If a ``str`` is given to ``strip_suffix``, this suffix is stripped from the path before determining the sub-path (a ``ValueError`` error is thrown if the path does not have the suffix).
+If a ``str`` is given to ``strip_suffix``, this suffix is stripped from the path (a ``ValueError`` error is thrown if the path does not have the suffix).
 
 .. code-block:: python
 
     subpath("results/test.txt", strip_suffix=".txt") # returns "results/test"
+
+If a ``str`` is given to ``with_suffix``, this suffix is added to the path.
+
+.. code-block:: python
+
+    subpath("results/test.txt", with_suffix=".gz") # returns "results/test.txt.gz"
+
+The two arguments ``strip_suffix`` and ``with_suffix`` can be used in combination, e.g.
+
+.. code-block:: python
+
+    subpath("results/test.txt", strip_suffix=".txt", with_suffix=".csv") # returns "results/test.csv"
 
 If ``basename`` is set to ``True``, the basename of the path is returned (e.g. ``test.txt`` in case the path is ``results/test.txt``).
 
