@@ -354,10 +354,12 @@ def parse_jobs(jobs):
 
 
 def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
-    config_pattern = re.compile(r"config(.v(?P<min_major>\d+)\+)?.yaml")
+    config_pattern = re.compile(
+        r"(?P<main_file_name>profile|config)(?:\.v(?P<min_major>\d+)\+)?.yaml"
+    )
 
     def get_config_min_major(filename):
-        m = config_pattern.match(filename)
+        m = config_pattern.fullmatch(filename)
         if m:
             min_major = m.group("min_major")
             if min_major is None:
@@ -370,13 +372,19 @@ def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
     dirs = get_appdirs()
     if os.path.exists(profile):
         parent_dir = os.path.dirname(profile) or "."
+        # short circuit if the file path exists
+        if os.path.isfile(profile):
+            return Path(parent_dir), Path(profile)
         search_dirs = [parent_dir]
         profile = os.path.basename(profile)
     else:
         search_dirs = [os.getcwd(), dirs.user_config_dir, dirs.site_config_dir]
     for d in search_dirs:
         profile_candidate = Path(d) / profile
-        if profile_candidate.exists():
+        # short circuit if the file path exists in a search_dir
+        if profile_candidate.is_file():
+            return profile_candidate.parent, profile_candidate
+        if profile_candidate.is_dir():
             files = os.listdir(profile_candidate)
             # If versioneer cannot get the real version it will return something
             # like "0+untagged.5410.g40ffe59" - this should only occur in testing scenarios
@@ -409,11 +417,14 @@ def get_argument_parser(profiles=None):
                 config_files.append(config_file)
             else:
                 print(
-                    "Error: profile given but no config.yaml found. "
+                    "Error: profile directory given ({profile}), but no profile.yaml (or config.yaml) found. "
                     "Profile has to be given as either absolute path, relative "
                     "path or name of a directory available in either "
-                    "{site} or {user}.".format(
-                        site=dirs.site_config_dir, user=dirs.user_config_dir
+                    "{site} or {user}. "
+                    "Alternatively, you can explicitly specify a path and file name.".format(
+                        profile=profile,
+                        site=dirs.site_config_dir,
+                        user=dirs.user_config_dir,
                     ),
                     file=sys.stderr,
                 )
@@ -449,13 +460,70 @@ def get_argument_parser(profiles=None):
 
     group_exec.add_argument(
         "--profile",
-        help=f"Name of profile to use for configuring Snakemake. Snakemake will search for a corresponding folder in `{dirs.site_config_dir}` and `{dirs.user_config_dir}`. Alternatively, this can be an absolute or relative path. The profile folder has to contain a file `config.yaml`. This file can be used to set default values for command line options in YAML format. For example, `--cluster qsub` becomes `cluster: qsub` in the YAML file. Profiles can be obtained from https://github.com/snakemake-profiles. The profile can also be set via the environment variable `$SNAKEMAKE_PROFILE`. To override this variable and use no profile at all, provide the value `none` to this argument.",
+        help="Profile to use for configuring the Snakemake run with settings "
+        "regarding the compute environment. Every key in this YAML file gets "
+        "parsed into the respective command line argument: `executor: slurm` "
+        "gets parsed to `--executor slurm`, `default-resources: mem_mb: 16000` "
+        "is interpreted as `--default-resources mem_mb=16000`, etc. You can "
+        "specify a Snakemake profile as (i) a profile name, (ii) a relative "
+        "path to a folder or (iii) the relative path to the profile YAML file "
+        "itself. Snakemake will look for a folder with the profile name or "
+        f"the existence of the relative path in `{dirs.site_config_dir}`, "
+        f"`{dirs.user_config_dir}` and the current working directory. "
+        "Alternatively, you can also specify absolute paths. If a profile "
+        "name or folder is given, it has to contain a file `profile.yaml` "
+        "(or a `config.yaml` file, for backwards compatibility). This file "
+        "can have an optional infix specifying a minimal snakemake version "
+        "(for example `profile.v9+.yaml`). The profile can also be set via "
+        "the environment variable `$SNAKEMAKE_PROFILE`. However, once you "
+        "provide a profile via the command line argument `--profile`, this "
+        "environment variable is ignored. And to override this variable "
+        "without setting another one, provide the value `none` to this "
+        "argument. Finally, you can specify this argument multiple times. In "
+        "this case, the profiles get merged with the later `--profile` "
+        "instances overriding top-level entries in profiles specified "
+        "earlier. For example, if the last `--profile` specifies the top "
+        "level `default-resources:` keyword, all entries under that keyword "
+        "from previous `--profile`s will be ignored. Similarly, also "
+        "specifying any of the top-level keys from your profile as a command "
+        "line argument will overwrite this whole top-level key. Example "
+        "profiles for certain compute infrastructure can be obtained at "
+        "https://github.com/snakemake/snakemake-cluster-profiles.",
         env_var="SNAKEMAKE_PROFILE",
+        action="append",
     )
 
     group_exec.add_argument(
         "--workflow-profile",
-        help="Path (relative to current directory) to workflow specific profile folder to use for configuring Snakemake with parameters specific for this workflow (like resources). If this flag is not used, Snakemake will by default use `profiles/default` if present (searched both relative to current directory and relative to Snakefile, in this order). For skipping any workflow specific profile provide the special value `none`. Settings made in the workflow profile will override settings made in the general profile (see `--profile`). The profile folder has to contain a file `config.yaml`. This file can be used to set default values for command line options in YAML format. For example, `--executor slurm` becomes `executor: slurm` in the YAML file. It is advisable to use the workflow profile to set or overwrite e.g. workflow specific resources like the amount of threads of a particular rule or the amount of memory needed. Note that in such cases, the arguments may be given as nested YAML mappings in the profile, e.g. `set-threads: myrule: 4` instead of `set-threads: myrule=4`.",
+        help="Profile to use for configuring this Snakemake run with "
+        "parameters specific for this workflow (like resources). For settings "
+        "specific to the compute environment (for example a specific compute "
+        "cluster), use global `--profile`s. Generally, an entry like "
+        "`set-resources: a: mem_mb=8` in the YAML file, will become "
+        "`--set-resources a:mem_mb=8` for the `snakemake` run. The profile "
+        "can be specified as a file name with a full relative path from the "
+        "current working directory. In this case, the YAML profile file can "
+        "be named arbitrarily. In all other cases the respective folder(s) "
+        "will be searched for a `profile.yaml` file (or a `config.yaml` file, "
+        "for backwards compatibility). This file can have an optional infix "
+        "specifying a minimal snakemake version (for example "
+        "`profile.v9+.yaml`). And any of the following options will always "
+        "search relative to both the current working directory and the "
+        "location of the Snakefile: (i) If this option is not provided, the "
+        "directory `profiles/default/` will be searched (and used, if a "
+        "profile is present; override this implicit usage with "
+        "`--workflow-profile none`). (ii) If a profile name is given, the "
+        "subdirectory of that name under `profiles/` will be searched. "
+        "(iii) If a full relative path is given, this directory will be "
+        "searched. Settings made in the workflow profile will override "
+        "settings made in the general profile (see `--profile`) on a per-key "
+        "basis. For example, if you specify `default-resources:` in the "
+        "workflow profile, all `default-resources:` entries from other "
+        "profiles will be ignored; but if you don't specify "
+        "`default-resources` in your workflow profile, `default-resources` "
+        "from other profiles will get passed through. Similarly, also "
+        "specifying any of the top-level keys from your workflow specific "
+        "profile via command line arguments will completely overwrite their entries.",
     )
 
     group_exec.add_argument(
@@ -1839,28 +1907,42 @@ def parse_args(argv):
     workflow_profile = None
     if args.workflow_profile != "none":
         if args.workflow_profile:
-            workflow_profile = args.workflow_profile
-        elif snakefile is not None:
-            # checking for default profile
-            default_path = Path("profiles/default")
+            workflow_profile = Path(args.workflow_profile)
+        if snakefile is not None and (
+            workflow_profile is None or not workflow_profile.is_file()
+        ):
+            if workflow_profile is None:
+                workflow_profile = Path("default")
+            # checking for default profile locations
+            default_workflow_profile_path = Path("profiles") / workflow_profile
             workflow_profile_candidates = [
-                default_path,
-                Path(snakefile).parent.joinpath(default_path),
+                workflow_profile,
+                default_workflow_profile_path,
+                Path(snakefile).parent.joinpath(default_workflow_profile_path),
             ]
+            # reset here, in case we just added the `default` path to search it
+            # but there is nothing there
+            workflow_profile = None
             for profile in workflow_profile_candidates:
                 if profile.exists():
                     workflow_profile = profile
                     break
 
-    if args.profile == "none":
-        args.profile = None
+    if args.profile is not None:
+        if args.profile == ["none"]:
+            args.profile = None
+        elif "none" in args.profile:
+            raise CliException(
+                "The special value 'none' cannot be combined with other --profile entries. \n"
+                f"You provided: '{args.profile}'.\n"
+            )
 
     if (args.profile or workflow_profile) and args.mode == ExecMode.DEFAULT:
         # Reparse args while inferring config file from profile.
         # But only do this if the user has invoked Snakemake (ExecMode.DEFAULT)
         profiles = []
         if args.profile:
-            profiles.append(args.profile)
+            profiles.extend(args.profile)
         if workflow_profile:
             workflow_profile_stmt = f" {'and ' if profiles else ''}workflow specific profile {workflow_profile}"
             profiles.append(workflow_profile)
