@@ -26,7 +26,7 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected, prepare_tmpdir
+from .common import run, dpath, apptainer, connected, prepare_tmpdir, has_apptainer
 from .conftest import (
     skip_on_windows,
     only_on_windows,
@@ -996,6 +996,35 @@ def test_singularity_source_cache():
 
 def test_issue612():
     run(dpath("test_issue612"), executor="dryrun")
+
+
+@skip_on_windows
+def test_no_apptainer_check():
+    """--no-apptainer-check should allow snakemake to build the DAG and perform
+    a dryrun on a node that has no apptainer/singularity installed (e.g. a SLURM
+    head node), without raising a WorkflowError about the missing binary."""
+    run(
+        dpath("test_singularity"),
+        deployment_method={DeploymentMethod.APPTAINER},
+        apptainer_skip_check=True,
+        executor="dryrun",
+        check_results=False,
+    )
+
+
+@skip_on_windows
+def test_no_apptainer_check_fails_without_flag():
+    """Without --no-apptainer-check, a dryrun with --use-apptainer should fail
+    on a machine without apptainer/singularity installed."""
+    if has_apptainer():
+        pytest.skip("apptainer is installed; cannot test missing binary behaviour")
+    run(
+        dpath("test_singularity"),
+        deployment_method={DeploymentMethod.APPTAINER},
+        executor="dryrun",
+        check_results=False,
+        shouldfail=True,
+    )
 
 
 def test_bash():

@@ -470,6 +470,27 @@ Files that are mounted in ``input`` using ``workflow.source_path`` are also auto
 
 In general, it should be noted that only trusted containers should be used!
 
+Running on a cluster without apptainer on the head node
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On many HPC clusters, apptainer/singularity is only available on compute nodes and not on the login/head node used to submit jobs.
+In this case, Snakemake's default behaviour of checking for the apptainer binary and pre-pulling images on the submitting node will fail.
+
+Use ``--no-apptainer-check`` (or ``--no-singularity-check``) to skip both the availability check and image pulling on the submitting node:
+
+.. code-block:: bash
+
+    snakemake --no-apptainer-check
+
+Or add it to your profile configuration:
+
+.. code-block:: yaml
+
+    no-apptainer-check: true
+
+With this flag set, Snakemake will build the DAG and submit jobs normally.
+Each compute node will pull any missing images itself when the job executes, using its local apptainer/singularity installation.
+
 Defining global container images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
