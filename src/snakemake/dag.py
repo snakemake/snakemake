@@ -569,7 +569,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 self.container_imgs[img_url] = img
 
     def pull_container_imgs(self, quiet=False):
-        if self.workflow.deployment_settings.apptainer_skip_check and self.workflow.is_main_process:
+        if (
+            self.workflow.deployment_settings.apptainer_skip_check
+            and self.workflow.is_main_process
+        ):
             # Head node lacks apptainer/singularity; skip both the availability
             # check and any image pulling. Compute nodes (ExecMode.REMOTE /
             # ExecMode.SUBPROCESS) will still pull images when they execute jobs.
