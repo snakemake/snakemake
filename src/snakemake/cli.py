@@ -1822,6 +1822,17 @@ def get_argument_parser(profiles=None):
         parse_func=maybe_base64(str),
         help="Pass additional args to apptainer/singularity.",
     )
+    group_singularity.add_argument(
+        "--no-apptainer-check",
+        "--no-singularity-check",
+        action="store_true",
+        default=False,
+        help="Skip the check for a local apptainer/singularity installation and "
+        "skip pulling container images on the submitting node. "
+        "Useful when running on a head node that does not have "
+        "apptainer/singularity installed but the compute nodes do (e.g. SLURM). "
+        "Compute nodes will still pull any missing images when executing jobs.",
+    )
 
     group_env_modules = parser.add_argument_group("ENVIRONMENT MODULES")
 
@@ -2194,6 +2205,7 @@ def args_to_api(args, parser):
                         conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
                         apptainer_args=args.apptainer_args,
                         apptainer_prefix=args.apptainer_prefix,
+                        apptainer_skip_check=args.no_apptainer_check,
                     ),
                     snakefile=args.snakefile,
                     workdir=args.directory,
