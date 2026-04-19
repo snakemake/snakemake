@@ -354,7 +354,8 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                     rss += meminfo.rss
                     vms += meminfo.vms
                     uss += meminfo.uss
-                    pss += meminfo.pss
+                    pss += getattr(meminfo, "pss", 0)
+
 
                     if check_io:
                         try:
