@@ -1,7 +1,12 @@
 from pathlib import Path
 import tempfile
 from unittest.mock import patch
-from snakemake.sourcecache import GenericSourceFile, GithubFile, GitlabFile, infer_source_file
+from snakemake.sourcecache import (
+    GenericSourceFile,
+    GithubFile,
+    GitlabFile,
+    infer_source_file,
+)
 
 
 def test_gitlabfile_host_propagation():
