@@ -2186,9 +2186,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
 
-        async def is_output_present(job):
+        async def is_output_present(job: Job):
+            async def exists(out: _IOFile):
+                if out.is_storage and out.storage_object is not None:
+                    if out.storage_object.retrieve:
+                        # check local presence, which is the relevant condition for determining
+                        # whether the checkpoint can be considered finished or not.
+                        return await out.exists_local()  # type: ignore[reportCallIssue]
+                    else:
+                        # only check storage presence, as retrieve=False means that
+                        # the file is not automatically retrieved to local storage
+                        # and thus may not be present locally even if the checkpoint is finished.
+                        return await out.exists_in_storage()  # type: ignore[reportCallIssue]
+                return await out.exists_local()  # type: ignore[reportCallIssue]
+
             return (self.finished(job) or not self.needrun(job)) and all(
-                await asyncio.gather(*(out.exists() for out in job.output))
+                await asyncio.gather(*(exists(out) for out in job.output))
             )
 
         job_queue = defaultdict(set)
