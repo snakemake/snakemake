@@ -22,5 +22,5 @@ RUN micromamba create -q -y -c bioconda -c conda-forge -n snakemake \
     micromamba install -c conda-forge conda && \
     micromamba clean --all -y
 
-ENV PATH /opt/conda/envs/snakemake/bin:/opt/conda/envs/apptainer/bin:${PATH}
 RUN pip install .[reports,messaging,pep]
+ENV PATH /opt/conda/envs/snakemake/bin:/opt/conda/envs/apptainer/bin:${PATH}
