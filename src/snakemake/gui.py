@@ -71,7 +71,12 @@ def register(run_snakemake, args):
 
     run_snakemake(list_resources=True, log_handler=[log_handler])
     app.extensions["resources"] = resources
-    if is_local_file(args.snakefile):
+    try:
+        is_local = is_local_file(args.snakefile)
+    except (NotImplementedError, ImportError, ValueError):
+        is_local = False
+
+    if is_local:
         app.extensions["snakefilepath"] = os.path.abspath(args.snakefile)
     else:
         app.extensions["snakefilepath"] = args.snakefile

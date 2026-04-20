@@ -1,6 +1,6 @@
 from pathlib import Path
 import tempfile
-from unittest.mock import patch
+from unittest.mock import patch, sentinel
 from snakemake.sourcecache import (
     GenericSourceFile,
     GithubFile,
@@ -148,3 +148,64 @@ def test_gitlab_shorthand_with_slashed_ref():
     assert file.repo == "group/project"
     assert file.branch == "feature/branch"
     assert file.path == "path/to/file.py"
+
+
+def test_hosting_provider_cache_path_keeps_slashed_ref_distinct():
+    slashed_ref = GithubFile(
+        repo="owner/repo",
+        path="path/to/Snakefile",
+        branch="perf/autobump",
+    )
+    plain_ref = GithubFile(
+        repo="owner/repo",
+        path="autobump/path/to/Snakefile",
+        branch="perf",
+    )
+
+    assert slashed_ref.get_cache_path() != plain_ref.get_cache_path()
+    assert "%2F" in slashed_ref.get_cache_path()
+
+
+def test_hosted_repo_cache_key_distinguishes_provider_and_host():
+    old_cache = GithubFile._hosted_repos
+    GithubFile._hosted_repos = {}
+    GitlabFile._hosted_repos = GithubFile._hosted_repos
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch(
+                "snakemake.sourcecache.HostedGitRepo",
+                side_effect=[
+                    sentinel.github_repo,
+                    sentinel.gitlab_repo,
+                    sentinel.custom_repo,
+                ],
+            ) as hosted_repo_factory:
+                github_file = GithubFile(
+                    repo="owner/repo",
+                    path="workflow/Snakefile",
+                    branch="main",
+                    host="example.com",
+                    cache_path=Path(tmpdir),
+                )
+                gitlab_file = GitlabFile(
+                    repo="owner/repo",
+                    path="workflow/Snakefile",
+                    branch="main",
+                    host="example.com",
+                    cache_path=Path(tmpdir),
+                )
+                custom_host_file = GithubFile(
+                    repo="owner/repo",
+                    path="workflow/Snakefile",
+                    branch="main",
+                    host="github.example.com",
+                    cache_path=Path(tmpdir),
+                )
+
+                assert github_file.hosted_repo is sentinel.github_repo
+                assert gitlab_file.hosted_repo is sentinel.gitlab_repo
+                assert custom_host_file.hosted_repo is sentinel.custom_repo
+                assert hosted_repo_factory.call_count == 3
+    finally:
+        GithubFile._hosted_repos = old_cache
+        GitlabFile._hosted_repos = old_cache

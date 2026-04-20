@@ -43,7 +43,7 @@ StrPath: TypeAlias = str | os.PathLike
 
 
 class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
-    def log_message(self, format, *args):
+    def log_message(self, message_format, *args):
         pass
 
 
