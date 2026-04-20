@@ -557,6 +557,15 @@ def test_multiple_includes():
     run(dpath("test_multiple_includes"))
 
 
+def test_remote_snakefile_multiple_includes():
+    source_dir = dpath("test_multiple_includes")
+    with serve_directory(source_dir) as server_url:
+        run(
+            source_dir,
+            shellcmd=f"snakemake --snakefile {server_url}/Snakefile --cores 1",
+        )
+
+
 def test_name_override():
     run(dpath("test_name_override"))
 
