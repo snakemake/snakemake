@@ -911,6 +911,137 @@ class JuliaScript(ScriptBase):
         self._execute_cmd("julia {fname:q}", fname=fname)
 
 
+class PerlScript(ScriptBase):
+    @staticmethod
+    def generate_preamble(
+        path,
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        container_img,
+        singularity_args,
+        env_modules,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        is_local,
+        preamble_addendum="",
+    ):
+        # snakemake's namedlists will be encoded as a dict
+        # which stores the not-named items at the key "positional"
+        # and unpacks named items into the dict
+        def encode_namedlist(values):
+            values = list(values)
+            if len(values) == 0:
+                return dict(positional=[])
+            positional = [val for key, val in values if not key]
+            return dict(
+                positional=positional, **{key: val for key, val in values if key}
+            )
+
+        snakemake = dict(
+            input=encode_namedlist(input_._plainstrings()._allitems()),
+            output=encode_namedlist(output._plainstrings()._allitems()),
+            params=encode_namedlist(params.items()),
+            wildcards=encode_namedlist(wildcards.items()),
+            threads=threads,
+            resources=encode_namedlist(
+                {
+                    name: value
+                    for (name, value) in resources.items()
+                    if name != "_cores" and name != "_nodes"
+                }.items()
+            ),
+            log=encode_namedlist(log._plainstrings()._allitems()),
+            config=encode_namedlist(config.items()),
+            rulename=rulename,
+            bench_iteration=bench_iteration,
+            scriptdir=path.get_basedir().get_path_or_uri(secret_free=True),
+        )
+
+        json_string = json.dumps(dict(snakemake))
+        
+        preamble = textwrap.dedent("""
+            use JSON::PP;
+            
+            my $snakemake_json = <<'END_MESSAGE';
+            {json_string}
+            END_MESSAGE
+            
+            my $snakemake = JSON::PP::decode_json($snakemake_json);
+            """).format(
+            json_string=json_string,
+            preamble_addendum=preamble_addendum,
+        )
+            
+        preamble += textwrap.dedent("""
+            # Setting up input and output for positional
+            if ($snakemake->{log} && scalar(@{ $snakemake->{log}->{positional} }) == 1) {
+                open(STDERR, ">>", $snakemake->{log}->{positional}->[0]) || die "Error stderr: $!";
+            }
+            if ($snakemake->{output} && scalar(@{ $snakemake->{output}->{positional} }) == 1) {
+                open (STDOUT, '>', $snakemake->{output}->{positional}->[0]) or die "Could not open file: $!";
+            }
+            if ($snakemake->{input} && @{ $snakemake->{input}->{positional} }) {
+                @ARGV = @{ $snakemake->{input}->{positional} };
+            }
+            """)
+        return preamble
+    
+    def get_preamble(self):
+        preamble = PerlScript.generate_preamble(
+            path=self.path,
+            source=self.source,
+            basedir=self.basedir,
+            input_=self.input,
+            output=self.output,
+            params=self.params,
+            wildcards=self.wildcards,
+            threads=self.threads,
+            resources=self.resources,
+            log=self.log,
+            config=self.config,
+            rulename=self.rulename,
+            conda_env=self.conda_env,
+            container_img=self.container_img,
+            singularity_args=self.singularity_args,
+            env_modules=self.env_modules,
+            bench_record=self.bench_record,
+            jobid=self.jobid,
+            bench_iteration=self.bench_iteration,
+            cleanup_scripts=self.cleanup_scripts,
+            shadow_dir=self.shadow_dir,
+            is_local=self.is_local,
+        )
+        return preamble
+
+    def write_script(self, preamble, fd):
+        content = self.combine_preamble_and_source(preamble)
+        fd.write(content.encode())
+
+    def combine_preamble_and_source(self, preamble: str):
+        rgx = re.compile(r"^#![^\[].*?(\r\n|\n)")
+        shebang, source = strip_re(rgx, self.source)
+        if not shebang:
+            shebang = r"#!/usr/bin/env perl"
+
+        return "\n".join([shebang, preamble, source])
+
+    def execute_script(self, fname, edit=False):
+        self._execute_cmd("perl {fname:q}", fname=fname)
+
+
 class RustScript(ScriptBase):
     @staticmethod
     def generate_preamble(
@@ -1399,6 +1530,8 @@ def get_language(source_file, source):
         language = "rmarkdown"
     elif filename.endswith(".jl"):
         language = "julia"
+    elif filename.endswith(".pl"):
+        language = "perl"
     elif filename.endswith(".rs"):
         language = "rust"
     elif filename.endswith(".sh"):
@@ -1469,6 +1602,7 @@ def script(
         "r": RScript,
         "rmarkdown": RMarkdown,
         "julia": JuliaScript,
+        "perl": PerlScript,
         "rust": RustScript,
         "bash": BashScript,
         "xonsh": XonshScript,
@@ -1476,7 +1610,7 @@ def script(
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
-            "Script must be one of the following filetypes: [.py .R .Rmd .jl .rs .sh .xsh .hy]"
+            "Script must be one of the following filetypes: [.py .R .Rmd .jl .pl .rs .sh .xsh .hy]"
         )
 
     executor = exec_class(
