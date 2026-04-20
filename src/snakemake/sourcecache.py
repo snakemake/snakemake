@@ -720,6 +720,9 @@ def _infer_hosting_provider_file_shorthand(
         ref = ref_cand
         path = path_cand or "workflow/Snakefile"
 
+    if not ref:
+        return None
+
     repo = unquote(repo)
     ref = unquote(ref)
     path = unquote(path)
@@ -748,6 +751,7 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
         )
     if hosting_provider_file := _infer_hosting_provider_file(path_or_uri):
         return hosting_provider_file
+    # Unsupported or malformed URIs should fall through to GenericSourceFile below.
     try:
         is_local = is_local_file(path_or_uri)
     except (NotImplementedError, ImportError, ValueError):
