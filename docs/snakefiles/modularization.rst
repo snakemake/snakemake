@@ -400,6 +400,7 @@ As a convenience syntax, hosted source files can also be written with an explici
 Use ``gh:owner/repo@ref:path/to/Snakefile`` for GitHub, optionally inserting a custom host as ``gh:github.example.org:owner/repo@ref:path/to/Snakefile``.
 Use ``gl:group/project@ref:path/to/Snakefile`` for GitLab, optionally inserting a custom host as ``gl:gitlab.example.org:group/project@ref:path/to/Snakefile``.
 If the trailing path is omitted, Snakemake assumes ``workflow/Snakefile``.
+When refs contain slashes, prefer this shorthand because it avoids ambiguity between ref and file path.
 For example:
 
 .. code-block:: python

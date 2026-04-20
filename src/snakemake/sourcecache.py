@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 import tempfile
 import io
 from abc import ABC, abstractmethod
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from snakemake import utils
 from snakemake.utils import format
@@ -399,7 +399,7 @@ class HostingProviderFile(SourceFile):
     """Marker for denoting github source files from releases."""
 
     valid_repo: ClassVar[re.Pattern] = re.compile("^.+/.+$")
-    _hosted_repos: ClassVar[Dict[str, HostedGitRepo]] = {}
+    _hosted_repos: ClassVar[Dict[tuple[type, str, str], HostedGitRepo]] = {}
     _lock: ClassVar[threading.Lock] = threading.Lock()
 
     def __init__(
@@ -499,10 +499,11 @@ class HostingProviderFile(SourceFile):
 
     @property
     def hosted_repo(self) -> HostedGitRepo:
+        assert self.host is not None
+        cache_key = (self.__class__, self.host, self.repo)
         try:
-            return self._hosted_repos[self.repo]
+            return self._hosted_repos[cache_key]
         except KeyError:
-            assert self.host is not None
             if self.host.startswith("https://") or self.host.startswith("http://"):
                 raise WorkflowError(
                     "host must be given as domain name without protocol prefix "
@@ -512,17 +513,31 @@ class HostingProviderFile(SourceFile):
 
             # Ensure that multiple threads don't concurrently create the same instance
             with self._lock:
-                hosted_repo = HostedGitRepo(
-                    self.repo, self.cache_path, self.auth, self.host
-                )
-                self._hosted_repos[self.repo] = hosted_repo
-            return hosted_repo
+                try:
+                    return self._hosted_repos[cache_key]
+                except KeyError:
+                    hosted_repo = HostedGitRepo(
+                        self.repo, self.cache_path, self.auth, self.host
+                    )
+                    self._hosted_repos[cache_key] = hosted_repo
+                    return hosted_repo
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
 
     def get_filename(self):
         return os.path.basename(self.path)
+
+    def get_cache_path(self):
+        assert self.host is not None
+        return os.path.join(
+            "hosted-git",
+            self.__class__.__name__.lower(),
+            self.host,
+            quote(self.repo, safe="/"),
+            quote(self.ref, safe=""),
+            quote(self.path, safe="/"),
+        )
 
     def fetch_if_required(self) -> Optional[str]:
         # always fetch if this points to a branch
@@ -630,8 +645,6 @@ class GithubFile(HostingProviderFile):
         return ""
 
     def get_path_or_uri(self, secret_free: bool) -> str:
-        from urllib.parse import quote
-
         auth = f":{self.token}@" if self.token and not secret_free else ""
         ref = quote(self.ref, safe="")
         path = quote(self.path, safe="/")
@@ -655,8 +668,6 @@ class GitlabFile(HostingProviderFile):
         return ""
 
     def get_path_or_uri(self, secret_free: bool) -> str:
-        from urllib.parse import quote
-
         auth = f"&private_token={self.token}" if self.token and not secret_free else ""
         return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
             self.host,
