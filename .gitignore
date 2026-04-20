@@ -37,5 +37,3 @@ src/snakemake/_version.py
 .pixi
 *.egg-info
 pixi.lock
-
-rust/target/*
