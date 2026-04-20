@@ -696,6 +696,8 @@ def _infer_hosting_provider_file_shorthand(
     first_colon = remainder.find(":")
     if first_colon != -1 and first_colon < first_slash:
         host = remainder[:first_colon]
+        if not host:
+            return None
         remainder = remainder[first_colon + 1 :]
     else:
         host = None
