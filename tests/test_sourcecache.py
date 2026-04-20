@@ -104,6 +104,15 @@ def test_infer_source_file_from_old_host_first_shorthand_falls_back_to_generic()
     assert file.get_path_or_uri(secret_free=False) == path
 
 
+def test_infer_source_file_from_empty_host_shorthand_falls_back_to_generic():
+    path = "gh::snakemake/snakemake@main"
+
+    file = infer_source_file(path)
+
+    assert isinstance(file, GenericSourceFile)
+    assert file.get_path_or_uri(secret_free=False) == path
+
+
 def test_infer_source_file_from_github_shorthand_custom_host_without_path():
     file = infer_source_file("gh:github.example.com:snakemake/snakemake@main")
 
