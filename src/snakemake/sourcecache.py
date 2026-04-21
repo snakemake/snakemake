@@ -148,6 +148,16 @@ class GenericSourceFile(SourceFile):
     def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path_or_uri
 
+    def get_cache_path(self):
+        scheme, sep, remainder = self.path_or_uri.partition("://")
+        if not sep:
+            return quote(self.path_or_uri, safe="")
+
+        # Encode URI components so host:port and similar segments remain
+        # filesystem-safe while preserving the original path structure.
+        parts = [quote(unquote(part), safe="") for part in remainder.split("/")]
+        return os.path.join(scheme, *parts)
+
     def get_filename(self) -> str:
         return os.path.basename(self.path_or_uri)
 
