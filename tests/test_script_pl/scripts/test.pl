@@ -32,7 +32,7 @@ print "Running rule: '$rulename' with $threads thread(s)\n";
 print "Input: $named_in\n";
 print "Output: $output\n";
 
-use Test::Simple tests => 10;
+use Test::Simple tests => 11;
 
 # Test config values
 ok(
@@ -70,6 +70,12 @@ ok(
 );
 
 # Check params
+ok(
+    ref( $snakemake->{params}->{positional} ) eq "ARRAY"
+      && $snakemake->{params}->{positional}->[0] eq "positional_param"
+      && $snakemake->{params}->{positional}->[1] eq "second_positional_param",
+    "Positional parameter is correctly passed"
+);
 ok(
     $snakemake->{params}->{integer} == 123,
     "Integer parameter is correctly passed"

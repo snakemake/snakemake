@@ -28,6 +28,8 @@ rule perl:
     resources:
         mem_mb=1024,
     params:
+        "positional_param",
+        "second_positional_param",
         integer=123,
         astring="foo\n'\\\" ",  # nasty string
         alist=["a", "b"],

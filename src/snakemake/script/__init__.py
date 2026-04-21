@@ -953,7 +953,7 @@ class PerlScript(ScriptBase):
         snakemake = dict(
             input=encode_namedlist(input_._plainstrings()._allitems()),
             output=encode_namedlist(output._plainstrings()._allitems()),
-            params=encode_namedlist(params.items()),
+            params=encode_namedlist(params._allitems()),
             wildcards=encode_namedlist(wildcards.items()),
             threads=threads,
             resources=encode_namedlist(
