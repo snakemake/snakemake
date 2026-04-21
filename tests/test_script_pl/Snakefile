@@ -4,21 +4,10 @@ from pathlib import Path
 
 configfile: "config.yaml"
 
+
 rule all:
     input:
-        "perl.out"
-
-
-# rule mini_perl:
-#     # input:
-#     #     "test2.in",
-#     #     named="test.in",
-#     output:
-#         "perl_mini.out"
-#     conda:
-#         "envs/perl.yaml"
-#     script:
-#         "scripts/test.pl"
+        "perl.out",
 
 
 rule perl:
@@ -26,19 +15,19 @@ rule perl:
         "test2.in",
         named="test.in",
     output:
-        "{rulename}{empty}.out"
-    wildcard_constraints:
-        rulename = "perl",
-        empty = "()",
-    params:
-        integer=123,
-        astring="foo\n'\\\" ", # nasty string
-        alist=["a", "b"],
-    resources:
-        mem_mb=1024
+        "{rulename}{empty}.out",
     log:
-        "{rulename}{empty}.log"
+        "{rulename}{empty}.log",
+    wildcard_constraints:
+        rulename="perl",
+        empty="()",
     conda:
         "envs/perl.yaml"
+    resources:
+        mem_mb=1024,
+    params:
+        integer=123,
+        astring="foo\n'\\\" ",  # nasty string
+        alist=["a", "b"],
     script:
         "scripts/test.pl"
