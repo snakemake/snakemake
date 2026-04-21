@@ -1619,7 +1619,7 @@ Perl_
             "path/to/other/inputfile",
         output:
             "path/to/outputfile",
-        param:
+        params:
             opts=["--foo", "--bar=baz"],
         log:
             "path/to/logfile.log",
