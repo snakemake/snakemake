@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import tempfile
 from unittest.mock import patch, sentinel
@@ -120,6 +121,14 @@ def test_infer_source_file_from_empty_ref_shorthand_falls_back_to_generic():
 
     assert isinstance(file, GenericSourceFile)
     assert file.get_path_or_uri(secret_free=False) == path
+
+
+def test_generic_source_file_cache_path_encodes_host_port():
+    file = GenericSourceFile("http://127.0.0.1:56016/Snakefile")
+
+    assert file.get_cache_path() == os.path.join(
+        "http", "127.0.0.1%3A56016", "Snakefile"
+    )
 
 
 def test_infer_source_file_from_github_shorthand_custom_host_without_path():
