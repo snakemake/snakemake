@@ -996,6 +996,9 @@ class PerlScript(ScriptBase):
             if ($snakemake->{input} && @{ $snakemake->{input}->{positional} }) {
                 @ARGV = @{ $snakemake->{input}->{positional} };
             }
+            if ($snakemake->{params}->{opts}) {
+                @ARGV = (@ARGV, split(/\s+/, $snakemake->{params}->{opts}));
+            }
             """)
         return preamble
     

@@ -23,18 +23,20 @@ for (@ARGV) {
 @ARGV = @keep;
 
 use Test::Simple tests => 4;
-# --foo --bar --min=100 --max=200
-ok($flags{foo}, "Flag 'foo' is correctly passed");
-ok($flags{bar}, "Flag 'bar' is correctly passed");
-ok($vars{min} == 12, "Variable 'min' is correctly passed");
-ok($vars{max} == 50, "Variable 'max' is correctly passed");
 
-while(<>) {
+# --foo --bar --min=100 --max=200
+ok( $flags{foo},      "Flag 'foo' is correctly passed" );
+ok( $flags{bar},      "Flag 'bar' is correctly passed" );
+ok( $vars{min} == 12, "Variable 'min' is correctly passed" );
+ok( $vars{max} == 50, "Variable 'max' is correctly passed" );
+
+while (<>) {
     my $len = length $_;
-    if ($len >= $vars{min} && $len <= $vars{max}) {
+    if ( $len >= $vars{min} && $len <= $vars{max} ) {
         print $_;
     }
     else {
-        warn "INFO: filtering linebecause its length ($len) is not between $vars{min} and $vars{max}\n";
+        warn
+"INFO: filtering linebecause its length ($len) is not between $vars{min} and $vars{max}\n";
     }
 }
