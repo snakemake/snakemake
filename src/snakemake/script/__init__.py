@@ -971,7 +971,7 @@ class PerlScript(ScriptBase):
         )
 
         json_string = json.dumps(dict(snakemake))
-        
+
         preamble = textwrap.dedent("""
             use JSON::PP;
             
@@ -984,7 +984,7 @@ class PerlScript(ScriptBase):
             json_string=json_string,
             preamble_addendum=preamble_addendum,
         )
-            
+
         preamble += textwrap.dedent("""
             # Setting up input and output for positional
             if ($snakemake->{log} && scalar(@{ $snakemake->{log}->{positional} }) == 1) {
@@ -1007,7 +1007,7 @@ class PerlScript(ScriptBase):
             }
             """)
         return preamble
-    
+
     def get_preamble(self):
         preamble = PerlScript.generate_preamble(
             path=self.path,
