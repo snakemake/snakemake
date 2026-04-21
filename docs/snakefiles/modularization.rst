@@ -396,6 +396,9 @@ For the latter, it is also possible to specify an alternative host, e.g.
     gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org")
 
 
+Source files can also be provided as plain HTTP/HTTPS URLs.
+In that case, they are treated as generic remote source files.
+
 As a convenience syntax, hosted source files can also be written with an explicit provider prefix.
 Use ``gh:owner/repo@ref:path/to/Snakefile`` for GitHub, optionally inserting a custom host as ``gh:github.example.org:owner/repo@ref:path/to/Snakefile``.
 Use ``gl:group/project@ref:path/to/Snakefile`` for GitLab, optionally inserting a custom host as ``gl:gitlab.example.org:group/project@ref:path/to/Snakefile``.
