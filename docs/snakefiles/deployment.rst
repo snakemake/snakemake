@@ -87,8 +87,8 @@ Consider the following example:
 
 First, we load a local configuration file.
 Next, we define the module ``dna_seq`` to be loaded from the Github repository ``snakemake-workflows/dna-seq-gatk-variant-calling`` at tag ``v2.0.1`` and path ``workflow/Snakefile``, while using the contents of the local configuration file (see :ref:`snakefile-code-hosting-providers`).
-Note that it is possible to use the github marker as done here.
-As an alternative convenience syntax, the same module source could also be written as ``gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1`` or ``gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1:workflow/Snakefile``.
+Note that it is also possible to provide the Snakefile as a plain HTTP/HTTPS URL string.
+As an alternative convenience syntax for hosted repositories, the same module source could also be written as ``gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1`` or ``gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1:workflow/Snakefile``.
 Because the source is pinned to a tag, Snakemake can cache the used source files persistently, such that they don't have to be downloaded on each invocation.
 Finally we declare all rules of the dna_seq module to be used.
 
