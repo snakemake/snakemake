@@ -37,6 +37,6 @@ while (<>) {
     }
     else {
         warn
-"INFO: filtering linebecause its length ($len) is not between $vars{min} and $vars{max}\n";
+"INFO: filtering line because its length ($len) is not between $vars{min} and $vars{max}\n";
     }
 }
