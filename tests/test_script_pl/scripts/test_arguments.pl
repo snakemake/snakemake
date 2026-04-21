@@ -25,10 +25,10 @@ for (@ARGV) {
 use Test::Simple tests => 4;
 
 # --foo --bar --min=100 --max=200
-ok( $flags{foo},      "Flag 'foo' is correctly passed" );
-ok( $flags{bar},      "Flag 'bar' is correctly passed" );
-ok( $vars{min} == 12, "Variable 'min' is correctly passed" );
-ok( $vars{max} == 50, "Variable 'max' is correctly passed" );
+ok( $flags{foo},                 "Flag 'foo' is correctly passed" );
+ok( $vars{bar} eq 'foo bar baz', "Variable 'bar' is correctly passed" );
+ok( $vars{min} == 12,            "Variable 'min' is correctly passed" );
+ok( $vars{max} == 50,            "Variable 'max' is correctly passed" );
 
 while (<>) {
     my $len = length $_;
