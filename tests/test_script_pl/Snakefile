@@ -8,6 +8,7 @@ configfile: "config.yaml"
 rule all:
     input:
         "perl.out",
+        "perl_arguments.out",
 
 
 rule perl:
@@ -31,3 +32,18 @@ rule perl:
         alist=["a", "b"],
     script:
         "scripts/test.pl"
+
+
+rule perl_arguments:
+    input:
+        "test.txt",
+    output:
+        "perl_arguments.out",
+    log:
+        "perl_arguments.log",
+    conda:
+        "envs/perl.yaml"
+    params:
+        opts="--foo --bar --min=12 --max=50",
+    script:
+        "scripts/test_arguments.pl"
