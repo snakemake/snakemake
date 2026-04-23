@@ -997,9 +997,11 @@ class PerlScript(ScriptBase):
                 @ARGV = @{ $snakemake->{input}->{positional} };
             }
             if ($snakemake->{params}->{opts}) {
-                if (ref($snakemake->{params}->{opts}) eq 'ARRAY'
-                && @{ $snakemake->{params}->{opts} }) {
-                    @ARGV = (@ARGV, @{ $snakemake->{params}->{opts} });
+                if (ref($snakemake->{params}->{opts}) eq 'ARRAY') {
+                    if (@{ $snakemake->{params}->{opts} }) {
+                        @ARGV = (@ARGV, @{ $snakemake->{params}->{opts} });
+                    }
+                    # Empty array ref: do nothing (intent preserved)
                 }
                 else {
                     push @ARGV, $snakemake->{params}->{opts};
