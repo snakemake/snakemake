@@ -30,7 +30,7 @@ jobs:
           pixi run --environment docs build-docs
 
       - name: Upload documentation
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: docs-html
           path: docs/_build/html/
@@ -53,7 +53,7 @@ jobs:
           pixi run --environment docs build-apidocs
 
       - name: Upload documentation
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: apidocs-html
           path: apidocs/_build/html/
