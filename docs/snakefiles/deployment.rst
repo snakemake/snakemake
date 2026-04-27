@@ -374,6 +374,19 @@ Importantly, if the script relies on certain shell specific syntax, (e.g. `set -
 
 If no shebang line like above (``#!env bash``) is provided, the script will be executed with the ``sh`` command.
 
+Also, make sure that you do not accidentally inherit any environment variables that set installation paths.
+This can for example be the case if you set up ``$R_LIBS_USER`` in a ``.Renviron`` file (usually in your ``$HOME`` directory), which automatically gets `loaded on every startup of <https://rstats.wtf/r-startup.html>`_ ``R`` and ``Rscript``.
+To make sure that any package installations in the ``.post-deploy.sh`` do not go into such a user ``R`` library path, but into the conda environment, run the installation with the ``--no-environ`` flag.
+And if you use the ``R`` package ``remotes`` to install software into your conda environment, also make sure that it emits an error upon failure (instead of just a warning) `by setting the respective environment variable <https://remotes.r-lib.org/#environment-variables>`_.
+Otherwise ``Rscript`` reports success and the conda environment installation succeeds, even if the package installation in the ``Rscript`` statement failed.
+Altogether, the recommendation for installing ``R`` packages not available via conda into a conda environment, is:
+
+.. code-block:: bash
+
+    #!env bash
+    set -o pipefail
+    Rscript --no-environ -e 'Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS="false"); remotes::install_github("some-org/RPackageNotOnConda", ref = "v1.3.2", upgrade = "never")'
+
 .. _conda_named_env:
 
 -----------------------------------------
