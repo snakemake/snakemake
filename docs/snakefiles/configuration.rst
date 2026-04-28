@@ -145,7 +145,7 @@ the schema for validating the samples data frame looks like this:
 
 .. code-block:: yaml
 
-  $schema: "https://json-schema.org/draft-06/schema#"
+  $schema: "http://json-schema.org/draft-06/schema#"
   description: an entry in the sample sheet
   properties:
     sample:
