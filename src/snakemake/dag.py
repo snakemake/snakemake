@@ -772,6 +772,53 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 "plugin."
             )
 
+    def _get_optional_only_outputs(self, job: Job) -> set:
+        """Return output files of job that are ONLY consumed as optional inputs
+        by all downstream jobs.
+        """
+        
+        result = set()
+        for f in job.output:
+            # storage files are handled separately, skip them
+            if f.is_storage:
+                continue
+            f_str = str(f)
+
+            # 1 check DAG.depending[Job] on current job output files; (only this job graph)
+            consumers = []
+            for ds_job, files in self.depending[job].items():
+                for flink in files:
+                    if str(flink) == f_str:
+                        consumers.append(flink)
+                        break
+            # check whether all downstream jobs require this file optionally
+            if consumers:
+                if all(is_flagged(flink, "optional") for flink in consumers):
+                    result.add(f)
+                continue
+            
+            # 2 scan other workflow rules' raw inputs 
+            found_optional = False
+            found_required = False
+            for rule in self.workflow.rules:
+                if rule.name == job.rule.name:
+                    continue  # skip current rule to check others
+                # iterate through all rule's input files
+                for inp in rule.input:
+                    if callable(inp):
+                        continue  # skip lambda inputs
+                    if str(inp) == f_str:
+                        if is_flagged(inp, "optional"):
+                            found_optional = True
+                        else:
+                            found_required = True
+                            
+            # Only suppress the missing-output check when the file is consumed
+            # somewhere as optional AND nowhere as required.
+            if found_optional and not found_required:
+                result.add(f)
+        return result
+
     async def check_and_touch_output(
         self,
         job: Job,
@@ -793,6 +840,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 f for f in expanded_output if f not in ignore_missing_output
             ]
             ignore_missing_output = False
+
+        # Exclude output files that are only consumed as optional inputs downstream.
+        # If the job exits 0 but skips creating such a file, that is not an error.
+        optional_only_outputs = self._get_optional_only_outputs(job)
+        if optional_only_outputs:
+            for f in optional_only_outputs:
+                if not await f.exists():
+                    logger.warning(
+                        f"Output file '{f}' was not created by rule '{job.rule.name}' "
+                        "(exit 0). All downstream rules declared it optional; "
+                        "workflow will continue without it."
+                    )
+            expanded_output = [f for f in expanded_output if f not in optional_only_outputs]
 
         if not ignore_missing_output and expanded_output:
             try:
@@ -1299,8 +1359,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             if not res.jobs:
                 # no producing job found
                 if self.workflow.is_main_process and not await res.file.exists():
-                    # file not found, hence missing input
-                    missing_input.add(res.file)
+                    # skip missing file if it's optional, otherwise record as missing
+                    if is_flagged(res.file, "optional"):
+                        logger.warning(
+                            f"Optional input file '{res.file}' is missing and will be "
+                            "skipped. The downstream job will proceed without it."
+                        )
+                    else:
+                        missing_input.add(res.file)
                 if not is_flagged(res.file, "before_update"):
                     # record info that there is no known producer, but only
                     # do that for files that are not flagged as before_update

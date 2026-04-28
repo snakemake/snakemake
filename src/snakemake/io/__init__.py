@@ -444,6 +444,10 @@ class _IOFile(str, AnnotatedStringInterface):
     @property
     def is_ancient(self):
         return is_flagged(self._file, "ancient")
+    
+    @property
+    def is_optional(self):
+        return is_flagged(self._file, "optional")
 
     @property
     def is_directory(self):
@@ -1302,6 +1306,11 @@ def ancient(value):
     """
     return flag(value, "ancient")
 
+def optional(value):
+    """
+    A flag for an input file that shall be considered optional; the file absense should not stop the whole workflow.
+    """
+    return flag(value, "optional")
 
 def directory(value):
     """
