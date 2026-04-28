@@ -464,6 +464,7 @@ class DAGApi(ApiBase):
     def execute_workflow(
         self,
         executor: str = "local",
+        execution_executor: Optional[str] = None,
         execution_settings: Optional[ExecutionSettings] = None,
         remote_execution_settings: Optional[RemoteExecutionSettings] = None,
         scheduling_settings: Optional[SchedulingSettings] = None,
@@ -477,7 +478,14 @@ class DAGApi(ApiBase):
 
         Arguments
         ---------
-        executor: str -- The executor to use.
+        executor: str -- The executor to use for workflow/args validation, e.g. whatever a workflow
+            passes via '--executor'.
+        execution_executor: Optional[str] -- The executor to use for actual workflow execution.
+            This may be different from the validation executor when running with options
+            like "touch" or "dryrun", which need to execute the jobs themselves. Validation
+            is always performed against the intended executor so that dry-run and touch
+            accurately reflect the real execution environment.
+            If None, takes the value of 'executor'.
         execution_settings: ExecutionSettings -- The execution settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
         remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
@@ -501,6 +509,15 @@ class DAGApi(ApiBase):
             raise ApiError(
                 "immediate_submit has to be combined with notemp (it does not support temp file handling)"
             )
+
+        # Resolve execution_executor: when not explicitly overridden it equals
+        # the validation executor.  This ensures that direct API calls using
+        # executor="dryrun" or executor="touch" (without setting
+        # execution_executor) still trigger the greedy-scheduler optimisation
+        # below, matching the documented behaviour "If None, takes the value of
+        # 'executor'".
+        if execution_executor is None:
+            execution_executor = executor
 
         executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.get_plugin(executor)
@@ -593,6 +610,14 @@ class DAGApi(ApiBase):
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
 
+        # Note: use_threads is derived from the validation executor's
+        # CommonSettings (executor_plugin), not from the execution executor
+        # (run_executor_plugin, resolved later below). When executor is a
+        # remote plugin (local_exec=False) but execution_executor is "dryrun"
+        # or "touch" (local_exec=True), use_threads will be forced True even
+        # though no real work is done. This is semantically imprecise but
+        # harmless in practice: threading overhead is irrelevant when
+        # dryrun/touch jobs complete near-instantly.
         execution_settings.use_threads = (
             execution_settings.use_threads
             or (os.name not in ["posix"])
@@ -605,8 +630,7 @@ class DAGApi(ApiBase):
             greedy_scheduler_settings = GreedySchedulerSettings()
 
         if (
-            executor == "touch"
-            or executor == "dryrun"
+            execution_executor in ("touch", "dryrun")
             or remote_execution_settings.immediate_submit
         ):
             greedy_scheduler_settings.omit_prioritize_by_temp_and_input = True
@@ -643,9 +667,23 @@ class DAGApi(ApiBase):
                 snakefile=self.workflow_api.snakefile,
             ),
         )
+        # If the execution executor differs from the validation executor (e.g.
+        # the caller passed executor="htcondor" + execution_executor="dryrun"),
+        # swap to the execution plugin for actual execution. All validation
+        # above was performed against the intended executor so that dry-run
+        # and touch accurately reflect the real execution environment.
+        if execution_executor != executor:
+            run_executor_plugin = executor_plugin_registry.get_plugin(
+                execution_executor
+            )
+            run_executor_settings = None
+        else:
+            run_executor_plugin = executor_plugin
+            run_executor_settings = executor_settings
+
         workflow.execute(
-            executor_plugin=executor_plugin,
-            executor_settings=executor_settings,
+            executor_plugin=run_executor_plugin,
+            executor_settings=run_executor_settings,
             scheduler_plugin=scheduler_plugin,
             scheduler_settings=scheduler_settings,
             greedy_scheduler_settings=greedy_scheduler_settings,
