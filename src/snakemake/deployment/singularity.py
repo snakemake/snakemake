@@ -172,6 +172,19 @@ class Singularity:
             self.binary = None
             self._initialized = True
 
+    @classmethod
+    def assume_available(cls, binary="apptainer"):
+        """Skip the availability check and assume the given binary is present.
+
+        Intended for use when snakemake runs on a head node that lacks
+        apptainer/singularity while the compute nodes that will actually
+        execute jobs do have it.
+        """
+        inst = cls()
+        inst.binary = binary
+        inst.checked = True
+        inst._version = "assumed"
+
     @property
     def version(self):
         assert (
