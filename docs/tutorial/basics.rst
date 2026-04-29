@@ -140,8 +140,8 @@ Later, you will see how parallelization works.
 
 
 Note that, if you try to run that command a second time, Snakemake will not try to create ``mapped_reads/A.bam`` again.
-That is because it is already present in the file system.
-Snakemake will **only** re-run jobs if one of the input files is newer than one of the output files, if one of the input files will be updated by another job, or if the code and parameters of the job have changed.
+That is because the output is already present and Snakemake can determine that it is still consistent with the input files and the rule definition.
+If an input file changes, an output file is missing, or relevant parts of the workflow definition change, Snakemake will schedule the affected jobs again.
 
 
 .. tip::
@@ -204,19 +204,7 @@ This is not special Snakemake syntax.
 Bash_ is just applying its `brace expansion <https://tldp.org/LDP/Bash-Beginners-Guide/html/sect_03_04.html>`_ to the set ``{A,B}``, creating the given path for each element and separating the resulting paths by a whitespace.
 
 In both cases, you will see that Snakemake only proposes to create the output file ``mapped_reads/B.bam``.
-This is because you already executed the workflow for ``mapped_reads/A.bam`` before, and the input has not changed.
-You can update the file modification date of the input file
-``data/samples/A.fastq`` via
-
-.. code:: console
-
-    $ touch data/samples/A.fastq
-
-and see how Snakemake wants to re-run the job to create the file ``mapped_reads/A.bam`` by executing
-
-.. code:: console
-
-    $ snakemake -np mapped_reads/A.bam mapped_reads/B.bam
+This is because you already executed the workflow for ``mapped_reads/A.bam`` before, and the corresponding output is still up to date.
 
 :oldanchor:`step-3-sorting-read-alignmnents`
 
