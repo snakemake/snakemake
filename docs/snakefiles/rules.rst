@@ -798,6 +798,49 @@ When selecting input files, sometimes you might end up with an irregular list of
     flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
 
 
+.. _snakefiles-python-module:
+
+as_py_module
+""""""""""""
+When running a Python script under active development,
+which relies on relative imports
+you may want to have the script as an input file,
+but call it by its module name.
+The ``as_py_module`` function will
+translate a given script filename
+into a module name that may be used with ``python -m``.
+For example,
+
+.. code-block:: python
+
+    rule:
+        params:
+            module=as_py_module(),
+        input:
+            script="some_package/some_subpackage/some_module.py",
+        output:
+            "..."
+        shell:
+            "python -m {params.module} --output_file {output}"
+
+The helper by default looks at ``input.script``.
+Other values may be used by using
+:ref:`Snakemake's rule item access helpers <snakefiles-rule-item-access>`,
+e.g.
+
+.. code-block:: python
+
+    rule:
+        params:
+            module=as_py_module(input.my_script),
+        input:
+            my_script="some_package/some_subpackage/some_module.py",
+        output:
+            "..."
+        shell:
+            "python -m {params.module} --output_file {output}"
+
+
 .. _snakefiles-targets:
 
 Target rules
@@ -931,7 +974,7 @@ Snakemake will always round the calculated value down (while enforcing a minimum
 Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards[, input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
 
 Both threads can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` see :ref:`all_options` and via workflow profiles, see :ref:`executing-profiles`.
-To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
+To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/profile.yaml`` relative to the Snakefile or the current working directory:
 
 .. code-block:: yaml
 
@@ -1046,7 +1089,7 @@ Of course, any other arithmetic could be performed in that function.
 
 Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`all_options`.
 Or they can be defined via workflow :ref:`executing-profiles`, with the variables listed above in the signature for usable callables.
-You could, for example, provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
+You could, for example, provide the following workflow profile in a file ``profiles/default/profile.yaml`` relative to the Snakefile or the current working directory:
 
 .. code-block:: yaml
 
@@ -1404,11 +1447,14 @@ An example external Python script could look like this:
 
     do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
 
-or using the explicit import:
+For type checking, it is possible to import the a correctly typed stub for the snakemake object:
 
 .. code-block:: python
 
-    from snakemake.script import snakemake
+    from typing import TYPE_CHECKING
+
+    if TYPE_CHECKING:
+        from snakemake.iocontainers import snakemake
 
     def do_something(data_path, out_path, threads, myparam):
         # python code

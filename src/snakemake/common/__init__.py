@@ -247,7 +247,7 @@ def num_if_possible(s):
 
 
 def get_last_stable_version():
-    return __version__.split("+")[0]
+    return __version__
 
 
 def get_container_image():
