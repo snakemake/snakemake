@@ -43,7 +43,9 @@ def test_precommand_auto_deploy_with_default_provider():
     """precommand includes pip install for the default storage provider."""
     workflow = _make_mock_workflow(default_storage_provider="s3")
     factory = SpawnedJobArgsFactory(workflow=workflow)
-    cmd = factory.precommand(_make_common_settings(auto_deploy_default_storage_provider=True))
+    cmd = factory.precommand(
+        _make_common_settings(auto_deploy_default_storage_provider=True)
+    )
     assert "snakemake-storage-plugin-s3" in cmd
     assert "pip install" in cmd
 
@@ -52,7 +54,9 @@ def test_precommand_auto_deploy_disabled():
     """precommand does NOT include pip install when auto_deploy is disabled."""
     workflow = _make_mock_workflow(default_storage_provider="s3")
     factory = SpawnedJobArgsFactory(workflow=workflow)
-    cmd = factory.precommand(_make_common_settings(auto_deploy_default_storage_provider=False))
+    cmd = factory.precommand(
+        _make_common_settings(auto_deploy_default_storage_provider=False)
+    )
     assert "pip install" not in cmd
 
 
