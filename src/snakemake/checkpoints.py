@@ -101,7 +101,7 @@ class CheckpointsProxy:
 # 2. Although multiple `CheckpointsProxy` instances (one per *workflow module*) share this variable,
 #    their `with` blocks are never interleaved within the same coroutine:
 #    each block completes before the next checkpoint function is evaluated.
-_current_collector: ContextVar = ContextVar('checkpoint_proxy_waitfor', default=None)
+_current_collector: ContextVar = ContextVar("checkpoint_proxy_waitfor", default=None)
 
 
 class CheckpointsWaitforProxy:
