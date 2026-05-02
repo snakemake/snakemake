@@ -187,7 +187,7 @@ RULEFUNC_CONTEXT_MARKER = "__is_snakemake_rule_func"
 def get_appdirs():
     global APPDIRS
     if APPDIRS is None:
-        from appdirs import AppDirs
+        from platformdirs import AppDirs
 
         APPDIRS = AppDirs("snakemake", "snakemake")
     return APPDIRS

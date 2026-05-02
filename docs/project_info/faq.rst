@@ -686,6 +686,12 @@ Snakemake wants to rerun a rule that has been already executed, what can I do?
 Snakemake tries to ensure consistency between input and output files.
 This is based on file modification dates (input files may not be newer than output files of the same job), as well as execution metadata like the used software stack (e.g. conda env or container image), the non-file parameters, the set of input files, and the code of the rule.
 If Snakemake wants to rerun a rule that has been already executed, it is because one of these criteria has changed and detailed information about the reasoning is given in the job description of Snakemake's output as well as in the final summary at the end of a dry-run.
+However, there is one exception:
+For files that are smaller than a certain size,
+by default 1 MB, as controlled by ``--max-checksum-file-size``,
+Snakemake calculates a checksum of the file content and only reruns the rule if that checksum has changed,
+even if the timestamp of the input file is newer than the output file(s).
+To rely on file modification dates exclusively, set ``--max-checksum-file-size=0``.
 
 If your job is triggered by newer input files, but you are sure that the input files did not change on a semantic level (i.e. won't yield different results), you can mark those input files as ancient via the command line, or (usually better) via a :ref:`workflow specific profile <profiles>`.
 Let us assume you have the following rule from which such an unwanted job is triggered:
