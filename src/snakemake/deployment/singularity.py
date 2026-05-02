@@ -132,7 +132,7 @@ def shellcmd(
     if bind is not None:
         for b in bind:
             if b.exists():
-                args += f" --bind {str(b)!r}"
+                args += f" --bind {str(b.absolute())!r}"
             else:
                 logger.debug(
                     "Skipping apptainer/singularity bind-mount for "
