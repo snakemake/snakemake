@@ -810,6 +810,49 @@ When selecting input files, sometimes you might end up with an irregular list of
     flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
 
 
+.. _snakefiles-python-module:
+
+as_py_module
+""""""""""""
+When running a Python script under active development,
+which relies on relative imports
+you may want to have the script as an input file,
+but call it by its module name.
+The ``as_py_module`` function will
+translate a given script filename
+into a module name that may be used with ``python -m``.
+For example,
+
+.. code-block:: python
+
+    rule:
+        params:
+            module=as_py_module(),
+        input:
+            script="some_package/some_subpackage/some_module.py",
+        output:
+            "..."
+        shell:
+            "python -m {params.module} --output_file {output}"
+
+The helper by default looks at ``input.script``.
+Other values may be used by using
+:ref:`Snakemake's rule item access helpers <snakefiles-rule-item-access>`,
+e.g.
+
+.. code-block:: python
+
+    rule:
+        params:
+            module=as_py_module(input.my_script),
+        input:
+            my_script="some_package/some_subpackage/some_module.py",
+        output:
+            "..."
+        shell:
+            "python -m {params.module} --output_file {output}"
+
+
 .. _snakefiles-targets:
 
 Target rules
@@ -2079,7 +2122,10 @@ Ignoring timestamps
 -------------------
 
 For determining whether output files have to be re-created, Snakemake checks whether the file modification date (i.e. the timestamp) of any input file of the same job is newer than the timestamp of the output file.
-This behavior can be overridden by marking an input file as ``ancient``.
+Please note, however, that for small input files (of by default up to 1 MB, controlled by ``--max-checksum-file-size``),
+Snakemake instead records and compares file checksums and only reruns the rule if the input file checksum has changed,
+even if the timestamp of the input file is newer than the output file(s).
+This overall behavior can be overridden by marking an input file as ``ancient``.
 The timestamp of such files is ignored and always assumed to be older than any of the output files:
 
 .. code-block:: python
