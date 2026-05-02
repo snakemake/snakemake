@@ -1,6 +1,6 @@
 [build-system]
-requires = ["maturin>=1.11,<2.0"]
-build-backend = "maturin"
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "snakemake"
@@ -22,8 +22,6 @@ classifiers = [
   "Environment :: Console",
   "Intended Audience :: Science/Research",
   "Natural Language :: English",
-  "Programming Language :: Rust",
-  "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -32,7 +30,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "appdirs",
+  "platformdirs",
   "immutables",
   "configargparse",
   "connection_pool>=0.0.3",
@@ -77,6 +75,11 @@ all = ["eido", "peppy", "pygments"]
 
 [project.scripts]
 snakemake = "snakemake.cli:main"
+
+[tool.setuptools_scm]
+version_file = "src/snakemake/_version.py"
+# Ignore Git hash
+local_scheme = "no-local-version"
 
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
@@ -169,7 +172,6 @@ default-environment = "dev"
 description = "Run all tests in the tests directory"
 cmd = [
   "pytest",
-  "tests",
   # TODO for the two excluded tests, see https://github.com/snakemake/snakemake/pull/3369#issuecomment-2718056637
   "-m",
   "not needs_envmodules",
@@ -305,9 +307,3 @@ build = { cmd = "python -m build", description = "Build the package into the dis
 build-check = { cmd = "python -m twine check --strict dist/*", depends-on = [
   "build",
 ], description = "Check that the package can be uploaded", default-environment = "publish" }
-
-[tool.pixi.dependencies]
-rust = ">=1.85,<2.0"
-
-[tool.maturin]
-module-name = "snakemake.core"
