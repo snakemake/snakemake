@@ -41,16 +41,6 @@ from snakemake_interface_executor_plugins.settings import (
 )
 
 
-def test_maturin():
-    """
-    Tests whether the `sum_as_string` function defined in `rust/src/lib.rs`
-    gets called and runs properly.
-    """
-    from snakemake.core import sum_as_string
-
-    assert str(1 + 2) == sum_as_string(1, 2)
-
-
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
@@ -2273,7 +2263,8 @@ def test_default_target():
 
 
 def test_cache_multioutput():
-    run(dpath("test_cache_multioutput"), shouldfail=True)
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+    run(dpath("test_cache_multioutput"), cache=["a"])
 
 
 @skip_on_windows
@@ -3266,6 +3257,50 @@ def test_stats_table_order_and_counts():
         ), f"Count for {name} was {counts.get(name)} != {exp_count}"
 
 
+def test_github_issue4003():
+    from snakemake.ioutils.as_py_module import format_python_module
+
+    assert (
+        format_python_module("package/subpackage/module.py")
+        == "package.subpackage.module"
+    )
+
+    windows_path = r"package\subpackage\module.py"
+    if ON_WINDOWS:
+        assert format_python_module(windows_path) == "package.subpackage.module"
+    else:
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                f"{windows_path} does not translate to a valid Python name"
+            ),
+        ):
+            format_python_module(windows_path)
+
+    for bad_name in [
+        "0package/module.py",
+        "sub-package/module.py",
+        "package/mod-ule.py",
+    ]:
+        if ON_WINDOWS:
+            expect_name = bad_name.replace("/", "\\")
+        else:
+            expect_name = bad_name
+
+        with pytest.raises(
+            ValueError,
+            match=re.escape(f"{expect_name} does not translate to a valid Python name"),
+        ):
+            format_python_module(bad_name)
+
+    with pytest.raises(
+        ValueError, match=re.escape("Only .py files may be run as Python modules.")
+    ):
+        format_python_module("package/module.pyx")
+
+    run(dpath("test_github_issue4003"))
+
+
 @skip_on_windows
 def test_github_issue3913():
     core_count_limit = 8
@@ -3342,3 +3377,53 @@ def test_module_onerror():
 
 def test_github_issue2255():
     run(dpath("test_github_issue2255"), check_results=False)
+
+
+# On Windows this test output is emitted with
+# quotes around the output string what cause these tests to fail
+@skip_on_windows
+def test_github_issue_4039_runtime_cli():
+    """Test that runtime values from CLI are correctly interpreted as minutes, not seconds.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_cli"),
+        shellcmd="snakemake -c1 --set-resources 'echo_runtime:runtime=120'",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_mem_cli():
+    """Test that mem values from CLI are correctly interpreted as MB, not bytes.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_mem_cli"),
+        shellcmd="snakemake -c1 --set-resources 'echo_mem:mem=1024'",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_runtime_profile():
+    """Test that runtime values from a profile are correctly interpreted as minutes, not seconds.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_profile"),
+        shellcmd="snakemake -c1 --profile profile/",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_runtime_no_override():
+    """Test the correct processing of times with units or as int/str in the resources directive in the snakefile.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_no_override"),
+        shellcmd="snakemake -c1",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)

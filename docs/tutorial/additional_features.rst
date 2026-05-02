@@ -52,7 +52,7 @@ We activate benchmarking for the rule ``bwa_map``:
         output:
             temp("mapped_reads/{sample}.bam")
         params:
-            rg="@RG\tID:{sample}\tSM:{sample}"
+            rg=r"@RG\tID:{sample}\tSM:{sample}"
         log:
             "logs/bwa_mem/{sample}.log"
         benchmark:
