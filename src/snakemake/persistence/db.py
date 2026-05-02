@@ -1,13 +1,16 @@
+import os
 from collections import OrderedDict
 from pathlib import Path
 from typing import Iterable
 
+import psutil
 from sqlalchemy import (
     create_engine,
     select,
     delete,
     event,
 )
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Session
 from sqlmodel import SQLModel, Field
@@ -78,13 +81,28 @@ class DbPersistence(PersistenceBase):
             latency_wait_s = self.dag.workflow.execution_settings.latency_wait * 1000
             busy_timeout = max(busy_timeout, latency_wait_s)
 
+        parsed_url = make_url(db_url)
+        is_network_fs = False
+
+        if parsed_url.get_backend_name() == "sqlite":
+            sqlite_db_path = parsed_url.database
+            if sqlite_db_path and sqlite_db_path != ":memory:":
+                is_network_fs = is_network_filesystem(sqlite_db_path)
+
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
             if self.engine.dialect.name == "sqlite":
                 cursor = dbapi_connection.cursor()
-                # we may want to try this in the future if we encounter locking issues, but it can cause problems on network filesystems
-                # cursor.execute("PRAGMA journal_mode=WAL")
-                # cursor.execute("PRAGMA synchronous=NORMAL")
+
+                if is_network_fs:
+                    cursor.execute("PRAGMA journal_mode=PERSIST")
+                    cursor.execute("PRAGMA synchronous=OFF")
+                    cursor.execute("PRAGMA temp_store=MEMORY")
+                    cursor.execute("PRAGMA cache_size=-64000")
+                else:
+                    cursor.execute("PRAGMA journal_mode=TRUNCATE")
+                    cursor.execute("PRAGMA synchronous=NORMAL")
+
                 cursor.execute(f"PRAGMA busy_timeout={busy_timeout}")
                 cursor.close()
 
@@ -224,3 +242,47 @@ class DbPersistence(PersistenceBase):
         with Session(self.engine) as session:
             session.execute(delete(LockORM).where(LockORM.namespace == self.namespace))
             session.commit()
+
+
+def is_network_filesystem(path: Path | str) -> bool:
+    """
+    Detects if a given path resides on a network filesystem.
+    """
+    if os.name != "posix":
+        return False
+
+    path_obj = Path(path).resolve()
+
+    try:
+        best_match = max(
+            (
+                mount
+                for mount in psutil.disk_partitions(all=True)
+                if path_obj.is_relative_to(Path(mount.mountpoint).resolve())
+            ),
+            key=lambda part: len(Path(part.mountpoint).resolve().parts),
+            default=None,
+        )
+        fstype = best_match.fstype if best_match else ""
+
+        network_fs_types = {
+            "afs",
+            "beegfs",
+            "ceph",
+            "cifs",
+            "fhgfs",
+            "fuse.sshfs",
+            "glusterfs",
+            "gpfs",
+            "lustre",
+            "nfs",
+            "nfs3",
+            "nfs4",
+            "orangefs",
+            "pvfs2",
+            "smbfs",
+        }
+        return fstype.casefold() in network_fs_types
+
+    except (PermissionError, OSError):
+        return False
