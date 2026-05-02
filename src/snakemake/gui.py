@@ -9,7 +9,7 @@ import threading
 
 from flask import Flask, render_template, request
 
-from snakemake.common import __version__
+from snakemake.common import __version__, is_local_file
 
 LOCK = threading.Lock()
 
@@ -71,7 +71,15 @@ def register(run_snakemake, args):
 
     run_snakemake(list_resources=True, log_handler=[log_handler])
     app.extensions["resources"] = resources
-    app.extensions["snakefilepath"] = os.path.abspath(args.snakefile)
+    try:
+        is_local = is_local_file(args.snakefile)
+    except (NotImplementedError, ImportError, ValueError):
+        is_local = False
+
+    if is_local:
+        app.extensions["snakefilepath"] = os.path.abspath(args.snakefile)
+    else:
+        app.extensions["snakefilepath"] = args.snakefile
 
 
 def run_snakemake(**kwargs):
