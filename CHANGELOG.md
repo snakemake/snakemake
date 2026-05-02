@@ -1,6 +1,31 @@
 # Changelog
 
 
+## [9.20.0](https://github.com/snakemake/snakemake/compare/v9.19.0...v9.20.0) (2026-05-02)
+
+
+### Features
+
+* add a helper function that translate Python script names into corresponding module names ([#4065](https://github.com/snakemake/snakemake/issues/4065)) ([c74c0a0](https://github.com/snakemake/snakemake/commit/c74c0a0a55e12ae69af5989b5e4ac1e1a35d7bc3))
+* add with_suffix argument to subpath helper function, allowing low-code suffix extensions and replacements for input and output files and params ([#4156](https://github.com/snakemake/snakemake/issues/4156)) ([4dab300](https://github.com/snakemake/snakemake/commit/4dab300796d55ab03880e5b00d56368b6904106c))
+* enable caching for named multi-output rules ([#4151](https://github.com/snakemake/snakemake/issues/4151)) ([c921575](https://github.com/snakemake/snakemake/commit/c9215753f2f4c29b22193f4795c297bcadf9572c))
+
+
+### Bug Fixes
+
+* CLI/profile runtime override is interpreted as minutes not as seconds ([#4053](https://github.com/snakemake/snakemake/issues/4053)) ([0fc5fd1](https://github.com/snakemake/snakemake/commit/0fc5fd14bf8707812abac14ccfeac0eb8093005d))
+* **docs:** remove misleading "touch"  example and explain checksum behaviour ([#4173](https://github.com/snakemake/snakemake/issues/4173)) ([a5dfa28](https://github.com/snakemake/snakemake/commit/a5dfa2804f9575cb5acd9fe6b123e40e98598fc2))
+* ensure that also storage plugins without settings are auto-deployed ([#4178](https://github.com/snakemake/snakemake/issues/4178)) ([5427ffa](https://github.com/snakemake/snakemake/commit/5427ffab61dc768487f7f006bccc80878be4b76e))
+* issue 3958 relative path for storage prefix breaks apptainer ([#3962](https://github.com/snakemake/snakemake/issues/3962)) ([87d7e35](https://github.com/snakemake/snakemake/commit/87d7e35377352df27e9cb9fc8ce705eb7fadafa2))
+* suppress duplicate SpawnedJobError tracebacks in local executor ([#4150](https://github.com/snakemake/snakemake/issues/4150)) ([40a46cf](https://github.com/snakemake/snakemake/commit/40a46cffa6730f9a134699f3f8da31b820f4ac96))
+* turn binding path to absolute path for singularity/apptainer  ([#4142](https://github.com/snakemake/snakemake/issues/4142)) ([48602f0](https://github.com/snakemake/snakemake/commit/48602f0394c5edef3c61bdb54711c9ca46dc141c))
+
+
+### Documentation
+
+* Fix typo ([#4168](https://github.com/snakemake/snakemake/issues/4168)) ([a7dab01](https://github.com/snakemake/snakemake/commit/a7dab01841ba3ff94433243c7dc4e79eb9fb4b4b))
+* Use raw string for bwa_map RG parameter example ([#4174](https://github.com/snakemake/snakemake/issues/4174)) ([d3c4d68](https://github.com/snakemake/snakemake/commit/d3c4d68b4807488107e0287a9a75e699baf465ae))
+
 ## [9.19.0](https://github.com/snakemake/snakemake/compare/v9.18.2...v9.19.0) (2026-03-28)
 
 
