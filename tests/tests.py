@@ -3205,6 +3205,17 @@ def test_cyclic_dependency_single():
     run(dpath("test_cyclic_dependency_single"), forceall=True)
 
 
+@skip_on_windows
+@apptainer
+@connected
+def test_issue3958():
+    run(
+        dpath("test_issue3958"),
+        shellcmd="snakemake --sdm apptainer --cores 1",
+        targets=["all"],
+    )
+
+
 def test_stats_table_order_and_counts():
     # Run snakemake in the example dir and ask it to write stats.txt
     outdir = run(
