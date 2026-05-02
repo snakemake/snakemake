@@ -745,7 +745,7 @@ It has the signature ``subpath(path_or_func, strip_suffix=None, with_suffix=None
 If a path is given as first argument (of type ``str`` or ``pathlib.Path``), the function directly returns the sub-path of the given path.
 Thereby, the sub-path is determined depending on the other arguments.
 
-If a ``str`` is given to ``strip_suffix``, this suffix is stripped from the path (a ``ValueError`` error is thrown if the path does not have the suffix).
+If a ``str`` is given to ``strip_suffix``, this suffix is stripped from the path (a ``ValueError`` is thrown if the path does not have the suffix).
 
 .. code-block:: python
 
