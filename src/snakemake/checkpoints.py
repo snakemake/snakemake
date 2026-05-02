@@ -1,4 +1,4 @@
-import threading
+from contextvars import ContextVar, Token
 from typing import TYPE_CHECKING
 
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
@@ -39,14 +39,14 @@ class CheckpointsProxy:
     def __init__(self, parent: Checkpoints):
         self._parent = parent
         self._rules = {}
-        self._local = threading.local()
 
     def __getattr__(self, name):
         if name in self._rules:
-            checkpoint = self._rules[name]
-            if getattr(self._local, "cache", None):
-                return CheckpointLater(checkpoint, self._local.cache[-1])
-            return checkpoint
+            return self._rules[name]
+        if name == "waitfor":
+            # Alias for `with checkpoints.waitfor as waitfor:`
+            # to make this semantically easier to read
+            return self
         raise WorkflowError(
             f"Checkpoint {name} is not defined in this workflow. "
             f"Available checkpoints: {', '.join(self._rules)}"
@@ -56,21 +56,68 @@ class CheckpointsProxy:
         self._rules[fallback_name or rule.name] = Checkpoint(rule, self._parent)
 
     def __enter__(self):
-        if getattr(self._local, "cache", None) is None:
-            self._local.cache = []
-        # do not lose message with nested checkpoint
-        self._local.cache.append([])
-        return self
+        """Return a :class:`CheckpointsWaitforProxy` `with`in which multiple
+          checkpoint dependencies can be declared at once
+          instead of raising :class:`IncompleteCheckpointException` immediately.
+
+        The returned proxy is registered as the active collector via a module-level
+        :class:`~contextvars.ContextVar`, which isolates state per-coroutine and
+        per-thread without modifying any shared state on :class:`CheckpointsProxy` itself.
+        The token from :meth:`~contextvars.ContextVar.set` is stored on the proxy so
+        :meth:`__exit__` can restore the previous collector, correctly supporting
+        nested `with checkpoints:` blocks.
+        """
+        waitfor = CheckpointsWaitforProxy(self)
+        waitfor._token = _current_collector.set(waitfor)
+        return waitfor
 
     def __exit__(self, exc_type, exc, tb):
-        cache: "list[IncompleteCheckpointException]" = self._local.cache.pop()
+        """
+        Restore the previous collector and raise collected checkpoint exceptions.
+
+        Resets the :class:`~contextvars.ContextVar` to its value before the
+        corresponding :meth:`__enter__`, ensuring correct behavior for nested
+        `with checkpoints:` blocks.
+
+        Since :class:`IncompleteCheckpointException` is never raised inside the `with`
+        block (it is appended to the cache instead), `exc_type` will only reflect
+        unrelated exceptions, which are left to propagate normally.
+        If at least one :class:`IncompleteCheckpointException` was collected,
+        the first is raised with the rest attached as `.extra`.
+        """
+        waitfor: CheckpointsWaitforProxy = _current_collector.get()
+        _current_collector.reset(waitfor._token)
+        cache = waitfor.cache
         if exc_type is None and cache:
             e, *_e = cache
-            for c in self._local.cache:
-                _e.extend(c)
             e.extra = _e
             raise e
         return False
+
+
+# It is safe to use a single module-level ContextVar for all CheckpointsProxy instances.
+# 1. See: https://docs.python.org/3/library/contextvars.html:
+#    > ContextVar should be created at the top module level, never in closures.
+# 2. Although multiple `CheckpointsProxy` instances (one per *workflow module*) share this variable,
+#    their `with` blocks are never interleaved within the same coroutine:
+#    each block completes before the next checkpoint function is evaluated.
+_current_collector: ContextVar = ContextVar('checkpoint_proxy_waitfor', default=None)
+
+
+class CheckpointsWaitforProxy:
+    """Collect :class:`IncompleteCheckpointException` into :attr:`cache`
+    instead of raising them immediately,
+    so multiple checkpoint dependencies can be declared at once during DAG construction.
+    """
+
+    def __init__(self, parent: CheckpointsProxy):
+        self.parent = parent
+        self.cache: list[IncompleteCheckpointException] = []
+        self._token: Token
+
+    def __getattr__(self, name):
+        checkpoint = getattr(self.parent, name)
+        return CheckpointLater(checkpoint, self.cache)
 
 
 class Checkpoint:
