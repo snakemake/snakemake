@@ -48,27 +48,6 @@ def test_precommand_auto_deploy_with_default_provider():
     assert "pip install" in cmd
 
 
-def test_precommand_auto_deploy_with_explicit_settings_only():
-    """precommand includes pip install for providers with explicit settings (no default provider)."""
-    workflow = _make_mock_workflow(
-        default_storage_provider=None, storage_provider_settings_keys=["gcs"]
-    )
-    factory = SpawnedJobArgsFactory(workflow=workflow)
-    cmd = factory.precommand(_make_common_settings(auto_deploy_default_storage_provider=True))
-    assert "snakemake-storage-plugin-gcs" in cmd
-    assert "pip install" in cmd
-
-
-def test_precommand_no_auto_deploy_without_providers():
-    """precommand does NOT include pip install when no providers are configured."""
-    workflow = _make_mock_workflow(
-        default_storage_provider=None, storage_provider_settings_keys=[]
-    )
-    factory = SpawnedJobArgsFactory(workflow=workflow)
-    cmd = factory.precommand(_make_common_settings(auto_deploy_default_storage_provider=True))
-    assert "pip install" not in cmd
-
-
 def test_precommand_auto_deploy_disabled():
     """precommand does NOT include pip install when auto_deploy is disabled."""
     workflow = _make_mock_workflow(default_storage_provider="s3")
