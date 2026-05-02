@@ -3,7 +3,6 @@
 import contextlib
 import sys
 
-
 try:
     output = open(snakemake.output["stdout"], "w")
 except NameError:
