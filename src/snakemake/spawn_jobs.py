@@ -1,4 +1,3 @@
-from snakemake.logging import logger
 from dataclasses import dataclass, fields
 import hashlib
 from itertools import chain
