@@ -220,7 +220,7 @@ class SpawnedJobArgsFactory:
                 for plugin_name in StoragePluginRegistry().get_registered_plugins()
             )
             if packages_to_install:
-                pkgs = " ".join(packages_to_install)
+                pkgs = " ".join(sorted(packages_to_install))
 
                 precommand.append(
                     f"pip install --target '{PIP_DEPLOYMENTS_PATH}' {pkgs}"
