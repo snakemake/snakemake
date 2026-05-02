@@ -217,11 +217,12 @@ class SpawnedJobArgsFactory:
         if executor_common_settings.auto_deploy_default_storage_provider:
             # Collect plugin names to install: the default storage provider (if
             # configured) plus any providers with explicit settings.
-            providers_to_install = set(self.workflow.storage_provider_settings.keys())
+            providers_to_install = set()
             if self.workflow.storage_settings.default_storage_provider is not None:
                 providers_to_install.add(
                     self.workflow.storage_settings.default_storage_provider
                 )
+            providers_to_install.update(self.workflow.storage_provider_settings.keys())
             packages_to_install = set(
                 StoragePluginRegistry().get_plugin_package_name(provider)
                 for provider in providers_to_install
