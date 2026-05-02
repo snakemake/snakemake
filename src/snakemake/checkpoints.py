@@ -58,7 +58,7 @@ class CheckpointsProxy:
     def __enter__(self):
         if getattr(self._local, "cache", None) is None:
             self._local.cache = []
-        # do not lost message with nested checkpoint
+        # do not lose message with nested checkpoint
         self._local.cache.append([])
         return self
 
