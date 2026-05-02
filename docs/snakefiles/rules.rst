@@ -2110,7 +2110,10 @@ Ignoring timestamps
 -------------------
 
 For determining whether output files have to be re-created, Snakemake checks whether the file modification date (i.e. the timestamp) of any input file of the same job is newer than the timestamp of the output file.
-This behavior can be overridden by marking an input file as ``ancient``.
+Please note, however, that for small input files (of by default up to 1 MB, controlled by ``--max-checksum-file-size``),
+Snakemake instead records and compares file checksums and only reruns the rule if the input file checksum has changed,
+even if the timestamp of the input file is newer than the output file(s).
+This overall behavior can be overridden by marking an input file as ``ancient``.
 The timestamp of such files is ignored and always assumed to be older than any of the output files:
 
 .. code-block:: python
