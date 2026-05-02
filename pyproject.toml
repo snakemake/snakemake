@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "snakemake"
-version = "9.19.0"
+version = "9.20.0"
 description = "Workflow management system to create reproducible and scalable data analyses"
 readme = { content-type = "text/markdown", text = """
   Snakemake is a workflow management system that aims to reduce the
@@ -30,7 +30,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "appdirs",
+  "platformdirs",
   "immutables",
   "configargparse",
   "connection_pool>=0.0.3",
@@ -172,7 +172,6 @@ default-environment = "dev"
 description = "Run all tests in the tests directory"
 cmd = [
   "pytest",
-  "tests",
   # TODO for the two excluded tests, see https://github.com/snakemake/snakemake/pull/3369#issuecomment-2718056637
   "-m",
   "not needs_envmodules",
