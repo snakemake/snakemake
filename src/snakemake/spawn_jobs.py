@@ -210,17 +210,20 @@ class SpawnedJobArgsFactory:
         precommand = []
         if self.workflow.remote_execution_settings.precommand:
             precommand.append(self.workflow.remote_execution_settings.precommand)
-        if (
-            executor_common_settings.auto_deploy_default_storage_provider
-            and self.workflow.storage_settings.default_storage_provider is not None
-        ):
-            packages_to_install = set(
-                StoragePluginRegistry().get_plugin_package_name(pkg)
-                for pkg in self.workflow.storage_provider_settings.keys()
-            )
-            pkgs = " ".join(packages_to_install)
 
-            precommand.append(f"pip install --target '{PIP_DEPLOYMENTS_PATH}' {pkgs}")
+        # TODO: rename the setting to auto_deploy_plugins and generalize the code below
+        # or maybe better, always auto-deploy plugins whenever needed in the workflow
+        # or explicitly requested via the settings.
+        if executor_common_settings.auto_deploy_default_storage_provider:
+            packages_to_install = set(
+                StoragePluginRegistry().get_plugin_package_name(plugin_name)
+                for plugin_name in StoragePluginRegistry().get_registered_plugins()
+            )
+            if packages_to_install:
+                pkgs = " ".join(sorted(packages_to_install))
+                precommand.append(
+                    f"pip install --target '{PIP_DEPLOYMENTS_PATH}' {pkgs}"
+                )
 
         if (
             SharedFSUsage.SOURCES not in self.workflow.storage_settings.shared_fs_usage

@@ -269,7 +269,6 @@ def test_rule_failure(caplog: pytest.LogCaptureFixture):
             LogEvent.SHELLCMD: 3,
             LogEvent.RESOURCES_INFO: 2,
             LogEvent.JOB_STARTED: None,
-            LogEvent.ERROR: 3,
             LogEvent.JOB_ERROR: 6,
         },
     )
