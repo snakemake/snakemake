@@ -65,7 +65,7 @@ class CheckpointsProxy:
         per-thread without modifying any shared state on :class:`CheckpointsProxy` itself.
         The token from :meth:`~contextvars.ContextVar.set` is stored on the proxy so
         :meth:`__exit__` can restore the previous collector, correctly supporting
-        nested `with checkpoints:` blocks.
+        nested `with checkpoints as waitfor:` blocks.
         """
         waitfor = CheckpointsWaitforProxy(self)
         waitfor._token = _current_collector.set(waitfor)
@@ -77,17 +77,24 @@ class CheckpointsProxy:
 
         Resets the :class:`~contextvars.ContextVar` to its value before the
         corresponding :meth:`__enter__`, ensuring correct behavior for nested
-        `with checkpoints:` blocks.
+        `with checkpoints as waitfor:` blocks.
 
-        Since :class:`IncompleteCheckpointException` is never raised inside the `with`
-        block (it is appended to the cache instead), `exc_type` will only reflect
-        unrelated exceptions, which are left to propagate normally.
-        If at least one :class:`IncompleteCheckpointException` was collected,
-        the first is raised with the rest attached as `.extra`.
+        Three cases on exit:
+        - :class:`IncompleteCheckpointException` escaped
+          (e.g. user called `checkpoints.foo` instead of `waitfor.foo` inside the block):
+            folded back into the cache so all pending dependencies are reported together.
+        - No exception: if any :class:`IncompleteCheckpointException` in cache,
+          the first is raised with the rest attached as `.extra`.
+        - Unrelated exception: left to propagate normally.
         """
         waitfor: CheckpointsWaitforProxy = _current_collector.get()
         _current_collector.reset(waitfor._token)
         cache = waitfor.cache
+        if exc_type is IncompleteCheckpointException:
+            # User accidentally used `checkpoints.foo` instead of `waitfor.foo`.
+            # Fold the escaped exception into the cache so all dependencies are reported together.
+            cache.append(exc)
+            exc_type = None
         if exc_type is None and cache:
             e, *_e = cache
             e.extra = _e

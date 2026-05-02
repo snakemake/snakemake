@@ -3176,16 +3176,18 @@ The values of the wildcard ``i`` is this time used to expand the pattern ``"post
 
 Once a checkpoint output is missing, Snakemake immediately re-evaluates the DAG.
 Multiple checkpoints in an input function raise exceptions one by one, leading to unnecessary sequential scheduling.
-To allow Snakemake to discover all required checkpoints in a single evaluation, use the ``with checkpoints:`` context manager:
+To allow Snakemake to discover all required checkpoints in a single evaluation, use the ``with checkpoints as waitfor:`` context manager (or ``with checkpoints.waitfor as waitfor:`` for clearer declaration).
 
 .. code-block:: python
 
     def aggregate_input(wildcards):
-        with checkpoints:
+        with checkpoints as waitfor:
             # multiple checkpoints of the same rule can be accessed in the same block
-            series = {checkpoints.step_a.get(**wildcards, a=a).output[0] for a in range(3)}
+            series = {waitfor.step_a.get(**wildcards, a=a).output[0] for a in range(3)}
             # different checkpoint rules can also be accessed together
-            b = checkpoints.step_b.get(**wildcards).output[0]
+            b = waitfor.step_b.get(**wildcards).output[0]
+            # using `checkpoints.step_b.get(...)` directly would raise immediately,
+            # escaping the normal append path; recommended to use `waitfor.foo` inside this block.
         # both step_a and step_b are guaranteed complete beyond this point
         val2 = 0
         for a in series:
