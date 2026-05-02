@@ -30,7 +30,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "appdirs",
+  "platformdirs",
   "immutables",
   "configargparse",
   "connection_pool>=0.0.3",
