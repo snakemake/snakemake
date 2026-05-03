@@ -1,3 +1,4 @@
+import math
 from collections.abc import Mapping, Callable
 from typing import Optional, Union
 
@@ -26,14 +27,23 @@ def branch(
     input function that will be evaluated once the wildcards are known.
     """
 
-    def convert_none(value):
-        return value or []
+    def _is_null(value):
+        """Check if a value is null: None, float NaN, or math.nan."""
+        if value is None:
+            return True
+        try:
+            return math.isnan(value)
+        except (TypeError, ValueError):
+            return False
 
     def handle_callable(value, wildcards):
         if isinstance(value, Callable):
-            return convert_none(value(wildcards))
+            result = value(wildcards)
         else:
-            return convert_none(value)
+            result = value
+        if _is_null(result):
+            return []
+        return result
 
     def do_branch_then_otherwise(wildcards):
         if handle_callable(condition, wildcards):

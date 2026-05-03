@@ -105,3 +105,35 @@ def test_expand():
 
     # expand on pathlib.Path objects
     assert expand(PosixPath() / "{x}" / "{y}", x="Hello", y="world") == ["Hello/world"]
+
+
+def test_branch_np_nan():
+    """Regression test: np.nan should be treated as null (like None).
+
+    See: https://github.com/snakemake/snakemake/issues/4005
+    Before the fix, `branch(np.nan, then='foo', otherwise='bar')` returned
+    'foo' because np.nan is truthy as a float, causing the condition check
+    to take the `then` branch instead of `otherwise`.
+    """
+    import math
+    import numpy as np
+    from snakemake.ioutils.branch import branch
+
+    # np.nan is the primary regression case (float('nan') also applies)
+    assert branch(np.nan, then='foo', otherwise='bar') == 'bar'
+
+    # Explicit None still works
+    assert branch(None, then='foo', otherwise='bar') == 'bar'
+
+    # Regular truthy/falsy booleans still work
+    assert branch(True, then='foo', otherwise='bar') == 'foo'
+    assert branch(False, then='foo', otherwise='bar') == 'bar'
+
+    # float('nan') also returns otherwise
+    assert branch(float('nan'), then='foo', otherwise='bar') == 'bar'
+
+    # Empty list still works (should be falsy -> otherwise)
+    assert branch([], then='foo', otherwise='bar') == 'bar'
+
+    # Non-empty list still works (truthy -> then)
+    assert branch(['a'], then='foo', otherwise='bar') == 'foo'
