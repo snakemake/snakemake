@@ -1661,6 +1661,35 @@ Julia_
 
 In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the :ref:`Python case <Python>`, with the only difference that you have to index from 1 instead of 0.
 
+Perl_
+~~~~~~
+
+.. _Perl: https://www.perl.org/
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile",
+        output:
+            "path/to/outputfile",
+        params:
+            opts=["--foo", "--bar=baz"],
+        log:
+            "path/to/logfile.log",
+        script:
+            "path/to/script.pl"
+
+In the Perl_ script, a ``$snakemake`` hash reference is available. You can use `Data::Dumper` to see what is shared exactly.
+
+In order to help integrate perl scripts that were designed to be standalone, the following things are setup in the wrapper:
+
+- if only one unnamed output file is defined, it will be used instead of STDOUT (so all print statements print there).
+- if only one unnamed log file is defined, it will be used instead of STDERR (so all warn and die statements print there).
+- all unnamed input files are passed as command line arguments to the script, in the order they are defined in the rule.
+- if defined `{params.opts}` (either a list or a single value) it is added to @ARGV like command line option.
+
 Rust_
 ~~~~~
 

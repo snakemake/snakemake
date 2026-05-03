@@ -2298,6 +2298,10 @@ def test_groupid_expand_local():
     run(dpath("test_groupid_expand"))
 
 
+def test_script_pl():
+    run(dpath("test_script_pl"))
+
+
 def test_script_import_snakemake_obj():
     run(dpath("test_script_import_snakemake_obj"))
 
