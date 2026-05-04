@@ -41,16 +41,6 @@ from snakemake_interface_executor_plugins.settings import (
 )
 
 
-def test_maturin():
-    """
-    Tests whether the `sum_as_string` function defined in `rust/src/lib.rs`
-    gets called and runs properly.
-    """
-    from snakemake.core import sum_as_string
-
-    assert str(1 + 2) == sum_as_string(1, 2)
-
-
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
@@ -2273,7 +2263,8 @@ def test_default_target():
 
 
 def test_cache_multioutput():
-    run(dpath("test_cache_multioutput"), shouldfail=True)
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+    run(dpath("test_cache_multioutput"), cache=["a"])
 
 
 @skip_on_windows
@@ -3214,6 +3205,17 @@ def test_cyclic_dependency_single():
     run(dpath("test_cyclic_dependency_single"), forceall=True)
 
 
+@skip_on_windows
+@apptainer
+@connected
+def test_issue3958():
+    run(
+        dpath("test_issue3958"),
+        shellcmd="snakemake --sdm apptainer --cores 1",
+        targets=["all"],
+    )
+
+
 def test_stats_table_order_and_counts():
     # Run snakemake in the example dir and ask it to write stats.txt
     outdir = run(
@@ -3264,6 +3266,50 @@ def test_stats_table_order_and_counts():
         assert (
             counts.get(name) == exp_count
         ), f"Count for {name} was {counts.get(name)} != {exp_count}"
+
+
+def test_github_issue4003():
+    from snakemake.ioutils.as_py_module import format_python_module
+
+    assert (
+        format_python_module("package/subpackage/module.py")
+        == "package.subpackage.module"
+    )
+
+    windows_path = r"package\subpackage\module.py"
+    if ON_WINDOWS:
+        assert format_python_module(windows_path) == "package.subpackage.module"
+    else:
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                f"{windows_path} does not translate to a valid Python name"
+            ),
+        ):
+            format_python_module(windows_path)
+
+    for bad_name in [
+        "0package/module.py",
+        "sub-package/module.py",
+        "package/mod-ule.py",
+    ]:
+        if ON_WINDOWS:
+            expect_name = bad_name.replace("/", "\\")
+        else:
+            expect_name = bad_name
+
+        with pytest.raises(
+            ValueError,
+            match=re.escape(f"{expect_name} does not translate to a valid Python name"),
+        ):
+            format_python_module(bad_name)
+
+    with pytest.raises(
+        ValueError, match=re.escape("Only .py files may be run as Python modules.")
+    ):
+        format_python_module("package/module.pyx")
+
+    run(dpath("test_github_issue4003"))
 
 
 @skip_on_windows
