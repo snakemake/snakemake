@@ -271,6 +271,7 @@ def is_network_filesystem(path: Path | str) -> bool:
             "ceph",
             "cifs",
             "fhgfs",
+            "fuse.juicefs",
             "fuse.sshfs",
             "glusterfs",
             "gpfs",
