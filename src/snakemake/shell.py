@@ -184,6 +184,10 @@ class shell:
             # If this comes from a rule, we expect certain information to be passed
             # implicitly via the rule func context, which is added here.
             context = func_context
+            ctx = inspect.currentframe().f_back.f_globals.copy()
+            ctx.update(context)
+            if "shell_wrapper" in ctx :
+                cmd = inspect.currentframe().f_back.f_globals["shell_wrapper"](cmd, **ctx)
         else:
             # Otherwise, context is just filled via kwargs.
             context = dict()
