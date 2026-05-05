@@ -1,3 +1,4 @@
+from snakemake.runtime_dependencies import RuntimeDependencyManager
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -649,6 +650,10 @@ class Workflow(WorkflowExecutorInterface):
                     )
         self.check_cache_rules()
         self.check_localrules()
+
+    def deploy_runtime_dependencies(self) -> None:
+        logger.info("Deploying runtime dependencies...")
+        RuntimeDependencyManager().deploy_packages()
 
     def add_rule(
         self,
