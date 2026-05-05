@@ -1,3 +1,4 @@
+import functools
 import os
 from collections import OrderedDict
 from pathlib import Path
@@ -10,13 +11,20 @@ from sqlalchemy import (
     delete,
     event,
 )
-from sqlalchemy.engine.url import make_url
+from sqlalchemy.engine.url import make_url, URL
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Session
 from sqlmodel import SQLModel, Field
+import sqlite3
 
 from snakemake.persistence import MetadataRecord, PersistenceBase
 import snakemake.exceptions
+
+
+class SettingsORM(SQLModel, table=True):
+    __tablename__ = "snakemake_persistence_db_settings"
+    namespace: str = Field(primary_key=True)
+    is_network_fs: bool
 
 
 class Base(DeclarativeBase):
@@ -58,10 +66,6 @@ class DbPersistence(PersistenceBase):
             path=path,
         )
 
-        # ensure default db path is based on persistence path
-        if db_url is None:
-            db_url = f"sqlite:///{self.path / 'metadata.db'}"
-
         # use the absolute workdir path as a namespace
         # to allow using the same db for multiple different Snakemake instances running in different directories
         self.namespace = str(self.path.absolute())
@@ -70,43 +74,93 @@ class DbPersistence(PersistenceBase):
         self._metadata_cache = OrderedDict()
         self._cache_size = 16384
 
-        self.engine = create_engine(db_url)
+        self._setup_database(db_url)
 
-        # for SQLite, set a busy timeout to avoid immediate failures on database locks;
-        # if available, use the latency_wait setting instead.
-        # TODO: if that doesn't help, consider using flufl.lock
-        #  or a NullPool or enabling BEGIN IMMEDIATE
-        busy_timeout = 10000
-        if self.dag:
-            latency_wait_s = self.dag.workflow.execution_settings.latency_wait * 1000
-            busy_timeout = max(busy_timeout, latency_wait_s)
+    def _setup_database(self, db_url: str | None) -> None:
+        """Sets up the database connection and schema."""
+
+        # ensure default db path is based on persistence path
+        if db_url is None:
+            db_url = f"sqlite:///{self.path / 'metadata.db'}"
 
         parsed_url = make_url(db_url)
-        is_network_fs = False
+        is_network_fs = self._check_network_fs(parsed_url)
+        busy_timeout = self._get_busy_timeout()
 
-        if parsed_url.get_backend_name() == "sqlite":
-            sqlite_db_path = parsed_url.database
-            if sqlite_db_path and sqlite_db_path != ":memory:":
-                is_network_fs = is_network_filesystem(sqlite_db_path)
+        self.engine = create_engine(db_url)
+        self._attach_sqlite_pragmas(is_network_fs, busy_timeout)
+
+        SQLModel.metadata.create_all(self.engine)
+
+    def _check_network_fs(self, parsed_url: URL) -> bool:
+        """
+        Determines if the sqlite DB is on a network FS, caching the result in the DB.
+        Tries looking up the result in the snakemake_persistence_db_settings table,
+        otherwise executes psutil to figure out the result.
+        Always returns False for non-SQLite URLs.
+        """
+        if parsed_url.get_backend_name() != "sqlite":
+            return False
+
+        sqlite_db_path = parsed_url.database
+        if not sqlite_db_path or sqlite_db_path == ":memory:":
+            return False
+
+        # raw connection to avoid PRAGMA chicken-vs-egg problems
+        with sqlite3.connect(sqlite_db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS snakemake_persistence_db_settings "
+                "(namespace TEXT PRIMARY KEY, is_network_fs BOOLEAN)"
+            )
+            cursor.execute(
+                "SELECT is_network_fs FROM snakemake_persistence_db_settings WHERE namespace = ?",
+                (self.namespace,),
+            )
+            row = cursor.fetchone()
+
+            if row is not None:
+                return bool(row[0])
+
+            is_network_fs = is_network_filesystem(sqlite_db_path)
+            cursor.execute(
+                "INSERT OR IGNORE INTO snakemake_persistence_db_settings (namespace, is_network_fs) VALUES (?, ?)",
+                (self.namespace, is_network_fs),
+            )
+            conn.commit()
+
+            return is_network_fs
+
+    def _get_busy_timeout(self) -> int:
+        """
+        Determines SQLite busy timeout (`max(10000, latency_wait * 1000)`).
+        """
+        base_timeout = 10000
+        if self.dag:
+            latency_wait_s = self.dag.workflow.execution_settings.latency_wait * 1000
+            return max(base_timeout, latency_wait_s)
+        return base_timeout
+
+    def _attach_sqlite_pragmas(self, is_network_fs: bool, busy_timeout: int) -> None:
+        """Binds the PRAGMA execution to the SQLAlchemy connection event."""
+        if self.engine.dialect.name != "sqlite":
+            return
 
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
-            if self.engine.dialect.name == "sqlite":
-                cursor = dbapi_connection.cursor()
+            cursor = dbapi_connection.cursor()
 
-                if is_network_fs:
-                    cursor.execute("PRAGMA journal_mode=PERSIST")
-                    cursor.execute("PRAGMA synchronous=OFF")
-                    cursor.execute("PRAGMA temp_store=MEMORY")
-                    cursor.execute("PRAGMA cache_size=-64000")
-                else:
-                    cursor.execute("PRAGMA journal_mode=TRUNCATE")
-                    cursor.execute("PRAGMA synchronous=NORMAL")
+            if is_network_fs:
+                cursor.execute("PRAGMA journal_mode=PERSIST")
+                cursor.execute("PRAGMA synchronous=OFF")
+                cursor.execute("PRAGMA temp_store=MEMORY")
+                cursor.execute("PRAGMA cache_size=-64000")
+            else:
+                cursor.execute("PRAGMA journal_mode=TRUNCATE")
+                cursor.execute("PRAGMA synchronous=NORMAL")
 
-                cursor.execute(f"PRAGMA busy_timeout={busy_timeout}")
-                cursor.close()
-
-        SQLModel.metadata.create_all(self.engine)
+            cursor.execute(f"PRAGMA busy_timeout={busy_timeout}")
+            cursor.close()
 
     def _clear_cache(self) -> None:
         self._metadata_cache.clear()
@@ -244,6 +298,7 @@ class DbPersistence(PersistenceBase):
             session.commit()
 
 
+@functools.cache
 def is_network_filesystem(path: Path | str) -> bool:
     """
     Detects if a given path resides on a network filesystem.
