@@ -448,8 +448,10 @@ def test_stop_closes_plugin_handlers():
         if manager.queue_listener._thread is not None:
             manager.queue_listener.stop()
 
-    assert handler.flush_called, "Plugin handler was not flushed by LoggerManager.stop()"
+    assert (
+        handler.flush_called
+    ), "Plugin handler was not flushed by LoggerManager.stop()"
     assert handler.close_called, "Plugin handler was not closed by LoggerManager.stop()"
-    assert len(handler.records) == 1, (
-        f"Expected 1 record delivered to plugin handler, got {len(handler.records)}"
-    )
+    assert (
+        len(handler.records) == 1
+    ), f"Expected 1 record delivered to plugin handler, got {len(handler.records)}"
