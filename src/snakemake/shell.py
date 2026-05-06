@@ -44,6 +44,7 @@ class shell:
     _lock = threading.Lock()
     _processes = {}
     conda_block_conflicting_envvars = True
+    _wrapper = None
 
     @classmethod
     def get_executable(cls):
@@ -134,6 +135,19 @@ class shell:
         cls._process_suffix = format(suffix, stepout=2)
 
     @classmethod
+    def add_wrapper(cls, func:callable) :
+        """Register a function that wraps shell scripts. 
+        The given function should accept 2 arguments : the shell script string and the context dict.
+        The function should return a string.
+        Contrary to prefix and suffix, the wrapper will be aware of rule context.
+        """
+        if not callable(func) : 
+            raise ValueError(f"add_wrapper 'func' argument should be a callable, but is a {type(func).__name__}")
+        if not (n_params := len(inspect.signature(func).parameters)) == 2 :
+            raise ValueError(f"Function {func.__name__} should accept 2 arguments, but signature shows {n_params}")
+        cls._wrapper = func
+
+    @classmethod
     def win_command_prefix(cls, cmd):
         """The command prefix used on windows when specifying a explicit
         shell executable. This would be "-c" for bash.
@@ -184,15 +198,14 @@ class shell:
             # If this comes from a rule, we expect certain information to be passed
             # implicitly via the rule func context, which is added here.
             context = func_context
-            ctx = inspect.currentframe().f_back.f_globals.copy()
-            ctx.update(context)
-            if "shell_wrapper" in ctx :
-                cmd = inspect.currentframe().f_back.f_globals["shell_wrapper"](cmd, **ctx)
         else:
             # Otherwise, context is just filled via kwargs.
             context = dict()
         # add kwargs to context (overwriting the locals of the caller)
         context.update(kwargs)
+
+        if cls._wrapper is not None : 
+            cmd = cls._wrapper(cmd, context)
 
         jobid = context.get("jobid")
         if not context.get("is_shell") and jobid is not None:
