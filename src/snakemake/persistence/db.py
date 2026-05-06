@@ -309,6 +309,7 @@ def is_network_filesystem(path: Path | str) -> bool:
 
     path_obj = Path(path).resolve()
 
+    logger.info("Determining filesystem type for metadata persistence storage...")
     try:
         best_match = max(
             (
