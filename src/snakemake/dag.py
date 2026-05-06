@@ -956,12 +956,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         assert self.workflow.storage_settings is not None
 
-        if self.workflow.remote_exec:
-            is_unneeded_outside = (
-                tempfile in self.workflow.storage_settings.unneeded_temp_files
-            )
-        else:
-            is_unneeded_outside = True
+        # The main process always has full DAG knowledge, so it can rely on
+        # is_needed_by_subsequent_job below to determine if the file is still
+        # needed.  The unneeded_temp_files set is only meaningful in spawned
+        # subprocesses (populated via --unneeded-temp-files CLI arg) and is
+        # always empty in the main process, so gating on it here would prevent
+        # temp files from ever being cleaned up from remote storage.
+        is_unneeded_outside = True
 
         is_derived_target = tempfile in self.derived_targetfiles
         is_needed_by_subsequent_job = any(
