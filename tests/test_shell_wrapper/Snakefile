@@ -1,0 +1,15 @@
+def shell_wrapper(cmd, context):
+    return f"""
+    (
+        set -x
+        {cmd}
+    ) > {context['log']} 2>&1
+    """
+
+
+shell.add_wrapper(shell_wrapper)
+
+rule all:
+    output: "all.txt"
+    log: "all.log"
+    shell: "echo foobar > {output}"
