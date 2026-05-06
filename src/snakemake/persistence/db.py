@@ -18,6 +18,7 @@ from sqlmodel import SQLModel, Field
 import sqlite3
 
 from snakemake.persistence import MetadataRecord, PersistenceBase
+from snakemake.logging import logger
 import snakemake.exceptions
 
 
