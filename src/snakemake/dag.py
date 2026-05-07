@@ -952,6 +952,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             return True
 
         def is_other_group_or_no_group(j):
+            """True if j is outside the given group or no group was specified."""
             return outside_of_group_job is None or j not in outside_of_group_job.jobs
 
         assert self.workflow.storage_settings is not None
@@ -997,11 +998,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         is_temp = lambda f: is_flagged(f, "temp")
 
         def unneeded_files():
+            """Yield temp files produced by dependencies that are no longer needed."""
             # temp input
             for job_, files in self._dependencies[job].items():
                 tempfiles = set(f for f in job_.output if is_temp(f))
                 yield from filterfalse(
-                    partial(self.is_needed_tempfile, job_), tempfiles & files
+                    partial(self.is_needed_tempfile, job_),
+                    {f for f in tempfiles if f in files},
                 )
 
             # temp output
