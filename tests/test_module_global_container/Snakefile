@@ -1,0 +1,16 @@
+container: "docker://master_image"
+
+
+module test:
+    snakefile:
+        "module.smk"
+
+
+use rule * from test
+
+
+rule all:
+    input:
+        "result.txt",
+    shell:
+        "echo master > {output}"
