@@ -2636,6 +2636,43 @@ def test_module_global_container():
         )
 
 
+def test_module_rule_container():
+    """Test that a rule-level container: in a module takes precedence over the
+    master workflow's global container: directive."""
+    from snakemake import api
+    from snakemake.settings import types as settings
+
+    test_path = dpath("test_module_rule_container")
+
+    with api.SnakemakeApi(
+        settings.OutputSettings(verbose=False),
+    ) as snakemake_api:
+        workflow_api = snakemake_api.workflow(
+            resource_settings=settings.ResourceSettings(cores=1),
+            config_settings=settings.ConfigSettings(),
+            storage_settings=settings.StorageSettings(),
+            workflow_settings=settings.WorkflowSettings(),
+            deployment_settings=settings.DeploymentSettings(),
+            snakefile=test_path / "Snakefile",
+            workdir=test_path,
+        )
+        workflow = workflow_api._workflow
+
+        rules_by_name = {rule.name: rule for rule in workflow.rules}
+
+        # The module rule's rule-level container takes precedence over the master's global
+        assert rules_by_name["a"].container_img == "docker://rule_image", (
+            f"Module rule 'a' has container_img={rules_by_name['a'].container_img!r}, "
+            f"expected 'docker://rule_image'"
+        )
+
+        # The master rule should still get the master's global container image
+        assert rules_by_name["all"].container_img == "docker://master_image", (
+            f"Master rule 'all' has container_img={rules_by_name['all'].container_img!r}, "
+            f"expected 'docker://master_image'"
+        )
+
+
 @skip_on_windows
 def test_config_yte():
     run(dpath("test_config_yte"))
