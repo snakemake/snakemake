@@ -48,8 +48,7 @@ For workflows defining cache rules like this, it is enough to invoke Snakemake w
 
 without explicit rulenames listed.
 
-Note that only rules with just a single output file (or directory) or with :ref:`multiext output files <snakefiles-multiext>` are eligible for caching.
-The reason is that for other rules it would be impossible to unambiguously assign the output files to cache entries while being agnostic of the actual file names.
+Note that rules with multiple output files are only eligible for caching if they use :ref:`multiext output files <snakefiles-multiext>` or if all output files are named.
 Also note that the rules need to retrieve all their parameters via the ``params`` directive (except input files).
 It is not allowed to directly use ``wildcards``, ``config`` or any global variable in the shell command or script, because these are not captured in the hash (otherwise, reuse would be unnecessarily limited).
 

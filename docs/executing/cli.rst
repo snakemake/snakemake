@@ -15,7 +15,7 @@ Important environment variables
 -------------------------------
 
 Snakemake caches source files for performance and reproducibility.
-The location of this cache is determined by the `appdirs <https://github.com/ActiveState/appdirs>`_ package.
+The location of this cache is determined by the `platformdirs <https://platformdirs.readthedocs.io/>`_ package.
 If you want to change the location on a unix/linux system, you can define an override path via the environment variable ``XDG_CACHE_HOME``.
 
 .. user_manual-snakemake_options:
