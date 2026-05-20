@@ -29,6 +29,7 @@ class Package:
     name: str
     version: Optional[str]
 
+    @classmethod
     def from_str(cls, pkg_str: str) -> Self:
         if "==" in pkg_str:
             name, version = pkg_str.split("==", 1)
@@ -52,7 +53,7 @@ class RuntimeDependencyManager:
     auxiliary packages.
     """
 
-    _instance: Self = None
+    _instances: Self = None
     _lock_lifetime = timedelta(seconds=30)
 
     def __new__(cls) -> Self:
@@ -66,7 +67,6 @@ class RuntimeDependencyManager:
             # instantiated before, skip
             return
         self._prefixes: Map[PackageType, Path] = {
-            PackageType.WORKFLOW: Path.cwd() / ".snakemake" / "workflow_dependencies",
             PackageType.PLUGIN: platformdirs.user_cache_path(
                 appname="snakemake", version=__version__, ensure_exists=True
             )
@@ -76,6 +76,9 @@ class RuntimeDependencyManager:
             PackageType.WORKFLOW: set(),
             PackageType.PLUGIN: set(),
         }
+
+    def update_workflow_prefix(self) -> None:
+        self._prefixes[PackageType.WORKFLOW] = Path.cwd() / ".snakemake" / "workflow_dependencies"
 
     def add_plugin_package(self, name: str) -> None:
         self._add_package(PackageType.PLUGIN, name)

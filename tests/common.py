@@ -359,6 +359,7 @@ def run(
 
     # run snakemake
     if shellcmd:
+        breakpoint()
         if not shellcmd.startswith("snakemake"):
             raise ValueError("shellcmd does not start with snakemake")
         shellcmd = "{} -m {}".format(sys.executable, shellcmd)
@@ -369,8 +370,8 @@ def run(
                     cwd=path if no_tmpdir else tmpdir,
                     check=True,
                     shell=True,
-                    stderr=subprocess.STDOUT,
-                    stdout=subprocess.PIPE,
+                    #stderr=subprocess.STDOUT,
+                    #stdout=subprocess.PIPE,
                 )
                 print(res.stdout.decode())
                 success = True
