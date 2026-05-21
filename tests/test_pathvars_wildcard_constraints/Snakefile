@@ -1,0 +1,26 @@
+pathvars:
+    sample="<results>/{sample}",
+
+
+rule all:
+    input:
+        "results/foo.txt",
+        "results/42.txt",
+
+
+rule numeric_sample:
+    output:
+        "<sample>.txt",
+    wildcard_constraints:
+        sample="[0-9]+",
+    shell:
+        "echo {wildcards.sample} > {output}"
+
+
+rule alpha_sample:
+    output:
+        "<sample>.txt",
+    wildcard_constraints:
+        sample="[a-z]+",
+    shell:
+        "echo {wildcards.sample} > {output}"
