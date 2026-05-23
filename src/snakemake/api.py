@@ -94,14 +94,8 @@ def resolve_snakefile(path: Optional[Path | str], allow_missing: bool = False):
                 f"No Snakefile found, tried {', '.join(map(str, SNAKEFILE_CHOICES))}."
             )
 
-    if isinstance(path, str):
-        try:
-            is_local = is_local_file(path)
-        except (NotImplementedError, ImportError, ValueError):
-            is_local = False
-
-        if is_local:
-            return Path(path)
+    if isinstance(path, str) and is_local_file(path):
+        return Path(path)
 
     return path
 

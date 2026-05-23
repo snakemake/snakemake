@@ -523,14 +523,13 @@ class HostingProviderFile(SourceFile):
 
             # Ensure that multiple threads don't concurrently create the same instance
             with self._lock:
-                try:
-                    return self._hosted_repos[cache_key]
-                except KeyError:
+                hosted_repo = self._hosted_repos.get(cache_key)
+                if hosted_repo is None:
                     hosted_repo = HostedGitRepo(
                         self.repo, self.cache_path, self.auth, self.host
                     )
                     self._hosted_repos[cache_key] = hosted_repo
-                    return hosted_repo
+                return hosted_repo
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
@@ -743,10 +742,6 @@ def _infer_hosting_provider_file_shorthand(
         return GitlabFile(repo=repo, path=path, branch=ref, host=host)
 
 
-def _infer_hosting_provider_file(path_or_uri: str) -> Optional[HostingProviderFile]:
-    return _infer_hosting_provider_file_shorthand(path_or_uri)
-
-
 def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> SourceFile:
     if isinstance(path_or_uri, SourceFile):
         if basedir is None or isinstance(path_or_uri, HostingProviderFile):
@@ -759,14 +754,9 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
         raise SourceFileError(
             "must be given as Python string or one of the predefined source file marker types (see docs)"
         )
-    if hosting_provider_file := _infer_hosting_provider_file(path_or_uri):
+    if hosting_provider_file := _infer_hosting_provider_file_shorthand(path_or_uri):
         return hosting_provider_file
-    # Unsupported or malformed URIs should fall through to GenericSourceFile below.
-    try:
-        is_local = is_local_file(path_or_uri)
-    except (NotImplementedError, ImportError, ValueError):
-        is_local = False
-    if is_local:
+    if is_local_file(path_or_uri):
         # either local file or relative to some remote basedir
         for schema in ("file://", "file:"):
             if path_or_uri.startswith(schema):
