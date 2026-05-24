@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [9.21.0](https://github.com/snakemake/snakemake/compare/v9.20.0...v9.21.0) (2026-05-13)
+
+
+### Features
+
+* add a function to help with prepending arguments to filenames; close [#672](https://github.com/snakemake/snakemake/issues/672) ([#4090](https://github.com/snakemake/snakemake/issues/4090)) ([14ccd1d](https://github.com/snakemake/snakemake/commit/14ccd1dc709a704cdda2f80f1ea3353985ac07d0))
+
+
+### Bug Fixes
+
+* close plugin handlers after draining QueueListener in LoggerManager.stop() ([#4137](https://github.com/snakemake/snakemake/issues/4137)) ([b2a9e69](https://github.com/snakemake/snakemake/commit/b2a9e697990714a6dbed6a50b2f5dccf7d1584ab))
+
+
+### Performance Improvements
+
+* adjust default sqlite PRAGMAs, auto detect network fstype ([#4152](https://github.com/snakemake/snakemake/issues/4152)) ([3df2d35](https://github.com/snakemake/snakemake/commit/3df2d355547d5f7eac72e295cf3fb83787741625))
+
 ## [9.20.0](https://github.com/snakemake/snakemake/compare/v9.19.0...v9.20.0) (2026-05-02)
 
 
