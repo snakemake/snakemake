@@ -265,13 +265,19 @@ def containerize(workflow, dag, fmt="dockerfile"):
         generate_env_cmds.append(
             f"conda env create --prefix {prefix} --file {env_target_path} &&"
         )
-
-        post_deploy_src_path = env_source_path.removesuffix(".yaml") + ".post-deploy.sh"
-        if os.path.exists(post_deploy_src_path):
+        post_deploy_src_path = env.file.replace_suffix(
+            [".yaml", ".yml"], ".post-deploy.sh"
+        )
+        if os.path.exists(post_deploy_src_path.simplify_path()):
             post_deploy_target_path = prefix / "environment.post-deploy.sh"
-            formatter.copy_file(post_deploy_src_path, post_deploy_target_path)
+            formatter.copy_file(
+                post_deploy_src_path.simplify_path(), post_deploy_target_path
+            )
             generate_env_cmds.append(
-                f"mkdir /tmp/{env.content_hash} && cd /tmp/{env.content_hash} && cp {post_deploy_target_path} . && conda run -p /conda-envs/{env.content_hash} bash environment.post-deploy.sh && cd - && rm -rf /tmp/{env.content_hash} &&"
+                f"mkdir /tmp/{env.content_hash} && cd /tmp/{env.content_hash} && \
+cp {post_deploy_target_path} . && \
+conda run -p /conda-envs/{env.content_hash} bash environment.post-deploy.sh && \
+cd - && rm -rf /tmp/{env.content_hash} &&"
             )
 
         generated.add(env.content_hash)
