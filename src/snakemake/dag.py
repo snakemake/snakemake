@@ -957,13 +957,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         assert self.workflow.storage_settings is not None
 
-        # The main process always has full DAG knowledge, so it can rely on
-        # is_needed_by_subsequent_job below to determine if the file is still
-        # needed.  The unneeded_temp_files set is only meaningful in spawned
-        # subprocesses (populated via --unneeded-temp-files CLI arg) and is
-        # always empty in the main process, so gating on it here would prevent
-        # temp files from ever being cleaned up from remote storage.
-        is_unneeded_outside = True
+        if self.workflow.remote_exec:
+            # remote_exec is true for the snakemake process that runs INSIDE a remote
+            # job. In this case, the DAG is built only for the output files of the
+            # remote job. Thus, the main process has to inform the remote snakemake run
+            # about temp files that are really not needed by any outside job.
+            # This happens via the --unneeded-temp-files CLI argument, which populates
+            # the workflow.storage_settings.unneeded_temp_files set. If the tempfile is
+            # in this set, it is not needed by any outside job. If it is not in this set,
+            # it is still needed by an outside job, so we have to assume that it is
+            # needed, even if it is not needed by any job in the tiny remote job DAG.
+            is_unneeded_outside = (
+                tempfile in self.workflow.storage_settings.unneeded_temp_files
+            )
+        else:
+            # In case of the main process (remote_exec == False), there are no
+            # outside unknown jobs, so we can directly check whether any downstream job
+            # needs the tempfile.
+            is_unneeded_outside = True
 
         is_derived_target = tempfile in self.derived_targetfiles
         is_needed_by_subsequent_job = any(

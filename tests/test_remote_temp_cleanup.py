@@ -37,7 +37,7 @@ def test_temp_file_unneeded_when_no_downstream(mock_dag):
     """A temp file with no downstream consumers should be marked unneeded."""
     producer = MagicMock()
     tempfile = _make_tempfile("output.tmp")
-
+    mock_dag.workflow.remote_exec = False  # assume main process
     mock_dag.depending[producer] = {}
 
     assert not mock_dag.is_needed_tempfile(producer, tempfile)
@@ -60,6 +60,7 @@ def test_temp_file_unneeded_when_downstream_finished(mock_dag):
     producer = MagicMock()
     consumer = MagicMock()
     tempfile = _make_tempfile("output.tmp")
+    mock_dag.workflow.remote_exec = False  # assume main process
 
     mock_dag.depending[producer] = {consumer: {tempfile}}
     mock_dag._finished.add(consumer)
@@ -67,16 +68,26 @@ def test_temp_file_unneeded_when_downstream_finished(mock_dag):
     assert not mock_dag.is_needed_tempfile(producer, tempfile)
 
 
-def test_temp_file_unneeded_remote_exec_empty_unneeded_set(mock_dag):
-    """Regression: remote_exec with empty unneeded_temp_files must NOT prevent cleanup.
-
-    Previously, is_needed_tempfile gated on unneeded_temp_files (always empty in the
-    main process), causing temp files to never be cleaned from remote storage.
+def test_temp_file_needed_remote_exec_empty_unneeded_set(mock_dag):
+    """remote_exec with empty unneeded_temp_files  must prevent cleanup.
+    Because unneeded_temp_files being emtpy means that all temp files are still
+    needed by other subsequent jobs the remote job does not know about.
     """
     producer = MagicMock()
     tempfile = _make_tempfile("output.tmp")
 
     assert mock_dag.workflow.storage_settings.unneeded_temp_files == frozenset()
+    mock_dag.depending[producer] = {}
+
+    assert mock_dag.is_needed_tempfile(producer, tempfile)
+
+
+def test_temp_file_unneeded_remote_exec_nonempty_unneeded_set(mock_dag):
+    """remote_exec with the temp file being unneeded must cleanup."""
+    producer = MagicMock()
+    tempfile = _make_tempfile("output.tmp")
+
+    mock_dag.workflow.storage_settings.unneeded_temp_files = {tempfile}
     mock_dag.depending[producer] = {}
 
     assert not mock_dag.is_needed_tempfile(producer, tempfile)
@@ -101,6 +112,8 @@ def test_handle_temp_yields_output_iofile_with_temp_flag(mock_dag):
     the output objects so that remove() sees is_flagged(file, "temp") == True.
     """
     from snakemake.io import AnnotatedString, flag as io_flag
+
+    mock_dag.workflow.remote_exec = False  # assume main process
 
     # Simulate output _IOFile with temp flag
     output_file = AnnotatedString("shared.tmp")
