@@ -967,6 +967,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             # in this set, it is not needed by any outside job. If it is not in this set,
             # it is still needed by an outside job, so we have to assume that it is
             # needed, even if it is not needed by any job in the tiny remote job DAG.
+            # The setting is passed to remote jobs via the snakemake-interface-executor-plugins
+            # package.
             is_unneeded_outside = (
                 tempfile in self.workflow.storage_settings.unneeded_temp_files
             )
