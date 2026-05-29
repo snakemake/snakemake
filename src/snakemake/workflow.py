@@ -1672,7 +1672,7 @@ class Workflow(WorkflowExecutorInterface):
             sys.path.insert(0, snakefile_path_or_uri)
 
         exec(
-            compile(code, snakefile.get_path_or_uri(secret_free=False), "exec"),
+            compile(code, snakefile.get_path_or_uri(secret_free=True), "exec"),
             self.globals,
         )
 

@@ -22,8 +22,8 @@ from pathlib import Path
 from typing import List, Pattern, Tuple
 from urllib.error import URLError
 
-from snakemake.io import container as io_
-from snakemake.io.container import Snakemake
+from snakemake import iocontainers
+from snakemake.iocontainers import Snakemake
 from snakemake.common import (
     MIN_PY_VERSION,
     ON_WINDOWS,
@@ -43,9 +43,6 @@ from snakemake.utils import format
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
-
-# Type hint, object injected by the python preamble
-snakemake: "Snakemake"
 
 
 class REncoder:
@@ -133,7 +130,7 @@ class REncoder:
         return d
 
     @classmethod
-    def encode_namedlist(cls, namedlist: io_.Namedlist):
+    def encode_namedlist(cls, namedlist: iocontainers.Namedlist):
         positional = ", ".join(map(cls.encode_value, namedlist))
         named = cls.encode_items(namedlist.items())
         source = "list("
@@ -279,7 +276,7 @@ class BashEncoder:
         return s
 
     @classmethod
-    def encode_namedlist(cls, named_list: io_.Namedlist) -> str:
+    def encode_namedlist(cls, named_list: iocontainers.Namedlist) -> str:
         """Convert a namedlist into a Bash associative array
         See the comments for dict_to_aa()
         """
@@ -487,7 +484,7 @@ class PythonScript(ScriptBase):
             import pickle;
             snakemake = pickle.loads({snakemake});
             from snakemake.logging import logger;
-            from snakemake.io.container import Snakemake;
+            from snakemake.iocontainers import Snakemake;
             {shell_exec_stmt}
             {preamble_addendum}
             """
