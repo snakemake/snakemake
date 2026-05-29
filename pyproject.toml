@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "snakemake"
-version = "9.20.0"
+version = "9.21.0"
 description = "Workflow management system to create reproducible and scalable data analyses"
 readme = { content-type = "text/markdown", text = """
   Snakemake is a workflow management system that aims to reduce the
@@ -34,7 +34,7 @@ dependencies = [
   "immutables",
   "configargparse",
   "connection_pool>=0.0.3",
-  "docutils",
+  "docutils>=0.20,<0.23",
   "gitpython",
   "humanfriendly",
   "jinja2>=3.0,<4.0",
@@ -113,23 +113,17 @@ quality = { features = ["style"] }
 publish = { features = ["publish"] }
 
 # Python Envs
-[tool.pixi.feature.py311]
-platforms = ["linux-64"]
-
 [tool.pixi.feature.py311.dependencies]
 python = ">=3.11.0,<3.12"
-packaging = ">=24.0,<26"
-
-[tool.pixi.feature.py312]
-platforms = ["linux-64"]
+packaging = ">=24.0,<26"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 
 [tool.pixi.feature.py312.dependencies]
 python = ">=3.12.0,<3.13"
-packaging = ">=24.0,<26"
+packaging = ">=24.0,<26"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 
 [tool.pixi.feature.py313.dependencies]
 python = ">=3.13.0,<3.14"
-packaging = ">=24.0,<26"
+packaging = ">=24.0,<26"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 
 # Test
 [tool.pytest.ini_options]
@@ -237,6 +231,7 @@ graphviz = ">=12.2.1,<13"
 glpk = ">=5.0,<6"
 pandoc = ">=3.6.3,<4"
 packaging = ">=24.0,<26"
+docutils = ">=0.20,<0.23"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 
 [tool.pixi.feature.test.target.linux-64.pypi-dependencies]
 snakemake-storage-plugin-xrootd = "*"
@@ -300,7 +295,7 @@ pyrefly = "*"
 ruff = "*"
 
 [tool.pixi.feature.style.tasks]
-format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format the code", default-environment = "quality" }
+format = { cmd = "black docs/ apidocs/ src/ tests/**/*.py", description = "Format the code", default-environment = "quality" }
 
 # Build
 [tool.pixi.feature.publish.pypi-dependencies]
