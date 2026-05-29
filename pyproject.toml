@@ -231,6 +231,7 @@ graphviz = ">=12.2.1,<13"
 glpk = ">=5.0,<6"
 pandoc = ">=3.6.3,<4"
 packaging = ">=24.0,<26"
+docutils = ">=0.20,<0.23"
 
 [tool.pixi.feature.test.target.linux-64.pypi-dependencies]
 snakemake-storage-plugin-xrootd = "*"
