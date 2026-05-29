@@ -22,7 +22,7 @@ rule alt_intermediate:
 
 def aggregate_input(wildcards):
     # decision based on content of output file
-    with checkpoints.somestep.get(**wildcards).output[0].open() as f:
+    with open(checkpoints.somestep.get(**wildcards).output[0]) as f:
         if f.read().strip() == "AAA":
             return "post/{sample}.txt"
         else:
