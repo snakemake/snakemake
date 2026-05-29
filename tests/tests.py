@@ -2263,7 +2263,8 @@ def test_default_target():
 
 
 def test_cache_multioutput():
-    run(dpath("test_cache_multioutput"), shouldfail=True)
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+    run(dpath("test_cache_multioutput"), cache=["a"])
 
 
 @skip_on_windows
@@ -2791,6 +2792,16 @@ def test_pathvars_cycle():
     run(dpath("test_pathvars_cycle"), shouldfail=True)
 
 
+@skip_on_windows
+def test_pathvars_storage():
+    run(
+        dpath("test_pathvars_storage"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+        cores=1,
+    )
+
+
 @skip_on_windows  # OS agnostic
 def test_handle_storage_multi_consumers():
     run(
@@ -3204,6 +3215,17 @@ def test_cyclic_dependency_single():
     run(dpath("test_cyclic_dependency_single"), forceall=True)
 
 
+@skip_on_windows
+@apptainer
+@connected
+def test_issue3958():
+    run(
+        dpath("test_issue3958"),
+        shellcmd="snakemake --sdm apptainer --cores 1",
+        targets=["all"],
+    )
+
+
 def test_stats_table_order_and_counts():
     # Run snakemake in the example dir and ask it to write stats.txt
     outdir = run(
@@ -3254,6 +3276,50 @@ def test_stats_table_order_and_counts():
         assert (
             counts.get(name) == exp_count
         ), f"Count for {name} was {counts.get(name)} != {exp_count}"
+
+
+def test_github_issue4003():
+    from snakemake.ioutils.as_py_module import format_python_module
+
+    assert (
+        format_python_module("package/subpackage/module.py")
+        == "package.subpackage.module"
+    )
+
+    windows_path = r"package\subpackage\module.py"
+    if ON_WINDOWS:
+        assert format_python_module(windows_path) == "package.subpackage.module"
+    else:
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                f"{windows_path} does not translate to a valid Python name"
+            ),
+        ):
+            format_python_module(windows_path)
+
+    for bad_name in [
+        "0package/module.py",
+        "sub-package/module.py",
+        "package/mod-ule.py",
+    ]:
+        if ON_WINDOWS:
+            expect_name = bad_name.replace("/", "\\")
+        else:
+            expect_name = bad_name
+
+        with pytest.raises(
+            ValueError,
+            match=re.escape(f"{expect_name} does not translate to a valid Python name"),
+        ):
+            format_python_module(bad_name)
+
+    with pytest.raises(
+        ValueError, match=re.escape("Only .py files may be run as Python modules.")
+    ):
+        format_python_module("package/module.pyx")
+
+    run(dpath("test_github_issue4003"))
 
 
 @skip_on_windows
@@ -3330,5 +3396,59 @@ def test_module_onerror():
     run(dpath("test_module_onerror"), shouldfail=True, check_results=True)
 
 
+def test_github_issue672():
+    run(dpath("test_github_issue672"))
+
+
 def test_github_issue2255():
     run(dpath("test_github_issue2255"), check_results=False)
+
+
+# On Windows this test output is emitted with
+# quotes around the output string what cause these tests to fail
+@skip_on_windows
+def test_github_issue_4039_runtime_cli():
+    """Test that runtime values from CLI are correctly interpreted as minutes, not seconds.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_cli"),
+        shellcmd="snakemake -c1 --set-resources 'echo_runtime:runtime=120'",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_mem_cli():
+    """Test that mem values from CLI are correctly interpreted as MB, not bytes.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_mem_cli"),
+        shellcmd="snakemake -c1 --set-resources 'echo_mem:mem=1024'",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_runtime_profile():
+    """Test that runtime values from a profile are correctly interpreted as minutes, not seconds.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_profile"),
+        shellcmd="snakemake -c1 --profile profile/",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_runtime_no_override():
+    """Test the correct processing of times with units or as int/str in the resources directive in the snakefile.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_no_override"),
+        shellcmd="snakemake -c1",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
