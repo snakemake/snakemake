@@ -3456,7 +3456,6 @@ But because it can make sense to use another MPI launch command in some circumst
     log:
         "logs/calc_pi.log",
     resources:
-    resources:
         tasks=10,
         mpi="mpirun",
     shell:
