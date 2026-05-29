@@ -2270,6 +2270,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 await self.update_needrun()
                 for job, posterior_checkpoint_deps in candidate_job_queue.items():
                     for checkpoint in posterior_checkpoint_deps:
+                        # the second clause ensures that we only process checkpoints
+                        # where the output is present (see test_checkpoint_missing_output)
                         if not self.needrun(checkpoint) and await is_output_present(
                             checkpoint
                         ):
