@@ -26,6 +26,7 @@ jobs:
         with:
           environments: "quality"
           cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
       - name: Run black
         run: pixi run -e quality format --check --diff .
@@ -84,6 +85,7 @@ jobs:
         with:
           environments: ${{ matrix.env }}
           cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
       # See https://github.com/apptainer/apptainer/pull/2262
       - name: Disable apparmor namespace restrictions for apptainer (os='Linux')

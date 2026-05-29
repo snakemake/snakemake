@@ -23,6 +23,7 @@ jobs:
         with:
           environments: "docs"
           cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
       
       - name: Build Docs
         run: |
@@ -45,6 +46,7 @@ jobs:
         with:
           environments: "docs"
           cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
       - name: Build API Docs
         run: |
