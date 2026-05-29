@@ -22,8 +22,7 @@ jobs:
         uses: prefix-dev/setup-pixi@v0.9.5
         with:
           environments: "docs"
-          cache: false # no pixi.lock
-          locked: false
+          cache: true
       
       - name: Build Docs
         run: |
@@ -45,8 +44,7 @@ jobs:
         uses: prefix-dev/setup-pixi@v0.9.5
         with:
           environments: "docs"
-          cache: false # no pixi.lock
-          locked: false
+          cache: true
 
       - name: Build API Docs
         run: |
