@@ -221,6 +221,7 @@ class BenchmarkRecord:
         return json.dumps(
             dict(zip(self.get_header(extended_fmt), self.get_benchmarks(extended_fmt))),
             sort_keys=True,
+            default=str,
         )
 
 

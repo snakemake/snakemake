@@ -1489,7 +1489,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
         aux_logs = aux_logs or []
         logger.error(
             f"Error in group {self.groupid}",
-            dict(
+            extra=dict(
                 event=LogEvent.GROUP_ERROR,
                 groupid=self.groupid,
                 aux_logs=aux_logs,
