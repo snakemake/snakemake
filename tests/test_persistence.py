@@ -1,6 +1,6 @@
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from snakemake.persistence.file import FilePersistence
 
@@ -49,3 +49,32 @@ rule foo:
 
             assert required_img_path.exists()
             assert not unrequired_img_path.exists()
+
+
+class TestDropIOCache:
+    def test_drop_iocache_missing_file_is_noop(self):
+        """Regression for race when parallel workers concurrently drop the iocache.
+
+        The previous check-then-remove pattern raised FileNotFoundError if a
+        sibling worker deleted the file between os.path.exists() and os.remove().
+        drop_iocache() must tolerate the file already being gone.
+        """
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            persistence = FilePersistence(
+                dag=MagicMock(), path=Path(tmpdirname) / ".snakemake"
+            )
+            # iocache file does not exist; drop_iocache must not raise.
+            assert not Path(persistence._iocache_filename).exists()
+            persistence.drop_iocache()
+
+    def test_drop_iocache_removes_existing_file(self):
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            persistence = FilePersistence(
+                dag=MagicMock(), path=Path(tmpdirname) / ".snakemake"
+            )
+            iocache_file = Path(persistence._iocache_filename)
+            iocache_file.write_bytes(b"placeholder")
+            assert iocache_file.exists()
+
+            persistence.drop_iocache()
+            assert not iocache_file.exists()

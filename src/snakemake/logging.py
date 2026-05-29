@@ -60,7 +60,7 @@ def show_logs(logs):
 
 
 def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
-    from snakemake.io.container import Namedlist
+    from snakemake.iocontainers import Namedlist
 
     omit_keys = omit_keys or []
     omit_values = omit_values or []
@@ -742,6 +742,15 @@ class LoggerManager:
         # and waits for the thread to exit.
         if self.queue_listener is not None and self.queue_listener._thread is not None:
             self.queue_listener.stop()
+
+        # Flush and close plugin handlers managed by the QueueListener
+        # (not attached to the logger).
+        for handler in self.plugin_handlers:
+            try:
+                handler.flush()
+            except Exception:
+                pass
+            handler.close()
 
         # Remove and close all handlers - this should mostly clean up the global logger instance.
         for handler in list(self.logger.handlers):

@@ -700,6 +700,41 @@ The function will return the checksum of ``file`` present in ``infile``.
         shell:
             "echo {params.checksum} > {output}"
 
+.. _snakefiles-semantic-helpers-prepend-param:
+
+The prepend_param function
+""""""""""""""""""""""""""
+
+The ``prepend_param`` function takes one or more input files
+and prepends a string to each.
+This allows easier use of tools that require
+adding a flag before each filename they are given.
+For example:
+
+.. code-block:: python
+
+    params:
+        data=prepend_param("--input", input.data)
+    input:
+        data=["a.txt", "b.txt", "c.txt"],
+    shell:
+        "somecommand {params.data}"
+
+will run the command ``somecommand --input a.txt --input b.txt --input c.txt``.
+
+If spaces are not required between the prefix and the filename,
+set the ``space`` keyword argument to ``False``:
+
+.. code-block:: python
+
+    params:
+        data=prepend_param("-i", input.data, space=False)
+    input:
+        data=["a.txt", "b.txt", "c.txt"],
+    shell:
+        "somecommand {params.data}"  # Runs somecommand -ia.txt -ib.txt -ic.txt
+
+
 .. _snakefiles-rule-item-access:
 
 Rule item access helpers
@@ -741,15 +776,27 @@ Sub-path access
 
 In some cases, it is useful to access a sub-path of an input or output file or directory.
 For this purpose, Snakemake provides the ``subpath`` function.
-It has the signature ``subpath(path_or_func, strip_suffix=None, basename=False, parent=False, ancestor=None)``.
+It has the signature ``subpath(path_or_func, strip_suffix=None, with_suffix=None, basename=False, parent=False, ancestor=None)``.
 If a path is given as first argument (of type ``str`` or ``pathlib.Path``), the function directly returns the sub-path of the given path.
 Thereby, the sub-path is determined depending on the other arguments.
 
-If a ``str`` is given to ``strip_suffix``, this suffix is stripped from the path before determining the sub-path (a ``ValueError`` error is thrown if the path does not have the suffix).
+If a ``str`` is given to ``strip_suffix``, this suffix is stripped from the path (a ``ValueError`` is thrown if the path does not have the suffix).
 
 .. code-block:: python
 
     subpath("results/test.txt", strip_suffix=".txt") # returns "results/test"
+
+If a ``str`` is given to ``with_suffix``, this suffix is added to the path.
+
+.. code-block:: python
+
+    subpath("results/test.txt", with_suffix=".gz") # returns "results/test.txt.gz"
+
+The two arguments ``strip_suffix`` and ``with_suffix`` can be used in combination, e.g.
+
+.. code-block:: python
+
+    subpath("results/test.txt", strip_suffix=".txt", with_suffix=".csv") # returns "results/test.csv"
 
 If ``basename`` is set to ``True``, the basename of the path is returned (e.g. ``test.txt`` in case the path is ``results/test.txt``).
 
@@ -796,6 +843,49 @@ When selecting input files, sometimes you might end up with an irregular list of
 .. code-block:: python
 
     flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
+
+
+.. _snakefiles-python-module:
+
+as_py_module
+""""""""""""
+When running a Python script under active development,
+which relies on relative imports
+you may want to have the script as an input file,
+but call it by its module name.
+The ``as_py_module`` function will
+translate a given script filename
+into a module name that may be used with ``python -m``.
+For example,
+
+.. code-block:: python
+
+    rule:
+        params:
+            module=as_py_module(),
+        input:
+            script="some_package/some_subpackage/some_module.py",
+        output:
+            "..."
+        shell:
+            "python -m {params.module} --output_file {output}"
+
+The helper by default looks at ``input.script``.
+Other values may be used by using
+:ref:`Snakemake's rule item access helpers <snakefiles-rule-item-access>`,
+e.g.
+
+.. code-block:: python
+
+    rule:
+        params:
+            module=as_py_module(input.my_script),
+        input:
+            my_script="some_package/some_subpackage/some_module.py",
+        output:
+            "..."
+        shell:
+            "python -m {params.module} --output_file {output}"
 
 
 .. _snakefiles-targets:
@@ -931,7 +1021,7 @@ Snakemake will always round the calculated value down (while enforcing a minimum
 Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards[, input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
 
 Both threads can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` see :ref:`all_options` and via workflow profiles, see :ref:`executing-profiles`.
-To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
+To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/profile.yaml`` relative to the Snakefile or the current working directory:
 
 .. code-block:: yaml
 
@@ -1046,7 +1136,7 @@ Of course, any other arithmetic could be performed in that function.
 
 Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`all_options`.
 Or they can be defined via workflow :ref:`executing-profiles`, with the variables listed above in the signature for usable callables.
-You could, for example, provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
+You could, for example, provide the following workflow profile in a file ``profiles/default/profile.yaml`` relative to the Snakefile or the current working directory:
 
 .. code-block:: yaml
 
@@ -1393,7 +1483,7 @@ Python
 The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
-It is also possible to explicitly import the snakemake object in the script like ``from snakemake.script import snakemake`` to enable code completion, linting and type checking your python code in IDEs.
+To enable code completion, linting and type checking your python code in IDEs, we recommend using the typing module's `TYPE_CHECKING <https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING>`__ variable and the typing stub provided in the ``snakemake.iocontainers`` module (see below for how).
 
 An example external Python script could look like this:
 
@@ -1411,7 +1501,7 @@ For type checking, it is possible to import the a correctly typed stub for the s
     from typing import TYPE_CHECKING
 
     if TYPE_CHECKING:
-        from snakemake.io.container import snakemake
+        from snakemake.iocontainers import snakemake
 
     def do_something(data_path, out_path, threads, myparam):
         # python code
@@ -2067,7 +2157,10 @@ Ignoring timestamps
 -------------------
 
 For determining whether output files have to be re-created, Snakemake checks whether the file modification date (i.e. the timestamp) of any input file of the same job is newer than the timestamp of the output file.
-This behavior can be overridden by marking an input file as ``ancient``.
+Please note, however, that for small input files (of by default up to 1 MB, controlled by ``--max-checksum-file-size``),
+Snakemake instead records and compares file checksums and only reruns the rule if the input file checksum has changed,
+even if the timestamp of the input file is newer than the output file(s).
+This overall behavior can be overridden by marking an input file as ``ancient``.
 The timestamp of such files is ignored and always assumed to be older than any of the output files:
 
 .. code-block:: python
@@ -3362,7 +3455,6 @@ But because it can make sense to use another MPI launch command in some circumst
         "pi.calc",
     log:
         "logs/calc_pi.log",
-    resources:
     resources:
         tasks=10,
         mpi="mpirun",

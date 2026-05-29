@@ -1373,8 +1373,13 @@ class Workflow(WorkflowExecutorInterface):
                     if shell_exec is not None:
                         logger.info(f"Using shell: {shell_exec}")
                     if not self.local_exec:
+                        nodes_str = (
+                            "unlimited"
+                            if self.nodes == sys.maxsize
+                            else str(self.nodes)
+                        )
                         logger.info(
-                            f"Provided remote nodes: {self.nodes}",
+                            f"Provided remote nodes: {nodes_str}",
                             extra=dict(event=LogEvent.RESOURCES_INFO, nodes=self.nodes),
                         )
                     else:
@@ -1672,7 +1677,7 @@ class Workflow(WorkflowExecutorInterface):
             sys.path.insert(0, snakefile_path_or_uri)
 
         exec(
-            compile(code, snakefile.get_path_or_uri(secret_free=False), "exec"),
+            compile(code, snakefile.get_path_or_uri(secret_free=True), "exec"),
             self.globals,
         )
 

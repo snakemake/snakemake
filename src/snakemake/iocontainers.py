@@ -3,7 +3,12 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-# Only modules from python standard library should be imported here!
+# Only modules from python standard library should be imported here (except for methods
+# that are only called by Snakemake itself)!
+# Further, the code here has to be kept compatible with Python 3.7.
+# THe reason is that objects from this module are unpickled in scripts that might still
+# run in older Python versions than Snakemake itself.
+
 import os
 import urllib.parse
 from pathlib import Path
@@ -76,6 +81,26 @@ class ReportHref:
         return f"../{self._id[:FILE_HASH_PREFIX_LEN]}/{path}{args}{anchor}"
 
 
+class AttributeGuard:
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, *args, **kwargs):
+        """
+        Generic function that throws an `AttributeError`.
+
+        Used as replacement for functions such as `index()` and `sort()`,
+        which may be overridden by workflows, to signal to a user that
+        these functions should not be used.
+        """
+        raise AttributeError(
+            f"{self.name}() cannot be used on snakemake input, output, resources etc.; "
+            "instead it is a valid name for items on those objects. If you want e.g. to "
+            "sort, convert to a plain list before or directly use sorted() on the "
+            "object."
+        )
+
+
 # TODO: replace this with Self when Python 3.11 is the minimum supported version for
 #   executing scripts
 _TNamedList = TypeVar("_TNamedList")
@@ -96,8 +121,6 @@ class Namedlist(list, Generic[_TNamedList]):
         strip_constraints=False,
         custom_map=None,
     ):
-        from snakemake.io import _IOFile, AttributeGuard, strip_wildcard_constraints
-
         """
         Create the object.
 
@@ -106,6 +129,8 @@ class Namedlist(list, Generic[_TNamedList]):
         fromdict -- a dict that shall be converted to a
             Namedlist (keys become names)
         """
+        from snakemake.io import _IOFile, strip_wildcard_constraints
+
         list.__init__(self)
         self._names: Dict[str, Tuple[int, int | None]] = dict()
 
@@ -243,8 +268,6 @@ class Namedlist(list, Generic[_TNamedList]):
         return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):
-        from snakemake.io import AttributeGuard
-
         value = self.__dict__.get(key, default_value)
         # handle internally guarded values like sort or index (see AttributeGuard)
         if isinstance(value, AttributeGuard):
@@ -571,4 +594,5 @@ class Snakemake:
         self._params_store._take_names(params._get_names())
 
 
+# stub for the snakemake object, can be imported for type checking in scripts and wrappers
 snakemake: Snakemake
