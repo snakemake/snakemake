@@ -16,7 +16,7 @@ __license__ = "MIT"
 
 from pathlib import Path
 from snakemake.io import Namedlist
-from attr import dataclass
+from attr import dataclass, field
 import os
 import sys
 import time
@@ -157,6 +157,7 @@ class Executor(RealExecutor):
                 self.workflow.deployment_settings.not_block_search_path_envvars
             ),
             software_env=job.software_env,
+            software_deployment_provider_settings=self.workflow.software_deployment_provider_settings,
         )
 
     def run_single_job(self, job: SingleJobExecutorInterface):
@@ -296,6 +297,7 @@ class RunArgs:
     not_block_search_path_envvars: bool
     wrapper_prefix: Optional[str]
     software_env: Optional[SoftwareEnvBase]
+    software_deployment_provider_settings: Dict = field(factory=dict)
     bench_iteration: int = 0
     bench_record: Optional[BenchmarkRecord] = None
 

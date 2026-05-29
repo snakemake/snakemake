@@ -53,7 +53,7 @@ def cwl(
             return {"path": os.path.abspath(f), "class": "File"}
         return [file_spec(f_) for f_ in f]
 
-    inputs = {name: file_spec(f) for name, f in input.items()} | {
+    inputs = {name: file_spec(f) for name, f in run_args.input.items()} | {
         name: value
         for name, value in chain(
             run_args.params.items(), run_args.output.items(), run_args.log.items()
@@ -99,9 +99,9 @@ def job_to_cwl(job, dag, outputs, inputs):
     if (
         job.software_env_spec is not None
         and isinstance(job.software_env_spec, CondaEnvSpec)
-        and job.job.software_env_spec.envfile is not None
+        and job.software_env_spec.envfile is not None
     ):
-        files.add(os.path.relpath(job.job.software_env_spec.envfile))
+        files.append(os.path.relpath(job.software_env_spec.envfile))
 
     out = [get_output_id(job, i) for i, _ in enumerate(job.output)]
 

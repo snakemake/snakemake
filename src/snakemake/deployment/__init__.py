@@ -30,6 +30,29 @@ from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 from snakemake_software_deployment_plugin_container import EnvSpec as ContainerEnvSpec
 from snakemake_software_deployment_plugin_envmodules import EnvSpec as EnvModuleEnvSpec
 
+try:
+    from snakemake_software_deployment_plugin_pixi import (
+        EnvSpec as PixiEnvSpec,
+    )
+
+    _HAS_PIXI_PLUGIN = True
+except ImportError:
+    _HAS_PIXI_PLUGIN = False
+
+
+def _is_pixi_pyproject(path: Path) -> bool:
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib
+
+    try:
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        return "tool" in data and "pixi" in data["tool"]
+    except Exception:
+        return False
+
 
 class SoftwareDeploymentManager:
     def __init__(self, workflow: "snakemake.workflow.Workflow"):
@@ -152,8 +175,10 @@ class SoftwareDeploymentManager:
                 env.managed_remove()
 
     def get_env(
-        self, env_spec: EnvSpecBase, mountpoints: List[Path] = []
+        self, env_spec: EnvSpecBase, mountpoints: Optional[List[Path]] = None
     ) -> Optional[EnvBase]:
+        if mountpoints is None:
+            mountpoints = []
         if env_spec in self.specs_to_envs:
             return self.specs_to_envs[env_spec]
 
@@ -318,10 +343,31 @@ class EnvSpecs:
             spec = self.legacy_conda_env
             if isinstance(spec, Path):
                 spec = str(spec)
-            if spec.endswith(".yaml") or spec.endswith(".yml"):
+            if spec.endswith("pixi.toml") or spec.endswith("pixi.lock"):
+                if _HAS_PIXI_PLUGIN:
+                    conda_spec = PixiEnvSpec(manifest=EnvSpecSourceFile(spec))
+                else:
+                    raise WorkflowError(
+                        f"Pointing to a pixi manifest ({spec}) via the conda "
+                        "directive, but the pixi software deployment plugin is "
+                        "not installed. Install "
+                        "snakemake-software-deployment-plugin-pixi."
+                    )
+            elif spec.endswith(".yaml") or spec.endswith(".yml"):
                 conda_spec = CondaEnvSpec(envfile=EnvSpecSourceFile(spec))
             elif is_local_file(spec) and os.path.isdir(spec):
-                conda_spec = CondaEnvSpec(directory=Path(spec))
+                # Check if directory contains a pixi manifest
+                dir_path = Path(spec)
+                has_pixi_manifest = (dir_path / "pixi.toml").exists() or (
+                    (dir_path / "pyproject.toml").exists()
+                    and _is_pixi_pyproject(dir_path / "pyproject.toml")
+                )
+                if has_pixi_manifest and _HAS_PIXI_PLUGIN:
+                    conda_spec = PixiEnvSpec(
+                        workspace=EnvSpecSourceFile(spec)
+                    )
+                else:
+                    conda_spec = CondaEnvSpec(directory=Path(spec))
             else:
                 conda_spec = CondaEnvSpec(name=spec)
             conda_spec.technical_init()
