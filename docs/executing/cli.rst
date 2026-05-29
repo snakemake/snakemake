@@ -121,9 +121,9 @@ Adapting runs of Snakemake workflows to a particular computing environment can e
 Therefore, since Snakemake 4.1, it is possible to set default options in configuration profile files in YAML format.
 Two kinds of profiles are supported:
 
-1. **:ref:`global-profiles`** are used to define default options for a particular system or compute environment, like the default cluster submission command, the default number of jobs to run in parallel or the default amount of memory to reserve for a job.
+1. :ref:`global-profiles` are used to define default options for a particular system or compute environment, like the default cluster submission command, the default number of jobs to run in parallel or the default amount of memory to reserve for a job.
    They should be applicable to all Snakemake workflows a user runs in that compute environment.
-2. A **:ref:`workflow-specific-profile`** profile (introduced in Snakemake 7.29) is used to define default and rule-specific :ref:`snakefiles-resources` specifications for a particular workflow instance. 
+2. A :ref:`workflow-specific-profile` profile (introduced in Snakemake 7.29) is used to define default and rule-specific :ref:`snakefiles-resources` specifications for a particular workflow instance.
 
 .. _profile-files:
 
