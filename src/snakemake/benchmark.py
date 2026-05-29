@@ -356,7 +356,6 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                     uss += meminfo.uss
                     pss += getattr(meminfo, "pss", 0)
 
-
                     if check_io:
                         try:
                             ioinfo = proc.io_counters()

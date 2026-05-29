@@ -35,9 +35,7 @@ def _make_mock_proc(has_pss):
     proc.memory_full_info.return_value = meminfo
     proc.cpu_percent.return_value = 50.0
     proc.cpu_times.return_value = MagicMock(user=1.0, system=0.5)
-    proc.io_counters.return_value = MagicMock(
-        read_bytes=1024, write_bytes=512
-    )
+    proc.io_counters.return_value = MagicMock(read_bytes=1024, write_bytes=512)
     proc.children.return_value = []
     return proc
 
