@@ -952,15 +952,30 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             return True
 
         def is_other_group_or_no_group(j):
+            """True if j is outside the given group or no group was specified."""
             return outside_of_group_job is None or j not in outside_of_group_job.jobs
 
         assert self.workflow.storage_settings is not None
 
         if self.workflow.remote_exec:
+            # remote_exec is true for the snakemake process that runs INSIDE a remote
+            # job. In this case, the DAG is built only for the output files of the
+            # remote job. Thus, the main process has to inform the remote snakemake run
+            # about temp files that are really not needed by any outside job.
+            # This happens via the --unneeded-temp-files CLI argument, which populates
+            # the workflow.storage_settings.unneeded_temp_files set. If the tempfile is
+            # in this set, it is not needed by any outside job. If it is not in this set,
+            # it is still needed by an outside job, so we have to assume that it is
+            # needed, even if it is not needed by any job in the tiny remote job DAG.
+            # The setting is passed to remote jobs via the snakemake-interface-executor-plugins
+            # package.
             is_unneeded_outside = (
                 tempfile in self.workflow.storage_settings.unneeded_temp_files
             )
         else:
+            # In case of the main process (remote_exec == False), there are no
+            # outside unknown jobs, so we can directly check whether any downstream job
+            # needs the tempfile.
             is_unneeded_outside = True
 
         is_derived_target = tempfile in self.derived_targetfiles
@@ -996,11 +1011,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         is_temp = lambda f: is_flagged(f, "temp")
 
         def unneeded_files():
+            """Yield temp files produced by dependencies that are no longer needed."""
             # temp input
             for job_, files in self._dependencies[job].items():
                 tempfiles = set(f for f in job_.output if is_temp(f))
                 yield from filterfalse(
-                    partial(self.is_needed_tempfile, job_), tempfiles & files
+                    partial(self.is_needed_tempfile, job_),
+                    {f for f in tempfiles if f in files},
                 )
 
             # temp output
@@ -2191,7 +2208,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 await asyncio.gather(*(out.exists() for out in job.output))
             )
 
-        job_queue = defaultdict(set)
+        job_queue: Dict[Job, Set[Job]] = defaultdict(set)
         if jobs is None:
             jobs = [
                 job
@@ -2253,7 +2270,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 await self.update_needrun()
                 for job, posterior_checkpoint_deps in candidate_job_queue.items():
                     for checkpoint in posterior_checkpoint_deps:
-                        if not self.needrun(checkpoint):
+                        # the second clause ensures that we only process checkpoints
+                        # where the output is present (see test_checkpoint_missing_output)
+                        if not self.needrun(checkpoint) and await is_output_present(
+                            checkpoint
+                        ):
                             job_queue[job].add(checkpoint)
             i += 1
 
