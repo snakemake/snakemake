@@ -2053,6 +2053,10 @@ def test_module_nested():
     )
 
 
+def test_module_reuse():
+    run(dpath("test_module_reuse"))
+
+
 def test_modules_all_exclude_1():
     # Fail due to conflicting rules
     run(dpath("test_modules_all_exclude"), shouldfail=True)
