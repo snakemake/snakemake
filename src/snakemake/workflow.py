@@ -137,7 +137,7 @@ from snakemake.resources import ResourceScopes, Resources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.caching.rule import CacheFlag, RuleCache
-from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
+from snakemake.modules import ModuleInfo, WorkflowModifier, get_rule_whitelist
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
     HostingProviderFile,
@@ -249,9 +249,7 @@ class Workflow(WorkflowExecutorInterface):
         _globals["access"] = AccessPatternFactory
 
         self.vanilla_globals = dict(_globals)
-        self.modifier_stack = [
-            WorkflowModifier(self, pathvars=Pathvars.with_defaults(), globals=_globals)
-        ]
+        self.modifier_stack = [WorkflowModifier.for_modifier0(self, globals=_globals)]
         self._output_file_cache = None
 
         config = copy.deepcopy(self.config_settings.overwrite_config)
@@ -1886,6 +1884,7 @@ class Workflow(WorkflowExecutorInterface):
             if group is not None:
                 rule.group = group
 
+            rule.ruleinfo = ruleinfo
             if not name:
                 # keep necessary info and leave quickly, as not in the workflow
                 return ruleinfo.func
@@ -2065,7 +2064,6 @@ class Workflow(WorkflowExecutorInterface):
             ruleinfo.func.__name__ = f"__{name}"
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
-            rule.ruleinfo = ruleinfo
             return ruleinfo.func
 
         return decorate
@@ -2359,7 +2357,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def module(
         self,
-        name=None,
+        name: str,
         snakefile=None,
         meta_wrapper=None,
         config=None,
@@ -2395,6 +2393,8 @@ class Workflow(WorkflowExecutorInterface):
         lineno=None,
     ):
         def decorate(maybe_ruleinfo):
+            rule_whitelist = get_rule_whitelist(rules)
+            ruleinfo = None if callable(maybe_ruleinfo) else maybe_ruleinfo
             if from_module is not None:
                 try:
                     modifier = name_modifier
@@ -2439,39 +2439,39 @@ class Workflow(WorkflowExecutorInterface):
                                 from_module
                             )
                         )
-                module.use_rules(
-                    rules,
-                    modifier,
-                    exclude_rules=exclude_rules,
-                    ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
-                    skip_global_report_caption=self.report_text
-                    is not None,  # do not overwrite existing report text via module
-                )
+                if rule_whitelist is None:
+                    module.use_rules(
+                        rule_whitelist,
+                        modifier,
+                        exclude_rules=exclude_rules,
+                        ruleinfo=ruleinfo,
+                    )
+                    return
+                rule_proxy = module._cached_namespace.rules._rules
+                check_overwrite = module.check_overwrite
             else:
                 # local inheritance
-                if not self.modifier.avail_rulename(name_modifier):
-                    # The parent use rule statement is specific for a different particular rule
-                    # hence this local use rule statement can be skipped.
-                    return
-
-                if len(rules) > 1:
+                # local use rule statement can be referred elsewhere.
+                # if not self.modifier.avail_rulename(name_modifier): return
+                if rule_whitelist is None or len(rule_whitelist) != 1:
                     raise WorkflowError(
                         "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."
                     )
-                orig_rule = self._rules[self.modifier.modify_rulename(rules[0])]
-                ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
-                with WorkflowModifier(
+                rule_proxy = self.modifier.rule_proxies._rules
+                check_overwrite = None
+            for rulename in rule_whitelist:
+                orig_rule: Rule = rule_proxy[rulename].rule
+                with WorkflowModifier.for_userule(
                     self,
-                    is_module=False,
-                    resolved_rulename_modifier=get_name_modifier_func(
-                        rules, name_modifier
-                    ),
-                    ruleinfo_overwrite=ruleinfo,
+                    rule_whitelist,
+                    name_modifier,
+                    orig_rule.module_globals,
+                    orig_rule.pathvars,
+                    ruleinfo,
+                    check_overwrite,
                 ):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
-                    import copy
-
-                    orig_ruleinfo = copy.copy(orig_rule.ruleinfo)
+                    orig_ruleinfo: RuleInfo = copy.copy(orig_rule.ruleinfo)  # type: ignore[union-attr]
                     self.rule(
                         name=name_modifier,
                         lineno=lineno,

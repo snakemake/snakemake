@@ -6,7 +6,7 @@ __license__ = "MIT"
 from pathlib import Path
 import types
 import re
-from typing import List, Optional, Set, Dict, Callable
+from typing import List, Optional, Set, Dict, Callable, TYPE_CHECKING
 from snakemake.common import Rules
 
 from snakemake.exceptions import CreateRuleException, WorkflowError
@@ -14,9 +14,35 @@ from snakemake.io.flags import DefaultFlags
 from snakemake.path_modifier import PathModifier
 from snakemake import wrapper
 from snakemake.pathvars import Pathvars
+from snakemake.logging import logger
+
+if TYPE_CHECKING:
+    from snakemake.workflow import Workflow
+    from snakemake.sourcecache import SourceFile
 
 
-def get_name_modifier_func(rules: List[str], name_modifier=None):
+def get_rule_whitelist(rules: list[str]):
+    if "*" in rules:
+        if len(rules) != 1:
+            raise SyntaxError(
+                "The 'use rule' statement uses a wildcard '*' but lists multiple additional rules."
+            )
+        return None
+    return set(rules)
+
+
+def get_name_modifier_func(rules: Optional[Set[str]], name_modifier=None):
+    """
+    Using for: use rule <rules> [from <module>] as <name_modifier>
+
+    | rules     | name_modifier | effect
+    | --------- | ------------- | ------
+    | ["*"]     | None          | rule1, rule2, ...
+    | ["*"]     | "A_*"         | A_rule1, A_rule2, ...
+    | ["rule1"] | None          | rule1
+    | ["rule1"] | "A_rule1"     | A_rule1
+    | ["rule1"] | "A_*"         | A_rule1
+    """
     if name_modifier is None:
         return None
     else:
@@ -24,7 +50,7 @@ def get_name_modifier_func(rules: List[str], name_modifier=None):
             return lambda rulename: name_modifier.replace("*", rulename)
         elif name_modifier is not None:
             # Disallow constant renaming for wildcard or multi-rule imports.
-            if "*" in rules or len(rules) > 1:
+            if not rules or len(rules) > 1:
                 raise SyntaxError(
                     "Multiple rules in 'use rule' statement but name modification ('as' statement) does not contain a wildcard '*'."
                 )
@@ -34,12 +60,12 @@ def get_name_modifier_func(rules: List[str], name_modifier=None):
 class ModuleInfo:
     def __init__(
         self,
-        workflow,
-        name,
+        workflow: "Workflow",
+        name: str,
         pathvars: Pathvars,
         snakefile=None,
         meta_wrapper=None,
-        config=None,
+        config: "Optional[Dict]" = None,
         skip_validation=False,
         replace_prefix=None,
         prefix=None,
@@ -52,8 +78,9 @@ class ModuleInfo:
         self.skip_validation = skip_validation
         self.parent_modifier: WorkflowModifier = self.workflow.modifier
         self.rule_proxies = Rules()
-        self.wildcards_modifier_overwrited: Dict[Callable | None, Set[str]] = {}
+        self.wildcards_modifier_overwrited: Dict[Optional[Callable], Set[str]] = {}
         self.pathvars = pathvars
+        self.loaded = False
 
         if prefix is not None:
             if isinstance(prefix, Path):
@@ -71,40 +98,50 @@ class ModuleInfo:
             replace_prefix, prefix, workflow, self.parent_modifier.path_modifier
         )
 
+    @property
+    def _cached_namespace(self) -> types.ModuleType:
+        if not self.loaded:
+            self.use_rules(set(), None)
+            self.loaded = True
+        return self.workflow.globals[self.name]
+
+    @_cached_namespace.setter
+    def _cached_namespace(self, value: types.ModuleType):
+        if self.loaded:
+            logger.warning(
+                f"Reloading module {self.name}. "
+                "This may cause problems if the module contains global variables"
+                " or rules that are modified by the module. "
+                "Consider using a unique name for each module import."
+            )
+        else:
+            self.loaded = True
+        self.workflow.globals[self.name] = value
+
     def use_rules(
         self,
-        rules: List[str],
-        name_modifier: str | None = None,
-        exclude_rules: List[str] | None = None,
+        rules: Optional[Set],
+        name_modifier: Optional[str] = None,
+        exclude_rules: Optional[List[str]] = None,
         ruleinfo=None,
-        skip_global_report_caption=False,
     ):
-        snakefile = self.get_snakefile()
-        rule_whitelist = self.get_rule_whitelist(rules)
-        rulename_modifier = get_name_modifier_func(rules, name_modifier)
-        modifier = WorkflowModifier(
-            self.workflow,
-            config=self.config,
-            base_snakefile=snakefile,
-            skip_validation=self.skip_validation,
-            skip_global_report_caption=skip_global_report_caption,
-            rule_exclude_list=exclude_rules,
-            rule_whitelist=rule_whitelist,
-            resolved_rulename_modifier=rulename_modifier,
-            local_rulename_modifier=rulename_modifier,
-            ruleinfo_overwrite=ruleinfo,
-            allow_rule_overwrite=self.check_overwrite(
-                rule_whitelist, rulename_modifier
-            ),
-            namespace=self.name,
-            path_modifier=self.path_modifier,
-            replace_wrapper_tag=self.get_wrapper_tag(),
-            rule_proxies=self.rule_proxies,
-            pathvars=self.pathvars,
+        """
+        rules:
+            - None -> load all rules,
+            - empyt set -> dry run (only load ruleinfo),
+            - set of rule names -> (impossible)
+        """
+        self._cached_namespace = types.ModuleType(self.name)
+        self._cached_namespace.__dict__.update(self.workflow.vanilla_globals)
+        modifier = WorkflowModifier.for_module(
+            self, rules, name_modifier, exclude_rules, ruleinfo
         )
         with modifier:
-            self.workflow.include(snakefile, overwrite_default_target=True)
-            self.parent_modifier.inherit_rule_proxies(modifier)
+            self.workflow.include(
+                modifier.base_snakefile, overwrite_default_target=True
+            )
+            if rules != set():
+                self.parent_modifier.inherit_rule_proxies(modifier)
 
     def get_snakefile(self):
         if self.meta_wrapper:
@@ -142,16 +179,7 @@ class ModuleInfo:
                 return tag
         return None
 
-    def get_rule_whitelist(self, rules):
-        if "*" in rules:
-            if len(rules) != 1:
-                raise SyntaxError(
-                    "The 'use rule' statement uses a wildcard '*' but lists multiple additional rules."
-                )
-            return None
-        return set(rules)
-
-    def check_overwrite(self, rule_whitelist: Set[str] | None, rulename_modifier):
+    def check_overwrite(self, rule_whitelist: Optional[Set[str]], rulename_modifier):
         """Check if the rule from module can be overwritten.
 
         > Specific rules may even be modified before using them,
@@ -183,95 +211,151 @@ class ModuleInfo:
 class WorkflowModifier:
     def __init__(
         self,
-        workflow,
-        is_module=True,
-        globals=None,
-        config=None,
-        base_snakefile=None,
-        skip_validation=False,
-        skip_global_report_caption=False,
+        workflow: "Workflow",
+        globals: Dict,
+        rule_proxies: Rules,
+        path_modifier: PathModifier,
+        pathvars: Pathvars,
+        *,
+        parent_modifier: "Optional[WorkflowModifier]" = None,
         resolved_rulename_modifier=None,
-        local_rulename_modifier=None,
-        rule_whitelist: Set[str] | None = None,
-        rule_exclude_list=None,
         ruleinfo_overwrite=None,
         allow_rule_overwrite=False,
-        path_modifier: PathModifier | None = None,
-        replace_wrapper_tag=None,
-        namespace=None,
-        rule_proxies: Rules | None = None,
-        pathvars: Optional[Pathvars] = None,
     ):
-        if is_module:
-            if globals is None:  # use rule from module with maybe_ruleinfo
-                globals = dict(workflow.vanilla_globals)
-                self.parent_modifier = workflow.modifier
-                allow_rule_overwrite |= self.parent_modifier.allow_rule_overwrite
-            else:
-                # the first module modifier of workflow
-                self.parent_modifier = None
-            self.globals = globals
-            self.globals["__name__"] = namespace
-            self.globals["rules"] = self.rule_proxies = rule_proxies or Rules()
-            self.globals["checkpoints"] = self.globals[
-                "checkpoints"
-            ].spawn_new_namespace()
-
-            self.globals["config"] = config if config is not None else {}
-            self.wildcard_constraints: dict = dict()
-
-            assert (
-                pathvars is not None
-            )  # pathvars is only None in case of is_module=False
-            self.pathvars = pathvars
-            self.rules: set = set()
-            self.modules: dict = dict()
-            self.path_modifier = path_modifier or PathModifier(None, None, workflow)
-        else:
-            # use rule (from same include) as ... with: init with values from parent modifier
-            self.parent_modifier = parent_modifier = workflow.modifier
-            self.globals = parent_modifier.globals
-            self.wildcard_constraints = parent_modifier.wildcard_constraints
-            self.pathvars = parent_modifier.pathvars
-            self.rules = parent_modifier.rules
-            self.rule_proxies = parent_modifier.rule_proxies
-            self.modules = parent_modifier.modules
-            self.path_modifier = parent_modifier.path_modifier
-            allow_rule_overwrite |= self.parent_modifier.allow_rule_overwrite
-
-        self.is_module = is_module
         self.workflow = workflow
-        self.base_snakefile = base_snakefile
+        self.globals = globals
+        self.pathvars = pathvars
+        self.rule_proxies = rule_proxies
+        self.path_modifier = path_modifier
+        self.parent_modifier = parent_modifier
 
-        self.skip_configfile = config is not None
         self.resolved_rulename_modifier = resolved_rulename_modifier
-        self.local_rulename_modifier = local_rulename_modifier
-        self.skip_validation = skip_validation
-        self.skip_global_report_caption = skip_global_report_caption
-        self.rule_whitelist = rule_whitelist
-        self.rule_exclude_list = rule_exclude_list
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
-        self.replace_wrapper_tag = replace_wrapper_tag
-        self.namespace = namespace
+
+        self.is_module = True
+        self.namespace = None
+        self.wildcard_constraints = dict()
+        self.rules = set()
+        self.modules: Dict[str, ModuleInfo] = dict()
+
+        self.base_snakefile: "Optional[SourceFile]" = None
+        self.skip_configfile = False
+        self.skip_validation = False
+        self.skip_global_report_caption = False
+        self.rule_whitelist: "Optional[Set[str]]" = None
+        self.rule_exclude_list: "Optional[List[str]]" = None
+        self.replace_wrapper_tag = None
+
         self.default_input_flags: DefaultFlags = DefaultFlags()
         self.default_output_flags: DefaultFlags = DefaultFlags()
+
+    def _post_set_globals(self, config=None):
+        self.globals["__name__"] = self.namespace
+        self.globals["config"] = {} if config is None else config
+        self.globals["rules"] = self.rule_proxies
+        self.globals["checkpoints"] = self.globals["checkpoints"].spawn_new_namespace()
+
+    @classmethod
+    def for_modifier0(cls, workflow, globals: Dict):
+        self = cls(
+            workflow,
+            globals=globals,
+            rule_proxies=Rules(),
+            path_modifier=PathModifier(None, None, workflow),
+            pathvars=Pathvars.with_defaults(),
+        )
+        self._post_set_globals()
+        return self
+
+    @classmethod
+    def for_module(
+        cls,
+        module_info: ModuleInfo,
+        rules: Optional[Set],
+        name_modifier: "Optional[str]" = None,
+        exclude_rules: "Optional[List[str]]" = None,
+        ruleinfo=None,
+    ):
+        rulename_modifier = get_name_modifier_func(rules, name_modifier)
+        workflow = module_info.workflow
+        self = cls(
+            workflow,
+            globals=module_info._cached_namespace.__dict__,
+            rule_proxies=module_info.rule_proxies,
+            path_modifier=module_info.path_modifier,
+            pathvars=module_info.pathvars,
+            parent_modifier=workflow.modifier,
+            resolved_rulename_modifier=rulename_modifier,
+            ruleinfo_overwrite=ruleinfo,
+            allow_rule_overwrite=module_info.check_overwrite(rules, rulename_modifier)
+            | workflow.modifier.allow_rule_overwrite,
+        )
+        self.namespace=module_info.name,
+        self._post_set_globals(module_info.config)
+        self.base_snakefile = module_info.get_snakefile()
+        self.skip_configfile = module_info.config is not None
+        self.skip_validation = module_info.skip_validation
+        self.skip_global_report_caption = (
+            workflow.report_text is not None
+        )  # do not overwrite existing report text via module
+        self.rule_whitelist = rules
+        self.rule_exclude_list = exclude_rules
+        self.replace_wrapper_tag = module_info.get_wrapper_tag()
+        return self
+
+    @classmethod
+    def for_userule(
+        cls,
+        workflow,
+        rules: Set[str],
+        name_modifier: "Optional[str]",
+        globals: Dict,
+        pathvars: Pathvars,
+        ruleinfo=None,
+        check_overwrite=None,
+    ):
+        rulename_modifier = get_name_modifier_func(rules, name_modifier)
+        parent_modifier = workflow.modifier
+        allow_overwrite = parent_modifier.allow_rule_overwrite
+        if check_overwrite is not None:
+            allow_overwrite |= check_overwrite(rules, rulename_modifier)
+        self = cls(
+            workflow,
+            globals=globals,
+            rule_proxies=parent_modifier.rule_proxies,
+            path_modifier=parent_modifier.path_modifier,
+            pathvars=pathvars,
+            parent_modifier=parent_modifier,
+            resolved_rulename_modifier=rulename_modifier,
+            ruleinfo_overwrite=ruleinfo,
+            allow_rule_overwrite=allow_overwrite,
+        )
+        self.is_module = False
+        self.wildcard_constraints = parent_modifier.wildcard_constraints
+        self.rules = parent_modifier.rules
+        self.modules = parent_modifier.modules
+        return self
 
     def is_main_snakefile(self):
         return self.base_snakefile is None
 
+    def _skip_rulename(self, rulename):
+        if self.rule_whitelist is not None and rulename not in self.rule_whitelist:
+            return True
+        if self.rule_exclude_list is not None and rulename in self.rule_exclude_list:
+            return True
+        return False
+
     def inherit_rule_proxies(self, child_modifier: "WorkflowModifier"):
         for name, rule in child_modifier.rule_proxies._rules.items():
-            if child_modifier.local_rulename_modifier is not None:
-                name = child_modifier.local_rulename_modifier(name)
-            self.rule_proxies._register_rule(name, rule)
+            if child_modifier._skip_rulename(name):
+                continue
+            name1 = child_modifier._modify_rulename(name)
+            self.rule_proxies._register_rule(name1, rule)
 
     def avail_rulename(self, rulename):
-        if (
-            self.rule_whitelist is not None and rulename not in self.rule_whitelist
-        ) or (
-            self.rule_exclude_list is not None and rulename in self.rule_exclude_list
-        ):
+        if self._skip_rulename(rulename):
             return None
         if self.parent_modifier is not None:
             name_modifier = self._modify_rulename(rulename)
@@ -305,7 +389,3 @@ class WorkflowModifier:
     def __exit__(self, type, value, traceback):
         # remove this modifier from the stack
         self.workflow.modifier_stack.pop()
-        if self.namespace:
-            namespace = types.ModuleType(self.namespace)
-            namespace.__dict__.update(self.globals)
-            self.workflow.globals[self.namespace] = namespace
