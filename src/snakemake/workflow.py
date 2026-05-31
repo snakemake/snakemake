@@ -137,7 +137,12 @@ from snakemake.resources import ResourceScopes, Resources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.caching.rule import CacheFlag, RuleCache
-from snakemake.modules import ModuleInfo, WorkflowModifier, get_rule_whitelist
+from snakemake.modules import (
+    ModuleInfo,
+    WorkflowModifier,
+    get_name_modifier_func,
+    get_rule_whitelist,
+)
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
     HostingProviderFile,
@@ -1847,7 +1852,13 @@ class Workflow(WorkflowExecutorInterface):
                 orig_name = ruleinfo.name
 
             name = self.modifier.avail_rulename(orig_name)
-            rule = Rule(name or orig_name, self, lineno=lineno, snakefile=snakefile)
+            rule = Rule(
+                name or orig_name,
+                self,
+                lineno=lineno,
+                snakefile=snakefile,
+                ruleinfo=ruleinfo,
+            )
             # Register rule under its original name.
             # Modules using this snakefile as a module, will register it additionally under their
             # requested name.
@@ -1889,7 +1900,6 @@ class Workflow(WorkflowExecutorInterface):
             if group is not None:
                 rule.group = group
 
-            rule.ruleinfo = ruleinfo
             if not name:
                 # keep necessary info and leave quickly, as not in the workflow
                 return ruleinfo.func
@@ -2463,24 +2473,23 @@ class Workflow(WorkflowExecutorInterface):
                         "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."
                     )
                 rule_proxy = self.modifier.rule_proxies._rules
-                check_overwrite = None
+                check_overwrite = lambda rule_whitelist, rulename_modifier: False
             for rulename in rule_whitelist:
                 orig_rule: Rule = rule_proxy[rulename].rule
+                rule_ = {rulename}
+                rulename_modifier = get_name_modifier_func(rule_, name_modifier)
                 with WorkflowModifier.for_userule(
                     self,
-                    rule_whitelist,
-                    name_modifier,
+                    rulename_modifier,
                     orig_rule.module_globals,
                     orig_rule.pathvars,
                     ruleinfo,
-                    check_overwrite,
+                    check_overwrite(rule_, rulename_modifier),
                 ):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
                     orig_ruleinfo: RuleInfo = copy.copy(orig_rule.ruleinfo)  # type: ignore[union-attr]
                     self.rule(
-                        name=name_modifier,
-                        lineno=lineno,
-                        snakefile=self.included_stack[-1],
+                        name=rulename, lineno=lineno, snakefile=self.included_stack[-1]
                     )(orig_ruleinfo)
 
         return decorate

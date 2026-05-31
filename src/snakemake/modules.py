@@ -291,7 +291,7 @@ class WorkflowModifier:
             allow_rule_overwrite=module_info.check_overwrite(rules, rulename_modifier)
             | workflow.modifier.allow_rule_overwrite,
         )
-        self.namespace=module_info.name,
+        self.namespace = module_info.name
         self._post_set_globals(module_info.config)
         self.base_snakefile = module_info.get_snakefile()
         self.skip_configfile = module_info.config is not None
@@ -308,18 +308,14 @@ class WorkflowModifier:
     def for_userule(
         cls,
         workflow,
-        rules: Set[str],
-        name_modifier: "Optional[str]",
+        rulename_modifier,
         globals: Dict,
         pathvars: Pathvars,
         ruleinfo=None,
-        check_overwrite=None,
+        allow_overwrite=False,
     ):
-        rulename_modifier = get_name_modifier_func(rules, name_modifier)
+        print("for_userule", flush=True)
         parent_modifier = workflow.modifier
-        allow_overwrite = parent_modifier.allow_rule_overwrite
-        if check_overwrite is not None:
-            allow_overwrite |= check_overwrite(rules, rulename_modifier)
         self = cls(
             workflow,
             globals=globals,
@@ -329,7 +325,7 @@ class WorkflowModifier:
             parent_modifier=parent_modifier,
             resolved_rulename_modifier=rulename_modifier,
             ruleinfo_overwrite=ruleinfo,
-            allow_rule_overwrite=allow_overwrite,
+            allow_rule_overwrite=allow_overwrite | parent_modifier.allow_rule_overwrite,
         )
         self.is_module = False
         self.wildcard_constraints = parent_modifier.wildcard_constraints

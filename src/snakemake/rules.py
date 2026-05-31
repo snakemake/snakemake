@@ -83,13 +83,16 @@ from snakemake_interface_common.rules import RuleInterface
 
 if typing.TYPE_CHECKING:
     from snakemake.workflow import Workflow
+    from snakemake.ruleinfo import RuleInfo
 
 
 _NOT_CACHED = object()
 
 
 class Rule(RuleInterface):
-    def __init__(self, name: str, workflow, lineno: int, snakefile: str):
+    def __init__(
+        self, name: str, workflow, lineno: int, snakefile: str, ruleinfo: "RuleInfo"
+    ):
         """
         Create a rule
 
@@ -139,14 +142,14 @@ class Rule(RuleInterface):
         self.output_modifier = None
         self.log_modifier = None
         self.benchmark_modifier = None
-        self.ruleinfo = None
+        self.ruleinfo = ruleinfo
         self.module_globals: typing.Dict
         self._pathvars: typing.Optional[Pathvars] = None
         self.cache: typing.Optional[RuleCache] = None
 
     @property
     def pathvars(self) -> Pathvars:
-        return self._pathvars
+        return self._pathvars  # type: ignore[reportReturnType]
 
     @pathvars.setter
     def pathvars(self, pathvars: Pathvars) -> None:
