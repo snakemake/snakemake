@@ -308,13 +308,11 @@ class WorkflowModifier:
     def for_userule(
         cls,
         workflow,
-        rulename_modifier,
         globals: Dict,
         pathvars: Pathvars,
         ruleinfo=None,
         allow_overwrite=False,
     ):
-        print("for_userule", flush=True)
         parent_modifier = workflow.modifier
         self = cls(
             workflow,
@@ -323,7 +321,7 @@ class WorkflowModifier:
             path_modifier=parent_modifier.path_modifier,
             pathvars=pathvars,
             parent_modifier=parent_modifier,
-            resolved_rulename_modifier=rulename_modifier,
+            resolved_rulename_modifier=None,
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=allow_overwrite | parent_modifier.allow_rule_overwrite,
         )

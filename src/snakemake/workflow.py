@@ -2477,10 +2477,12 @@ class Workflow(WorkflowExecutorInterface):
             for rulename in rule_whitelist:
                 orig_rule: Rule = rule_proxy[rulename].rule
                 rule_ = {rulename}
-                rulename_modifier = get_name_modifier_func(rule_, name_modifier)
+                # Resolve the final name before entering for_userule so that the proxy is registered under the new name.
+                # Passing None as the modifier to for_userule avoids double-application,
+                # avail_rulename will delegate to the parent chain which still carries the module-level prefixes.
+                rulename_modifier = get_name_modifier_func(rule_, name_modifier) or (lambda x: x)
                 with WorkflowModifier.for_userule(
                     self,
-                    rulename_modifier,
                     orig_rule.module_globals,
                     orig_rule.pathvars,
                     ruleinfo,
@@ -2489,7 +2491,7 @@ class Workflow(WorkflowExecutorInterface):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
                     orig_ruleinfo: RuleInfo = copy.copy(orig_rule.ruleinfo)  # type: ignore[union-attr]
                     self.rule(
-                        name=rulename, lineno=lineno, snakefile=self.included_stack[-1]
+                        name=rulename_modifier(rulename), lineno=lineno, snakefile=self.included_stack[-1]
                     )(orig_ruleinfo)
 
         return decorate
