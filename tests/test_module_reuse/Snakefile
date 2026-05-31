@@ -1,3 +1,17 @@
+rule all:
+    input:
+        "new_results/res.txt",
+    output:
+        "res.txt",
+    shell:
+        """
+        cp {input} {output}
+        echo "final" >> {output}
+        """
+
+
+
+
 module A:
     snakefile:
         "A.smk"
@@ -20,8 +34,3 @@ use rule t2 from A as A_t2 with:
     input:
         file=rules.A_t1.output.res,
         file2="c.txt",
-
-
-rule all:
-    input:
-        "res.txt",

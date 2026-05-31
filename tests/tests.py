@@ -2062,6 +2062,7 @@ def test_module_nested():
     )
 
 
+@skip_on_windows  # used `cat` and `echo`
 def test_module_reuse():
     run(dpath("test_module_reuse"))
 

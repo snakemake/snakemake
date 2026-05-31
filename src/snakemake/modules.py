@@ -188,7 +188,6 @@ class ModuleInfo:
         >  and will overwrite any unmodified import of the same rule.
         """
         if not rule_whitelist:  # all will be used, exclude rules do not matter
-            self.wildcards_modifier_overwrited[rulename_modifier] = set()
             return False
         matched = set()
         for rule in rule_whitelist:
@@ -279,6 +278,7 @@ class WorkflowModifier:
     ):
         rulename_modifier = get_name_modifier_func(rules, name_modifier)
         workflow = module_info.workflow
+        module_info.wildcards_modifier_overwrited[rulename_modifier] = set()
         self = cls(
             workflow,
             globals=module_info._cached_namespace.__dict__,
@@ -288,8 +288,7 @@ class WorkflowModifier:
             parent_modifier=workflow.modifier,
             resolved_rulename_modifier=rulename_modifier,
             ruleinfo_overwrite=ruleinfo,
-            allow_rule_overwrite=module_info.check_overwrite(rules, rulename_modifier)
-            | workflow.modifier.allow_rule_overwrite,
+            allow_rule_overwrite=workflow.modifier.allow_rule_overwrite,
         )
         self.namespace = module_info.name
         self._post_set_globals(module_info.config)

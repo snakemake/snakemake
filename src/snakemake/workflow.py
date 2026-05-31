@@ -2475,6 +2475,16 @@ class Workflow(WorkflowExecutorInterface):
                 rule_proxy = self.modifier.rule_proxies._rules
                 check_overwrite = lambda rule_whitelist, rulename_modifier: False
             for rulename in rule_whitelist:
+                if rulename not in rule_proxy:
+                    if from_module is not None:
+                        source = f"module '{module.name}'"
+                    elif self.modifier.globals["__name__"]:
+                        source = f"module '{self.modifier.globals['__name__']}'"
+                    else:
+                        source = "this workflow"
+                    raise WorkflowError(
+                        f"Rule '{rulename}' not found in '{source}' for 'use rule' statement."
+                    )
                 orig_rule: Rule = rule_proxy[rulename].rule
                 rule_ = {rulename}
                 # Resolve the final name before entering for_userule so that the proxy is registered under the new name.
@@ -2492,11 +2502,16 @@ class Workflow(WorkflowExecutorInterface):
                 ):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
                     orig_ruleinfo: RuleInfo = copy.copy(orig_rule.ruleinfo)  # type: ignore[union-attr]
+                    # current_basedir resolves relative to the module that defined the rule.
+                    # Required for conda env paths, scripts, etc.
+                    orig_snakefile = infer_source_file(orig_rule.snakefile)
+                    self.included_stack.append(orig_snakefile)
                     self.rule(
                         name=rulename_modifier(rulename),
                         lineno=lineno,
-                        snakefile=self.included_stack[-1],
+                        snakefile=orig_snakefile,
                     )(orig_ruleinfo)
+                    self.included_stack.pop()
 
         return decorate
 
