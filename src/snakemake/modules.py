@@ -48,7 +48,7 @@ def get_name_modifier_func(rules: Optional[Set[str]], name_modifier=None):
     else:
         if "*" in name_modifier:
             return lambda rulename: name_modifier.replace("*", rulename)
-        elif name_modifier is not None:
+        else:
             # Disallow constant renaming for wildcard or multi-rule imports.
             if not rules or len(rules) > 1:
                 raise SyntaxError(
@@ -127,9 +127,11 @@ class ModuleInfo:
     ):
         """
         rules:
-            - None -> load all rules,
-            - empyt set -> dry run (only load ruleinfo),
-            - set of rule names -> (impossible)
+        - None -> load all rules,
+        - empty set -> dry run (only load ruleinfo),
+        - set of rule names -> (impossible)
+            `Workflow.userule` performs rule-specific loading via `_cached_namespace`.
+            so `ModuleInfo.use_rules` only sees `None` or empty set
         """
         self._cached_namespace = types.ModuleType(self.name)
         self._cached_namespace.__dict__.update(self.workflow.vanilla_globals)
@@ -384,7 +386,7 @@ class WorkflowModifier:
         if not self.is_module and self.base_snakefile is not None:
             self.workflow.included_stack.append(self.base_snakefile)
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):
         # remove this modifier from the stack
         self.workflow.modifier_stack.pop()
         if not self.is_module and self.base_snakefile is not None:
