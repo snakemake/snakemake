@@ -1864,9 +1864,8 @@ class Workflow(WorkflowExecutorInterface):
             # requested name.
             self.modifier.rule_proxies._register_rule(orig_name, RuleProxy(rule))
 
-            if name:
-                # not apply modifier if rule is not registered
-                ruleinfo.apply_modifier(self.modifier, rulename=name)
+            # Always apply modifier to register ruleinfo
+            ruleinfo.apply_modifier(self.modifier, rulename=name)
 
             if ruleinfo.pathvars:
                 rule.pathvars = Pathvars.from_rule(ruleinfo.pathvars)
