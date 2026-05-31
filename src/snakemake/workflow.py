@@ -2485,6 +2485,9 @@ class Workflow(WorkflowExecutorInterface):
                         f"Rule '{rulename}' not found in '{source}' for 'use rule' statement."
                     )
                 orig_rule: Rule = rule_proxy[rulename].rule
+                # current_basedir resolves relative to the module that defined the rule.
+                # Required for conda env paths, scripts, etc.
+                orig_snakefile = infer_source_file(orig_rule.snakefile)
                 rule_ = {rulename}
                 # Resolve the final name before entering for_userule so that the proxy is registered under the new name.
                 # Passing None as the modifier to for_userule avoids double-application,
@@ -2494,23 +2497,19 @@ class Workflow(WorkflowExecutorInterface):
                 )
                 with WorkflowModifier.for_userule(
                     self,
-                    orig_rule.module_globals,
-                    orig_rule.pathvars,
-                    ruleinfo,
-                    check_overwrite(rule_, rulename_modifier),
+                    globals=orig_rule.module_globals,
+                    pathvars=orig_rule.pathvars,
+                    snakefile=orig_snakefile,
+                    ruleinfo=ruleinfo,
+                    allow_overwrite=check_overwrite(rule_, rulename_modifier),
                 ):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
                     orig_ruleinfo: RuleInfo = copy.copy(orig_rule.ruleinfo)  # type: ignore[union-attr]
-                    # current_basedir resolves relative to the module that defined the rule.
-                    # Required for conda env paths, scripts, etc.
-                    orig_snakefile = infer_source_file(orig_rule.snakefile)
-                    self.included_stack.append(orig_snakefile)
                     self.rule(
                         name=rulename_modifier(rulename),
                         lineno=lineno,
                         snakefile=orig_snakefile,
                     )(orig_ruleinfo)
-                    self.included_stack.pop()
 
         return decorate
 

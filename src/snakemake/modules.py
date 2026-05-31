@@ -216,6 +216,7 @@ class WorkflowModifier:
         path_modifier: PathModifier,
         pathvars: Pathvars,
         *,
+        base_snakefile: "Optional[SourceFile]" = None,
         parent_modifier: "Optional[WorkflowModifier]" = None,
         resolved_rulename_modifier=None,
         ruleinfo_overwrite=None,
@@ -226,8 +227,9 @@ class WorkflowModifier:
         self.pathvars = pathvars
         self.rule_proxies = rule_proxies
         self.path_modifier = path_modifier
-        self.parent_modifier = parent_modifier
 
+        self.base_snakefile = base_snakefile
+        self.parent_modifier = parent_modifier
         self.resolved_rulename_modifier = resolved_rulename_modifier
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
@@ -238,7 +240,6 @@ class WorkflowModifier:
         self.rules = set()
         self.modules: Dict[str, ModuleInfo] = dict()
 
-        self.base_snakefile: "Optional[SourceFile]" = None
         self.skip_configfile = False
         self.skip_validation = False
         self.skip_global_report_caption = False
@@ -285,6 +286,7 @@ class WorkflowModifier:
             rule_proxies=module_info.rule_proxies,
             path_modifier=module_info.path_modifier,
             pathvars=module_info.pathvars,
+            base_snakefile=module_info.get_snakefile(),
             parent_modifier=workflow.modifier,
             resolved_rulename_modifier=rulename_modifier,
             ruleinfo_overwrite=ruleinfo,
@@ -292,7 +294,6 @@ class WorkflowModifier:
         )
         self.namespace = module_info.name
         self._post_set_globals(module_info.config)
-        self.base_snakefile = module_info.get_snakefile()
         self.skip_configfile = module_info.config is not None
         self.skip_validation = module_info.skip_validation
         self.skip_global_report_caption = (
@@ -309,6 +310,7 @@ class WorkflowModifier:
         workflow,
         globals: Dict,
         pathvars: Pathvars,
+        snakefile,
         ruleinfo=None,
         allow_overwrite=False,
     ):
@@ -319,6 +321,7 @@ class WorkflowModifier:
             rule_proxies=parent_modifier.rule_proxies,
             path_modifier=parent_modifier.path_modifier,
             pathvars=pathvars,
+            base_snakefile=snakefile,
             parent_modifier=parent_modifier,
             resolved_rulename_modifier=None,
             ruleinfo_overwrite=ruleinfo,
@@ -378,7 +381,11 @@ class WorkflowModifier:
     def __enter__(self):
         # put this modifier on the stack, it becomes the currently valid modifier
         self.workflow.modifier_stack.append(self)
+        if not self.is_module and self.base_snakefile is not None:
+            self.workflow.included_stack.append(self.base_snakefile)
 
     def __exit__(self, type, value, traceback):
         # remove this modifier from the stack
         self.workflow.modifier_stack.pop()
+        if not self.is_module and self.base_snakefile is not None:
+            self.workflow.included_stack.pop()
