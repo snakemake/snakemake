@@ -7,13 +7,11 @@ a = {"b": "!!!!"}
 
 
 rule t1:
-    input:
-        file="../a.txt",
     output:
         res="tmp.txt",
     run:
-        b = a["b"]
-        shell("echo {b} >> {output.res}")
+        b = a
+        shell("echo {b} > {output.res}")
 
 
 rule t2:

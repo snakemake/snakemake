@@ -8,7 +8,7 @@ module A:
 use rule * from A as A_*
 
 
-A.a["b"] = "????"
+A.a = "????"
 
 
 use rule t1 from A as A_t1 with:
