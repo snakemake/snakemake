@@ -1900,6 +1900,9 @@ class Workflow(WorkflowExecutorInterface):
             if group is not None:
                 rule.group = group
 
+            # If requested, modify ruleinfo via the modifier.
+            rule.module_globals = self.modifier.globals
+
             if not name:
                 # keep necessary info and leave quickly, as not in the workflow
                 return ruleinfo.func
@@ -1908,9 +1911,6 @@ class Workflow(WorkflowExecutorInterface):
             rule.is_checkpoint = checkpoint
             if checkpoint:
                 self.globals["checkpoints"].register(rule, fallback_name=orig_name)
-
-            # If requested, modify ruleinfo via the modifier.
-            rule.module_globals = self.modifier.globals
 
             # initialize rule with default resources
             rule.resources = self.resource_settings._parsed_default_resources.copy()
@@ -2480,7 +2480,9 @@ class Workflow(WorkflowExecutorInterface):
                 # Resolve the final name before entering for_userule so that the proxy is registered under the new name.
                 # Passing None as the modifier to for_userule avoids double-application,
                 # avail_rulename will delegate to the parent chain which still carries the module-level prefixes.
-                rulename_modifier = get_name_modifier_func(rule_, name_modifier) or (lambda x: x)
+                rulename_modifier = get_name_modifier_func(rule_, name_modifier) or (
+                    lambda x: x
+                )
                 with WorkflowModifier.for_userule(
                     self,
                     orig_rule.module_globals,
@@ -2491,7 +2493,9 @@ class Workflow(WorkflowExecutorInterface):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
                     orig_ruleinfo: RuleInfo = copy.copy(orig_rule.ruleinfo)  # type: ignore[union-attr]
                     self.rule(
-                        name=rulename_modifier(rulename), lineno=lineno, snakefile=self.included_stack[-1]
+                        name=rulename_modifier(rulename),
+                        lineno=lineno,
+                        snakefile=self.included_stack[-1],
                     )(orig_ruleinfo)
 
         return decorate
