@@ -256,6 +256,7 @@ class TestEnvSpecComposition:
 
 from .common import run, dpath, conda
 from .conftest import skip_on_windows
+from .common import apptainer, connected
 
 
 @skip_on_windows
@@ -274,5 +275,31 @@ def test_software_directive_callable():
     """Test that the software: directive works with a callable envfile."""
     run(
         dpath("test_software_directive_callable"),
+        deployment_method={"conda"},
+    )
+
+
+@skip_on_windows
+@apptainer
+@connected
+@conda
+def test_software_directive_within():
+    """Test software: conda(envfile=..., within=container(...)) composition."""
+    run(
+        dpath("test_software_within"),
+        deployment_method={"conda", "container"},
+    )
+
+
+@skip_on_windows
+@conda
+def test_software_directive_fallback():
+    """Test software: envmodules(...) or conda(...) fallback chain.
+
+    With only --sdm conda (no envmodules plugin), Snakemake should
+    skip the envmodules spec and fall back to conda.
+    """
+    run(
+        dpath("test_software_fallback"),
         deployment_method={"conda"},
     )
