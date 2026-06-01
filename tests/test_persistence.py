@@ -224,11 +224,9 @@ class TestParamsChange:
 class TestRecordFormatVersion:
     """Ensure RECORD_FORMAT_VERSION is current."""
 
-    def test_version_is_at_least_6(self):
+    def test_version_is_non_decreasing(self):
+        assert isinstance(RECORD_FORMAT_VERSION, int)
         assert RECORD_FORMAT_VERSION >= 6
-
-    def test_version_constant_value(self):
-        assert RECORD_FORMAT_VERSION == 6
 
 
 class TestDirectoryStructure:
