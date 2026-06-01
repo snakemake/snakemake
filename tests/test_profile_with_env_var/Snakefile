@@ -1,0 +1,8 @@
+import os
+
+os.environ["SNAKEMAKE_PROFILE"] = "./env_var_profile.yaml"
+
+rule:
+    shell:
+        "python -m snakemake -s Snakefile.internal_env_var ; "
+        "python -m snakemake --profile . -s Snakefile.internal_env_var_overwrite"

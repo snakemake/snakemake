@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from contextlib import contextmanager
 import os
 from pathlib import Path
 import signal
@@ -32,6 +33,7 @@ from snakemake.report.html_reporter import ReportSettings
 from snakemake.resources import ResourceScopes, Resources
 from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
+from snakemake.settings.enums import PersistenceBackend
 
 #: File system path as string or pathlike object.
 StrPath: TypeAlias = str | os.PathLike
@@ -141,6 +143,52 @@ def get_expected_files(results_dir: StrPath) -> list[str]:
     ]
 
 
+@contextmanager
+def prepare_tmpdir(source_path, name_slug=None, dest_path=None, cleanup=None):
+    """
+    Prepare a temporary directory containing the files associated with this test case.
+    Returns a context manager to handle removal of the temporary directory.
+    Arguments:
+        source_path:
+            Directory holding the test case files
+        name_slug:
+            Slug to identify tests and disambiguate them from each other.
+            Defaults to the name of the directory at source_path.
+        dest_path:
+            Directory in which to place the copied files.
+            By default, the function creates a temporary directory.
+        cleanup:
+            Whether to remove the created directory.
+            Defaults to True if dest_path is None,
+            and False otherwise.
+    """
+    if not dest_path:
+        # If we need to further check results, we won't cleanup tmpdir
+        tmpdir = next(tempfile._get_candidate_names())
+
+        if name_slug is None:
+            name_slug = source_path.name
+        dest_path = os.path.join(
+            tempfile.gettempdir(), f"snakemake-{name_slug}-{tmpdir}"
+        )
+        os.mkdir(dest_path)
+        if cleanup is None:
+            cleanup = True
+
+    elif cleanup is None:
+        cleanup = False
+
+    # copy files
+    for f in os.listdir(source_path):
+        copy(os.path.join(source_path, f), dest_path)
+
+    try:
+        yield dest_path
+    finally:
+        if cleanup:
+            shutil.rmtree(dest_path, ignore_errors=ON_WINDOWS)
+
+
 def untar_folder(tar_file: StrPath, output_path: StrPath):
     if not os.path.isdir(output_path):
         with tarfile.open(tar_file) as tar:
@@ -228,6 +276,8 @@ def run(
     benchmark_extended=False,
     apptainer_args="",
     tmpdir: StrPath | None = None,
+    persistence_backend: PersistenceBackend = PersistenceBackend.FILE,
+    persistence_backend_db_url: str | None = None,
 ) -> Path | None:
     """
     Test the Snakefile in the path.
@@ -288,23 +338,19 @@ def run(
             results_dir.exists() and results_dir.is_dir()
         ), f"{results_dir} does not exist"
 
-    if tmpdir is None:
-        # If we need to further check results, we won't cleanup tmpdir
-        tmpdir = next(tempfile._get_candidate_names())
-        tmpdir = os.path.join(
-            tempfile.gettempdir(), f"snakemake-{original_dirname}-{tmpdir}"
-        )
-        os.mkdir(tmpdir)
-
-        # copy files
-        for f in os.listdir(path):
-            copy(os.path.join(path, f), tmpdir)
-
-    else:
-        tmpdir = os.fsdecode(tmpdir)
+    if not no_tmpdir:
+        if tmpdir is None:
+            with prepare_tmpdir(
+                path, name_slug=original_dirname, cleanup=False
+            ) as tmpdir:
+                # We will manually manage the directory
+                tmpdir_created = True
+        else:
+            tmpdir = os.fsdecode(tmpdir)
+            tmpdir_created = False
 
     # Snakefile is now in temporary directory
-    snakefile = join(tmpdir, snakefile)
+    snakefile = join(path if no_tmpdir else tmpdir, snakefile)
 
     snakemake_api = None
     exception = None
@@ -412,6 +458,8 @@ def run(
                     workflow_settings=settings.WorkflowSettings(
                         wrapper_prefix=wrapper_prefix,
                         cache=cache,
+                        persistence_backend=persistence_backend,
+                        persistence_backend_db_url=persistence_backend_db_url,
                     ),
                     deployment_settings=settings.DeploymentSettings(
                         conda_frontend=conda_frontend,
@@ -513,7 +561,7 @@ def run(
             if snakemake_api is not None and exception is not None:
                 snakemake_api.print_exception(exception)
             print("Workdir:")
-            print_tree(tmpdir, exclude=".snakemake/conda")
+            print_tree(tmpdir if tmpdir else str(path), exclude=".snakemake/conda")
             if exception is not None:
                 raise exception
         assert success, "expected successful execution"
@@ -525,14 +573,18 @@ def run(
             ):
                 # this means tests cannot use directories as output files
                 continue
-            targetfile = join(tmpdir, resultfile)
+            targetfile = join(tmpdir, resultfile) if tmpdir else str(path / resultfile)
             expectedfile = join(results_dir, resultfile)
 
             if ON_WINDOWS:
                 if os.path.exists(join(results_dir, resultfile + "_WIN")):
                     continue  # Skip test if a Windows specific file exists
                 if resultfile.endswith("_WIN"):
-                    targetfile = join(tmpdir, resultfile[:-4])
+                    targetfile = (
+                        join(tmpdir, resultfile[:-4])
+                        if tmpdir
+                        else str(path / resultfile)
+                    )
             elif resultfile.endswith("_WIN"):
                 # Skip win specific result files on Posix platforms
                 continue
@@ -555,6 +607,9 @@ def run(
                         content=content,
                         expected_content=expected_content,
                     )
+
+    if no_tmpdir:
+        return None
 
     if not cleanup:
         return Path(tmpdir)

@@ -239,16 +239,20 @@ class Executor(RealExecutor):
         """
         Either retrieve result from cache, or run job with given function.
         """
-        cache_mode = self.workflow.get_cache_mode(job.rule)
+        cache = (
+            self.workflow.workflow_settings.cache is not None
+            and job.rule.cache
+            and job.rule.cache.output
+        )
         try:
-            if cache_mode:
-                await self.workflow.output_file_cache.fetch(job, cache_mode)
+            if cache:
+                await job.rule.cache.fetch(job)
                 return
         except CacheMissException:
             pass
         run_func(*args)
-        if cache_mode:
-            await self.workflow.output_file_cache.store(job, cache_mode)
+        if cache:
+            await job.rule.cache.store(job)
 
     def shutdown(self):
         self.pool.shutdown()
@@ -260,21 +264,19 @@ class Executor(RealExecutor):
         try:
             ex = future.exception()
             if ex is not None:
-                print_exception(ex, self.workflow.linemaps)
-                self.report_job_error(job_info)
-            else:
-                self.report_job_success(job_info)
+                raise ex
+            self.report_job_success(job_info)
         except _ProcessPoolExceptions:
             self.handle_job_error(job_info.job)
             # no error callback, just silently ignore the interrupt as the main scheduler is also killed
-        except SpawnedJobError:
+        except SpawnedJobError as ex:
             # don't print error message, this is done by the spawned subprocess
+            # but log the inner exception at debug level for diagnostics
+            if ex.__context__ is not None:
+                log_verbose_traceback(ex.__context__)
             self.report_job_error(job_info)
         except Exception as ex:
-            if self.workflow.output_settings.verbose or (
-                not job_info.job.is_group() and not job_info.job.is_shell
-            ):
-                print_exception(ex, self.workflow.linemaps)
+            print_exception(ex, self.workflow.linemaps)
             self.report_job_error(job_info)
 
     @property

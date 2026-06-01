@@ -1,0 +1,7 @@
+rule a:
+    output:
+        touch("foo.txt"),
+    conda:
+        "test.yml"
+    script:
+        "test.py"

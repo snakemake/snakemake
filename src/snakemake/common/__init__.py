@@ -187,7 +187,7 @@ RULEFUNC_CONTEXT_MARKER = "__is_snakemake_rule_func"
 def get_appdirs():
     global APPDIRS
     if APPDIRS is None:
-        from appdirs import AppDirs
+        from platformdirs import AppDirs
 
         APPDIRS = AppDirs("snakemake", "snakemake")
     return APPDIRS
@@ -247,7 +247,7 @@ def num_if_possible(s):
 
 
 def get_last_stable_version():
-    return __version__.split("+")[0]
+    return __version__
 
 
 def get_container_image():

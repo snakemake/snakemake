@@ -60,7 +60,7 @@ def show_logs(logs):
 
 
 def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
-    from snakemake.io import Namedlist
+    from snakemake.iocontainers import Namedlist
 
     omit_keys = omit_keys or []
     omit_values = omit_values or []
@@ -216,7 +216,7 @@ class DefaultFormatter(logging.Formatter):
 
     def format_shellcmd(self, msg: dict[str, Any]):
         """Format for shellcmd log."""
-        return msg["msg"]
+        return msg.get("cmd") or msg.get("msg") or ""
 
     def format_dag_debug(self, msg: dict[str, Any]):
         """Format for dag_debug log."""
@@ -496,7 +496,11 @@ class ColorizingTextHandler(logging.StreamHandler):
                     # Reset flag if the message is not a 'job_info'
                     self.last_msg_was_job_info = False
                 formatted_message = self.format(record)
-                if formatted_message == "None" or formatted_message == "":
+                if (
+                    formatted_message is None
+                    or formatted_message == "None"
+                    or formatted_message == ""
+                ):
                     return
                 # Apply color to the formatted message
                 self.stream.write(self.decorate(record, formatted_message))
@@ -738,6 +742,15 @@ class LoggerManager:
         # and waits for the thread to exit.
         if self.queue_listener is not None and self.queue_listener._thread is not None:
             self.queue_listener.stop()
+
+        # Flush and close plugin handlers managed by the QueueListener
+        # (not attached to the logger).
+        for handler in self.plugin_handlers:
+            try:
+                handler.flush()
+            except Exception:
+                pass
+            handler.close()
 
         # Remove and close all handlers - this should mostly clean up the global logger instance.
         for handler in list(self.logger.handlers):

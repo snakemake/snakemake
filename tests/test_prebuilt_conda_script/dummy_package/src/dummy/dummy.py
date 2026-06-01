@@ -1,2 +1,2 @@
 def dummy():
-	pass
+    pass

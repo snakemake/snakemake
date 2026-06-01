@@ -1,0 +1,17 @@
+rule all:
+    input:
+        'done.txt',
+
+rule one:
+    output:
+        'one.txt'
+    shell:
+        "echo one > {output}"
+
+rule two:
+    input:
+        "one.txt"
+    output:
+        "done.txt"
+    shell:
+        "echo two > {output}"

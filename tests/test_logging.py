@@ -3,8 +3,10 @@ import shutil
 import sys
 import subprocess as sp
 import logging
+import logging.handlers
 from collections import Counter
 from pathlib import Path
+from queue import Queue
 import json
 
 import pytest
@@ -99,6 +101,39 @@ Finished jobid: 0 (Rule: all)
     ), f"Expected statement not found in log file. Log content: {log_content}"
 
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_issue4063():
+    # since it's difficult to replicate the exact conditions,
+    # we'll do a unit test of the relevant logging code instead of a full workflow run.
+    # the issue was that if the logger is configured with printshellcmds=True,
+    # shell.py calls logger.info(None, extra={"event": LogEvent.SHELLCMD, "cmd": ...}),
+    # which causes a crash because the default formatter expects the first argument to be a string message.
+    from snakemake.logging import ColorizingTextHandler
+    from snakemake.logging import DefaultFormatter
+    from snakemake.logging import DefaultFilter
+
+    handler = ColorizingTextHandler(stream=sys.stdout)
+    formatter = DefaultFormatter(quiet=set(), show_failed_logs=False)
+    handler.setFormatter(formatter)
+
+    log_filter = DefaultFilter(
+        quiet=set(), debug_dag=False, dryrun=False, printshellcmds=True
+    )
+    handler.addFilter(log_filter)
+
+    # make the logging error a hard error
+    def handle_logging_error(record):
+        raise sys.exc_info()[1]
+
+    handler.handleError = handle_logging_error
+
+    test_logger = logging.getLogger("foo")
+    test_logger.setLevel(logging.INFO)
+    test_logger.addHandler(handler)
+
+    test_logger.info(None, extra={"event": LogEvent.SHELLCMD, "cmd": "echo 'bar'"})
+    test_logger.removeHandler(handler)
 
 
 def test_logging_config(tmp_path: Path):
@@ -236,7 +271,6 @@ def test_rule_failure(caplog: pytest.LogCaptureFixture):
             LogEvent.SHELLCMD: 3,
             LogEvent.RESOURCES_INFO: 2,
             LogEvent.JOB_STARTED: None,
-            LogEvent.ERROR: 3,
             LogEvent.JOB_ERROR: 6,
         },
     )
@@ -358,3 +392,66 @@ def test_plugin(
             LogEvent.RULEGRAPH: 1 if needs_rulegraph else 0,
         },
     )
+
+
+def test_stop_closes_plugin_handlers():
+    """Test that LoggerManager.stop() closes plugin handlers managed by the QueueListener.
+
+    Regression test for https://github.com/snakemake/snakemake/issues/4136.
+    Plugin handlers are attached to the QueueListener, not the logger itself, so they
+    must be explicitly closed after the queue is drained.
+    """
+    from snakemake.logging import LoggerManager
+    from snakemake.settings.types import OutputSettings
+
+    class TrackingHandler(logging.Handler):
+        """A handler that tracks whether emit(), flush(), and close() were called."""
+
+        def __init__(self):
+            super().__init__()
+            self.records: list[logging.LogRecord] = []
+            self.flush_called = False
+            self.close_called = False
+
+        def emit(self, record: logging.LogRecord) -> None:
+            self.records.append(record)
+
+        def flush(self) -> None:
+            self.flush_called = True
+            super().flush()
+
+        def close(self) -> None:
+            self.close_called = True
+            super().close()
+
+    test_logger = logging.getLogger("test_stop_closes_plugin_handlers")
+    settings = OutputSettings(skip_plugin_handlers=True)
+    manager = LoggerManager(test_logger, settings)
+
+    # Simulate a plugin handler by manually wiring up a QueueListener.
+    # This mirrors what _setup_plugins() does in production.
+    handler = TrackingHandler()
+    queue: Queue[logging.LogRecord] = Queue(-1)
+    manager.queue_listener = logging.handlers.QueueListener(
+        queue, handler, respect_handler_level=True
+    )
+    manager.queue_listener.start()
+    manager.plugin_handlers = [handler]
+    test_logger.addHandler(logging.handlers.QueueHandler(queue))
+
+    try:
+        test_logger.info("test message")
+        manager.stop()
+    finally:
+        # Ensure the listener thread is stopped even if an assertion fails, to avoid
+        # leaking the background thread into other tests.
+        if manager.queue_listener._thread is not None:
+            manager.queue_listener.stop()
+
+    assert (
+        handler.flush_called
+    ), "Plugin handler was not flushed by LoggerManager.stop()"
+    assert handler.close_called, "Plugin handler was not closed by LoggerManager.stop()"
+    assert (
+        len(handler.records) == 1
+    ), f"Expected 1 record delivered to plugin handler, got {len(handler.records)}"

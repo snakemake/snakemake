@@ -2,8 +2,8 @@
 import sys
 import asyncio
 import json
-from argparse import ArgumentParser 
-import logging 
+from argparse import ArgumentParser
+import logging
 import sqlite3
 import string
 import random
@@ -11,9 +11,13 @@ import os
 import time
 import tempfile
 
-## Configuration 
-DATABASE_FILE = os.environ.get("DATABASE_FILE", os.path.join(tempfile.gettempdir(), "clustersubmit.sqlite3"))
-LOG_FILE = os.environ.get("LOG_FILE", os.path.join(tempfile.gettempdir(), "clustersubmit.log"))
+## Configuration
+DATABASE_FILE = os.environ.get(
+    "DATABASE_FILE", os.path.join(tempfile.gettempdir(), "clustersubmit.sqlite3")
+)
+LOG_FILE = os.environ.get(
+    "LOG_FILE", os.path.join(tempfile.gettempdir(), "clustersubmit.log")
+)
 TIMEOUT_SECONDS = float(os.environ.get("TIMEOUT_SECONDS", "300"))
 
 logging.basicConfig(
@@ -34,11 +38,13 @@ QUERY_RUNNABLE = """
 """
 
 
-## Arguments 
+## Arguments
 parser = ArgumentParser("Mock script representing cluster-managed DAG execution")
 parser.add_argument("-d", "--dependencies", help="Space-separated job ids", default="")
-parser.add_argument("--execute", action='store_true', help="Execute pending jobs and exits")
-parser.add_argument("jobscript", type=str, default=None, nargs='?')
+parser.add_argument(
+    "--execute", action="store_true", help="Execute pending jobs and exits"
+)
+parser.add_argument("jobscript", type=str, default=None, nargs="?")
 args = parser.parse_args()
 
 
@@ -51,7 +57,7 @@ with sqlite3.connect(DATABASE_FILE) as db:
             done INT, 
             created_at TEXT
         )
-    """) 
+    """)
 
     db.execute("""
         CREATE TABLE IF NOT EXISTS edges(
@@ -61,15 +67,15 @@ with sqlite3.connect(DATABASE_FILE) as db:
             FOREIGN KEY(parent) REFERENCES jobs(jobid),
             FOREIGN KEY(child) REFERENCES jobs(jobid)
         );
-    """) 
+    """)
 
     db.execute("DELETE FROM jobs WHERE created_at <= datetime('now', '-1 hour')")
     db.execute("DELETE FROM edges WHERE created_at <= datetime('now', '-1 hour')")
 
 
-
 ## execution
 db_lock = asyncio.Lock()
+
 
 async def execute_single_job(jobid, jobscript):
     """
@@ -81,11 +87,11 @@ async def execute_single_job(jobid, jobscript):
     if proc.returncode != 0:
         logging.error(f"Job {jobid} failed with return code {proc.returncode}")
         if stdout:
-            logging.debug(f"Job {jobid} stdout: {stdout.decode()[:500]}...") 
+            logging.debug(f"Job {jobid} stdout: {stdout.decode()[:500]}...")
         if stderr:
             logging.error(f"Job {jobid} stderr: {stderr.decode()[:500]}...")
 
-        raise RuntimeError(f"Faied executing job {jobid}")
+        raise RuntimeError(f"Failed executing job {jobid}")
 
     async with db_lock:
         with sqlite3.connect(DATABASE_FILE, timeout=30) as db:
@@ -104,14 +110,14 @@ async def execute_jobs(timeout_seconds=TIMEOUT_SECONDS):
             result = db.execute(QUERY_RUNNABLE).fetchall()
         if not result:
             logging.info("Could not find any other job to execute.")
-            return 
+            return
 
         async with asyncio.TaskGroup() as tg:
             for row in result:
                 tg.create_task(execute_single_job(*row))
 
     raise TimeoutError(f"Exceeded timeout of {timeout_seconds} seconds")
-                
+
 
 if args.execute:
     asyncio.run(execute_jobs())
@@ -120,23 +126,22 @@ elif args.jobscript is None:
     logging.critical(f"Failed to submit a job: missing jobscript. {sys.argv}")
     raise ValueError("Expected jobscript as the last positional argument")
 
-    
 
-## Submission 
+## Submission
 with open(args.jobscript) as input_file:
     jobscript_content = input_file.read()
 
 for line in jobscript_content.splitlines():
     if line.startswith("# properties = "):
-        properties = json.loads(line[len("# properties = "):])
+        properties = json.loads(line[len("# properties = ") :])
         break
 
 logging.info(f"---")
 logging.info(f"Processing rule: {properties['rule']}")
 
-job_name = ''.join(
-    [properties['rule'], '-', str(time.time()), '-'] + 
-    [random.choice(string.ascii_lowercase) for _ in range(5)]
+job_name = "".join(
+    [properties["rule"], "-", str(time.time()), "-"]
+    + [random.choice(string.ascii_lowercase) for _ in range(5)]
 )
 
 dependencies = args.dependencies.split()
@@ -145,17 +150,13 @@ logging.info(f"Submitting `{job_name}` which depends on {dependencies}")
 with sqlite3.connect(DATABASE_FILE) as db:
     db.execute(
         "INSERT INTO jobs(jobid, jobscript, done, created_at) VALUES (?, ?, 0, datetime('now'))",
-        (job_name, jobscript_content)
+        (job_name, jobscript_content),
     )
 
     for dependency in dependencies:
         db.execute(
             "INSERT INTO edges(parent, child, created_at) VALUES (?, ?, datetime('now'))",
-            (dependency, job_name)
+            (dependency, job_name),
         )
 
 print(job_name)
-
-
-
-

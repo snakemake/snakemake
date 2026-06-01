@@ -671,9 +671,9 @@ class DAGApi(ApiBase):
         self.workflow_api._workflow.generate_unit_tests(path=path)
 
     @_no_exec
-    def containerize(self):
+    def containerize(self, fmt="dockerfile"):
         """Containerize the workflow."""
-        self.workflow_api._workflow.containerize()
+        self.workflow_api._workflow.containerize(fmt=fmt)
 
     @_no_exec
     def create_report(

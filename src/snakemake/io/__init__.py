@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -21,6 +19,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from inspect import isfunction, ismethod
+from io import BytesIO
 from itertools import chain, product
 from pathlib import Path
 import pickle
@@ -29,15 +28,13 @@ from typing import (
     Callable,
     Dict,
     Iterable,
-    Generic,
-    Iterator,
     List,
     Optional,
     Set,
-    Tuple,
-    TypeVar,
     Union,
     TYPE_CHECKING,
+    Coroutine,
+    TypeVar,
 )
 
 from snakemake_interface_common.utils import lchmod
@@ -54,7 +51,6 @@ from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFou
 
 from snakemake.common import (
     ON_WINDOWS,
-    async_run as async_run_fallback,
     get_input_function_aux_params,
     is_namedtuple_instance,
 )
@@ -70,6 +66,7 @@ from snakemake.logging import logger
 if TYPE_CHECKING:
     import snakemake.rules
     import snakemake.jobs
+    from snakemake.iocontainers import Namedlist
 
 
 def lutime(file, times):
@@ -110,13 +107,14 @@ class IOCacheLoadError(Exception):
 class IOCache(IOCacheStorageInterface):
     # Increment this when the class interface changes to invalidated previously
     # persisted versions.
-    IOCACHE_VERSION = 0
+    IOCACHE_VERSION = 1
 
     def __init__(self, max_wait_time):
         self._mtime = dict()
         self._exists_local = ExistsDict(self)
         self._exists_in_storage = ExistsDict(self)
         self._size = dict()
+        self._checksum = dict()
         self.active = True
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
@@ -131,7 +129,13 @@ class IOCache(IOCacheStorageInterface):
             setattr(simplified, name, old_attr)
 
         # Copy dictionary attributes, casting keys to str.
-        for name in ["_mtime", "_exists_local", "_exists_in_storage", "_size"]:
+        for name in [
+            "_mtime",
+            "_exists_local",
+            "_exists_in_storage",
+            "_size",
+            "_checksum",
+        ]:
             old_dict = getattr(self, name)
             if isinstance(old_dict, ExistsDict):
                 setattr(simplified, name, ExistsDict(simplified))
@@ -177,6 +181,10 @@ class IOCache(IOCacheStorageInterface):
     @property
     def size(self):
         return self._size
+
+    @property
+    def checksum(self):
+        return self._checksum
 
     async def mtime_inventory(
         self, jobs: "collections.abc.Iterable[snakemake.jobs.Job]", n_workers=8
@@ -230,6 +238,7 @@ class IOCache(IOCacheStorageInterface):
     def clear(self):
         self.mtime.clear()
         self.size.clear()
+        self.checksum.clear()
         self.exists_local.clear()
         self.exists_in_storage.clear()
         self.remaining_wait_time = self.max_wait_time
@@ -244,7 +253,12 @@ def IOFile(file, rule: Union["snakemake.rules.Rule", None] = None):
     return f
 
 
-def iocache(func: Callable):
+T = TypeVar("T")
+
+
+def iocache(
+    func: Callable[..., Coroutine[Any, Any, T]],
+) -> Callable[..., Coroutine[Any, Any, T]]:
     @functools.wraps(func)
     async def wrapper(self: "_IOFile", *args, **kwargs):
         assert self.rule is not None
@@ -272,7 +286,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
         def __init__(self, file, rule: Optional["snakemake.rules.Rule"]):
             self._is_callable: bool
-            self._file: str | AnnotatedString | Callable[[Namedlist], str]
+            self._file: str | AnnotatedString | Callable[["Namedlist"], str]
             self.rule: snakemake.rules.Rule | None
             self._regex: re.Pattern | None
             self._wildcard_constraints: Dict[str, re.Pattern] | None
@@ -284,7 +298,7 @@ class _IOFile(str, AnnotatedStringInterface):
     ):
         is_annotated = isinstance(file, AnnotatedString)
         is_callable = (
-            isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
+            isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))  # type: ignore[union-attr]
         )
         if isinstance(file, Path):
             file = str(file.as_posix())
@@ -300,7 +314,7 @@ class _IOFile(str, AnnotatedStringInterface):
                     raise WorkflowError(e, rule=rule) from e
             if is_annotated:
                 modified = AnnotatedString(modified)
-                modified.flags = file.flags
+                modified.flags = file.flags  # type: ignore[attr-defined]
             file = modified
         obj = str.__new__(cls, file)
         obj._is_callable = is_callable
@@ -457,13 +471,14 @@ class _IOFile(str, AnnotatedStringInterface):
         return not self.storage_object.retrieve
 
     @property
-    def storage_object(self):
+    def storage_object(self) -> Any:
+        # assume that all .storage_object is called after .is_storage check, hence it is safe to silence type checker
         return get_flag_value(self._file, "storage_object")
 
     @property
-    def file(self):
+    def file(self) -> "str | AnnotatedString":
         if not self.is_callable():
-            return self._file
+            return self._file  # type: ignore[return-value]
         else:
             raise ValueError(
                 "This IOFile is specified as a function and may not be used directly."
@@ -628,13 +643,65 @@ class _IOFile(str, AnnotatedStringInterface):
             and not self.is_fifo()
         )
 
-    async def checksum(self, threshold, force=False, algorithm=hashlib.sha256):
-        """Return checksum if file is small enough, else None.
-        Returns None if file does not exist. If force is True,
-        omit eligibility check."""
+    async def checksum(
+        self,
+        threshold: Optional[int] = None,
+        force: bool = False,
+        algorithm: None | str | Callable = None,
+    ) -> Optional[str]:
+        """Return checksum as "{algorithm}:{hexdigest}", or None.
+
+        Returns None if the file does not exist or exceeds the size threshold.
+        If force is True, the eligibility check is skipped (threshold may be None).
+
+        If algorithm is None, local files are returned as sha256, storage files may
+        use different algorithms.
+
+        A cached result is returned if available and the algorithm matches."""
+
+        wrong_algorithm_or_empty = False
+
+        algorithm_name = (
+            None
+            if algorithm is None
+            else algorithm if isinstance(algorithm, str) else algorithm().name
+        )
+
+        def check_algorithm(checksum):
+            if algorithm_name is None:
+                return True
+            used_algorithm, _ = checksum.split(":", maxsplit=1)
+            return algorithm_name == used_algorithm
+
+        assert self.rule is not None
+        iocache = self.rule.workflow.iocache
+        if iocache.active:
+            if self in iocache.checksum:
+                checksum = iocache.checksum[self]
+                # make sure the algorithm matches
+                if checksum is not None and check_algorithm(checksum):
+                    return checksum
+
+                wrong_algorithm_or_empty = True
+
+        if algorithm is None:
+            algorithm = hashlib.sha256
+
+        if self.is_storage:
+            if not wrong_algorithm_or_empty:
+                checksum = await self.storage_object.managed_checksum()
+                if iocache.active:
+                    iocache.checksum[self] = checksum
+                if checksum is not None and check_algorithm(checksum):
+                    return checksum
+
+            if force:
+                await self.retrieve_from_storage()
+
+        assert force or threshold is not None
+
         if force or await self.is_checksum_eligible(threshold):
-            checksum = algorithm()
-            if await self.size() > 0:
+            if await self.size_local() > 0:
                 # only read if file is bigger than zero
                 # otherwise the checksum is the same as taking hexdigest
                 # from the empty sha256 as initialized above
@@ -642,16 +709,41 @@ class _IOFile(str, AnnotatedStringInterface):
                 # is a named pipe or a socket or a symlink to a device like
                 # /dev/random.
                 with open(self.file, "rb") as f:
-                    checksum.update(f.read())
-            return checksum.hexdigest()
+                    checksum = hashlib.file_digest(f, algorithm)
+            else:
+                checksum = hashlib.file_digest(BytesIO(b""), algorithm)
+
+            checksum = f"{checksum.name}:{checksum.hexdigest()}"
+            if iocache.active and not wrong_algorithm_or_empty:
+                # add the computed checksum, only if a different one was not already there
+                iocache.checksum[self] = checksum
+            return checksum
         else:
             return None
 
     async def is_same_checksum(
-        self, other_checksum, threshold, force=False, algorithm=hashlib.sha256
-    ):
+        self,
+        other_checksum: Optional[str],
+        threshold: Optional[int],
+        force: bool = False,
+    ) -> bool:
+        """Return True if this file's checksum matches other_checksum.
+
+        other_checksum must be in "{algorithm}:{hexdigest}" format.
+        Returns False if either checksum is unavailable (file too large or missing)."""
+
+        if other_checksum is None:
+            return False
+
+        pos = other_checksum.find(":")
+        if pos == -1:
+            raise ValueError(
+                "other_checksum needs to specify an algorithm prefix, like sha512:xxxx"
+            )
+        algorithm = other_checksum[:pos]
+
         checksum = await self.checksum(threshold, force=force, algorithm=algorithm)
-        if checksum is None or other_checksum is None:
+        if checksum is None:
             # if no checksum available or files too large, not the same
             return False
         else:
@@ -804,6 +896,8 @@ class _IOFile(str, AnnotatedStringInterface):
         f = self._file
 
         if self.is_callable():
+            from snakemake.iocontainers import Namedlist
+
             assert callable(self._file)
             f = self._file(Namedlist(fromdict=wildcards))
 
@@ -941,7 +1035,7 @@ def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
     return value.is_flagged(flag)
 
 
-def flag(value, flag_type, flag_value=True):
+def flag(value, flag_type, flag_value: Any = True):
     if isinstance(value, AnnotatedStringInterface):
         value.flags[flag_type] = flag_value
         return value
@@ -1022,8 +1116,6 @@ _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
 
-_CONSIDER_LOCAL_DEFAULT = frozenset()
-
 _illegal_wildcard_name_regex = re.compile(
     r"""
     \{(?!\{) # Start matching from the second {, otherwise \W will match the second {
@@ -1041,7 +1133,7 @@ async def wait_for_files(
     latency_wait=3,
     wait_for_local=False,
     ignore_pipe_or_service=False,
-    consider_local: Set[_IOFile] = _CONSIDER_LOCAL_DEFAULT,
+    consider_local: Set[_IOFile] = frozenset(),  # type: ignore[assignment]
 ):
     """Wait for given files to be present in the filesystem."""
 
@@ -1334,11 +1426,11 @@ def ensure(value, non_empty=False, sha256=None, md5=None, sha1=None):
     checksum = sha256 or md5 or sha1
     checksum_algorithm = None
     if sha256 is not None:
-        checksum_algorithm = hashlib.sha256
+        checksum_algorithm = "sha256"
     elif md5 is not None:
-        checksum_algorithm = hashlib.md5
+        checksum_algorithm = "md5"
     elif sha1 is not None:
-        checksum_algorithm = hashlib.sha1
+        checksum_algorithm = "sha1"
     return flag(
         value,
         "ensure",
@@ -1506,7 +1598,7 @@ def expand(*args, **wildcard_values):
                     or not isinstance(value, collections.abc.Iterable)
                     or is_namedtuple_instance(value)
                 ):
-                    values: collections.abc.Iterable[str] = [value]  # type: ignore[list-item]
+                    values: collections.abc.Iterable = [value]
                 else:
                     values = value
                 yield [(wildcard, value) for value in values]
@@ -1522,7 +1614,7 @@ def expand(*args, **wildcard_values):
         formatter = string.Formatter()
         try:
             return [
-                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))  # type: ignore[arg-type]
+                copy_flags(filepattern, formatter.vformat(filepattern, (), comb))
                 for filepattern in filepatterns
                 for comb in map(
                     format_dict, combinator(*flatten(wildcard_values[filepattern]))
@@ -1728,294 +1820,6 @@ def strip_wildcard_constraints(pattern):
         return "{{{}}}".format(match.group("name"))
 
     return WILDCARD_REGEX.sub(strip_constraint, pattern)
-
-
-class AttributeGuard:
-    def __init__(self, name):
-        self.name = name
-
-    def __call__(self, *args, **kwargs):
-        """
-        Generic function that throws an `AttributeError`.
-
-        Used as replacement for functions such as `index()` and `sort()`,
-        which may be overridden by workflows, to signal to a user that
-        these functions should not be used.
-        """
-        raise AttributeError(
-            f"{self.name}() cannot be used on snakemake input, output, resources etc.; "
-            "instead it is a valid name for items on those objects. If you want e.g. to "
-            "sort, convert to a plain list before or directly use sorted() on the "
-            "object."
-        )
-
-
-# TODO: replace this with Self when Python 3.11 is the minimum supported version for
-#   executing scripts
-_TNamedList = TypeVar("_TNamedList")
-"Type variable for self returning methods on Namedlist deriving classes"
-
-_TNamedKeys = TypeVar("_TNamedKeys")
-"Type variable for self returning methods on Namedlist deriving classes"
-
-
-class Namedlist(list, Generic[_TNamedKeys, _TNamedList]):
-    """
-    A list that additionally provides functions to name items. Further,
-    it is hashable, however, the hash does not consider the item names.
-    """
-
-    def __init__(
-        self,
-        toclone=None,
-        fromdict: Optional[Dict[_TNamedKeys, _TNamedList]] = None,
-        plainstr=False,
-        strip_constraints=False,
-        custom_map=None,
-    ):
-        """
-        Create the object.
-
-        Arguments
-        toclone  -- another Namedlist that shall be cloned
-        fromdict -- a dict that shall be converted to a
-            Namedlist (keys become names)
-        """
-        list.__init__(self)
-        self._names = dict()
-
-        # white-list of attribute names that can be overridden in _set_name
-        # default to throwing exception if called to prevent use as functions
-        self._allowed_overrides = ["index", "sort"]
-        for name in self._allowed_overrides:
-            setattr(self, name, AttributeGuard(name))
-
-        if toclone is not None:
-            if custom_map is not None:
-                self.extend(map(custom_map, toclone))
-            elif plainstr:
-                self.extend(
-                    # use original query if storage is not retrieved by snakemake
-                    (
-                        (
-                            str(x)
-                            if x.storage_object.retrieve
-                            else x.storage_object.query
-                        )
-                        if isinstance(x, _IOFile) and x.storage_object is not None
-                        else str(x)
-                    )
-                    for x in toclone
-                )
-            elif strip_constraints:
-                self.extend(map(strip_wildcard_constraints, toclone))
-            else:
-                self.extend(toclone)
-            if isinstance(toclone, Namedlist):
-                self._take_names(toclone._get_names())
-        if fromdict is not None:
-            for key, item in fromdict.items():
-                self.append(item)
-                self._add_name(key)
-
-    def _add_name(self, name):
-        """
-        Add a name to the last item.
-
-        Arguments
-        name -- a name
-        """
-        self._set_name(name, len(self) - 1)
-
-    def _set_name(self, name, index, end=None):
-        """
-        Set the name of an item.
-
-        Arguments
-        name  -- a name
-        index -- the item index
-        """
-        if name not in self._allowed_overrides and hasattr(self.__class__, name):
-            raise AttributeError(
-                "invalid name for input, output, wildcard, "
-                "params or log: {name} is reserved for internal use".format(name=name)
-            )
-
-        self._names[name] = (index, end)
-        if end is None:
-            setattr(self, name, self[index])
-        else:
-            setattr(self, name, Namedlist(toclone=self[index:end]))
-
-    def update(self, items: Dict):
-        for key, value in items.items():
-            if key in self._names:
-                raise ValueError(f"Key {key} already exists in Namedlist")
-            else:
-                self.append(value)
-                self._add_name(key)
-
-    def _get_names(self):
-        """
-        Get the defined names as (name, index) pairs.
-        """
-        for name, index in self._names.items():
-            yield name, index
-
-    def _take_names(self, names):
-        """
-        Take over the given names.
-
-        Arguments
-        names -- the given names as (name, index) pairs
-        """
-        for name, (i, j) in names:
-            self._set_name(name, i, end=j)
-
-    def items(self) -> Iterator[Tuple[_TNamedKeys, _TNamedList]]:
-        for name in self._names:
-            yield name, getattr(self, name)
-
-    def _allitems(self):
-        next = 0
-        for name, index in sorted(
-            self._names.items(),
-            key=lambda item: (
-                item[1][0],
-                item[1][0] + 1 if item[1][1] is None else item[1][1],
-            ),
-        ):
-            start, end = index
-            if end is None:
-                end = start + 1
-            if start > next:
-                for item in self[next:start]:
-                    yield None, item
-            yield name, getattr(self, name)
-            next = end
-        for item in self[next:]:
-            yield None, item
-
-    def _insert_items(self, index, items):
-        self[index : index + 1] = items
-        add = len(items) - 1
-        for name, (i, j) in self._names.items():
-            if i > index:
-                self._names[name] = (i + add, None if j is None else j + add)
-            elif i == index:
-                self._set_name(name, i, end=i + len(items))
-
-    def keys(self):
-        return self._names.keys()
-
-    def _plainstrings(self: _TNamedList) -> _TNamedList:
-        return self.__class__.__call__(toclone=self, plainstr=True)
-
-    def _stripped_constraints(self: _TNamedList) -> _TNamedList:
-        return self.__class__.__call__(toclone=self, strip_constraints=True)
-
-    def _clone(self: _TNamedList) -> _TNamedList:
-        return self.__class__.__call__(toclone=self)
-
-    def get(self, key, default_value=None):
-        value = self.__dict__.get(key, default_value)
-        # handle internally guarded values like sort or index (see AttributeGuard)
-        if isinstance(value, AttributeGuard):
-            return default_value
-        return value
-
-    def __getitem__(self, key):
-        if isinstance(key, str):
-            return getattr(self, key)
-        else:
-            return super().__getitem__(key)
-
-    def __hash__(self):
-        return hash(tuple(self))
-
-    def __str__(self):
-        return " ".join(map(str, self))
-
-
-class InputFiles(Namedlist):
-    def _predicated_size_files(self, predicate: Callable) -> List[int]:
-        async def sizes() -> List[int]:
-            async def get_size(f: _IOFile) -> Optional[int]:
-                if await predicate(f):
-                    return await f.size()
-                return None
-
-            sizes = await asyncio.gather(*map(get_size, self))
-            return [res for res in sizes if res is not None]
-
-        # the async_run method is expected to be provided through the eval context
-        return globals().get("async_run", async_run_fallback)(sizes())
-
-    @property
-    def size_files(self):
-        async def func_true(_) -> bool:
-            return True
-
-        return self._predicated_size_files(func_true)
-
-    @property
-    def size_tempfiles(self):
-        async def is_temp(iofile):
-            return is_flagged(iofile, "temp")
-
-        return self._predicated_size_files(is_temp)
-
-    @property
-    def size_files_kb(self):
-        return [f / 1024 for f in self.size_files]
-
-    @property
-    def size_files_mb(self):
-        return [f / 1024 for f in self.size_files_kb]
-
-    @property
-    def size_files_gb(self):
-        return [f / 1024 for f in self.size_files_mb]
-
-    @property
-    def size(self):
-        return sum(self.size_files)
-
-    @property
-    def size_kb(self):
-        return sum(self.size_files_kb)
-
-    @property
-    def size_mb(self):
-        return sum(self.size_files_mb)
-
-    @property
-    def temp_size_mb(self):
-        return sum(self.size_tempfiles)
-
-    @property
-    def size_gb(self):
-        return sum(self.size_files_gb)
-
-
-class OutputFiles(Namedlist):
-    pass
-
-
-class Wildcards(Namedlist):
-    pass
-
-
-class Params(Namedlist):
-    pass
-
-
-class ResourceList(Namedlist):
-    pass
-
-
-class Log(Namedlist):
-    pass
 
 
 ##### Wildcard pumping detection #####

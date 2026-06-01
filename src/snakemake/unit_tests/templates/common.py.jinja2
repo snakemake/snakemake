@@ -4,7 +4,7 @@ Common code for unit testing of rules generated with Snakemake {{ version }}.
 
 import os
 from pathlib import Path
-from subprocess import check_output
+from subprocess import check_output, PIPE
 
 
 cmp_cmds = {
@@ -27,21 +27,22 @@ class OutputChecker:
             for path, subdirs, files in os.walk(self.data_path)
             for f in files
         )
-        print(f"input: {input_files}")  # DEBUG
-        # Workdir files
+        print(f"input_files: {input_files}")  # DEBUG
+        # Workdir files (ignoring '.snakemake/' and 'config/' folders)
         workdir_files = set(
             (Path(path) / f).relative_to(self.workdir)
             for path, subdirs, files in os.walk(self.workdir)
             for f in files
+            if "/.snakemake" not in path and "/config" not in path
         )
-        print(f"workdir: {workdir_files}")  # DEBUG
+        print(f"workdir_files: {workdir_files}")  # DEBUG
         # Expected files
         expected_files = set(
             (Path(path) / f).relative_to(self.expected_path)
             for path, subdirs, files in os.walk(self.expected_path)
             for f in files
         )
-        print(f"expected: {expected_files}")  # DEBUG
+        print(f"expected_files: {expected_files}")  # DEBUG
 
         assert expected_files.issubset(
             workdir_files
@@ -54,5 +55,6 @@ class OutputChecker:
     def compare_files(self, expected_file, generated_file, cmp_cmds):
         check_output(
             cmp_cmds.get(expected_file.suffix, ["cmp"])
-            + [expected_file, generated_file]
+            + [expected_file, generated_file],
+            stderr=PIPE,
         )

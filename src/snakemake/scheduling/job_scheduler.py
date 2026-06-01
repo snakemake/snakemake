@@ -588,10 +588,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
             with self._lock:
                 if self.resources["_cores"] == 0:
                     return []
-                if len(jobs) == 1:
-                    return self.job_selector_greedy(
-                        jobs, self.remaining_jobs, self.resources, self._input_sizes
-                    )
                 selected = job_selector(
                     jobs, self.remaining_jobs, self.resources, self._input_sizes
                 )

@@ -63,7 +63,7 @@ class Image:
             try:
                 p = subprocess.check_output(
                     [
-                        "singularity",
+                        self.singularity.binary,
                         "pull",
                         "--name",
                         f"{self.hash}.simg",
@@ -132,15 +132,17 @@ def shellcmd(
     if bind is not None:
         for b in bind:
             if b.exists():
-                args += f" --bind {str(b)!r}"
+                args += f" --bind {str(b.absolute())!r}"
             else:
                 logger.debug(
                     "Skipping apptainer/singularity bind-mount for "
                     f"non-existent path {str(b)!r}"
                 )
 
-    cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
+    binary = Singularity().binary or "singularity"
+    cmd = "{} {} {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
+        binary,
         "--quiet --silent" if quiet else "",
         repr(os.getcwd()),
         args,
@@ -164,8 +166,11 @@ class Singularity:
             return inst
 
     def __init__(self):
-        self.checked = False
-        self._version = None
+        if not hasattr(self, "_initialized"):
+            self.checked = False
+            self._version = None
+            self.binary = None
+            self._initialized = True
 
     @property
     def version(self):
@@ -198,7 +203,11 @@ class Singularity:
         from packaging.version import parse
 
         if not self.checked:
-            if not shutil.which("singularity"):
+            if shutil.which("apptainer"):
+                self.binary = "apptainer"
+            elif shutil.which("singularity"):
+                self.binary = "singularity"
+            else:
                 raise WorkflowError(
                     "The apptainer or singularity command has to be "
                     "available in order to use apptainer/singularity "
@@ -206,7 +215,7 @@ class Singularity:
                 )
             try:
                 v = subprocess.check_output(
-                    ["singularity", "--version"], stderr=subprocess.PIPE
+                    [self.binary, "--version"], stderr=subprocess.PIPE
                 ).decode()
             except subprocess.CalledProcessError as e:
                 raise WorkflowError(

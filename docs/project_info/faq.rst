@@ -103,13 +103,15 @@ Sometimes, tools encode information in exit codes bigger than 1. Snakemake by de
 This way, Snakemake only treats exit code 1 as an error, and thinks that everything else is fine.
 Note that such tools are an excellent use case for contributing a `wrapper <https://snakemake-wrappers.readthedocs.io>`_.
 
+:oldanchor:`how-do-i-run-my-rule-on-all-files-of-a-certain-directory`
 
 .. _glob-wildcards:
 
-How do I run my rule on all files of a certain directory?
----------------------------------------------------------
+How can I run my rule on all files of a certain directory?
+----------------------------------------------------------
 
-In Snakemake, similar to GNU Make, the workflow is determined from the top, i.e. from the target files. Imagine you have a directory with files ``1.fastq, 2.fastq, 3.fastq, ...``, and you want to produce files ``1.bam, 2.bam, 3.bam, ...`` you should specify these as target files, using the ids ``1,2,3,...``. You could end up with at least two rules like this (or any number of intermediate steps):
+In Snakemake, similar to GNU Make, the workflow is determined from the top, i.e. from the target files.
+Imagine you have a directory with files ``1.fastq, 2.fastq, 3.fastq, ...``, and you want to produce files ``1.bam, 2.bam, 3.bam, ...`` you should specify these as target files, using the ids ``1,2,3,...``. You could end up with at least two rules like this (or any number of intermediate steps):
 
 
 .. code-block:: python
@@ -684,6 +686,12 @@ Snakemake wants to rerun a rule that has been already executed, what can I do?
 Snakemake tries to ensure consistency between input and output files.
 This is based on file modification dates (input files may not be newer than output files of the same job), as well as execution metadata like the used software stack (e.g. conda env or container image), the non-file parameters, the set of input files, and the code of the rule.
 If Snakemake wants to rerun a rule that has been already executed, it is because one of these criteria has changed and detailed information about the reasoning is given in the job description of Snakemake's output as well as in the final summary at the end of a dry-run.
+However, there is one exception:
+For files that are smaller than a certain size,
+by default 1 MB, as controlled by ``--max-checksum-file-size``,
+Snakemake calculates a checksum of the file content and only reruns the rule if that checksum has changed,
+even if the timestamp of the input file is newer than the output file(s).
+To rely on file modification dates exclusively, set ``--max-checksum-file-size=0``.
 
 If your job is triggered by newer input files, but you are sure that the input files did not change on a semantic level (i.e. won't yield different results), you can mark those input files as ancient via the command line, or (usually better) via a :ref:`workflow specific profile <profiles>`.
 Let us assume you have the following rule from which such an unwanted job is triggered:
@@ -705,7 +713,7 @@ In case of directly using the command line option, you can run Snakemake like th
     $ snakemake --consider-ancient myrule=foo
 
 This will mark the file ``inputfile.txt`` as ancient for the rule ``myrule``.
-If the setting shall be persisted for all upcoming runs of Snakemake, you can store it e.g. in the default workflow specific profile (``profiles/default/config.yaml``), which will be automatically considered when being present in a working directory:
+If the setting shall be persisted for all upcoming runs of Snakemake, you can store it e.g. in the default workflow specific profile (``profiles/default/profile.yaml``), which will be automatically considered when being present in a working directory:
 
 .. code-block:: python
 
