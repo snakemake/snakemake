@@ -1,6 +1,46 @@
 # Changelog
 
 
+## [9.21.1](https://github.com/snakemake/snakemake/compare/v9.21.0...v9.21.1) (2026-05-29)
+
+
+### Bug Fixes
+
+* add default json function to benchmarks ([#4128](https://github.com/snakemake/snakemake/issues/4128)) ([41fab22](https://github.com/snakemake/snakemake/commit/41fab225c7ddb367a072d286b3f02d9fadfeca9b))
+* do not rerun when checkpoint job missing but downstream file exists ([#4124](https://github.com/snakemake/snakemake/issues/4124)) ([a060b93](https://github.com/snakemake/snakemake/commit/a060b9302e042227fc47cd9d2ba5012587c6d555))
+* ensure that error logs contain all available details ([#4183](https://github.com/snakemake/snakemake/issues/4183)) ([74a86e9](https://github.com/snakemake/snakemake/commit/74a86e99d51fa78abe74a36fa98fbb8456eeb823))
+* handle missing pss attribute in benchmark on Windows ([#4160](https://github.com/snakemake/snakemake/issues/4160)) ([da52080](https://github.com/snakemake/snakemake/commit/da52080af1038352e5cbbbe289486371e2cf2c2c))
+* implement Resources.setdefault ([#3968](https://github.com/snakemake/snakemake/issues/3968)) ([2413e99](https://github.com/snakemake/snakemake/commit/2413e994721e98a096ea0ab4a35a6a11431acaf2))
+* reporting remote nodes number ([#3978](https://github.com/snakemake/snakemake/issues/3978)) ([8c534f0](https://github.com/snakemake/snakemake/commit/8c534f059e64ca4f95ad6264aeb11e0bbd6f299f))
+* resolve pathvars before constructing storage queries ([#3969](https://github.com/snakemake/snakemake/issues/3969)) ([bd15237](https://github.com/snakemake/snakemake/commit/bd15237d19e70028fe0e6bd892d5919e6e510681))
+* storage temp() file cleanup with RemoteProvider  ([#4189](https://github.com/snakemake/snakemake/issues/4189)) ([898bad1](https://github.com/snakemake/snakemake/commit/898bad11025c0f6fb247feb11e94c913155aa5c6))
+* tolerate FileNotFoundError in drop_iocache ([#4153](https://github.com/snakemake/snakemake/issues/4153)) ([#4191](https://github.com/snakemake/snakemake/issues/4191)) ([ce26b28](https://github.com/snakemake/snakemake/commit/ce26b28ee3b5cdc0e8f005a5928ee4191bb798eb))
+
+
+### Documentation
+
+* Added guide on debugging workflows ([#4029](https://github.com/snakemake/snakemake/issues/4029)) ([3d052ae](https://github.com/snakemake/snakemake/commit/3d052ae8799ece15f02c9b1413abfcde86ec21d4))
+* **cli:** Remove broken ref bold markup ([#4204](https://github.com/snakemake/snakemake/issues/4204)) ([1200ebf](https://github.com/snakemake/snakemake/commit/1200ebfb86105263414dfeb5ece740923c170ac8))
+* remove duplicated resources attribute in rules.rst ([#4190](https://github.com/snakemake/snakemake/issues/4190)) ([6c8ecdd](https://github.com/snakemake/snakemake/commit/6c8ecddab6cd694690c64fc1dbbd36f98bfedd83))
+* **rules:** Update script type hint advice ([#4193](https://github.com/snakemake/snakemake/issues/4193)) ([6108712](https://github.com/snakemake/snakemake/commit/6108712ee288c3fbf64bd05de1622d2a45538419))
+
+## [9.21.0](https://github.com/snakemake/snakemake/compare/v9.20.0...v9.21.0) (2026-05-13)
+
+
+### Features
+
+* add a function to help with prepending arguments to filenames; close [#672](https://github.com/snakemake/snakemake/issues/672) ([#4090](https://github.com/snakemake/snakemake/issues/4090)) ([14ccd1d](https://github.com/snakemake/snakemake/commit/14ccd1dc709a704cdda2f80f1ea3353985ac07d0))
+
+
+### Bug Fixes
+
+* close plugin handlers after draining QueueListener in LoggerManager.stop() ([#4137](https://github.com/snakemake/snakemake/issues/4137)) ([b2a9e69](https://github.com/snakemake/snakemake/commit/b2a9e697990714a6dbed6a50b2f5dccf7d1584ab))
+
+
+### Performance Improvements
+
+* adjust default sqlite PRAGMAs, auto detect network fstype ([#4152](https://github.com/snakemake/snakemake/issues/4152)) ([3df2d35](https://github.com/snakemake/snakemake/commit/3df2d355547d5f7eac72e295cf3fb83787741625))
+
 ## [9.20.0](https://github.com/snakemake/snakemake/compare/v9.19.0...v9.20.0) (2026-05-02)
 
 
