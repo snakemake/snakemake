@@ -1312,7 +1312,7 @@ def ancient(value):
 
 def optional(value):
     """
-    A flag for an input file that shall be considered optional; the file absense should not stop the whole workflow.
+    A flag for an input file that shall be considered optional; the file absence should not stop the whole workflow.
     """
     return flag(value, "optional")
 
