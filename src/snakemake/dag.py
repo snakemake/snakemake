@@ -2324,10 +2324,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             pass
 
         # turn off this job's Reason
-        if job.is_group():
-            jobs: list[Job] = job  # type: ignore[reportAssignmentType]
-        else:
-            jobs = [job]  # type: ignore[reportAssignmentType]
+        jobs: List[Job] = job if job.is_group() else [job]  # type: ignore[reportAssignmentType]
         for j in jobs:
             self.reason(j).mark_finished()
         self._finished.update(jobs)

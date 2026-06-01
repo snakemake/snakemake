@@ -1631,6 +1631,7 @@ def test_checkpoints():
     run(dpath("test_checkpoints"))
 
 
+@skip_on_windows
 def test_checkpoints_group():
     # this test suppresses test_checkpoints, as it is a more complex version.
     workdir = run(dpath("test_checkpoints_group"), cleanup=False, cluster="./qsub")
