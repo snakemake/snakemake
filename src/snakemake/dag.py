@@ -2293,10 +2293,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             next_new_jobs: Set[Job] = set()
             for job in new_jobs:
                 if job.incomplete_input_expand:
-                    prev_jobs = set(self.jobs)
                     newjob = await job.updated()
-                    await self.replace_job(job, newjob, recursive=False)
-                    next_new_jobs.update(self.jobs - prev_jobs)
+                    if not newjob.incomplete_input_expand:
+                        # Only replace when expansion succeeded (groupid was the blocker).
+                        # If still incomplete (checkpoint not yet ready), leave as-is.
+                        prev_jobs = set(self.jobs)
+                        await self.replace_job(job, newjob, recursive=False)
+                        next_new_jobs.update(self.jobs - prev_jobs)
             new_jobs = next_new_jobs
         await self.postprocess(update_incomplete_input_expand_jobs=False)
         self._derived_targetfiles = None
