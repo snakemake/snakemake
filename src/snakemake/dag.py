@@ -2230,6 +2230,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if updated:
             logger.info("Updating checkpoint dependencies.")
 
+        original_jobs = set(self.jobs)   # snapshot BEFORE while loop
         i = 1
         while job_queue:
             logger.debug(f"Checkpoint dependency update round {i}")
@@ -2281,11 +2282,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if updated:
             self.set_until_jobs()
             self.delete_omitfrom_jobs()
-            await self.postprocess_after_update()
+            await self.postprocess_after_update(self.jobs - original_jobs)
 
         return updated
 
-    async def postprocess_after_update(self):
+    async def postprocess_after_update(self, new_jobs: Optional[Set[Job]] = None):
+        while new_jobs:
+            await self.update_needrun()
+            self.update_groups()
+            next_new_jobs: Set[Job] = set()
+            for job in new_jobs:
+                if job.incomplete_input_expand:
+                    prev_jobs = set(self.jobs)
+                    newjob = await job.updated()
+                    await self.replace_job(job, newjob, recursive=False)
+                    next_new_jobs.update(self.jobs - prev_jobs)
+            new_jobs = next_new_jobs
         await self.postprocess(update_incomplete_input_expand_jobs=False)
         self._derived_targetfiles = None
 
@@ -2299,29 +2311,23 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 # already gone
                 pass
 
-    async def finish(self, job, update_checkpoint_dependencies=True):
+    async def finish(self, job: Union[Job, GroupJob], update_checkpoint_dependencies=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
 
         self._running.remove(job)
-
-        # turn off this job's Reason
-        if job.is_group():
-            for j in job:
-                self.reason(j).mark_finished()
-        else:
-            self.reason(job).mark_finished()
-
         try:
             self._ready_jobs.remove(job)
         except KeyError:
             pass
 
+        # turn off this job's Reason
         if job.is_group():
-            jobs = job
+            jobs: list[Job] = job  # type: ignore[reportAssignmentType]
         else:
-            jobs = [job]
-
+            jobs = [job]  # type: ignore[reportAssignmentType]
+        for j in jobs:
+            self.reason(j).mark_finished()
         self._finished.update(jobs)
         self.checkpoint_jobs.difference_update(job for job in jobs if job.is_checkpoint)
 
