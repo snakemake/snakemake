@@ -855,7 +855,7 @@ In some case you might need to choose a valid file/folder from a given list at e
 - ``execute/open``: whether the the input paths have to be executable/openable (``bool``)
 - ``creatable``: whether the the input paths have to be creatable (``bool``)
 
-Conditions are `booleans` and they all have to be met; if you want to ignore one condition set it to ``None``. For example, choosing a file where the user has read/write access (but it does not matter if the user can execut or create it):
+Conditions are `booleans` and they all have to be met; if you want to ignore one condition set it to ``None``. For example, choosing a file where the user has read/write access (but it does not matter if the user can execute or create it):
 
 .. code-block:: python
 
