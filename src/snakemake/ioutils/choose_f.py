@@ -38,14 +38,14 @@ def choose_folder(
 
 
 def choose_tmp(
-    folder_list: List[Union[Path, AnnotatedString, str]],
+    tmp_list: List[Union[Path, AnnotatedString, str]],
     read: bool = True,
     write: bool = True,
     open: bool = True,
     creatable: bool = True,
 ) -> Union[Path, str]:
     tmpdir = _choose_f(
-        folder_list,
+        tmp_list,
         read=read,
         write=write,
         execute=open,
