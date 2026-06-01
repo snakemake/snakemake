@@ -802,26 +802,22 @@ class Resource:
         # Add ioutils functions
         import snakemake.ioutils
 
-        ioutils = {}
-        snakemake.ioutils.register_in_globals(ioutils)
+        namespace = {
+            "wildcards": wildcards,
+            "input": input,
+            "attempt": attempt,
+            "system_tmpdir": tempfile.gettempdir(),
+            "shutil": shutil,
+            "async_run": async_run,
+            **({"threads": threads} if threads is not None else {}),
+        }
+        snakemake.ioutils.register_in_globals(namespace)
         # Try to evaluate resource expression.
         # Note that `args` take precedence, i.e. if a name is present on
         # both (e.g. `input`), the one in `args` is used.
         # Eval expression
         try:
-            value = eval(
-                val,
-                ioutils,
-                {
-                    "wildcards": wildcards,
-                    "input": input,
-                    "attempt": attempt,
-                    "system_tmpdir": tempfile.gettempdir(),
-                    "shutil": shutil,
-                    "async_run": async_run,
-                    **({"threads": threads} if threads is not None else {}),
-                },
-            )
+            value = eval(val, namespace)
         # Triggers for string arguments like n1-standard-4
         except (NameError, SyntaxError):
             return val
