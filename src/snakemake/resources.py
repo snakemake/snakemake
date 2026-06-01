@@ -9,6 +9,7 @@ import re
 import shutil
 import tempfile
 import math
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -492,11 +493,13 @@ class Resource:
 
     def __init__(self, name: str, value: ValidResource, raw: int | str | None = None):
         if not (
-            isinstance(value, (str, int, float)) or callable(value) or value is None
+            isinstance(value, (str, int, float, Path))
+            or callable(value)
+            or value is None
         ):
             msg = (
                 f"Resource '{name}' assigned invalid value {value!r}. Must be str, "
-                "int, float, or callable (function)."
+                "int, float, Path, or callable (function)."
             )
             raise ResourceValidationError(msg)
         if isinstance(value, float):
@@ -751,6 +754,7 @@ class Resource:
             return cls.cli_evaluator(
                 name,
                 value,
+                wildcards=wildcards,
                 input=input,
                 attempt=attempt,
                 async_run=async_run,
@@ -765,7 +769,12 @@ class Resource:
             async_run: Callable[[Awaitable[_T]], _T],
         ):
             return cls.cli_evaluator(
-                name, value, input=input, attempt=attempt, async_run=async_run
+                name,
+                value,
+                wildcards=wildcards,
+                input=input,
+                attempt=attempt,
+                async_run=async_run,
             )
 
         if with_threads_arg:
@@ -778,6 +787,7 @@ class Resource:
         name: str,
         val: str,
         *,
+        wildcards: Wildcards,
         input: Any,
         attempt: int,
         threads: int | None = None,
@@ -789,18 +799,28 @@ class Resource:
         """
         # Expand env variables
         val = os.path.expanduser(os.path.expandvars(val))
+        # Add ioutils functions
+        import snakemake.ioutils
+
+        namespace = {}
+        snakemake.ioutils.register_in_globals(namespace)
+        namespace.update(
+            {
+                "wildcards": wildcards,
+                "input": input,
+                "attempt": attempt,
+                "system_tmpdir": tempfile.gettempdir(),
+                "shutil": shutil,
+                "async_run": async_run,
+                **({"threads": threads} if threads is not None else {}),
+            }
+        )
+        # Try to evaluate resource expression.
+        # Note that `args` take precedence, i.e. if a name is present on
+        # both (e.g. `input`), the one in `args` is used.
+        # Eval expression
         try:
-            value = eval(
-                val,
-                {
-                    "input": input,
-                    "attempt": attempt,
-                    "system_tmpdir": tempfile.gettempdir(),
-                    "shutil": shutil,
-                    "async_run": async_run,
-                    **({"threads": threads} if threads is not None else {}),
-                },
-            )
+            value = eval(val, namespace)
         # Triggers for string arguments like n1-standard-4
         except (NameError, SyntaxError):
             return val
