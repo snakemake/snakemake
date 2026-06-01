@@ -847,38 +847,36 @@ When selecting input files, sometimes you might end up with an irregular list of
 
 The choose_f(ile/older) functions
 """""""""""""""""""""""""""""""""
-In some case you might need to choose a valid file/folder from a given list at execution time. For that you can use the ``choose_f`` family of functions for files:
+In some case you might need to choose a valid file/folder from a given list at execution time. For that you can use the ``choose_f`` family of functions. Their arguments are very similar:
+
+- ``(file/folder/tmp)_list``: list of paths (files or folders) to choose from (``List[Union[Path, AnnotatedString, str]]``)
+- ``read``: whether the the input paths have to be readable (``bool``)
+- ``write``: whether the the input paths have to be writeable (``bool``)
+- ``execute/open``: whether the the input paths have to be executable/openable (``bool``)
+- ``creatable``: whether the the input paths have to be creatable (``bool``)
+
+Conditions are `booleans` and they all have to be met; if you want to ignore one condition set it to ``None``. For example, choosing a file where the user has read/write access (but it does not matter if the user can execut or create it):
 
 .. code-block:: python
 
-    assert choose_file(["foo", "~/.bashrc"]) == Path("~/.bashrc").expanduser()
+    choose_file(["foo", "~/.bashrc"], read=True, write=True, execute=None, creatable=None)  # "~/.bashrc"
 
-folders:
+The same logic applies for choosing a folder where the user has read/write/open access (but it does not matter if the user can create it):
 
 .. code-block:: python
 
-    assert choose_folder(["foo/bar", "/proc", "~"]) == Path("~").expanduser()
+    choose_folder(["foo/bar", "/proc", "~"], read=True, write=True, open=True, creatable=None)  # "~"
 
 :ref:`temp folders <snakefiles-dynamic-resources_tmpdir>`:
 
-.. code-block:: python
-
-    assert choose_tmp(["/foo/bar", "/tmp", "/tmp/jobid"]) == Path("/tmp")
-    assert choose_tmp(["/foo/bar", "/tmp/$USER", "/tmp/"]) == Path("/tmp/$USER")
-    assert choose_tmp(["foo/bar", "/tmp"]) == Path("foo/bar")
-
-or a generic function for more flexibility:
+There is also a specific function for temporary folders, where the system temporary folder is returned if none is valid:
 
 .. code-block:: python
 
-    assert choose_f(
-        ["/non/existing/path", "/foo", "/bar"],
-        read=True,
-        write=True,
-        execute=True,
-        creatable=True,
-    ) is None
-
+    choose_tmp(["foo/bar", "/tmp"], read=True, write=True, open=True, creatable=True)  # "foo/bar"
+    choose_tmp(["/foo/bar", "/tmp", "/tmp/jobid"], read=True, write=True, open=True, creatable=None)  # "/tmp"
+    choose_tmp(["/foo/bar", "/tmp/$USER", "/tmp/"], read=True, write=True, open=True, creatable=True  # "/tmp/$USER"
+    choose_tmp(["/foo", "/bar"], read=True, write=True, open=True, creatable=True)  # "system_tmpdir"
 
 .. _snakefiles-python-module:
 
