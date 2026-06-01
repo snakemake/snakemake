@@ -802,7 +802,9 @@ class Resource:
         # Add ioutils functions
         import snakemake.ioutils
 
-        namespace = {
+        namespace = {}
+        snakemake.ioutils.register_in_globals(namespace)
+        namespace.update({
             "wildcards": wildcards,
             "input": input,
             "attempt": attempt,
@@ -810,8 +812,7 @@ class Resource:
             "shutil": shutil,
             "async_run": async_run,
             **({"threads": threads} if threads is not None else {}),
-        }
-        snakemake.ioutils.register_in_globals(namespace)
+        })
         # Try to evaluate resource expression.
         # Note that `args` take precedence, i.e. if a name is present on
         # both (e.g. `input`), the one in `args` is used.
