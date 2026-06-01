@@ -703,6 +703,41 @@ The function will return the checksum of ``file`` present in ``infile``.
         shell:
             "echo {params.checksum} > {output}"
 
+.. _snakefiles-semantic-helpers-prepend-param:
+
+The prepend_param function
+""""""""""""""""""""""""""
+
+The ``prepend_param`` function takes one or more input files
+and prepends a string to each.
+This allows easier use of tools that require
+adding a flag before each filename they are given.
+For example:
+
+.. code-block:: python
+
+    params:
+        data=prepend_param("--input", input.data)
+    input:
+        data=["a.txt", "b.txt", "c.txt"],
+    shell:
+        "somecommand {params.data}"
+
+will run the command ``somecommand --input a.txt --input b.txt --input c.txt``.
+
+If spaces are not required between the prefix and the filename,
+set the ``space`` keyword argument to ``False``:
+
+.. code-block:: python
+
+    params:
+        data=prepend_param("-i", input.data, space=False)
+    input:
+        data=["a.txt", "b.txt", "c.txt"],
+    shell:
+        "somecommand {params.data}"  # Runs somecommand -ia.txt -ib.txt -ic.txt
+
+
 .. _snakefiles-rule-item-access:
 
 Rule item access helpers
@@ -1451,7 +1486,7 @@ Python
 The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
-It is also possible to explicitly import the snakemake object in the script like ``from snakemake.script import snakemake`` to enable code completion, linting and type checking your python code in IDEs.
+To enable code completion, linting and type checking your python code in IDEs, we recommend using the typing module's `TYPE_CHECKING <https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING>`__ variable and the typing stub provided in the ``snakemake.iocontainers`` module (see below for how).
 
 An example external Python script could look like this:
 
@@ -3423,7 +3458,6 @@ But because it can make sense to use another MPI launch command in some circumst
         "pi.calc",
     log:
         "logs/calc_pi.log",
-    resources:
     resources:
         tasks=10,
         mpi="mpirun",

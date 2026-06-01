@@ -1643,10 +1643,6 @@ def test_module_checkpoint():
     run(dpath("test_module_checkpoint"))
 
 
-def test_checkpoint_missout():
-    run(dpath("test_checkpoint_missout"))
-
-
 def test_uncreatable_checkpoint_input():
     run(dpath("test_uncreatable_checkpoint_input"))
 
@@ -1662,6 +1658,19 @@ def test_checkpoint_rerun():
     run(d, no_tmpdir=True, cleanup=False, check_results=False)
     with open(f"{d}/inputs/a/0.out", "r") as f:
         assert f.read().strip() == "1"
+
+
+def test_checkpoint_missing_output():
+    """test for issue 3879, also covers 3009"""
+    # normal run to create the checkpoint output and final output
+    tmpdir = run(dpath("test_checkpoint_missing_output"), cleanup=False)
+    assert tmpdir
+    # should not fail (target file exists so nothing to do)
+    (tmpdir / "output" / "test_1.txt").unlink()
+    run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
+    # should not fail (target file exists so nothing to do)
+    (tmpdir / "output" / "test_0.txt").unlink()
+    run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
 
 
 def test_issue1092():
@@ -2792,6 +2801,16 @@ def test_pathvars_cycle():
     run(dpath("test_pathvars_cycle"), shouldfail=True)
 
 
+@skip_on_windows
+def test_pathvars_storage():
+    run(
+        dpath("test_pathvars_storage"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+        cores=1,
+    )
+
+
 @skip_on_windows  # OS agnostic
 def test_handle_storage_multi_consumers():
     run(
@@ -3384,6 +3403,10 @@ def test_module_onstart_not_in_main_snakefile():
 
 def test_module_onerror():
     run(dpath("test_module_onerror"), shouldfail=True, check_results=True)
+
+
+def test_github_issue672():
+    run(dpath("test_github_issue672"))
 
 
 def test_github_issue2255():
