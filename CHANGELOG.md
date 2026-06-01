@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [9.22.0](https://github.com/snakemake/snakemake/compare/v9.21.1...v9.22.0) (2026-06-01)
+
+
+### Features
+
+* add semantic helper functions choose_file/choose_folder/choose_tmp and allow all semantic helper functions to be used when parsing resources ([#3820](https://github.com/snakemake/snakemake/issues/3820)) ([d3c2386](https://github.com/snakemake/snakemake/commit/d3c23869ee3acfc3c372f1b56d56afde94e6195c))
+* add temp to default pathvars ([#4108](https://github.com/snakemake/snakemake/issues/4108)) ([917fb11](https://github.com/snakemake/snakemake/commit/917fb113905b01a99be31f202e1a7b15d9e4a7be))
+* add workflow info to log ([#4079](https://github.com/snakemake/snakemake/issues/4079)) ([e40e15b](https://github.com/snakemake/snakemake/commit/e40e15b499f36047d2a1ca1e20045eed5c974407))
+* support python 3.14 ([#3739](https://github.com/snakemake/snakemake/issues/3739)) ([7e3be0c](https://github.com/snakemake/snakemake/commit/7e3be0ce9a01745c90faa36555ed4843d09298f2))
+
+
+### Bug Fixes
+
+* Adapt for dataclasses._MISSING_TYPE replaced with sentinel in Python 3.15 ([#4211](https://github.com/snakemake/snakemake/issues/4211)) ([b7fb8df](https://github.com/snakemake/snakemake/commit/b7fb8dfb5741964e235efc5770c4ff37c74f7d20))
+* ensure that storage is not actually retrieved with --touch ([#4212](https://github.com/snakemake/snakemake/issues/4212)) ([2726cae](https://github.com/snakemake/snakemake/commit/2726caee4f2acb6b26d717b4632b96794cd9dca8))
+* symlink to directory "has older modification time" than target ([#3782](https://github.com/snakemake/snakemake/issues/3782))  ([#3784](https://github.com/snakemake/snakemake/issues/3784)) ([41903d8](https://github.com/snakemake/snakemake/commit/41903d8d8c39d2ef36e9d2af8e4de706802a669c))
+
 ## [9.21.1](https://github.com/snakemake/snakemake/compare/v9.21.0...v9.21.1) (2026-05-29)
 
 
