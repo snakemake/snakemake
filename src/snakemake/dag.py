@@ -1,3 +1,6 @@
+from snakemake import wrapper
+from abc import abstractmethod
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -28,6 +31,7 @@ from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
 from snakemake.rules import Rule
 from snakemake.settings.types import DeploymentMethod
+from snakemake import script
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface
@@ -125,6 +129,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         ignore_incomplete=False,
         rules_allowed_for_needrun: AnySet[str] = frozenset(),
     ):
+        self.dag_processors: List["DAGProcessorBase"] = [
+            ScriptProcessor(self),
+            WrapperProcessor(self),
+            NotebookProcessor(self),
+        ]
         self._deferred_temp_jobs = []
         self._queue_input_jobs = None
         self._dependencies: Mapping[Job, Mapping[Job, Set[str]]] = defaultdict(
@@ -716,25 +725,24 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             )
 
         # handle checksum
-        async def is_not_same_checksum(f, ensure):
-            if not ensure.get("checksum_algorithm"):
+        async def is_not_same_checksum(f: _IOFile, ensure):
+            checksum_algorithm = ensure.get("checksum_algorithm")
+            if not checksum_algorithm:
                 return False
-            checksum_algorithm = ensure["checksum_algorithm"]
-            checksum = ensure["checksum"]
-            if is_callable(checksum):
+            checksum_hash = ensure["checksum"]
+            if is_callable(checksum_hash):
                 try:
-                    checksum = checksum(job.wildcards)
+                    checksum_hash = checksum_hash(job.wildcards)
                 except Exception as e:
                     raise WorkflowError(
                         "Error calling checksum function provided to ensure marker.",
                         e,
                         rule=job.rule,
-                    )
+                    ) from e
             return not await f.is_same_checksum(
-                checksum,
+                f"{checksum_algorithm}:{checksum_hash}",
                 self.max_checksum_file_size,
                 force=True,
-                algorithm=checksum_algorithm,
             )
 
         checksum_failed_output = [
@@ -1004,15 +1012,30 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             return True
 
         def is_other_group_or_no_group(j):
+            """True if j is outside the given group or no group was specified."""
             return outside_of_group_job is None or j not in outside_of_group_job.jobs
 
         assert self.workflow.storage_settings is not None
 
         if self.workflow.remote_exec:
+            # remote_exec is true for the snakemake process that runs INSIDE a remote
+            # job. In this case, the DAG is built only for the output files of the
+            # remote job. Thus, the main process has to inform the remote snakemake run
+            # about temp files that are really not needed by any outside job.
+            # This happens via the --unneeded-temp-files CLI argument, which populates
+            # the workflow.storage_settings.unneeded_temp_files set. If the tempfile is
+            # in this set, it is not needed by any outside job. If it is not in this set,
+            # it is still needed by an outside job, so we have to assume that it is
+            # needed, even if it is not needed by any job in the tiny remote job DAG.
+            # The setting is passed to remote jobs via the snakemake-interface-executor-plugins
+            # package.
             is_unneeded_outside = (
                 tempfile in self.workflow.storage_settings.unneeded_temp_files
             )
         else:
+            # In case of the main process (remote_exec == False), there are no
+            # outside unknown jobs, so we can directly check whether any downstream job
+            # needs the tempfile.
             is_unneeded_outside = True
 
         is_derived_target = tempfile in self.derived_targetfiles
@@ -1048,11 +1071,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         is_temp = lambda f: is_flagged(f, "temp")
 
         def unneeded_files():
+            """Yield temp files produced by dependencies that are no longer needed."""
             # temp input
             for job_, files in self._dependencies[job].items():
                 tempfiles = set(f for f in job_.output if is_temp(f))
                 yield from filterfalse(
-                    partial(self.is_needed_tempfile, job_), tempfiles & files
+                    partial(self.is_needed_tempfile, job_),
+                    {f for f in tempfiles if f in files},
                 )
 
             # temp output
@@ -1460,7 +1485,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
         is_same_checksum_cache = dict()
 
-        async def is_same_checksum(f, job):
+        async def is_same_checksum(f: _IOFile, job: Job):
             try:
                 return is_same_checksum_cache[(f, job)]
             except KeyError:
@@ -2032,6 +2057,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 "ready for execution."
             )
 
+        for processor in self.dag_processors:
+            processor.process()
+
     async def check_jobs(self):
         # first we check all **needrun** jobs whether its output can be made
         for job in filterfalse(
@@ -2246,7 +2274,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 await asyncio.gather(*(out.exists() for out in job.output))
             )
 
-        job_queue = defaultdict(set)
+        job_queue: Dict[Job, Set[Job]] = defaultdict(set)
         if jobs is None:
             jobs = [
                 job
@@ -2308,7 +2336,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 await self.update_needrun()
                 for job, posterior_checkpoint_deps in candidate_job_queue.items():
                     for checkpoint in posterior_checkpoint_deps:
-                        if not self.needrun(checkpoint):
+                        # the second clause ensures that we only process checkpoints
+                        # where the output is present (see test_checkpoint_missing_output)
+                        if not self.needrun(checkpoint) and await is_output_present(
+                            checkpoint
+                        ):
                             job_queue[job].add(checkpoint)
             i += 1
 
@@ -3482,3 +3514,81 @@ class CandidateGroup:
 
     def merge(self, other):
         self.id = other.id
+
+
+class DAGProcessorBase:
+    needrun_only: bool = True
+
+    def __init__(self, dag: DAG) -> None:
+        self.dag: DAG = dag
+        self.processed_jobs: Set[Job] = set()
+
+    def process(self) -> None:
+        for job in self.dag.needrun_jobs() if self.needrun_only else self.dag.jobs:
+            if job in self.processed_jobs:
+                continue
+            self.process_job(job)
+            self.processed_jobs.add(job)
+
+    @abstractmethod
+    def process_job(self, job: Job) -> None: ...
+
+
+class WrapperProcessor(DAGProcessorBase):
+    def process_job(self, job: Job) -> None:
+        if job.is_wrapper:
+            script = wrapper.get_script(
+                job.rule.wrapper,
+                self.dag.workflow.sourcecache,
+                self.dag.workflow.workflow_settings.wrapper_prefix,
+            )
+            if script is None:
+                raise WorkflowError(
+                    f"Wrapper {job.rule.wrapper} not accessible. "
+                    "Please check the name of the wrapper and your wrapper prefix."
+                )
+            if (
+                DeploymentMethod.CONDA
+                in self.dag.workflow.deployment_settings.deployment_method
+            ):
+                env = wrapper.get_conda_env(
+                    job.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
+                )
+                if not self.dag.workflow.sourcecache.exists(env):
+                    raise WorkflowError(
+                        f"Conda environment for wrapper {job.rule.wrapper} not accessible. "
+                        "Please check the name of the wrapper and your wrapper prefix."
+                    )
+
+
+class ScriptProcessor(DAGProcessorBase):
+    script_type = "script"
+
+    def process_job(self, job: Job) -> None:
+        if getattr(job, f"is_{self.script_type}"):
+            script_entry = getattr(job.rule, self.script_type)
+            if isinstance(script_entry, Path):
+                script_entry = str(script_entry)
+
+            script_sourcefile, _, _, _, _ = script.get_source(
+                script_entry,
+                self.dag.workflow.sourcecache,
+                job.rule.basedir,
+                job.wildcards,
+                job.params,
+            )
+            if not self.dag.workflow.sourcecache.exists(script_sourcefile):
+                raise WorkflowError(
+                    f"{self.script_type.capitalize()} {job.rule.script} not accessible. "
+                    "Please check the path to the script."
+                )
+
+
+class NotebookProcessor(ScriptProcessor):
+    script_type = "notebook"
+
+    def process_job(self, job: Job) -> None:
+        if not (
+            self.dag.is_edit_notebook_job(job) or self.dag.is_draft_notebook_job(job)
+        ):
+            super().process_job(job)

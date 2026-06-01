@@ -25,8 +25,22 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                 % (getattr(stream, "name", "stream"), type(parsed_obj).__name__)
             )
 
+        def format_val(val):
+            def repr_if_numeric(val, numtype):
+                try:
+                    numtype(val)
+                    return repr(val)
+                except ValueError:
+                    return None
+
+            if isinstance(val, str):
+                # when the value is an explicit string enclosing int or float, we have
+                # to quote it to prevent an evaluation as integer in the next pass
+                return repr_if_numeric(val, int) or repr_if_numeric(val, float) or val
+            return val
+
         def format_one_level_dict(d):
-            return [f"{key}={val}" for key, val in d.items()]
+            return [f"{key}={format_val(val)}" for key, val in d.items()]
 
         def format_two_level_dict(d, item: str):
             if not all(isinstance(val, dict) for val in d.values()):
@@ -34,7 +48,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                     f"Invalid {item} format in profile. Expected two-level mapping, got {d}"
                 )
             return [
-                f"{key}:{key2}={val2}"
+                f"{key}:{key2}={format_val(val2)}"
                 for key, val in d.items()
                 for key2, val2 in val.items()
             ]
