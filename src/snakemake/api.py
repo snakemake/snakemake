@@ -635,14 +635,6 @@ class DAGApi(ApiBase):
         workflow.remote_execution_settings = remote_execution_settings
         workflow.scheduling_settings = scheduling_settings
         workflow.group_settings = group_settings
-        logger.info(
-            None,
-            extra=dict(
-                event=LogEvent.WORKFLOW_STARTED,
-                workflow_id=uuid.uuid4(),
-                snakefile=self.workflow_api.snakefile,
-            ),
-        )
         workflow.execute(
             executor_plugin=executor_plugin,
             executor_settings=executor_settings,
