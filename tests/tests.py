@@ -1632,13 +1632,13 @@ def test_checkpoints():
 
 
 def test_checkpoints_group():
-    # this test supresses test_checkpoints, as it is a more complex version.
+    # this test suppresses test_checkpoints, as it is a more complex version.
     workdir = run(dpath("test_checkpoints_group"), cleanup=False, cluster="./qsub")
     assert workdir is not None
     logs = sorted(workdir.glob(".snakemake/log/*.log"))[-1]
     with open(logs) as f:
         finish = [i for i in f if i.endswith("steps (100%) done\n")]
-    assert finish == ['9 of 9 steps (100%) done\n']
+    assert finish == ["9 of 9 steps (100%) done\n"]
 
 
 def test_checkpoints_dir():

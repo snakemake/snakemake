@@ -2230,7 +2230,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if updated:
             logger.info("Updating checkpoint dependencies.")
 
-        original_jobs = set(self.jobs)   # snapshot BEFORE while loop
+        original_jobs = set(self.jobs)  # snapshot BEFORE while loop
         i = 1
         while job_queue:
             logger.debug(f"Checkpoint dependency update round {i}")
@@ -2311,7 +2311,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 # already gone
                 pass
 
-    async def finish(self, job: Union[Job, GroupJob], update_checkpoint_dependencies=True):
+    async def finish(
+        self, job: Union[Job, GroupJob], update_checkpoint_dependencies=True
+    ):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
 
