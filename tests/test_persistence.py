@@ -67,6 +67,7 @@ class TestBackupRestore:
         assert output_dir.exists()
 
         import shutil
+
         shutil.rmtree(output_dir)
         assert not output_dir.exists()
 
@@ -215,7 +216,9 @@ class TestParamsChange:
         assert "No params change" in str(pc)
 
     def test_str_nonempty(self):
-        pc = ParamsChange(only_old={"old_param"}, only_new={"new_param"}, files={"f.txt"})
+        pc = ParamsChange(
+            only_old={"old_param"}, only_new={"new_param"}, files={"f.txt"}
+        )
         s = str(pc)
         assert "old_param" in s
         assert "new_param" in s
