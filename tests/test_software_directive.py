@@ -296,10 +296,12 @@ def test_software_directive_within():
 def test_software_directive_fallback():
     """Test software: envmodules(...) or conda(...) fallback chain.
 
-    With only --sdm conda (no envmodules plugin), Snakemake should
-    skip the envmodules spec and fall back to conda.
+    Both envmodules and conda plugins must be loaded so that both
+    factory functions are available as globals during Snakefile parsing.
+    The envmodules spec will be primary, with conda as fallback.
+    On systems without Lmod, env resolution falls through to conda.
     """
     run(
         dpath("test_software_fallback"),
-        deployment_method={"conda"},
+        deployment_method={"envmodules", "conda"},
     )
