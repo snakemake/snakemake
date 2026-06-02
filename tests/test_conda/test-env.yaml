@@ -4,3 +4,4 @@ channels:
 dependencies:
   - melt ==1.0.3
   - python <3.10
+  - setuptools <81 # ensure that pkg_resources exists
