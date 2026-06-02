@@ -227,6 +227,8 @@ class WorkflowModifier:
             self.rules: set = set()
             self.modules: dict = dict()
             self.path_modifier = path_modifier or PathModifier(None, None, workflow)
+            self.global_container_img = None
+            self.global_is_containerized = False
         else:
             # use rule (from same include) as ... with: init with values from parent modifier
             self.parent_modifier = parent_modifier = workflow.modifier
@@ -238,7 +240,8 @@ class WorkflowModifier:
             self.modules = parent_modifier.modules
             self.path_modifier = parent_modifier.path_modifier
             allow_rule_overwrite |= self.parent_modifier.allow_rule_overwrite
-
+            self.global_container_img = parent_modifier.global_container_img
+            self.global_is_containerized = parent_modifier.global_is_containerized
         self.is_module = is_module
         self.workflow = workflow
         self.base_snakefile = base_snakefile
