@@ -375,7 +375,7 @@ class PluginArgCollectorBase(ABC):
     def get_field_values(
         self, name: str, settings: Dict, plugin_name: str, unparse: Callable
     ) -> List[str]:
-        values = settings.get(name)
+        values = getattr(settings, name)
         if values is not None:
             if isinstance(values, Iterable) and not isinstance(values, str):
                 return [self.fmt_value(value, unparse, plugin_name) for value in values]
