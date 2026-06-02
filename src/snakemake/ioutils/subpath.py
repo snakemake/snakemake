@@ -9,6 +9,7 @@ from snakemake.io import is_callable
 def subpath(
     path_or_func: Union[Callable, str, Path],
     strip_suffix: Optional[str] = None,
+    with_suffix: Optional[str] = None,
     basename: bool = False,
     parent: bool = False,
     ancestor: Optional[int] = None,
@@ -18,6 +19,7 @@ def subpath(
     Args:
         path_or_func: A string, pathlib.Path, or a function returning a string or pathlib.Path.
         strip_suffix: If given, strip the suffix from the path.
+        with_suffix: If given, add the suffix to the path (after stripping the suffix if strip_suffix is given).
         basename: If True, return the basename of the path (cannot be used together with parent or ancestor).
         parent: If True, return the parent directory of the path (cannot be used together with ancestor).
         ancestor: If given, return the ancestor directory of the path (cannot be used together with parent).
@@ -39,6 +41,8 @@ def subpath(
                     f"Path {path} does not end with the specified suffix {strip_suffix}"
                 )
             path = path[: -len(strip_suffix)]
+        if with_suffix is not None:
+            path += with_suffix
         if basename:
             if parent or ancestor is not None:
                 raise ValueError(

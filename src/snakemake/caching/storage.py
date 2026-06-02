@@ -24,7 +24,7 @@ class OutputFileCache(AbstractOutputFileCache):
         self.storage_provider = storage_provider
 
     async def store(self, job: Job):
-        for entry in self._get_storage_objects(job, check_output_exists=True):
+        async for entry in self._get_storage_objects(job, check_output_exists=True):
             # upload to remote
             try:
                 await entry.managed_store()
@@ -32,7 +32,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 self.raise_write_error(entry, exception=e)
 
     async def fetch(self, job: Job):
-        for entry in self._get_storage_objects(job):
+        async for entry in self._get_storage_objects(job):
             if not await entry.managed_exists():
                 self.raise_cache_miss_exception(job)
 
@@ -43,14 +43,14 @@ class OutputFileCache(AbstractOutputFileCache):
                 self.raise_read_error(entry, exception=e)
 
     async def exists(self, job: Job):
-        for entry in self._get_storage_objects(job):
+        async for entry in self._get_storage_objects(job):
             try:
                 return await entry.managed_exists()
             except Exception as e:
                 self.raise_read_error(entry, exception=e)
 
-    def _get_storage_objects(self, job: Job, check_output_exists=False):
-        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
+    async def _get_storage_objects(self, job: Job, check_output_exists=False):
+        provenance_hash = await self.provenance_hash_map.get_provenance_hash(job)
 
         for outputfile, ext in self.get_outputfiles(job):
             if check_output_exists and not os.path.exists(outputfile):

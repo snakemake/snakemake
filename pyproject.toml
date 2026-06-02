@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "snakemake"
-version = "9.17.3"
+version = "9.22.0"
 description = "Workflow management system to create reproducible and scalable data analyses"
 readme = { content-type = "text/markdown", text = """
   Snakemake is a workflow management system that aims to reduce the
@@ -26,15 +26,16 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
 ]
 
 dependencies = [
-  "appdirs",
+  "platformdirs",
   "immutables",
   "configargparse",
   "connection_pool>=0.0.3",
-  "docutils",
+  "docutils>=0.20,<0.23",
   "gitpython",
   "humanfriendly",
   "jinja2>=3.0,<4.0",
@@ -50,7 +51,7 @@ dependencies = [
   "smart-open>=4.0,<8.0",
   "snakemake-interface-executor-plugins>=9.3.2,<10.0",
   "snakemake-interface-common>=1.20.1,<2.0",
-  "snakemake-interface-storage-plugins>=4.3.2,<5.0",
+  "snakemake-interface-storage-plugins>=4.4.1,<5.0",
   "snakemake-interface-report-plugins>=1.2.0,<2.0.0",
   "snakemake-interface-logger-plugins>=1.1.0,<3.0.0",
   "snakemake-interface-scheduler-plugins>=2.0.0,<3.0.0",
@@ -106,6 +107,7 @@ dev = { features = ["test", "docs", "style"] }
 py311 = { features = ["py311", "test"] }
 py312 = { features = ["py312", "test"] }
 py313 = { features = ["py313", "test"] }
+py314 = { features = ["py314", "test"] }
 
 
 docs = { features = ["docs"] }
@@ -115,15 +117,19 @@ publish = { features = ["publish"] }
 # Python Envs
 [tool.pixi.feature.py311.dependencies]
 python = ">=3.11.0,<3.12"
-packaging = ">=24.0,<26"
+packaging = ">=24.0,<26"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 
 [tool.pixi.feature.py312.dependencies]
 python = ">=3.12.0,<3.13"
-packaging = ">=24.0,<26"
+packaging = ">=24.0,<26"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 
 [tool.pixi.feature.py313.dependencies]
 python = ">=3.13.0,<3.14"
-packaging = ">=24.0,<26"
+packaging = ">=24.0,<26"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
+
+[tool.pixi.feature.py314.dependencies]
+python = ">=3.14.0,<3.15"
+
 
 # Test
 [tool.pytest.ini_options]
@@ -157,6 +163,14 @@ cmd = [
   "-k",
   "not (test_conda_global or queue)", # queue is buggy on osx-arm64
   "tests/tests.py",
+  "tests/test_internals.py",
+  "tests/test_expand.py",
+  "tests/test_io.py",
+  "tests/test_schema.py",
+  "tests/test_logging.py",
+  "tests/test_output_index.py",
+  "tests/test_prefix_lookup.py",
+  "tests/test_args.py",
 ]
 default-environment = "dev"
 
@@ -164,7 +178,6 @@ default-environment = "dev"
 description = "Run all tests in the tests directory"
 cmd = [
   "pytest",
-  "tests",
   # TODO for the two excluded tests, see https://github.com/snakemake/snakemake/pull/3369#issuecomment-2718056637
   "-m",
   "not needs_envmodules",
@@ -224,6 +237,7 @@ graphviz = ">=12.2.1,<13"
 glpk = ">=5.0,<6"
 pandoc = ">=3.6.3,<4"
 packaging = ">=24.0,<26"
+docutils = ">=0.20,<0.23"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 
 [tool.pixi.feature.test.target.linux-64.pypi-dependencies]
 snakemake-storage-plugin-xrootd = "*"
@@ -287,12 +301,13 @@ pyrefly = "*"
 ruff = "*"
 
 [tool.pixi.feature.style.tasks]
-format = { cmd = "black docs/ apidocs/ src/ tests/*.py", description = "Format the code", default-environment = "quality" }
+format = { cmd = "black docs/ apidocs/ src/ tests/**/*.py", description = "Format the code", default-environment = "quality" }
 
 # Build
 [tool.pixi.feature.publish.pypi-dependencies]
 twine = ">=6.1.0,<7"
 build = ">=1.2.2,<2"
+pip = ">=26.0"
 
 [tool.pixi.feature.publish.tasks]
 build = { cmd = "python -m build", description = "Build the package into the dist/ directory", default-environment = "publish" }
