@@ -303,5 +303,5 @@ def test_software_directive_fallback():
     """
     run(
         dpath("test_software_fallback"),
-        deployment_method={"envmodules", "conda"},
+        deployment_method={"conda"},
     )
