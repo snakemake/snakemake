@@ -110,7 +110,7 @@ def test_custom_software_deployment_prefix():
     run(
         dpath("test_conda_custom_prefix"),
         deployment_method={"conda"},
-        software_deployment_prefix="custom",
+        deployment_prefix="custom",
         set_pythonpath=False,
     )
 
