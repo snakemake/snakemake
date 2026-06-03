@@ -2204,18 +2204,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         return any(job.has_unfinished_queue_input() for job in self.queue_input_jobs)
 
     async def update_checkpoint_dependencies(self, jobs: Optional[List[Job]] = None):
-        """Re-evaluates input functions of jobs that depend on completed checkpoints,
-        expanding the DAG until no new checkpoint dependencies are discovered.
+        """Re-evaluates input functions of jobs that depend on completed checkpoints.
+
+        Iterates to expand the DAG until no new checkpoint dependencies are discovered (convergence).
 
         Args: Finished jobs to process. None = scans all jobs in the DAG.
+                When provided, their outputs are guaranteed present on disk.
         Returns bool(DAG was updated)
         """
         checkpoints_created = self.workflow.checkpoints.created_output
 
-        async def is_output_new_present(job: Job) -> bool:
-            """True if job has checkpoint outputs not yet registered and all exist on disk.
-            skips already-registered ones at negligible cost
-            """
+        async def _has_unregistered_output(job: Job):
+            """True if job (checkpoint in this context) has completed outputs not yet registered in checkpoints_created."""
             if not (self.finished(job) or not self.needrun(job)):
                 return False
             unregistered = set(job.output) - checkpoints_created
@@ -2223,30 +2223,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 return False
             return all(await asyncio.gather(*(f.exists() for f in unregistered)))
 
-        async def get_completed_checkpoint_jobs(
-            jobs: Iterable[Job], skip_output_check=False
-        ):
-            checkpoint_jobs = [job for job in jobs if job.is_checkpoint]
-            if skip_output_check:
-                return checkpoint_jobs
-            results = await asyncio.gather(
-                *(is_output_new_present(job) for job in checkpoint_jobs)
-            )
-            return [job for job, done in zip(checkpoint_jobs, results) if done]
+        def _register_checkpoint_outputs(completed_checkpoint_jobs: List[Job]):
+            """Register outputs of completed checkpoints; return evicted checkpoint outputs.
 
-        def get_checkpoint_affected_jobs(completed_checkpoint_jobs: Iterable[Job]):
-            """Return jobs directly depend on any `completed_checkpoint_jobs`"""
-            return {
-                affected_job
-                for checkpoint_job in completed_checkpoint_jobs
-                for affected_job in self.depending[checkpoint_job]
-            }
-
-        def update_checkpoints_created(completed_checkpoint_jobs):
+            Evicted checkpoint jobs are removed from the DAG (missing inputs, cannot rerun),
+            but their on-disk outputs remain visible to `Checkpoint.*.get(` in `Rule.apply_input_function` during `self.replace_job(`.
+            """
             for checkpoint_job in completed_checkpoint_jobs:
                 checkpoints_created.update(checkpoint_job.output)
-            # Evicted checkpoint jobs are removed from the DAG because their inputs are missing and cannot be rerun,
-            # but their existing outputs must still be visible to `Checkpoint.*.get(` in `Rule.apply_input_function` during `self.replace_job(`.
             # Swap rather than clear so that outputs appended concurrently are not lost.
             evicted, self._evicted_checkpoint_outputs = (
                 self._evicted_checkpoint_outputs,
@@ -2255,18 +2239,43 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             checkpoints_created.update(evicted)
             return evicted
 
-        def checkpoint_target_inputs_updated(job: Job, updated: Job) -> bool:
-            """bool(`updated_affected_job` gained new `checkpoint_target` inputs)"""
+        async def get_checkpoint_affects(
+            jobs: Iterable[Job], check_output: bool = True
+        ):
+            """Find jobs directly downstream of newly completed checkpoints.
+
+            Args:
+                jobs: Candidate jobs to scan for completed checkpoints.
+                check_output: Verify outputs exist on disk before registering.
+                            Disable when outputs are guaranteed present (caller-finished jobs).
+            Returns: (evicted_outputs, affected_downstream_jobs)
+            """
+            checkpoint_jobs = [job for job in jobs if job.is_checkpoint]
+            if check_output:
+                is_ok = await asyncio.gather(
+                    *(_has_unregistered_output(job) for job in checkpoint_jobs)
+                )
+                checkpoint_jobs = [job for job, ok in zip(checkpoint_jobs, is_ok) if ok]
+            evicted = _register_checkpoint_outputs(checkpoint_jobs)
+            affected = {
+                downstream
+                for checkpoint_job in checkpoint_jobs
+                for downstream in self.depending[checkpoint_job]
+            }
+            return evicted, affected
+
+        def _has_new_checkpoint_inputs(job: Job, updated: Job):
+            """True if updated gained checkpoint_target inputs that job did not have."""
             prior = {f for f in job.input if is_flagged(f, "checkpoint_target")}
             posterior = {f for f in updated.input if is_flagged(f, "checkpoint_target")}
             return bool(posterior - prior)
 
-        # If jobs is not None, they are finished jobs whose output is guaranteed present.
-        completed_checkpoint_jobs = await get_completed_checkpoint_jobs(
-            jobs or self.jobs, skip_output_check=(jobs is not None)
+        # Scan for already-completed checkpoints to seed the first round.
+        # When jobs is provided, outputs are guaranteed present; skip disk check.
+        scan_all = jobs is None
+        evicted, affected_jobs = await get_checkpoint_affects(
+            self.jobs if scan_all else jobs, check_output=scan_all
         )
-        update_checkpoints_created(completed_checkpoint_jobs)
-        affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
         if not affected_jobs:
             return False
 
@@ -2274,21 +2283,25 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         for i in range(1, 101):
             logger.debug(f"Checkpoint dependency update round {i}")
 
+            # Snapshot current jobs before re-expansion so we can identify newly added ones.
+            prev_jobs = set(self.jobs)
             no_new_deps = True
             for affected_job in affected_jobs:
                 updated_job = await affected_job.updated()
-                if no_new_deps and checkpoint_target_inputs_updated(
+                await self.replace_job(affected_job, updated_job, recursive=False)
+                if no_new_deps and _has_new_checkpoint_inputs(
                     affected_job, updated_job
                 ):
                     no_new_deps = False
-                await self.replace_job(affected_job, updated_job, recursive=False)
-
             await self.update_needrun()
-            # replace_job may expand the DAG, rescan all checkpoints
-            completed_checkpoint_jobs = await get_completed_checkpoint_jobs(self.jobs)
-            evicted = update_checkpoints_created(completed_checkpoint_jobs)
-            affected_jobs = get_checkpoint_affected_jobs(completed_checkpoint_jobs)
+
+            # Only scan jobs introduced by replace_job this round;
+            # pre-existing jobs were already processed in prior rounds or at DAG construction.
+            new_jobs = self.jobs - prev_jobs
+            evicted, affected_jobs = await get_checkpoint_affects(new_jobs)
             if evicted:
+                # Evicted checkpoint outputs may now satisfy pending checkpoint_target inputs
+                #  in jobs that were already in the DAG, scan those too.
                 affected_jobs.update(
                     job
                     for job in self.jobs
@@ -2301,6 +2314,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             if no_new_deps and not affected_jobs:
                 self.set_until_jobs()
                 self.delete_omitfrom_jobs()
+                # TODO(PR #3982): await self.expand_incomplete_input_jobs(jobs_before_for - self.jobs)
                 await self.postprocess_after_update()
                 return True
 
