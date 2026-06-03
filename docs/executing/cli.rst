@@ -181,13 +181,17 @@ These enable ``profile.yaml`` entries like:
 .. code-block:: yaml
 
     default-resources:
-      mem_mb: max(1.5 * input.size_mb, 100)
+      mem_mb: "max(1.5 * input.size_mb, 100)"
     set-threads:
-      myrule: max(input.size_mb / 5, 2)
+      myrule: "max(input.size_mb / 5, 2)"
     set-resources:
       myrule:
-        mem_mb: attempt * 200
+        mem_mb: "attempt * 200"
 
+.. note::
+
+    For profile entries with :ref:`dynamic resource <snakefiles-dynamic-resources>` definitions, it helps to always quote the python code used.
+    Otherwise, those statements can render the YAML syntax invalid, leading to respective errors during linting or at runtime.
 
 Also, values in profiles can make use of globally available environment variables, for example the ``$USER`` variable.
 For example, the following entry would set the default prefix for storing local copies of remote storage files to a user specific directory
