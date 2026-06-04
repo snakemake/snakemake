@@ -1,0 +1,7 @@
+rule test_post_deploy:
+    output:
+        "test.out",
+    conda:
+        "envs/unzip.yaml"
+    shell:
+        "fake >{output}"

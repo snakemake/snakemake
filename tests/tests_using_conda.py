@@ -243,6 +243,17 @@ def test_containerized():
 
 
 @skip_on_windows
+@apptainer
+@conda
+def test_containerize_postdeploy():
+    run(dpath("containerize_postdeploy"), containerize=True, check_results=False)
+    run(
+        dpath("containerize_postdeploy"),
+        deployment_method={DeploymentMethod.CONDA, DeploymentMethod.APPTAINER},
+    )
+
+
+@skip_on_windows
 @conda
 def test_containerize():
     run(dpath("test_conda"), containerize=True, check_results=False)
