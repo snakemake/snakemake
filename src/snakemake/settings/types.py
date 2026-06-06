@@ -277,6 +277,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     conda_not_block_search_path_envvars: bool = False
     apptainer_args: str = ""
     apptainer_prefix: Optional[Path] = None
+    apptainer_skip_check: bool = False
 
     def imply_deployment_method(self, method: DeploymentMethod):
         self.deployment_method = set(self.deployment_method)
