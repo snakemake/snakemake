@@ -185,23 +185,6 @@ Resources
   executing/monitoring
   executing/provenance
 
-.. toctree::
-    :caption: Defining workflows
-    :name: snakefiles
-    :hidden:
-    :maxdepth: 1
-
-    snakefiles/writing_snakefiles
-    snakefiles/rules
-    snakefiles/configuration
-    snakefiles/modularization
-    snakefiles/storage
-    snakefiles/utils
-    snakefiles/deployment
-    snakefiles/reporting
-    snakefiles/testing
-    snakefiles/foreign_wms
-    snakefiles/debugging_workflows
 
 .. toctree::
     :caption: Project Info
