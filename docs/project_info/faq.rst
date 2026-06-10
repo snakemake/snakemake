@@ -200,7 +200,7 @@ Wildcards
 .. _glob-wildcards:
 
 How can I run my rule on all files of a certain directory?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 In Snakemake, similar to GNU Make, the workflow is determined from the top, i.e. from the target files.
