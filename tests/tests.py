@@ -2794,6 +2794,10 @@ def test_pathvars():
     run(dpath("test_pathvars"))
 
 
+def test_pathvars_wildcard_constraints():
+    run(dpath("test_pathvars_wildcard_constraints"))
+
+
 def test_pathvars_modules():
     run(dpath("test_pathvars_modules"))
 
