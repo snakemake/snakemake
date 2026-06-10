@@ -1628,7 +1628,7 @@ class Workflow(WorkflowExecutorInterface):
             path = self._get_basedir(calling_file).join(rel_path)
             # the orig path will only be displayed in the log and error messages
             # thus it should not contain secrets
-            orig_path = path.get_path_or_uri(secret_free=True)
+            orig_path = path.get_path_or_uri(secret_free=False)
             return sourcecache_entry(self.sourcecache.get_path(path), orig_path)
         else:
             # heuristically determine path

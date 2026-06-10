@@ -230,6 +230,7 @@ snakemake-executor-plugin-cluster-generic = "*"
 snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
+snakemake-storage-plugin-zenodo = "*"
 
 [tool.pixi.feature.test.dependencies]
 conda = "*"
@@ -314,3 +315,6 @@ build = { cmd = "python -m build", description = "Build the package into the dis
 build-check = { cmd = "python -m twine check --strict dist/*", depends-on = [
   "build",
 ], description = "Check that the package can be uploaded", default-environment = "publish" }
+
+[tool.pixi.dependencies]
+snakemake-storage-plugin-zenodo = "*"
