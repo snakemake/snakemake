@@ -639,7 +639,7 @@ temporary file ``huge_file.csv`` could be kept at the compute node.
 
 .. code-block:: console
 
-$ snakemake --shadow-prefix /scratch some_summary_statistics.txt --cluster ...
+    $ snakemake --shadow-prefix /scratch some_summary_statistics.txt --cluster ...
 
 If you want the input files of your rule to be copied to the node-local scratch directory
 instead of just using symbolic links, you can use ``copy-minimal`` in the ``shadow`` directive.
