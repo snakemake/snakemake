@@ -829,8 +829,10 @@ class PersistenceBase(
                 self.dag.workflow.iocache = IOCache.load(handle)
 
     def drop_iocache(self) -> None:
-        if os.path.exists(self._iocache_filename):
+        try:
             os.remove(self._iocache_filename)
+        except FileNotFoundError:
+            pass
 
     @contextmanager
     def noop(self, *args):

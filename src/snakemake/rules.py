@@ -199,19 +199,19 @@ class Rule(RuleInterface):
         self._group = group
 
     @property
-    def is_shell(self):
+    def is_shell(self) -> bool:
         return self.shellcmd is not None
 
     @property
-    def is_script(self):
+    def is_script(self) -> bool:
         return self.script is not None
 
     @property
-    def is_notebook(self):
+    def is_notebook(self) -> bool:
         return self.notebook is not None
 
     @property
-    def is_wrapper(self):
+    def is_wrapper(self) -> bool:
         return self.wrapper is not None
 
     @property

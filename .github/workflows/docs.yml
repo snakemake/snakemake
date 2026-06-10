@@ -16,21 +16,21 @@ jobs:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.9.3
+        uses: prefix-dev/setup-pixi@v0.9.6
         with:
           environments: "docs"
-          cache: false # no pixi.lock
-          locked: false
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
       
       - name: Build Docs
         run: |
           pixi run --environment docs build-docs
 
       - name: Upload documentation
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: docs-html
           path: docs/_build/html/
@@ -39,21 +39,21 @@ jobs:
     if: github.event.pull_request.merged != true || github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.9.3
+        uses: prefix-dev/setup-pixi@v0.9.6
         with:
           environments: "docs"
-          cache: false # no pixi.lock
-          locked: false
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
       - name: Build API Docs
         run: |
           pixi run --environment docs build-apidocs
 
       - name: Upload documentation
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: apidocs-html
           path: apidocs/_build/html/

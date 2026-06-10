@@ -1,6 +1,105 @@
 # Changelog
 
 
+## [9.22.0](https://github.com/snakemake/snakemake/compare/v9.21.1...v9.22.0) (2026-06-01)
+
+
+### Features
+
+* add semantic helper functions choose_file/choose_folder/choose_tmp and allow all semantic helper functions to be used when parsing resources ([#3820](https://github.com/snakemake/snakemake/issues/3820)) ([d3c2386](https://github.com/snakemake/snakemake/commit/d3c23869ee3acfc3c372f1b56d56afde94e6195c))
+* add temp to default pathvars ([#4108](https://github.com/snakemake/snakemake/issues/4108)) ([917fb11](https://github.com/snakemake/snakemake/commit/917fb113905b01a99be31f202e1a7b15d9e4a7be))
+* add workflow info to log ([#4079](https://github.com/snakemake/snakemake/issues/4079)) ([e40e15b](https://github.com/snakemake/snakemake/commit/e40e15b499f36047d2a1ca1e20045eed5c974407))
+* support python 3.14 ([#3739](https://github.com/snakemake/snakemake/issues/3739)) ([7e3be0c](https://github.com/snakemake/snakemake/commit/7e3be0ce9a01745c90faa36555ed4843d09298f2))
+
+
+### Bug Fixes
+
+* Adapt for dataclasses._MISSING_TYPE replaced with sentinel in Python 3.15 ([#4211](https://github.com/snakemake/snakemake/issues/4211)) ([b7fb8df](https://github.com/snakemake/snakemake/commit/b7fb8dfb5741964e235efc5770c4ff37c74f7d20))
+* ensure that storage is not actually retrieved with --touch ([#4212](https://github.com/snakemake/snakemake/issues/4212)) ([2726cae](https://github.com/snakemake/snakemake/commit/2726caee4f2acb6b26d717b4632b96794cd9dca8))
+* symlink to directory "has older modification time" than target ([#3782](https://github.com/snakemake/snakemake/issues/3782))  ([#3784](https://github.com/snakemake/snakemake/issues/3784)) ([41903d8](https://github.com/snakemake/snakemake/commit/41903d8d8c39d2ef36e9d2af8e4de706802a669c))
+
+## [9.21.1](https://github.com/snakemake/snakemake/compare/v9.21.0...v9.21.1) (2026-05-29)
+
+
+### Bug Fixes
+
+* add default json function to benchmarks ([#4128](https://github.com/snakemake/snakemake/issues/4128)) ([41fab22](https://github.com/snakemake/snakemake/commit/41fab225c7ddb367a072d286b3f02d9fadfeca9b))
+* do not rerun when checkpoint job missing but downstream file exists ([#4124](https://github.com/snakemake/snakemake/issues/4124)) ([a060b93](https://github.com/snakemake/snakemake/commit/a060b9302e042227fc47cd9d2ba5012587c6d555))
+* ensure that error logs contain all available details ([#4183](https://github.com/snakemake/snakemake/issues/4183)) ([74a86e9](https://github.com/snakemake/snakemake/commit/74a86e99d51fa78abe74a36fa98fbb8456eeb823))
+* handle missing pss attribute in benchmark on Windows ([#4160](https://github.com/snakemake/snakemake/issues/4160)) ([da52080](https://github.com/snakemake/snakemake/commit/da52080af1038352e5cbbbe289486371e2cf2c2c))
+* implement Resources.setdefault ([#3968](https://github.com/snakemake/snakemake/issues/3968)) ([2413e99](https://github.com/snakemake/snakemake/commit/2413e994721e98a096ea0ab4a35a6a11431acaf2))
+* reporting remote nodes number ([#3978](https://github.com/snakemake/snakemake/issues/3978)) ([8c534f0](https://github.com/snakemake/snakemake/commit/8c534f059e64ca4f95ad6264aeb11e0bbd6f299f))
+* resolve pathvars before constructing storage queries ([#3969](https://github.com/snakemake/snakemake/issues/3969)) ([bd15237](https://github.com/snakemake/snakemake/commit/bd15237d19e70028fe0e6bd892d5919e6e510681))
+* storage temp() file cleanup with RemoteProvider  ([#4189](https://github.com/snakemake/snakemake/issues/4189)) ([898bad1](https://github.com/snakemake/snakemake/commit/898bad11025c0f6fb247feb11e94c913155aa5c6))
+* tolerate FileNotFoundError in drop_iocache ([#4153](https://github.com/snakemake/snakemake/issues/4153)) ([#4191](https://github.com/snakemake/snakemake/issues/4191)) ([ce26b28](https://github.com/snakemake/snakemake/commit/ce26b28ee3b5cdc0e8f005a5928ee4191bb798eb))
+
+
+### Documentation
+
+* Added guide on debugging workflows ([#4029](https://github.com/snakemake/snakemake/issues/4029)) ([3d052ae](https://github.com/snakemake/snakemake/commit/3d052ae8799ece15f02c9b1413abfcde86ec21d4))
+* **cli:** Remove broken ref bold markup ([#4204](https://github.com/snakemake/snakemake/issues/4204)) ([1200ebf](https://github.com/snakemake/snakemake/commit/1200ebfb86105263414dfeb5ece740923c170ac8))
+* remove duplicated resources attribute in rules.rst ([#4190](https://github.com/snakemake/snakemake/issues/4190)) ([6c8ecdd](https://github.com/snakemake/snakemake/commit/6c8ecddab6cd694690c64fc1dbbd36f98bfedd83))
+* **rules:** Update script type hint advice ([#4193](https://github.com/snakemake/snakemake/issues/4193)) ([6108712](https://github.com/snakemake/snakemake/commit/6108712ee288c3fbf64bd05de1622d2a45538419))
+
+## [9.21.0](https://github.com/snakemake/snakemake/compare/v9.20.0...v9.21.0) (2026-05-13)
+
+
+### Features
+
+* add a function to help with prepending arguments to filenames; close [#672](https://github.com/snakemake/snakemake/issues/672) ([#4090](https://github.com/snakemake/snakemake/issues/4090)) ([14ccd1d](https://github.com/snakemake/snakemake/commit/14ccd1dc709a704cdda2f80f1ea3353985ac07d0))
+
+
+### Bug Fixes
+
+* close plugin handlers after draining QueueListener in LoggerManager.stop() ([#4137](https://github.com/snakemake/snakemake/issues/4137)) ([b2a9e69](https://github.com/snakemake/snakemake/commit/b2a9e697990714a6dbed6a50b2f5dccf7d1584ab))
+
+
+### Performance Improvements
+
+* adjust default sqlite PRAGMAs, auto detect network fstype ([#4152](https://github.com/snakemake/snakemake/issues/4152)) ([3df2d35](https://github.com/snakemake/snakemake/commit/3df2d355547d5f7eac72e295cf3fb83787741625))
+
+## [9.20.0](https://github.com/snakemake/snakemake/compare/v9.19.0...v9.20.0) (2026-05-02)
+
+
+### Features
+
+* add a helper function that translate Python script names into corresponding module names ([#4065](https://github.com/snakemake/snakemake/issues/4065)) ([c74c0a0](https://github.com/snakemake/snakemake/commit/c74c0a0a55e12ae69af5989b5e4ac1e1a35d7bc3))
+* add with_suffix argument to subpath helper function, allowing low-code suffix extensions and replacements for input and output files and params ([#4156](https://github.com/snakemake/snakemake/issues/4156)) ([4dab300](https://github.com/snakemake/snakemake/commit/4dab300796d55ab03880e5b00d56368b6904106c))
+* enable caching for named multi-output rules ([#4151](https://github.com/snakemake/snakemake/issues/4151)) ([c921575](https://github.com/snakemake/snakemake/commit/c9215753f2f4c29b22193f4795c297bcadf9572c))
+
+
+### Bug Fixes
+
+* CLI/profile runtime override is interpreted as minutes not as seconds ([#4053](https://github.com/snakemake/snakemake/issues/4053)) ([0fc5fd1](https://github.com/snakemake/snakemake/commit/0fc5fd14bf8707812abac14ccfeac0eb8093005d))
+* **docs:** remove misleading "touch"  example and explain checksum behaviour ([#4173](https://github.com/snakemake/snakemake/issues/4173)) ([a5dfa28](https://github.com/snakemake/snakemake/commit/a5dfa2804f9575cb5acd9fe6b123e40e98598fc2))
+* ensure that also storage plugins without settings are auto-deployed ([#4178](https://github.com/snakemake/snakemake/issues/4178)) ([5427ffa](https://github.com/snakemake/snakemake/commit/5427ffab61dc768487f7f006bccc80878be4b76e))
+* issue 3958 relative path for storage prefix breaks apptainer ([#3962](https://github.com/snakemake/snakemake/issues/3962)) ([87d7e35](https://github.com/snakemake/snakemake/commit/87d7e35377352df27e9cb9fc8ce705eb7fadafa2))
+* suppress duplicate SpawnedJobError tracebacks in local executor ([#4150](https://github.com/snakemake/snakemake/issues/4150)) ([40a46cf](https://github.com/snakemake/snakemake/commit/40a46cffa6730f9a134699f3f8da31b820f4ac96))
+* turn binding path to absolute path for singularity/apptainer  ([#4142](https://github.com/snakemake/snakemake/issues/4142)) ([48602f0](https://github.com/snakemake/snakemake/commit/48602f0394c5edef3c61bdb54711c9ca46dc141c))
+
+
+### Documentation
+
+* Fix typo ([#4168](https://github.com/snakemake/snakemake/issues/4168)) ([a7dab01](https://github.com/snakemake/snakemake/commit/a7dab01841ba3ff94433243c7dc4e79eb9fb4b4b))
+* Use raw string for bwa_map RG parameter example ([#4174](https://github.com/snakemake/snakemake/issues/4174)) ([d3c4d68](https://github.com/snakemake/snakemake/commit/d3c4d68b4807488107e0287a9a75e699baf465ae))
+
+## [9.19.0](https://github.com/snakemake/snakemake/compare/v9.18.2...v9.19.0) (2026-03-28)
+
+
+### Features
+
+* clean up profile handling, switch to `profile.yaml` as default file name, allow specifying yaml file instead of dir ([#4087](https://github.com/snakemake/snakemake/issues/4087)) ([2f34008](https://github.com/snakemake/snakemake/commit/2f340087ddc6fd132b0a68dac597916cbc4cf219))
+
+
+### Bug Fixes
+
+* avoid race conditions in wrapper/script/notebook retrieval; better error messages for missing wrappers; introduction of DAGProcessorBase for modularization of DAG processing code (for now in the same module to avoid conflicts with open PRs) ([#4133](https://github.com/snakemake/snakemake/issues/4133)) ([15468be](https://github.com/snakemake/snakemake/commit/15468be38a1acca82ca23136735fb2817fbb1e66))
+
+
+### Documentation
+
+* update installation instructions ([#4025](https://github.com/snakemake/snakemake/issues/4025)) ([bfb6b59](https://github.com/snakemake/snakemake/commit/bfb6b59f82aa5c86d6c9df3c4006cbe73ac2604a))
+
 ## [9.18.2](https://github.com/snakemake/snakemake/compare/v9.18.1...v9.18.2) (2026-03-26)
 
 
