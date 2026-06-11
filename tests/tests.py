@@ -1652,10 +1652,6 @@ def test_module_checkpoint():
     run(dpath("test_module_checkpoint"))
 
 
-def test_checkpoint_missout():
-    run(dpath("test_checkpoint_missout"))
-
-
 def test_uncreatable_checkpoint_input():
     run(dpath("test_uncreatable_checkpoint_input"))
 
@@ -1671,6 +1667,19 @@ def test_checkpoint_rerun():
     run(d, no_tmpdir=True, cleanup=False, check_results=False)
     with open(f"{d}/inputs/a/0.out", "r") as f:
         assert f.read().strip() == "1"
+
+
+def test_checkpoint_missing_output():
+    """test for issue 3879, also covers 3009"""
+    # normal run to create the checkpoint output and final output
+    tmpdir = run(dpath("test_checkpoint_missing_output"), cleanup=False)
+    assert tmpdir
+    # should not fail (target file exists so nothing to do)
+    (tmpdir / "output" / "test_1.txt").unlink()
+    run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
+    # should not fail (target file exists so nothing to do)
+    (tmpdir / "output" / "test_0.txt").unlink()
+    run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
 
 
 def test_issue1092():
@@ -1745,14 +1754,13 @@ def test_default_resources_mebibytes():
 
 @skip_on_windows  # TODO fix the windows case: it somehow does not consistently modify all temp env vars as desired
 def test_tmpdir():
-    # artificially set the tmpdir to an expected value
-    run(dpath("test_tmpdir"), overwrite_resources={"a": {"tmpdir": "/tmp"}})
-
-
-def test_tmpdir_default():
-    # Do not check the content (OS and setup dependent),
-    # just check whether everything runs smoothly with the default.
-    run(dpath("test_tmpdir"), check_md5=False)
+    test_path = dpath("test_tmpdir")
+    general_profile = os.path.join(test_path, "profile")
+    # workflow profile is loaded by default
+    run(
+        test_path,
+        shellcmd=f"snakemake -c1 --profile {general_profile} --set-resources 'a:tmpdir=/tmp'",
+    )
 
 
 def test_issue1284():
@@ -1878,9 +1886,11 @@ def test_output_file_cache_storage(s3_storage):
     )
 
 
-@patch("snakemake.io._IOFile.retrieve_from_storage", AsyncMock(side_effect=Exception))
-def test_storage_noretrieve_dryrun():
-    run(dpath("test_storage_noretrieve_dryrun"), executor="dryrun")
+@pytest.mark.parametrize("executor", ["dryrun", "touch"])
+@patch("snakemake.dag.DAG.retrieve_storage_inputs", new_callable=AsyncMock)
+def test_storage_noretrieve_dryrun_or_touch(mock_retrieve_storage_inputs, executor):
+    run(dpath("test_storage_noretrieve_dryrun"), executor=executor)
+    mock_retrieve_storage_inputs.assert_not_called()
 
 
 def test_multiext():
@@ -2801,6 +2811,16 @@ def test_pathvars_cycle():
     run(dpath("test_pathvars_cycle"), shouldfail=True)
 
 
+@skip_on_windows
+def test_pathvars_storage():
+    run(
+        dpath("test_pathvars_storage"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+        cores=1,
+    )
+
+
 @skip_on_windows  # OS agnostic
 def test_handle_storage_multi_consumers():
     run(
@@ -3164,6 +3184,19 @@ def test_ambiguousruleexception():
 
 def test_github_issue3556():
     run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
+
+
+@skip_on_windows  # symlinks not properly supported in test framework on windows
+def test_github_issue3687():
+    tmpdir = run(dpath("test_github_issue3687"), cleanup=False)
+    target_file = Path(tmpdir) / "dir2/Done"  # type: ignore[arg-type]
+    shell("rm -rf {tmpdir}/.snakemake/metadata")
+    shell("cp -r {tmpdir}/dir1/D {tmpdir}/")
+    target_file.touch()
+    timestamp = target_file.stat().st_mtime
+    shell("ln -sf ../D {tmpdir}/dir2/")
+    run(dpath("test_github_issue3687"), tmpdir=tmpdir, cleanup=False)
+    assert target_file.stat().st_mtime != timestamp, "input updated, should rerun"
 
 
 @skip_on_windows
