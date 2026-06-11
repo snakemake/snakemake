@@ -145,7 +145,7 @@ def wrapper(
             + "\n".join(f"{script}: {error}" for script, error in script_source.items())
         )
     script(
-        script_source.get_path_or_uri(secret_free=False),
+        script_source,
         "",
         input,
         output,
