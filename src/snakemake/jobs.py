@@ -1167,13 +1167,16 @@ class Job(
                 self.rule.wrapper,
                 self.dag.workflow.sourcecache,
                 self.dag.workflow.workflow_settings.wrapper_prefix,
+                basedir=self.rule.basedir,
             )
             if script is not None:
                 wait_for_files.append(
                     IOFile(self.dag.workflow.sourcecache.get_path(script))
                 )
             env = wrapper.get_conda_env(
-                self.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
+                self.rule.wrapper,
+                self.dag.workflow.workflow_settings.wrapper_prefix,
+                basedir=self.rule.basedir,
             )
             if env is not None:
                 wait_for_files.append(

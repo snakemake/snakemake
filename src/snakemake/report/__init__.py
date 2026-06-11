@@ -285,6 +285,7 @@ class RuleRecord(RuleRecordInterface):
                     self._rule.wrapper,
                     self._rule.workflow.sourcecache,
                     prefix=self._rule.workflow.workflow_settings.wrapper_prefix,
+                    basedir=self._rule.basedir,
                 ),
                 self._rule.workflow.sourcecache,
             )
